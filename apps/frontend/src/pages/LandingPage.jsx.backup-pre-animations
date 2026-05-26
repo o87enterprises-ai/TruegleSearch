@@ -1,0 +1,330 @@
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Search, Shield, Zap, Eye, ChevronRight, Sparkles, Filter } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import TruegleLogo from '../components/ui/TruegleLogo';
+import NeonButton from '../components/ui/NeonButton';
+import GlassCard from '../components/ui/GlassCard';
+import CursorGlow from '../components/ui/CursorGlow';
+import EnhancedFeatureCard from '../components/ui/EnhancedFeatureCard';
+import SpaceTimeBackground from '../components/backgrounds/SpaceTimeBackground';
+import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
+import ShareForPremiumButton from '../components/ui/ShareForPremiumButton';
+
+export default function LandingPage() {
+  const navigate = useNavigate();
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      setMousePosition({
+        x: (e.clientX / window.innerWidth - 0.5) * 20,
+        y: (e.clientY / window.innerHeight - 0.5) * 20,
+      });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  const features = [
+    {
+      icon: Eye,
+      title: 'Unbiased Results',
+      description: 'See all perspectives, not just one algorithmic bubble. True search without manipulation.',
+      gradient: 'rgba(0, 229, 255, 1), rgba(59, 130, 246, 1)'
+    },
+    {
+      icon: Shield,
+      title: 'Privacy First',
+      description: 'Your searches are your business. No tracking, no profiling, no data selling.',
+      gradient: 'rgba(139, 92, 246, 1), rgba(236, 72, 153, 1)'
+    },
+    {
+      icon: Zap,
+      title: 'OSINT & SEO Tools',
+      description: 'Professional research tools built-in. Domain analysis, backlinks, and more.',
+      gradient: 'rgba(255, 107, 0, 1), rgba(239, 68, 68, 1)'
+    },
+    {
+      icon: Sparkles,
+      title: 'AI-Powered Insights',
+      description: 'Smart summaries and contextual understanding without the bias.',
+      gradient: 'rgba(34, 197, 94, 1), rgba(0, 229, 255, 1)'
+    }
+  ];
+
+  return (
+    <div className="min-h-screen relative">
+      
+      {/* Cursor Glow Effect */}
+      <CursorGlow />
+      
+      {/* Space-Time Background - Three.js Atomic */}
+      <SpaceTimeBackground variant="atomic" interactive={true} />
+
+      {/* Content */}
+      <div className="relative" style={{ zIndex: 10 }}>
+        
+        {/* Hero Section */}
+        <div className="min-h-screen flex flex-col items-center justify-center px-4 pt-32 pb-20">
+          
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-12 w-full"
+          >
+            {/* Large Pulsing Logo with Depth */}
+            <motion.div
+              className="mb-12 inline-block group"
+              onHoverStart={() => {}}
+              onHoverEnd={() => {}}
+            >
+              {/* Subtle pulsing edge glow */}
+              <motion.div
+                className="relative"
+                animate={{
+                  filter: [
+                    'drop-shadow(0 0 20px rgba(0,229,255,0.4)) drop-shadow(0 0 40px rgba(139,92,246,0.3))',
+                    'drop-shadow(0 0 30px rgba(0,229,255,0.5)) drop-shadow(0 0 50px rgba(139,92,246,0.4))',
+                    'drop-shadow(0 0 20px rgba(0,229,255,0.4)) drop-shadow(0 0 40px rgba(139,92,246,0.3))',
+                  ],
+                }}
+                whileHover={{
+                  filter: [
+                    'drop-shadow(0 0 40px rgba(0,229,255,0.8)) drop-shadow(0 0 60px rgba(139,92,246,0.6)) drop-shadow(0 0 80px rgba(255,107,0,0.5))',
+                    'drop-shadow(0 0 50px rgba(139,92,246,0.8)) drop-shadow(0 0 70px rgba(255,107,0,0.6)) drop-shadow(0 0 90px rgba(0,229,255,0.5))',
+                    'drop-shadow(0 0 40px rgba(255,107,0,0.8)) drop-shadow(0 0 60px rgba(0,229,255,0.6)) drop-shadow(0 0 80px rgba(139,92,246,0.5))',
+                  ],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+              >
+                <motion.div
+                  animate={{
+                    scale: [1, 1.02, 1],
+                  }}
+                  transition={{
+                    duration: 4,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                  }}
+                >
+                  <div style={{ transform: 'scale(3.5)', marginBottom: '60px' }}>
+                    <TruegleLogo size="xlarge" animated={true} />
+                  </div>
+                </motion.div>
+              </motion.div>
+            </motion.div>
+            
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.8 }}
+              className="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-8 tracking-tight font-display"
+              style={{
+                filter: 'drop-shadow(0 4px 20px rgba(0,229,255,0.3))',
+              }}
+            >
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-orange-400">
+                Search Without Bias
+              </span>
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.8 }}
+              className="text-base md:text-lg lg:text-xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed font-body"
+            >
+              Discover truth through unbiased perspectives. Break free from algorithmic bubbles.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.9, duration: 0.5 }}
+              className="flex flex-col gap-4 items-stretch w-full max-w-md mx-auto px-4"
+              style={{
+                filter: 'drop-shadow(0 10px 40px rgba(0,0,0,0.5))',
+              }}
+            >
+              <NeonButton
+                variant="primary"
+                size="lg"
+                onClick={() => navigate('/signup')}
+                className="group w-full"
+              >
+                <Search className="inline mr-2" size={20} />
+                Start Searching
+                <ChevronRight className="inline ml-2 group-hover:translate-x-1 transition-transform" size={20} />
+              </NeonButton>
+
+              <NeonButton
+                variant="secondary"
+                size="lg"
+                onClick={() => navigate('/biased')}
+                className="group w-full"
+              >
+                <Filter className="inline mr-2" size={20} />
+                Feeling Biased?
+                <ChevronRight className="inline ml-2 group-hover:translate-x-1 transition-transform" size={20} />
+              </NeonButton>
+
+              <NeonButton
+                variant="ghost"
+                size="lg"
+                onClick={() => {
+                  document.getElementById('features').scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="w-full"
+              >
+                Learn More
+              </NeonButton>
+
+              <ShareForPremiumButton
+                variant="inline"
+                onPremiumGranted={() => {
+                  alert('🎉 You now have 24 hours of Premium access! Try our OSINT tools at /osint');
+                }}
+              />
+            </motion.div>
+          </motion.div>
+
+          {/* Scroll Indicator */}
+          <motion.div
+            animate={{ y: [0, 10, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="absolute bottom-10"
+          >
+            <div className="w-6 h-10 border-2 border-cyan-500/50 rounded-full flex justify-center">
+              <motion.div
+                animate={{ y: [0, 12, 0] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="w-1.5 h-1.5 bg-cyan-500 rounded-full mt-2"
+              />
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Features Section */}
+        <div id="features" className="py-20 px-4">
+          <div className="max-w-7xl mx-auto">
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-center mb-16"
+            >
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-4 tracking-tight font-display">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-purple-400">
+                  Why Truegle?
+                </span>
+              </h2>
+              <p className="text-lg md:text-xl text-gray-400 leading-relaxed font-accent">
+                The search engine built for truth-seekers
+              </p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {features.map((feature, index) => (
+              <EnhancedFeatureCard
+                key={index}
+                icon={feature.icon}
+                title={feature.title}
+                description={feature.description}
+                gradient={feature.gradient}
+              />
+            ))}
+            </div>
+          </div>
+        </div>
+
+        {/* CTA Section */}
+        <div className="py-20 px-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="max-w-4xl mx-auto"
+          >
+            <GlassCard className="p-12 text-center border-2 border-cyan-500/30">
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 font-display">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
+                  Ready to see the truth?
+                </span>
+              </h2>
+              <p className="text-xl text-gray-400 mb-8 font-body">
+                Join thousands discovering unbiased search results
+              </p>
+              <NeonButton
+                variant="primary"
+                size="lg"
+                onClick={() => navigate('/signup')}
+                className="group"
+              >
+                Get Started Free
+                <ChevronRight className="inline ml-2 group-hover:translate-x-1 transition-transform" size={20} />
+              </NeonButton>
+            </GlassCard>
+          </motion.div>
+        </div>
+
+        {/* Footer */}
+        <footer className="py-12 px-4 border-t border-cyan-500/20">
+          <div className="max-w-7xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+              <div>
+                <TruegleLogo size="small" animated={false} className="mb-4" />
+                <p className="text-gray-400 text-sm">
+                  Unbiased, transparent, and private search.
+                </p>
+              </div>
+              
+              <div>
+                <h4 className="text-white font-semibold mb-4 font-accent">Product</h4>
+                <ul className="space-y-2 text-gray-400 text-sm">
+                  <li><a href="/search" className="hover:text-cyan-400 transition-colors">Search</a></li>
+                  <li><a href="/biased" className="hover:text-cyan-400 transition-colors">Feeling Biased</a></li>
+                  <li><a href="/osint" className="hover:text-cyan-400 transition-colors">OSINT Tools</a></li>
+                  <li><a href="/pricing" className="hover:text-cyan-400 transition-colors">Pricing</a></li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="text-white font-semibold mb-4 font-accent">Company</h4>
+                <ul className="space-y-2 text-gray-400 text-sm">
+                  <li><a href="#" className="hover:text-cyan-400 transition-colors">About</a></li>
+                  <li><a href="#" className="hover:text-cyan-400 transition-colors">Privacy</a></li>
+                  <li><a href="#" className="hover:text-cyan-400 transition-colors">Terms</a></li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="text-white font-semibold mb-4 font-accent">Connect</h4>
+                <ul className="space-y-2 text-gray-400 text-sm">
+                  <li><a href="#" className="hover:text-cyan-400 transition-colors">Twitter</a></li>
+                  <li><a href="#" className="hover:text-cyan-400 transition-colors">Discord</a></li>
+                  <li><a href="#" className="hover:text-cyan-400 transition-colors">Contact</a></li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-8 pt-8 border-t border-cyan-500/20 flex justify-center">
+              <AnonymousSearchLink />
+            </div>
+
+            <div className="mt-8 text-center text-gray-500 text-sm">
+              © 2025 Truegle. All rights reserved.
+            </div>
+          </div>
+        </footer>
+
+      </div>
+    </div>
+  );
+}

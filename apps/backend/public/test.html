@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truegle Ngrok Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+
+        .test-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .test-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .status.pending {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .status.success {
+            background: #10b981;
+        }
+
+        .status.error {
+            background: #ef4444;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            background: white;
+            color: #667eea;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .info {
+            font-size: 14px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .checkmark {
+            color: #10b981;
+            font-size: 24px;
+        }
+
+        .crossmark {
+            color: #ef4444;
+            font-size: 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Truegle Ngrok Test</h1>
+
+        <!-- Health Check -->
+        <div class="test-card">
+            <div class="test-title">1️⃣ Health Check</div>
+            <div id="health-status" class="status pending">Testing...</div>
+            <div id="health-result" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Search Test -->
+        <div class="test-card">
+            <div class="test-title">2️⃣ Search Test</div>
+            <div class="input-group">
+                <input type="text" id="search-input" placeholder="Enter search query (e.g., 'test')" value="test">
+            </div>
+            <button onclick="testSearch()" id="search-btn">Run Search Test</button>
+            <div id="search-status" class="status pending" style="display: none;">Testing...</div>
+            <div id="search-result" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- AI Test -->
+        <div class="test-card">
+            <div class="test-title">3️⃣ AI Chat Test</div>
+            <div class="input-group">
+                <input type="text" id="ai-input" placeholder="Ask AI a question" value="What is 2+2?">
+            </div>
+            <button onclick="testAI()" id="ai-btn">Run AI Test</button>
+            <div id="ai-status" class="status pending" style="display: none;">Testing...</div>
+            <div id="ai-result" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Info -->
+        <div class="test-card">
+            <div class="test-title">ℹ️ Connection Info</div>
+            <div class="info">
+                <strong>Current URL:</strong> <span id="current-url"></span><br>
+                <strong>User Agent:</strong> <span id="user-agent"></span><br>
+                <strong>Screen:</strong> <span id="screen-size"></span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Display connection info
+        document.getElementById('current-url').textContent = window.location.origin;
+        document.getElementById('user-agent').textContent = navigator.userAgent.substring(0, 50) + '...';
+        document.getElementById('screen-size').textContent = `${window.screen.width}x${window.screen.height}`;
+
+        const API_BASE = window.location.origin + '/api';
+
+        // Auto-run health check on load
+        window.addEventListener('load', testHealth);
+
+        async function testHealth() {
+            const statusEl = document.getElementById('health-status');
+            const resultEl = document.getElementById('health-result');
+
+            statusEl.textContent = 'Testing...';
+            statusEl.className = 'status pending';
+            resultEl.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/health`, {
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'OK') {
+                    statusEl.textContent = '✅ Connected';
+                    statusEl.className = 'status success';
+                    resultEl.textContent = `Status: ${data.status}\nEnvironment: ${data.environment}\nDatabase: ${data.database?.status || 'N/A'}`;
+                } else {
+                    throw new Error('Health check failed');
+                }
+            } catch (error) {
+                statusEl.textContent = '❌ Failed';
+                statusEl.className = 'status error';
+                resultEl.textContent = `Error: ${error.message}\n\nMake sure backend is running on port 3001`;
+            }
+
+            resultEl.style.display = 'block';
+        }
+
+        async function testSearch() {
+            const query = document.getElementById('search-input').value;
+            const statusEl = document.getElementById('search-status');
+            const resultEl = document.getElementById('search-result');
+            const btn = document.getElementById('search-btn');
+
+            if (!query.trim()) {
+                alert('Please enter a search query');
+                return;
+            }
+
+            statusEl.style.display = 'block';
+            statusEl.textContent = 'Searching...';
+            statusEl.className = 'status pending';
+            resultEl.style.display = 'none';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/search`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        filters: { category: 'all' }
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    statusEl.textContent = '✅ Search Successful';
+                    statusEl.className = 'status success';
+                    resultEl.textContent = `Query: ${data.query}\nResults: ${data.results?.length || 0} items\n\nFirst 3 results:\n${data.results?.slice(0, 3).map(r => `• ${r.title}`).join('\n')}`;
+                } else {
+                    throw new Error(data.message || 'Search failed');
+                }
+            } catch (error) {
+                statusEl.textContent = '❌ Search Failed';
+                statusEl.className = 'status error';
+                resultEl.textContent = `Error: ${error.message}`;
+            }
+
+            resultEl.style.display = 'block';
+            btn.disabled = false;
+        }
+
+        async function testAI() {
+            const message = document.getElementById('ai-input').value;
+            const statusEl = document.getElementById('ai-status');
+            const resultEl = document.getElementById('ai-result');
+            const btn = document.getElementById('ai-btn');
+
+            if (!message.trim()) {
+                alert('Please enter a message for AI');
+                return;
+            }
+
+            statusEl.style.display = 'block';
+            statusEl.textContent = 'Asking AI...';
+            statusEl.className = 'status pending';
+            resultEl.style.display = 'none';
+            btn.disabled = true;
+
+            try {
+                // Note: This requires authentication, so it might fail
+                // unless user is logged in
+                const response = await fetch(`${API_BASE}/ai/summary`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify({
+                        query: message,
+                        results: []
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusEl.textContent = '✅ AI Response Received';
+                    statusEl.className = 'status success';
+                    resultEl.textContent = `Response: ${data.summary || data.response || 'No response'}\nModel: ${data.model || 'Unknown'}`;
+                } else {
+                    throw new Error(data.message || 'AI request failed');
+                }
+            } catch (error) {
+                statusEl.textContent = '❌ AI Failed';
+                statusEl.className = 'status error';
+                resultEl.textContent = `Error: ${error.message}\n\nNote: Some AI endpoints require authentication`;
+            }
+
+            resultEl.style.display = 'block';
+            btn.disabled = false;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,548 @@
+/* ============================================
+   TRUEGLE TYPOGRAPHY SYSTEM
+   Based on Material Design 3 Typography Scale
+   Reference: https://m3.material.io/styles/typography/applying-type
+   ============================================ */
+
+:root {
+  /* ============================================
+     MATERIAL DESIGN 3 TYPE SCALE
+     ============================================ */
+
+  /* Display */
+  --md-display-large: 57px;
+  --md-display-large-line: 64px;
+  --md-display-large-weight: 700;
+  --md-display-large-tracking: -0.25px;
+
+  --md-display-medium: 45px;
+  --md-display-medium-line: 52px;
+  --md-display-medium-weight: 600;
+  --md-display-medium-tracking: -0.25px;
+
+  --md-display-small: 36px;
+  --md-display-small-line: 44px;
+  --md-display-small-weight: 600;
+  --md-display-small-tracking: 0px;
+
+  /* Headline */
+  --md-headline-large: 32px;
+  --md-headline-large-line: 40px;
+  --md-headline-large-weight: 600;
+  --md-headline-large-tracking: 0px;
+
+  --md-headline-medium: 28px;
+  --md-headline-medium-line: 36px;
+  --md-headline-medium-weight: 600;
+  --md-headline-medium-tracking: 0px;
+
+  --md-headline-small: 24px;
+  --md-headline-small-line: 32px;
+  --md-headline-small-weight: 600;
+  --md-headline-small-tracking: 0px;
+
+  /* Title */
+  --md-title-large: 22px;
+  --md-title-large-line: 28px;
+  --md-title-large-weight: 500;
+  --md-title-large-tracking: 0.15px;
+
+  --md-title-medium: 16px;
+  --md-title-medium-line: 24px;
+  --md-title-medium-weight: 500;
+  --md-title-medium-tracking: 0.15px;
+
+  --md-title-small: 14px;
+  --md-title-small-line: 20px;
+  --md-title-small-weight: 500;
+  --md-title-small-tracking: 0.1px;
+
+  /* Body */
+  --md-body-large: 16px;
+  --md-body-large-line: 24px;
+  --md-body-large-weight: 400;
+  --md-body-large-tracking: 0.25px;
+
+  --md-body-medium: 14px;
+  --md-body-medium-line: 20px;
+  --md-body-medium-weight: 400;
+  --md-body-medium-tracking: 0.25px;
+
+  --md-body-small: 12px;
+  --md-body-small-line: 16px;
+  --md-body-small-weight: 400;
+  --md-body-small-tracking: 0.4px;
+
+  /* Label */
+  --md-label-large: 14px;
+  --md-label-large-line: 20px;
+  --md-label-large-weight: 500;
+  --md-label-large-tracking: 0.1px;
+
+  --md-label-medium: 12px;
+  --md-label-medium-line: 16px;
+  --md-label-medium-weight: 500;
+  --md-label-medium-tracking: 0.5px;
+
+  --md-label-small: 11px;
+  --md-label-small-line: 16px;
+  --md-label-small-weight: 500;
+  --md-label-small-tracking: 0.5px;
+
+  /* ============================================
+     FONT WEIGHTS
+     ============================================ */
+  --font-regular: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* ============================================
+     DESIGN SYSTEM COLORS
+     ============================================ */
+
+  /* Brand Gradient (Truegle Logo) - Full Rainbow */
+  --gradient-brand: linear-gradient(
+    90deg,
+    #ef4444,
+    /* red */ #f97316,
+    /* orange */ #eab308,
+    /* yellow */ #22c55e,
+    /* green */ #06b6d4,
+    /* cyan */ #3b82f6,
+    /* blue */ #9333ea /* purple */
+  );
+
+  /* Orange-Purple Gradient (Why Truegle?, Learn More) */
+  --gradient-orange-purple: linear-gradient(90deg, #ff6b35, #9333ea);
+
+  /* Cyan-Purple Gradient (Hero tagline) */
+  --gradient-cyan-purple: linear-gradient(90deg, #06b6d4, #8b5cf6, #f97316);
+
+  /* Search Green */
+  --color-search: #10b981;
+  --gradient-search: linear-gradient(135deg, #10b981, #059669);
+
+  /* CTA Red-Orange */
+  --color-cta-red: #ef4444;
+  --color-cta-orange: #f97316;
+  --gradient-cta: linear-gradient(90deg, #ef4444, #f97316);
+
+  /* Accent Purple */
+  --color-purple: #9333ea;
+  --color-purple-light: #a855f7;
+  --color-purple-dark: #7c3aed;
+
+  /* Cyan Accent */
+  --color-cyan: #00e5ff;
+  --color-cyan-light: #22d3ee;
+
+  /* ============================================
+     LEGACY TYPE SCALE (for backwards compatibility)
+     ============================================ */
+  --text-xs: 0.64rem;
+  --text-sm: 0.8rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.563rem;
+  --text-2xl: 1.953rem;
+  --text-3xl: 2.441rem;
+  --text-4xl: 3.052rem;
+  --text-5xl: 3.815rem;
+  --text-6xl: 4.768rem;
+  --text-7xl: 5.96rem;
+  --text-8xl: 7.451rem;
+
+  /* Line Heights */
+  --leading-none: 1;
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+  --leading-loose: 2;
+
+  /* Letter Spacing */
+  --tracking-tighter: -0.05em;
+  --tracking-tight: -0.025em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.025em;
+  --tracking-wider: 0.05em;
+  --tracking-widest: 0.1em;
+}
+
+/* ============================================
+   DESIGN SYSTEM TYPOGRAPHY CLASSES
+   ============================================ */
+
+/* Display Classes */
+.text-display-large {
+  font-size: var(--ds-font-size-h1);
+  line-height: var(--ds-line-height-h1);
+  font-weight: var(--ds-font-weight-extrabold);
+  letter-spacing: var(--ds-letter-spacing-h1);
+}
+
+.text-display-medium {
+  font-size: var(--ds-font-size-h2);
+  line-height: var(--ds-line-height-h2);
+  font-weight: var(--ds-font-weight-bold);
+  letter-spacing: var(--ds-letter-spacing-h2);
+}
+
+.text-display-small {
+  font-size: var(--ds-font-size-h3);
+  line-height: var(--ds-line-height-h3);
+  font-weight: var(--ds-font-weight-semibold);
+  letter-spacing: var(--ds-letter-spacing-h3);
+}
+
+/* Headline Classes */
+.text-headline-large {
+  font-size: var(--ds-font-size-h1);
+  line-height: var(--ds-line-height-h1);
+  font-weight: var(--ds-font-weight-extrabold);
+  letter-spacing: var(--ds-letter-spacing-h1);
+}
+
+.text-headline-medium {
+  font-size: var(--ds-font-size-h2);
+  line-height: var(--ds-line-height-h2);
+  font-weight: var(--ds-font-weight-bold);
+  letter-spacing: var(--ds-letter-spacing-h2);
+}
+
+.text-headline-small {
+  font-size: var(--ds-font-size-h3);
+  line-height: var(--ds-line-height-h3);
+  font-weight: var(--ds-font-weight-semibold);
+  letter-spacing: var(--ds-letter-spacing-h3);
+}
+
+/* Title Classes */
+.text-title-large {
+  font-size: var(--ds-font-size-h3);
+  line-height: var(--ds-line-height-h3);
+  font-weight: var(--ds-font-weight-semibold);
+  letter-spacing: var(--ds-letter-spacing-h3);
+}
+
+.text-title-medium {
+  font-size: var(--ds-font-size-h4);
+  line-height: var(--ds-line-height-h4);
+  font-weight: var(--ds-font-weight-semibold);
+  letter-spacing: var(--ds-letter-spacing-h4);
+}
+
+.text-title-small {
+  font-size: var(--ds-font-size-h5);
+  line-height: var(--ds-line-height-h5);
+  font-weight: var(--ds-font-weight-semibold);
+  letter-spacing: var(--ds-letter-spacing-h5);
+}
+
+/* Body Classes */
+.text-body-large {
+  font-size: var(--ds-font-size-body-large);
+  line-height: var(--ds-line-height-body-large);
+  font-weight: var(--ds-font-weight-body-large);
+  letter-spacing: 0.015em;
+}
+
+.text-body-medium {
+  font-size: var(--ds-font-size-body-default);
+  line-height: var(--ds-line-height-body-default);
+  font-weight: var(--ds-font-weight-body-default);
+  letter-spacing: 0.015em;
+}
+
+.text-body-small {
+  font-size: var(--ds-font-size-body-small);
+  line-height: var(--ds-line-height-body-small);
+  font-weight: var(--ds-font-weight-body-small);
+  letter-spacing: 0.02em;
+}
+
+/* Label Classes */
+.text-label-large {
+  font-size: var(--ds-font-size-label-default);
+  line-height: var(--ds-line-height-label-default);
+  font-weight: var(--ds-font-weight-label-default);
+  letter-spacing: 0.015em;
+}
+
+.text-label-medium {
+  font-size: var(--ds-font-size-label-default);
+  line-height: var(--ds-line-height-label-default);
+  font-weight: var(--ds-font-weight-label-default);
+  letter-spacing: 0.015em;
+}
+
+.text-label-small {
+  font-size: var(--ds-font-size-label-small);
+  line-height: var(--ds-line-height-label-small);
+  font-weight: var(--ds-font-weight-label-small);
+  letter-spacing: 0.02em;
+}
+
+/* ============================================
+   GRADIENT TEXT CLASSES
+   ============================================ */
+
+.gradient-brand {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-orange-purple {
+  background: var(--gradient-orange-purple);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-cyan-purple {
+  background: var(--gradient-cyan-purple);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-search {
+  background: var(--gradient-search);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-cta {
+  background: var(--gradient-cta);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================
+   LEGACY TYPOGRAPHY CLASSES (backwards compat)
+   ============================================ */
+
+/* Display - For hero headlines */
+.text-display-1 {
+  font-size: var(--ds-font-size-h1);
+  line-height: var(--ds-line-height-h1);
+  letter-spacing: var(--ds-letter-spacing-h1);
+  font-weight: var(--ds-font-weight-extrabold);
+}
+
+.text-display-2 {
+  font-size: var(--ds-font-size-h2);
+  line-height: var(--ds-line-height-h2);
+  letter-spacing: var(--ds-letter-spacing-h2);
+  font-weight: var(--ds-font-weight-bold);
+}
+
+/* Headings */
+.text-h1 {
+  font-size: var(--ds-font-size-h1);
+  line-height: var(--ds-line-height-h1);
+  letter-spacing: var(--ds-letter-spacing-h1);
+  font-weight: var(--ds-font-weight-extrabold);
+}
+
+.text-h2 {
+  font-size: var(--ds-font-size-h2);
+  line-height: var(--ds-line-height-h2);
+  letter-spacing: var(--ds-letter-spacing-h2);
+  font-weight: var(--ds-font-weight-bold);
+}
+
+.text-h3 {
+  font-size: var(--ds-font-size-h3);
+  line-height: var(--ds-line-height-h3);
+  letter-spacing: var(--ds-letter-spacing-h3);
+  font-weight: var(--ds-font-weight-semibold);
+}
+
+.text-h4 {
+  font-size: var(--ds-font-size-h4);
+  line-height: var(--ds-line-height-h4);
+  letter-spacing: var(--ds-letter-spacing-h4);
+  font-weight: var(--ds-font-weight-semibold);
+}
+
+.text-h5 {
+  font-size: var(--ds-font-size-h5);
+  line-height: var(--ds-line-height-h5);
+  letter-spacing: var(--ds-letter-spacing-h5);
+  font-weight: var(--ds-font-weight-semibold);
+}
+
+.text-h6 {
+  font-size: var(--ds-font-size-h6);
+  line-height: var(--ds-line-height-h6);
+  letter-spacing: var(--ds-letter-spacing-h6);
+  font-weight: var(--ds-font-weight-semibold);
+}
+
+/* Body Text */
+.text-body-lg {
+  font-size: var(--ds-font-size-body-large);
+  line-height: var(--ds-line-height-body-large);
+  font-weight: var(--ds-font-weight-body-large);
+}
+
+.text-body {
+  font-size: var(--ds-font-size-body-default);
+  line-height: var(--ds-line-height-body-default);
+  font-weight: var(--ds-font-weight-body-default);
+}
+
+.text-body-sm {
+  font-size: var(--ds-font-size-body-small);
+  line-height: var(--ds-line-height-body-small);
+  font-weight: var(--ds-font-weight-body-small);
+}
+
+/* Labels & UI */
+.text-label-lg {
+  font-size: var(--ds-font-size-label-default);
+  line-height: var(--ds-line-height-label-default);
+  font-weight: var(--ds-font-weight-label-default);
+  text-transform: uppercase;
+}
+
+.text-label {
+  font-size: var(--ds-font-size-label-small);
+  line-height: var(--ds-line-height-label-small);
+  font-weight: var(--ds-font-weight-label-small);
+  text-transform: uppercase;
+}
+
+/* Caption */
+.text-caption {
+  font-size: var(--ds-font-size-caption-default);
+  line-height: var(--ds-line-height-caption-default);
+  font-weight: var(--ds-font-weight-caption-default);
+  letter-spacing: var(--ds-letter-spacing-caption-default);
+  opacity: 0.8;
+}
+
+/* Overline */
+.text-overline {
+  font-size: var(--ds-font-size-caption-uppercase);
+  line-height: var(--ds-line-height-caption-uppercase);
+  font-weight: var(--ds-font-weight-caption-uppercase);
+  letter-spacing: var(--ds-letter-spacing-caption-uppercase);
+  text-transform: uppercase;
+}
+
+/* ============================================
+   RESPONSIVE TYPOGRAPHY
+   ============================================ */
+
+@media (max-width: 1024px) {
+  .text-display-large {
+    font-size: var(--ds-font-size-h1);
+    line-height: var(--ds-line-height-h1);
+  }
+  .text-display-medium {
+    font-size: var(--ds-font-size-h2);
+    line-height: var(--ds-line-height-h2);
+  }
+  .text-headline-large {
+    font-size: var(--ds-font-size-h3);
+    line-height: var(--ds-line-height-h3);
+  }
+}
+
+@media (max-width: 768px) {
+  .text-display-large {
+    font-size: var(--ds-font-size-h2);
+    line-height: var(--ds-line-height-h2);
+  }
+  .text-display-medium {
+    font-size: var(--ds-font-size-h3);
+    line-height: var(--ds-line-height-h3);
+  }
+  .text-display-small {
+    font-size: var(--ds-font-size-h3);
+    line-height: var(--ds-line-height-h3);
+  }
+  .text-headline-large {
+    font-size: var(--ds-font-size-h4);
+    line-height: var(--ds-line-height-h4);
+  }
+  .text-headline-medium {
+    font-size: var(--ds-font-size-h4);
+    line-height: var(--ds-line-height-h4);
+  }
+  .text-title-large {
+    font-size: var(--ds-font-size-h5);
+    line-height: var(--ds-line-height-h5);
+  }
+
+  /* Legacy responsive */
+  .text-display-1 {
+    font-size: var(--ds-font-size-h2);
+  }
+  .text-display-2 {
+    font-size: var(--ds-font-size-h3);
+  }
+  .text-h1 {
+    font-size: var(--ds-font-size-h3);
+  }
+  .text-h2 {
+    font-size: var(--ds-font-size-h4);
+  }
+  .text-h3 {
+    font-size: var(--ds-font-size-h5);
+  }
+  .text-h4 {
+    font-size: var(--ds-font-size-h6);
+  }
+}
+
+@media (max-width: 640px) {
+  .text-display-large {
+    font-size: var(--ds-font-size-h3);
+    line-height: var(--ds-line-height-h3);
+  }
+  .text-display-medium {
+    font-size: var(--ds-font-size-h4);
+    line-height: var(--ds-line-height-h4);
+  }
+  .text-display-small {
+    font-size: var(--ds-font-size-h4);
+    line-height: var(--ds-line-height-h4);
+  }
+  .text-headline-large {
+    font-size: var(--ds-font-size-h4);
+    line-height: var(--ds-line-height-h4);
+  }
+  .text-headline-medium {
+    font-size: var(--ds-font-size-h5);
+    line-height: var(--ds-line-height-h5);
+  }
+  .text-title-large {
+    font-size: var(--ds-font-size-h5);
+    line-height: var(--ds-line-height-h5);
+  }
+
+  /* Legacy responsive */
+  .text-display-1 {
+    font-size: var(--ds-font-size-h3);
+  }
+  .text-display-2 {
+    font-size: var(--ds-font-size-h4);
+  }
+  .text-h1 {
+    font-size: var(--ds-font-size-h4);
+  }
+  .text-h2 {
+    font-size: var(--ds-font-size-h5);
+  }
+  .text-h3 {
+    font-size: var(--ds-font-size-h6);
+  }
+}

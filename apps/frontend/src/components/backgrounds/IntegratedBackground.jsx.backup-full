@@ -1,0 +1,143 @@
+// IntegratedBackground.jsx
+import { useState, useEffect, useRef, memo, useMemo } from 'react';
+import Iridescence from './Iridescence';
+import Galaxy from './Galaxy';
+import Particles from './Particles';
+import BackgroundFallback from './BackgroundFallback';
+
+// Static config values defined outside component to prevent recreation
+const IRIDESCENCE_COLOR = [0.15, 0.15, 0.25];
+const PARTICLE_COLORS = ['#ffffff', '#a0a0ff', '#c0c0ff'];
+
+function IntegratedBackground() {
+  const [webGLAvailable, setWebGLAvailable] = useState(true);
+  const [deviceTier, setDeviceTier] = useState('high'); // 'low', 'medium', 'high'
+  const isInitializedRef = useRef(false);
+  const containerRef = useRef(null);
+
+  // Debug logging
+  console.log('[IntegratedBackground] Rendering with:', { webGLAvailable, deviceTier });
+
+  // Detect WebGL support and device tier - only once
+  useEffect(() => {
+    // Prevent re-initialization using ref instead of state
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
+
+    const detectWebGL = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        setWebGLAvailable(!!gl);
+      } catch (e) {
+        setWebGLAvailable(false);
+      }
+    };
+
+    // Determine device tier based on hardware capabilities
+    const determineDeviceTier = () => {
+      if ('hardwareConcurrency' in navigator) {
+        const cores = navigator.hardwareConcurrency;
+        if (cores < 4) {
+          setDeviceTier('low');
+          document.body.classList.add('low-performance');
+        } else if (cores < 8) {
+          setDeviceTier('medium');
+          document.body.classList.remove('low-performance');
+        } else {
+          setDeviceTier('high');
+          document.body.classList.remove('low-performance');
+        }
+      } else {
+        // Fallback for browsers that don't support hardwareConcurrency
+        setDeviceTier('medium');
+      }
+    };
+
+    detectWebGL();
+    determineDeviceTier();
+  }, []);
+
+  // Animation pause on tab blur
+  useEffect(() => {
+    const handleBlur = () => document.body.classList.add('animations-paused');
+    const handleFocus = () => document.body.classList.remove('animations-paused');
+
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+
+    // Also handle visibility change for tab switching
+    const handleVisibilityChange = () => {
+      document.hidden
+        ? document.body.classList.add('page-hidden')
+        : document.body.classList.remove('page-hidden');
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  if (!webGLAvailable) {
+    return <BackgroundFallback />;
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="fixed inset-0 w-full h-full overflow-hidden bg-black webgl-container animation-layer"
+    >
+      {/* Layer 1: Iridescence (Subtle ambient base) - Only on medium/high tier devices */}
+      {deviceTier !== 'low' && (
+        <div className="absolute inset-0 z-0 opacity-30">
+          <Iridescence
+            color={IRIDESCENCE_COLOR}
+            mouseReact={false}
+            amplitude={0.02}
+            speed={0.3}
+          />
+        </div>
+      )}
+
+      {/* Layer 2: Galaxy (Main visual foundation) - Available on all devices */}
+      <div className="absolute inset-0 z-10 webgl-interactive">
+        <Galaxy
+          mouseInteraction={deviceTier !== 'low'} // Disable mouse interaction on low-tier devices
+          mouseRepulsion={deviceTier !== 'low'} // Disable repulsion on low-tier devices
+          density={deviceTier === 'low' ? 0.8 : (deviceTier === 'medium' ? 1.2 : 1.5)} // Adjust density based on device tier
+          glowIntensity={deviceTier === 'low' ? 0.3 : 0.5}
+          saturation={0.7}
+          hueShift={220} // Blue/purple hue
+          transparent={true}
+          autoCenterRepulsion={deviceTier !== 'low' ? 0.2 : 0.1} // Gentle automatic movement
+          rotationSpeed={deviceTier === 'low' ? 0.01 : (deviceTier === 'medium' ? 0.02 : 0.03)} // Slow rotation
+          speed={deviceTier === 'low' ? 0.6 : (deviceTier === 'medium' ? 0.75 : 0.9)}
+          twinkleIntensity={deviceTier === 'low' ? 0.2 : 0.4}
+          repulsionStrength={deviceTier !== 'low' ? 1.8 : 1.0}
+        />
+      </div>
+
+      {/* Layer 3: Particles - TEMPORARILY DISABLED FOR DEBUGGING */}
+      {/* {deviceTier !== 'low' && (
+        <div className="absolute inset-0 z-20 opacity-70">
+          <Particles
+            particleColors={PARTICLE_COLORS}
+            particleCount={deviceTier === 'medium' ? 100 : 150}
+            particleSpread={12}
+            speed={0.15}
+            particleBaseSize={60}
+            alphaParticles={true}
+            disableRotation={false}
+            sizeRandomness={0.6}
+          />
+        </div>
+      )} */}
+    </div>
+  );
+}
+
+export default memo(IntegratedBackground);

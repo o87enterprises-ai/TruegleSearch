@@ -1,0 +1,242 @@
+import { useState } from 'react';
+// Import order: React first, then third-party, then internal modules, then types/hooks last.
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+} from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { TokenProvider } from './context/TokenContext';
+import { SearchModeProvider } from './context/SearchModeContext';
+import { TutorialProvider } from './context/TutorialContext';
+import { MapProvider } from './components/map';
+import { ToastProvider } from './components/ui/ToastProvider';
+import Header from './components/Header';
+import Footer from './components/Footer';
+import ResultsPage from './components/ResultsPage';
+import SettingsPage from './components/SettingsPage';
+import OnboardingPage from './components/auth/OnboardingPage';
+import LandingPage from './pages/LandingPage';
+import SignInPage from './pages/SignInPage';
+import SignUpPage from './pages/SignUpPage';
+import UniversalSearch from './pages/UniversalSearch';
+import SearchPortal from './pages/SearchPortal';
+import SearchResults from './pages/SearchResults';
+import FeelingBiasedPage from './pages/FeelingBiasedPage';
+import BiasedResults from './pages/BiasedResults';
+import OSINTMode from './pages/OSINTMode';
+import OSINTTools from './pages/OSINTTools';
+import NotFound from "./pages/NotFound";
+// Info Wizard Prompt
+const InfoWizardPrompt = ({
+  webStack,
+  shell,
+  qwenIntegration,
+  executionMode,
+  security,
+  onProceed,
+}) => (
+  <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-black to-gray-900">
+    <div className="max-w-lg w-full mx-auto bg-white/95 rounded-lg shadow-lg p-8 flex flex-col gap-6 items-center border border-blue-400/20">
+      <h2 className="text-xl font-bold mb-2 text-blue-800 flex items-center gap-2">
+        Environment Details
+        <span aria-label="wizard-magic" className="ml-1">
+          🧙‍♂️
+        </span>
+      </h2>
+      <ul className="text-base text-gray-900 w-full space-y-2">
+        <li>
+          <span className="font-semibold text-gray-700">Web Stack:</span>{' '}
+          <span className="ml-1">
+            {webStack ? (
+              webStack
+            ) : (
+              <em className="text-gray-500">Not provided</em>
+            )}
+          </span>
+        </li>
+        <li>
+          <span className="font-semibold text-gray-700">Shell:</span>{' '}
+          <span className="ml-1">
+            {shell ? shell : <em className="text-gray-500">Not provided</em>}
+          </span>
+        </li>
+        <li>
+          <span className="font-semibold text-gray-700">Qwen Integration:</span>{' '}
+          <span className="ml-1">
+            {qwenIntegration ? (
+              qwenIntegration
+            ) : (
+              <em className="text-gray-500">Not provided</em>
+            )}
+          </span>
+        </li>
+        <li>
+          <span className="font-semibold text-gray-700">Execution Mode:</span>{' '}
+          <span className="ml-1">
+            {executionMode ? (
+              executionMode
+            ) : (
+              <em className="text-gray-500">Not provided</em>
+            )}
+          </span>
+        </li>
+        <li>
+          <span className="font-semibold text-gray-700">Security:</span>{' '}
+          <span className="ml-1">
+            {security ? (
+              security
+            ) : (
+              <em className="text-gray-500">Not provided</em>
+            )}
+          </span>
+        </li>
+      </ul>
+      <button
+        className="mt-2 px-5 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded font-semibold hover:shadow-lg transition-shadow"
+        onClick={onProceed}
+      >
+        Proceed
+      </button>
+    </div>
+  </div>
+);
+
+/**
+ * Main App Component
+ * This is the top-level component that manages the initial info wizard prompt
+ * and renders the main application content based on authentication state.
+ * It wraps the application with Router and AuthProvider for navigation and
+ * authentication context management.
+ */
+const App = () => {
+  return (
+    <Router basename="/apps/truegle" future={{
+      v7_startTransition: true,
+      v7_relativeSplatPath: true
+    }}>
+      <AuthProvider>
+        <TokenProvider>
+          <SearchModeProvider>
+            <MapProvider>
+              <TutorialProvider>
+                <ToastProvider position="top-right">
+                  {/* Skip to content link for accessibility */}
+                  <a href="#main-content" className="skip-to-content">
+                    Skip to main content
+                  </a>
+                  <AppContent />
+                </ToastProvider>
+              </TutorialProvider>
+            </MapProvider>
+          </SearchModeProvider>
+        </TokenProvider>
+      </AuthProvider>
+    </Router>
+  );
+};
+
+// Protected route pattern following project conventions.
+// Onboarding is now optional - users go directly to search results after auth.
+const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+  const location = useLocation(); // Get current location to preserve redirect info
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    // Preserve the attempted location for redirect after login
+    // Use 'redirectTo' key to match what auth pages expect
+    return <Navigate to="/auth/login" state={{ redirectTo: location.pathname + location.search }} replace />;
+  }
+
+  return children;
+};
+
+// Main application routes/content
+const AppContent = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState({
+    sortBy: 'relevance',
+    order: 'desc',
+    category: 'all',
+    dateRange: 'any',
+    bias: 'all',
+  });
+  const handleSearch = (query, newFilters = {}) => {
+    setSearchQuery(query);
+    setFilters((prev) => ({ ...prev, ...newFilters }));
+  };
+
+  const location = useLocation();
+
+  // All pages should allow scrolling with min-h-screen
+  const containerClassNames = "relative w-screen min-h-screen bg-black overflow-y-auto";
+
+  return (
+    <div id="main-content" className={containerClassNames}>
+      <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        {/* Public Routes */}
+        <Route path="/auth/login" element={<SignInPage />} />
+        <Route path="/auth/signup" element={<SignUpPage />} />
+
+        {/* Universal Search Route */}
+        <Route path="/search" element={<UniversalSearch />} />
+
+        {/* Legacy Routes - Redirect to Universal Search */}
+        <Route path="/search-portal" element={<Navigate to="/search" replace />} />
+        <Route path="/search-results" element={<Navigate to="/search" replace />} />
+        <Route path="/results" element={<Navigate to="/search" replace />} />
+        <Route path="/biased" element={<Navigate to="/search?mode=purple" replace />} />
+        <Route path="/osint" element={<Navigate to="/search?mode=ocean" replace />} />
+        <Route path="/osint/search" element={<Navigate to="/search?mode=ocean" replace />} />
+        <Route path="/osint/tools" element={<Navigate to="/search?mode=ocean" replace />} />
+
+        {/* Feeling Biased Page - Keep as entry point */}
+        <Route path="/feeling-biased" element={<FeelingBiasedPage />} />
+        {/* Onboarding Route */}
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <OnboardingPage />
+            </ProtectedRoute>
+          }
+        />
+        {/* Landing Page */}
+        <Route path="/" element={<LandingPage />} />
+        {/* Settings */}
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <>
+                <Header onSearch={handleSearch} searchQuery={searchQuery} />
+                <SettingsPage />
+                <Footer />
+              </>
+            </ProtectedRoute>
+          }
+        />
+        {/* Catch all */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default App;

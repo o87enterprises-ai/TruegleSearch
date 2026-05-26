@@ -1,0 +1,206 @@
+import { useRef, useEffect, createContext, useContext } from 'react';
+import { Renderer } from 'ogl'; // Import directly instead of using require()
+
+// Create shared WebGL context
+const WebGLContext = createContext(null);
+
+export const useWebGLContext = () => useContext(WebGLContext);
+
+export const WebGLContextProvider = ({ children }) => {
+  const rendererRef = useRef(null);
+  const contextValueRef = useRef({
+    renderer: null,
+    programs: new Map(),
+    isInitialized: false,
+  });
+
+  useEffect(() => {
+    const initContext = () => {
+      try {
+        // FIXED: Using imported Renderer instead of require()
+        const renderer = new Renderer({
+          alpha: true,
+          premultipliedAlpha: false,
+          antialias: true,
+          preserveDrawingBuffer: true,
+          powerPreference: 'high-performance',
+          failIfMajorPerformanceCaveat: false,
+        });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.gl.clearColor(0, 0, 0, 0);
+
+        // Handle context loss
+        const handleContextLost = (e) => {
+          console.warn('WebGL context lost:', e);
+          e.preventDefault();
+          contextValueRef.current.isInitialized = false;
+
+          // Cleanup all registered programs
+          contextValueRef.current.programs.forEach((data, id) => {
+            console.log(`Cleaning up WebGL program: ${id}`);
+            if (data.cleanup) {
+              try {
+                data.cleanup();
+              } catch (cleanupError) {
+                console.error(`Cleanup error for program ${id}:`, cleanupError);
+              }
+            }
+          });
+          contextValueRef.current.programs.clear();
+        };
+
+        const handleContextRestored = () => {
+          console.log('WebGL context restored');
+          contextValueRef.current.isInitialized = true;
+          window.dispatchEvent(new CustomEvent('webglContextRestored'));
+        };
+
+        const gl = renderer.gl;
+        if (gl && gl.canvas) {
+          gl.canvas.addEventListener('webglcontextlost', handleContextLost);
+          gl.canvas.addEventListener(
+            'webglcontextrestored',
+            handleContextRestored
+          );
+        }
+
+        rendererRef.current = renderer;
+        contextValueRef.current = {
+          renderer,
+          programs: new Map(),
+          isInitialized: true,
+          gl,
+        };
+
+        // FIXED: Canvas positioned to cover viewport (not hidden off-screen)
+        if (gl && gl.canvas) {
+          gl.canvas.style.position = 'fixed';
+          gl.canvas.style.top = '0';
+          gl.canvas.style.left = '0';
+          gl.canvas.style.width = '100%';
+          gl.canvas.style.height = '100%';
+          gl.canvas.style.zIndex = '-1';
+          gl.canvas.style.pointerEvents = 'none';
+          document.body.appendChild(gl.canvas);
+        }
+
+        console.log('✅ WebGL Context Manager initialized successfully');
+        return renderer;
+      } catch (error) {
+        console.error('❌ WebGL Context Manager initialization failed:', error);
+        contextValueRef.current.isInitialized = false;
+        return null;
+      }
+    };
+
+    const renderer = initContext();
+    if (!renderer) return;
+
+    // Handle resize
+    const handleResize = () => {
+      if (renderer && contextValueRef.current.isInitialized) {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        // Update all programs with new resolution
+        contextValueRef.current.programs.forEach((data, id) => {
+          if (
+            data &&
+            data.program &&
+            data.program.uniforms &&
+            data.program.uniforms.uResolution
+          ) {
+            data.program.uniforms.uResolution.value = [
+              window.innerWidth,
+              window.innerHeight,
+            ];
+          }
+        });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      console.log('🧹 WebGL Context Manager cleanup starting...');
+      window.removeEventListener('resize', handleResize);
+
+      const { renderer, programs, gl } = contextValueRef.current;
+
+      // Cleanup all registered programs
+      programs.forEach((data, id) => {
+        console.log(`Final cleanup of WebGL program: ${id}`);
+        if (data.cleanup) {
+          try {
+            data.cleanup();
+          } catch (cleanupError) {
+            console.error(
+              `Final cleanup error for program ${id}:`,
+              cleanupError
+            );
+          }
+        }
+      });
+      programs.clear();
+
+      // Force context loss before cleanup
+      if (gl) {
+        const loseContext = gl.getExtension('WEBGL_lose_context');
+        if (loseContext) {
+          try {
+            loseContext.loseContext();
+          } catch (error) {
+            console.warn('Failed to lose WebGL context:', error);
+          }
+        }
+      }
+
+      // Clean up renderer
+      if (renderer && renderer.gl && renderer.gl.canvas) {
+        try {
+          const canvas = renderer.gl.canvas;
+          if (canvas.parentNode) {
+            canvas.parentNode.removeChild(canvas);
+          }
+        } catch (error) {
+          console.error('Renderer cleanup error:', error);
+        }
+      }
+
+      // Clear context references
+      contextValueRef.current = {
+        renderer: null,
+        programs: new Map(),
+        isInitialized: false,
+        gl: null,
+      };
+
+      console.log('✅ WebGL Context Manager cleanup completed');
+    };
+  }, []);
+
+  return (
+    <WebGLContext.Provider value={contextValueRef.current}>
+      {children}
+    </WebGLContext.Provider>
+  );
+};
+
+// Utility function for components to register for cleanup
+export const registerWebGLProgram = (id, cleanupData, context) => {
+  if (!context || !context.programs) {
+    console.warn('Invalid WebGL context provided to registerWebGLProgram');
+    return null;
+  }
+
+  context.programs.set(id, cleanupData);
+  console.log(`✅ Registered WebGL program: ${id}`);
+
+  // Return unregister function
+  return () => {
+    if (context.programs.has(id)) {
+      context.programs.delete(id);
+      console.log(`🗑️  Unregistered WebGL program: ${id}`);
+    }
+  };
+};

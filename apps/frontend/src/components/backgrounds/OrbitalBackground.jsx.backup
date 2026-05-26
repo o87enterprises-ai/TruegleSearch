@@ -1,0 +1,102 @@
+import { useEffect, useRef, useState } from 'react';
+import './OrbitalBackground.css';
+
+export default function OrbitalBackground() {
+  const videoRef = useRef(null);
+  const containerRef = useRef(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState('--:-- UTC');
+  const [coordinates, setCoordinates] = useState('--.--° N, --.--° W');
+
+  useEffect(() => {
+    const video = videoRef.current;
+    
+    if (video) {
+      const handleCanPlay = () => {
+        setIsLoading(false);
+        video.play().catch(e => console.log("Autoplay prevented:", e));
+      };
+
+      const handleError = (e) => {
+        setIsLoading(false);
+        console.error("Failed to load video:", e);
+      };
+
+      video.addEventListener('canplay', handleCanPlay);
+      video.addEventListener('error', handleError);
+
+      // Simulate live data updates
+      const interval = setInterval(() => {
+        const now = new Date();
+        const utcTime = now.toUTCString().split(' ')[4];
+        setCurrentTime(utcTime);
+        
+        const lat = (Math.random() * 180 - 90).toFixed(2);
+        const lon = (Math.random() * 360 - 180).toFixed(2);
+        const latDir = lat >= 0 ? 'N' : 'S';
+        const lonDir = lon >= 0 ? 'E' : 'W';
+        setCoordinates(`${Math.abs(lat)}° ${latDir}, ${Math.abs(lon)}° ${lonDir}`);
+      }, 5000);
+
+      return () => {
+        clearInterval(interval);
+        video.removeEventListener('canplay', handleCanPlay);
+        video.removeEventListener('error', handleError);
+      };
+    }
+  }, []);
+
+  return (
+    <div ref={containerRef} className="orbital-background-container">
+      {isLoading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner"></div>
+          <div className="loading-text">SYNCING ORBITAL FEED</div>
+          <div className="loading-subtext">Initializing high-resolution LEO stream</div>
+        </div>
+      )}
+
+      <video
+        ref={videoRef}
+        className="orbital-video"
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="auto"
+        crossOrigin="anonymous"
+      >
+        {/* NASA ISS Earth views - these are actual space station footage */}
+        <source src="https://www.nasa.gov/sites/default/files/thumbnails/image/iss063e005564.jpg" type="video/mp4" />
+        
+        {/* Alternative: Use a static starfield as fallback (better than bunny!) */}
+        <source src="https://assets.mixkit.co/videos/preview/mixkit-earth-from-space-orbiting-view-28642-large.mp4" type="video/mp4" />
+        
+        {/* Last resort: Your computer can't load external videos */}
+      </video>
+
+      <div className="orbital-overlay">
+        <div className="data-panel">
+          <div className="data-item">
+            <span className="data-label">ORBITAL HEIGHT</span>
+            <span className="data-value">408 KM</span>
+          </div>
+          <div className="data-item">
+            <span className="data-label">VELOCITY</span>
+            <span className="data-value">27,600 KM/H</span>
+          </div>
+          <div className="data-item">
+            <span className="data-label">COORDINATES</span>
+            <span className="data-value">{coordinates}</span>
+          </div>
+          <div className="data-item">
+            <span className="data-label">TIME (UTC)</span>
+            <span className="data-value">{currentTime}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid-overlay"></div>
+    </div>
+  );
+}

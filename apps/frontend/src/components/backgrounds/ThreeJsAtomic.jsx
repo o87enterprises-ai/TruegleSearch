@@ -1,0 +1,580 @@
+import { useEffect, useRef } from 'react';
+import * as THREE from 'three';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
+import { FilmPass } from 'three/examples/jsm/postprocessing/FilmPass';
+
+export default function ThreeJsAtomic() {
+  const containerRef = useRef(null);
+  const sceneRef = useRef(null);
+  const rendererRef = useRef(null);
+  const animationIdRef = useRef(null);
+  const composerRef = useRef(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    // Enhanced color palette with more atomic feel
+    const truegleColors = {
+      nuclearBlue: 0x00a8ff,
+      protonRed: 0xff3860,
+      neutronGray: 0x8a8a8a,
+      electronCyan: 0x00ffff,
+      quantumPurple: 0x9d4edd,
+      energyYellow: 0xffd166,
+      plasmaOrange: 0xff7f11,
+      gammaGreen: 0x06d6a0,
+    };
+
+    const coreColor = truegleColors.nuclearBlue;
+    const electronColor = truegleColors.electronCyan;
+    const protonColor = truegleColors.protonRed;
+    const neutronColor = truegleColors.neutronGray;
+
+    // --- SCENE ---
+    const scene = new THREE.Scene();
+    sceneRef.current = scene;
+
+    // Volumetric fog for depth
+    scene.fog = new THREE.FogExp2(0x000000, 0.0008);
+
+    // --- CAMERA ---
+    const camera = new THREE.PerspectiveCamera(
+      60,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      5000
+    );
+    camera.position.z = 1200;
+
+    // --- RENDERER (WebGL 2 for advanced effects) ---
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: false,
+      powerPreference: 'high-performance',
+      logarithmicDepthBuffer: true,
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x000000, 1);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.3;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+
+    const canvas = renderer.domElement;
+    containerRef.current.appendChild(canvas);
+    rendererRef.current = renderer;
+
+    // --- POST-PROCESSING COMPOSER ---
+    const composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    // Bloom pass for glowing effects
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.8, // strength
+      0.4, // radius
+      0.9 // threshold
+    );
+    composer.addPass(bloomPass);
+
+    // Film pass for cinematic grain
+    const filmPass = new FilmPass(0.15, 0.15, 2048, false);
+    composer.addPass(filmPass);
+    composerRef.current = composer;
+
+    // --- ADVANCED LIGHTING ---
+    // Volumetric spotlight for the central atom
+    const spotLight = new THREE.SpotLight(coreColor, 500);
+    spotLight.position.set(0, 0, 500);
+    spotLight.angle = Math.PI / 6;
+    spotLight.penumbra = 0.3;
+    spotLight.decay = 2;
+    spotLight.distance = 2000;
+    spotLight.castShadow = true;
+    spotLight.shadow.mapSize.width = 2048;
+    spotLight.shadow.mapSize.height = 2048;
+    scene.add(spotLight);
+
+    // Hemisphere light for ambient color
+    const hemiLight = new THREE.HemisphereLight(0x444444, 0x000000, 1);
+    scene.add(hemiLight);
+
+    // Multiple point lights for dynamic illumination
+    const pointLights = [
+      { color: protonColor, intensity: 150, pos: [400, 200, 300] },
+      { color: electronColor, intensity: 100, pos: [-300, -100, 400] },
+      {
+        color: truegleColors.quantumPurple,
+        intensity: 120,
+        pos: [200, -300, 200],
+      },
+      {
+        color: truegleColors.energyYellow,
+        intensity: 80,
+        pos: [-200, 300, 200],
+      },
+    ];
+
+    pointLights.forEach((light) => {
+      const pl = new THREE.PointLight(light.color, light.intensity, 1000, 2);
+      pl.position.set(...light.pos);
+      scene.add(pl);
+    });
+
+    const mainGroup = new THREE.Group();
+    scene.add(mainGroup);
+
+    // --- CENTRAL ATOM - HYPER REALISTIC ---
+    const centralAtom = new THREE.Group();
+    mainGroup.add(centralAtom);
+
+    // Nucleus (dense cluster of protons and neutrons)
+    const nucleusGroup = new THREE.Group();
+    centralAtom.add(nucleusGroup);
+
+    // Create individual nucleons for realism
+    const nucleonGeometry = new THREE.SphereGeometry(28, 32, 32);
+
+    // Protons - Tightly packed cluster
+    for (let i = 0; i < 12; i++) {
+      const protonMaterial = new THREE.MeshPhysicalMaterial({
+        color: protonColor,
+        emissive: protonColor,
+        emissiveIntensity: 3.5,
+        metalness: 0.7,
+        roughness: 0.2,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.1,
+        transmission: 0.1,
+        thickness: 10,
+      });
+
+      const proton = new THREE.Mesh(nucleonGeometry, protonMaterial);
+
+      // Tight random cluster within small radius
+      const radius = 16 + Math.random() * 24; // Double size for visibility
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 2 - 1);
+
+      proton.position.x = radius * Math.sin(phi) * Math.cos(theta);
+      proton.position.y = radius * Math.sin(phi) * Math.sin(theta);
+      proton.position.z = radius * Math.cos(phi);
+
+      nucleusGroup.add(proton);
+    }
+
+    // Neutrons - Tightly packed cluster
+    for (let i = 0; i < 14; i++) {
+      const neutronMaterial = new THREE.MeshPhysicalMaterial({
+        color: neutronColor,
+        emissive: 0x888888,
+        emissiveIntensity: 2.0,
+        metalness: 0.9,
+        roughness: 0.1,
+        clearcoat: 1.0,
+      });
+
+      const neutron = new THREE.Mesh(nucleonGeometry, neutronMaterial);
+
+      // Tight random cluster, slightly larger than protons
+      const radius = 20 + Math.random() * 30; // Double size for visibility
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 2 - 1);
+
+      neutron.position.x = radius * Math.sin(phi) * Math.cos(theta);
+      neutron.position.y = radius * Math.sin(phi) * Math.sin(theta);
+      neutron.position.z = radius * Math.cos(phi);
+
+      nucleusGroup.add(neutron);
+    }
+
+    // Electron Orbits with moving electrons
+    const electronOrbitGroup = new THREE.Group();
+    centralAtom.add(electronOrbitGroup);
+
+    const orbits = [
+      { radius: 180, speed: 0.02, electrons: 2, size: 6 },
+      { radius: 280, speed: 0.015, electrons: 8, size: 5 },
+      { radius: 380, speed: 0.01, electrons: 18, size: 4 },
+      { radius: 500, speed: 0.008, electrons: 8, size: 4 },
+    ];
+
+    const electrons = [];
+    const electronGeometry = new THREE.SphereGeometry(4, 16, 16);
+
+    orbits.forEach((orbit, orbitIndex) => {
+      for (let i = 0; i < orbit.electrons; i++) {
+        const electronMaterial = new THREE.MeshPhysicalMaterial({
+          color: electronColor,
+          emissive: electronColor,
+          emissiveIntensity: 1.5,
+          metalness: 0.5,
+          roughness: 0.1,
+          clearcoat: 1.0,
+          transmission: 0.8,
+          thickness: 5,
+        });
+
+        const electron = new THREE.Mesh(electronGeometry, electronMaterial);
+
+        const angle = (i / orbit.electrons) * Math.PI * 2;
+        const tilt = orbitIndex * 0.2;
+
+        electron.userData = {
+          orbitRadius: orbit.radius,
+          orbitSpeed: orbit.speed,
+          angleOffset: angle,
+          tilt: tilt,
+          phase: Math.random() * Math.PI * 2,
+        };
+
+        electrons.push(electron);
+        electronOrbitGroup.add(electron);
+      }
+    });
+
+    // --- VIRTUAL PARTICLES (Popping in/out of existence) ---
+    const virtualParticlesGroup = new THREE.Group();
+    mainGroup.add(virtualParticlesGroup);
+
+    const virtualParticleCount = 300;
+    const virtualParticleGeometry = new THREE.SphereGeometry(3, 12, 12);
+    const virtualParticles = [];
+    const virtualParticleData = [];
+
+    // Create particle pop-in/out animation data
+    for (let i = 0; i < virtualParticleCount; i++) {
+      const material = new THREE.MeshPhysicalMaterial({
+        color:
+          Math.random() > 0.5
+            ? truegleColors.quantumPurple
+            : truegleColors.gammaGreen,
+        emissive:
+          Math.random() > 0.5
+            ? truegleColors.quantumPurple
+            : truegleColors.gammaGreen,
+        emissiveIntensity: 1.0,
+        metalness: 0.8,
+        roughness: 0.2,
+        transparent: true,
+        opacity: 0,
+      });
+
+      const particle = new THREE.Mesh(virtualParticleGeometry, material);
+
+      // Spherical distribution around atom
+      const radius = 800 + Math.random() * 600;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 2 - 1);
+
+      particle.position.x = radius * Math.sin(phi) * Math.cos(theta);
+      particle.position.y = radius * Math.sin(phi) * Math.sin(theta);
+      particle.position.z = radius * Math.cos(phi);
+
+      virtualParticlesGroup.add(particle);
+      virtualParticles.push(particle);
+
+      virtualParticleData.push({
+        position: particle.position.clone(),
+        velocity: new THREE.Vector3(
+          (Math.random() - 0.5) * 0.5,
+          (Math.random() - 0.5) * 0.5,
+          (Math.random() - 0.5) * 0.5
+        ),
+        popInTime: Math.random() * 5,
+        popOutTime: 3 + Math.random() * 7,
+        lifeTime: 0,
+        isVisible: false,
+        scale: 0.5 + Math.random() * 1.5,
+        color:
+          Math.random() > 0.5
+            ? truegleColors.quantumPurple
+            : truegleColors.gammaGreen,
+      });
+    }
+
+    // --- ENERGY FIELD (Glowing energy balls) ---
+    const energyFieldGroup = new THREE.Group();
+    mainGroup.add(energyFieldGroup);
+
+    const energyParticles = [];
+    const energyParticleCount = 50;
+
+    for (let i = 0; i < energyParticleCount; i++) {
+      const size = 8 + Math.random() * 12;
+      const geometry = new THREE.SphereGeometry(size, 32, 32);
+
+      const material = new THREE.ShaderMaterial({
+        uniforms: {
+          time: { value: 0 },
+          color1: { value: new THREE.Color(coreColor) },
+          color2: { value: new THREE.Color(electronColor) },
+        },
+        vertexShader: `
+          varying vec3 vPosition;
+          varying vec3 vNormal;
+          void main() {
+            vPosition = position;
+            vNormal = normalize(normalMatrix * normal);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform float time;
+          uniform vec3 color1;
+          uniform vec3 color2;
+          varying vec3 vPosition;
+          varying vec3 vNormal;
+          
+          void main() {
+            float pulse = sin(time * 2.0 + length(vPosition) * 0.1) * 0.5 + 0.5;
+            vec3 color = mix(color1, color2, pulse);
+            
+            float fresnel = pow(1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0))), 2.0);
+            float distance = length(vPosition);
+            float core = 1.0 - smoothstep(0.0, ${size.toFixed(1)}, distance);
+            
+            gl_FragColor = vec4(color * (fresnel * 0.5 + core * 0.5 + 0.2), 1.0);
+          }
+        `,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+      });
+
+      const particle = new THREE.Mesh(geometry, material);
+
+      const radius = 300 + Math.random() * 400;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 2 - 1);
+
+      particle.position.x = radius * Math.sin(phi) * Math.cos(theta);
+      particle.position.y = radius * Math.sin(phi) * Math.sin(theta);
+      particle.position.z = radius * Math.cos(phi);
+
+      particle.userData = {
+        originalPosition: particle.position.clone(),
+        speed: 0.002 + Math.random() * 0.003,
+        phase: Math.random() * Math.PI * 2,
+      };
+
+      energyFieldGroup.add(particle);
+      energyParticles.push(particle);
+    }
+
+    // --- DEPTH STARFIELD ---
+    const starCount = 2000;
+    const starGeometry = new THREE.BufferGeometry();
+    const starPositions = new Float32Array(starCount * 3);
+    const starSizes = new Float32Array(starCount);
+    const starColors = new Float32Array(starCount * 3);
+
+    for (let i = 0; i < starCount; i++) {
+      const i3 = i * 3;
+      const radius = 1000 + Math.random() * 2000;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 2 - 1);
+
+      starPositions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+      starPositions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+      starPositions[i3 + 2] = radius * Math.cos(phi);
+
+      starSizes[i] = 0.5 + Math.random() * 3;
+
+      const color = new THREE.Color().setHSL(
+        Math.random() * 0.1 + 0.6,
+        0.5,
+        0.7
+      );
+      starColors[i3] = color.r;
+      starColors[i3 + 1] = color.g;
+      starColors[i3 + 2] = color.b;
+    }
+
+    starGeometry.setAttribute(
+      'position',
+      new THREE.BufferAttribute(starPositions, 3)
+    );
+    starGeometry.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
+    starGeometry.setAttribute(
+      'color',
+      new THREE.BufferAttribute(starColors, 3)
+    );
+
+    const starMaterial = new THREE.PointsMaterial({
+      size: 2,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.8,
+      blending: THREE.AdditiveBlending,
+      sizeAttenuation: true,
+    });
+
+    const starField = new THREE.Points(starGeometry, starMaterial);
+    scene.add(starField);
+
+    // --- ANIMATION LOOP ---
+    let time = 0;
+    const clock = new THREE.Clock();
+
+    const animate = () => {
+      const delta = clock.getDelta();
+      time += delta;
+
+      mainGroup.rotation.y += 0.001;
+      mainGroup.rotation.x += 0.0003;
+
+      const nucleusPulse = 1 + Math.sin(time * 2) * 0.02;
+      nucleusGroup.scale.setScalar(nucleusPulse);
+
+      electrons.forEach((electron) => {
+        const data = electron.userData;
+        data.angleOffset += data.orbitSpeed;
+
+        const x =
+          data.orbitRadius * Math.sin(data.angleOffset) * Math.cos(data.tilt);
+        const y = data.orbitRadius * Math.cos(data.angleOffset);
+        const z =
+          data.orbitRadius * Math.sin(data.angleOffset) * Math.sin(data.tilt);
+
+        electron.position.set(x, y, z);
+        electron.rotation.x += 0.1;
+        electron.rotation.y += 0.1;
+
+        const pulse = 0.8 + Math.sin(time * 3 + data.phase) * 0.2;
+        electron.material.emissiveIntensity = pulse;
+      });
+
+      virtualParticleData.forEach((data, i) => {
+        data.lifeTime += delta;
+
+        if (!data.isVisible && data.lifeTime > data.popInTime) {
+          data.isVisible = true;
+          data.lifeTime = 0;
+          virtualParticles[i].material.opacity = 1;
+          virtualParticles[i].scale.setScalar(data.scale);
+        } else if (data.isVisible && data.lifeTime > data.popOutTime) {
+          data.isVisible = false;
+          data.lifeTime = 0;
+          data.popInTime = 1 + Math.random() * 4;
+          data.popOutTime = 2 + Math.random() * 5;
+          virtualParticles[i].material.opacity = 0;
+
+          const radius = 800 + Math.random() * 600;
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(Math.random() * 2 - 1);
+
+          virtualParticles[i].position.x =
+            radius * Math.sin(phi) * Math.cos(theta);
+          virtualParticles[i].position.y =
+            radius * Math.sin(phi) * Math.sin(theta);
+          virtualParticles[i].position.z = radius * Math.cos(phi);
+
+          data.position.copy(virtualParticles[i].position);
+        }
+
+        if (data.isVisible) {
+          virtualParticles[i].position.x += Math.sin(time + i) * 0.3;
+          virtualParticles[i].position.y += Math.cos(time * 0.7 + i) * 0.3;
+          virtualParticles[i].position.z += Math.sin(time * 0.5 + i) * 0.3;
+          virtualParticles[i].rotation.x += 0.01;
+          virtualParticles[i].rotation.y += 0.01;
+        }
+      });
+
+      energyParticles.forEach((particle, i) => {
+        const data = particle.userData;
+        const angle = time * data.speed + data.phase;
+        const radius = data.originalPosition.length();
+
+        particle.position.x =
+          data.originalPosition.x * Math.cos(angle) -
+          data.originalPosition.z * Math.sin(angle);
+        particle.position.z =
+          data.originalPosition.x * Math.sin(angle) +
+          data.originalPosition.z * Math.cos(angle);
+
+        const pulse = 0.5 + Math.sin(time * 2 + i) * 0.5;
+        if (particle.material.uniforms?.time) {
+          particle.material.uniforms.time.value = time;
+        }
+
+        const scale = 0.8 + pulse * 0.4;
+        particle.scale.setScalar(scale);
+      });
+
+      starField.rotation.y += 0.0001;
+      starField.rotation.x += 0.00005;
+
+      spotLight.position.x = Math.sin(time * 0.5) * 200;
+      spotLight.position.y = Math.cos(time * 0.3) * 150;
+
+      composer.render(delta);
+      animationIdRef.current = requestAnimationFrame(animate);
+    };
+
+    const onWindowResize = () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+    };
+
+    window.addEventListener('resize', onWindowResize);
+    animate();
+
+    return () => {
+      window.removeEventListener('resize', onWindowResize);
+      if (animationIdRef.current) cancelAnimationFrame(animationIdRef.current);
+      if (
+        containerRef.current &&
+        canvas &&
+        canvas.parentNode === containerRef.current
+      ) {
+        containerRef.current.removeChild(canvas);
+      }
+
+      [
+        nucleonGeometry,
+        electronGeometry,
+        virtualParticleGeometry,
+        starGeometry,
+      ].forEach((geo) => {
+        if (geo) geo.dispose();
+      });
+
+      renderer.dispose();
+      if (composerRef.current) {
+        composerRef.current.dispose();
+      }
+    };
+  }, []);
+
+  return (
+    <>
+      <div
+        ref={containerRef}
+        className="absolute inset-0"
+        style={{ zIndex: 1 }}
+      />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          zIndex: 2,
+          background: `
+            radial-gradient(
+              ellipse at center,
+              rgba(0, 40, 100, 0.1) 0%,
+              rgba(0, 0, 0, 0.8) 70%,
+              rgba(0, 0, 0, 1) 100%
+            )
+          `,
+        }}
+      />
+    </>
+  );
+}

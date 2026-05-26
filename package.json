@@ -1,0 +1,45 @@
+{
+  "name": "truegle-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Truegle - Unbiased Search Engine Monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "npm run dev --workspace=@truegle/frontend",
+    "dev:backend": "npm run dev --workspace=@truegle/backend",
+    "build": "npm run build --workspaces --if-present",
+    "build:frontend": "npm run build --workspace=@truegle/frontend",
+    "build:backend": "npm run build --workspace=@truegle/backend",
+    "vercel-build": "npm run build --workspace=@truegle/frontend && node copy-dist.js",
+    "test": "npm run test --workspaces --if-present",
+    "test:frontend": "npm run test --workspace=@truegle/frontend",
+    "test:backend": "npm run test --workspace=@truegle/backend",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/uuid": "^10.0.0",
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "search-engine",
+    "unbiased-search",
+    "react",
+    "express",
+    "monorepo"
+  ],
+  "author": "Truegle Team",
+  "license": "MIT",
+  "dependencies": {
+    "ogl": "^1.0.11",
+    "phaser": "^3.90.0",
+    "vercel": "^50.1.3",
+    "vite": "^7.3.0"
+  }
+}

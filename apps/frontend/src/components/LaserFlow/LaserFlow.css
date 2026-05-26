@@ -1,0 +1,97 @@
+.laser-flow {
+  position: absolute;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: radial-gradient(
+    circle at center,
+    rgba(0, 0, 0, 0.8),
+    rgba(0, 0, 0, 1)
+  );
+}
+
+.laser-beam {
+  position: absolute;
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    var(--laser-color, #ff79c6) 20%,
+    var(--laser-color, #ff79c6) 80%,
+    transparent
+  );
+  opacity: var(--laser-intensity, 0.8);
+  filter: blur(1px);
+  box-shadow: 0 0 20px var(--laser-color, #ff79c6);
+}
+
+.beam-1 {
+  left: 20%;
+  animation: laserFlow1 4s ease-in-out infinite;
+}
+
+.beam-2 {
+  left: 50%;
+  animation: laserFlow2 3s ease-in-out infinite reverse;
+}
+
+.beam-3 {
+  left: 80%;
+  animation: laserFlow3 5s ease-in-out infinite;
+}
+
+@keyframes laserFlow1 {
+  0%,
+  100% {
+    transform: translateX(-100px) rotate(-5deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: var(--laser-intensity, 0.8);
+  }
+  50% {
+    transform: translateX(100px) rotate(5deg);
+    opacity: var(--laser-intensity, 0.8);
+  }
+  80% {
+    opacity: var(--laser-intensity, 0.8);
+  }
+}
+
+@keyframes laserFlow2 {
+  0%,
+  100% {
+    transform: translateX(100px) rotate(3deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: var(--laser-intensity, 0.8);
+  }
+  50% {
+    transform: translateX(-100px) rotate(-3deg);
+    opacity: var(--laser-intensity, 0.8);
+  }
+  80% {
+    opacity: var(--laser-intensity, 0.8);
+  }
+}
+
+@keyframes laserFlow3 {
+  0%,
+  100% {
+    transform: translateX(-150px) rotate(-8deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: var(--laser-intensity, 0.8);
+  }
+  50% {
+    transform: translateX(150px) rotate(8deg);
+    opacity: var(--laser-intensity, 0.8);
+  }
+  80% {
+    opacity: var(--laser-intensity, 0.8);
+  }
+}

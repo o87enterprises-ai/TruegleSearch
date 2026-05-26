@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truegle Mobile Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+
+        .test-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .test-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .status.pending {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .status.success {
+            background: #10b981;
+        }
+
+        .status.error {
+            background: #ef4444;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            background: white;
+            color: #667eea;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            font-size: 13px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .info {
+            font-size: 13px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .emoji {
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><span class="emoji">🔥</span> Truegle Mobile Test</h1>
+
+        <!-- Health Check -->
+        <div class="test-card">
+            <div class="test-title">1. Health Check</div>
+            <div id="health-status" class="status pending">Testing...</div>
+            <div id="health-result" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Search Test -->
+        <div class="test-card">
+            <div class="test-title">2. Search Test</div>
+            <input type="text" id="search-input" placeholder="Enter search query" value="test">
+            <button onclick="testSearch()" id="search-btn">Run Search Test</button>
+            <div id="search-status" class="status pending" style="display: none; margin-top: 10px;">Testing...</div>
+            <div id="search-result" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- AI Test -->
+        <div class="test-card">
+            <div class="test-title">3. AI Chat Test</div>
+            <input type="text" id="ai-input" placeholder="Ask AI a question" value="What is 2+2?">
+            <button onclick="testAI()" id="ai-btn">Run AI Test</button>
+            <div id="ai-status" class="status pending" style="display: none; margin-top: 10px;">Testing...</div>
+            <div id="ai-result" class="result" style="display: none;"></div>
+        </div>
+
+        <!-- Info -->
+        <div class="test-card">
+            <div class="test-title">Connection Info</div>
+            <div class="info">
+                <strong>URL:</strong> <span id="current-url"></span><br>
+                <strong>Screen:</strong> <span id="screen-size"></span><br>
+                <strong>Version:</strong> 2.0
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // NO import.meta - just plain JavaScript!
+
+        // Display connection info
+        document.getElementById('current-url').textContent = window.location.origin;
+        document.getElementById('screen-size').textContent = window.screen.width + 'x' + window.screen.height;
+
+        // Backend URL - simple and works everywhere
+        var API_BASE = window.location.origin + '/api';
+
+        console.log('Testing backend at:', API_BASE);
+
+        // Auto-run health check on load
+        window.addEventListener('load', testHealth);
+
+        function testHealth() {
+            var statusEl = document.getElementById('health-status');
+            var resultEl = document.getElementById('health-result');
+
+            statusEl.textContent = 'Testing...';
+            statusEl.className = 'status pending';
+            resultEl.style.display = 'none';
+
+            fetch(API_BASE + '/health', {
+                headers: {
+                    'ngrok-skip-browser-warning': 'true'
+                }
+            })
+            .then(function(response) {
+                console.log('Health response status:', response.status);
+                return response.json();
+            })
+            .then(function(data) {
+                console.log('Health data:', data);
+
+                if (data.status === 'OK') {
+                    statusEl.textContent = '✅ Connected';
+                    statusEl.className = 'status success';
+                    resultEl.textContent = 'Status: ' + data.status + '\nEnvironment: ' + data.environment + '\nDatabase: ' + (data.database ? data.database.status : 'N/A');
+                } else {
+                    throw new Error('Health check returned: ' + data.status);
+                }
+                resultEl.style.display = 'block';
+            })
+            .catch(function(error) {
+                console.error('Health check error:', error);
+                statusEl.textContent = '❌ Failed';
+                statusEl.className = 'status error';
+                resultEl.textContent = 'Error: ' + error.message + '\n\nBackend URL: ' + API_BASE + '\n\nChecklist:\n1. Backend running?\n2. Ngrok active?\n3. CORS configured?';
+                resultEl.style.display = 'block';
+            });
+        }
+
+        function testSearch() {
+            var query = document.getElementById('search-input').value;
+            var statusEl = document.getElementById('search-status');
+            var resultEl = document.getElementById('search-result');
+            var btn = document.getElementById('search-btn');
+
+            if (!query.trim()) {
+                alert('Please enter a search query');
+                return;
+            }
+
+            statusEl.style.display = 'block';
+            statusEl.textContent = 'Searching...';
+            statusEl.className = 'status pending';
+            resultEl.style.display = 'none';
+            btn.disabled = true;
+
+            fetch(API_BASE + '/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
+                body: JSON.stringify({
+                    query: query,
+                    filters: { category: 'all' }
+                })
+            })
+            .then(function(response) {
+                console.log('Search response status:', response.status);
+                return response.json();
+            })
+            .then(function(data) {
+                console.log('Search data:', data);
+
+                if (data.success) {
+                    statusEl.textContent = '✅ Search Successful';
+                    statusEl.className = 'status success';
+
+                    var results = data.results || [];
+                    var firstThree = results.slice(0, 3).map(function(r) { return '• ' + r.title; }).join('\n');
+
+                    resultEl.textContent = 'Query: ' + data.query + '\nResults: ' + results.length + ' items\n\nFirst 3:\n' + firstThree;
+                } else {
+                    throw new Error(data.message || 'Search failed');
+                }
+                resultEl.style.display = 'block';
+                btn.disabled = false;
+            })
+            .catch(function(error) {
+                console.error('Search error:', error);
+                statusEl.textContent = '❌ Search Failed';
+                statusEl.className = 'status error';
+                resultEl.textContent = 'Error: ' + error.message;
+                resultEl.style.display = 'block';
+                btn.disabled = false;
+            });
+        }
+
+        function testAI() {
+            var message = document.getElementById('ai-input').value;
+            var statusEl = document.getElementById('ai-status');
+            var resultEl = document.getElementById('ai-result');
+            var btn = document.getElementById('ai-btn');
+
+            if (!message.trim()) {
+                alert('Please enter a message');
+                return;
+            }
+
+            statusEl.style.display = 'block';
+            statusEl.textContent = 'Asking AI...';
+            statusEl.className = 'status pending';
+            resultEl.style.display = 'none';
+            btn.disabled = true;
+
+            fetch(API_BASE + '/ai/summary', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
+                body: JSON.stringify({
+                    query: message,
+                    results: []
+                })
+            })
+            .then(function(response) {
+                console.log('AI response status:', response.status);
+                return response.json();
+            })
+            .then(function(data) {
+                console.log('AI data:', data);
+
+                statusEl.textContent = '✅ AI Response';
+                statusEl.className = 'status success';
+                resultEl.textContent = 'Response: ' + (data.summary || data.response || 'No response') + '\n\nModel: ' + (data.model || 'Unknown');
+                resultEl.style.display = 'block';
+                btn.disabled = false;
+            })
+            .catch(function(error) {
+                console.error('AI error:', error);
+                statusEl.textContent = '❌ AI Failed';
+                statusEl.className = 'status error';
+                resultEl.textContent = 'Error: ' + error.message + '\n\nNote: May require authentication';
+                resultEl.style.display = 'block';
+                btn.disabled = false;
+            });
+        }
+    </script>
+</body>
+</html>

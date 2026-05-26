@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truegle CORS Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .test-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #ddd;
+        }
+
+        .test-item.testing {
+            border-left-color: #ffa500;
+            background: #fff9f0;
+        }
+
+        .test-item.success {
+            border-left-color: #28a745;
+            background: #f0fff4;
+        }
+
+        .test-item.error {
+            border-left-color: #dc3545;
+            background: #fff0f0;
+        }
+
+        .test-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .test-result {
+            font-size: 13px;
+            color: #666;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        .status-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-icon.pending { background: #ddd; }
+        .status-icon.testing { background: #ffa500; animation: pulse 1s infinite; }
+        .status-icon.success { background: #28a745; }
+        .status-icon.error { background: #dc3545; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .info {
+            background: #e7f3ff;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .summary {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+            text-align: center;
+        }
+
+        .summary h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .summary-stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .stat.success .stat-value { color: #28a745; }
+        .stat.error .stat-value { color: #dc3545; }
+        .stat.total .stat-value { color: #667eea; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 Truegle CORS Test</h1>
+        <p class="subtitle">Testing API connectivity from external devices</p>
+
+        <div class="info">
+            <strong>📱 Device Info:</strong><br>
+            User Agent: <span id="userAgent"></span><br>
+            Origin: <span id="origin"></span>
+        </div>
+
+        <div id="tests"></div>
+
+        <button id="runTests" onclick="runAllTests()">🚀 Run CORS Tests</button>
+
+        <div class="summary" id="summary" style="display: none;">
+            <h2>Test Results</h2>
+            <div class="summary-stats">
+                <div class="stat success">
+                    <div class="stat-value" id="successCount">0</div>
+                    <div class="stat-label">Passed</div>
+                </div>
+                <div class="stat error">
+                    <div class="stat-value" id="errorCount">0</div>
+                    <div class="stat-label">Failed</div>
+                </div>
+                <div class="stat total">
+                    <div class="stat-value" id="totalCount">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Display device info
+        document.getElementById('userAgent').textContent = navigator.userAgent;
+        document.getElementById('origin').textContent = window.location.origin;
+
+        // Get backend URL from environment or construct it
+        const BACKEND_URL = import.meta?.env?.VITE_BACKEND_URL ||
+                           window.location.origin.replace(':5173', ':3001').replace(':3000', ':3001');
+
+        const tests = [
+            {
+                name: 'Health Check',
+                endpoint: '/api/health',
+                method: 'GET',
+                description: 'Basic API health check'
+            },
+            {
+                name: 'States List',
+                endpoint: '/api/maps/cameras/multi-state-states',
+                method: 'GET',
+                description: 'Fetch available states'
+            },
+            {
+                name: 'Camera Search',
+                endpoint: '/api/maps/cameras/multi-state/search',
+                method: 'POST',
+                body: { query: 'Seattle', limit: 5 },
+                description: 'Search cameras by text'
+            },
+            {
+                name: 'Nearby Cameras',
+                endpoint: '/api/maps/cameras/multi-state/near/45.5/-122.5',
+                method: 'GET',
+                description: 'Find cameras near coordinates'
+            },
+            {
+                name: 'Traffic Cameras Stats',
+                endpoint: '/api/maps/traffic-cameras-stats',
+                method: 'GET',
+                description: 'Get OpenTrafficCam statistics'
+            }
+        ];
+
+        let results = {
+            success: 0,
+            error: 0,
+            total: tests.length
+        };
+
+        // Create test UI
+        const testsContainer = document.getElementById('tests');
+        tests.forEach((test, index) => {
+            const div = document.createElement('div');
+            div.className = 'test-item';
+            div.id = `test-${index}`;
+            div.innerHTML = `
+                <div class="test-title">
+                    <span class="status-icon pending" id="status-${index}"></span>
+                    ${test.name}
+                </div>
+                <div style="font-size: 12px; color: #999; margin-bottom: 5px;">
+                    ${test.method} ${test.endpoint}
+                </div>
+                <div style="font-size: 13px; color: #666;">
+                    ${test.description}
+                </div>
+                <div class="test-result" id="result-${index}" style="display: none;"></div>
+            `;
+            testsContainer.appendChild(div);
+        });
+
+        async function runTest(test, index) {
+            const testDiv = document.getElementById(`test-${index}`);
+            const statusIcon = document.getElementById(`status-${index}`);
+            const resultDiv = document.getElementById(`result-${index}`);
+
+            // Set testing state
+            testDiv.className = 'test-item testing';
+            statusIcon.className = 'status-icon testing';
+
+            try {
+                const options = {
+                    method: test.method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    }
+                };
+
+                if (test.body) {
+                    options.body = JSON.stringify(test.body);
+                }
+
+                const startTime = performance.now();
+                const response = await fetch(BACKEND_URL + test.endpoint, options);
+                const endTime = performance.now();
+                const duration = Math.round(endTime - startTime);
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Success
+                    testDiv.className = 'test-item success';
+                    statusIcon.className = 'status-icon success';
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `
+                        ✅ Success (${duration}ms)<br>
+                        Status: ${response.status} ${response.statusText}<br>
+                        ${JSON.stringify(data, null, 2).substring(0, 200)}...
+                    `;
+                    results.success++;
+                } else {
+                    // HTTP error
+                    testDiv.className = 'test-item error';
+                    statusIcon.className = 'status-icon error';
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = `
+                        ❌ HTTP Error ${response.status}<br>
+                        ${JSON.stringify(data, null, 2)}
+                    `;
+                    results.error++;
+                }
+            } catch (error) {
+                // Network/CORS error
+                testDiv.className = 'test-item error';
+                statusIcon.className = 'status-icon error';
+                resultDiv.style.display = 'block';
+
+                if (error.message.includes('CORS') || error.message.includes('NetworkError')) {
+                    resultDiv.innerHTML = `
+                        🚫 CORS ERROR<br>
+                        ${error.message}<br><br>
+                        <strong>Possible causes:</strong><br>
+                        • Backend server not running<br>
+                        • CORS not configured properly<br>
+                        • Wrong backend URL: ${BACKEND_URL}
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        ❌ Error<br>
+                        ${error.message}
+                    `;
+                }
+                results.error++;
+            }
+        }
+
+        async function runAllTests() {
+            // Reset results
+            results = { success: 0, error: 0, total: tests.length };
+
+            // Disable button
+            const button = document.getElementById('runTests');
+            button.disabled = true;
+            button.textContent = '⏳ Running tests...';
+
+            // Hide summary
+            document.getElementById('summary').style.display = 'none';
+
+            // Run tests sequentially
+            for (let i = 0; i < tests.length; i++) {
+                await runTest(tests[i], i);
+                await new Promise(resolve => setTimeout(resolve, 200)); // Small delay between tests
+            }
+
+            // Show summary
+            document.getElementById('successCount').textContent = results.success;
+            document.getElementById('errorCount').textContent = results.error;
+            document.getElementById('totalCount').textContent = results.total;
+            document.getElementById('summary').style.display = 'block';
+
+            // Re-enable button
+            button.disabled = false;
+            button.textContent = '🔄 Run Tests Again';
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => runAllTests(), 500);
+        });
+    </script>
+</body>
+</html>

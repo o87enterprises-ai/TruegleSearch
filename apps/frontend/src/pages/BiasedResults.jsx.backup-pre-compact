@@ -1,0 +1,386 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Sparkles, ChevronDown, Eye, Zap, X, Send } from 'lucide-react';
+import TruegleLogo from '../components/ui/TruegleLogo';
+import SearchBar from '../components/ui/SearchBar';
+import CategoryBar from '../components/ui/CategoryBar';
+import ToroidalBackground from '../components/backgrounds/ToroidalBackground';
+
+export default function BiasedResults() {
+  const navigate = useNavigate();
+  const [searchValue, setSearchValue] = useState('climate change policy');
+  const [activeCategory, setActiveCategory] = useState('news');
+  const [selectedPerspectives, setSelectedPerspectives] = useState([]);
+  const [aiExpanded, setAiExpanded] = useState(false);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+
+  // Comprehensive perspectives organized by category
+  const perspectiveCategories = [
+    {
+      title: 'Political Perspectives',
+      perspectives: [
+        { id: 'conservative', label: 'Conservative', icon: '🔴' },
+        { id: 'liberal', label: 'Liberal', icon: '🔵' },
+        { id: 'bipartisan', label: 'Bipartisan', icon: '🤝' },
+        { id: 'libertarian', label: 'Libertarian', icon: '🗽' },
+        { id: 'progressive', label: 'Progressive', icon: '⚡' },
+        { id: 'centrist', label: 'Centrist', icon: '⚖️' },
+      ]
+    },
+    {
+      title: 'Faith Perspectives',
+      perspectives: [
+        { id: 'religious', label: 'Religious', icon: '✝️' },
+        { id: 'spiritual', label: 'Spiritual', icon: '🕉️' },
+        { id: 'secular', label: 'Secular', icon: '🔬' },
+        { id: 'universal', label: 'Universal', icon: '🌍' },
+      ]
+    },
+    {
+      title: 'Societal Paradigm',
+      perspectives: [
+        { id: 'scientific', label: 'Scientific/Academic', icon: '🔬' },
+        { id: 'mainstream', label: 'Mainstream', icon: '📰' },
+        { id: 'alternative', label: 'Alternative', icon: '🔍' },
+        { id: 'conspiracy', label: 'Conspiracy', icon: '👁️' },
+        { id: 'skeptical', label: 'Skeptical', icon: '🤔' },
+      ]
+    },
+    {
+      title: 'Organizational Level',
+      perspectives: [
+        { id: 'government', label: 'Government', icon: '🏛️' },
+        { id: 'community', label: 'Community', icon: '👥' },
+      ]
+    },
+    {
+      title: 'Business/Economic',
+      perspectives: [
+        { id: 'financial', label: 'Financial', icon: '💰' },
+        { id: 'global_economics', label: 'Global Economics', icon: '🌐' },
+        { id: 'investors', label: 'Investors', icon: '📈' },
+        { id: 'consumers', label: 'Consumers', icon: '🛒' },
+        { id: 'small_business', label: 'Small Business', icon: '🏪' },
+        { id: 'corporate', label: 'Corporate', icon: '🏢' },
+      ]
+    },
+  ];
+
+  const allPerspectives = perspectiveCategories.flatMap(cat => cat.perspectives);
+
+  const togglePerspective = (id) => {
+    setSelectedPerspectives(prev => 
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  };
+
+  const handleSearch = () => {
+    console.log('Searching:', searchValue);
+  };
+
+  const handleUnbiasedClick = () => {
+    navigate('/search');
+  };
+
+  const handleSendMessage = () => {
+    if (!chatMessage.trim()) return;
+    if (selectedPerspectives.length === 0) {
+      alert('Please select at least one bias perspective first!');
+      return;
+    }
+    console.log('Biased AI Message:', chatMessage, 'Perspectives:', selectedPerspectives);
+    setChatMessage('');
+  };
+
+  // Mock biased results
+  const mockResults = [
+    {
+      id: 1,
+      title: 'Climate Policy Through Selected Lens',
+      snippet: 'Analysis from the chosen perspective showing specific viewpoints on renewable energy transition and carbon pricing mechanisms...',
+      source: 'Biased Source Network',
+      url: '#',
+    },
+    {
+      id: 2,
+      title: 'Economic Impact Assessment from Perspective',
+      snippet: 'Viewpoint-specific economic analysis revealing ideological patterns in cost-benefit calculations of green technology...',
+      source: 'Perspective Media Group',
+      url: '#',
+    },
+    {
+      id: 3,
+      title: 'Policy Implications Through Bias Filter',
+      snippet: 'Examining outcomes through the selected ideological framework shows divergent paths for climate legislation...',
+      source: 'Filtered Analysis Institute',
+      url: '#',
+    },
+  ];
+
+  return (
+    <div className="min-h-screen bg-black text-white relative">
+      <ToroidalBackground />
+
+      <div className="relative z-10">
+        {/* Header - Centered */}
+        <div className="p-6">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex flex-col items-center gap-4 mb-4">
+              <TruegleLogo onClick={() => navigate('/')} />
+              <button
+                onClick={() => navigate('/osint/search')}
+                className="px-4 py-2 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/50 text-cyan-400 transition-all"
+              >
+                <Eye className="inline mr-2" size={18} />
+                OSINT / SEO Mode
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Perspective Selector */}
+        <div className="max-w-6xl mx-auto mb-6 px-6">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border-2 border-red-500/50"
+          >
+            <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <Zap className="text-red-500" size={24} />
+              Select Your Bias Perspective(s)
+            </h2>
+            
+            {perspectiveCategories.map((category, idx) => (
+              <div key={idx} className="mb-4">
+                <h3 className="text-sm text-white/60 mb-2 uppercase tracking-wider">{category.title}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {category.perspectives.map((perspective) => (
+                    <button
+                      key={perspective.id}
+                      onClick={() => togglePerspective(perspective.id)}
+                      className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all ${
+                        selectedPerspectives.includes(perspective.id)
+                          ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-500/50 scale-105'
+                          : 'bg-gradient-to-r from-orange-600/30 to-amber-600/30 border border-orange-500/50 text-orange-300 hover:from-orange-600/40 hover:to-amber-600/40'
+                      }`}
+                    >
+                      <span className="mr-1.5">{perspective.icon}</span>
+                      {perspective.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="max-w-6xl mx-auto mb-6 px-6">
+          <div className="mb-4 flex items-center gap-4">
+            <button
+              onClick={() => setFiltersExpanded(!filtersExpanded)}
+              className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all flex items-center gap-2"
+            >
+              Filters
+              <ChevronDown size={18} className={`transition-transform ${filtersExpanded ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+
+          <SearchBar
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            onSearch={handleSearch}
+            placeholder="Search with selected bias..."
+            size="medium"
+            showBiasedButton={false}
+            showUnbiasedButton={true}
+            onUnbiasedClick={handleUnbiasedClick}
+          />
+        </div>
+
+        {/* Category Bar */}
+        <div className="max-w-6xl mx-auto mb-6 px-6">
+          <CategoryBar 
+            activeCategory={activeCategory}
+            onSelectCategory={setActiveCategory}
+          />
+        </div>
+
+        {/* Yellow Ad Banner 1 */}
+        <div className="max-w-6xl mx-auto mb-6 px-6">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-[#FFEB3B]/[0.3125] to-[#FFC107]/[0.3125] backdrop-blur-xl border-2 border-yellow-400/60 shadow-lg shadow-yellow-400/40 cursor-pointer transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,235,59,0.5),0_0_50px_rgba(255,193,7,0.3)]">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-yellow-200 mb-1">Sponsored</div>
+                <div className="text-sm font-semibold text-white">Perspective Analytics Pro</div>
+                <div className="text-xs text-white/90">Track bias across all sources</div>
+              </div>
+              <button className="px-6 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-semibold whitespace-nowrap hover:from-orange-400 hover:to-red-400 transition-all shadow-lg">
+                Try Free
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* RED AI Assistant (Expandable) */}
+        <div className="max-w-6xl mx-auto mb-6 px-6">
+          <div className="p-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border-2 border-red-500/50">
+            <button 
+              onClick={() => setAiExpanded(!aiExpanded)} 
+              className="w-full flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center shadow-lg shadow-red-500/25">
+                  <Sparkles size={24} className="text-white" />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-xl font-bold text-white">Biased AI Assistant</h3>
+                  <p className="text-xs text-white/60">
+                    {selectedPerspectives.length > 0 
+                      ? `${selectedPerspectives.length} perspective(s) selected` 
+                      : 'Select perspective(s) to begin'}
+                  </p>
+                </div>
+              </div>
+              <motion.div animate={{ rotate: aiExpanded ? 180 : 0 }}>
+                <ChevronDown size={24} className="text-red-400" />
+              </motion.div>
+            </button>
+            
+            {aiExpanded && (
+              <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                className="mt-4 pt-4 border-t border-red-500/20"
+              >
+                <p className="text-sm text-white/80 leading-relaxed mb-4">
+                  This AI assistant will analyze your query through the lens of your selected bias perspectives, 
+                  providing viewpoints that align with those ideological frameworks. Results are intentionally filtered 
+                  to match your chosen perspectives.
+                </p>
+                <div className="flex items-center gap-4 text-xs text-red-400 mb-4">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                    <span>Filtered results</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 bg-rose-400 rounded-full"></div>
+                    <span>Bias transparency enabled</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsChatOpen(true)}
+                  className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-semibold transition-all"
+                >
+                  Open Chat Interface
+                </button>
+              </motion.div>
+            )}
+          </div>
+        </div>
+
+        {/* Yellow Ad Banner 2 */}
+        <div className="max-w-6xl mx-auto mb-8 px-6">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-[#FFEB3B]/[0.3125] to-[#FFC107]/[0.3125] backdrop-blur-xl border-2 border-yellow-400/60 shadow-lg shadow-yellow-400/40 cursor-pointer transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,235,59,0.5),0_0_50px_rgba(255,193,7,0.3)]">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-yellow-200 mb-1">Sponsored</div>
+                <div className="text-sm font-semibold text-white">BiasTracker Premium</div>
+                <div className="text-xs text-white/90">Understand your media consumption patterns</div>
+              </div>
+              <button className="px-6 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-semibold whitespace-nowrap hover:from-orange-400 hover:to-red-400 transition-all shadow-lg">
+                Learn More
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* RED Results Cards */}
+        <div className="max-w-6xl mx-auto px-6 space-y-4 pb-12">
+          {mockResults.map((result, index) => (
+            <motion.div
+              key={result.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="p-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border-2 border-red-500/50 hover:border-red-400 transition-all duration-300 hover:shadow-[0_0_40px_rgba(239,68,68,0.6)] cursor-pointer group"
+            >
+              <div className="text-xs text-red-400 mb-2">{result.source}</div>
+              <h3 className="text-xl font-bold text-white mb-2 group-hover:text-red-300 transition-colors">
+                {result.title}
+              </h3>
+              <p className="text-white/70 text-sm">{result.snippet}</p>
+              
+              {/* Inline Ad after 2nd result */}
+              {index === 1 && (
+                <div className="mt-6 p-4 rounded-xl bg-gradient-to-br from-[#FFEB3B]/[0.3125] to-[#FFC107]/[0.3125] backdrop-blur-xl border border-yellow-400/60">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-yellow-200 mb-1">Sponsored</div>
+                      <div className="text-sm font-semibold text-white">Media Literacy Course</div>
+                    </div>
+                    <button className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-semibold">
+                      Enroll
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* Chat Overlay */}
+      <AnimatePresence>
+        {isChatOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setIsChatOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-gradient-to-br from-[#1a1a2e] to-[#16213e] rounded-2xl border-2 border-red-500/50 w-full max-w-2xl max-h-[80vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-red-500/30 flex items-center justify-between">
+                <h3 className="text-xl font-bold text-white">Biased AI Chat</h3>
+                <button onClick={() => setIsChatOpen(false)} className="text-white/60 hover:text-white">
+                  <X size={24} />
+                </button>
+              </div>
+              <div className="p-6 h-96 overflow-y-auto">
+                <p className="text-white/60 text-sm">Chat interface placeholder - perspectives: {selectedPerspectives.join(', ')}</p>
+              </div>
+              <div className="p-4 border-t border-red-500/30">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={chatMessage}
+                    onChange={(e) => setChatMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder="Ask a biased question..."
+                    className="flex-1 bg-black/40 border border-red-500/30 rounded-xl px-4 py-2 text-white placeholder-gray-500 outline-none"
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    className="px-6 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-semibold transition-all"
+                  >
+                    <Send size={18} />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

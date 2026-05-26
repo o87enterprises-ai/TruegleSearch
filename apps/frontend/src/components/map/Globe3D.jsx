@@ -1,0 +1,392 @@
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, Sphere, Stars, Text } from '@react-three/drei';
+import * as THREE from 'three';
+import { useMap } from './context/MapContext';
+import { TRUEGLE_BRAND_COLORS, GLOBE_3D_CONFIG } from './config/constants';
+import { GlobeMarker } from './globe/GlobeMarker';
+import { GlobeRoute } from './globe/GlobeRoute';
+import { GlobeTraffic } from './globe/GlobeTraffic';
+import { getNASAEarthTextureUrl, GIBS_ATTRIBUTION } from './utils/nasaGibsHelper';
+import './styles/AzimuthalGlobe.css';
+import satelliteImage from '../../assets/images/Azimuthal-satellite-view.png';
+
+const globeRadius = GLOBE_3D_CONFIG.globeRadius;
+
+/**
+ * EarthSphere Component
+ *
+ * Renders a 3D sphere with satellite imagery texture using a multi-tier fallback system:
+ * 1. Primary: Local satellite image (Azimuthal-satellite-view.png)
+ * 2. Fallback 1: NASA GIBS Blue Marble (free, no API key required)
+ * 3. Fallback 2: Solid earth color
+ *
+ * This ensures the globe always displays imagery even if local assets fail.
+ *
+ * Future Enhancement: For dynamic zoom levels, integrate TomTom satellite tile API
+ * using getTomTomSatelliteTileUrl() from utils/tomtomTileHelper.js to fetch
+ * real-time satellite tiles based on user's zoom level and position.
+ */
+function EarthSphere({ radius, textureUrl, onTextureSourceChange }) {
+  const [texture, setTexture] = useState(null);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    const loader = new THREE.TextureLoader();
+
+    // Try primary texture first (local satellite image)
+    loader.load(
+      textureUrl,
+      (loadedTexture) => {
+        console.log('✅ Primary satellite texture loaded successfully');
+        configureTexture(loadedTexture);
+        setTexture(loadedTexture);
+        onTextureSourceChange?.('local');
+      },
+      undefined,
+      (primaryError) => {
+        console.warn('⚠️ Primary texture failed, trying NASA GIBS fallback:', primaryError);
+
+        // Fallback to NASA GIBS Blue Marble
+        const nasaUrl = getNASAEarthTextureUrl('BLUE_MARBLE');
+        loader.load(
+          nasaUrl,
+          (loadedTexture) => {
+            console.log('✅ NASA GIBS Blue Marble texture loaded successfully');
+            configureTexture(loadedTexture);
+            setTexture(loadedTexture);
+            onTextureSourceChange?.('nasa');
+          },
+          undefined,
+          (nasaError) => {
+            console.warn('⚠️ NASA GIBS fallback failed, using solid color:', nasaError);
+            setLoadError(true);
+            onTextureSourceChange?.('fallback');
+          }
+        );
+      }
+    );
+
+    function configureTexture(tex) {
+      // Configure texture for optimal appearance on sphere
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+    }
+  }, [textureUrl, onTextureSourceChange]);
+
+  return (
+    <group>
+      <mesh>
+        <Sphere args={[radius, 64, 64]}>
+          {texture && !loadError ? (
+            <meshStandardMaterial
+              map={texture}
+              color="#ffffff"
+              emissive="#000000"
+              metalness={0.1}
+              roughness={0.9}
+              transparent={true}
+              opacity={1}
+            />
+          ) : (
+            <meshStandardMaterial
+              color="#1a4d2e"
+              emissive="#0a0a15"
+              metalness={0.1}
+              roughness={0.8}
+              wireframe={false}
+            />
+          )}
+        </Sphere>
+      </mesh>
+
+      <mesh>
+        <Sphere args={[radius + 0.01, 32, 32]}>
+          <meshBasicMaterial
+            color="#2a2a4e"
+            wireframe={true}
+            transparent={true}
+            opacity={0.2}
+          />
+        </Sphere>
+      </mesh>
+    </group>
+  );
+}
+
+export default function Globe3D({
+  center = { lat: 39.8283, lng: -98.5795 },
+  zoom = 4,
+  onMapClick = null,
+  onMarkerClick = null,
+  showTraffic = false,
+  markers = [],
+  routes = [],
+}) {
+  const { state, actions } = useMap();
+  const controlsRef = useRef();
+  const groupRef = useRef();
+  const [rotation, setRotation] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [contextLost, setContextLost] = useState(false);
+  const [textureSource, setTextureSource] = useState('loading');
+
+
+  const displayMarkers = useMemo(() => {
+    if (markers.length === 0) {
+      return [
+        { id: 'test-1', lat: 40.7128, lng: -74.0060, name: 'New York', category: 'RESTAURANT' },
+        { id: 'test-2', lat: 51.5074, lng: -0.1278, name: 'London', category: 'HOTEL' },
+        { id: 'test-3', lat: 35.6762, lng: 139.6503, name: 'Tokyo', category: 'ENTERTAINMENT' },
+        { id: 'test-4', lat: -33.8688, lng: 151.2093, name: 'Sydney', category: 'SHOP' },
+        { id: 'test-5', lat: 39.9042, lng: 116.4074, name: 'Beijing', category: 'TRANSPORT' },
+      ];
+    }
+    return markers;
+  }, [markers]);
+
+  useEffect(() => {
+    console.log('🌍 Globe3D initial render:', {
+      center,
+      rotation,
+      markersCount: markers.length,
+      displayMarkersCount: displayMarkers.length
+    });
+  }, []);
+
+  const handleResetView = useCallback(() => {
+    if (controlsRef.current) {
+      controlsRef.current.reset();
+    }
+  }, []);
+
+  const handleMapClick = useCallback((event) => {
+    if (!isDragging && onMapClick) {
+      const point = event.point;
+      const { lat, lng } = pointToLatLon(point, globeRadius);
+      onMapClick({ lat, lng });
+    }
+  }, [isDragging, onMapClick, globeRadius]);
+
+  const handleMarkerClick = useCallback((marker, event) => {
+    event.stopPropagation();
+    
+    if (onMarkerClick) {
+      onMarkerClick(marker);
+    }
+    
+    actions.setSelectedMarker(marker);
+  }, [actions, onMarkerClick]);
+
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const handleContextLost = (event) => {
+      console.warn('⚠️ WebGL context lost in Globe3D');
+      event.preventDefault(); // Prevent default behavior
+      setContextLost(true);
+    };
+
+    const handleContextRestored = () => {
+      console.log('✅ WebGL context restored in Globe3D');
+      setContextLost(false);
+    };
+
+    // Find the canvas element created by react-three/fiber
+    const canvas = document.querySelector('canvas');
+    if (canvas) {
+      canvasRef.current = canvas;
+      canvas.addEventListener('webglcontextlost', handleContextLost);
+      canvas.addEventListener('webglcontextrestored', handleContextRestored);
+
+      console.log('🎨 Globe3D WebGL context initialized');
+
+      return () => {
+        canvas.removeEventListener('webglcontextlost', handleContextLost);
+        canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+
+        // Try to force context disposal on unmount
+        try {
+          const gl = canvas.getContext('webgl') || canvas.getContext('webgl2');
+          if (gl) {
+            const loseContext = gl.getExtension('WEBGL_lose_context');
+            if (loseContext) {
+              loseContext.loseContext();
+              console.log('🧹 Manually disposed WebGL context');
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Error disposing WebGL context:', error);
+        }
+      };
+    }
+  }, []);
+
+  useEffect(() => {
+    if (center) {
+      const phi = (90 - center.lat) * (Math.PI / 180);
+      const theta = (center.lng + 180) * (Math.PI / 180);
+      setRotation({ x: phi, y: -theta });
+    }
+  }, [center]);
+
+  const latLonToPoint = (lat, lon, radius) => {
+    const phi = (90 - lat) * (Math.PI / 180);
+    const theta = (lon + 180) * (Math.PI / 180);
+    
+    const x = -radius * Math.sin(phi) * Math.cos(theta);
+    const y = radius * Math.cos(phi);
+    const z = radius * Math.sin(phi) * Math.sin(theta);
+    
+    return { x, y, z };
+  };
+
+  const pointToLatLon = (point, radius) => {
+    const { x, y, z } = point;
+    
+    const lat = 90 - (Math.acos(y / radius) * 180 / Math.PI);
+    const lon = ((Math.atan2(z, x) * 180 / Math.PI) + 180) % 360 - 180;
+    
+    return { lat, lng: lon };
+  };
+
+  return (
+    <div className="azimuthal-globe-container" style={{ width: '100%', height: '100%' }}>
+      {contextLost ? (
+        <div style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#0a0a0a',
+          color: '#ffffff',
+          fontSize: '14px',
+        }}>
+          <div style={{ textAlign: 'center' }}>
+            <div>WebGL context was lost</div>
+            <div style={{ fontSize: '12px', marginTop: '8px', color: '#666' }}>
+              Please refresh the page to restore the 3D globe view
+            </div>
+          </div>
+        </div>
+      ) : (
+        <Canvas
+          camera={{ position: [0, 0, 10], fov: 45 }}
+          gl={{
+            antialias: false, // Reduce WebGL resource usage
+            alpha: true,
+            powerPreference: 'low-power', // Use low-power GPU mode
+            preserveDrawingBuffer: false, // Don't preserve buffer (saves memory)
+            failIfMajorPerformanceCaveat: false, // Don't fail on slow GPUs
+          }}
+          onClick={handleMapClick}
+          onCreated={({ gl }) => {
+            console.log('🎨 WebGL renderer created for Globe3D');
+            // Set pixel ratio to improve performance
+            gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+          }}
+        >
+          <ambientLight intensity={0.8} />
+          <directionalLight position={[10, 10, 5]} intensity={1.5} />
+          <pointLight position={[10, 10, 10]} intensity={0.5} />
+
+          <group ref={groupRef} rotation={[rotation.x, rotation.y, 0]}>
+            <EarthSphere
+              radius={globeRadius}
+              textureUrl={satelliteImage}
+              onTextureSourceChange={setTextureSource}
+            />
+
+            <mesh position={[0, globeRadius + 0.5, 0]}>
+              <sphereGeometry args={[0.5, 16, 16]} />
+              <meshBasicMaterial color="#FF0000" />
+            </mesh>
+
+            <mesh position={[globeRadius + 0.5, 0, 0]}>
+              <sphereGeometry args={[0.5, 16, 16]} />
+              <meshBasicMaterial color="#00FF00" />
+            </mesh>
+
+            {displayMarkers.map((marker) => (
+              <GlobeMarker
+                key={marker.id}
+                marker={marker}
+                globeRadius={globeRadius}
+                onClick={(e) => handleMarkerClick(marker, e)}
+              />
+            ))}
+
+            {routes.map((route) => (
+              <GlobeRoute
+                key={route.id}
+                route={route}
+                globeRadius={globeRadius}
+              />
+            ))}
+
+            {showTraffic && (
+              <GlobeTraffic
+                globeRadius={globeRadius}
+              />
+            )}
+          </group>
+
+          <Stars
+            radius={100}
+            depth={50}
+            count={5000}
+            factor={4}
+            saturation={0}
+            fade
+            speed={1}
+          />
+
+          <OrbitControls
+            ref={controlsRef}
+            enablePan={true}
+            enableZoom={true}
+            enableRotate={true}
+            minPolarAngle={Math.PI / 4}
+            maxPolarAngle={Math.PI * 0.75}
+  minDistance={globeRadius + 0.5}
+  // Fix potential maxDistance typo – ensure the max distance is larger than minDistance
+  // (previously maxDistance was set to globeRadius + 30 which may be too low)
+  // We'll bump it to globeRadius + 200 for smoother zoom out.
+  maxDistance={globeRadius + 200}
+            rotateSpeed={-0.5}
+            zoomSpeed={0.6}
+            panSpeed={0.5}
+            onStart={() => setIsDragging(true)}
+            onEnd={() => setIsDragging(false)}
+          />
+      </Canvas>
+      )}
+
+      <div className="azimuthal-controls">
+        <button
+          onClick={handleResetView}
+          className="azimuthal-control-btn"
+          title="Reset View"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 8v8M8 12h8" />
+          </svg>
+        </button>
+      </div>
+
+      {/* NASA GIBS Attribution (when using NASA imagery) */}
+      {textureSource === 'nasa' && (
+        <div
+          className="absolute bottom-2 left-2 text-xs text-white/60 bg-black/40 px-2 py-1 rounded"
+          style={{ maxWidth: '300px', fontSize: '9px' }}
+        >
+          {GIBS_ATTRIBUTION}
+        </div>
+      )}
+    </div>
+  );
+}

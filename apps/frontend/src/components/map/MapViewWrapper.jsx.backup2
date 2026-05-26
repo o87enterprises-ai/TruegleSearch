@@ -1,0 +1,396 @@
+import { useState, useEffect, useRef } from 'react';
+import { Map, Camera, Layers, Navigation, X, MapPin, Route as NavigationIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import TruegleMap from './TruegleMap';
+import MapPanel from './MapPanel';
+import TrafficCameras from './TrafficCameras';
+import DirectionsPanel from './DirectionsPanel';
+import LocationPermissionModal from './LocationPermissionModal';
+import { useMap } from './context/MapContext';
+import truegleLogo from '../../assets/images/truegle-logo.png';
+import LogoOverlay from './LogoOverlay';
+
+export default function MapViewWrapper({
+  children,
+  isOpen,
+  onClose,
+  onToggle,
+  detectedLocation,
+  className = ''
+}) {
+  const { state, actions } = useMap();
+  const [mapStyle, setMapStyle] = useState('standard');
+  const [showTraffic, setShowTraffic] = useState(false);
+  const [showTrafficCams, setShowTrafficCams] = useState(false);
+  const [showDirections, setShowDirections] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const [currentLocationMarker, setCurrentLocationMarker] = useState(null);
+  const [routeData, setRouteData] = useState(null);
+  const [mapCenter, setMapCenter] = useState([-98.5795, 39.8283]);
+  const [mapZoom, setMapZoom] = useState(4);
+  const hasFetchedPlacesRef = useRef(false);
+  const lastLocationRef = useRef(null);
+
+  // Update map center when location is detected
+  useEffect(() => {
+    if (detectedLocation?.coordinates) {
+      const { lat, lng } = detectedLocation.coordinates;
+      setMapCenter([lng, lat]);
+      setMapZoom(12);
+      setUserLocation({ lat, lng });
+      actions.flyTo({ lat, lng }, 12);
+    }
+  }, [detectedLocation]); // actions.flyTo is stable, no need to include in deps
+
+  // Try to get user's current location
+  useEffect(() => {
+    if (isOpen && !userLocation && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const location = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setUserLocation(location);
+          // Only update map if no detected location
+          if (!detectedLocation) {
+            setMapCenter([location.lng, location.lat]);
+            setMapZoom(10);
+            actions.flyTo(location, 10);
+          }
+        },
+        (error) => {
+          console.log('Geolocation error:', error.message);
+        }
+      );
+    }
+  }, [isOpen, detectedLocation, userLocation]); // actions.flyTo is stable, no need to include in deps
+
+  // Fetch nearby businesses and travel destinations when location is available
+  useEffect(() => {
+    const fetchNearbyPlaces = async (location) => {
+      try {
+        // Fetch real local businesses with enriched data (ratings, hours, etc.)
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/maps/local-businesses`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location: { lat: location.lat, lng: location.lng },
+            radius: 5000, // 5km radius
+            categories: ['restaurant', 'cafe', 'shop', 'gas_station', 'hotel', 'grocery'], // Diverse local businesses
+            limit: 25
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data && data.data.businesses && data.data.businesses.length > 0) {
+            // Clear existing markers before adding new ones
+            actions.clearMarkers?.();
+
+            // Add markers for nearby businesses with enriched data
+            data.data.businesses.forEach((business) => {
+              actions.addMarker({
+                id: business.id || `business-${business.name}-${business.lat}`,
+                lat: business.lat,
+                lng: business.lng,
+                name: business.name,
+                address: business.address,
+                category: business.category || 'BUSINESS',
+                // Include enriched data
+                rating: business.rating,
+                reviewCount: business.reviewCount,
+                priceRange: business.priceRange,
+                isOpen: business.isOpen,
+                hours: business.hours,
+                phone: business.phone,
+                email: business.email,
+                website: business.website,
+                distance: business.distance,
+                formattedDistance: business.formattedDistance,
+                sources: business.sources
+              });
+            });
+
+            console.log(`✅ Loaded ${data.data.businesses.length} local businesses`);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching local businesses:', error);
+      }
+    };
+
+    // Fetch when we have a location
+    const location = userLocation || (detectedLocation?.coordinates ? {
+      lat: detectedLocation.coordinates.lat,
+      lng: detectedLocation.coordinates.lng
+    } : null);
+
+    if (!isOpen || !location) {
+      return;
+    }
+
+    // Create a location key to track if location has changed
+    const locationKey = `${location.lat.toFixed(4)},${location.lng.toFixed(4)}`;
+
+    // Only fetch if we haven't fetched for this location yet
+    if (lastLocationRef.current !== locationKey) {
+      lastLocationRef.current = locationKey;
+      hasFetchedPlacesRef.current = true;
+      fetchNearbyPlaces(location);
+    }
+  }, [isOpen, userLocation, detectedLocation]);
+
+  const toggleMapStyle = () => {
+    const styles = ['standard', 'dark', 'light', 'satellite'];
+    const currentIndex = styles.indexOf(mapStyle);
+    const nextStyle = styles[(currentIndex + 1) % styles.length];
+    setMapStyle(nextStyle);
+    actions.setMapStyle(nextStyle);
+  };
+
+  const toggleTraffic = () => {
+    setShowTraffic(prev => !prev);
+    actions.toggleTraffic();
+  };
+
+  const handleLocationGranted = (location) => {
+    setUserLocation(location);
+    setMapCenter([location.lng, location.lat]);
+    setMapZoom(13);
+    actions.flyTo(location, 13);
+
+    // Add current location marker
+    setCurrentLocationMarker({
+      id: 'current-location',
+      lat: location.lat,
+      lng: location.lng,
+      name: 'Your Location',
+      category: 'CURRENT_LOCATION'
+    });
+
+    actions.addMarker({
+      id: 'current-location',
+      lat: location.lat,
+      lng: location.lng,
+      name: 'Your Location',
+      category: 'CURRENT_LOCATION',
+      address: 'Current Location'
+    });
+  };
+
+  const handleLocationDenied = (error) => {
+    console.log('Location denied:', error);
+  };
+
+  const handleRouteCalculated = (route) => {
+    setRouteData(route);
+    // You could draw the route on the map here
+    console.log('Route calculated:', route);
+  };
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className={`relative ${className}`}>
+      <motion.div
+        initial={{ opacity: 0, height: 0 }}
+        animate={{ opacity: 1, height: 600 }}
+        exit={{ opacity: 0, height: 0 }}
+        className="relative rounded-2xl overflow-hidden border-2 border-cyan-500/30 shadow-2xl bg-gradient-to-br from-neutral-900 to-neutral-800"
+      >
+        {/* Map Controls Header */}
+        <div className="absolute top-0 left-0 right-0 z-10 p-4">
+          <div className="bg-gradient-to-r from-neutral-900/95 to-neutral-800/95 backdrop-blur-xl rounded-xl border border-neutral-700/50 p-3 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+                  <Map size={16} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Interactive Map</h3>
+                  <p className="text-xs text-cyan-400">
+                    {mapStyle === 'satellite' ? 'Satellite View' : mapStyle.charAt(0).toUpperCase() + mapStyle.slice(1)}
+                    {showTraffic && ' • Traffic ON'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Satellite Toggle */}
+                <button
+                  onClick={toggleMapStyle}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    mapStyle === 'satellite'
+                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/30'
+                      : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 border border-neutral-700/50'
+                  }`}
+                  title="Toggle map style"
+                >
+                  <Layers size={14} />
+                  <span className="hidden sm:inline">{mapStyle === 'satellite' ? 'Satellite' : 'Street'}</span>
+                </button>
+
+                {/* Traffic Toggle */}
+                <button
+                  onClick={toggleTraffic}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    showTraffic
+                      ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white shadow-lg shadow-orange-500/30'
+                      : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 border border-neutral-700/50'
+                  }`}
+                  title="Toggle traffic overlay"
+                >
+                  <Navigation size={14} />
+                  <span className="hidden sm:inline">Traffic</span>
+                </button>
+
+                {/* Traffic Cameras Toggle */}
+                <button
+                  onClick={() => setShowTrafficCams(prev => !prev)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    showTrafficCams
+                      ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/30'
+                      : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 border border-neutral-700/50'
+                  }`}
+                  title="View live traffic cameras"
+                >
+                  <Camera size={14} />
+                  <span className="hidden sm:inline">Cameras</span>
+                </button>
+
+                {/* Directions Toggle */}
+                <button
+                  onClick={() => setShowDirections(prev => !prev)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    showDirections
+                      ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg shadow-green-500/30'
+                      : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 border border-neutral-700/50'
+                  }`}
+                  title="Get directions"
+                >
+                  <NavigationIcon size={14} />
+                  <span className="hidden sm:inline">Directions</span>
+                </button>
+
+                {/* Current Location Button */}
+                <button
+                  onClick={() => setShowLocationModal(true)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all bg-neutral-800 text-neutral-400 hover:bg-neutral-700 border border-neutral-700/50 hover:border-blue-500/50 hover:text-blue-400"
+                  title="Get current location"
+                >
+                  <MapPin size={14} />
+                  <span className="hidden sm:inline">My Location</span>
+                </button>
+
+                {/* Close Button */}
+                <button
+                  onClick={handleClose}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  title="Close map"
+                >
+                  <X size={18} className="text-white" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Map Container */}
+        <div className="w-full h-full">
+          <TruegleMap
+            provider="mapbox"
+            style={mapStyle}
+            center={mapCenter}
+            zoom={mapZoom}
+            showTraffic={showTraffic}
+          />
+        </div>
+
+        {/* Traffic Legend (when traffic is enabled) */}
+        <AnimatePresence>
+          {showTraffic && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="absolute bottom-4 left-4 bg-neutral-900/95 backdrop-blur-xl rounded-xl border border-neutral-700/50 p-3 shadow-lg z-10"
+            >
+              <h4 className="text-xs font-semibold text-white mb-2">Traffic Conditions</h4>
+              <div className="space-y-1 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-1 bg-green-500 rounded"></div>
+                  <span className="text-white/70">Low</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-1 bg-yellow-500 rounded"></div>
+                  <span className="text-white/70">Moderate</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-1 bg-orange-500 rounded"></div>
+                  <span className="text-white/70">Heavy</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-1 bg-red-500 rounded"></div>
+                  <span className="text-white/70">Severe</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Truegle Logo */}
+        <div className="absolute bottom-4 right-4 z-10">
+          <img
+            src={truegleLogo}
+            alt="Truegle"
+            className="h-8 w-auto opacity-80 hover:opacity-100 transition-opacity"
+          />
+        </div>
+      </motion.div>
+
+      {/* Traffic Cameras Panel */}
+      <AnimatePresence>
+        {showTrafficCams && (
+          <TrafficCameras
+            userLocation={userLocation || (detectedLocation?.coordinates && {
+              lat: detectedLocation.coordinates.lat,
+              lng: detectedLocation.coordinates.lng
+            })}
+            isOpen={showTrafficCams}
+            onClose={() => setShowTrafficCams(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Directions Panel */}
+      <AnimatePresence>
+        {showDirections && (
+          <DirectionsPanel
+            isOpen={showDirections}
+            onClose={() => setShowDirections(false)}
+            userLocation={userLocation}
+            onRouteCalculated={handleRouteCalculated}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Location Permission Modal */}
+      <LocationPermissionModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        onLocationGranted={handleLocationGranted}
+        onLocationDenied={handleLocationDenied}
+      />
+        <LogoOverlay />
+
+    </div>
+  );
+}

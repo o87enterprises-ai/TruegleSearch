@@ -1,0 +1,51 @@
+import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { Home, Search } from 'lucide-react';
+import TruegleLogo from '../components/ui/TruegleLogo';
+import NeonButton from '../components/ui/NeonButton';
+
+export default function NotFound() {
+  const navigate = useNavigate();
+
+  return (
+    <div className="min-h-screen bg-black flex items-center justify-center px-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-center max-w-md"
+      >
+        <TruegleLogo size="large" animated={true} className="mb-8" />
+
+        <h1 className="text-9xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 mb-4">
+          404
+        </h1>
+
+        <h2 className="text-3xl font-bold text-white mb-4">Page Not Found</h2>
+
+        <p className="text-gray-400 mb-8">
+          The page you're looking for doesn't exist or has been moved.
+        </p>
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <NeonButton
+            variant="primary"
+            onClick={() => navigate('/')}
+            className="group"
+          >
+            <Home className="inline mr-2" size={20} />
+            Go Home
+          </NeonButton>
+
+          <NeonButton
+            variant="secondary"
+            onClick={() => navigate('/search')}
+            className="group"
+          >
+            <Search className="inline mr-2" size={20} />
+            Start Searching
+          </NeonButton>
+        </div>
+      </motion.div>
+    </div>
+  );
+}

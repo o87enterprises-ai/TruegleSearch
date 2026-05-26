@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head><title>Truegle API Test</title></head>
+<body>
+  <h1>Truegle Frontend-Backend Connection Test</h1>
+  <div id="results"></div>
+  
+  <script>
+    const results = document.getElementById('results');
+    
+    // Test if VITE_BACKEND_URL is set
+    const backendUrl = import.meta.env?.VITE_BACKEND_URL || window.location.origin + '/api';
+    results.innerHTML += '<p>🔗 Backend URL: ' + backendUrl + '</p>';
+    
+    // Test API connection
+    fetch(backendUrl + '/health')
+      .then(r => r.json())
+      .then(data => {
+        results.innerHTML += '<p>✅ Backend Connected: ' + data.status + '</p>';
+        
+        // Test search
+        return fetch(backendUrl + '/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: 'test search',
+            filters: { category: 'web', page: 1, perPage: 2 }
+          })
+        });
+      })
+      .then(r => r.json())
+      .then(data => {
+        results.innerHTML += '<p>✅ Search Working: ' + data.resultCount + ' results</p>';
+        results.innerHTML += '<p>📝 First result: ' + data.results[0].title + '</p>';
+      })
+      .catch(err => {
+        results.innerHTML += '<p>❌ Error: ' + err.message + '</p>';
+      });
+  </script>
+</body>
+</html>

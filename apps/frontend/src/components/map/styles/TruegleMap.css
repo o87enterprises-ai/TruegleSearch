@@ -1,0 +1,545 @@
+.truegle-map-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.truegle-map-container.mapboxgl-map {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.truegle-map-logo {
+  position: absolute;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.truegle-map-logo:hover {
+  opacity: 1;
+}
+
+.truegle-map-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.truegle-map-controls.mobile {
+  top: auto;
+  bottom: 16px;
+  right: 16px;
+}
+
+.truegle-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: rgba(10, 10, 10, 0.9);
+  border: 1px solid #00bcdd;
+  border-radius: 8px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.truegle-control-btn:hover {
+  background: rgba(0, 188, 221, 0.2);
+  transform: scale(1.05);
+}
+
+.truegle-control-btn.active {
+  background: rgba(0, 188, 221, 0.3);
+  border-color: #00d4ff;
+}
+
+.truegle-control-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.truegle-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(10, 10, 10, 0.9);
+  border: 1px solid #4e22ab;
+  border-radius: 8px;
+  padding: 8px;
+  backdrop-filter: blur(8px);
+}
+
+.truegle-map-search {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.truegle-map-search.mobile {
+  top: auto;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+}
+
+.truegle-search-input {
+  width: 320px;
+  max-width: calc(100vw - 64px);
+  padding: 12px 16px;
+  background: rgba(10, 10, 10, 0.95);
+  border: 2px solid #00bcdd;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.truegle-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.truegle-search-input:focus {
+  border-color: #00d4ff;
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+}
+
+.truegle-search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid #00bcdd;
+  border-radius: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  backdrop-filter: blur(8px);
+}
+
+.truegle-search-suggestions.mobile {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
+.truegle-suggestion-item {
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.truegle-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.truegle-suggestion-item:hover {
+  background: rgba(0, 188, 221, 0.2);
+}
+
+.truegle-suggestion-item .name {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.truegle-suggestion-item .address {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 4px;
+}
+
+.truegle-marker {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.truegle-marker:hover {
+  transform: scale(1.2);
+  z-index: 100;
+}
+
+.truegle-cluster {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: bold;
+  color: #ffffff;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.truegle-cluster:hover {
+  transform: scale(1.1);
+  z-index: 100;
+}
+
+.truegle-popup {
+  background: rgba(10, 10, 10, 0.95);
+  border: 2px solid #00bcdd;
+  border-radius: 8px;
+  padding: 16px;
+  color: #ffffff;
+  max-width: 300px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.truegle-popup .name {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #ffffff;
+}
+
+.truegle-popup .address {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 12px;
+}
+
+.truegle-popup .category {
+  display: inline-block;
+  padding: 4px 8px;
+  background: rgba(0, 188, 221, 0.2);
+  border: 1px solid #00bcdd;
+  border-radius: 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.truegle-popup .rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.truegle-popup .rating .stars {
+  color: #fcce00;
+}
+
+.truegle-popup .rating .score {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.truegle-popup .actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.truegle-popup-action {
+  flex: 1;
+  padding: 8px 12px;
+  background: rgba(0, 188, 221, 0.2);
+  border: 1px solid #00bcdd;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.truegle-popup-action:hover {
+  background: rgba(0, 188, 221, 0.4);
+}
+
+.truegle-popup-action.primary {
+  background: rgba(0, 188, 221, 0.3);
+  border-color: #00d4ff;
+}
+
+.truegle-map-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.truegle-map-loading .spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #00bcdd;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.truegle-map-loading .text {
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.truegle-map-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  background: rgba(239, 7, 0, 0.95);
+  border: 2px solid #ff0033;
+  border-radius: 8px;
+  padding: 20px;
+  color: #ffffff;
+  text-align: center;
+  max-width: 400px;
+  backdrop-filter: blur(8px);
+}
+
+.truegle-map-error .title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.truegle-map-error .message {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 16px;
+}
+
+.truegle-map-error .retry-btn {
+  padding: 10px 20px;
+  background: #ffffff;
+  border: none;
+  border-radius: 4px;
+  color: #ef0700;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.truegle-map-error .retry-btn:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: scale(1.05);
+}
+
+.truegle-fullscreen-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1000;
+  width: 44px;
+  height: 44px;
+  background: rgba(10, 10, 10, 0.9);
+  border: 1px solid #00bcdd;
+  border-radius: 8px;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.truegle-fullscreen-btn:hover {
+  background: rgba(0, 188, 221, 0.2);
+  transform: scale(1.05);
+}
+
+.truegle-fullscreen-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Current location marker with pulsing animation */
+.current-location-marker {
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.5);
+  }
+}
+
+@media (max-width: 768px) {
+  .truegle-map-search {
+    width: calc(100% - 32px);
+  }
+
+  .truegle-search-input {
+    width: 100%;
+  }
+
+  .truegle-popup {
+    max-width: calc(100vw - 48px);
+  }
+
+  .truegle-map-controls {
+    top: auto;
+    bottom: 16px;
+    right: 16px;
+  }
+}
+
+/* Traditional Map Controls - Top Left */
+.truegle-traditional-controls {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 150;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid rgba(0, 188, 221, 0.5);
+  border-radius: 8px;
+  padding: 2px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.truegle-traditional-controls .truegle-control-btn {
+  width: 38px;
+  height: 38px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.truegle-traditional-controls .truegle-control-btn:hover {
+  background: rgba(0, 188, 221, 0.2);
+  color: #ffffff;
+}
+
+.truegle-traditional-controls .truegle-control-btn:active {
+  background: rgba(0, 188, 221, 0.3);
+  transform: scale(0.95);
+}
+
+.truegle-traditional-controls .truegle-control-close {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ef0700;
+}
+
+.truegle-traditional-controls .truegle-control-close:hover {
+  background: rgba(239, 7, 0, 0.2);
+  color: #ff0033;
+}
+
+.truegle-traditional-controls .truegle-control-zoom-in {
+  font-weight: bold;
+  font-size: 20px;
+}
+
+.truegle-traditional-controls .truegle-control-zoom-out {
+  font-weight: bold;
+  font-size: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.truegle-traditional-controls .truegle-control-fullscreen {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.truegle-traditional-controls .truegle-control-fullscreen:hover {
+  color: #00d4ff;
+}
+
+/* View Mode Buttons */
+.truegle-view-buttons {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 100;
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  background: rgba(10, 10, 10, 0.9);
+  border: 1px solid #4e22ab;
+  border-radius: 8px;
+  padding: 4px;
+  backdrop-filter: blur(8px);
+}
+
+.truegle-view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.truegle-view-btn:hover {
+  background: rgba(0, 188, 221, 0.1);
+  color: #ffffff;
+}
+
+.truegle-view-btn.active {
+  background: rgba(0, 188, 221, 0.2);
+  border-color: #00bcdd;
+  color: #00d4ff;
+}
+
+/* Map Style Controls - Removed (functionality moved to side view buttons) */
+
+@media (max-width: 768px) {
+  .truegle-traditional-controls {
+    top: 16px;
+    left: 16px;
+  }
+
+  .truegle-view-buttons {
+    flex-direction: column;
+    top: auto;
+    bottom: 120px;
+    right: 16px;
+  }
+}

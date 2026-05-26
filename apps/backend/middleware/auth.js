@@ -1,0 +1,149 @@
+const jwt = require('jsonwebtoken');
+const logger = require('../utils/logger');
+
+/**
+ * Authentication middleware
+ * Verifies JWT tokens for protected routes
+ */
+const authenticate = (req, res, next) => {
+  try {
+    // Get token from header
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        error: 'Authentication required',
+        message: 'Please provide a valid authentication token',
+      });
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+    // Verify token - JWT_SECRET is required, no fallback allowed
+    if (!process.env.JWT_SECRET) {
+      logger.error('CRITICAL: JWT_SECRET environment variable is not set');
+      return res.status(500).json({
+        error: 'Server configuration error',
+        message: 'Authentication service is not properly configured',
+      });
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Add user info to request
+    req.user = {
+      userId: decoded.userId,
+      email: decoded.email,
+      role: decoded.role || 'user',
+    };
+
+    next();
+  } catch (error) {
+    logger.warn('Authentication failed', {
+      error: error.message,
+      name: error.name,
+    });
+
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        error: 'Token expired',
+        message: 'Your session has expired. Please sign in again.',
+      });
+    }
+
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        error: 'Invalid token',
+        message: 'Authentication token is invalid.',
+      });
+    }
+
+    res.status(500).json({
+      error: 'Authentication failed',
+      message: 'Unable to authenticate request.',
+    });
+  }
+};
+
+/**
+ * Optional authentication middleware
+ * Sets user info if token exists, but doesn't require it
+ */
+const optionalAuth = (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (
+      authHeader &&
+      authHeader.startsWith('Bearer ') &&
+      process.env.JWT_SECRET
+    ) {
+      const token = authHeader.substring(7);
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      req.user = {
+        userId: decoded.userId,
+        email: decoded.email,
+        role: decoded.role || 'user',
+        isAuthenticated: true,
+      };
+    } else {
+      req.user = {
+        isAuthenticated: false,
+        role: 'guest',
+      };
+    }
+
+    next();
+  } catch (error) {
+    // If token is invalid, treat as unauthenticated
+    req.user = {
+      isAuthenticated: false,
+      role: 'guest',
+    };
+    next();
+  }
+};
+
+/**
+ * Admin role requirement middleware
+ */
+const requireAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({
+      error: 'Access denied',
+      message: 'Administrator privileges required.',
+    });
+  }
+  next();
+};
+
+/**
+ * Premium user requirement middleware
+ * Must be used after authenticate middleware
+ */
+const requirePremium = async (req, res, next) => {
+  try {
+    const TokenService = require('../services/TokenService');
+    const balance = await TokenService.getBalance(req.user.userId);
+    if (!balance.isPremium) {
+      return res.status(403).json({
+        error: 'Premium required',
+        message: 'This feature requires a premium subscription.',
+      });
+    }
+    next();
+  } catch (error) {
+    logger.error('Premium check failed', { error: error.message });
+    res.status(500).json({
+      error: 'Authorization check failed',
+      message: 'Unable to verify subscription status.',
+    });
+  }
+};
+
+module.exports = {
+  authenticate,
+  optionalAuth,
+  requireAdmin,
+  requirePremium,
+};

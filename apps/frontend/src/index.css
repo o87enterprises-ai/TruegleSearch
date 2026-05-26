@@ -1,0 +1,846 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import Truegle design system typography */
+@import './styles/typography.css';
+
+/* Import standardized layout classes */
+@import './styles/standardized-layout.css';
+
+/* Import search components styles */
+@import './styles/search-components.css';
+
+:root {
+  /* Spacing scale */
+  --ds-space-0: 0px;
+  --ds-space-px: 1px;
+  --ds-space-0-5: 4px;
+  --ds-space-1: 8px;
+  --ds-space-1-5: 12px;
+  --ds-space-2: 16px;
+  --ds-space-2-5: 20px;
+  --ds-space-3: 24px;
+  --ds-space-3-5: 28px;
+  --ds-space-4: 32px;
+  --ds-space-5: 40px;
+  --ds-space-6: 48px;
+  --ds-space-7: 56px;
+  --ds-space-8: 64px;
+  --ds-space-9: 72px;
+  --ds-space-10: 80px;
+  --ds-space-11: 88px;
+  --ds-space-12: 96px;
+  --ds-space-14: 112px;
+  --ds-space-16: 128px;
+  --ds-space-20: 160px;
+  --ds-space-24: 192px;
+  --ds-space-28: 224px;
+  --ds-space-32: 256px;
+
+  /* Component padding */
+  --ds-component-padding-xs: 8px;
+  --ds-component-padding-sm: 12px;
+  --ds-component-padding-md: 16px;
+  --ds-component-padding-lg: 24px;
+  --ds-component-padding-xl: 32px;
+
+  /* Section gap */
+  --ds-section-gap-tight: 16px;
+  --ds-section-gap-default: 24px;
+  --ds-section-gap-loose: 48px;
+  --ds-section-gap-spacious: 64px;
+
+  /* Inline gap */
+  --ds-inline-gap-tight: 4px;
+  --ds-inline-gap-default: 8px;
+  --ds-inline-gap-loose: 12px;
+
+  /* Stack gap */
+  --ds-stack-gap-tight: 8px;
+  --ds-stack-gap-default: 16px;
+  --ds-stack-gap-loose: 24px;
+
+  /* Container padding */
+  --ds-container-padding-mobile: 16px;
+  --ds-container-padding-tablet: 24px;
+  --ds-container-padding-desktop: 32px;
+
+  /* Modal padding */
+  --ds-modal-padding-mobile: 16px;
+  --ds-modal-padding-tablet: 24px;
+  --ds-modal-padding-desktop: 32px;
+
+  /* Section padding */
+  --ds-section-padding-mobile: 32px;
+  --ds-section-padding-tablet: 64px;
+  --ds-section-padding-desktop: 96px;
+
+  /* Typography */
+  --ds-font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --ds-font-family-mono: 'SF Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+  --ds-font-family-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Font weights */
+  --ds-font-weight-thin: 100;
+  --ds-font-weight-light: 300;
+  --ds-font-weight-regular: 400;
+  --ds-font-weight-medium: 500;
+  --ds-font-weight-semibold: 600;
+  --ds-font-weight-bold: 700;
+  --ds-font-weight-extrabold: 800;
+  --ds-font-weight-black: 900;
+
+  /* Typography scale */
+  --ds-font-size-h1: 48px;
+  --ds-line-height-h1: 56px;
+  --ds-font-weight-h1: 800;
+  --ds-letter-spacing-h1: -0.02em;
+
+  --ds-font-size-h2: 36px;
+  --ds-line-height-h2: 44px;
+  --ds-font-weight-h2: 700;
+  --ds-letter-spacing-h2: -0.01em;
+
+  --ds-font-size-h3: 28px;
+  --ds-line-height-h3: 36px;
+  --ds-font-weight-h3: 600;
+  --ds-letter-spacing-h3: -0.005em;
+
+  --ds-font-size-h4: 22px;
+  --ds-line-height-h4: 28px;
+  --ds-font-weight-h4: 600;
+  --ds-letter-spacing-h4: 0;
+
+  --ds-font-size-h5: 18px;
+  --ds-line-height-h5: 26px;
+  --ds-font-weight-h5: 600;
+  --ds-letter-spacing-h5: 0;
+
+  --ds-font-size-h6: 16px;
+  --ds-line-height-h6: 24px;
+  --ds-font-weight-h6: 600;
+  --ds-letter-spacing-h6: 0.01em;
+
+  --ds-font-size-body-large: 18px;
+  --ds-line-height-body-large: 28px;
+  --ds-font-weight-body-large: 400;
+
+  --ds-font-size-body-default: 16px;
+  --ds-line-height-body-default: 24px;
+  --ds-font-weight-body-default: 400;
+
+  --ds-font-size-body-small: 14px;
+  --ds-line-height-body-small: 20px;
+  --ds-font-weight-body-small: 400;
+
+  --ds-font-size-caption-default: 12px;
+  --ds-line-height-caption-default: 16px;
+  --ds-font-weight-caption-default: 400;
+  --ds-letter-spacing-caption-default: 0.02em;
+
+  --ds-font-size-caption-uppercase: 11px;
+  --ds-line-height-caption-uppercase: 16px;
+  --ds-font-weight-caption-uppercase: 600;
+  --ds-letter-spacing-caption-uppercase: 0.08em;
+
+  --ds-font-size-label-default: 14px;
+  --ds-line-height-label-default: 20px;
+  --ds-font-weight-label-default: 500;
+
+  --ds-font-size-label-small: 12px;
+  --ds-line-height-label-small: 16px;
+  --ds-font-weight-label-small: 500;
+
+  --ds-font-size-button-xs: 12px;
+  --ds-line-height-button-xs: 16px;
+  --ds-font-weight-button-xs: 600;
+  --ds-letter-spacing-button-xs: 0.02em;
+
+  --ds-font-size-button-sm: 13px;
+  --ds-line-height-button-sm: 18px;
+  --ds-font-weight-button-sm: 600;
+
+  --ds-font-size-button-md: 14px;
+  --ds-line-height-button-md: 20px;
+  --ds-font-weight-button-md: 600;
+
+  --ds-font-size-button-lg: 16px;
+  --ds-line-height-button-lg: 24px;
+  --ds-font-weight-button-lg: 600;
+
+  --ds-font-size-code-inline: 14px;
+  --ds-line-height-code-inline: 20px;
+  --ds-font-weight-code-inline: 400;
+
+  --ds-font-size-code-block: 13px;
+  --ds-line-height-code-block: 20px;
+  --ds-font-weight-code-block: 400;
+
+  /* Colors - Neutral scale */
+  --ds-color-neutral-0: #FFFFFF;
+  --ds-color-neutral-50: #FAFAFA;
+  --ds-color-neutral-100: #F4F4F5;
+  --ds-color-neutral-200: #E4E4E7;
+  --ds-color-neutral-300: #D4D4D8;
+  --ds-color-neutral-400: #A1A1AA;
+  --ds-color-neutral-500: #71717A;
+  --ds-color-neutral-600: #52525B;
+  --ds-color-neutral-700: #3F3F46;
+  --ds-color-neutral-800: #27272A;
+  --ds-color-neutral-850: #1F1F23;
+  --ds-color-neutral-900: #18181B;
+  --ds-color-neutral-925: #121214;
+  --ds-color-neutral-950: #09090B;
+
+  /* Background colors */
+  --ds-bg-base: #09090B;
+  --ds-bg-elevated: #18181B;
+  --ds-bg-surface: #27272A;
+  --ds-bg-sunken: #121214;
+  --ds-bg-overlay-light: rgba(0, 0, 0, 0.50);
+  --ds-bg-overlay-medium: rgba(0, 0, 0, 0.70);
+  --ds-bg-overlay-heavy: rgba(0, 0, 0, 0.80);
+  --ds-bg-glass-dark: rgba(15, 15, 35, 0.95);
+  --ds-bg-glass-medium: rgba(15, 15, 35, 0.85);
+  --ds-bg-glass-light: rgba(15, 15, 35, 0.70);
+  --ds-bg-white-alpha-5: rgba(255, 255, 255, 0.05);
+  --ds-bg-white-alpha-10: rgba(255, 255, 255, 0.10);
+  --ds-bg-white-alpha-15: rgba(255, 255, 255, 0.15);
+  --ds-bg-white-alpha-20: rgba(255, 255, 255, 0.20);
+
+  /* Text colors */
+  --ds-text-primary: #FAFAFA;
+  --ds-text-secondary: #A1A1AA;
+  --ds-text-tertiary: #71717A;
+  --ds-text-muted: #52525B;
+  --ds-text-disabled: #3F3F46;
+  --ds-text-inverse: #18181B;
+  --ds-text-on-brand: #FFFFFF;
+
+  /* Border colors */
+  --ds-border-subtle: rgba(255, 255, 255, 0.05);
+  --ds-border-default: rgba(255, 255, 255, 0.10);
+  --ds-border-emphasis: rgba(255, 255, 255, 0.20);
+  --ds-border-strong: rgba(255, 255, 255, 0.30);
+  --ds-border-solid-default: #3F3F46;
+  --ds-border-solid-light: #52525B;
+
+  /* State colors */
+  --ds-color-success-base: #22C55E;
+  --ds-color-success-muted: rgba(34, 197, 94, 0.15);
+  --ds-color-success-border: rgba(34, 197, 94, 0.30);
+  --ds-color-warning-base: #F59E0B;
+  --ds-color-warning-muted: rgba(245, 158, 11, 0.15);
+  --ds-color-warning-border: rgba(245, 158, 11, 0.30);
+  --ds-color-error-base: #EF4444;
+  --ds-color-error-muted: rgba(239, 68, 68, 0.15);
+  --ds-color-error-border: rgba(239, 68, 68, 0.30);
+  --ds-color-info-base: #3B82F6;
+  --ds-color-info-muted: rgba(59, 130, 246, 0.15);
+  --ds-color-info-border: rgba(59, 130, 246, 0.30);
+
+  /* Blur effects */
+  --ds-blur-none: 0;
+  --ds-blur-sm: 4px;
+  --ds-blur-default: 8px;
+  --ds-blur-md: 12px;
+  --ds-blur-lg: 16px;
+  --ds-blur-xl: 24px;
+  --ds-blur-2xl: 40px;
+  --ds-blur-3xl: 64px;
+
+  /* Shadow effects */
+  --ds-shadow-none: none;
+  --ds-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ds-shadow-default: 0 2px 4px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --ds-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --ds-shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.3);
+  --ds-shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.5), 0 8px 16px rgba(0, 0, 0, 0.4);
+  --ds-shadow-2xl: 0 24px 48px rgba(0, 0, 0, 0.6);
+  --ds-shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  --ds-shadow-glow-subtle: 0 0 20px rgba(255, 255, 255, 0.05);
+  --ds-shadow-glow-medium: 0 0 30px rgba(255, 255, 255, 0.10);
+
+  /* Opacity values */
+  --ds-opacity-0: 0;
+  --ds-opacity-5: 0.05;
+  --ds-opacity-10: 0.10;
+  --ds-opacity-20: 0.20;
+  --ds-opacity-25: 0.25;
+  --ds-opacity-30: 0.30;
+  --ds-opacity-40: 0.40;
+  --ds-opacity-50: 0.50;
+  --ds-opacity-60: 0.60;
+  --ds-opacity-70: 0.70;
+  --ds-opacity-75: 0.75;
+  --ds-opacity-80: 0.80;
+  --ds-opacity-90: 0.90;
+  --ds-opacity-95: 0.95;
+  --ds-opacity-100: 1;
+
+  /* Border radius */
+  --ds-radius-none: 0;
+  --ds-radius-sm: 4px;
+  --ds-radius-default: 6px;
+  --ds-radius-md: 8px;
+  --ds-radius-lg: 12px;
+  --ds-radius-xl: 16px;
+  --ds-radius-2xl: 24px;
+  --ds-radius-3xl: 32px;
+  --ds-radius-full: 9999px;
+
+  /* Button border radius */
+  --ds-radius-button-small: 8px;
+  --ds-radius-button-default: 12px;
+  --ds-radius-button-large: 16px;
+
+  /* Card border radius */
+  --ds-radius-card-default: 16px;
+  --ds-radius-card-large: 24px;
+
+  /* Modal border radius */
+  --ds-radius-modal-default: 24px;
+
+  /* Input border radius */
+  --ds-radius-input-default: 12px;
+
+  /* Badge border radius */
+  --ds-radius-badge-default: 6px;
+  --ds-radius-badge-pill: 9999px;
+
+  /* Avatar border radius */
+  --ds-radius-avatar-default: 9999px;
+
+  /* Tooltip border radius */
+  --ds-radius-tooltip-default: 8px;
+
+  /* Motion duration */
+  --ds-duration-instant: 0ms;
+  --ds-duration-fastest: 75ms;
+  --ds-duration-fast: 100ms;
+  --ds-duration-normal: 150ms;
+  --ds-duration-moderate: 200ms;
+  --ds-duration-relaxed: 300ms;
+  --ds-duration-slow: 500ms;
+  --ds-duration-slower: 700ms;
+  --ds-duration-slowest: 1000ms;
+
+  /* Motion easing */
+  --ds-easing-linear: linear;
+  --ds-easing-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ds-easing-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ds-easing-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ds-easing-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ds-easing-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ds-easing-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+  /* Component sizes */
+  --ds-button-height-xs: 28px;
+  --ds-button-padding-xs: 0 12px;
+  --ds-button-font-size-xs: 12px;
+  --ds-button-icon-size-xs: 14px;
+  --ds-button-gap-xs: 4px;
+
+  --ds-button-height-sm: 36px;
+  --ds-button-padding-sm: 0 16px;
+  --ds-button-font-size-sm: 13px;
+  --ds-button-icon-size-sm: 16px;
+  --ds-button-gap-sm: 6px;
+
+  --ds-button-height-md: 44px;
+  --ds-button-padding-md: 0 20px;
+  --ds-button-font-size-md: 14px;
+  --ds-button-icon-size-md: 18px;
+  --ds-button-gap-md: 8px;
+
+  --ds-button-height-lg: 52px;
+  --ds-button-padding-lg: 0 24px;
+  --ds-button-font-size-lg: 16px;
+  --ds-button-icon-size-lg: 20px;
+  --ds-button-gap-lg: 8px;
+
+  --ds-button-height-xl: 60px;
+  --ds-button-padding-xl: 0 32px;
+  --ds-button-font-size-xl: 18px;
+  --ds-button-icon-size-xl: 22px;
+  --ds-button-gap-xl: 10px;
+
+  /* Icon button sizes */
+  --ds-icon-button-size-sm: 32px;
+  --ds-icon-button-icon-size-sm: 16px;
+  --ds-icon-button-size-md: 40px;
+  --ds-icon-button-icon-size-md: 20px;
+  --ds-icon-button-size-lg: 48px;
+  --ds-icon-button-icon-size-lg: 24px;
+
+  /* Input sizes */
+  --ds-input-height: 48px;
+  --ds-input-padding: 0 16px;
+  --ds-input-padding-with-icon: 0 16px 0 48px;
+  --ds-input-font-size: 16px;
+  --ds-input-icon-size: 20px;
+  --ds-input-padding-left: 48px;
+
+  --ds-input-height-sm: 36px;
+  --ds-input-font-size-sm: 14px;
+
+  --ds-input-height-md: 44px;
+  --ds-input-font-size-md: 16px;
+
+  --ds-input-height-lg: 52px;
+  --ds-input-font-size-lg: 18px;
+
+  /* Textarea */
+  --ds-textarea-min-height: 120px;
+
+  /* Modal sizes */
+  --ds-modal-max-width-sm: 400px;
+  --ds-modal-max-width-md: 480px;
+  --ds-modal-max-width-lg: 640px;
+  --ds-modal-max-width-xl: 768px;
+  --ds-modal-max-width-full: 90vw;
+
+  /* Badge sizes */
+  --ds-badge-padding-sm: 2px 8px;
+  --ds-badge-font-size-sm: 11px;
+  --ds-badge-padding-md: 4px 12px;
+  --ds-badge-font-size-md: 12px;
+  --ds-badge-padding-lg: 6px 16px;
+  --ds-badge-font-size-lg: 14px;
+
+  /* Tooltip */
+  --ds-tooltip-padding: var(--ds-space-1) var(--ds-space-1-5);
+  --ds-tooltip-font-size: 13px;
+  --ds-tooltip-max-width: 280px;
+  --ds-tooltip-arrow-size: 6px;
+
+  /* Avatar sizes */
+  --ds-avatar-size-xs: 24px;
+  --ds-avatar-size-sm: 32px;
+  --ds-avatar-size-md: 40px;
+  --ds-avatar-size-lg: 48px;
+  --ds-avatar-size-xl: 64px;
+
+  /* Toggle */
+  --ds-toggle-track-width: 44px;
+  --ds-toggle-track-height: 24px;
+  --ds-toggle-thumb-size: 20px;
+
+  /* Container max widths */
+  --ds-container-max-width-sm: 640px;
+  --ds-container-max-width-md: 768px;
+  --ds-container-max-width-lg: 1024px;
+  --ds-container-max-width-xl: 1280px;
+  --ds-container-max-width-2xl: 1536px;
+
+  /* Breakpoints */
+  --ds-breakpoint-sm: 640px;
+  --ds-breakpoint-md: 768px;
+  --ds-breakpoint-lg: 1024px;
+  --ds-breakpoint-xl: 1280px;
+  --ds-breakpoint-2xl: 1536px;
+
+  /* Z-index values - Unified layer system */
+  /* Background layers: 0-9 */
+  --ds-z-index-bg-base: 0;
+  --ds-z-index-bg-animation: 1;
+  --ds-z-index-bg-overlay: 5;
+
+  /* Content layers: 10-39 */
+  --ds-z-index-base: 10;
+  --ds-z-index-content: 15;
+  --ds-z-index-dropdown: 20;
+  --ds-z-index-sticky: 25;
+  --ds-z-index-fixed: 30;
+
+  /* UI layers: 40-79 */
+  --ds-z-index-modal-backdrop: 40;
+  --ds-z-index-modal: 50;
+  --ds-z-index-popover: 60;
+  --ds-z-index-tooltip: 70;
+
+  /* System layers: 80-100 */
+  --ds-z-index-notification: 80;
+  --ds-z-index-skip-link: 90;
+  --ds-z-index-loading: 100;
+  --ds-z-index-max: 9999;
+
+  /* Focus ring */
+  --ds-focus-ring-width: 2px;
+  --ds-focus-ring-offset: 2px;
+  --ds-focus-ring-color: rgba(255, 255, 255, 0.5);
+
+  /* Touch target */
+  --ds-touch-target-minimum: 44px;
+  --ds-touch-target-recommended: 48px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport height - fixes Mobile Safari address bar issue */
+  font-family: var(--ds-font-family-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  color: #111827;
+}
+
+/* Apply design system typography scale to heading elements */
+h1 {
+  font-size: var(--ds-font-size-h1);
+  line-height: var(--ds-line-height-h1);
+  font-weight: var(--ds-font-weight-h1);
+  letter-spacing: var(--ds-letter-spacing-h1);
+}
+
+h2 {
+  font-size: var(--ds-font-size-h2);
+  line-height: var(--ds-line-height-h2);
+  font-weight: var(--ds-font-weight-h2);
+  letter-spacing: var(--ds-letter-spacing-h2);
+}
+
+h3 {
+  font-size: var(--ds-font-size-h3);
+  line-height: var(--ds-line-height-h3);
+  font-weight: var(--ds-font-weight-h3);
+  letter-spacing: var(--ds-letter-spacing-h3);
+}
+
+h4 {
+  font-size: var(--ds-font-size-h4);
+  line-height: var(--ds-line-height-h4);
+  font-weight: var(--ds-font-weight-h4);
+  letter-spacing: var(--ds-letter-spacing-h4);
+}
+
+h5 {
+  font-size: var(--ds-font-size-h5);
+  line-height: var(--ds-line-height-h5);
+  font-weight: var(--ds-font-weight-h5);
+  letter-spacing: var(--ds-letter-spacing-h5);
+}
+
+h6 {
+  font-size: var(--ds-font-size-h6);
+  line-height: var(--ds-line-height-h6);
+  font-weight: var(--ds-font-weight-h6);
+  letter-spacing: var(--ds-letter-spacing-h6);
+}
+
+p {
+  font-size: var(--ds-font-size-body-default);
+  line-height: var(--ds-line-height-body-default);
+  font-weight: var(--ds-font-weight-body-default);
+}
+
+small, .text-small {
+  font-size: var(--ds-font-size-body-small);
+  line-height: var(--ds-line-height-body-small);
+  font-weight: var(--ds-font-weight-body-small);
+}
+
+label, .label {
+  font-size: var(--ds-font-size-label-default);
+  line-height: var(--ds-line-height-label-default);
+  font-weight: var(--ds-font-weight-label-default);
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport height - fixes Mobile Safari address bar issue */
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Essential for WebGL layers */
+.webgl-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Enable mouse events only on specific layers */
+.webgl-interactive {
+  pointer-events: auto;
+}
+
+/* Ensure proper stacking */
+.animation-layer {
+  isolation: isolate;
+}
+
+/* Performance optimizations for WebGL */
+.page-hidden canvas {
+  animation-play-state: paused !important;
+}
+
+/* Ensure proper layering - NOTE: will-change removed to prevent Safari fixed positioning bugs */
+.fixed {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Apply will-change only to animated elements, not fixed containers */
+.animation-layer canvas,
+.webgl-container canvas {
+  will-change: transform, opacity;
+}
+
+/* Smooth scrolling */
+/* CSS lint suppression: text-size-adjust is part of typography framework, warnings are expected */
+html {
+  scroll-behavior: smooth;
+  text-size-adjust: 100%; /* @csstextignore */
+  -webkit-text-size-adjust: 100%; /* @csstextignore */
+}
+
+/* Optimize GPU rendering - Prioritize smooth rendering for WebGL animations */
+.webgl-container canvas {
+  image-rendering: auto; /* Safe default for smooth gradients */
+  image-rendering: -webkit-optimize-contrast; /* Chrome/Safari optimization */
+  /* Note: 'pixelated' removed - only use for intentional pixel art */
+}
+
+/* Performance classes */
+.low-performance .webgl-interactive {
+  pointer-events: none;
+}
+
+.low-performance canvas {
+  filter: blur(1px);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .webgl-container {
+    overflow: hidden; /* Prevent horizontal scroll from scaled canvas */
+  }
+
+  .webgl-container canvas {
+    transform: scale(1.1); /* Prevent edges on mobile */
+    transform-origin: center center; /* Ensure scaling is centered */
+  }
+
+  .webgl-interactive {
+    pointer-events: none; /* Disable heavy interactions on mobile */
+  }
+}
+
+/* Animation keyframes */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+.animate-twinkle {
+  animation: twinkle 3s infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+/* Animation pause when tab is not visible */
+.animations-paused * {
+  animation-play-state: paused !important;
+}
+
+.animations-paused canvas {
+  animation-play-state: paused !important;
+}
+
+/* ========================================
+   Global Focus Visible Styles
+   ======================================== */
+
+/* Remove default outline, add custom focus ring */
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid rgb(52, 211, 153);
+  outline-offset: 2px;
+}
+
+/* Button focus states */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid rgb(52, 211, 153);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.15);
+}
+
+/* Input focus states */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  border-color: rgb(52, 211, 153);
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15);
+}
+
+/* Link focus states */
+a:focus-visible {
+  outline: 2px solid rgb(52, 211, 153);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Skip to content link for accessibility */
+.skip-to-content {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: rgb(52, 211, 153);
+  color: rgb(9, 9, 11);
+  padding: var(--ds-space-1) var(--ds-space-2);
+  z-index: var(--ds-z-index-skip-link);
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 0 0 8px 0;
+  transition: top 0.2s ease-out;
+}
+
+.skip-to-content:focus {
+  top: 0;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  *:focus-visible {
+    outline-width: 3px;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    border-width: 2px;
+  }
+}
+canvas { display: block !important; margin: 0 auto !important; image-rendering: pixelated !important; }
+
+/* ========================================
+   Toroidal Rings Background Styles
+   ======================================== */
+
+/* Fullscreen container */
+.toroidal-bg-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* Canvas fills viewport */
+.toroidal-bg-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Centered globe wrapper */
+.toroidal-globe-wrapper {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* Wireframe globe */
+.toroidal-globe {
+  position: relative;
+  width: min(220px, 35vmin);
+  height: min(220px, 35vmin);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9), transparent 55%),
+    radial-gradient(circle at 70% 70%, rgba(0, 200, 255, 0.8), transparent 60%),
+    radial-gradient(circle at 50% 120%, rgba(255, 0, 150, 0.7), transparent 65%);
+  box-shadow:
+    0 0 40px rgba(0, 200, 255, 0.7),
+    0 0 80px rgba(255, 0, 150, 0.5);
+  overflow: hidden;
+}
+
+/* Longitude lines */
+.toroidal-globe::before,
+.toroidal-globe::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-image: repeating-linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.35) 0,
+      rgba(255, 255, 255, 0.35) 1px,
+      transparent 1px,
+      transparent 10px
+    );
+  mix-blend-mode: screen;
+  opacity: 0.9;
+}
+
+/* Latitudes via rotated overlay */
+.toroidal-globe::after {
+  background-image: repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.25) 0,
+      rgba(255, 255, 255, 0.25) 1px,
+      transparent 1px,
+      transparent 10px
+    );
+  animation: globe-spin 18s linear infinite;
+}
+
+@keyframes globe-spin {
+  0% {
+    transform: rotateX(55deg) rotateZ(0deg);
+  }
+  50% {
+    transform: rotateX(55deg) rotateZ(180deg);
+  }
+  100% {
+    transform: rotateX(55deg) rotateZ(360deg);
+  }
+}

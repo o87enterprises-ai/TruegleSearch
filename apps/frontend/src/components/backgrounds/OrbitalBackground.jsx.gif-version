@@ -1,0 +1,98 @@
+import { useEffect, useState } from 'react';
+import './OrbitalBackground.css';
+
+// Your NASA ISS GIFs
+const GIF_PLAYLIST = [
+  '/videos/leo-1.gif',
+  '/videos/leo-2.gif',
+  '/videos/leo-3.gif',
+  '/videos/leo-4.gif',
+  '/videos/leo-5.gif',
+  '/videos/leo-6.gif',
+  '/videos/leo-7.gif',
+  '/videos/leo-8.gif',
+  '/videos/leo-9.gif',
+];
+
+export default function OrbitalBackground() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState('--:-- UTC');
+  const [coordinates, setCoordinates] = useState('--.--° N, --.--° W');
+  const [currentGifIndex] = useState(() => 
+    Math.floor(Math.random() * GIF_PLAYLIST.length)
+  );
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = GIF_PLAYLIST[currentGifIndex];
+    
+    img.onload = () => {
+      setTimeout(() => setIsLoading(false), 500);
+    };
+
+    img.onerror = () => {
+      console.error('Failed to load GIF:', GIF_PLAYLIST[currentGifIndex]);
+      setIsLoading(false);
+    };
+
+    const dataInterval = setInterval(() => {
+      const now = new Date();
+      const utcTime = now.toUTCString().split(' ')[4];
+      setCurrentTime(utcTime);
+      
+      const lat = (Math.random() * 103 - 51.6).toFixed(2);
+      const lon = (Math.random() * 360 - 180).toFixed(2);
+      const latDir = parseFloat(lat) >= 0 ? 'N' : 'S';
+      const lonDir = parseFloat(lon) >= 0 ? 'E' : 'W';
+      setCoordinates(`${Math.abs(lat)}° ${latDir}, ${Math.abs(lon)}° ${lonDir}`);
+    }, 3000);
+
+    return () => {
+      clearInterval(dataInterval);
+    };
+  }, [currentGifIndex]);
+
+  return (
+    <div className="orbital-background-container">
+      {isLoading && (
+        <div className="loading-overlay">
+          <div className="loading-spinner"></div>
+          <div className="loading-text">ESTABLISHING ORBITAL LINK</div>
+          <div className="loading-subtext">Synchronizing LEO feed • {408 + Math.floor(Math.random() * 10)} KM</div>
+        </div>
+      )}
+
+      <div 
+        className="orbital-gif"
+        style={{
+          backgroundImage: `url(${GIF_PLAYLIST[currentGifIndex]})`
+        }}
+      />
+
+      <div className="vignette-overlay"></div>
+
+      <div className="orbital-overlay">
+        <div className="data-panel">
+          <div className="data-item">
+            <span className="data-label">ORBITAL HEIGHT</span>
+            <span className="data-value">{408 + Math.floor(Math.random() * 10)} KM</span>
+          </div>
+          <div className="data-item">
+            <span className="data-label">VELOCITY</span>
+            <span className="data-value">27,{580 + Math.floor(Math.random() * 40)} KM/H</span>
+          </div>
+          <div className="data-item">
+            <span className="data-label">COORDINATES</span>
+            <span className="data-value">{coordinates}</span>
+          </div>
+          <div className="data-item">
+            <span className="data-label">TIME (UTC)</span>
+            <span className="data-value">{currentTime}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid-overlay"></div>
+    </div>
+  );
+}

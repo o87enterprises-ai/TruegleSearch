@@ -1,0 +1,230 @@
+import { useRef, useEffect, useContext } from 'react';
+import { Geometry, Program, Mesh, Camera, Transform, Texture } from 'ogl';
+import { useWebGLContext } from './WebGLContextManager';
+import './Galaxy.css';
+
+const Galaxy = ({
+  starSpeed = 0.05,
+  density = 1.0,
+  speed = 1.0,
+  mouseInteraction = false,
+  glowIntensity = 0.3,
+  saturation = 1.0,
+  twinkleIntensity = 0.4,
+  rotationSpeed = 0.05,
+  transparent = true,
+}) => {
+  const containerRef = useRef();
+  const webglContext = useWebGLContext();
+
+  const vertexShader = `
+    attribute vec2 position;
+    attribute vec2 uv;
+    attribute float size;
+    attribute float brightness;
+    attribute float twinkle;
+    
+    uniform float uTime;
+    uniform float uStarSpeed;
+    uniform float uRotationSpeed;
+    uniform float uTwinkleIntensity;
+    uniform vec2 uResolution;
+    uniform vec2 uMouse;
+    uniform bool uMouseInteraction;
+    
+    varying vec2 vUv;
+    varying float vBrightness;
+    varying float vTwinkle;
+    varying vec2 vPos;
+    
+    void main() {
+      vUv = uv;
+      vBrightness = brightness;
+      vTwinkle = twinkle;
+      
+      vec2 pos = position;
+      
+      float angle = uTime * uRotationSpeed * 0.001;
+      mat2 rotation = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
+      pos = rotation * pos;
+      
+      if (uMouseInteraction) {
+        vec2 mouse = uMouse - 0.5;
+        float dist = distance(pos, mouse);
+        float influence = 1.0 - smoothstep(0.0, 0.3, dist);
+        pos += mouse * influence * 0.1;
+      }
+      
+      vPos = pos;
+      gl_Position = vec4(pos, 0.0, 1.0);
+      gl_PointSize = size * (1.0 + sin(uTime * uStarSpeed * 0.001 + twinkle * 6.28) * uTwinkleIntensity);
+    }
+  `;
+
+  const fragmentShader = `
+    precision highp float;
+    
+    uniform float uTime;
+    uniform float uGlowIntensity;
+    uniform float uSaturation;
+    uniform float uSpeed;
+    uniform sampler2D uTexture;
+    
+    varying vec2 vUv;
+    varying float vBrightness;
+    varying float vTwinkle;
+    varying vec2 vPos;
+    
+    vec3 hsv2rgb(vec3 c) {
+      vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+      vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+      return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+    }
+    
+    void main() {
+      vec2 uv = gl_PointCoord - 0.5;
+      float dist = length(uv);
+      
+      if (dist > 0.5) {
+        discard;
+      }
+      
+      float starShape = 1.0 - smoothstep(0.0, 0.5, dist);
+      starShape = pow(starShape, 2.0);
+      
+      float twinkle = sin(uTime * uSpeed * 0.001 + vTwinkle * 6.28) * 0.5 + 0.5;
+      twinkle = mix(1.0, twinkle, uGlowIntensity);
+      
+      float hue = 0.6 + vPos.x * 0.1 + vPos.y * 0.05;
+      vec3 color = hsv2rgb(vec3(hue, uSaturation, 1.0));
+      
+      color = mix(vec3(1.0), color, uSaturation);
+      
+      float alpha = starShape * vBrightness * twinkle;
+      
+      gl_FragColor = vec4(color, alpha);
+    }
+  `;
+
+  useEffect(() => {
+    if (
+      !containerRef.current ||
+      !webglContext.renderer ||
+      !webglContext.programs
+    )
+      return;
+
+    const { renderer, programs } = webglContext;
+
+    const numStars = Math.floor(400 * density);
+    const positions = new Float32Array(numStars * 2);
+    const uvs = new Float32Array(numStars * 2);
+    const sizes = new Float32Array(numStars);
+    const brightnesses = new Float32Array(numStars);
+    const twinkles = new Float32Array(numStars);
+
+    for (let i = 0; i < numStars; i++) {
+      positions[i * 2] = (Math.random() - 0.5) * 2;
+      positions[i * 2 + 1] = (Math.random() - 0.5) * 2;
+
+      uvs[i * 2] = Math.random();
+      uvs[i * 2 + 1] = Math.random();
+
+      sizes[i] = Math.random() * 3 + 1;
+      brightnesses[i] = Math.random() * 0.8 + 0.2;
+      twinkles[i] = Math.random();
+    }
+
+    const geometry = new Geometry(renderer.gl, {
+      position: { size: 2, data: positions },
+      uv: { size: 2, data: uvs },
+      size: { size: 1, data: sizes },
+      brightness: { size: 1, data: brightnesses },
+      twinkle: { size: 1, data: twinkles },
+    });
+
+    const texture = new Texture(renderer.gl);
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+
+    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.5)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 64, 64);
+
+    texture.image = canvas;
+
+    const program = new Program(renderer.gl, {
+      vertex: vertexShader,
+      fragment: fragmentShader,
+      uniforms: {
+        uTime: { value: 0 },
+        uStarSpeed: { value: starSpeed },
+        uRotationSpeed: { value: rotationSpeed },
+        uTwinkleIntensity: { value: twinkleIntensity },
+        uGlowIntensity: { value: glowIntensity },
+        uSaturation: { value: saturation },
+        uSpeed: { value: speed },
+        uTexture: { value: texture },
+        uResolution: { value: [window.innerWidth, window.innerHeight] },
+        uMouse: { value: [0.5, 0.5] },
+        uMouseInteraction: { value: mouseInteraction },
+      },
+      transparent: transparent,
+      depthTest: false,
+      depthWrite: false,
+      blend: true,
+      blendFunc: {
+        src: renderer.gl.SRC_ALPHA,
+        dst: renderer.gl.ONE,
+      },
+    });
+
+    const mesh = new Mesh(renderer.gl, { geometry, program });
+    mesh.drawMode = renderer.gl.POINTS;
+
+    programs.set('galaxy', { program, mesh, geometry });
+
+    const animate = (t) => {
+      const galaxy = programs.get('galaxy');
+      if (!galaxy) return;
+
+      galaxy.program.uniforms.uTime.value = t * 0.001;
+      galaxy.program.uniforms.uMouse.value = [0.5, 0.5];
+
+      renderer.render({ scene: galaxy.mesh });
+      requestAnimationFrame(animate);
+    };
+
+    requestAnimationFrame(animate);
+
+    return () => {
+      if (programs.has('galaxy')) {
+        programs.delete('galaxy');
+      }
+    };
+  }, [
+    starSpeed,
+    density,
+    speed,
+    mouseInteraction,
+    glowIntensity,
+    saturation,
+    twinkleIntensity,
+    rotationSpeed,
+    transparent,
+    webglContext.renderer,
+    webglContext.programs,
+    vertexShader,
+    fragmentShader,
+  ]);
+
+  return <div ref={containerRef} className="galaxy-container" />;
+};
+
+export default Galaxy;

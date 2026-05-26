@@ -1,0 +1,225 @@
+import { useEffect, useRef } from 'react';
+
+export default function DataVisualizationBackground() {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Matrix-style falling code columns
+    const columns = Math.floor(canvas.width / 20);
+    const drops = Array(columns).fill(1);
+    
+    // Brand words to randomly insert (easter eggs!)
+    const brandWords = ['TRUEGLE', 'UNBIASED', 'TRANSPARENT', 'SECURE', 'TRUTH', 'SEARCH', 'FREE'];
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*(){}[]<>/?';
+    
+    // Brand colors for falling characters
+    const brandColors = [
+      '#00E5FF', // Cyan
+      '#8B5CF6', // Purple
+      '#D946EF', // Magenta
+      '#EC4899', // Pink
+    ];
+    
+    // Floating data particles - MORE particles for even distribution
+    const particles = Array.from({ length: 250 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: Math.random() * 2 + 1,
+      speedX: (Math.random() - 0.5) * 0.3,
+      speedY: (Math.random() - 0.5) * 0.3,
+      opacity: Math.random() * 0.5 + 0.3,
+      color: brandColors[Math.floor(Math.random() * brandColors.length)]
+    }));
+
+    // Data streams
+    const streams = Array.from({ length: 40 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      length: Math.random() * 100 + 50,
+      speed: Math.random() * 1.5 + 0.8,
+      opacity: Math.random() * 0.3 + 0.2,
+      color: brandColors[Math.floor(Math.random() * brandColors.length)]
+    }));
+
+    function drawMatrix() {
+      // Deep black backdrop with slight fade
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.font = '15px monospace';
+      
+      for (let i = 0; i < drops.length; i++) {
+        const x = i * 20;
+        const y = drops[i] * 20;
+        
+        // Randomly show brand words (easter eggs!)
+        let text;
+        if (Math.random() > 0.98) { // 2% chance for brand word
+          text = brandWords[Math.floor(Math.random() * brandWords.length)];
+        } else {
+          text = chars[Math.floor(Math.random() * chars.length)];
+        }
+        
+        // Random brand color
+        const color = brandColors[Math.floor(Math.random() * brandColors.length)];
+        
+        // Gradient color - brand colors
+        const gradient = ctx.createLinearGradient(x, y - 100, x, y);
+        gradient.addColorStop(0, color + '1A'); // 10% opacity
+        gradient.addColorStop(0.5, color + '80'); // 50% opacity
+        gradient.addColorStop(1, color + 'FF'); // 100% opacity
+        
+        ctx.fillStyle = gradient;
+        ctx.fillText(text, x, y);
+
+        // Much slower fall speed (-300% = divide by 4)
+        if (y > canvas.height && Math.random() > 0.975) {
+          drops[i] = 0;
+        }
+        drops[i] += 0.25; // Slowed down significantly
+      }
+    }
+
+    function drawParticles() {
+      particles.forEach(particle => {
+        // Draw particle
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fillStyle = particle.color + Math.floor(particle.opacity * 255).toString(16).padStart(2, '0');
+        ctx.fill();
+
+        // Glow effect
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = particle.color;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Move particle
+        particle.x += particle.speedX;
+        particle.y += particle.speedY;
+
+        // Wrap around edges
+        if (particle.x < 0) particle.x = canvas.width;
+        if (particle.x > canvas.width) particle.x = 0;
+        if (particle.y < 0) particle.y = canvas.height;
+        if (particle.y > canvas.height) particle.y = 0;
+
+        // Pulse opacity
+        particle.opacity += (Math.random() - 0.5) * 0.02;
+        particle.opacity = Math.max(0.2, Math.min(0.8, particle.opacity));
+      });
+    }
+
+    function drawConnections() {
+      // Draw connections between nearby particles
+      particles.forEach((p1, i) => {
+        particles.slice(i + 1).forEach(p2 => {
+          const dx = p1.x - p2.x;
+          const dy = p1.y - p2.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          // Increased connection distance for more coverage
+          if (distance < 180) {
+            const opacity = (1 - distance / 180) * 0.25;
+            
+            // Use brand colors for connections
+            const color = brandColors[Math.floor(Math.random() * brandColors.length)];
+            ctx.strokeStyle = color + Math.floor(opacity * 255).toString(16).padStart(2, '0');
+            ctx.lineWidth = 1;
+            
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        });
+      });
+    }
+
+    function drawDataStreams() {
+      streams.forEach(stream => {
+        // Draw vertical data stream with brand colors
+        const gradient = ctx.createLinearGradient(0, stream.y, 0, stream.y + stream.length);
+        gradient.addColorStop(0, stream.color + '00'); // Transparent
+        gradient.addColorStop(0.5, stream.color + Math.floor(stream.opacity * 255).toString(16).padStart(2, '0'));
+        gradient.addColorStop(1, stream.color + '00'); // Transparent
+
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(stream.x, stream.y);
+        ctx.lineTo(stream.x, stream.y + stream.length);
+        ctx.stroke();
+
+        // Move stream (slower)
+        stream.y += stream.speed * 0.7;
+
+        // Reset when off screen
+        if (stream.y > canvas.height + stream.length) {
+          stream.y = -stream.length;
+          stream.x = Math.random() * canvas.width;
+          stream.color = brandColors[Math.floor(Math.random() * brandColors.length)];
+        }
+      });
+    }
+
+    function drawScanLines() {
+      // Subtle scan line effect
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.02)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < canvas.height; i += 4) {
+        ctx.beginPath();
+        ctx.moveTo(0, i);
+        ctx.lineTo(canvas.width, i);
+        ctx.stroke();
+      }
+    }
+
+    let animationFrame;
+    function animate() {
+      drawMatrix();
+      drawDataStreams();
+      drawParticles();
+      drawConnections();
+      drawScanLines();
+      
+      animationFrame = requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    // Handle resize
+    const handleResize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      
+      // Redistribute particles evenly on resize
+      particles.forEach(p => {
+        p.x = Math.random() * canvas.width;
+        p.y = Math.random() * canvas.height;
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed top-0 left-0 w-full h-full"
+      style={{ background: '#000000' }}
+    />
+  );
+}

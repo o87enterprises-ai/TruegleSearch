@@ -1,0 +1,94 @@
+.background-animation-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1; /* Changed from -1 to 1 to ensure visibility behind content but above base */
+  pointer-events: none;
+}
+
+.aurora-container {
+  position: absolute;
+  top: 0; /* Start from the top of the screen */
+  left: 0;
+  width: 100%;
+  height: 30%; /* Return to 30% of screen to cover more of upper portion */
+  opacity: 0;
+  transition: opacity 1.3s ease-out; /* 30% slower fade-in */
+  z-index: 10; /* Higher than background but lower than content */
+}
+
+.laser-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+  z-index: 10; /* Higher than background but lower than content */
+}
+
+.prism-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(85vw, 350px); /* Reduced width for better mobile fit */
+  height: min(50vh, 400px); /* Reduced height for better mobile fit */
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+  margin-top: -5vh; /* Reduced margin for better mobile fit */
+  z-index: 15; /* Higher than other animations but lower than content */
+}
+
+.logo-area {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  height: 20vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 1s ease-out 1s;
+  z-index: 20;
+}
+
+/* Mobile-first responsive adjustments */
+@media (max-width: 768px) {
+  .prism-container {
+    width: 90vw;
+    height: 50vh;
+    margin-top: -5vh;
+  }
+
+  .logo-area {
+    height: 15vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .prism-container {
+    width: 95vw;
+    height: 45vh;
+    margin-top: -3vh;
+  }
+
+  .logo-area {
+    height: 12vh;
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .background-animation-container * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

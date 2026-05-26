@@ -1,0 +1,58 @@
+.prism-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+  overflow: hidden;
+  z-index: -1;
+}
+
+.prism-shape {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  background: linear-gradient(
+    45deg,
+    rgba(100, 100, 255, 0.1),
+    rgba(255, 100, 255, 0.1)
+  );
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(0deg);
+  animation: rotate 20s linear infinite;
+}
+
+.prism-shape-2 {
+  width: 400px;
+  height: 400px;
+  animation: rotate-reverse 15s linear infinite;
+  opacity: 0.5;
+}
+
+.prism-shape-3 {
+  width: 200px;
+  height: 200px;
+  animation: rotate 10s linear infinite;
+  opacity: 0.3;
+}
+
+@keyframes rotate {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes rotate-reverse {
+  from {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+}

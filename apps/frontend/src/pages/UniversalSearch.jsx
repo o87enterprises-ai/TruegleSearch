@@ -1,0 +1,838 @@
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  ChevronDown,
+  Sparkles,
+  ExternalLink,
+  ThumbsUp,
+  ThumbsDown,
+  X,
+} from 'lucide-react';
+
+// Backgrounds - Import all backgrounds
+import { WarpSpeedBackground } from '../components/backgrounds/WarpSpeedBackground';
+import { DeepSpaceBackground } from '../components/backgrounds/DeepSpaceBackground';
+import DeepSeaEnhanced from '../components/backgrounds/DeepSeaEnhanced';
+import DeepseekParticles from '../components/backgrounds/DeepseekParticles';
+import LightRays from '../components/backgrounds/LightRays';
+
+// Components
+import TruegleLogo from '../components/ui/TruegleLogo';
+import SearchBar from '../components/ui/SearchBar';
+import MultimediaInterface from '../components/ui/MultimediaInterface';
+import AIChatOverlay from '../components/ui/AIChatOverlay';
+import AdSenseAd from '../components/ui/AdSenseAd';
+import { SkeletonSearchResult } from '../components/ui/Skeleton';
+import AsSeenOn from '../components/Content/AsSeenOn';
+import PerspectiveSelector from '../components/search/PerspectiveSelector';
+import ErrorBoundary from '../components/ui/ErrorBoundary';
+import { MapViewWrapper } from '../components/map';
+
+// Hooks and Config
+import { useSearchMode } from '../hooks/useSearchMode';
+import { useLocationDetection } from '../hooks/useLocationDetection';
+
+export default function UniversalSearch() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Get query from URL
+  const query = searchParams.get('q') || '';
+
+  // Mode management - Default to 'blue' (SearchPortal)
+  const modeParam = searchParams.get('mode');
+  const { mode: autoMode, modeConfig, overrideMode } = useSearchMode(query);
+  const [mode, setMode] = useState(modeParam || 'blue'); // Default to blue
+
+  // Search state
+  const [searchValue, setSearchValue] = useState(query);
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  // AI state
+  const [aiSummary, setAiSummary] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiExpanded, setAiExpanded] = useState(true);
+
+  // Purple mode: Perspective state
+  const [selectedPerspectives, setSelectedPerspectives] = useState([]);
+  const [activePerspectiveCategory, setActivePerspectiveCategory] = useState(0);
+
+  // UI state
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isRedPillMode, setIsRedPillMode] = useState(false);
+  const [isOSINTMode, setIsOSINTMode] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
+  const [showMap, setShowMap] = useState(false);
+  const [mapManuallyClosed, setMapManuallyClosed] = useState(false);
+  const { isLocationQuery, detectedLocation } = useLocationDetection(searchValue);
+  const [filters, setFilters] = useState({
+    sortBy: 'relevance',
+    order: 'desc',
+    category: 'all',
+    dateRange: 'any',
+    bias: 'all'
+  });
+
+  // Update mode when URL param changes
+  useEffect(() => {
+    const urlMode = searchParams.get('mode');
+    if (urlMode) {
+      setMode(urlMode);
+    }
+  }, [searchParams]);
+
+  // Update search value when query param changes
+  useEffect(() => {
+    const queryParam = searchParams.get('q');
+    if (queryParam) {
+      setSearchValue(queryParam);
+    }
+  }, [searchParams]);
+
+  // Sync pill modes with current mode
+  // Purple, Red, and Ocean pages: Red pill mode by default
+  // Blue page: Blue pill mode by default
+  useEffect(() => {
+    setIsRedPillMode(mode === 'red' || mode === 'purple' || mode === 'ocean');
+    setIsOSINTMode(mode === 'ocean');
+  }, [mode]);
+
+  // Cursor glow effect
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      setCursorPosition({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+  // Auto-execute search when URL has query param
+  useEffect(() => {
+    const queryParam = searchParams.get('q');
+    if (queryParam && queryParam.trim() && searchResults.length === 0 && !searchLoading) {
+      handleSearch();
+    }
+  }, [searchParams]);
+
+  // Auto-detect shopping category
+  const isShoppingQuery = (query) => {
+    const shoppingKeywords = [
+      'buy', 'purchase', 'shop', 'store', 'price', 'deal', 'discount', 'sale',
+      'best', 'top', 'review', 'compare', 'amazon', 'walmart',
+    ];
+    return shoppingKeywords.some((keyword) => query.toLowerCase().includes(keyword));
+  };
+
+  useEffect(() => {
+    if (searchValue && isShoppingQuery(searchValue)) {
+      setActiveCategory('shopping');
+    }
+  }, [searchValue]);
+
+  // Reset manual map close when search value changes
+  useEffect(() => {
+    setMapManuallyClosed(false);
+  }, [searchValue]);
+
+  /**
+   * Handle search execution
+   */
+  const handleSearch = async () => {
+    if (!searchValue.trim()) return;
+
+    // Update URL
+    const params = new URLSearchParams();
+    params.set('q', searchValue);
+    if (mode !== 'blue') {
+      params.set('mode', mode);
+    }
+    if (selectedPerspectives.length > 0) {
+      params.set('perspectives', selectedPerspectives.join(','));
+    }
+    window.history.replaceState({}, '', `/search?${params.toString()}`);
+
+    setSearchLoading(true);
+    setAiSummary(null);
+
+    try {
+      const categoryMap = {
+        pics: 'images',
+        vids: 'videos',
+        audio: 'web',
+        soc: 'social',
+        local: 'shopping',
+        maps: 'shopping',
+      };
+
+      // Stub categories append contextual keywords to the query
+      const categoryKeywords = {
+        finance: 'finance stocks market',
+        sports: 'sports scores',
+        business: 'business company',
+        academic: 'research paper academic',
+        world: 'world international news',
+        health: 'health medical',
+        entertainment: 'entertainment movies tv',
+        podcasts: 'podcast episode',
+        tech: 'technology software',
+        gaming: 'gaming video game',
+        food: 'food recipe restaurant',
+        travel: 'travel destination',
+        lifestyle: 'lifestyle wellness',
+      };
+
+      let effectiveQuery = searchValue;
+      let searchCategory = categoryMap[activeCategory] || 'all';
+
+      // For stub categories, scope the query and use 'all' or 'news' as base
+      if (categoryKeywords[activeCategory]) {
+        effectiveQuery = `${searchValue} ${categoryKeywords[activeCategory]}`;
+        searchCategory = activeCategory === 'world' ? 'news' : 'all';
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/search`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: effectiveQuery,
+            filters: {
+              category: searchCategory,
+              bias: selectedPerspectives.length > 0 ? selectedPerspectives[0] : 'all',
+              dateRange: 'any',
+              sortBy: 'relevance',
+              order: 'desc',
+              perPage: 20,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) throw new Error(`Search error: ${response.status}`);
+
+      const data = await response.json();
+      setSearchResults(data.results || []);
+
+      // Fetch AI summary
+      if (data.results && data.results.length > 0) {
+        fetchAiSummary(searchValue, data.results);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  /**
+   * Fetch AI summary
+   */
+  const fetchAiSummary = async (query, results) => {
+    setAiLoading(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/summary`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query,
+            results: results.slice(0, 10),
+            perspectives: selectedPerspectives,
+          }),
+        }
+      );
+
+      if (!response.ok) throw new Error(`AI error: ${response.status}`);
+
+      const data = await response.json();
+      setAiSummary({
+        summary: data.summary,
+        perspectives: data.perspectives,
+        sourcesAnalyzed: data.sourcesAnalyzed,
+        model: data.model,
+      });
+    } catch (error) {
+      console.error('AI summary error:', error);
+      setAiSummary({
+        summary: `Analysis of "${query}" from multiple perspectives.`,
+        perspectives: [],
+        sourcesAnalyzed: results.length,
+        model: 'fallback',
+      });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  /**
+   * Handle mode switching via buttons
+   */
+  const handlePillModeChange = (redPillActive) => {
+    const newMode = redPillActive ? 'red' : 'blue';
+    setMode(newMode);
+    const params = new URLSearchParams(searchParams);
+    if (newMode === 'blue') {
+      params.delete('mode');
+    } else {
+      params.set('mode', newMode);
+    }
+    navigate(`/search?${params.toString()}`, { replace: true });
+  };
+
+  const handleBiasedClick = () => {
+    setMode('purple');
+    const params = new URLSearchParams(searchParams);
+    params.set('mode', 'purple');
+    navigate(`/search?${params.toString()}`, { replace: true });
+  };
+
+  const toggleOSINT = () => {
+    const newMode = mode === 'ocean' ? 'blue' : 'ocean';
+    setMode(newMode);
+    const params = new URLSearchParams(searchParams);
+    if (newMode === 'blue') {
+      params.delete('mode');
+    } else {
+      params.set('mode', newMode);
+    }
+    navigate(`/search?${params.toString()}`, { replace: true });
+  };
+
+  /**
+   * Handle perspective toggle (purple mode)
+   */
+  const handleTogglePerspective = (perspectiveId) => {
+    setSelectedPerspectives((prev) =>
+      prev.includes(perspectiveId)
+        ? prev.filter((p) => p !== perspectiveId)
+        : [...prev, perspectiveId]
+    );
+  };
+
+  /**
+   * Render appropriate background based on mode
+   */
+  const renderBackground = () => {
+    switch (mode) {
+      case 'blue':
+        return (
+          <ErrorBoundary fallback={<div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-black" />}>
+            <DeepSpaceBackground />
+          </ErrorBoundary>
+        );
+
+      case 'red':
+        return (
+          <ErrorBoundary fallback={<div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-black" />}>
+            <WarpSpeedBackground />
+          </ErrorBoundary>
+        );
+
+      case 'purple':
+        return (
+          <>
+            <ErrorBoundary fallback={<div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-black" />}>
+              <DeepSpaceBackground />
+            </ErrorBoundary>
+            <div className="fixed inset-0" style={{ zIndex: 5 }}>
+              <ErrorBoundary fallback={null}>
+                <DeepseekParticles />
+              </ErrorBoundary>
+            </div>
+          </>
+        );
+
+      case 'ocean':
+        return (
+          <>
+            <ErrorBoundary fallback={<div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-black" />}>
+              <DeepSeaEnhanced />
+            </ErrorBoundary>
+            <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 5 }}>
+              <ErrorBoundary fallback={null}>
+                <LightRays raysColor="#1983FF" />
+              </ErrorBoundary>
+            </div>
+          </>
+        );
+
+      default:
+        return (
+          <ErrorBoundary fallback={<div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-black" />}>
+            <DeepSpaceBackground />
+          </ErrorBoundary>
+        );
+    }
+  };
+
+  // Perspective colors (same as SearchResults)
+  const perspectiveColors = {
+    left: 'border-red-500/50 text-red-400',
+    center: 'border-yellow-500/50 text-yellow-400',
+    right: 'border-blue-500/50 text-blue-400',
+    neutral: 'border-cyan-500/50 text-cyan-400',
+  };
+
+  return (
+    <div className="relative min-h-screen w-full bg-black overflow-y-auto">
+      {/* Background - Changes based on mode */}
+      <div className="fixed inset-0 z-0">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={mode}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+            className="w-full h-full"
+          >
+            {renderBackground()}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Cursor Glow Effect */}
+      <div
+        className="pointer-events-none fixed inset-0 z-30 transition duration-300"
+        style={{
+          background: `radial-gradient(600px circle at ${cursorPosition.x}px ${cursorPosition.y}px, rgba(139, 92, 246, 0.15), transparent 40%)`,
+        }}
+      />
+
+      {/* Content - EXACT structure from SearchResults.jsx */}
+      <div className="relative z-10 min-h-screen p-4 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Logo - CENTERED AND BIG (same as SearchResults) */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex justify-center mb-6"
+          >
+            <TruegleLogo className="scale-[1.5] sm:scale-[1.8]" onClick={() => navigate('/')} />
+          </motion.div>
+
+          {/* Search Bar - Directly Below Logo (same as SearchResults) */}
+          <div className="max-w-4xl mx-auto mb-6">
+            <SearchBar
+              value={searchValue}
+              showBiasedButton={mode !== 'purple'}
+              onBiasedClick={handleBiasedClick}
+              showUnbiasedButton={mode === 'purple'}
+              onUnbiasedClick={() => {
+                setMode(isRedPillMode ? 'red' : 'blue');
+                const params = new URLSearchParams(searchParams);
+                if (isRedPillMode) {
+                  params.set('mode', 'red');
+                } else {
+                  params.delete('mode');
+                }
+                navigate(`/search?${params.toString()}`, { replace: true });
+              }}
+              onChange={(val) => setSearchValue(val)}
+              onSubmit={handleSearch}
+              onSearch={handleSearch}
+              placeholder={mode === 'purple' ? 'Explore perspectives...' : mode === 'ocean' ? 'OSINT search...' : 'Search for unbiased truth...'}
+              size="medium"
+              showPillToggle={true}
+              isRedPillMode={isRedPillMode}
+              onPillModeChange={handlePillModeChange}
+              showFilters={true}
+              filters={filters}
+              onFiltersChange={setFilters}
+              compactFilters={false}
+              showFilterToggle={true}
+              showOSINTToggle={true}
+              isOSINTMode={isOSINTMode}
+              onOSINTToggle={toggleOSINT}
+              showCategories={true}
+              activeCategory={activeCategory}
+              onSelectCategory={setActiveCategory}
+              showMap={showMap || (isLocationQuery && !mapManuallyClosed)}
+              onMapToggle={() => {
+                if (showMap || (isLocationQuery && !mapManuallyClosed)) {
+                  // If map is currently visible, hide it and mark as manually closed
+                  setShowMap(false);
+                  setMapManuallyClosed(true);
+                } else {
+                  // If map is hidden, show it and clear manual close flag
+                  setShowMap(true);
+                  setMapManuallyClosed(false);
+                }
+              }}
+              isLocationQuery={isLocationQuery}
+              themeColor={
+                mode === 'red' ? 'red' :
+                mode === 'purple' ? 'purple' :
+                mode === 'ocean' ? 'cyan' :
+                'blue'
+              }
+              searchButtonGradient={
+                mode === 'purple' ? 'from-purple-600 to-purple-500' :
+                mode === 'ocean' ? 'from-red-600 to-red-500' :
+                undefined
+              }
+              biasedButtonGradient={
+                mode === 'ocean' ? 'from-purple-600 to-purple-500' :
+                undefined
+              }
+              unbiasedButtonGradient={
+                mode === 'purple' ? (
+                  isRedPillMode ? 'from-red-600 to-red-500' : 'from-blue-600 to-cyan-600'
+                ) : undefined
+              }
+            />
+          </div>
+
+          {/* Multimedia Interface Dropdown (same as SearchResults) */}
+          <AnimatePresence>
+            {(activeCategory === 'pics' ||
+              activeCategory === 'vids' ||
+              activeCategory === 'audio' ||
+              activeCategory === 'soc') && (
+              <MultimediaInterface
+                category={activeCategory}
+                onClose={() => setActiveCategory('all')}
+                searchQuery={searchValue}
+              />
+            )}
+          </AnimatePresence>
+
+          {/* Map View Overlay */}
+          <AnimatePresence>
+            {((showMap || isLocationQuery) && !mapManuallyClosed) && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="max-w-4xl mx-auto mb-6"
+              >
+                <MapViewWrapper
+                  isOpen={(showMap || isLocationQuery) && !mapManuallyClosed}
+                  onToggle={() => {
+                    setShowMap(false);
+                    setMapManuallyClosed(true);
+                  }}
+                  onClose={() => {
+                    setShowMap(false);
+                    setMapManuallyClosed(true);
+                  }}
+                  detectedLocation={detectedLocation}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Shopping Interface (same as SearchResults) */}
+          <AnimatePresence>
+            {activeCategory === 'shopping' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="max-w-4xl mx-auto mb-6 overflow-hidden"
+              >
+                <div className="p-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border-2 border-emerald-500/50 shadow-lg shadow-emerald-500/20">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
+                          <circle cx="6" cy="19" r="3"></circle>
+                          <circle cx="18" cy="19" r="3"></circle>
+                          <path d="M2.5 6.5h19v10h-19z"></path>
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-white">As Seen On</h3>
+                        <p className="text-sm text-emerald-300/70">Find the best deals across retailers</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveCategory('all')}
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                      <X size={20} className="text-white" />
+                    </button>
+                  </div>
+                  <AsSeenOn searchQuery={searchValue} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Perspective Selector (Purple mode only) */}
+          {mode === 'purple' && (
+            <div className="max-w-4xl mx-auto mb-6">
+              <PerspectiveSelector
+                selectedPerspectives={selectedPerspectives}
+                onTogglePerspective={handleTogglePerspective}
+                show={true}
+                onClose={() => {}}
+                activeCategoryIndex={activePerspectiveCategory}
+                onCategoryChange={setActivePerspectiveCategory}
+              />
+            </div>
+          )}
+
+          {/* Ad Banner 1 - Under Search Bar (same as SearchResults) */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-4xl mx-auto mb-6"
+          >
+            <AdSenseAd className="rounded-2xl" />
+          </motion.div>
+
+          {/* AI Summary Card (same as SearchResults) */}
+          <div className="max-w-4xl mx-auto mb-4">
+            <div className={`p-4 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border ${
+              mode === 'red' ? 'border-red-500/30' :
+              mode === 'purple' ? 'border-purple-500/30' :
+              mode === 'ocean' ? 'border-cyan-500/30' :
+              'border-cyan-500/30'
+            }`}>
+              <button
+                onClick={() => setIsChatOpen(true)}
+                className="w-full flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${
+                    mode === 'red' ? 'from-red-500 to-red-600' :
+                    mode === 'purple' ? 'from-purple-500 to-purple-600' :
+                    mode === 'ocean' ? 'from-cyan-500 to-blue-500' :
+                    'from-cyan-500 to-purple-500'
+                  } flex items-center justify-center shadow-lg ${
+                    mode === 'red' ? 'shadow-red-500/25' :
+                    mode === 'purple' ? 'shadow-purple-500/25' :
+                    mode === 'ocean' ? 'shadow-cyan-500/25' :
+                    'shadow-cyan-500/25'
+                  }`}>
+                    <Sparkles size={20} className="text-white" />
+                  </div>
+                  <h3 className="text-lg font-display font-bold text-white">
+                    {mode === 'purple' ? 'AI Multi-Perspective Summary' :
+                     mode === 'red' ? 'AI Deep Dive Analysis' :
+                     mode === 'ocean' ? 'AI OSINT Analysis' :
+                     'AI Summary'}
+                  </h3>
+                  {aiLoading && (
+                    <div className={`animate-spin w-4 h-4 border-2 ${
+                      mode === 'red' ? 'border-red-500' :
+                      mode === 'purple' ? 'border-purple-500' :
+                      mode === 'ocean' ? 'border-cyan-500' :
+                      'border-cyan-500'
+                    } border-t-transparent rounded-full`}></div>
+                  )}
+                </div>
+                <motion.div animate={{ rotate: aiExpanded ? 180 : 0 }}>
+                  <ChevronDown size={20} className={
+                    mode === 'red' ? 'text-red-400' :
+                    mode === 'purple' ? 'text-purple-400' :
+                    mode === 'ocean' ? 'text-cyan-400' :
+                    'text-cyan-400'
+                  } />
+                </motion.div>
+              </button>
+
+              {aiExpanded && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className={`mt-3 pt-3 border-t ${
+                    mode === 'red' ? 'border-red-500/20' :
+                    mode === 'purple' ? 'border-purple-500/20' :
+                    mode === 'ocean' ? 'border-cyan-500/20' :
+                    'border-cyan-500/20'
+                  }`}
+                >
+                  {aiLoading ? (
+                    <div className="flex items-center gap-3 py-4">
+                      <div className={`animate-spin w-5 h-5 border-2 ${
+                        mode === 'red' ? 'border-red-500' :
+                        mode === 'purple' ? 'border-purple-500' :
+                        mode === 'ocean' ? 'border-cyan-500' :
+                        'border-cyan-500'
+                      } border-t-transparent rounded-full`}></div>
+                      <span className="text-white/60 text-sm">Analyzing search results with AI...</span>
+                    </div>
+                  ) : aiSummary ? (
+                    <>
+                      <p className="text-sm text-white/80 leading-relaxed mb-3" style={{ minHeight: '5.5rem' }}>
+                        {aiSummary.summary}
+                      </p>
+                      {/* Perspective breakdown - Only show on purple mode */}
+                      {mode === 'purple' && aiSummary.perspectives && aiSummary.perspectives.length > 0 && (
+                        <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/20">
+                          <div className="text-xs font-semibold text-cyan-300 mb-2">Perspective Breakdown:</div>
+                          <div className="space-y-1">
+                            {aiSummary.perspectives.map((p, i) => (
+                              <div key={i} className="flex items-center gap-2 text-xs">
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                  p.perspective === 'left' ? 'bg-red-500/30 text-red-300' :
+                                  p.perspective === 'right' ? 'bg-blue-500/30 text-blue-300' :
+                                  p.perspective === 'center' ? 'bg-yellow-500/30 text-yellow-300' :
+                                  'bg-cyan-500/30 text-cyan-300'
+                                }`}>
+                                  {p.perspective}
+                                </span>
+                                <span className="text-white/70 flex-1">{p.summary}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {/* Source analysis metadata - Hide on blue mode */}
+                      {mode !== 'blue' && (
+                        <div className="flex items-center gap-4 text-xs text-cyan-400">
+                          <div className="flex items-center gap-1.5">
+                            <div className={`w-2 h-2 rounded-full ${
+                              mode === 'red' ? 'bg-red-400' :
+                              mode === 'purple' ? 'bg-purple-400' :
+                              mode === 'ocean' ? 'bg-cyan-400' :
+                              'bg-cyan-400'
+                            }`}></div>
+                            <span>{aiSummary.sourcesAnalyzed || 0} sources analyzed</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <div className={`w-2 h-2 rounded-full ${
+                              mode === 'red' ? 'bg-red-400' :
+                              mode === 'purple' ? 'bg-purple-400' :
+                              mode === 'ocean' ? 'bg-cyan-400' :
+                              'bg-purple-400'
+                            }`}></div>
+                            <span>
+                              {mode === 'purple' ? 'Multiple perspectives included' : 'Powered by AI'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-white/60 leading-relaxed mb-3" style={{ minHeight: '5.5rem' }}>
+                      Search for a topic to get an AI-generated summary analyzing multiple perspectives and sources.
+                    </p>
+                  )}
+                </motion.div>
+              )}
+            </div>
+          </div>
+
+          {/* Ad Banner 2 - Under AI Summary (same as SearchResults) */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="max-w-4xl mx-auto mb-4"
+          >
+            <AdSenseAd className="rounded-2xl" adSlot="8883172859" />
+          </motion.div>
+
+          {/* Results Grid (same as SearchResults) */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Main Results Column */}
+            <div className="lg:col-span-3 space-y-4">
+              {searchLoading ? (
+                <div className="space-y-4">
+                  <div className="text-sm text-white/60 mb-4">Searching...</div>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <SkeletonSearchResult key={i} />
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <div className="text-sm text-white/60 mb-4">
+                    {searchResults.length > 0 ? `About ${searchResults.length} results` : 'No results yet - try searching!'}
+                  </div>
+
+                  {searchResults.map((result, index) => (
+                    <div key={result.url || index}>
+                      {/* Ad Banner after every 3rd result */}
+                      {index > 0 && index % 3 === 0 && (
+                        <div className="mb-4 p-4 rounded-2xl bg-gradient-to-br from-[#FFEB3B]/[0.3125] to-[#FFC107]/[0.3125] backdrop-blur-xl border-2 border-yellow-400/60 shadow-lg shadow-yellow-400/40 cursor-pointer transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,235,59,0.5),0_0_50px_rgba(255,193,7,0.3)] hover:border-yellow-300 hover:from-[#FFEB3B]/[0.375] hover:to-[#FFC107]/[0.375]">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="text-xs text-yellow-200 mb-1">
+                                Sponsored
+                              </div>
+                              <div className="text-sm font-semibold text-white">
+                                Premium Ad Content
+                              </div>
+                              <div className="text-xs text-white/90">
+                                High-quality products and services
+                              </div>
+                            </div>
+                            <button className="px-6 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-semibold whitespace-nowrap hover:from-orange-400 hover:to-red-400 transition-all shadow-lg shadow-orange-500/25">
+                              Learn More
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="p-4 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border border-cyan-500/30 hover:border-cyan-500/50 transition-all duration-300"
+                      >
+                        <a
+                          href={result.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group"
+                        >
+                          <h3 className="text-lg font-semibold text-cyan-400 group-hover:text-cyan-300 transition-colors flex items-center gap-2">
+                            {result.title}
+                            <ExternalLink size={14} className="text-cyan-500/50" />
+                          </h3>
+                        </a>
+                        <p className="text-sm text-white/70 mt-2 line-clamp-2">{result.snippet}</p>
+                        <div className="flex items-center gap-3 mt-3 text-xs text-white/50">
+                          <span>{result.sourceName || result.domain}</span>
+                          {result.date && <span>{new Date(result.date).toLocaleDateString()}</span>}
+                          {mode === 'purple' && result.bias && (
+                            <span className={`px-2 py-0.5 rounded ${perspectiveColors[result.bias] || perspectiveColors.neutral}`}>
+                              {result.bias}
+                            </span>
+                          )}
+                        </div>
+                      </motion.div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+
+            {/* Sidebar Column (same as SearchResults) */}
+            <div className="lg:col-span-1 space-y-4">
+              {/* Ad Sidebar */}
+              <div className="sticky top-4">
+                <AdSenseAd className="rounded-xl" adSlot="7891234567" format="vertical" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* AI Chat Overlay */}
+      {isChatOpen && (
+        <AIChatOverlay
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+          searchQuery={searchValue}
+          themeColor={
+            mode === 'red' ? 'red' :
+            mode === 'purple' ? 'purple' :
+            mode === 'ocean' ? 'ocean' :
+            'blue'
+          }
+        />
+      )}
+    </div>
+  );
+}
