@@ -14,7 +14,7 @@ const searchService = new SearchService();
  */
 router.post('/', rateLimitSearch, async (req, res) => {
   try {
-    const { query, filters = {} } = req.body;
+    const { query, filters = {}, mode = 'blue-pill' } = req.body;
 
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
       return res.status(400).json({
@@ -27,7 +27,7 @@ router.post('/', rateLimitSearch, async (req, res) => {
     const validFilters = validateFilters(filters);
 
     // Perform search using the search service
-    const results = await searchService.performSearch(query, validFilters);
+    const results = await searchService.performSearch(query, validFilters, mode);
 
     res.json({
       success: true,

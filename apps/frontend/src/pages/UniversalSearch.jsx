@@ -16,6 +16,7 @@ import { DeepSpaceBackground } from '../components/backgrounds/DeepSpaceBackgrou
 import DeepSeaEnhanced from '../components/backgrounds/DeepSeaEnhanced';
 import DeepseekParticles from '../components/backgrounds/DeepseekParticles';
 import LightRays from '../components/backgrounds/LightRays';
+import LetterGlitch from '../components/backgrounds/LetterGlitch';
 
 // Components
 import TruegleLogo from '../components/ui/TruegleLogo';
@@ -28,6 +29,7 @@ import AsSeenOn from '../components/Content/AsSeenOn';
 import PerspectiveSelector from '../components/search/PerspectiveSelector';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { MapViewWrapper } from '../components/map';
+import TutorialModal from '../components/ui/TutorialModal';
 
 // Hooks and Config
 import { useSearchMode } from '../hooks/useSearchMode';
@@ -44,6 +46,28 @@ export default function UniversalSearch() {
   const modeParam = searchParams.get('mode');
   const { mode: autoMode, modeConfig, overrideMode } = useSearchMode(query);
   const [mode, setMode] = useState(modeParam || 'blue'); // Default to blue
+
+  // Tutorial modal — shown once per device on first visit
+  const [showTutorial, setShowTutorial] = useState(() => {
+    try {
+      return localStorage.getItem('truegle_tutorial_done') !== 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  // Summary banner: null = not chosen, 'show' = show for session, 'none' = dismissed for session
+  const [sessionSummaryChoice, setSessionSummaryChoice] = useState(
+    () => sessionStorage.getItem('truegle_summary_choice') || null
+  );
+  const [showNoSummaryConfirm, setShowNoSummaryConfirm] = useState(false);
+  const [summaryCollapsed, setSummaryCollapsed] = useState(false);
+
+  // First-search modal (shown once per session)
+  const [showFirstSearchModal, setShowFirstSearchModal] = useState(false);
+  const [firstSearchDone, setFirstSearchDone] = useState(
+    () => sessionStorage.getItem('truegle_first_search_done') === 'true'
+  );
 
   // Search state
   const [searchValue, setSearchValue] = useState(query);
@@ -98,6 +122,10 @@ export default function UniversalSearch() {
   useEffect(() => {
     setIsRedPillMode(mode === 'red' || mode === 'purple' || mode === 'ocean');
     setIsOSINTMode(mode === 'ocean');
+    // Green pill mode disables Smart features
+    if (mode === 'green') {
+      setSessionSummaryChoice('none');
+    }
   }, [mode]);
 
   // Cursor glow effect
@@ -200,6 +228,7 @@ export default function UniversalSearch() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             query: effectiveQuery,
+            mode: isRedPillMode ? 'red-pill' : 'blue-pill',
             filters: {
               category: searchCategory,
               bias: selectedPerspectives.length > 0 ? selectedPerspectives[0] : 'all',
@@ -217,8 +246,15 @@ export default function UniversalSearch() {
       const data = await response.json();
       setSearchResults(data.results || []);
 
-      // Fetch AI summary
-      if (data.results && data.results.length > 0) {
+      // Show first-search modal once per session
+      if (!firstSearchDone) {
+        setFirstSearchDone(true);
+        sessionStorage.setItem('truegle_first_search_done', 'true');
+        setShowFirstSearchModal(true);
+      }
+
+      // Fetch summary only if not green mode and not dismissed
+      if (mode !== 'green' && sessionSummaryChoice !== 'none' && data.results && data.results.length > 0) {
         fetchAiSummary(searchValue, data.results);
       }
     } catch (error) {
@@ -271,10 +307,13 @@ export default function UniversalSearch() {
   };
 
   /**
-   * Handle mode switching via buttons
+   * Handle mode switching via pill toggle (now receives mode string)
    */
-  const handlePillModeChange = (redPillActive) => {
-    const newMode = redPillActive ? 'red' : 'blue';
+  const handlePillModeChange = (newModeOrBool) => {
+    // Accept either string ('blue'|'red'|'green') or legacy boolean
+    const newMode = typeof newModeOrBool === 'boolean'
+      ? (newModeOrBool ? 'red' : 'blue')
+      : newModeOrBool;
     setMode(newMode);
     const params = new URLSearchParams(searchParams);
     if (newMode === 'blue') {
@@ -362,6 +401,21 @@ export default function UniversalSearch() {
           </>
         );
 
+      case 'green':
+        return (
+          <ErrorBoundary fallback={<div className="fixed inset-0 bg-gradient-to-br from-green-950 via-black to-emerald-950" />}>
+            <div className="fixed inset-0">
+              <LetterGlitch
+                glitchColors={['#2b4539', '#61dca3', '#61b3dc']}
+                glitchSpeed={50}
+                centerVignette={true}
+                outerVignette={false}
+                smooth={true}
+              />
+            </div>
+          </ErrorBoundary>
+        );
+
       default:
         return (
           <ErrorBoundary fallback={<div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-black" />}>
@@ -373,10 +427,12 @@ export default function UniversalSearch() {
 
   // Perspective colors (same as SearchResults)
   const perspectiveColors = {
-    left: 'border-red-500/50 text-red-400',
-    center: 'border-yellow-500/50 text-yellow-400',
-    right: 'border-blue-500/50 text-blue-400',
-    neutral: 'border-cyan-500/50 text-cyan-400',
+    left: 'bg-red-500/20 border border-red-500/50 text-red-400',
+    center: 'bg-yellow-500/20 border border-yellow-500/50 text-yellow-400',
+    right: 'bg-blue-500/20 border border-blue-500/50 text-blue-400',
+    unbiased: 'bg-green-500/20 border border-green-500/50 text-green-400',
+    neutral: 'bg-cyan-500/20 border border-cyan-500/50 text-cyan-400',
+    mainstream: 'bg-purple-500/20 border border-purple-500/50 text-purple-400',
   };
 
   return (
@@ -441,6 +497,7 @@ export default function UniversalSearch() {
               size="medium"
               showPillToggle={true}
               isRedPillMode={isRedPillMode}
+              pillMode={mode === 'green' ? 'green' : isRedPillMode ? 'red' : 'blue'}
               onPillModeChange={handlePillModeChange}
               showFilters={true}
               filters={filters}
@@ -470,6 +527,7 @@ export default function UniversalSearch() {
                 mode === 'red' ? 'red' :
                 mode === 'purple' ? 'purple' :
                 mode === 'ocean' ? 'cyan' :
+                mode === 'green' ? 'green' :
                 'blue'
               }
               searchButtonGradient={
@@ -590,139 +648,266 @@ export default function UniversalSearch() {
             <AdSenseAd className="rounded-2xl" />
           </motion.div>
 
-          {/* AI Summary Card (same as SearchResults) */}
-          <div className="max-w-4xl mx-auto mb-4">
-            <div className={`p-4 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border ${
-              mode === 'red' ? 'border-red-500/30' :
-              mode === 'purple' ? 'border-purple-500/30' :
-              mode === 'ocean' ? 'border-cyan-500/30' :
-              'border-cyan-500/30'
-            }`}>
-              <button
-                onClick={() => setIsChatOpen(true)}
-                className="w-full flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${
-                    mode === 'red' ? 'from-red-500 to-red-600' :
-                    mode === 'purple' ? 'from-purple-500 to-purple-600' :
-                    mode === 'ocean' ? 'from-cyan-500 to-blue-500' :
-                    'from-cyan-500 to-purple-500'
-                  } flex items-center justify-center shadow-lg ${
-                    mode === 'red' ? 'shadow-red-500/25' :
-                    mode === 'purple' ? 'shadow-purple-500/25' :
-                    mode === 'ocean' ? 'shadow-cyan-500/25' :
-                    'shadow-cyan-500/25'
-                  }`}>
-                    <Sparkles size={20} className="text-white" />
-                  </div>
-                  <h3 className="text-lg font-display font-bold text-white">
-                    {mode === 'purple' ? 'AI Multi-Perspective Summary' :
-                     mode === 'red' ? 'AI Deep Dive Analysis' :
-                     mode === 'ocean' ? 'AI OSINT Analysis' :
-                     'AI Summary'}
-                  </h3>
-                  {aiLoading && (
-                    <div className={`animate-spin w-4 h-4 border-2 ${
-                      mode === 'red' ? 'border-red-500' :
-                      mode === 'purple' ? 'border-purple-500' :
-                      mode === 'ocean' ? 'border-cyan-500' :
-                      'border-cyan-500'
-                    } border-t-transparent rounded-full`}></div>
-                  )}
-                </div>
-                <motion.div animate={{ rotate: aiExpanded ? 180 : 0 }}>
-                  <ChevronDown size={20} className={
-                    mode === 'red' ? 'text-red-400' :
-                    mode === 'purple' ? 'text-purple-400' :
-                    mode === 'ocean' ? 'text-cyan-400' :
-                    'text-cyan-400'
-                  } />
-                </motion.div>
-              </button>
-
-              {aiExpanded && (
+          {/* Search Summary — Banner + Expandable Card */}
+          {mode !== 'green' && sessionSummaryChoice !== 'none' && (
+            <div className="max-w-4xl mx-auto mb-4">
+              {/* Banner: shown when choice not yet made */}
+              {!sessionSummaryChoice && (aiSummary || aiLoading || searchResults.length > 0) && (
                 <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className={`mt-3 pt-3 border-t ${
-                    mode === 'red' ? 'border-red-500/20' :
-                    mode === 'purple' ? 'border-purple-500/20' :
-                    mode === 'ocean' ? 'border-cyan-500/20' :
-                    'border-cyan-500/20'
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex items-center justify-between px-4 py-2.5 rounded-xl backdrop-blur-xl border ${
+                    mode === 'red' ? 'bg-red-950/60 border-red-500/30' :
+                    mode === 'purple' ? 'bg-purple-950/60 border-purple-500/30' :
+                    mode === 'ocean' ? 'bg-cyan-950/60 border-cyan-500/30' :
+                    'bg-[#1a1a2e]/80 border-cyan-500/20'
                   }`}
                 >
-                  {aiLoading ? (
-                    <div className="flex items-center gap-3 py-4">
-                      <div className={`animate-spin w-5 h-5 border-2 ${
-                        mode === 'red' ? 'border-red-500' :
-                        mode === 'purple' ? 'border-purple-500' :
-                        mode === 'ocean' ? 'border-cyan-500' :
-                        'border-cyan-500'
-                      } border-t-transparent rounded-full`}></div>
-                      <span className="text-white/60 text-sm">Analyzing search results with AI...</span>
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={14} className={
+                      mode === 'red' ? 'text-red-400' : mode === 'purple' ? 'text-purple-400' :
+                      mode === 'ocean' ? 'text-cyan-400' : 'text-cyan-400'
+                    } />
+                    <span className="text-sm text-white/70">
+                      {mode === 'purple' ? 'Perspective Search Summary available' :
+                       mode === 'red' ? 'Deep Dive Search Summary available' :
+                       mode === 'ocean' ? 'OSINT Search Summary available' :
+                       '(Unbiased) Search Summary available'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSessionSummaryChoice('show');
+                        sessionStorage.setItem('truegle_summary_choice', 'show');
+                      }}
+                      className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
+                        mode === 'red' ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/40' :
+                        mode === 'purple' ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 border border-purple-500/40' :
+                        mode === 'ocean' ? 'bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40' :
+                        'bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 border border-cyan-500/40'
+                      }`}
+                    >
+                      Show Summary
+                    </button>
+                    <button
+                      onClick={() => setShowNoSummaryConfirm(true)}
+                      className="px-3 py-1 text-xs font-semibold rounded-lg bg-white/5 text-white/50 hover:bg-white/10 border border-white/10 transition-all"
+                    >
+                      No Summary
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Expanded summary card: shown after user selects "Show Summary" */}
+              {sessionSummaryChoice === 'show' && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`p-4 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border ${
+                    mode === 'red' ? 'border-red-500/30' :
+                    mode === 'purple' ? 'border-purple-500/30' :
+                    mode === 'ocean' ? 'border-cyan-500/30' :
+                    'border-cyan-500/30'
+                  }`}
+                >
+                  <button
+                    onClick={() => setSummaryCollapsed(!summaryCollapsed)}
+                    className="w-full flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${
+                        mode === 'red' ? 'from-red-500 to-red-600' :
+                        mode === 'purple' ? 'from-purple-500 to-purple-600' :
+                        mode === 'ocean' ? 'from-cyan-500 to-blue-500' :
+                        'from-cyan-500 to-purple-500'
+                      } flex items-center justify-center`}>
+                        <Sparkles size={20} className="text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-left text-lg font-display font-bold text-white">
+                          {mode === 'purple' ? 'Perspective Search Summary' :
+                           mode === 'red' ? 'Deep Dive Search Summary' :
+                           mode === 'ocean' ? 'OSINT Search Summary' :
+                           '(Unbiased) Search Summary'}
+                        </h3>
+                        <p className="text-xs text-white/40 text-left">Powered by Truegle Search</p>
+                      </div>
+                      {aiLoading && (
+                        <div className={`animate-spin w-4 h-4 border-2 ${
+                          mode === 'red' ? 'border-red-500' : mode === 'purple' ? 'border-purple-500' :
+                          mode === 'ocean' ? 'border-cyan-500' : 'border-cyan-500'
+                        } border-t-transparent rounded-full`} />
+                      )}
                     </div>
-                  ) : aiSummary ? (
-                    <>
-                      <p className="text-sm text-white/80 leading-relaxed mb-3" style={{ minHeight: '5.5rem' }}>
-                        {aiSummary.summary}
-                      </p>
-                      {/* Perspective breakdown - Only show on purple mode */}
-                      {mode === 'purple' && aiSummary.perspectives && aiSummary.perspectives.length > 0 && (
-                        <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/20">
-                          <div className="text-xs font-semibold text-cyan-300 mb-2">Perspective Breakdown:</div>
-                          <div className="space-y-1">
-                            {aiSummary.perspectives.map((p, i) => (
-                              <div key={i} className="flex items-center gap-2 text-xs">
-                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                  p.perspective === 'left' ? 'bg-red-500/30 text-red-300' :
-                                  p.perspective === 'right' ? 'bg-blue-500/30 text-blue-300' :
-                                  p.perspective === 'center' ? 'bg-yellow-500/30 text-yellow-300' :
-                                  'bg-cyan-500/30 text-cyan-300'
-                                }`}>
-                                  {p.perspective}
-                                </span>
-                                <span className="text-white/70 flex-1">{p.summary}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setShowNoSummaryConfirm(true); }}
+                        className="text-xs text-white/30 hover:text-white/60 transition-colors px-2"
+                      >
+                        Dismiss
+                      </button>
+                      <motion.div animate={{ rotate: summaryCollapsed ? 0 : 180 }}>
+                        <ChevronDown size={20} className="text-white/40" />
+                      </motion.div>
+                    </div>
+                  </button>
+
+                  <AnimatePresence>
+                    {!summaryCollapsed && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className={`overflow-hidden mt-3 pt-3 border-t ${
+                          mode === 'red' ? 'border-red-500/20' : mode === 'purple' ? 'border-purple-500/20' :
+                          mode === 'ocean' ? 'border-cyan-500/20' : 'border-cyan-500/20'
+                        }`}
+                      >
+                        {aiLoading ? (
+                          <div className="flex items-center gap-3 py-4">
+                            <div className={`animate-spin w-5 h-5 border-2 ${
+                              mode === 'red' ? 'border-red-500' : mode === 'purple' ? 'border-purple-500' :
+                              mode === 'ocean' ? 'border-cyan-500' : 'border-cyan-500'
+                            } border-t-transparent rounded-full`} />
+                            <span className="text-white/60 text-sm">Analyzing search results...</span>
+                          </div>
+                        ) : aiSummary ? (
+                          <>
+                            <p className="text-sm text-white/80 leading-relaxed mb-3">{aiSummary.summary}</p>
+                            {mode === 'purple' && aiSummary.perspectives?.length > 0 && (
+                              <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/20">
+                                <div className="text-xs font-semibold text-cyan-300 mb-2">Perspective Breakdown:</div>
+                                <div className="space-y-1">
+                                  {aiSummary.perspectives.map((p, i) => (
+                                    <div key={i} className="flex items-center gap-2 text-xs">
+                                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                        p.perspective === 'left' ? 'bg-red-500/30 text-red-300' :
+                                        p.perspective === 'right' ? 'bg-blue-500/30 text-blue-300' :
+                                        p.perspective === 'center' ? 'bg-yellow-500/30 text-yellow-300' :
+                                        'bg-cyan-500/30 text-cyan-300'
+                                      }`}>{p.perspective}</span>
+                                      <span className="text-white/70 flex-1">{p.summary}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {/* Source analysis metadata - Hide on blue mode */}
-                      {mode !== 'blue' && (
-                        <div className="flex items-center gap-4 text-xs text-cyan-400">
-                          <div className="flex items-center gap-1.5">
-                            <div className={`w-2 h-2 rounded-full ${
-                              mode === 'red' ? 'bg-red-400' :
-                              mode === 'purple' ? 'bg-purple-400' :
-                              mode === 'ocean' ? 'bg-cyan-400' :
-                              'bg-cyan-400'
-                            }`}></div>
-                            <span>{aiSummary.sourcesAnalyzed || 0} sources analyzed</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className={`w-2 h-2 rounded-full ${
-                              mode === 'red' ? 'bg-red-400' :
-                              mode === 'purple' ? 'bg-purple-400' :
-                              mode === 'ocean' ? 'bg-cyan-400' :
-                              'bg-purple-400'
-                            }`}></div>
-                            <span>
-                              {mode === 'purple' ? 'Multiple perspectives included' : 'Powered by AI'}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-sm text-white/60 leading-relaxed mb-3" style={{ minHeight: '5.5rem' }}>
-                      Search for a topic to get an AI-generated summary analyzing multiple perspectives and sources.
-                    </p>
-                  )}
+                            )}
+                            <div className="flex items-center gap-4 text-xs text-white/40">
+                              <span>{aiSummary.sourcesAnalyzed || 0} sources analyzed</span>
+                              <span>•</span>
+                              <button
+                                onClick={() => setIsChatOpen(true)}
+                                className="underline hover:text-white/60 transition-colors"
+                              >
+                                Ask follow-up
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-sm text-white/60 leading-relaxed">
+                            Search for a topic to get an unbiased summary analyzing multiple sources.
+                          </p>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </motion.div>
               )}
             </div>
-          </div>
+          )}
+
+          {/* No Summary Confirmation Modal */}
+          <AnimatePresence>
+            {showNoSummaryConfirm && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              >
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  className="bg-[#1a1a2e] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+                >
+                  <h3 className="text-white font-bold text-lg mb-2">Disable Search Summary?</h3>
+                  <p className="text-white/60 text-sm mb-5">
+                    Clicking <strong>Yes</strong> will hide search summaries for the rest of this session.
+                    You can restore them by refreshing the page.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setSessionSummaryChoice('none');
+                        sessionStorage.setItem('truegle_summary_choice', 'none');
+                        setShowNoSummaryConfirm(false);
+                      }}
+                      className="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-all"
+                    >
+                      Yes, hide it
+                    </button>
+                    <button
+                      onClick={() => setShowNoSummaryConfirm(false)}
+                      className="flex-1 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 font-semibold text-sm border border-cyan-500/40 transition-all"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* First-Search Modal: Disable Smart Features? */}
+          <AnimatePresence>
+            {showFirstSearchModal && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+              >
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  className="bg-[#0f1a0f] border border-green-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-green-500/20 border border-green-500/30 flex items-center justify-center">
+                      <Sparkles size={18} className="text-green-400" />
+                    </div>
+                    <h3 className="text-white font-bold text-lg">Disable Smart Features?</h3>
+                  </div>
+                  <p className="text-white/60 text-sm mb-5">
+                    Switch to <strong className="text-green-400">Green Pill Mode</strong> for a
+                    completely AI-free search experience — pure results, no summaries, no chat assistant.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowFirstSearchModal(false);
+                        handlePillModeChange('green');
+                      }}
+                      className="flex-1 py-2 rounded-xl bg-green-500/20 hover:bg-green-500/30 text-green-300 font-semibold text-sm border border-green-500/40 transition-all"
+                    >
+                      Yes, go Green
+                    </button>
+                    <button
+                      onClick={() => setShowFirstSearchModal(false)}
+                      className="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-all"
+                    >
+                      No, keep Smart features
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Ad Banner 2 - Under AI Summary (same as SearchResults) */}
           <motion.div
@@ -778,7 +963,11 @@ export default function UniversalSearch() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.05 }}
-                        className="p-4 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border border-cyan-500/30 hover:border-cyan-500/50 transition-all duration-300"
+                        className={`p-4 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border transition-all duration-300 ${
+                          mode === 'green'
+                            ? 'border-green-500/30 hover:border-green-500/50'
+                            : 'border-cyan-500/30 hover:border-cyan-500/50'
+                        }`}
                       >
                         <a
                           href={result.url}
@@ -786,7 +975,9 @@ export default function UniversalSearch() {
                           rel="noopener noreferrer"
                           className="group"
                         >
-                          <h3 className="text-lg font-semibold text-cyan-400 group-hover:text-cyan-300 transition-colors flex items-center gap-2">
+                          <h3 className={`text-lg font-semibold transition-colors flex items-center gap-2 ${
+                            mode === 'green' ? 'text-green-400 group-hover:text-green-300' : 'text-cyan-400 group-hover:text-cyan-300'
+                          }`}>
                             {result.title}
                             <ExternalLink size={14} className="text-cyan-500/50" />
                           </h3>
@@ -795,9 +986,9 @@ export default function UniversalSearch() {
                         <div className="flex items-center gap-3 mt-3 text-xs text-white/50">
                           <span>{result.sourceName || result.domain}</span>
                           {result.date && <span>{new Date(result.date).toLocaleDateString()}</span>}
-                          {mode === 'purple' && result.bias && (
-                            <span className={`px-2 py-0.5 rounded ${perspectiveColors[result.bias] || perspectiveColors.neutral}`}>
-                              {result.bias}
+                          {(isRedPillMode || mode === 'purple') && result.bias && (
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${perspectiveColors[result.bias] || perspectiveColors.neutral}`}>
+                              {result.biasLabel || result.bias}
                             </span>
                           )}
                         </div>
@@ -819,7 +1010,7 @@ export default function UniversalSearch() {
         </div>
       </div>
 
-      {/* AI Chat Overlay */}
+      {/* Smart Search Assistant Overlay */}
       {isChatOpen && (
         <AIChatOverlay
           isOpen={isChatOpen}
@@ -833,6 +1024,12 @@ export default function UniversalSearch() {
           }
         />
       )}
+
+      {/* Tutorial Modal — shown once on first visit */}
+      <TutorialModal
+        isOpen={showTutorial}
+        onClose={() => setShowTutorial(false)}
+      />
     </div>
   );
 }

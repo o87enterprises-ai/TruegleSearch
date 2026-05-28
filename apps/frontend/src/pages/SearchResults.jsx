@@ -309,7 +309,7 @@ export default function SearchResults() {
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center shadow-lg shadow-cyan-500/25">
                     <Sparkles size={24} className="text-white" />
                   </div>
-                  <h3 className="text-xl font-display font-bold text-white">AI Unbiased Summary</h3>
+                  <h3 className="text-xl font-display font-bold text-white">Smart Unbiased Summary</h3>
                 </div>
                 <motion.div animate={{ rotate: aiExpanded ? 180 : 0 }}>
                   <ChevronDown size={24} className="text-cyan-400" />

@@ -39,34 +39,49 @@ class SearchService {
   /**
    * Perform search across multiple sources
    */
-  async performSearch(query, filters) {
+  async performSearch(query, filters, mode = 'blue-pill') {
     try {
-      console.log('🔍 SearchService.performSearch called with:', { query, filters });
+      console.log('🔍 SearchService.performSearch called with:', { query, filters, mode });
       const searchPromises = [];
+      const isRedPill = mode === 'red-pill';
 
-      // Add search sources based on category filter
-      if (filters.category === 'all' || filters.category === 'web') {
+      // For red-pill mode, always search news to get diverse perspectives
+      const searchWeb = filters.category === 'all' || filters.category === 'web';
+      const searchNews = filters.category === 'all' || filters.category === 'news' || isRedPill;
+      const searchVideos = filters.category === 'all' || filters.category === 'videos';
+
+      if (searchWeb) {
         if (this.googleApiKey && this.googleSearchEngineId) {
-          console.log('✅ Adding Google Search');
           searchPromises.push(this.performGoogleSearch(query, filters));
+          // Red pill: also search for alternative/independent perspectives
+          if (isRedPill) {
+            searchPromises.push(this.performGoogleSearch(
+              `${query} alternative perspective independent analysis`,
+              { ...filters, perPage: 5 }
+            ));
+          }
         }
         if (this.bingApiKey) {
-          console.log('✅ Adding Bing Search');
           searchPromises.push(this.performBingSearch(query, filters));
         }
       }
 
-      if (filters.category === 'all' || filters.category === 'news') {
+      if (searchNews) {
         if (this.newsApiKey) {
-          console.log('✅ Adding News API');
           searchPromises.push(this.performNewsSearch(query, filters));
         }
       }
 
-      if (filters.category === 'all' || filters.category === 'videos') {
+      if (searchVideos) {
         if (this.youtubeApiKey) {
-          console.log('✅ Adding YouTube API');
           searchPromises.push(this.performYoutubeSearch(query, filters));
+          // Red pill: also search for independent/alternative video takes
+          if (isRedPill) {
+            searchPromises.push(this.performYoutubeSearch(
+              `${query} independent analysis alternative view`,
+              { ...filters, perPage: 5 }
+            ));
+          }
         }
       }
 
@@ -84,7 +99,13 @@ class SearchService {
       console.log(`🏷️  Categorized results: ${categorizedResults.length}`);
 
       // Sort and filter results
-      const finalResults = this.sortAndFilter(categorizedResults, filters);
+      let finalResults = this.sortAndFilter(categorizedResults, filters);
+
+      // Red pill: diversify results so multiple bias perspectives appear
+      if (isRedPill) {
+        finalResults = this.diversifyByBias(finalResults);
+      }
+
       console.log(`✨ Final results after filtering: ${finalResults.length}`);
 
       return finalResults;
@@ -345,13 +366,23 @@ class SearchService {
    * Categorize results by bias
    */
   categorizeByBias(results) {
+    const biasLabels = {
+      left: 'Left-Leaning',
+      right: 'Right-Leaning',
+      center: 'Center',
+      unbiased: 'Fact-Based',
+      neutral: 'Unknown Bias',
+      mainstream: 'Mainstream',
+    };
+
     return results.map((result) => {
-      const bias = this.detectBias(result);
+      const bias = this.detectBias(result) || 'neutral';
       const category = this.detectCategory(result);
 
       return {
         ...result,
-        bias: bias || 'unbiased',
+        bias,
+        biasLabel: biasLabels[bias] || 'Unknown Bias',
         category: category || result.category || 'web',
       };
     });
@@ -508,6 +539,40 @@ class SearchService {
     }
 
     return filtered;
+  }
+
+  /**
+   * Diversify results by bias — interleave different perspectives
+   * so users see left, right, center, and independent views together
+   */
+  diversifyByBias(results) {
+    const buckets = { left: [], right: [], center: [], unbiased: [], neutral: [], mainstream: [] };
+
+    for (const result of results) {
+      const bias = result.bias || 'neutral';
+      if (buckets[bias]) {
+        buckets[bias].push(result);
+      } else {
+        buckets.neutral.push(result);
+      }
+    }
+
+    // Round-robin interleave: pick one from each non-empty bucket in rotation
+    const diversified = [];
+    const biasOrder = ['left', 'right', 'center', 'unbiased', 'neutral', 'mainstream'];
+    let added = true;
+
+    while (added) {
+      added = false;
+      for (const bias of biasOrder) {
+        if (buckets[bias].length > 0) {
+          diversified.push(buckets[bias].shift());
+          added = true;
+        }
+      }
+    }
+
+    return diversified;
   }
 
   /**

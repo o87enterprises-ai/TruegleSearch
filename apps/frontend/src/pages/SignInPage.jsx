@@ -156,9 +156,9 @@ export default function SignInPage() {
 
       toast.success('Admin Login', 'Welcome back, Administrator!', { pageTheme: 'landing' });
 
-      // Navigate to admin dashboard or main search
-      const redirectTo = location.state?.redirectTo || '/search-portal';
-      navigate(redirectTo);
+      // Navigate to redirect URL or universal search
+      const adminRedirect = location.state?.redirectTo || '/search';
+      navigate(adminRedirect);
 
     } catch (error) {
       console.error('Admin login error:', error);
@@ -190,31 +190,16 @@ export default function SignInPage() {
   };
 
   const handleAnonymousNavigation = () => {
-    // Check for anonymous navigation state
     const fromOSINT = location.state?.fromOSINT;
     const fromBiased = location.state?.fromBiased;
 
     if (fromOSINT) {
-      navigate('/osint/tools');
+      navigate('/search?mode=ocean');
     } else if (fromBiased) {
-      navigate('/biased');
+      navigate('/search?mode=purple');
     } else {
-      // Check for OSINT mode first
-      const isOSINTMode = localStorage.getItem('isOSINTMode') === 'true';
-      if (isOSINTMode) {
-        navigate('/osint/tools');
-      } else {
-        // Check for pill mode in localStorage for anonymous navigation
-        const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
-
-        if (isRedPillMode) {
-          // Red Pill Mode: Navigate to search results
-          navigate('/search-results');
-        } else {
-          // Blue Pill Mode (default): Navigate to search portal
-          navigate('/search-portal');
-        }
-      }
+      const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
+      navigate(isRedPillMode ? '/search?mode=red' : '/search');
     }
   };
 
@@ -244,62 +229,25 @@ export default function SignInPage() {
         const fromBiased = location.state?.fromBiased;
         const anonymous = location.state?.anonymous;
 
-        // Handle anonymous navigation if specified
-        if (anonymous) {
-          if (fromOSINT) {
-            navigate('/osint/tools');
-          } else if (fromBiased) {
-            navigate('/biased');
-          } else {
-            // Check for OSINT mode first
-            const isOSINTMode = localStorage.getItem('isOSINTMode') === 'true';
-            if (isOSINTMode) {
-              navigate('/osint/tools');
-            } else {
-              // Check for pill mode in localStorage for anonymous navigation
-              const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
-
-              if (isRedPillMode) {
-                // Red Pill Mode: Navigate to search results
-                navigate('/search-results');
-              } else {
-                // Blue Pill Mode (default): Navigate to search portal
-                navigate('/search-portal');
-              }
-            }
-          }
-        } else {
-          // Navigate to redirect URL if specified, otherwise to search results
-          if (redirectTo) {
-            // If redirectTo is for search functionality, use the correct search results route
-            if (redirectTo.startsWith('/search?')) {
-              // Extract query parameter and redirect to new search results page
-              navigate('/search-results' + redirectTo.substring('/search'.length));
-            } else if (redirectTo.startsWith('/search-results?')) {
-              // Redirect to search results with query parameters
-              navigate(redirectTo);
-            } else {
-              navigate(redirectTo);
-            }
-          } else {
-            // Check for OSINT mode first
-            const isOSINTMode = localStorage.getItem('isOSINTMode') === 'true';
-            if (isOSINTMode) {
-              navigate('/osint/tools');
-            } else {
-              // Check for pill mode in localStorage
-              const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
-
-              if (isRedPillMode) {
-                // Red Pill Mode: Navigate to search results
-                navigate('/search-results');
-              } else {
-                // Blue Pill Mode (default): Navigate to search portal
-                navigate('/search-portal');
-              }
-            }
-          }
+        // Priority 1: honour explicit redirectTo (set by ProtectedRoute)
+        if (redirectTo) {
+          navigate(redirectTo);
+          return;
         }
+
+        // Priority 2: anonymous navigation state flags
+        if (fromOSINT || location.state?.fromOSINT) {
+          navigate('/search?mode=ocean');
+          return;
+        }
+        if (fromBiased || location.state?.fromBiased) {
+          navigate('/search?mode=purple');
+          return;
+        }
+
+        // Priority 3: fall back to universal search, preserving pill mode
+        const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
+        navigate(isRedPillMode ? '/search?mode=red' : '/search');
       } else {
         toast.error('Login Failed', result.error || 'Invalid email or password', { pageTheme: 'landing' });
         setErrors({ general: result.error || 'Invalid email or password' });

@@ -1569,7 +1569,7 @@ export default function SearchPortal() {
                     <Sparkles size={20} className="text-white" />
                   </div>
                   <h3 className="text-lg font-display font-bold text-white">
-                    AI Summary
+                    (Unbiased) Search Summary
                   </h3>
                 </div>
                 <motion.div animate={{ rotate: aiExpanded ? 180 : 0 }}>
@@ -1634,7 +1634,7 @@ export default function SearchPortal() {
                     </>
                   ) : (
                     <p className="text-base text-white/60 leading-relaxed" style={{ minHeight: '5.5rem' }}>
-                      Enter a search query to see AI-powered unbiased analysis with multiple perspectives from various sources...
+                      Enter a search query to see an unbiased summary with multiple perspectives from various sources...
                     </p>
                   )}
                 </motion.div>

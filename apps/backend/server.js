@@ -15,6 +15,63 @@ const logger = require('./utils/logger');
 const app = express();
 const PORT = config.port;
 
+// CORS - must run before all other middleware
+const ALLOWED_ORIGINS = [
+  config.frontendUrl,
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:3001',
+  /\.ngrok-free\.app$/,
+  /\.ngrok\.io$/,
+  /\.vercel\.app$/,
+  /\.pages\.dev$/,
+].filter(Boolean);
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) {
+      return callback(null, true);
+    }
+    const isAllowed = ALLOWED_ORIGINS.some((allowed) =>
+      allowed instanceof RegExp ? allowed.test(origin) : allowed === origin
+    );
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      logger.warn(`CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Accept',
+    'X-Requested-With',
+    'Origin',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers',
+    'ngrok-skip-browser-warning',
+    'User-Agent',
+    'Cache-Control',
+    'Pragma'
+  ],
+  exposedHeaders: [
+    'Content-Range',
+    'X-Content-Range',
+    'X-Total-Count',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Credentials'
+  ],
+  maxAge: 600,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
 // Security middleware - Relaxed for development and ngrok
 app.use(
   helmet({
@@ -82,69 +139,11 @@ app.use(
   })
 );
 
-// CORS configuration
-const ALLOWED_ORIGINS = [
-  config.frontendUrl,
-  'http://localhost:5173',
-  'http://localhost:3001',
-  /\.ngrok-free\.app$/,
-  /\.ngrok\.io$/,
-  /\.vercel\.app$/,
-].filter(Boolean);
-
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (server-to-server, mobile apps, curl)
-    if (!origin) {
-      return callback(null, true);
-    }
-    const isAllowed = ALLOWED_ORIGINS.some((allowed) =>
-      allowed instanceof RegExp ? allowed.test(origin) : allowed === origin
-    );
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      logger.warn(`CORS blocked origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'Accept',
-    'X-Requested-With',
-    'Origin',
-    'Access-Control-Request-Method',
-    'Access-Control-Request-Headers',
-    'ngrok-skip-browser-warning',
-    'User-Agent',
-    'Cache-Control',
-    'Pragma'
-  ],
-  exposedHeaders: [
-    'Content-Range',
-    'X-Content-Range',
-    'X-Total-Count',
-    'Access-Control-Allow-Origin',
-    'Access-Control-Allow-Credentials'
-  ],
-  maxAge: 600, // Cache preflight requests for 10 minutes
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-};
-
-app.use(cors(corsOptions));
-
 // Ngrok bypass header
 app.use((req, res, next) => {
   res.setHeader('ngrok-skip-browser-warning', 'true');
   next();
 });
-
-// Explicit OPTIONS handler for preflight requests
-app.options('*', cors(corsOptions));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));

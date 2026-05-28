@@ -12,7 +12,7 @@ const AISummary = ({ query, summary, loading }) => {
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
         <div className="flex items-center mb-4">
           <SafeIcon icon={FiCpu} className="mr-2 text-blue-600" />
-          <h3 className="font-semibold text-blue-800">AI Summary</h3>
+          <h3 className="font-semibold text-blue-800">Search Summary</h3>
         </div>
         <div className="animate-pulse">
           <div className="h-4 bg-blue-200 rounded w-3/4 mb-2"></div>
@@ -28,7 +28,7 @@ const AISummary = ({ query, summary, loading }) => {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
           <SafeIcon icon={FiCpu} className="mr-2 text-blue-600" />
-          <h3 className="font-semibold text-blue-800">Unbiased AI Summary</h3>
+          <h3 className="font-semibold text-blue-800">(Unbiased) Search Summary</h3>
           <span className="ml-2 text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full">
             Multiple Sources
           </span>

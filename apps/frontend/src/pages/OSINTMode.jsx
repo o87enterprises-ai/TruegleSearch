@@ -27,6 +27,7 @@ import {
   Circle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { startPremiumCheckout } from '../services/paymentService';
 import DeepSeaEnhanced from '../components/backgrounds/DeepSeaEnhanced';
 import LightRays from '../components/backgrounds/LightRays';
 import TruegleLogo from '../components/ui/TruegleLogo';
@@ -369,7 +370,7 @@ export default function OSINTMode() {
       // Regular AI response
       setIsAiLoading(true);
       setTimeout(() => {
-        setAiResponse(`Here's what I found for "${aiQuery}":\n\nThis is a simulated response. Connect to your AI backend to get real OSINT/SEO analysis and recommendations.`);
+        setAiResponse(`Here's what I found for "${aiQuery}":\n\nThis is a simulated response. Connect to the Truegle Smart backend to get real OSINT/SEO analysis and recommendations.`);
         setIsAiLoading(false);
       }, 1500);
     }
@@ -813,7 +814,7 @@ export default function OSINTMode() {
                   <Bot size={24} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white">OSINT/SEO AI Assistant</h3>
+                  <h3 className="text-xl font-bold text-white">OSINT/SEO Smart Assistant</h3>
                   <p className="text-sm text-cyan-400/80">
                     {selectedTool ? toolGuides[selectedTool]?.description : 'Select a tool or ask anything'}
                   </p>
@@ -1246,7 +1247,18 @@ export default function OSINTMode() {
                   Watch Ad for 3 Uses
                 </button>
                 <button
-                  onClick={() => alert('Premium checkout coming soon!')}
+                  onClick={async () => {
+                    const result = await startPremiumCheckout();
+                    if (result.reason === 'auth_required') {
+                      navigate('/signin', { state: { returnTo: '/osint' } });
+                    } else if (!result.success) {
+                      alert(result.message || 'Payment service unavailable. Please try again later.');
+                    } else {
+                      // Stripe checkout will be handled here once Stripe.js is loaded
+                      // For now, store the intent and show confirmation
+                      alert('Payment intent created! Stripe checkout UI coming soon.');
+                    }
+                  }}
                   className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold hover:from-orange-400 hover:to-red-400 transition-all"
                 >
                   Upgrade Now

@@ -218,9 +218,9 @@ export default function LandingPage() {
     },
     {
       icon: Sparkles,
-      title: 'AI-Powered Insights',
+      title: 'Source Identification & Insights',
       description:
-        "Introducing: Truegle Ai's Unbiased Search Assistant! with perspectives filtering and bias detection.",
+        "Truegle's Unbiased Search — perspectives filtering, bias detection, and source transparency.",
       gradient: 'rgba(34, 197, 94, 1), rgba(0, 229, 255, 1)',
     },
   ];

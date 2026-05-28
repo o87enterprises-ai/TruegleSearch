@@ -186,6 +186,16 @@ router.get('/validate', async (req, res) => {
     }
 
     const token = authHeader.split(' ')[1];
+
+    // Check denylist
+    const tokenDenylist = require('../services/tokenDenylist');
+    if (tokenDenylist.isRevoked(token)) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'This session has been logged out',
+      });
+    }
+
     const decoded = jwt.verify(token, config.jwtSecret);
 
     const user = await User.findById(decoded.userId);
@@ -228,12 +238,16 @@ router.get('/validate', async (req, res) => {
 
 /**
  * @route   POST /api/auth/logout
- * @desc    Logout user (invalidate token on client)
+ * @desc    Logout user and revoke JWT token
  * @access  Private
  */
 router.post('/logout', (req, res) => {
-  // JWT tokens are stateless - logout is handled client-side
-  // This endpoint exists for API consistency
+  const tokenDenylist = require('../services/tokenDenylist');
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    tokenDenylist.add(token);
+  }
   res.json({
     success: true,
     message: 'Logged out successfully',

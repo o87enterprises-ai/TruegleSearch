@@ -276,7 +276,7 @@ export default function OSINTTools() {
       // Regular AI response
       setIsAiLoading(true);
       setTimeout(() => {
-        setAiResponse(`Here's what I found for "${aiQuery}":\n\nThis is a simulated response. Connect to your AI backend to get real OSINT/SEO analysis and recommendations.`);
+        setAiResponse(`Here's what I found for "${aiQuery}":\n\nThis is a simulated response. Connect to the Truegle Smart backend to get real OSINT/SEO analysis and recommendations.`);
         setIsAiLoading(false);
       }, 1500);
     }
@@ -579,7 +579,7 @@ export default function OSINTTools() {
                   <Bot size={24} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white">OSINT/SEO AI Assistant</h3>
+                  <h3 className="text-xl font-bold text-white">OSINT/SEO Smart Assistant</h3>
                   <p className="text-sm text-cyan-400/80">
                     {selectedTool ? toolGuides[selectedTool]?.description : 'Select a tool or ask anything'}
                   </p>

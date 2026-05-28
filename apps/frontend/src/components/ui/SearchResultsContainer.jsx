@@ -287,7 +287,7 @@ function SearchResultCard({
 }
 
 /**
- * AI Summary Card
+ * Search Summary Card
  */
 function AISummaryCard({ summary, isLoading = false, isCollapsed = false, onToggle }) {
   return (
@@ -314,8 +314,8 @@ function AISummaryCard({ summary, isLoading = false, isCollapsed = false, onTogg
             <Sparkles size={18} className="text-purple-400" />
           </div>
           <div className="text-left">
-            <h3 className="text-title-small text-neutral-50 font-semibold">AI Summary</h3>
-            <p className="text-label-small text-neutral-400">Powered by Truegle AI</p>
+            <h3 className="text-title-small text-neutral-50 font-semibold">Smart Summary</h3>
+            <p className="text-label-small text-neutral-400">Powered by Truegle Smart Search</p>
           </div>
         </div>
 
@@ -451,7 +451,7 @@ export default function SearchResultsContainer({
 
   return (
     <div className={`w-full max-w-4xl mx-auto ${className}`}>
-      {/* AI Summary Section */}
+      {/* Search Summary Section */}
       {(aiSummary || isSummaryLoading) && (
         <AISummaryCard
           summary={aiSummary}

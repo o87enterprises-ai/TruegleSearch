@@ -28,8 +28,10 @@ const securityHeaders = (req, res, next) => {
   );
 
   // Cross-Origin policies
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  // COOP: same-origin-allow-popups allows payment/auth popups (Stripe, PayPal)
+  // CORP: cross-origin allows loading of third-party resources (Mapbox, AdSense)
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
   // Cache control for sensitive endpoints
   if (req.path.includes('/auth') || req.path.includes('/api/user')) {

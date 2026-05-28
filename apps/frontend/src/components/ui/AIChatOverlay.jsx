@@ -204,7 +204,7 @@ export default function AIChatOverlay({
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-white">
-                  AI Search Assistant
+                  Smart Search Assistant
                 </h2>
                 <p className="text-sm text-white/60">
                   Ask follow-up questions for deeper insights
@@ -224,7 +224,7 @@ export default function AIChatOverlay({
             key={`ad-top-${adKey}`}
             variant="yellow"
             size="medium"
-            title="AI Research Tools"
+            title="Smart Research Tools"
             description="Advanced analytics for professionals"
             ctaText="Learn More"
             className="mx-6 mt-4"
@@ -322,7 +322,7 @@ export default function AIChatOverlay({
             variant="red"
             size="medium"
             title="Truegle Premium"
-            description="Unlimited AI searches without ads"
+            description="Unlimited Smart searches without ads"
             ctaText="Upgrade Now"
             className="mx-6 mb-4"
           />

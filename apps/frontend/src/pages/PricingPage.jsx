@@ -1,14 +1,21 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Logo from '../components/branding/Logo';
+import { startPremiumCheckout } from '../services/paymentService';
 
 const PricingPage = () => {
   const navigate = useNavigate();
 
-  const handleSubscribe = (tier) => {
-    alert(
-      `Subscribing to ${tier} plan. This will connect to Stripe checkout when backend is fully configured.`
-    );
+  const handleSubscribe = async (tier) => {
+    if (tier === 'free') return;
+    const result = await startPremiumCheckout();
+    if (result.reason === 'auth_required') {
+      navigate('/signin', { state: { returnTo: '/pricing' } });
+    } else if (!result.success) {
+      alert(result.message || 'Payment service unavailable. Please try again later.');
+    } else {
+      alert('Payment intent created! Stripe checkout UI integration pending API key setup.');
+    }
   };
 
   return (

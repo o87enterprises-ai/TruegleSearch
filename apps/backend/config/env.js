@@ -4,8 +4,7 @@ const Joi = require('joi');
 const envVarsSchema = Joi.object({
   // Server Configuration
   NODE_ENV: Joi.string()
-    .valid('development', 'production', 'test')
-    .default('development'),
+    .default('production'),
   PORT: Joi.number().default(3001),
   FRONTEND_URL: Joi.string().uri().default('http://localhost:5173'),
 

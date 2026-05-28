@@ -122,62 +122,25 @@ export default function SignUpPage() {
         const fromBiased = location.state?.fromBiased;
         const anonymous = location.state?.anonymous;
 
-        // Handle anonymous navigation if specified
-        if (anonymous) {
-          if (fromOSINT) {
-            navigate('/osint/tools');
-          } else if (fromBiased) {
-            navigate('/biased');
-          } else {
-            // Check for OSINT mode first
-            const isOSINTMode = localStorage.getItem('isOSINTMode') === 'true';
-            if (isOSINTMode) {
-              navigate('/osint/tools');
-            } else {
-              // Check for pill mode in localStorage for anonymous navigation
-              const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
-
-              if (isRedPillMode) {
-                // Red Pill Mode: Navigate to search results
-                navigate('/search-results');
-              } else {
-                // Blue Pill Mode (default): Navigate to search portal
-                navigate('/search-portal');
-              }
-            }
-          }
-        } else {
-          // Navigate to redirect URL if specified, otherwise to search results
-          if (redirectTo) {
-            // If redirectTo is for search functionality, use the correct search results route
-            if (redirectTo.startsWith('/search?')) {
-              // Extract query parameter and redirect to new search results page
-              navigate('/search-results' + redirectTo.substring('/search'.length));
-            } else if (redirectTo.startsWith('/search-results?')) {
-              // Redirect to search results with query parameters
-              navigate(redirectTo);
-            } else {
-              navigate(redirectTo);
-            }
-          } else {
-            // Check for OSINT mode first
-            const isOSINTMode = localStorage.getItem('isOSINTMode') === 'true';
-            if (isOSINTMode) {
-              navigate('/osint/tools');
-            } else {
-              // Check for pill mode in localStorage
-              const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
-
-              if (isRedPillMode) {
-                // Red Pill Mode: Navigate to search results
-                navigate('/search-results');
-              } else {
-                // Blue Pill Mode (default): Navigate to search portal
-                navigate('/search-portal');
-              }
-            }
-          }
+        // Priority 1: honour explicit redirectTo (set by ProtectedRoute)
+        if (redirectTo) {
+          navigate(redirectTo);
+          return;
         }
+
+        // Priority 2: anonymous navigation state flags
+        if (fromOSINT) {
+          navigate('/search?mode=ocean');
+          return;
+        }
+        if (fromBiased) {
+          navigate('/search?mode=purple');
+          return;
+        }
+
+        // Priority 3: fall back to universal search, preserving pill mode
+        const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
+        navigate(isRedPillMode ? '/search?mode=red' : '/search');
       } else {
         toast.error('Registration Failed', result.error || 'Failed to create account', { pageTheme: 'landing' });
         setErrors({ general: result.error || 'Failed to create account. Please try again.' });

@@ -43,6 +43,24 @@ export default function BiasedResults() {
   const [aiSummary, setAiSummary] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
 
+  // Token system: 10 tokens per session (5 searches + 5 chats)
+  const [tokens, setTokens] = useState(() => {
+    const stored = sessionStorage.getItem('redPillTokens');
+    return stored !== null ? parseInt(stored, 10) : 10;
+  });
+  const [showPaywall, setShowPaywall] = useState(false);
+
+  const useToken = () => {
+    const next = tokens - 1;
+    setTokens(next);
+    sessionStorage.setItem('redPillTokens', String(next));
+    if (next <= 0) {
+      setShowPaywall(true);
+      return false;
+    }
+    return true;
+  };
+
   // Function to detect if the search query is shopping-related
   const isShoppingQuery = (query) => {
     const shoppingKeywords = [
@@ -281,6 +299,8 @@ export default function BiasedResults() {
 
   const handleSearch = async () => {
     if (!searchValue.trim()) return;
+    if (tokens <= 0) { setShowPaywall(true); return; }
+    if (!useToken()) return;
 
     // Build query params with search value and selected perspectives
     const params = new URLSearchParams();
@@ -375,16 +395,12 @@ export default function BiasedResults() {
 
   const handleSendMessage = () => {
     if (!chatMessage.trim()) return;
+    if (tokens <= 0) { setShowPaywall(true); return; }
     if (selectedPerspectives.length === 0) {
       alert('Please select at least one bias perspective first!');
       return;
     }
-    console.log(
-      'Biased AI Message:',
-      chatMessage,
-      'Perspectives:',
-      selectedPerspectives
-    );
+    if (!useToken()) return;
     setChatMessage('');
   };
 
@@ -426,6 +442,66 @@ export default function BiasedResults() {
           background: `radial-gradient(600px circle at ${cursorPosition.x}px ${cursorPosition.y}px, rgba(139, 92, 246, 0.15), transparent 40%)`,
         }}
       />
+
+      {/* Token Counter Badge */}
+      <div className="fixed top-4 right-4 z-40">
+        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold backdrop-blur-xl border ${
+          tokens <= 2
+            ? 'bg-red-950/80 border-red-500/50 text-red-300'
+            : 'bg-purple-950/80 border-purple-500/30 text-purple-300'
+        }`}>
+          <div className={`w-2 h-2 rounded-full ${tokens <= 2 ? 'bg-red-400 animate-pulse' : 'bg-purple-400'}`} />
+          {tokens} token{tokens !== 1 ? 's' : ''} left
+        </div>
+      </div>
+
+      {/* Paywall Modal */}
+      <AnimatePresence>
+        {showPaywall && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-gradient-to-br from-[#1a0a2e] to-[#0a0a1e] border border-purple-500/40 rounded-2xl p-8 max-w-md w-full shadow-2xl shadow-purple-500/20 text-center"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center mx-auto mb-4">
+                <Zap size={28} className="text-purple-400" />
+              </div>
+              <h3 className="text-white font-bold text-2xl mb-2">Out of Tokens</h3>
+              <p className="text-white/60 text-sm mb-6">
+                You've used all <strong className="text-purple-300">10 free tokens</strong> for this session.
+                Watch a rewarded ad to earn more, or subscribe to Premium for unlimited access.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => setShowPaywall(false)}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold hover:from-yellow-400 hover:to-orange-400 transition-all shadow-lg"
+                >
+                  Watch Ad for +5 Tokens
+                </button>
+                <button
+                  onClick={() => window.location.href = '/pricing'}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold hover:from-purple-500 hover:to-pink-500 transition-all"
+                >
+                  Subscribe to Premium
+                </button>
+                <button
+                  onClick={() => setShowPaywall(false)}
+                  className="text-sm text-white/30 hover:text-white/50 transition-colors py-1"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Content */}
       <div className="relative z-10 min-h-screen p-4 md:p-8">
@@ -656,7 +732,7 @@ export default function BiasedResults() {
                     <Sparkles size={20} className="text-white" />
                   </div>
                   <h3 className="text-lg font-display font-bold text-white">
-                    Biased AI Summary
+                    Perspective Search Summary
                   </h3>
                   {aiLoading && (
                     <div className="animate-spin w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full"></div>
@@ -714,13 +790,13 @@ export default function BiasedResults() {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <div className="w-2 h-2 bg-pink-400 rounded-full"></div>
-                          <span>Powered by {aiSummary.model || 'AI'}</span>
+                          <span>Powered by Truegle Search</span>
                         </div>
                       </div>
                     </>
                   ) : (
                     <p className="text-sm text-white/60 leading-relaxed mb-3" style={{ minHeight: '5.5rem' }}>
-                      This AI analyzes your query through the lens of your selected bias perspectives,
+                      This analyzes your query through the lens of your selected bias perspectives,
                       surfacing content that aligns with specific viewpoints and ideological frameworks.
                       {selectedPerspectives.length > 0
                         ? ` Currently filtering through ${selectedPerspectives.length} perspective(s): ${getSelectedPerspectiveLabels().join(', ')}.`
@@ -1003,7 +1079,7 @@ export default function BiasedResults() {
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-white">
-                      Biased AI Assistant
+                      Perspective Search Assistant
                     </h2>
                     <p className="text-sm text-white/60">
                       Ask follow-up questions through your selected perspectives
@@ -1042,7 +1118,7 @@ export default function BiasedResults() {
                       </div>
                       <div className="flex-1">
                         <p className="text-white text-sm leading-relaxed">
-                          This AI analyzes your query through the lens of your selected bias perspectives,
+                          This analyzes your query through the lens of your selected bias perspectives,
                           surfacing content that aligns with specific viewpoints and ideological frameworks.
                           Results are filtered to emphasize narratives, sources, and interpretations that
                           match your chosen perspective categories.

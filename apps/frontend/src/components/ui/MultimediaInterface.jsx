@@ -297,7 +297,7 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
               </div>
               <div className="text-xs text-gray-800">
                 {category === 'soc'
-                  ? 'AI-powered engagement tools'
+                  ? 'Smart engagement tools'
                   : 'Professional tools for creators'}
               </div>
             </div>

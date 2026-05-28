@@ -1,5 +1,5 @@
 const { query } = require('./connection.js');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 // ✅ EXAMPLE 1: Safe user authentication
 const authenticateUser = async (email, password) => {
@@ -42,33 +42,7 @@ const createUser = async (email, password, username) => {
   return result.rows[0];
 };
 
-// ✅ EXAMPLE 3: Safe search query
-const saveSearch = async (userId, searchQuery) => {
-  await query(
-    'INSERT INTO search_history (user_id, query, timestamp) VALUES ($1, $2, NOW())',
-    [userId, searchQuery]
-  );
-};
-
-// ✅ EXAMPLE 4: Safe OSINT tool usage tracking
-const trackToolUsage = async (userId, toolName) => {
-  const result = await query(
-    'UPDATE tool_usage SET uses = uses + 1 WHERE user_id = $1 AND tool = $2 RETURNING uses',
-    [userId, toolName]
-  );
-
-  return result.rows[0];
-};
-
-// ✅ EXAMPLE 5: Get user's tool usage count (for freemium limits)
-const getUserToolUses = async (userId) => {
-  const result = await query(
-    'SELECT tool, uses FROM tool_usage WHERE user_id = $1',
-    [userId]
-  );
-
-  return result.rows;
-};
+// No search history tracking — Truegle does not track user searches
 
 // ❌ NEVER DO THIS - SQL Injection vulnerable!
 // const BAD_authenticateUser = async (email, password) => {
@@ -82,7 +56,4 @@ const getUserToolUses = async (userId) => {
 module.exports = {
   authenticateUser,
   createUser,
-  saveSearch,
-  trackToolUsage,
-  getUserToolUses,
 };

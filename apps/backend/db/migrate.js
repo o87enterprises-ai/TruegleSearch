@@ -14,7 +14,7 @@ async function runMigration(migrationFile) {
   try {
     console.log(`\n📦 Running migration: ${migrationFile}...`);
 
-    const sqlPath = path.join(__dirname, 'migrations', migrationFile);
+    const sqlPath = path.join(__dirname, '..', 'migrations', migrationFile);
     const sql = fs.readFileSync(sqlPath, 'utf8');
 
     // Remove line comments but preserve the SQL structure
@@ -103,7 +103,17 @@ async function runMigration(migrationFile) {
 
 async function main() {
   try {
-    await runMigration('001_create_prompt_tables.sql');
+    const migrationsDir = path.join(__dirname, '..', 'migrations');
+    const files = fs.readdirSync(migrationsDir)
+      .filter(f => f.endsWith('.sql'))
+      .sort();
+
+    console.log(`Found ${files.length} migration files: ${files.join(', ')}\n`);
+
+    for (const file of files) {
+      await runMigration(file);
+    }
+
     console.log('🎉 All migrations completed successfully!');
     process.exit(0);
   } catch (error) {

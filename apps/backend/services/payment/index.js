@@ -1,12 +1,18 @@
 const StripeProvider = require('./StripeProvider');
-const SquareProvider = require('./SquareProvider');
+
+let SquareProvider;
+try {
+  SquareProvider = require('./SquareProvider');
+} catch (e) {
+  // Square SDK not installed — Square payments unavailable
+}
 
 /**
  * Available payment providers
  */
 const providers = {
   stripe: StripeProvider,
-  square: SquareProvider,
+  ...(SquareProvider ? { square: SquareProvider } : {}),
 };
 
 /**

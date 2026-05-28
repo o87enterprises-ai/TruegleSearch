@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
+const tokenDenylist = require('../services/tokenDenylist');
 
 /**
  * Authentication middleware
@@ -18,6 +19,14 @@ const authenticate = (req, res, next) => {
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+    // Check if token has been revoked (logout denylist)
+    if (tokenDenylist.isRevoked(token)) {
+      return res.status(401).json({
+        error: 'Token revoked',
+        message: 'This session has been logged out. Please sign in again.',
+      });
+    }
 
     // Verify token - JWT_SECRET is required, no fallback allowed
     if (!process.env.JWT_SECRET) {
@@ -78,6 +87,10 @@ const optionalAuth = (req, res, next) => {
       process.env.JWT_SECRET
     ) {
       const token = authHeader.substring(7);
+      if (tokenDenylist.isRevoked(token)) {
+        req.user = { isAuthenticated: false, role: 'guest' };
+        return next();
+      }
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       req.user = {

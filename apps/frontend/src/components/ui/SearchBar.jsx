@@ -24,7 +24,7 @@ const searchCategories = [
   { id: 'soc', label: 'Soc', icon: Users },
   { id: 'finance', label: 'Finance', icon: DollarSign },
   { id: 'sports', label: 'Sports', icon: Trophy },
-  { id: 'ai', label: 'AI', icon: Zap },
+  { id: 'smart', label: 'Smart', icon: Zap },
   { id: 'audio', label: 'Audio', icon: Music },
   { id: 'shopping', label: 'Shopping', icon: ShoppingBag },
   { id: 'business', label: 'Business', icon: Briefcase },
@@ -640,25 +640,43 @@ function SearchFiltersBar({ filters, onFiltersChange, compact = false, showToggl
 }
 
 /**
- * PillToggle Component - Blue/Red Pill Mode Toggle
+ * PillToggle Component - Blue / Red / Green 3-way Pill Mode Toggle
+ * Cycles: Blue → Red → Green → Blue
  * Integrated into SearchBar for consistent usage across the app
  */
-function PillToggle({ isRedPillMode, onToggle, showLabel = true, showWarningModal = true }) {
+const PILL_CYCLE = ['blue', 'red', 'green'];
+const PILL_CONFIG = {
+  blue:  { label: 'Blue Pill Mode',  tag: 'BLUE',  bg: 'from-blue-500 to-blue-700',   text: 'text-blue-500',  tagText: 'text-blue-100'  },
+  red:   { label: 'Red Pill Mode',   tag: 'RED',   bg: 'from-red-600 to-red-800',     text: 'text-red-500',   tagText: 'text-red-100'   },
+  green: { label: 'Green Pill Mode', tag: 'GREEN', bg: 'from-green-600 to-green-800', text: 'text-green-500', tagText: 'text-green-100' },
+};
+
+function PillToggle({ isRedPillMode, pillMode: externalPillMode, onToggle, onModeChange, showLabel = true, showWarningModal = true }) {
   const [showWarning, setShowWarning] = useState(false);
 
+  // Derive current mode: prefer explicit pillMode prop, fall back to isRedPillMode boolean
+  const currentMode = externalPillMode || (isRedPillMode ? 'red' : 'blue');
+  const config = PILL_CONFIG[currentMode] || PILL_CONFIG.blue;
+
+  const getNextMode = () => {
+    const idx = PILL_CYCLE.indexOf(currentMode);
+    return PILL_CYCLE[(idx + 1) % PILL_CYCLE.length];
+  };
+
   const handleToggleClick = () => {
-    if (!isRedPillMode && showWarningModal) {
-      // Switching to Red Pill - show warning first
+    const next = getNextMode();
+    if (next === 'red' && showWarningModal) {
       setShowWarning(true);
     } else {
-      // Switching to Blue Pill or no warning needed - just toggle
-      onToggle();
+      if (onModeChange) onModeChange(next);
+      else if (onToggle) onToggle(next !== 'blue');
     }
   };
 
   const handleConfirmRedPill = () => {
     setShowWarning(false);
-    onToggle();
+    if (onModeChange) onModeChange('red');
+    else if (onToggle) onToggle(true);
   };
 
   const handleCancelRedPill = () => {
@@ -670,35 +688,20 @@ function PillToggle({ isRedPillMode, onToggle, showLabel = true, showWarningModa
       <div className="flex flex-col items-center gap-1">
         {/* Mode Label */}
         {showLabel && (
-          <span className={`text-lg font-bold transition-colors duration-300 ${
-            isRedPillMode ? 'text-red-500' : 'text-blue-500'
-          }`}>
-            {isRedPillMode ? 'Red Pill Mode' : 'Blue Pill Mode'}
+          <span className={`text-lg font-bold transition-colors duration-300 ${config.text}`}>
+            {config.label}
           </span>
         )}
 
-        {/* Toggle Switch */}
+        {/* 3-way Cycle Button */}
         <button
           type="button"
           onClick={handleToggleClick}
-          className={`relative w-24 h-8 flex items-center rounded-xl p-1 transition-colors duration-300 ${
-            isRedPillMode
-              ? 'bg-gradient-to-r from-red-600 to-red-800'
-              : 'bg-gradient-to-r from-blue-500 to-blue-700'
-          }`}
-          aria-label={isRedPillMode ? 'Switch to Blue Pill Mode' : 'Switch to Red Pill Mode'}
+          className={`relative w-24 h-8 flex items-center justify-center rounded-xl p-1 transition-all duration-300 bg-gradient-to-r ${config.bg}`}
+          aria-label={`Current: ${config.label}. Click to cycle pill mode.`}
         >
-          <div
-            className={`bg-white w-6 h-6 rounded-lg shadow-md transform transition-transform duration-300 ${
-              isRedPillMode ? 'translate-x-16' : 'translate-x-0'
-            }`}
-          />
-          <span
-            className={`absolute text-xs font-bold transition-all duration-300 ${
-              isRedPillMode ? 'left-3 text-red-100' : 'right-3 text-blue-100'
-            }`}
-          >
-            {isRedPillMode ? 'RED' : 'BLUE'}
+          <span className={`text-xs font-bold ${config.tagText}`}>
+            {config.tag}
           </span>
         </button>
       </div>
@@ -817,7 +820,8 @@ export default function SearchBar({
   // Pill Toggle Props
   showPillToggle = false,
   isRedPillMode: externalRedPillMode,
-  onPillModeChange,
+  pillMode: externalPillMode,      // 'blue' | 'red' | 'green' — overrides isRedPillMode
+  onPillModeChange,                // called with new mode string
   showPillLabel = true,
   // Filter Props
   showFilters = false,
@@ -1099,32 +1103,36 @@ export default function SearchBar({
     }
   }, []);
 
-  // Handle pill mode toggle - show warning when switching to Red Pill
+  // Derive current pill mode from explicit prop or isRedPillMode boolean
+  const currentPillMode = externalPillMode || (externalRedPillMode ? 'red' : 'blue');
+  const internalPillMode = externalPillMode || (internalRedPillMode ? 'red' : 'blue');
+  const activePillMode = externalPillMode !== undefined ? currentPillMode : internalPillMode;
+
+  const pillCycle = ['blue', 'red', 'green'];
+  const pillColors = {
+    blue:  { dot: 'bg-blue-500',  text: 'text-blue-400',  border: 'border-blue-500/40',  bg: 'bg-blue-500/20',  shadow: 'shadow-blue-500/20',  label: 'Blue Pill'  },
+    red:   { dot: 'bg-red-500',   text: 'text-red-400',   border: 'border-red-500/40',   bg: 'bg-red-500/20',   shadow: 'shadow-red-500/20',   label: 'Red Pill'   },
+    green: { dot: 'bg-green-500', text: 'text-green-400', border: 'border-green-500/40', bg: 'bg-green-500/20', shadow: 'shadow-green-500/20', label: 'Green Pill' },
+  };
+
+  // Handle pill mode toggle - cycle Blue → Red → Green → Blue
   const handlePillToggleClick = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isRedPillMode) {
-      // Switching from Blue to Red - check if we should skip warning
-      if (shouldSkipWarning()) {
-        // User previously chose to remember, skip warning
-        if (onPillModeChange) {
-          onPillModeChange(true);
-        } else {
-          setInternalRedPillMode(true);
-        }
-      } else {
-        // Show warning first
-        setShowPillWarning(true);
-      }
-    } else {
-      // Switching from Red to Blue - no warning needed
-      if (onPillModeChange) {
-        onPillModeChange(false);
-      } else {
-        setInternalRedPillMode(false);
-      }
+    const idx = pillCycle.indexOf(activePillMode);
+    const nextMode = pillCycle[(idx + 1) % pillCycle.length];
+
+    if (nextMode === 'red' && !shouldSkipWarning()) {
+      setShowPillWarning(true);
+      return;
     }
-  }, [isRedPillMode, onPillModeChange, shouldSkipWarning]);
+
+    if (onPillModeChange) {
+      onPillModeChange(nextMode);
+    } else {
+      setInternalRedPillMode(nextMode === 'red');
+    }
+  }, [activePillMode, onPillModeChange, shouldSkipWarning]);
 
   // Confirm switch to Red Pill after warning
   const handleConfirmRedPill = useCallback(() => {
@@ -1139,7 +1147,7 @@ export default function SearchBar({
     setShowPillWarning(false);
     setRememberRedPill(false);
     if (onPillModeChange) {
-      onPillModeChange(true);
+      onPillModeChange('red');
     } else {
       setInternalRedPillMode(true);
     }
@@ -1313,7 +1321,7 @@ const handleChange = useCallback((e) => {
                 )}
               </div>
 
-          {/* Blue Pill Mode Toggle - Center */}
+          {/* Pill Mode Toggle - Center (cycles Blue → Red → Green → Blue) */}
           <div className="flex justify-center">
             {showPillToggle ? (
               <motion.button
@@ -1325,24 +1333,14 @@ const handleChange = useCallback((e) => {
                 className={`
                   flex items-center gap-1.5 px-2 py-1 rounded-md
                   text-[11px] font-medium
-                  ${isRedPillMode
-                    ? 'bg-red-500/20 text-red-400 border border-red-500/40 shadow-sm shadow-red-500/20'
-                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/40 shadow-sm shadow-blue-500/20'
-                  }
+                  ${pillColors[activePillMode].bg} ${pillColors[activePillMode].text}
+                  border ${pillColors[activePillMode].border}
+                  shadow-sm ${pillColors[activePillMode].shadow}
                   transition-all duration-200
                 `}
               >
-                {isRedPillMode ? (
-                  <>
-                    <div className="w-3 h-3 rounded-full bg-red-500" />
-                    <span>Red Pill</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-3 h-3 rounded-full bg-blue-500" />
-                    <span>Blue Pill</span>
-                  </>
-                )}
+                <div className={`w-3 h-3 rounded-full ${pillColors[activePillMode].dot}`} />
+                <span>{pillColors[activePillMode].label}</span>
               </motion.button>
             ) : (
               <div /> /* Empty div to maintain layout */

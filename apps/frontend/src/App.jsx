@@ -114,7 +114,7 @@ const InfoWizardPrompt = ({
  */
 const App = () => {
   return (
-    <Router basename="/apps/truegle" future={{
+    <Router basename="/" future={{
       v7_startTransition: true,
       v7_relativeSplatPath: true
     }}>

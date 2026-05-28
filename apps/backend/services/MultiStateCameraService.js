@@ -8,7 +8,12 @@
  * Features: Full-text search, geospatial queries, state/road filtering
  */
 
-const Database = require('better-sqlite3');
+let Database;
+try {
+  Database = require('better-sqlite3');
+} catch (e) {
+  // better-sqlite3 not available in serverless environments
+}
 const path = require('path');
 const logger = require('../utils/logger');
 
