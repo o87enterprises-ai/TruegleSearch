@@ -117,6 +117,19 @@ const envVarsSchema = Joi.object({
     .optional()
     .description('Redis connection URL for caching'),
 
+  // Resend Email API
+  RESEND_API_KEY: Joi.string().optional().description('Resend transactional email API key'),
+  RESEND_FROM_EMAIL: Joi.string().optional().default('onboarding@resend.dev'),
+
+  // Brave Search API
+  BRAVE_API_KEY: Joi.string().optional().description('Brave Search API key'),
+
+  // Bright Data (web scraping proxy)
+  BRIGHT_DATA_API_KEY: Joi.string().optional().description('Bright Data API key'),
+
+  // PostgreSQL (Neon)
+  DATABASE_URL: Joi.string().optional().description('PostgreSQL connection string'),
+
   // Email Service (for notifications)
   SMTP_HOST: Joi.string().optional(),
   SMTP_PORT: Joi.number().optional(),
@@ -229,6 +242,29 @@ const config = {
   },
   serp: {
     apiKey: envVars.SERP_API_KEY,
+  },
+
+  // Email (Resend)
+  email: {
+    resend: {
+      apiKey: envVars.RESEND_API_KEY,
+      fromEmail: envVars.RESEND_FROM_EMAIL,
+    },
+  },
+
+  // Brave Search
+  brave: {
+    apiKey: envVars.BRAVE_API_KEY,
+  },
+
+  // Bright Data
+  brightData: {
+    apiKey: envVars.BRIGHT_DATA_API_KEY,
+  },
+
+  // PostgreSQL
+  database: {
+    url: envVars.DATABASE_URL,
   },
 
   // Voice

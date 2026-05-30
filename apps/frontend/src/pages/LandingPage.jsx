@@ -93,15 +93,31 @@ const SafeLearnMore = ({ onClick, className = '' }) => (
 export default function LandingPage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [isRedPillMode, setIsRedPillMode] = useState(() => {
-    const savedMode = localStorage.getItem('isRedPillMode');
-    return savedMode ? JSON.parse(savedMode) : false;
+  const [pillMode, setPillMode] = useState(() => {
+    return localStorage.getItem('truegle_pill_mode') || 'blue';
   });
+  const [pillToast, setPillToast] = useState(null); // { label, sub, color }
 
-  const updateRedPillMode = (mode) => {
-    setIsRedPillMode(mode);
-    localStorage.setItem('isRedPillMode', JSON.stringify(mode));
+  const PILL_TOAST_CONFIG = {
+    blue:  { label: 'Default Mode',  sub: 'Unbiased, standard search',       color: 'from-blue-500 to-blue-700',   dot: 'bg-blue-400' },
+    green: { label: 'AI Free Mode',  sub: 'Raw results — no smart features',  color: 'from-green-500 to-emerald-700', dot: 'bg-green-400' },
+    red:   { label: 'Deep Dive Mode', sub: 'Full spectrum — all perspectives', color: 'from-red-600 to-red-800',     dot: 'bg-red-400' },
   };
+
+  const updatePillMode = (mode) => {
+    setPillMode(mode);
+    localStorage.setItem('truegle_pill_mode', mode);
+    // Show brief toast notification
+    const cfg = PILL_TOAST_CONFIG[mode];
+    if (cfg) {
+      setPillToast(cfg);
+      setTimeout(() => setPillToast(null), 2200);
+    }
+  };
+
+  // Backwards-compat derived value for JSX that used isRedPillMode
+  const isRedPillMode = pillMode === 'red';
+
   const [showWarning, setShowWarning] = useState(false);
   const [showGlitch, setShowGlitch] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
@@ -346,14 +362,29 @@ export default function LandingPage() {
 
             {/* Search Bar with Integrated Pill Toggle */}
             <div className="w-full max-w-2xl mx-auto px-4 mb-2 relative">
+              {/* Pill mode toast notification */}
+              {pillToast && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                  className="absolute -top-12 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+                >
+                  <div className={`flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r ${pillToast.color} shadow-lg shadow-black/40`}>
+                    <div className={`w-2 h-2 rounded-full ${pillToast.dot} shrink-0`} />
+                    <span className="text-white text-sm font-semibold whitespace-nowrap">{pillToast.label}</span>
+                    <span className="text-white/60 text-xs whitespace-nowrap hidden sm:inline">— {pillToast.sub}</span>
+                  </div>
+                </motion.div>
+              )}
               <SearchBar
                 value={searchQuery}
                 onChange={(e) =>
                   setSearchQuery(typeof e === 'string' ? e : e.target.value)
                 }
                 showPillToggle={true}
-                isRedPillMode={isRedPillMode}
-                onPillModeChange={updateRedPillMode}
+                pillMode={pillMode}
+                onPillModeChange={updatePillMode}
                 showFilters={true}
                 filters={filters}
                 onFiltersChange={setFilters}
@@ -367,34 +398,20 @@ export default function LandingPage() {
                 biasedButtonGradient="from-red-600 to-red-800"
                 searchIconColor="text-green-500/80"
                 onSearch={() => {
-                  if (searchQuery.trim()) {
-                    // Show the glitch effect first
-                    setShowGlitch(true);
-                    setTimeout(() => {
-                      // Navigate directly to search without auth
-                      if (isRedPillMode) {
-                        navigate(`/search?q=${encodeURIComponent(searchQuery)}&mode=red`);
-                      } else {
-                        navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
-                      }
-                    }, 1000); // Allow glitch to show for 1 second before navigating
-                  } else {
-                    // Show the glitch effect first
-                    setShowGlitch(true);
-                    setTimeout(() => {
-                      // Navigate directly to search without auth
-                      if (isRedPillMode) {
-                        navigate('/search?mode=red');
-                      } else {
-                        navigate('/search');
-                      }
-                    }, 1000); // Allow glitch to show for 1 second before navigating
-                  }
+                  setShowGlitch(true);
+                  setTimeout(() => {
+                    const modeParam = pillMode !== 'blue' ? `&mode=${pillMode}` : '';
+                    if (searchQuery.trim()) {
+                      navigate(`/search?q=${encodeURIComponent(searchQuery)}${modeParam}`);
+                    } else {
+                      navigate(pillMode !== 'blue' ? `/search?mode=${pillMode}` : '/search');
+                    }
+                  }, 1000);
                 }}
                 placeholder={
-                  isRedPillMode
-                    ? 'Explore the Rabbit Hole...'
-                    : 'Search Truegle...'
+                  pillMode === 'red' ? 'Explore the Rabbit Hole...' :
+                  pillMode === 'green' ? 'Raw search — no smart features...' :
+                  'Search Truegle...'
                 }
                 size="large"
                 showBiasedButton={true}

@@ -412,6 +412,7 @@ export default function UniversalSearch() {
                 outerVignette={false}
                 smooth={true}
               />
+              <div className="absolute inset-0 bg-black/72" />
             </div>
           </ErrorBoundary>
         );

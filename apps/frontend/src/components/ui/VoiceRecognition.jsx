@@ -14,7 +14,14 @@ const VoiceRecognition = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const recognitionRef = useRef(null);
   const isSupported = useRef('webkitSpeechRecognition' in window || 'SpeechRecognition' in window);
-  const isMountedRef = useRef(true); // Track if component is mounted
+  const isMountedRef = useRef(true);
+  const transcriptRef = useRef('');
+  const onTranscriptChangeRef = useRef(onTranscriptChange);
+  const onStatusChangeRef = useRef(onStatusChange);
+
+  // Keep refs in sync without triggering re-initialization
+  onTranscriptChangeRef.current = onTranscriptChange;
+  onStatusChangeRef.current = onStatusChange;
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -24,7 +31,7 @@ const VoiceRecognition = ({
       return;
     }
 
-    // Initialize the speech recognition
+    // Initialize the speech recognition once
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognitionRef.current = new SpeechRecognition();
     recognitionRef.current.continuous = true;
@@ -35,29 +42,25 @@ const VoiceRecognition = ({
       if (!isMountedRef.current) return;
       setIsListening(true);
       setIsProcessing(false);
-      onStatusChange && onStatusChange('started');
+      onStatusChangeRef.current?.('started');
     };
 
     recognitionRef.current.onresult = (event) => {
       if (!isMountedRef.current) return;
 
       let interimTranscript = '';
-      let finalTranscript = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcriptPart = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcriptPart;
-        } else {
+        if (!event.results[i].isFinal) {
           interimTranscript += transcriptPart;
         }
       }
 
-      const newTranscript = transcript + interimTranscript;
+      const newTranscript = transcriptRef.current + interimTranscript;
       setTranscript(newTranscript);
-
-      // Update parent with current transcript
-      onTranscriptChange && onTranscriptChange(newTranscript);
+      transcriptRef.current = newTranscript;
+      onTranscriptChangeRef.current?.(newTranscript);
     };
 
     recognitionRef.current.onerror = (event) => {
@@ -65,14 +68,14 @@ const VoiceRecognition = ({
       console.error('Speech recognition error', event.error);
       setIsListening(false);
       setIsProcessing(false);
-      onStatusChange && onStatusChange('error', event.error);
+      onStatusChangeRef.current?.('error', event.error);
     };
 
     recognitionRef.current.onend = () => {
       if (!isMountedRef.current) return;
       setIsListening(false);
       setIsProcessing(false);
-      onStatusChange && onStatusChange('stopped');
+      onStatusChangeRef.current?.('stopped');
     };
 
     return () => {
@@ -81,7 +84,7 @@ const VoiceRecognition = ({
         recognitionRef.current.stop();
       }
     };
-  }, [onTranscriptChange, onStatusChange, transcript]);
+  }, []); // Run once on mount only
 
   const startListening = async () => {
     if (!isSupported.current || disabled || isListening) return;
@@ -89,6 +92,7 @@ const VoiceRecognition = ({
     try {
       setIsProcessing(true);
       setTranscript('');
+      transcriptRef.current = '';
 
       // Request microphone permission first
       await navigator.mediaDevices.getUserMedia({ audio: true });

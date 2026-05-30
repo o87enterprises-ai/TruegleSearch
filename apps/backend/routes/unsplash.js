@@ -38,7 +38,8 @@ router.get('/search', async (req, res) => {
 
     // Call the Unsplash Search Photos API
     const response = await axios.get('https://api.unsplash.com/search/photos', {
-      params
+      params,
+      timeout: 8000,
     });
 
     res.status(200).json({
@@ -83,7 +84,8 @@ router.get('/random', async (req, res) => {
 
     // Call the Unsplash Random Photos API
     const response = await axios.get('https://api.unsplash.com/photos/random', {
-      params
+      params,
+      timeout: 8000,
     });
 
     res.status(200).json({
@@ -122,9 +124,8 @@ router.get('/photo/:id', async (req, res) => {
 
     // Call the Unsplash Photo Details API
     const response = await axios.get(`https://api.unsplash.com/photos/${id}`, {
-      params: {
-        client_id: config.unsplash.accessKey
-      }
+      params: { client_id: config.unsplash.accessKey },
+      timeout: 8000,
     });
 
     res.status(200).json({
@@ -167,8 +168,9 @@ router.get('/collection/:id', async (req, res) => {
       params: {
         client_id: config.unsplash.accessKey,
         page: parseInt(page),
-        per_page: parseInt(perPage)
-      }
+        per_page: parseInt(perPage),
+      },
+      timeout: 8000,
     });
 
     res.status(200).json({
@@ -199,13 +201,14 @@ router.get('/trending', async (req, res) => {
 
     // Call the Unsplash Photos API to get curated photos (as a substitute for trending)
     const { page = 1, perPage = 10 } = req.query;
-    
+
     const response = await axios.get('https://api.unsplash.com/photos/curated', {
       params: {
         client_id: config.unsplash.accessKey,
         page: parseInt(page),
-        per_page: parseInt(perPage)
-      }
+        per_page: parseInt(perPage),
+      },
+      timeout: 8000,
     });
 
     res.status(200).json({

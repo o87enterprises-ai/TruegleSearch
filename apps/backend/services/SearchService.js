@@ -20,6 +20,17 @@ class SearchService {
     this.youtubeApiKey = config.searchApis.youtube.apiKey;
     this.youtubeBaseUrl = 'https://www.googleapis.com/youtube/v3/search';
 
+    // Unsplash API (images)
+    this.unsplashAccessKey = config.unsplash && config.unsplash.accessKey;
+
+    // Brave Search API (whole-web fallback)
+    this.braveApiKey = config.brave && config.brave.apiKey;
+    this.braveBaseUrl = 'https://api.search.brave.com/res/v1/web/search';
+
+    // SerpAPI (Google whole-web fallback)
+    this.serpApiKey = config.serp && config.serp.apiKey;
+    this.serpBaseUrl = 'https://serpapi.com/search';
+
     // Rate limiting configuration
     this.rateLimits = {
       google: 100, // requests per minute
@@ -49,6 +60,22 @@ class SearchService {
       const searchWeb = filters.category === 'all' || filters.category === 'web';
       const searchNews = filters.category === 'all' || filters.category === 'news' || isRedPill;
       const searchVideos = filters.category === 'all' || filters.category === 'videos';
+      const searchImages = filters.category === 'all' || filters.category === 'images';
+      const searchSocial = filters.category === 'social';
+
+      if (searchImages && this.unsplashAccessKey) {
+        searchPromises.push(this.performUnsplashSearch(query, filters));
+      }
+
+      // Social: scope to social platforms via Google if available
+      if (searchSocial) {
+        if (this.googleApiKey && this.googleSearchEngineId) {
+          searchPromises.push(this.performGoogleSearch(
+            `${query} site:reddit.com OR site:twitter.com OR site:facebook.com`,
+            { ...filters, perPage: 10 }
+          ));
+        }
+      }
 
       if (searchWeb) {
         if (this.googleApiKey && this.googleSearchEngineId) {
@@ -63,6 +90,10 @@ class SearchService {
         }
         if (this.bingApiKey) {
           searchPromises.push(this.performBingSearch(query, filters));
+        }
+        // Brave Search as whole-web fallback (covers when Google CSE has limited domains)
+        if (this.braveApiKey) {
+          searchPromises.push(this.performBraveSearch(query, filters));
         }
       }
 
@@ -91,8 +122,25 @@ class SearchService {
       const results = await Promise.allSettled(searchPromises);
 
       // Combine and process results
-      const combinedResults = this.combineResults(results);
+      let combinedResults = this.combineResults(results);
       console.log(`🔗 Combined results: ${combinedResults.length}`);
+
+      // SerpAPI fallback: fire only when web results are thin (< 5)
+      const webResultCount = combinedResults.filter(r => r.category === 'web').length;
+      if (searchWeb && webResultCount < 5 && this.serpApiKey) {
+        console.log(`⚡ SerpAPI fallback triggered (only ${webResultCount} web results)`);
+        try {
+          const serpData = await this.performSerpSearch(query, filters);
+          const serpResults = this.formatSerpResults(serpData);
+          // Merge without duplicating URLs already in combinedResults
+          const existingUrls = new Set(combinedResults.map(r => r.url));
+          const newResults = serpResults.filter(r => !existingUrls.has(r.url));
+          combinedResults = [...combinedResults, ...newResults];
+          console.log(`⚡ SerpAPI added ${newResults.length} results`);
+        } catch (err) {
+          console.error('SerpAPI fallback error:', err.message);
+        }
+      }
 
       // Apply bias detection and categorization
       const categorizedResults = this.categorizeByBias(combinedResults);
@@ -134,9 +182,13 @@ class SearchService {
       start: ((filters.page || 1) - 1) * googlePerPage + 1,
     };
 
-    // Add safe search filter
-    if (filters.safeSearch !== false) {
-      params.safe = 'active';
+    // Safe search: 'safe' (default) | 'blur' | 'off'
+    if (filters.safeSearch === 'off') {
+      // no safe param = unrestricted
+    } else if (filters.safeSearch === 'blur') {
+      params.safe = 'medium';
+    } else {
+      params.safe = 'active'; // 'safe' or anything else defaults to on
     }
 
     try {
@@ -180,7 +232,7 @@ class SearchService {
       count: filters.perPage || 10,
       offset: ((filters.page || 1) - 1) * (filters.perPage || 10),
       mkt: 'en-US',
-      safesearch: filters.safeSearch !== false ? 'Moderate' : 'Off',
+      safesearch: filters.safeSearch === 'off' ? 'Off' : filters.safeSearch === 'blur' ? 'Moderate' : 'Strict',
     };
 
     // Add date range filter
@@ -206,6 +258,112 @@ class SearchService {
 
       throw new Error('Bing Search service unavailable');
     }
+  }
+
+  /**
+   * Perform Brave Search (whole-web, no domain restrictions)
+   */
+  async performBraveSearch(query, filters) {
+    if (!this.braveApiKey) {
+      throw new Error('Brave Search API not configured');
+    }
+
+    const params = {
+      q: query,
+      count: Math.min(filters.perPage || 10, 20),
+      offset: ((filters.page || 1) - 1) * (filters.perPage || 10),
+      safesearch: filters.safeSearch === 'off' ? 'off' : filters.safeSearch === 'blur' ? 'moderate' : 'strict',
+    };
+
+    if (filters.dateRange && filters.dateRange !== 'any') {
+      const rangeMap = { day: 'pd', week: 'pw', month: 'pm', year: 'py' };
+      if (rangeMap[filters.dateRange]) params.freshness = rangeMap[filters.dateRange];
+    }
+
+    try {
+      const response = await axios.get(this.braveBaseUrl, {
+        headers: { 'X-Subscription-Token': this.braveApiKey, Accept: 'application/json' },
+        params,
+        timeout: 8000,
+      });
+      return { ...response.data, _source: 'brave' };
+    } catch (error) {
+      console.error('Brave Search API error:', error.response?.data || error.message);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error('Brave API key invalid');
+      }
+      if (error.response?.status === 429) {
+        throw new Error('Brave API rate limit exceeded');
+      }
+      throw new Error('Brave Search service unavailable');
+    }
+  }
+
+  formatBraveResults(data) {
+    if (!data || !data.web || !data.web.results) return [];
+
+    return data.web.results.map((item) => ({
+      title: item.title,
+      url: item.url,
+      snippet: item.description || '',
+      source: 'brave',
+      sourceName: 'Brave Search',
+      date: item.page_age || new Date().toISOString(),
+      image: item.thumbnail?.src || null,
+      favicon: item.profile?.img || null,
+      domain: this.extractDomain(item.url),
+      category: 'web',
+      verified: true,
+    }));
+  }
+
+  /**
+   * Perform SerpAPI search (whole-web Google results, used as fallback only)
+   */
+  async performSerpSearch(query, filters) {
+    if (!this.serpApiKey) {
+      throw new Error('SerpAPI not configured');
+    }
+
+    const params = {
+      api_key: this.serpApiKey,
+      q: query,
+      num: Math.min(filters.perPage || 10, 10),
+      start: ((filters.page || 1) - 1) * (filters.perPage || 10),
+      safe: filters.safeSearch === 'off' ? 'off' : 'active',
+      engine: 'google',
+    };
+
+    if (filters.dateRange && filters.dateRange !== 'any') {
+      const rangeMap = { day: 'd1', week: 'w1', month: 'm1', year: 'y1' };
+      if (rangeMap[filters.dateRange]) params.tbs = `qdr:${rangeMap[filters.dateRange]}`;
+    }
+
+    try {
+      const response = await axios.get(this.serpBaseUrl, { params, timeout: 10000 });
+      return { ...response.data, _source: 'serp' };
+    } catch (error) {
+      console.error('SerpAPI error:', error.response?.data || error.message);
+      throw new Error('SerpAPI unavailable');
+    }
+  }
+
+  formatSerpResults(data) {
+    if (!data || !data.organic_results) return [];
+
+    return data.organic_results.map((item) => ({
+      title: item.title,
+      url: item.link,
+      snippet: item.snippet || '',
+      source: 'serp',
+      sourceName: 'Google (via SerpAPI)',
+      date: item.date || new Date().toISOString(),
+      image: item.thumbnail || null,
+      favicon: item.favicon || null,
+      domain: this.extractDomain(item.link),
+      category: 'web',
+      verified: true,
+    }));
   }
 
   /**
@@ -292,6 +450,60 @@ class SearchService {
   }
 
   /**
+   * Perform Unsplash image search
+   */
+  async performUnsplashSearch(query, filters) {
+    if (!this.unsplashAccessKey) {
+      throw new Error('Unsplash API not configured');
+    }
+
+    const params = {
+      query,
+      per_page: Math.min(filters.perPage || 20, 30),
+      page: filters.page || 1,
+      client_id: this.unsplashAccessKey,
+    };
+
+    // Apply content filter mapping
+    if (filters.safeSearch !== 'off') {
+      params.content_filter = 'high';
+    }
+
+    try {
+      const response = await axios.get('https://api.unsplash.com/search/photos', {
+        params,
+        timeout: 8000,
+      });
+      // Tag the response so detectSource can identify it
+      return { ...response.data, _source: 'unsplash' };
+    } catch (error) {
+      console.error('Unsplash API error:', error.response?.data || error.message);
+      throw new Error('Unsplash service unavailable');
+    }
+  }
+
+  formatUnsplashResults(data) {
+    if (!data || !data.results) return [];
+
+    return data.results.map((photo) => ({
+      title: photo.alt_description || photo.description || 'Untitled Photo',
+      url: photo.links?.html || `https://unsplash.com/photos/${photo.id}`,
+      snippet: photo.description || photo.alt_description || '',
+      source: 'unsplash',
+      sourceName: 'Unsplash',
+      date: photo.created_at || new Date().toISOString(),
+      image: photo.urls?.regular || photo.urls?.small || null,
+      thumbnail: photo.urls?.thumb || null,
+      favicon: null,
+      domain: 'unsplash.com',
+      category: 'images',
+      verified: true,
+      photographer: photo.user?.name || null,
+      photographerUrl: photo.user?.links?.html || null,
+    }));
+  }
+
+  /**
    * Format search results into consistent format
    */
   formatResults(data, source) {
@@ -304,6 +516,10 @@ class SearchService {
         return this.formatNewsResults(data);
       case 'youtube':
         return this.formatYouTubeResults(data);
+      case 'unsplash':
+        return this.formatUnsplashResults(data);
+      case 'brave':
+        return this.formatBraveResults(data);
       default:
         return [];
     }
@@ -357,8 +573,9 @@ class SearchService {
     if (data.items && data.kind === 'customsearch#search') return 'google';
     if (data.webPages && data._type === 'SearchResponse') return 'bing';
     if (data.articles && data.status === 'ok') return 'news';
-    if (data.items && data.kind === 'youtube#searchListResponse')
-      return 'youtube';
+    if (data.items && data.kind === 'youtube#searchListResponse') return 'youtube';
+    if (data._source === 'unsplash') return 'unsplash';
+    if (data._source === 'brave') return 'brave';
     return 'unknown';
   }
 

@@ -4,7 +4,7 @@ import {
   Image, Video, Users, DollarSign, Trophy, Music, ShoppingBag, Briefcase,
   BookOpen, Newspaper, Globe, Heart, Film, Mic, Code, Gamepad2, Utensils,
   Plane, Home, MapPin, Map, Star, Navigation, Phone, Clock, Mail, ExternalLink,
-  Camera, Paperclip
+  Camera, Paperclip, Shield, EyeOff, Eye
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MapApiService from '../map/services/mapApi';
@@ -841,6 +841,9 @@ export default function SearchBar({
   showMap = false,
   onMapToggle = null,
   isLocationQuery = false,
+  // Safe Search Props
+  safeSearch: externalSafeSearch = 'safe', // 'safe' | 'blur' | 'off'
+  onSafeSearchChange,
   // Theme Props
   usePurpleTheme = false,
   themeColor = 'blue', // 'blue', 'red', 'purple', or 'cyan'
@@ -859,6 +862,7 @@ export default function SearchBar({
   const [internalRedPillMode, setInternalRedPillMode] = useState(false);
   const [showPillWarning, setShowPillWarning] = useState(false);
   const [rememberRedPill, setRememberRedPill] = useState(false);
+  const [localSafeSearch, setLocalSafeSearch] = useState(externalSafeSearch);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
@@ -866,6 +870,7 @@ export default function SearchBar({
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
   const typingTimerRef = useRef(null);
+  const pendingSearchRef = useRef(null);
 
   // Theme color mappings - comprehensive color system for the search bar
   const getThemeColors = useCallback(() => {
@@ -1115,48 +1120,57 @@ export default function SearchBar({
     green: { dot: 'bg-green-500', text: 'text-green-400', border: 'border-green-500/40', bg: 'bg-green-500/20', shadow: 'shadow-green-500/20', label: 'Green Pill' },
   };
 
-  // Handle pill mode toggle - cycle Blue → Red → Green → Blue
+  // Cycle safe search state: safe → blur → off → safe
+  const SAFE_CYCLE = ['safe', 'blur', 'off'];
+  const activeSafeSearch = externalSafeSearch !== undefined ? externalSafeSearch : localSafeSearch;
+  const handleSafeSearchCycle = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const idx = SAFE_CYCLE.indexOf(activeSafeSearch);
+    const next = SAFE_CYCLE[(idx + 1) % SAFE_CYCLE.length];
+    setLocalSafeSearch(next);
+    onSafeSearchChange?.(next);
+    if (onFiltersChange) {
+      onFiltersChange({ ...filters, safeSearch: next });
+    }
+  }, [activeSafeSearch, onSafeSearchChange, onFiltersChange, filters]);
+
+  // Handle pill mode toggle - cycle Blue → Red → Green → Blue (no warning on click)
   const handlePillToggleClick = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
     const idx = pillCycle.indexOf(activePillMode);
     const nextMode = pillCycle[(idx + 1) % pillCycle.length];
 
-    if (nextMode === 'red' && !shouldSkipWarning()) {
-      setShowPillWarning(true);
-      return;
-    }
-
     if (onPillModeChange) {
       onPillModeChange(nextMode);
     } else {
       setInternalRedPillMode(nextMode === 'red');
     }
-  }, [activePillMode, onPillModeChange, shouldSkipWarning]);
+  }, [activePillMode, onPillModeChange]);
 
-  // Confirm switch to Red Pill after warning
+  // Confirm Red Pill search after warning
   const handleConfirmRedPill = useCallback(() => {
-    // Save preference if "remember me" is checked
     if (rememberRedPill) {
       try {
         localStorage.setItem('truegle_skip_redpill_warning', 'true');
       } catch {
-        // Ignore localStorage errors
+        // ignore
       }
     }
     setShowPillWarning(false);
     setRememberRedPill(false);
-    if (onPillModeChange) {
-      onPillModeChange('red');
-    } else {
-      setInternalRedPillMode(true);
-    }
-  }, [onPillModeChange, rememberRedPill]);
+    // Run the queued search
+    const pending = pendingSearchRef.current;
+    pendingSearchRef.current = null;
+    pending?.();
+  }, [rememberRedPill]);
 
-  // Cancel switch to Red Pill
+  // Cancel Red Pill search
   const handleCancelRedPill = useCallback(() => {
     setShowPillWarning(false);
     setRememberRedPill(false);
+    pendingSearchRef.current = null;
   }, []);
 
   // Sync external value
@@ -1235,19 +1249,29 @@ const handleChange = useCallback((e) => {
     }, 200);
   }, []);
 
+  // Execute the actual search (called after any gate checks)
+  const executeSearch = useCallback(() => {
+    onSubmit?.();
+    onSearch?.();
+  }, [onSubmit, onSearch]);
+
+  // Gate search through red pill warning if needed
+  const gatedSearch = useCallback(() => {
+    if (activePillMode === 'red' && !shouldSkipWarning()) {
+      pendingSearchRef.current = executeSearch;
+      setShowPillWarning(true);
+      return;
+    }
+    executeSearch();
+  }, [activePillMode, shouldSkipWarning, executeSearch]);
+
   // Handle form submit
   const handleSubmit = useCallback((e) => {
     e.preventDefault();
-    console.log('📝 Form submitted (Enter pressed)!');
-    console.log('localValue:', localValue);
     if (localValue.trim()) {
-      console.log('✅ Calling onSubmit and onSearch from form...');
-      onSubmit?.();
-      onSearch?.();
-    } else {
-      console.log('❌ localValue is empty');
+      gatedSearch();
     }
-  }, [localValue, onSubmit, onSearch]);
+  }, [localValue, gatedSearch]);
 
   // Handle keyboard shortcuts including suggestion navigation
   const handleKeyDown = useCallback((e) => {
@@ -1347,8 +1371,30 @@ const handleChange = useCallback((e) => {
             )}
           </div>
 
-          {/* OSINT Mode Toggle - Right Side */}
-          <div className="flex items-end justify-end">
+          {/* OSINT Mode Toggle + Safe Search - Right Side */}
+          <div className="flex items-end justify-end gap-1.5">
+            {/* Safe Search Toggle — subtle 3-state cycle */}
+            {(() => {
+              const safeConfig = {
+                safe:  { Icon: Shield,  label: 'Safe',    cls: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
+                blur:  { Icon: Eye,     label: 'Blur',    cls: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10' },
+                off:   { Icon: EyeOff,  label: 'Off',     cls: 'text-red-400 border-red-500/30 bg-red-500/10' },
+              };
+              const sc = safeConfig[activeSafeSearch] || safeConfig.safe;
+              return (
+                <motion.button
+                  type="button"
+                  onClick={handleSafeSearchCycle}
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  title={`Safe Search: ${sc.label} (click to cycle)`}
+                  className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-[10px] font-medium border opacity-60 hover:opacity-100 transition-all ${sc.cls}`}
+                >
+                  <sc.Icon size={10} />
+                  <span className="hidden sm:inline">{sc.label}</span>
+                </motion.button>
+              );
+            })()}
             {showOSINTToggle ? (
               <motion.button
                 type="button"
@@ -1368,9 +1414,7 @@ const handleChange = useCallback((e) => {
                 <Zap size={12} />
                 <span>OSINT / SEO</span>
               </motion.button>
-            ) : (
-              <div className="w-20" /> /* Spacer when no OSINT toggle */
-            )}
+            ) : null}
           </div>
         </div>
       )}
@@ -1706,16 +1750,8 @@ const handleChange = useCallback((e) => {
         <motion.button
           type="button"
           onClick={() => {
-            console.log('🔍 Search button clicked!');
-            console.log('localValue:', localValue);
-            console.log('onSubmit:', typeof onSubmit);
-            console.log('onSearch:', typeof onSearch);
             if (localValue.trim()) {
-              console.log('✅ Calling onSubmit and onSearch...');
-              onSubmit?.();
-              onSearch?.();
-            } else {
-              console.log('❌ localValue is empty');
+              gatedSearch();
             }
           }}
           disabled={disabled || !localValue.trim()}

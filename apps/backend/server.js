@@ -145,6 +145,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// Stripe webhook needs raw body BEFORE express.json() parses it
+app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
+
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
