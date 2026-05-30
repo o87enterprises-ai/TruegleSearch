@@ -74,6 +74,7 @@ export default function UniversalSearch() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [lastSearchedQuery, setLastSearchedQuery] = useState(null);
 
   // AI state
   const [aiSummary, setAiSummary] = useState(null);
@@ -137,10 +138,10 @@ export default function UniversalSearch() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Auto-execute search when URL has query param
+  // Auto-execute search when URL query changes
   useEffect(() => {
     const queryParam = searchParams.get('q');
-    if (queryParam && queryParam.trim() && searchResults.length === 0 && !searchLoading) {
+    if (queryParam && queryParam.trim() && queryParam !== lastSearchedQuery && !searchLoading) {
       handleSearch();
     }
   }, [searchParams]);
@@ -184,6 +185,7 @@ export default function UniversalSearch() {
 
     setSearchLoading(true);
     setAiSummary(null);
+    setLastSearchedQuery(searchValue);
 
     try {
       const categoryMap = {
@@ -195,7 +197,6 @@ export default function UniversalSearch() {
         maps: 'shopping',
       };
 
-      // Stub categories append contextual keywords to the query
       const categoryKeywords = {
         finance: 'finance stocks market',
         sports: 'sports scores',
@@ -215,11 +216,16 @@ export default function UniversalSearch() {
       let effectiveQuery = searchValue;
       let searchCategory = categoryMap[activeCategory] || 'all';
 
-      // For stub categories, scope the query and use 'all' or 'news' as base
       if (categoryKeywords[activeCategory]) {
         effectiveQuery = `${searchValue} ${categoryKeywords[activeCategory]}`;
         searchCategory = activeCategory === 'world' ? 'news' : 'all';
       }
+
+      // Determine backend mode string
+      let backendMode = 'blue-pill';
+      if (mode === 'red') backendMode = 'red-pill';
+      else if (mode === 'purple') backendMode = 'purple';
+      else if (mode === 'ocean') backendMode = 'ocean';
 
       const response = await fetch(
         `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/search`,
@@ -228,10 +234,11 @@ export default function UniversalSearch() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             query: effectiveQuery,
-            mode: isRedPillMode ? 'red-pill' : 'blue-pill',
+            mode: backendMode,
             filters: {
               category: searchCategory,
-              bias: selectedPerspectives.length > 0 ? selectedPerspectives[0] : 'all',
+              bias: 'all',
+              perspectives: mode === 'purple' ? selectedPerspectives : [],
               dateRange: 'any',
               sortBy: 'relevance',
               order: 'desc',

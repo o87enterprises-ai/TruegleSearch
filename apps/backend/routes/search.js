@@ -147,15 +147,16 @@ function validateFilters(filters) {
 
   // Validate bias
   const validBiases = [
-    'all',
-    'left',
-    'right',
-    'center',
-    'unbiased',
-    'mainstream',
+    'all', 'left', 'right', 'center', 'unbiased', 'mainstream',
+    'alternative', 'conspiracy', 'independent', 'neutral',
   ];
   if (!validBiases.includes(validFilters.bias)) {
     validFilters.bias = 'all';
+  }
+
+  // Perspectives: array of UI perspective IDs for purple mode
+  if (Array.isArray(filters.perspectives)) {
+    validFilters.perspectives = filters.perspectives.filter(p => typeof p === 'string');
   }
 
   // Validate pagination

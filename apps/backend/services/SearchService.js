@@ -48,26 +48,32 @@ class SearchService {
   }
 
   /**
-   * Perform search across multiple sources
+   * Perform search across multiple sources.
+   * mode: 'blue-pill' | 'red-pill' | 'purple' | 'ocean'
    */
   async performSearch(query, filters, mode = 'blue-pill') {
     try {
       console.log('🔍 SearchService.performSearch called with:', { query, filters, mode });
-      const searchPromises = [];
-      const isRedPill = mode === 'red-pill';
 
-      // For red-pill mode, always search news to get diverse perspectives
+      // Ocean mode: OSINT-only pipeline — no web search
+      if (mode === 'ocean') {
+        return this.performOsintSearch(query, filters);
+      }
+
+      const isRedPill = mode === 'red-pill';
+      const isPurple = mode === 'purple';
+      const searchPromises = [];
+
       const searchWeb = filters.category === 'all' || filters.category === 'web';
       const searchNews = filters.category === 'all' || filters.category === 'news' || isRedPill;
       const searchVideos = filters.category === 'all' || filters.category === 'videos';
-      const searchImages = filters.category === 'all' || filters.category === 'images';
+      const searchImages = filters.category === 'images';
       const searchSocial = filters.category === 'social';
 
       if (searchImages && this.unsplashAccessKey) {
         searchPromises.push(this.performUnsplashSearch(query, filters));
       }
 
-      // Social: scope to social platforms via Google if available
       if (searchSocial) {
         if (this.googleApiKey && this.googleSearchEngineId) {
           searchPromises.push(this.performGoogleSearch(
@@ -80,10 +86,19 @@ class SearchService {
       if (searchWeb) {
         if (this.googleApiKey && this.googleSearchEngineId) {
           searchPromises.push(this.performGoogleSearch(query, filters));
-          // Red pill: also search for alternative/independent perspectives
+
           if (isRedPill) {
+            // Red pill: explicitly hunt for alternative, suppressed, and independent sources
             searchPromises.push(this.performGoogleSearch(
-              `${query} alternative perspective independent analysis`,
+              `${query} site:substack.com OR site:rumble.com OR site:odysee.com OR site:zerohedge.com OR site:rt.com`,
+              { ...filters, perPage: 10 }
+            ));
+            searchPromises.push(this.performGoogleSearch(
+              `${query} "censored" OR "suppressed" OR "they don't want you to know" OR "alternative view" OR "independent analysis"`,
+              { ...filters, perPage: 5 }
+            ));
+            searchPromises.push(this.performGoogleSearch(
+              `${query} site:theintercept.com OR site:thegrayzone.com OR site:mintpressnews.com OR site:corbettreport.com OR site:off-guardian.org`,
               { ...filters, perPage: 5 }
             ));
           }
@@ -91,7 +106,6 @@ class SearchService {
         if (this.bingApiKey) {
           searchPromises.push(this.performBingSearch(query, filters));
         }
-        // Brave Search as whole-web fallback (covers when Google CSE has limited domains)
         if (this.braveApiKey) {
           searchPromises.push(this.performBraveSearch(query, filters));
         }
@@ -106,10 +120,9 @@ class SearchService {
       if (searchVideos) {
         if (this.youtubeApiKey) {
           searchPromises.push(this.performYoutubeSearch(query, filters));
-          // Red pill: also search for independent/alternative video takes
           if (isRedPill) {
             searchPromises.push(this.performYoutubeSearch(
-              `${query} independent analysis alternative view`,
+              `${query} independent documentary whistleblower`,
               { ...filters, perPage: 5 }
             ));
           }
@@ -118,10 +131,7 @@ class SearchService {
 
       console.log(`📦 Total search promises: ${searchPromises.length}`);
 
-      // Wait for all searches to complete
       const results = await Promise.allSettled(searchPromises);
-
-      // Combine and process results
       let combinedResults = this.combineResults(results);
       console.log(`🔗 Combined results: ${combinedResults.length}`);
 
@@ -132,7 +142,6 @@ class SearchService {
         try {
           const serpData = await this.performSerpSearch(query, filters);
           const serpResults = this.formatSerpResults(serpData);
-          // Merge without duplicating URLs already in combinedResults
           const existingUrls = new Set(combinedResults.map(r => r.url));
           const newResults = serpResults.filter(r => !existingUrls.has(r.url));
           combinedResults = [...combinedResults, ...newResults];
@@ -142,25 +151,130 @@ class SearchService {
         }
       }
 
-      // Apply bias detection and categorization
       const categorizedResults = this.categorizeByBias(combinedResults);
       console.log(`🏷️  Categorized results: ${categorizedResults.length}`);
 
-      // Sort and filter results
-      let finalResults = this.sortAndFilter(categorizedResults, filters);
-
-      // Red pill: diversify results so multiple bias perspectives appear
-      if (isRedPill) {
-        finalResults = this.diversifyByBias(finalResults);
+      // Purple mode: strict perspective filter — only return results matching selected biases
+      if (isPurple && filters.perspectives && filters.perspectives.length > 0) {
+        const mapped = this.mapPerspectivesToBias(filters.perspectives);
+        const filtered = categorizedResults.filter(r => mapped.includes(r.bias));
+        console.log(`🟣 Purple strict filter: ${filtered.length} results for perspectives [${filters.perspectives.join(',')}]`);
+        return filtered;
       }
 
-      console.log(`✨ Final results after filtering: ${finalResults.length}`);
+      let finalResults = this.sortAndFilter(categorizedResults, filters);
 
+      if (isRedPill) {
+        finalResults = this.sortRedPill(finalResults);
+      }
+
+      console.log(`✨ Final results: ${finalResults.length}`);
       return finalResults;
     } catch (error) {
       console.error('SearchService error:', error);
       throw new Error('Search service unavailable');
     }
+  }
+
+  /**
+   * Map purple-mode UI perspective IDs to internal bias tiers
+   */
+  mapPerspectivesToBias(perspectives) {
+    const map = {
+      conservative: 'right',
+      libertarian: 'right',
+      liberal: 'left',
+      progressive: 'left',
+      centrist: 'center',
+      bipartisan: 'center',
+      religious: 'right',
+      secular: 'center',
+      scientific: 'unbiased',
+      skeptical: 'unbiased',
+      mainstream: 'mainstream',
+      alternative: 'alternative',
+      conspiracy: 'conspiracy',
+      independent: 'independent',
+      neutral: 'neutral',
+      // faith/societal catch-alls
+      spiritual: 'alternative',
+      new_world: 'conspiracy',
+      old_world: 'alternative',
+      universal: 'center',
+      atheist: 'unbiased',
+      government: 'mainstream',
+      community: 'neutral',
+      traditional: 'right',
+      // economic
+      local_economy: 'alternative',
+      global_economics: 'mainstream',
+      investors: 'center',
+      consumers: 'neutral',
+      small_business: 'alternative',
+      corporate: 'mainstream',
+    };
+    const biases = [...new Set(perspectives.map(p => map[p] || 'neutral'))];
+    return biases;
+  }
+
+  /**
+   * Red pill sort: conspiracy and alternative float to top, mainstream sinks to bottom.
+   * Order: conspiracy → alternative → independent → neutral → center → unbiased → left → right → mainstream
+   */
+  sortRedPill(results) {
+    const order = {
+      conspiracy: 0,
+      alternative: 1,
+      independent: 2,
+      neutral: 3,
+      center: 4,
+      unbiased: 5,
+      left: 6,
+      right: 7,
+      mainstream: 8,
+    };
+    return [...results].sort((a, b) => {
+      const aRank = order[a.bias] !== undefined ? order[a.bias] : 3;
+      const bRank = order[b.bias] !== undefined ? order[b.bias] : 3;
+      return aRank - bRank;
+    });
+  }
+
+  /**
+   * OSINT-only search pipeline for ocean mode.
+   * Returns investigation-focused results only (domain intel, social profiles, etc.)
+   */
+  async performOsintSearch(query, filters) {
+    const searchPromises = [];
+
+    // Search for digital footprint: social profiles, domain info, leaked data mentions
+    if (this.googleApiKey && this.googleSearchEngineId) {
+      searchPromises.push(this.performGoogleSearch(
+        `"${query}" site:linkedin.com OR site:twitter.com OR site:facebook.com OR site:instagram.com OR site:github.com`,
+        { ...filters, perPage: 10 }
+      ));
+      searchPromises.push(this.performGoogleSearch(
+        `"${query}" whois OR "domain registration" OR "IP address" OR "email leak" OR "data breach"`,
+        { ...filters, perPage: 5 }
+      ));
+      searchPromises.push(this.performGoogleSearch(
+        `"${query}" site:pastebin.com OR site:haveibeenpwned.com OR site:dehashed.com OR site:intelx.io`,
+        { ...filters, perPage: 5 }
+      ));
+    }
+    if (this.braveApiKey) {
+      searchPromises.push(this.performBraveSearch(
+        `"${query}" site:linkedin.com OR site:twitter.com OR site:github.com`,
+        { ...filters, perPage: 5 }
+      ));
+    }
+
+    const results = await Promise.allSettled(searchPromises);
+    const combined = this.combineResults(results);
+    const categorized = this.categorizeByBias(combined);
+
+    // Tag all results as osint category
+    return categorized.map(r => ({ ...r, category: 'osint', isOsint: true }));
   }
 
   /**
@@ -588,8 +702,11 @@ class SearchService {
       right: 'Right-Leaning',
       center: 'Center',
       unbiased: 'Fact-Based',
-      neutral: 'Unknown Bias',
-      mainstream: 'Mainstream',
+      neutral: 'Unknown',
+      mainstream: 'Mainstream Media',
+      alternative: 'Alternative Media',
+      conspiracy: 'Fringe / Conspiracy',
+      independent: 'Independent',
     };
 
     return results.map((result) => {
@@ -633,6 +750,9 @@ class SearchService {
       'talkingpointsmemo.com': 'left',
       'rawstory.com': 'left',
       'alternet.org': 'left',
+      'theintercept.com': 'left',
+      'truthout.org': 'left',
+      'inthesetimes.com': 'left',
 
       // RIGHT-LEANING SOURCES
       'foxnews.com': 'right',
@@ -651,15 +771,18 @@ class SearchService {
       'oann.com': 'right',
       'americanthinker.com': 'right',
       'conservativereview.com': 'right',
-      'weeklystandard.com': 'right',
       'theamericanconservative.com': 'right',
       'powerlineblog.com': 'right',
       'legalinsurrection.com': 'right',
+      'pjmedia.com': 'right',
+      'dailysignal.com': 'right',
+      'westernjournal.com': 'right',
 
       // CENTER/UNBIASED SOURCES
       'reuters.com': 'unbiased',
       'apnews.com': 'unbiased',
       'bbc.com': 'center',
+      'bbc.co.uk': 'center',
       'npr.org': 'center',
       'pbs.org': 'unbiased',
       'c-span.org': 'unbiased',
@@ -676,6 +799,9 @@ class SearchService {
       'newsweek.com': 'center',
       'economist.com': 'center',
       'ft.com': 'center',
+      'factcheck.org': 'unbiased',
+      'snopes.com': 'unbiased',
+      'politifact.com': 'unbiased',
 
       // MAINSTREAM/GENERAL
       'google.com': 'mainstream',
@@ -684,6 +810,53 @@ class SearchService {
       'wikipedia.org': 'unbiased',
       'en.wikipedia.org': 'unbiased',
       'youtube.com': 'mainstream',
+      'msn.com': 'mainstream',
+
+      // ALTERNATIVE — independent voices, non-corporate media, dissident press
+      'substack.com': 'alternative',
+      'greenwald.substack.com': 'alternative',
+      'racket.news': 'alternative',
+      'thegrayzone.com': 'alternative',
+      'mintpressnews.com': 'alternative',
+      'consortiumnews.com': 'alternative',
+      'off-guardian.org': 'alternative',
+      'globalresearch.ca': 'alternative',
+      'theintercept.com': 'alternative',
+      'unlimitedhangout.com': 'alternative',
+      'corbettreport.com': 'alternative',
+      'zerohedge.com': 'alternative',
+      'rumble.com': 'alternative',
+      'odysee.com': 'alternative',
+      'bitchute.com': 'alternative',
+      'banned.video': 'alternative',
+      'brighteon.com': 'alternative',
+      'rt.com': 'alternative',
+      'sputniknews.com': 'alternative',
+      'strategic-culture.org': 'alternative',
+      'unz.com': 'alternative',
+      'lewrockwell.com': 'alternative',
+      'antiwar.com': 'alternative',
+
+      // CONSPIRACY / FRINGE
+      'infowars.com': 'conspiracy',
+      'naturalnews.com': 'conspiracy',
+      'activistpost.com': 'conspiracy',
+      'beforeitsnews.com': 'conspiracy',
+      'whatreallyhappened.com': 'conspiracy',
+      'henrymakow.com': 'conspiracy',
+      'rense.com': 'conspiracy',
+      'veterans-today.com': 'conspiracy',
+      'thepeoplesvoice.tv': 'conspiracy',
+      'neonnettle.com': 'conspiracy',
+
+      // INDEPENDENT — personal blogs, independent journalists, non-partisan
+      'medium.com': 'independent',
+      'substack.com': 'independent',
+      'wordpress.com': 'independent',
+      'blogspot.com': 'independent',
+      'ghost.io': 'independent',
+      'patreon.com': 'independent',
+      'locals.com': 'independent',
     };
 
     return biasMap[domain] || 'neutral';
@@ -758,39 +931,6 @@ class SearchService {
     return filtered;
   }
 
-  /**
-   * Diversify results by bias — interleave different perspectives
-   * so users see left, right, center, and independent views together
-   */
-  diversifyByBias(results) {
-    const buckets = { left: [], right: [], center: [], unbiased: [], neutral: [], mainstream: [] };
-
-    for (const result of results) {
-      const bias = result.bias || 'neutral';
-      if (buckets[bias]) {
-        buckets[bias].push(result);
-      } else {
-        buckets.neutral.push(result);
-      }
-    }
-
-    // Round-robin interleave: pick one from each non-empty bucket in rotation
-    const diversified = [];
-    const biasOrder = ['left', 'right', 'center', 'unbiased', 'neutral', 'mainstream'];
-    let added = true;
-
-    while (added) {
-      added = false;
-      for (const bias of biasOrder) {
-        if (buckets[bias].length > 0) {
-          diversified.push(buckets[bias].shift());
-          added = true;
-        }
-      }
-    }
-
-    return diversified;
-  }
 
   /**
    * Extract domain from URL

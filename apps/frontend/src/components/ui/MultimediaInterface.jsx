@@ -47,12 +47,24 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
                   title: img.title,
                 }));
               } else if (category === 'vids') {
-                mappedData = result.results.map(vid => ({
-                  id: vid.id || vid.url.split('v=')[1] || vid.url,
-                  thumbnail: vid.image,
-                  title: vid.title,
-                  duration: 'N/A', // Could be enhanced to fetch duration
-                }));
+                mappedData = result.results.map(vid => {
+                  const videoId = vid.url?.includes('youtube.com')
+                    ? new URLSearchParams(new URL(vid.url).search).get('v')
+                    : null;
+                  return {
+                    id: videoId || vid.url,
+                    videoId,
+                    url: vid.url,
+                    thumbnail: videoId
+                      ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                      : vid.image,
+                    title: vid.title,
+                    snippet: vid.snippet,
+                    channel: vid.sourceName || 'YouTube',
+                    date: vid.date,
+                    duration: 'N/A',
+                  };
+                });
               } else if (category === 'audio') {
                 mappedData = result.results.map(audio => ({
                   id: audio.id || audio.url,
@@ -63,13 +75,15 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
               } else if (category === 'soc') {
                 mappedData = result.results.map(post => ({
                   id: post.id || post.url,
-                  thumbnail: post.image,
-                  platform: post.sourceName,
-                  author: post.title.split(' - ')[0] || 'Unknown',
-                  text: post.snippet,
-                  likes: Math.floor(Math.random() * 1000), // Placeholder
-                  comments: Math.floor(Math.random() * 100), // Placeholder
-                  timestamp: post.date ? new Date(post.date).toLocaleString() : 'Unknown',
+                  url: post.url,
+                  platform: post.domain?.includes('reddit') ? 'Reddit'
+                    : post.domain?.includes('twitter') ? 'Twitter / X'
+                    : post.domain?.includes('facebook') ? 'Facebook'
+                    : post.sourceName || 'Social',
+                  author: post.domain || 'Unknown',
+                  text: post.snippet || post.title,
+                  title: post.title,
+                  timestamp: post.date ? new Date(post.date).toLocaleDateString() : '',
                 }));
               }
             }
@@ -85,39 +99,11 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
     }
   }, [category, searchQuery]);
 
-  // Mock data for demonstration (fallback)
-  const mockImages = Array.from({ length: 12 }, (_, i) => ({
-    id: i,
-    url: `https://picsum.photos/seed/${i}/400/600`,
-    title: `Climate Solution Image ${i + 1}`,
-    source: 'Environmental Agency',
-  }));
-
-  const mockVideos = Array.from({ length: 8 }, (_, i) => ({
-    id: i,
-    thumbnail: `https://picsum.photos/seed/vid${i}/600/400`,
-    title: `Climate Change Video ${i + 1}`,
-    duration: '5:23',
-    source: 'Science Channel',
-  }));
-
-  const mockAudio = Array.from({ length: 10 }, (_, i) => ({
-    id: i,
-    title: `Climate Podcast Episode ${i + 1}`,
-    duration: '45:30',
-    source: 'Environmental Podcast Network',
-  }));
-
-  const mockSocialPosts = Array.from({ length: 15 }, (_, i) => ({
-    id: i,
-    thumbnail: `https://picsum.photos/seed/social${i}/500/${300 + (i % 3) * 100}`,
-    platform: ['Twitter', 'Reddit', 'Facebook'][i % 3],
-    author: `@user${i + 1}`,
-    text: `Interesting discussion about climate change solutions and their effectiveness. This is post number ${i + 1}.`,
-    likes: Math.floor(Math.random() * 10000),
-    comments: Math.floor(Math.random() * 500),
-    timestamp: `${Math.floor(Math.random() * 24)}h ago`,
-  }));
+  // Empty fallbacks — no fake data shown when APIs return nothing
+  const mockImages = [];
+  const mockVideos = [];
+  const mockAudio = [];
+  const mockSocialPosts = [];
 
   // Simple components for display
   const ImageGrid = ({ images, onSelect }) => (
@@ -163,21 +149,43 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
     </div>
   );
 
-  const SocialGrid = ({ posts, onSelect }) => (
-    <div className="space-y-4">
-      {posts.map((post) => (
-        <div key={post.id} className="bg-gray-800 rounded-lg p-4 cursor-pointer hover:bg-gray-700 transition-colors" onClick={() => onSelect(post)}>
+  const platformColors = {
+    'Reddit': 'border-orange-500/50 text-orange-400',
+    'Twitter / X': 'border-blue-500/50 text-blue-400',
+    'Facebook': 'border-blue-600/50 text-blue-300',
+    'Social': 'border-cyan-500/50 text-cyan-400',
+  };
+
+  const SocialGrid = ({ posts }) => (
+    <div className="space-y-3">
+      {posts.length === 0 ? (
+        <div className="text-center py-12 text-white/50">No social results found for this query.</div>
+      ) : posts.map((post) => (
+        <a
+          key={post.id}
+          href={post.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all group"
+        >
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-cyan-400">@{post.author}</span>
-            <span className="text-gray-400">·</span>
-            <span className="text-gray-400 text-sm">{post.timestamp}</span>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${platformColors[post.platform] || platformColors['Social']}`}>
+              {post.platform}
+            </span>
+            <span className="text-white/40 text-xs">{post.author}</span>
+            {post.timestamp && <span className="text-white/30 text-xs ml-auto">{post.timestamp}</span>}
           </div>
-          <p className="text-white mb-2">{post.text}</p>
-          <div className="flex items-center gap-4 text-gray-400 text-sm">
-            <span>👍 {post.likes}</span>
-            <span>💬 {post.comments}</span>
+          <p className="text-white/90 font-semibold text-sm mb-1 group-hover:text-white transition-colors line-clamp-2">
+            {post.title}
+          </p>
+          {post.text && post.text !== post.title && (
+            <p className="text-white/60 text-xs line-clamp-2">{post.text}</p>
+          )}
+          <div className="mt-2 text-xs text-cyan-400/60 flex items-center gap-1">
+            <ExternalLink size={10} />
+            <span className="truncate">{post.url}</span>
           </div>
-        </div>
+        </a>
       ))}
     </div>
   );
@@ -199,9 +207,9 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
           <ImageGrid images={data.length > 0 ? data : mockImages} onSelect={setSelectedItem} />
         );
       case 'vids':
-        return (
-          <VideoGrid videos={data.length > 0 ? data : mockVideos} onSelect={setSelectedItem} />
-        );
+        return data.length > 0
+          ? <VideoGrid videos={data} onSelect={setSelectedItem} />
+          : <div className="text-center py-12 text-white/50">No video results found. Try a different search term.</div>;
       case 'audio':
         return <AudioGrid audio={data.length > 0 ? data : mockAudio} />;
       case 'soc':
@@ -590,23 +598,84 @@ function Lightbox({ item, onClose, category }) {
               </button>
             </div>
           </div>
+        ) : category === 'vids' && item.videoId ? (
+          // YouTube Video Embed
+          <div className="bg-black rounded-2xl border-2 border-purple-500 shadow-2xl shadow-purple-500/50 overflow-hidden">
+            <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
+              <iframe
+                className="absolute inset-0 w-full h-full"
+                src={`https://www.youtube.com/embed/${item.videoId}?autoplay=1&rel=0&modestbranding=1`}
+                title={item.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+            <div className="p-4 bg-gradient-to-br from-[#1a1a2e] to-[#16213e]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <h2 className="text-white font-bold text-lg mb-1 line-clamp-2">{item.title}</h2>
+                  <p className="text-white/50 text-sm">{item.channel}</p>
+                  {item.snippet && <p className="text-white/60 text-xs mt-2 line-clamp-3">{item.snippet}</p>}
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2 rounded-lg bg-red-600 hover:bg-red-500 text-white transition-all"
+                    title="Open on YouTube"
+                  >
+                    <ExternalLink size={16} />
+                  </a>
+                  <button
+                    onClick={onClose}
+                    className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : category === 'vids' && !item.videoId ? (
+          // Non-YouTube video fallback
+          <div className="bg-[#1a1a2e] rounded-2xl border-2 border-purple-500 shadow-2xl p-6">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <h2 className="text-white font-bold text-xl">{item.title}</h2>
+              <button onClick={onClose} className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white">
+                <X size={18} />
+              </button>
+            </div>
+            {item.thumbnail && (
+              <img src={item.thumbnail} alt={item.title} className="w-full rounded-xl mb-4 object-cover max-h-64" />
+            )}
+            <p className="text-white/60 text-sm mb-4">{item.snippet}</p>
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition-all"
+            >
+              <ExternalLink size={16} /> Watch Video
+            </a>
+          </div>
         ) : (
-          // Image/Video Lightbox
+          // Image Lightbox
           <>
             <img
               src={item.url || item.thumbnail}
               alt={item.title}
               className="w-full h-auto rounded-2xl border-2 border-purple-500 shadow-2xl shadow-purple-500/50"
             />
-
-            {/* Actions */}
             <div className="absolute top-4 right-4 flex gap-2">
-              <button className="p-3 rounded-xl bg-purple-500 hover:bg-purple-400 text-white transition-all shadow-lg">
-                <Download size={20} />
-              </button>
-              <button className="p-3 rounded-xl bg-purple-500 hover:bg-purple-400 text-white transition-all shadow-lg">
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-3 rounded-xl bg-purple-500 hover:bg-purple-400 text-white transition-all shadow-lg"
+              >
                 <ExternalLink size={20} />
-              </button>
+              </a>
               <button
                 onClick={onClose}
                 className="p-3 rounded-xl bg-red-500 hover:bg-red-400 text-white transition-all shadow-lg"
@@ -614,13 +683,8 @@ function Lightbox({ item, onClose, category }) {
                 <X size={20} />
               </button>
             </div>
-
-            {/* Info */}
             <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 to-transparent rounded-b-2xl">
-              <h2 className="text-white text-2xl font-bold mb-2">
-                {item.title}
-              </h2>
-              <p className="text-white/70">{item.source}</p>
+              <h2 className="text-white text-xl font-bold">{item.title}</h2>
             </div>
           </>
         )}
