@@ -49,6 +49,14 @@ logger.info('✅ Unified AI services initialized: OpenRouter + OpenAI + Anthropi
  * @access  Private (requires authentication)
  * @body    { message: string, context?: string, options?: object }
  */
+// Mode-specific system prompt overrides (injected before DB prompt lookup)
+const MODE_SYSTEM_PROMPTS = {
+  red_pill: `You are a deep-dive research assistant specializing in alternative, independent, and suppressed perspectives. When answering, prioritize: non-mainstream sources, censored narratives, whistleblower accounts, and views that challenge official consensus. Always surface what mainstream media downplays or ignores. Be direct, unfiltered, and help the user "go deeper" beyond surface-level reporting.`,
+  biased_results: `You are a perspective-analysis assistant. The user has selected specific ideological lenses to filter their search through. Stay strictly within those selected perspectives — conservative, liberal, conspiratorial, spiritual, economic, etc. — as chosen by the user. Do not introduce neutral or mainstream framing unless the user's selected perspectives include it. Analyze the topic exclusively through the user's chosen bias lenses.`,
+  osint: `You are an OSINT (Open Source Intelligence) investigation assistant. Your role is to guide the user through digital intelligence gathering. Suggest specific search queries, data sources (WHOIS, Shodan, HaveIBeenPwned, LinkedIn, pastebin, etc.), and investigative steps. Help the user correlate data points, identify patterns, and extract actionable intelligence from publicly available information. Always suggest next logical investigative steps.`,
+  search_results: `You are a helpful, neutral search assistant. Answer the user's questions based on the search results context provided. Be concise, factual, and balanced. Cite multiple perspectives where relevant.`,
+};
+
 router.post('/chat', authenticate, rateLimitSearch, async (req, res) => {
   try {
     const { message, context = 'general', options = {} } = req.body;
@@ -71,10 +79,12 @@ router.post('/chat', authenticate, rateLimitSearch, async (req, res) => {
       });
     }
 
-    // Perform AI chat using the unified client with context
+    // Inject mode-specific system prompt override when available
+    const systemOverride = MODE_SYSTEM_PROMPTS[context];
     const response = await aiClient.chat(message, context, {
       ...options,
-      userName: user.name || 'User'
+      userName: user.name || 'User',
+      ...(systemOverride ? { systemOverride } : {}),
     });
 
     // Deduct token if not from cache

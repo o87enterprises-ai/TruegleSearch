@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -7,25 +8,48 @@ import {
   RefreshCw,
   ThumbsUp,
   ThumbsDown,
+  LogIn,
 } from 'lucide-react';
 import AdBanner from './AdBanner';
 import { aiAPI } from '../../services/api';
 
-// TEMPORARY AI IMPLEMENTATION - Will be replaced with final AI provider
+// Map frontend mode strings to backend context strings
+const MODE_TO_CONTEXT = {
+  blue: 'search_results',
+  green: 'search_results',
+  red: 'red_pill',
+  purple: 'biased_results',
+  ocean: 'osint',
+};
+
+const MODE_WELCOME = {
+  blue: 'Ask me anything about your search results.',
+  green: 'Ask me anything about your search results.',
+  red: 'I specialize in alternative and suppressed perspectives. What do you want to dig into?',
+  purple: 'I\'ll analyze this topic strictly through your selected bias lenses. What would you like to explore?',
+  ocean: 'OSINT assistant ready. I can guide you through digital investigations, suggest data sources, and help correlate findings.',
+};
+
 export default function AIChatOverlay({
   isOpen,
   onClose,
   initialSummary,
-  context = 'general', // Page context for AI prompts
-  themeColor = 'red' // 'red', 'blue', 'purple', or 'ocean' for different themes
+  mode = 'blue', // 'blue' | 'red' | 'purple' | 'ocean'
+  context, // deprecated — use mode instead
+  themeColor = 'red'
 }) {
+  const navigate = useNavigate();
+  const resolvedMode = mode || 'blue';
+  const resolvedContext = MODE_TO_CONTEXT[resolvedMode] || 'search_results';
+  const isAuthed = !!localStorage.getItem('truegle_token');
+
+  const welcomeContent = initialSummary || MODE_WELCOME[resolvedMode] || MODE_WELCOME.blue;
+
   const [messages, setMessages] = useState([
     {
       id: 1,
       role: 'assistant',
-      content:
-        initialSummary ||
-        'Climate change solutions encompass a wide range of approaches including renewable energy adoption, carbon capture technologies, and sustainable practices. Recent progress shows accelerating adoption of solar and wind power, with costs dropping significantly. However, economic and political challenges remain. Experts emphasize the need for continued innovation and policy support across multiple sectors.',
+      content: welcomeContent,
       timestamp: new Date(),
     },
   ]);
@@ -131,6 +155,12 @@ export default function AIChatOverlay({
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
 
+    if (!isAuthed) {
+      onClose();
+      navigate('/auth/login', { state: { redirectTo: window.location.pathname + window.location.search } });
+      return;
+    }
+
     const userMessage = {
       id: Date.now(),
       role: 'user',
@@ -141,31 +171,36 @@ export default function AIChatOverlay({
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
-
-    // Refresh ads on each query
     setAdKey((prev) => prev + 1);
 
     try {
-      // Call the backend AI service with context
-      const response = await aiAPI.chat(inputValue, { context });
-      const aiMessage = {
+      const response = await aiAPI.chat(inputValue, { context: resolvedContext });
+      const content = response.data.response?.choices?.[0]?.message?.content
+        || response.data.response?.content
+        || response.data.response
+        || 'No response received.';
+      setMessages((prev) => [...prev, {
         id: Date.now() + 1,
         role: 'assistant',
-        content: response.data.response.choices?.[0]?.message?.content ||
-                 response.data.response.content ||
-                 response.data.response,
+        content,
         timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
+      }]);
     } catch (error) {
       console.error('AI chat error:', error);
-      const errorMessage = {
+      if (error.response?.status === 401) {
+        onClose();
+        navigate('/auth/login', { state: { redirectTo: window.location.pathname + window.location.search } });
+        return;
+      }
+      const errText = error.response?.status === 402
+        ? 'You\'ve run out of tokens. Watch an ad or upgrade to Premium.'
+        : error.response?.data?.message || 'Something went wrong. Please try again.';
+      setMessages((prev) => [...prev, {
         id: Date.now() + 1,
         role: 'assistant',
-        content: `I'm sorry, but I encountered an error processing your request. ${error.response?.data?.message || 'Please try again later.'}`,
+        content: errText,
         timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      }]);
     } finally {
       setIsLoading(false);
     }

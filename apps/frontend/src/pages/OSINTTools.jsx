@@ -34,6 +34,8 @@ import TruegleLogo from '../components/ui/TruegleLogo';
 import ToolCard from '../components/ui/ToolCard';
 import NeonButton from '../components/ui/NeonButton';
 import { useToast } from '../components/ui/ToastProvider';
+import AdPlayer from '../components/ui/AdPlayer';
+import { tokensAPI } from '../services/api';
 
 export default function OSINTTools() {
   const navigate = useNavigate();
@@ -41,6 +43,8 @@ export default function OSINTTools() {
   const [usesRemaining, setUsesRemaining] = useState(3);
   const [isPremium, setIsPremium] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showAdPlayer, setShowAdPlayer] = useState(false);
+  const [adSessionId, setAdSessionId] = useState(null);
   const [aiQuery, setAiQuery] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -341,13 +345,26 @@ export default function OSINTTools() {
     }
   };
 
-  const watchAd = () => {
-    console.log('Playing rewarded ad...');
-    setTimeout(() => {
-      setUsesRemaining(3);
-      setShowUpgradeModal(false);
-      toast.success('Ad Watched!', 'You earned 3 more free tool uses', { pageTheme: 'osint' });
-    }, 2000);
+  const watchAd = async () => {
+    try {
+      const resp = await tokensAPI.startAdSession();
+      setAdSessionId(resp.data.sessionId);
+    } catch {
+      setAdSessionId(null);
+    }
+    setShowUpgradeModal(false);
+    setShowAdPlayer(true);
+  };
+
+  const handleAdComplete = async (sessionId) => {
+    setShowAdPlayer(false);
+    try {
+      if (sessionId) await tokensAPI.earnFromAd(sessionId);
+    } catch {
+      // best-effort
+    }
+    setUsesRemaining(3);
+    toast.success('Ad Watched!', 'You earned 3 more free tool uses', { pageTheme: 'osint' });
   };
 
   const tools = [
@@ -1070,6 +1087,15 @@ export default function OSINTTools() {
           </motion.div>
         )}
       </div>
+
+      {/* Ad Player Modal */}
+      {showAdPlayer && (
+        <AdPlayer
+          sessionId={adSessionId}
+          onComplete={handleAdComplete}
+          onClose={() => setShowAdPlayer(false)}
+        />
+      )}
     </div>
   );
 }

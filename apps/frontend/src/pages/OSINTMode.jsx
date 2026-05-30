@@ -10,6 +10,8 @@ import {
   Eye,
   Database,
   ArrowLeft,
+  ArrowRight,
+  ExternalLink,
   FileText,
   Link,
   BarChart,
@@ -54,6 +56,10 @@ export default function OSINTMode() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState([]);
+
+  // Iframe viewer state
+  const [iframeUrl, setIframeUrl] = useState(null);
+  const [iframeBlocked, setIframeBlocked] = useState(false);
 
   // Bubble Animation State
   const [bubbles, setBubbles] = useState([]);
@@ -461,121 +467,64 @@ export default function OSINTMode() {
   const handleSearch = async (e) => {
     e.preventDefault();
 
-    // Check usage limit (3 free uses)
     if (usageCount >= 3) {
       setShowAdModal(true);
       return;
     }
 
     setIsSearching(true);
-
-    // Increment usage count
     const newCount = usageCount + 1;
     setUsageCount(newCount);
     localStorage.setItem('osint_usage_global', newCount.toString());
 
     const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-    const token = localStorage.getItem('token');
-    const headers = {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
+    const token = localStorage.getItem('truegle_token');
+    const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
 
-    // Map tool tabs to OSINT proxy endpoints
-    const osintEndpoints = {
-      phone: { url: '/api/osint-tools/analyze/phone', body: { phone: searchValue } },
-      social: { url: '/api/osint-tools/analyze/username', body: { username: searchValue } },
-      username: { url: '/api/osint-tools/analyze/username', body: { username: searchValue } },
-      'email-investigate': { url: '/api/osint-tools/analyze/text', body: { text: searchValue } },
-    };
+    try {
+      let data = {};
 
-    const endpoint = osintEndpoints[activeTab];
-
-    if (endpoint && token) {
-      try {
-        const response = await fetch(`${backendUrl}${endpoint.url}`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(endpoint.body),
+      if (activeTab === 'ip') {
+        const res = await fetch(`${backendUrl}/api/osint/ip-lookup?ip=${encodeURIComponent(searchValue)}`);
+        const json = await res.json();
+        if (json.error) throw new Error(json.error);
+        data = json;
+      } else if (activeTab === 'dns') {
+        const res = await fetch(`${backendUrl}/api/osint/dns-lookup?domain=${encodeURIComponent(searchValue)}&type=A`);
+        const json = await res.json();
+        if (json.error) throw new Error(json.error);
+        // Fetch multiple record types in parallel
+        const [mx, txt, ns] = await Promise.all([
+          fetch(`${backendUrl}/api/osint/dns-lookup?domain=${encodeURIComponent(searchValue)}&type=MX`).then(r => r.json()),
+          fetch(`${backendUrl}/api/osint/dns-lookup?domain=${encodeURIComponent(searchValue)}&type=TXT`).then(r => r.json()),
+          fetch(`${backendUrl}/api/osint/dns-lookup?domain=${encodeURIComponent(searchValue)}&type=NS`).then(r => r.json()),
+        ]);
+        data = { A_records: json, MX_records: mx, TXT_records: txt, NS_records: ns };
+      } else if (activeTab === 'whois' || activeTab === 'domain') {
+        const res = await fetch(`${backendUrl}/api/osint/whois?domain=${encodeURIComponent(searchValue)}`);
+        const json = await res.json();
+        if (json.error) throw new Error(json.error);
+        data = json;
+      } else if (activeTab === 'username' || activeTab === 'social') {
+        const res = await fetch(`${backendUrl}/api/osint/username-platforms?username=${encodeURIComponent(searchValue)}`);
+        const json = await res.json();
+        if (json.error) throw new Error(json.error);
+        data = { _platformLinks: json.platforms, username: json.username, total_platforms: json.platforms?.length };
+      } else if (activeTab === 'email' && token) {
+        const res = await fetch(`${backendUrl}/api/osint/email-finder?domain=${encodeURIComponent(searchValue)}`, {
+          headers: authHeader,
         });
-        const data = await response.json();
-        if (data.success) {
-          setResults({ query: searchValue, type: activeTab, data: data.data?.results || data.data || {} });
-        } else {
-          setResults({ query: searchValue, type: activeTab, data: { error: data.error || 'Analysis failed' } });
-        }
-      } catch (error) {
-        setResults({ query: searchValue, type: activeTab, data: { error: 'OSINT service unavailable. Showing demo data.', ...getMockResults(activeTab, searchValue) } });
+        const json = await res.json();
+        data = json;
+      } else {
+        data = { note: 'This tool is not yet wired to a live API. Select IP Lookup, DNS Records, WHOIS, or Username Search for real data.' };
       }
-    } else {
-      // Fallback to mock data for tools without OSINT backend or unauthenticated users
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      setResults({ query: searchValue, type: activeTab, data: getMockResults(activeTab, searchValue) });
-    }
 
-    setIsSearching(false);
-  };
-
-  const getMockResults = (type, query) => {
-    switch (type) {
-      case 'ip':
-        return {
-          location: 'Mountain View, California, US',
-          isp: 'Google LLC',
-          asn: 'AS15169',
-          threat_score: 'Low',
-          vpn: false,
-          proxy: false,
-        };
-      case 'domain':
-        return {
-          registrar: 'GoDaddy',
-          created: '2023-01-15',
-          ssl: 'Valid',
-          dns_records: ['A', 'AAAA', 'MX', 'TXT'],
-          risk_score: 'Low',
-        };
-      case 'email':
-        return {
-          emails_found: 12,
-          pattern_detected: 'first.last@domain.com',
-          confidence: 'High',
-          verified_count: 8,
-        };
-      case 'email-investigate':
-        return {
-          valid: true,
-          disposable: false,
-          domain_reputation: 'Good',
-          breaches_found: 2,
-          breach_names: 'LinkedIn (2021), Adobe (2013)',
-          associated_accounts: 'Twitter, GitHub, LinkedIn',
-          spam_reports: 0,
-          first_seen: '2015-03-22',
-        };
-      case 'phone':
-        return {
-          carrier: 'AT&T Mobility',
-          line_type: 'Mobile',
-          country: 'United States',
-          region: 'California',
-          valid: true,
-          spam_score: 'Low',
-          linked_apps: 'WhatsApp, Telegram',
-          registered_name: 'J*** D***',
-        };
-      case 'social':
-        return {
-          platforms_found: 8,
-          platforms: 'Twitter, Instagram, LinkedIn, GitHub, Reddit',
-          total_followers: '12.4K',
-          engagement_rate: '3.2%',
-          sentiment: 'Mostly Positive',
-          recent_activity: '2 hours ago',
-          verified_accounts: 2,
-        };
-      default:
-        return {};
+      setResults({ query: searchValue, type: activeTab, data });
+    } catch (error) {
+      setResults({ query: searchValue, type: activeTab, data: { error: error.message || 'Request failed. Check your input and try again.' } });
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -1079,33 +1028,93 @@ export default function OSINTMode() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(results.data).map(([key, value]) => (
-                    <div
-                      key={key}
-                      className="p-4 rounded-xl bg-black/30 border border-cyan-500/20"
-                    >
-                      <div className="text-xs text-cyan-400/60 uppercase tracking-wider mb-1">
-                        {key.replace(/_/g, ' ')}
-                      </div>
-                      <div className="text-white font-semibold">
-                        {typeof value === 'boolean'
-                          ? value
-                            ? '✓ Yes'
-                            : '✗ No'
-                          : value}
-                      </div>
+                {/* Platform links (username search) */}
+                {results.data._platformLinks ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-cyan-400/70 mb-3">
+                      Click a platform to preview — if it can't be embedded, it will open in a new tab.
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {results.data._platformLinks.map((p) => (
+                        <button
+                          key={p.platform}
+                          onClick={() => { setIframeUrl(p.url); setIframeBlocked(false); }}
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30 hover:bg-cyan-500/20 hover:border-cyan-400 transition-all text-left"
+                        >
+                          <Globe size={14} className="text-cyan-400 flex-shrink-0" />
+                          <span className="text-white text-xs font-medium truncate">{p.platform}</span>
+                        </button>
+                      ))}
                     </div>
-                  ))}
-                </div>
 
-                <div className="mt-6 p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/30">
-                  <p className="text-sm text-cyan-400">
-                    ℹ️ This is a demo with simulated data. In production, this
-                    would connect to real OSINT APIs like VirusTotal, IPinfo,
-                    Hunter.io, etc.
-                  </p>
-                </div>
+                    {/* Inline viewer */}
+                    {iframeUrl && (
+                      <div className="mt-4 rounded-xl overflow-hidden border border-cyan-500/30">
+                        <div className="flex items-center justify-between px-3 py-2 bg-black/40 border-b border-cyan-500/20">
+                          <span className="text-xs text-cyan-400 truncate flex-1 mr-2">{iframeUrl}</span>
+                          <div className="flex gap-2 flex-shrink-0">
+                            <a href={iframeUrl} target="_blank" rel="noopener noreferrer"
+                              className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+                              <ExternalLink size={12} /> Open
+                            </a>
+                            <button onClick={() => setIframeUrl(null)} className="text-xs text-white/40 hover:text-white">
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                        {iframeBlocked ? (
+                          <div className="flex flex-col items-center justify-center py-10 bg-black/30 gap-3">
+                            <Shield size={32} className="text-yellow-400" />
+                            <p className="text-sm text-white/70 text-center px-4">
+                              This page can't be embedded (X-Frame-Options blocked).
+                            </p>
+                            <a href={iframeUrl} target="_blank" rel="noopener noreferrer"
+                              className="px-4 py-2 rounded-lg bg-cyan-500/20 border border-cyan-500/50 text-cyan-300 text-sm hover:bg-cyan-500/30 transition-all flex items-center gap-2">
+                              <ExternalLink size={14} /> Open in new tab
+                            </a>
+                          </div>
+                        ) : (
+                          <iframe
+                            key={iframeUrl}
+                            src={iframeUrl}
+                            className="w-full h-96"
+                            title="OSINT preview"
+                            sandbox="allow-scripts allow-same-origin"
+                            onError={() => setIframeBlocked(true)}
+                            onLoad={(e) => {
+                              try {
+                                // Detect X-Frame-Options block (cross-origin blank doc)
+                                const doc = e.target.contentDocument;
+                                if (!doc || doc.body?.innerHTML === '') setIframeBlocked(true);
+                              } catch {
+                                setIframeBlocked(true);
+                              }
+                            }}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(results.data)
+                      .filter(([key]) => !key.startsWith('_'))
+                      .map(([key, value]) => (
+                        <div key={key} className="p-4 rounded-xl bg-black/30 border border-cyan-500/20">
+                          <div className="text-xs text-cyan-400/60 uppercase tracking-wider mb-1">
+                            {key.replace(/_/g, ' ')}
+                          </div>
+                          <div className="text-white font-semibold text-sm break-words">
+                            {typeof value === 'boolean'
+                              ? value ? '✓ Yes' : '✗ No'
+                              : typeof value === 'object'
+                              ? JSON.stringify(value, null, 2)
+                              : String(value)}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}

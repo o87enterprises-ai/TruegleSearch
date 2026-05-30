@@ -117,15 +117,32 @@ export const TokenProvider = ({ children }) => {
   }, [isAuthenticated]);
 
   /**
-   * Earn token from watching ad
+   * Start a server-side ad session (call before showing the ad)
+   * Returns { success, sessionId }
    */
-  const earnFromAd = useCallback(async (adId, durationSeconds) => {
+  const startAdSession = useCallback(async () => {
+    if (!isAuthenticated) {
+      return { success: false, message: 'Not authenticated' };
+    }
+    try {
+      const response = await tokensAPI.startAdSession();
+      return { success: true, sessionId: response.data.sessionId };
+    } catch (error) {
+      console.error('Failed to start ad session:', error);
+      return { success: false, message: error.response?.data?.message || 'Failed to start ad session' };
+    }
+  }, [isAuthenticated]);
+
+  /**
+   * Earn token from watching ad — requires sessionId from startAdSession()
+   */
+  const earnFromAd = useCallback(async (sessionId) => {
     if (!isAuthenticated) {
       return { success: false, message: 'Not authenticated' };
     }
 
     try {
-      const response = await tokensAPI.earnFromAd(adId, durationSeconds);
+      const response = await tokensAPI.earnFromAd(sessionId);
       const result = response.data.data;
 
       if (result.success) {
@@ -203,6 +220,7 @@ export const TokenProvider = ({ children }) => {
     fetchBalance,
     checkAccess,
     spendToken,
+    startAdSession,
     earnFromAd,
     earnFromGame,
 

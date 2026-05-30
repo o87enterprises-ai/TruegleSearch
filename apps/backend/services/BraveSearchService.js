@@ -9,7 +9,7 @@ const config = require('../config/env');
 
 class BraveSearchService {
   constructor() {
-    this.apiKey = config.searchApis.brave.apiKey;
+    this.apiKey = config.brave?.apiKey;
     this.baseUrl = 'https://api.search.brave.com/res/v1';
   }
 

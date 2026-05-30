@@ -30,14 +30,17 @@ import PerspectiveSelector from '../components/search/PerspectiveSelector';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { MapViewWrapper } from '../components/map';
 import TutorialModal from '../components/ui/TutorialModal';
+import QuickResultCard from '../components/ui/QuickResultCard';
 
 // Hooks and Config
 import { useSearchMode } from '../hooks/useSearchMode';
 import { useLocationDetection } from '../hooks/useLocationDetection';
+import { useAuth } from '../context/AuthContext';
 
 export default function UniversalSearch() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { isAuthenticated } = useAuth();
 
   // Get query from URL
   const query = searchParams.get('q') || '';
@@ -73,6 +76,7 @@ export default function UniversalSearch() {
   const [searchValue, setSearchValue] = useState(query);
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchResults, setSearchResults] = useState([]);
+  const [instantAnswer, setInstantAnswer] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [lastSearchedQuery, setLastSearchedQuery] = useState(null);
 
@@ -185,6 +189,7 @@ export default function UniversalSearch() {
 
     setSearchLoading(true);
     setAiSummary(null);
+    setInstantAnswer(null);
     setLastSearchedQuery(searchValue);
 
     try {
@@ -252,6 +257,7 @@ export default function UniversalSearch() {
 
       const data = await response.json();
       setSearchResults(data.results || []);
+      setInstantAnswer(data.instantAnswer || null);
 
       // Show first-search modal once per session
       if (!firstSearchDone) {
@@ -442,6 +448,120 @@ export default function UniversalSearch() {
     neutral: 'bg-cyan-500/20 border border-cyan-500/50 text-cyan-400',
     mainstream: 'bg-purple-500/20 border border-purple-500/50 text-purple-400',
   };
+
+  // ── ResultCard ──────────────────────────────────────────────────────────
+  function ResultCard({ result, index, mode, isRedPillMode, perspectiveColors }) {
+    const [viewerOpen, setViewerOpen] = useState(false);
+    const [iframeBlocked, setIframeBlocked] = useState(false);
+    const borderClass = mode === 'green'
+      ? 'border-green-500/30 hover:border-green-500/50'
+      : 'border-cyan-500/30 hover:border-cyan-500/50';
+    const titleClass = mode === 'green'
+      ? 'text-green-400 group-hover:text-green-300'
+      : 'text-cyan-400 group-hover:text-cyan-300';
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.05 }}
+        className={`rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border transition-all duration-300 ${borderClass}`}
+      >
+        <div className="p-4">
+          <div className="flex gap-3">
+            {/* Thumbnail */}
+            {result.image && (
+              <img
+                src={result.image}
+                alt=""
+                className="w-16 h-16 object-cover rounded-lg flex-shrink-0 opacity-80"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            )}
+            {!result.image && result.favicon && (
+              <img
+                src={result.favicon}
+                alt=""
+                className="w-5 h-5 object-contain flex-shrink-0 mt-1 opacity-60"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            )}
+
+            <div className="flex-1 min-w-0">
+              <a href={result.url} target="_blank" rel="noopener noreferrer" className="group">
+                <h3 className={`text-base font-semibold transition-colors flex items-center gap-2 ${titleClass}`}>
+                  <span className="line-clamp-2">{result.title}</span>
+                  <ExternalLink size={13} className="flex-shrink-0 opacity-40" />
+                </h3>
+              </a>
+              <p className="text-sm text-white/70 mt-1 line-clamp-2">{result.snippet}</p>
+
+              <div className="flex items-center gap-3 mt-2 text-xs text-white/50 flex-wrap">
+                {result.favicon && result.image && (
+                  <img src={result.favicon} alt="" className="w-4 h-4 object-contain opacity-60"
+                    onError={(e) => { e.target.style.display = 'none'; }} />
+                )}
+                <span className="truncate max-w-[200px]">{result.sourceName || result.domain}</span>
+                {result.date && <span>{new Date(result.date).toLocaleDateString()}</span>}
+                {(isRedPillMode || mode === 'purple') && result.bias && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${perspectiveColors[result.bias] || perspectiveColors.neutral}`}>
+                    {result.biasLabel || result.bias}
+                  </span>
+                )}
+                <button
+                  onClick={() => { setViewerOpen(!viewerOpen); setIframeBlocked(false); }}
+                  className="ml-auto text-white/30 hover:text-cyan-400 transition-colors text-xs"
+                >
+                  {viewerOpen ? 'Close viewer' : 'Open in viewer'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Inline iframe viewer */}
+          {viewerOpen && (
+            <div className="mt-3 rounded-xl overflow-hidden border border-cyan-500/20">
+              <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-white/5">
+                <span className="text-xs text-white/40 truncate flex-1 mr-2">{result.url}</span>
+                <div className="flex gap-2 flex-shrink-0">
+                  <a href={result.url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+                    <ExternalLink size={11} /> Open
+                  </a>
+                  <button onClick={() => setViewerOpen(false)} className="text-xs text-white/30 hover:text-white">✕</button>
+                </div>
+              </div>
+              {iframeBlocked ? (
+                <div className="flex flex-col items-center justify-center py-8 bg-black/20 gap-2">
+                  <p className="text-sm text-white/50 text-center px-4">This page can't be embedded.</p>
+                  <a href={result.url} target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+                    <ExternalLink size={12} /> Open in new tab
+                  </a>
+                </div>
+              ) : (
+                <iframe
+                  key={result.url}
+                  src={result.url}
+                  className="w-full h-80"
+                  title="Result preview"
+                  sandbox="allow-scripts allow-same-origin"
+                  onError={() => setIframeBlocked(true)}
+                  onLoad={(e) => {
+                    try {
+                      if (!e.target.contentDocument || e.target.contentDocument.body?.innerHTML === '')
+                        setIframeBlocked(true);
+                    } catch { setIframeBlocked(true); }
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
+  }
+  // ── end ResultCard ───────────────────────────────────────────────────────
 
   return (
     <div className="relative min-h-screen w-full bg-black overflow-y-auto">
@@ -807,10 +927,16 @@ export default function UniversalSearch() {
                               <span>{aiSummary.sourcesAnalyzed || 0} sources analyzed</span>
                               <span>•</span>
                               <button
-                                onClick={() => setIsChatOpen(true)}
+                                onClick={() => {
+                                  if (!isAuthenticated) {
+                                    navigate('/auth/login', { state: { redirectTo: window.location.pathname + window.location.search } });
+                                  } else {
+                                    setIsChatOpen(true);
+                                  }
+                                }}
                                 className="underline hover:text-white/60 transition-colors"
                               >
-                                Ask follow-up
+                                {isAuthenticated ? 'Ask follow-up' : 'Sign in to chat'}
                               </button>
                             </div>
                           </>
@@ -943,6 +1069,13 @@ export default function UniversalSearch() {
                     {searchResults.length > 0 ? `About ${searchResults.length} results` : 'No results yet - try searching!'}
                   </div>
 
+                  {instantAnswer && (
+                    <QuickResultCard
+                      instantAnswer={instantAnswer}
+                      onDirections={() => setActiveCategory('maps')}
+                    />
+                  )}
+
                   {searchResults.map((result, index) => (
                     <div key={result.url || index}>
                       {/* Ad Banner after every 3rd result */}
@@ -967,40 +1100,13 @@ export default function UniversalSearch() {
                         </div>
                       )}
 
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        className={`p-4 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border transition-all duration-300 ${
-                          mode === 'green'
-                            ? 'border-green-500/30 hover:border-green-500/50'
-                            : 'border-cyan-500/30 hover:border-cyan-500/50'
-                        }`}
-                      >
-                        <a
-                          href={result.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group"
-                        >
-                          <h3 className={`text-lg font-semibold transition-colors flex items-center gap-2 ${
-                            mode === 'green' ? 'text-green-400 group-hover:text-green-300' : 'text-cyan-400 group-hover:text-cyan-300'
-                          }`}>
-                            {result.title}
-                            <ExternalLink size={14} className="text-cyan-500/50" />
-                          </h3>
-                        </a>
-                        <p className="text-sm text-white/70 mt-2 line-clamp-2">{result.snippet}</p>
-                        <div className="flex items-center gap-3 mt-3 text-xs text-white/50">
-                          <span>{result.sourceName || result.domain}</span>
-                          {result.date && <span>{new Date(result.date).toLocaleDateString()}</span>}
-                          {(isRedPillMode || mode === 'purple') && result.bias && (
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${perspectiveColors[result.bias] || perspectiveColors.neutral}`}>
-                              {result.biasLabel || result.bias}
-                            </span>
-                          )}
-                        </div>
-                      </motion.div>
+                      <ResultCard
+                        result={result}
+                        index={index}
+                        mode={mode}
+                        isRedPillMode={isRedPillMode}
+                        perspectiveColors={perspectiveColors}
+                      />
                     </div>
                   ))}
                 </>
@@ -1023,7 +1129,8 @@ export default function UniversalSearch() {
         <AIChatOverlay
           isOpen={isChatOpen}
           onClose={() => setIsChatOpen(false)}
-          searchQuery={searchValue}
+          initialSummary={aiSummary?.summary || null}
+          mode={mode}
           themeColor={
             mode === 'red' ? 'red' :
             mode === 'purple' ? 'purple' :

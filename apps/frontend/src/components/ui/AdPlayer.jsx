@@ -11,7 +11,9 @@ const AD_DURATION = 30; // seconds
 const AdPlayer = ({
   onComplete,
   onClose,
+  onSessionStart,
   adId = 'demo-ad-001',
+  sessionId = null,
   className = '',
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -41,6 +43,7 @@ const AdPlayer = ({
   // Handle video play
   const handlePlay = () => {
     setIsPlaying(true);
+    onSessionStart?.();
     startTimer();
     if (videoRef.current) {
       videoRef.current.play().catch(() => {
@@ -54,10 +57,10 @@ const AdPlayer = ({
     if (isComplete) {
       setShowCompleteMessage(true);
       setTimeout(() => {
-        onComplete?.(adId, AD_DURATION);
+        onComplete?.(sessionId, adId);
       }, 1500);
     }
-  }, [isComplete, adId, onComplete]);
+  }, [isComplete, sessionId, adId, onComplete]);
 
   // Cleanup timer on unmount
   useEffect(() => {

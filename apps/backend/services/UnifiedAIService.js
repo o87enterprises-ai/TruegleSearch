@@ -63,14 +63,15 @@ class UnifiedAIService {
         timestamp: new Date().toISOString()
       };
 
-      const systemPrompt = this.promptService.interpolatePrompt(
+      // Use mode-specific override if provided, otherwise use DB prompt
+      const basePrompt = options.systemOverride || this.promptService.interpolatePrompt(
         prompt.prompt_text,
         variables
       );
 
       // Build messages array
       const messages = [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: basePrompt },
         { role: 'user', content: userMessage }
       ];
 

@@ -22,6 +22,7 @@ const TokenGate = ({
     isPremium,
     checkAccess,
     spendToken,
+    startAdSession,
     earnFromAd,
     getFreeUsesRemaining,
   } = useTokens();
@@ -35,6 +36,7 @@ const TokenGate = ({
     requiresAd: false,
   });
   const [showAdPlayer, setShowAdPlayer] = useState(false);
+  const [adSessionId, setAdSessionId] = useState(null);
   const [showGate, setShowGate] = useState(true);
 
   // Check access on mount and when dependencies change
@@ -77,10 +79,19 @@ const TokenGate = ({
     }
   }, [spendToken, featureName, onAccessGranted]);
 
-  // Handle ad completion
-  const handleAdComplete = useCallback(async (adId, duration) => {
-    const result = await earnFromAd(adId, duration);
+  // Open ad player: start server session first, then show player
+  const handleOpenAdPlayer = useCallback(async () => {
+    const sessionResult = await startAdSession();
+    if (sessionResult.success) {
+      setAdSessionId(sessionResult.sessionId);
+      setShowAdPlayer(true);
+    }
+  }, [startAdSession]);
+
+  // Handle ad completion — sessionId was set when ad started
+  const handleAdComplete = useCallback(async (sessionId) => {
     setShowAdPlayer(false);
+    const result = await earnFromAd(sessionId);
 
     if (result.success) {
       // After earning, spend the token for access
@@ -119,6 +130,7 @@ const TokenGate = ({
           <AdPlayer
             onComplete={handleAdComplete}
             onClose={() => setShowAdPlayer(false)}
+            sessionId={adSessionId}
           />
         )}
       </AnimatePresence>
@@ -205,7 +217,7 @@ const TokenGate = ({
                         This feature requires watching an ad + 1 token
                       </p>
                       <button
-                        onClick={() => setShowAdPlayer(true)}
+                        onClick={handleOpenAdPlayer}
                         className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-purple-500/30 transition-shadow"
                       >
                         <Play className="w-5 h-5" />
@@ -240,7 +252,7 @@ const TokenGate = ({
                     </p>
 
                     <button
-                      onClick={() => setShowAdPlayer(true)}
+                      onClick={handleOpenAdPlayer}
                       className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-purple-500/30 transition-shadow"
                     >
                       <Play className="w-5 h-5" />
