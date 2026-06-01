@@ -124,6 +124,9 @@ const envVarsSchema = Joi.object({
   // Brave Search API
   BRAVE_API_KEY: Joi.string().optional().description('Brave Search API key'),
 
+  // SearXNG self-hosted instance URL (no API key required)
+  SEARXNG_URL: Joi.string().optional().description('SearXNG instance URL e.g. https://xyz.ngrok-free.dev'),
+
   // Bright Data (web scraping proxy)
   BRIGHT_DATA_API_KEY: Joi.string().optional().description('Bright Data API key'),
 
@@ -255,6 +258,11 @@ const config = {
   // Brave Search
   brave: {
     apiKey: envVars.BRAVE_API_KEY,
+  },
+
+  // SearXNG (self-hosted, no API key needed)
+  searxng: {
+    url: envVars.SEARXNG_URL,
   },
 
   // Bright Data

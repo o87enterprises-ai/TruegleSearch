@@ -284,13 +284,8 @@ const GlitchRotatingText = ({
         // Reset to styled text after a short time
         setTimeout(() => {
           const styledText = typeStyles[currentTypeStyle]?.(originalTextRef.current) || originalTextRef.current;
-
-          // Only update state if text actually changed
-          setDisplayedText(prevText => {
-            if (prevText === styledText) return prevText;
-            setGlitchActive(false);
-            return styledText;
-          });
+          setGlitchActive(false);
+          setDisplayedText(prevText => prevText === styledText ? prevText : styledText);
         }, 100);
       }
     }, 200); // Check every 200ms for glitch chance

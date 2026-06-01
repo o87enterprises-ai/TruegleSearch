@@ -21,6 +21,9 @@ export default function CursorGlow() {
   // Track previous element type for sustained pulse
   const prevElementRef = useRef(null);
   const pulseTimeoutRef = useRef(null);
+  // Refs so the mousemove handler always reads current values without being a dep
+  const currentIntensityRef = useRef(0.15);
+  const targetIntensityRef = useRef(0.15);
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -55,7 +58,7 @@ export default function CursorGlow() {
         ) {
           // Entering an element - pulse up
           const midIntensity =
-            (targetIntensity + getIntensityForType(elementType)) / 2;
+            (targetIntensityRef.current + getIntensityForType(elementType)) / 2;
           glowIntensity.set(midIntensity * 1.3); // Boost during transition
 
           // Slowly settle to target
@@ -67,7 +70,7 @@ export default function CursorGlow() {
           elementType === 'backdrop'
         ) {
           // Leaving element - sustained fade
-          glowIntensity.set(currentIntensity * 0.8); // Keep some energy
+          glowIntensity.set(currentIntensityRef.current * 0.8); // Keep some energy
 
           // Slowly dissipate back to backdrop
           pulseTimeoutRef.current = setTimeout(() => {
@@ -76,7 +79,7 @@ export default function CursorGlow() {
         } else {
           // Transitioning between elements - blend pulse
           glowIntensity.set(
-            ((currentIntensity + getIntensityForType(elementType)) / 2) * 1.2
+            ((currentIntensityRef.current + getIntensityForType(elementType)) / 2) * 1.2
           );
 
           pulseTimeoutRef.current = setTimeout(() => {
@@ -114,7 +117,7 @@ export default function CursorGlow() {
         clearTimeout(pulseTimeoutRef.current);
       }
     };
-  }, [currentIntensity, targetIntensity]);
+  }, []);
 
   // Helper function
   const getIntensityForType = (type) => {
@@ -134,10 +137,9 @@ export default function CursorGlow() {
     colorG.set(targetColor.g);
     colorB.set(targetColor.b);
     glowSize.set(targetSize);
+    targetIntensityRef.current = targetIntensity;
 
-    // Only update intensity if it actually changed or we're not in a pulse
-    const shouldUpdateIntensity = !pulseTimeoutRef.current || JSON.stringify({ targetIntensity, currentIntensity }) !== JSON.stringify({ targetIntensity: currentIntensity });
-    if (shouldUpdateIntensity) {
+    if (!pulseTimeoutRef.current) {
       glowIntensity.set(targetIntensity);
     }
   }, [targetColor, targetSize, targetIntensity]);
@@ -154,9 +156,10 @@ export default function CursorGlow() {
       setCurrentColor((prev) => ({ ...prev, b: v }))
     );
     const unsubscribeSize = glowSize.on('change', (v) => setCurrentSize(v));
-    const unsubscribeIntensity = glowIntensity.on('change', (v) =>
-      setCurrentIntensity(v)
-    );
+    const unsubscribeIntensity = glowIntensity.on('change', (v) => {
+      currentIntensityRef.current = v;
+      setCurrentIntensity(v);
+    });
 
     return () => {
       unsubscribeR();

@@ -9,3 +9,4 @@ dist-ssr/
 .vercel
 PROJECT_STATUS/
 dist
+.env*

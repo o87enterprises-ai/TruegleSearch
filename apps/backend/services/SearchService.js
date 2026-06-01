@@ -31,6 +31,9 @@ class SearchService {
     this.serpApiKey = config.serp && config.serp.apiKey;
     this.serpBaseUrl = 'https://serpapi.com/search';
 
+    // SearXNG (self-hosted metasearch, no API key needed)
+    this.searxngUrl = config.searxng && config.searxng.url;
+
     // Rate limiting configuration
     this.rateLimits = {
       google: 100, // requests per minute
@@ -86,28 +89,38 @@ class SearchService {
       if (searchWeb) {
         if (this.googleApiKey && this.googleSearchEngineId) {
           searchPromises.push(this.performGoogleSearch(query, filters));
-
-          if (isRedPill) {
-            // Red pill: explicitly hunt for alternative, suppressed, and independent sources
-            searchPromises.push(this.performGoogleSearch(
-              `${query} site:substack.com OR site:rumble.com OR site:odysee.com OR site:zerohedge.com OR site:rt.com`,
-              { ...filters, perPage: 10 }
-            ));
-            searchPromises.push(this.performGoogleSearch(
-              `${query} "censored" OR "suppressed" OR "they don't want you to know" OR "alternative view" OR "independent analysis"`,
-              { ...filters, perPage: 5 }
-            ));
-            searchPromises.push(this.performGoogleSearch(
-              `${query} site:theintercept.com OR site:thegrayzone.com OR site:mintpressnews.com OR site:corbettreport.com OR site:off-guardian.org`,
-              { ...filters, perPage: 5 }
-            ));
-          }
         }
         if (this.bingApiKey) {
           searchPromises.push(this.performBingSearch(query, filters));
         }
+        if (this.searxngUrl) {
+          searchPromises.push(this.performSearXNGSearch(query, filters));
+        }
         if (this.braveApiKey) {
           searchPromises.push(this.performBraveSearch(query, filters));
+
+          if (isRedPill) {
+            // Red pill: use Brave (whole-web index) with alternative-media query terms
+            // Brave indexes rumble/substack/odysee — Google CSE typically does not
+            searchPromises.push(this.performBraveSearch(
+              `${query} site:substack.com OR site:rumble.com OR site:odysee.com OR site:zerohedge.com OR site:rt.com OR site:corbettreport.com`,
+              { ...filters, perPage: 10 }
+            ));
+            searchPromises.push(this.performBraveSearch(
+              `${query} censored suppressed alternative independent whistleblower`,
+              { ...filters, perPage: 10 }
+            ));
+          }
+        } else if (isRedPill && this.googleApiKey && this.googleSearchEngineId) {
+          // Brave not available — fall back to Google for alternative terms
+          searchPromises.push(this.performGoogleSearch(
+            `${query} "censored" OR "suppressed" OR "alternative view" OR "independent analysis"`,
+            { ...filters, perPage: 5 }
+          ));
+          searchPromises.push(this.performGoogleSearch(
+            `${query} site:theintercept.com OR site:thegrayzone.com OR site:mintpressnews.com OR site:corbettreport.com`,
+            { ...filters, perPage: 5 }
+          ));
         }
       }
 
@@ -159,6 +172,16 @@ class SearchService {
         const mapped = this.mapPerspectivesToBias(filters.perspectives);
         const filtered = categorizedResults.filter(r => mapped.includes(r.bias));
         console.log(`🟣 Purple strict filter: ${filtered.length} results for perspectives [${filters.perspectives.join(',')}]`);
+
+        // Fallback: if < 5 results matched, include neutral results tagged with perspective context
+        if (filtered.length < 5) {
+          const neutral = categorizedResults
+            .filter(r => r.bias === 'neutral')
+            .map(r => ({ ...r, biasLabel: `Unclassified (${filters.perspectives[0] || 'selected lens'})` }));
+          const combined = [...filtered, ...neutral].slice(0, 20);
+          console.log(`🟣 Purple fallback: returning ${combined.length} results (strict: ${filtered.length}, neutral: ${neutral.length})`);
+          return combined;
+        }
         return filtered;
       }
 
@@ -413,6 +436,54 @@ class SearchService {
     }
   }
 
+  /**
+   * Perform SearXNG metasearch (self-hosted, aggregates Google/Bing/DDG/Brave/etc.)
+   */
+  async performSearXNGSearch(query, filters) {
+    if (!this.searxngUrl) {
+      throw new Error('SearXNG not configured');
+    }
+
+    const params = {
+      q: query,
+      format: 'json',
+      pageno: filters.page || 1,
+    };
+
+    try {
+      const response = await axios.get(`${this.searxngUrl}/search`, {
+        params,
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+          'User-Agent': 'TruegleSearch/1.0',
+        },
+        timeout: 12000,
+      });
+      return { ...response.data, _source: 'searxng' };
+    } catch (error) {
+      console.error('SearXNG error:', error.response?.status, error.message);
+      throw new Error('SearXNG unavailable');
+    }
+  }
+
+  formatSearXNGResults(data) {
+    if (!data || !data.results) return [];
+
+    return data.results.map((item) => ({
+      title: item.title,
+      url: item.url,
+      snippet: item.content || '',
+      source: 'searxng',
+      sourceName: item.engine || 'SearXNG',
+      date: item.publishedDate || new Date().toISOString(),
+      image: item.img_src || null,
+      favicon: null,
+      domain: this.extractDomain(item.url),
+      category: 'web',
+      verified: true,
+    }));
+  }
+
   formatBraveResults(data) {
     if (!data || !data.web || !data.web.results) return [];
 
@@ -634,6 +705,8 @@ class SearchService {
         return this.formatUnsplashResults(data);
       case 'brave':
         return this.formatBraveResults(data);
+      case 'searxng':
+        return this.formatSearXNGResults(data);
       default:
         return [];
     }
@@ -690,6 +763,7 @@ class SearchService {
     if (data.items && data.kind === 'youtube#searchListResponse') return 'youtube';
     if (data._source === 'unsplash') return 'unsplash';
     if (data._source === 'brave') return 'brave';
+    if (data._source === 'searxng') return 'searxng';
     return 'unknown';
   }
 
@@ -859,7 +933,34 @@ class SearchService {
       'locals.com': 'independent',
     };
 
-    return biasMap[domain] || 'neutral';
+    if (biasMap[domain]) return biasMap[domain];
+
+    // Keyword-based bias detection for unlisted domains
+    const url = (result.url || '').toLowerCase();
+    const title = (result.title || '').toLowerCase();
+    const snippet = (result.snippet || '').toLowerCase();
+    const text = `${url} ${title} ${snippet}`;
+
+    // Conspiracy / fringe signals
+    if (/deep.?state|new.?world.?order|illuminati|crisis.?actor|flat.?earth|plandemic|great.?reset.?exposed|chemtrail|microchip.?vaccine|5g.?covid/i.test(text))
+      return 'conspiracy';
+
+    // Alternative / suppressed signals
+    if (/censored|suppressed|shadow.?ban|banned|they.?don.?t.?want|mainstream.?media.?lies|msm.?lies|whistleblower|leaked|cover.?up|truth.?about/i.test(text))
+      return 'alternative';
+
+    // Left-leaning signals
+    if (/systemic.?racism|white.?privilege|defund.?police|social.?justice|equity.?diversity|climate.?justice|reproductive.?rights|transgender.?rights/i.test(text))
+      return 'left';
+
+    // Right-leaning signals
+    if (/make.?america.?great|maga|election.?fraud|illegal.?immigration|second.?amendment|woke.?agenda|deep.?state|patriot.?movement|conservative.?values/i.test(text))
+      return 'right';
+
+    // Mainstream signals (large institutional sites)
+    if (/\.gov\b|\.edu\b/.test(url)) return 'unbiased';
+
+    return 'neutral';
   }
 
   /**
