@@ -870,12 +870,15 @@ export default function UniversalSearch() {
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
+                      <span
+                        role="button"
+                        tabIndex={0}
                         onClick={(e) => { e.stopPropagation(); setShowNoSummaryConfirm(true); }}
-                        className="text-xs text-white/30 hover:text-white/60 transition-colors px-2"
+                        onKeyDown={(e) => e.key === 'Enter' && setShowNoSummaryConfirm(true)}
+                        className="text-xs text-white/30 hover:text-white/60 transition-colors px-2 cursor-pointer"
                       >
                         Dismiss
-                      </button>
+                      </span>
                       <motion.div animate={{ rotate: summaryCollapsed ? 0 : 180 }}>
                         <ChevronDown size={20} className="text-white/40" />
                       </motion.div>
@@ -926,7 +929,9 @@ export default function UniversalSearch() {
                             <div className="flex items-center gap-4 text-xs text-white/40">
                               <span>{aiSummary.sourcesAnalyzed || 0} sources analyzed</span>
                               <span>•</span>
-                              <button
+                              <span
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => {
                                   if (!isAuthenticated) {
                                     navigate('/auth/login', { state: { redirectTo: window.location.pathname + window.location.search } });
@@ -934,10 +939,11 @@ export default function UniversalSearch() {
                                     setIsChatOpen(true);
                                   }
                                 }}
-                                className="underline hover:text-white/60 transition-colors"
+                                onKeyDown={(e) => e.key === 'Enter' && (isAuthenticated ? setIsChatOpen(true) : navigate('/auth/login'))}
+                                className="underline hover:text-white/60 transition-colors cursor-pointer"
                               >
                                 {isAuthenticated ? 'Ask follow-up' : 'Sign in to chat'}
-                              </button>
+                              </span>
                             </div>
                           </>
                         ) : (

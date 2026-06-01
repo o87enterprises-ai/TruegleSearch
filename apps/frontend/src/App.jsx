@@ -22,6 +22,7 @@ import OnboardingPage from './components/auth/OnboardingPage';
 import LandingPage from './pages/LandingPage';
 import SignInPage from './pages/SignInPage';
 import SignUpPage from './pages/SignUpPage';
+import AuthCallback from './pages/AuthCallback';
 import UniversalSearch from './pages/UniversalSearch';
 import SearchPortal from './pages/SearchPortal';
 import SearchResults from './pages/SearchResults';
@@ -192,6 +193,7 @@ const AppContent = () => {
         {/* Public Routes */}
         <Route path="/auth/login" element={<SignInPage />} />
         <Route path="/auth/signup" element={<SignUpPage />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
 
         {/* Universal Search Route */}
         <Route path="/search" element={<UniversalSearch />} />

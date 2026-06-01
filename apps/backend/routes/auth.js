@@ -2,11 +2,80 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const router = express.Router();
 const config = require('../config/env');
 const User = require('../models/User');
 const TokenService = require('../services/TokenService');
 const logger = require('../utils/logger');
+
+// ── Google OAuth Strategy ────────────────────────────────────────────────────
+const BACKEND_URL = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : (process.env.BACKEND_URL || 'http://localhost:3001');
+
+const FRONTEND_URL = config.frontendUrl || 'https://trumpafi.online';
+
+if (config.googleOAuth && config.googleOAuth.clientId) {
+  passport.use(new GoogleStrategy({
+    clientID: config.googleOAuth.clientId,
+    clientSecret: config.googleOAuth.clientSecret,
+    callbackURL: `${BACKEND_URL}/api/auth/google/callback`,
+    scope: ['profile', 'email'],
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      const email = profile.emails?.[0]?.value;
+      if (!email) return done(new Error('No email from Google'), null);
+
+      let user = await User.findOne({ email: email.toLowerCase() });
+
+      if (!user) {
+        user = new User({
+          email: email.toLowerCase(),
+          name: profile.displayName || email.split('@')[0],
+          password: await bcrypt.hash(Math.random().toString(36), 12),
+          role: 'user',
+          isVerified: true,
+          googleId: profile.id,
+        });
+        await user.save();
+        await TokenService.initializeNewUser(user.id);
+      } else if (!user.googleId) {
+        user.googleId = profile.id;
+        user.isVerified = true;
+        await user.save();
+      }
+
+      return done(null, user);
+    } catch (err) {
+      return done(err, null);
+    }
+  }));
+}
+
+// Helper to issue JWT + redirect to frontend
+function issueTokenAndRedirect(user, res) {
+  TokenService.getBalance(user.id).then(tokenBalance => {
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      config.jwtSecret,
+      { expiresIn: '24h' }
+    );
+    const params = new URLSearchParams({
+      token,
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      tokenBalance: tokenBalance.balance,
+      isPremium: tokenBalance.isPremium,
+    });
+    res.redirect(`${FRONTEND_URL}/auth/callback?${params.toString()}`);
+  }).catch(() => {
+    res.redirect(`${FRONTEND_URL}/auth/login?error=oauth_failed`);
+  });
+}
 
 /**
  * @route   POST /api/auth/register
@@ -253,5 +322,22 @@ router.post('/logout', (req, res) => {
     message: 'Logged out successfully',
   });
 });
+
+/**
+ * @route   GET /api/auth/google
+ * @desc    Initiate Google OAuth flow
+ */
+router.get('/google',
+  passport.authenticate('google', { scope: ['profile', 'email'], session: false })
+);
+
+/**
+ * @route   GET /api/auth/google/callback
+ * @desc    Google OAuth callback — issues JWT and redirects to frontend
+ */
+router.get('/google/callback',
+  passport.authenticate('google', { session: false, failureRedirect: `${FRONTEND_URL}/auth/login?error=google_failed` }),
+  (req, res) => issueTokenAndRedirect(req.user, res)
+);
 
 module.exports = router;

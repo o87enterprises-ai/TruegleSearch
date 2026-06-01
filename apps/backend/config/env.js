@@ -127,6 +127,10 @@ const envVarsSchema = Joi.object({
   // SearXNG self-hosted instance URL (no API key required)
   SEARXNG_URL: Joi.string().optional().description('SearXNG instance URL e.g. https://xyz.ngrok-free.dev'),
 
+  // Google OAuth
+  GOOGLE_CLIENT_ID: Joi.string().optional().description('Google OAuth Client ID'),
+  GOOGLE_CLIENT_SECRET: Joi.string().optional().description('Google OAuth Client Secret'),
+
   // Bright Data (web scraping proxy)
   BRIGHT_DATA_API_KEY: Joi.string().optional().description('Bright Data API key'),
 
@@ -263,6 +267,12 @@ const config = {
   // SearXNG (self-hosted, no API key needed)
   searxng: {
     url: envVars.SEARXNG_URL,
+  },
+
+  // Google OAuth
+  googleOAuth: {
+    clientId: envVars.GOOGLE_CLIENT_ID,
+    clientSecret: envVars.GOOGLE_CLIENT_SECRET,
   },
 
   // Bright Data
