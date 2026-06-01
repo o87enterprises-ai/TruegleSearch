@@ -31,6 +31,7 @@ import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { MapViewWrapper } from '../components/map';
 import TutorialModal from '../components/ui/TutorialModal';
 import QuickResultCard from '../components/ui/QuickResultCard';
+import TokenGate from '../components/ui/TokenGate';
 
 // Hooks and Config
 import { useSearchMode } from '../hooks/useSearchMode';
@@ -86,7 +87,7 @@ export default function UniversalSearch() {
   const [aiExpanded, setAiExpanded] = useState(true);
 
   // Purple mode: Perspective state
-  const [selectedPerspectives, setSelectedPerspectives] = useState([]);
+  const [selectedPerspectives, setSelectedPerspectives] = useState(['neutral']);
   const [activePerspectiveCategory, setActivePerspectiveCategory] = useState(0);
 
   // UI state
@@ -149,6 +150,14 @@ export default function UniversalSearch() {
       handleSearch();
     }
   }, [searchParams]);
+
+  // Re-search when mode changes (if a search has already been performed)
+  useEffect(() => {
+    if (lastSearchedQuery && searchValue && !searchLoading) {
+      handleSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   // Auto-detect shopping category
   const isShoppingQuery = (query) => {
@@ -1082,7 +1091,25 @@ export default function UniversalSearch() {
                     />
                   )}
 
-                  {searchResults.map((result, index) => (
+                  {/* OSINT mode requires auth + token */}
+                  {mode === 'ocean' && searchResults.length > 0 && (
+                    <TokenGate featureName="osint-tools">
+                      <div className="space-y-4">
+                        {searchResults.map((result, index) => (
+                          <ResultCard
+                            key={result.url || index}
+                            result={result}
+                            index={index}
+                            mode={mode}
+                            isRedPillMode={isRedPillMode}
+                            perspectiveColors={perspectiveColors}
+                          />
+                        ))}
+                      </div>
+                    </TokenGate>
+                  )}
+
+                  {mode !== 'ocean' && searchResults.map((result, index) => (
                     <div key={result.url || index}>
                       {/* Ad Banner after every 3rd result */}
                       {index > 0 && index % 3 === 0 && (

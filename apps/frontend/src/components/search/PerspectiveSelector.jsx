@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles } from 'lucide-react';
+import { ChevronDown, Sparkles } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 const PerspectiveSelector = ({
@@ -61,6 +61,8 @@ const PerspectiveSelector = ({
     { id: 'economic', label: 'Economic' },
   ];
 
+  const [isMinimized, setIsMinimized] = useState(false);
+
   // Filter perspectives based on active category
   const activeCategory = categories[activeCategoryIndex]?.id || 'all';
   const perspectives = allPerspectives.filter(p =>
@@ -73,6 +75,8 @@ const PerspectiveSelector = ({
     }
   };
 
+  const selectedCount = selectedPerspectives.filter(id => id !== 'neutral').length;
+
   return (
     <AnimatePresence>
       {show && (
@@ -80,88 +84,107 @@ const PerspectiveSelector = ({
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
-          className="p-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border-2 border-purple-500/50 shadow-lg shadow-purple-500/20"
+          className="rounded-2xl bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border-2 border-purple-500/50 shadow-lg shadow-purple-500/20 overflow-hidden"
         >
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+          {/* Header — always visible, click to minimize/expand */}
+          <button
+            onClick={() => setIsMinimized(!isMinimized)}
+            className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+          >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
-                <Sparkles size={20} className="text-purple-400" />
+              <div className="w-8 h-8 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                <Sparkles size={16} className="text-purple-400" />
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Perspective Selection</h3>
-                <p className="text-sm text-purple-300/70">Select perspectives to analyze</p>
+              <div className="text-left">
+                <h3 className="text-sm font-bold text-white">Perspective Selection</h3>
+                <p className="text-xs text-purple-300/60">
+                  {selectedCount > 0
+                    ? `${selectedCount + (selectedPerspectives.includes('neutral') ? 1 : 0)} selected`
+                    : 'Select perspectives to analyze'}
+                </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <X size={20} className="text-white" />
-            </button>
-          </div>
+            <motion.div animate={{ rotate: isMinimized ? 0 : 180 }} transition={{ duration: 0.2 }}>
+              <ChevronDown size={18} className="text-purple-400" />
+            </motion.div>
+          </button>
 
-          {/* Category Tabs */}
-          <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-            {categories.map((category, index) => (
-              <button
-                key={category.id}
-                onClick={() => onCategoryChange(index)}
-                className={cn(
-                  'px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors',
-                  activeCategoryIndex === index
-                    ? 'bg-purple-500/30 text-purple-300 border border-purple-500/50'
-                    : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
-                )}
+          {/* Collapsible body */}
+          <AnimatePresence>
+            {!isMinimized && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
               >
-                {category.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Perspective Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {perspectives.map((perspective) => (
-              <button
-                key={perspective.id}
-                onClick={() => handlePerspectiveToggle(perspective.id)}
-                className={cn(
-                  'px-4 py-3 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 justify-center',
-                  selectedPerspectives.includes(perspective.id)
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/50 border-2 border-purple-400'
-                    : 'bg-gradient-to-r from-purple-600/20 to-pink-600/20 border-2 border-purple-500/30 text-purple-300 hover:from-purple-600/30 hover:to-pink-600/30 hover:border-purple-500/50'
-                )}
-              >
-                <span className="text-lg">{perspective.emoji}</span>
-                <span className="truncate">{perspective.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Selected Perspectives Indicator */}
-          {selectedPerspectives.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-purple-500/30">
-              <div className="flex flex-wrap gap-2">
-                {selectedPerspectives.map((perspectiveId) => {
-                  const perspective = perspectives.find(p => p.id === perspectiveId);
-                  return (
-                    <span
-                      key={perspectiveId}
-                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                    >
-                      {perspective?.label}
+                <div className="px-4 pb-4">
+                  {/* Category Tabs */}
+                  <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
+                    {categories.map((category, index) => (
                       <button
-                        onClick={() => handlePerspectiveToggle(perspectiveId)}
-                        className="ml-1 hover:text-white"
+                        key={category.id}
+                        onClick={() => onCategoryChange(index)}
+                        className={cn(
+                          'px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors',
+                          activeCategoryIndex === index
+                            ? 'bg-purple-500/30 text-purple-300 border border-purple-500/50'
+                            : 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50'
+                        )}
                       >
-                        ×
+                        {category.label}
                       </button>
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+                    ))}
+                  </div>
+
+                  {/* Perspective Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                    {perspectives.map((perspective) => (
+                      <button
+                        key={perspective.id}
+                        onClick={() => handlePerspectiveToggle(perspective.id)}
+                        className={cn(
+                          'px-3 py-2 rounded-xl font-semibold text-xs transition-all flex items-center gap-1.5 justify-center',
+                          selectedPerspectives.includes(perspective.id)
+                            ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/50 border-2 border-purple-400'
+                            : 'bg-gradient-to-r from-purple-600/20 to-pink-600/20 border-2 border-purple-500/30 text-purple-300 hover:from-purple-600/30 hover:to-pink-600/30 hover:border-purple-500/50'
+                        )}
+                      >
+                        <span>{perspective.emoji}</span>
+                        <span className="truncate">{perspective.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Selected Perspectives Chips */}
+                  {selectedPerspectives.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-purple-500/30">
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedPerspectives.map((perspectiveId) => {
+                          const perspective = allPerspectives.find(p => p.id === perspectiveId);
+                          return (
+                            <span
+                              key={perspectiveId}
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                            >
+                              {perspective?.label}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handlePerspectiveToggle(perspectiveId); }}
+                                className="ml-0.5 hover:text-white"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>
