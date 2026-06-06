@@ -25,12 +25,7 @@ import SignInPage from './pages/SignInPage';
 import SignUpPage from './pages/SignUpPage';
 import AuthCallback from './pages/AuthCallback';
 import UniversalSearch from './pages/UniversalSearch';
-import SearchPortal from './pages/SearchPortal';
-import SearchResults from './pages/SearchResults';
 import FeelingBiasedPage from './pages/FeelingBiasedPage';
-import BiasedResults from './pages/BiasedResults';
-import OSINTMode from './pages/OSINTMode';
-import OSINTTools from './pages/OSINTTools';
 import NotFound from "./pages/NotFound";
 // Info Wizard Prompt
 const InfoWizardPrompt = ({
