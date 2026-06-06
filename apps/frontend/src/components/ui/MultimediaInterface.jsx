@@ -60,9 +60,12 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
                       : vid.image,
                     title: vid.title,
                     snippet: vid.snippet,
-                    channel: vid.sourceName || 'YouTube',
+                    channel: vid.channel || vid.sourceName || 'YouTube',
                     date: vid.date,
-                    duration: 'N/A',
+                    duration: vid.duration || null,
+                    views: vid.views ?? null,
+                    bias: vid.bias || null,
+                    biasLabel: vid.biasLabel || null,
                   };
                 });
               } else if (category === 'audio') {
@@ -119,14 +122,38 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
     </div>
   );
 
+  const formatViews = (n) => {
+    if (n == null) return null;
+    if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B views`;
+    if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M views`;
+    if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K views`;
+    return `${n} views`;
+  };
+
   const VideoGrid = ({ videos, onSelect }) => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {videos.map((vid) => (
         <div key={vid.id} className="bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform" onClick={() => onSelect(vid)}>
-          <img src={vid.thumbnail} alt={vid.title} className="w-full aspect-video object-cover" />
+          <div className="relative">
+            <img src={vid.thumbnail} alt={vid.title} className="w-full aspect-video object-cover" />
+            {vid.duration && (
+              <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/80 text-white text-xs font-medium">
+                {vid.duration}
+              </span>
+            )}
+          </div>
           <div className="p-3">
             <h3 className="text-white font-semibold truncate">{vid.title}</h3>
-            <p className="text-gray-400 text-sm">{vid.duration}</p>
+            <p className="text-gray-400 text-sm truncate">{vid.channel}</p>
+            <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 flex-wrap">
+              {formatViews(vid.views) && <span>{formatViews(vid.views)}</span>}
+              {vid.date && <span>{new Date(vid.date).toLocaleDateString()}</span>}
+              {vid.bias && (
+                <span className="px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                  {vid.biasLabel || vid.bias}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       ))}

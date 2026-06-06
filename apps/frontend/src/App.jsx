@@ -14,6 +14,7 @@ import { SearchModeProvider } from './context/SearchModeContext';
 import { TutorialProvider } from './context/TutorialContext';
 import { MapProvider } from './components/map';
 import { ToastProvider } from './components/ui/ToastProvider';
+import { SettingsProvider } from './context/SettingsContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import ResultsPage from './components/ResultsPage';
@@ -122,17 +123,19 @@ const App = () => {
       <AuthProvider>
         <TokenProvider>
           <SearchModeProvider>
-            <MapProvider>
-              <TutorialProvider>
-                <ToastProvider position="top-right">
-                  {/* Skip to content link for accessibility */}
-                  <a href="#main-content" className="skip-to-content">
-                    Skip to main content
-                  </a>
-                  <AppContent />
-                </ToastProvider>
-              </TutorialProvider>
-            </MapProvider>
+            <SettingsProvider>
+              <MapProvider>
+                <TutorialProvider>
+                  <ToastProvider position="top-right">
+                    {/* Skip to content link for accessibility */}
+                    <a href="#main-content" className="skip-to-content">
+                      Skip to main content
+                    </a>
+                    <AppContent />
+                  </ToastProvider>
+                </TutorialProvider>
+              </MapProvider>
+            </SettingsProvider>
           </SearchModeProvider>
         </TokenProvider>
       </AuthProvider>
@@ -197,6 +200,9 @@ const AppContent = () => {
 
         {/* Universal Search Route */}
         <Route path="/search" element={<UniversalSearch />} />
+
+        {/* Locked Green Mode - AI-free, no navigation out */}
+        <Route path="/green" element={<UniversalSearch lockedGreen />} />
 
         {/* Legacy Routes - Redirect to Universal Search */}
         <Route path="/search-portal" element={<Navigate to="/search" replace />} />

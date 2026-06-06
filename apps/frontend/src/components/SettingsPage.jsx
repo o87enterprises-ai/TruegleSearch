@@ -101,22 +101,29 @@ const SettingsPage = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-medium">Safe Search</h3>
-                <p className="text-sm text-gray-600">Filter explicit content</p>
+                <p className="text-sm text-gray-600">
+                  Filter explicit content — Safe hides it, Blur obscures imagery, Off shows everything
+                </p>
               </div>
-              <button
-                onClick={() =>
-                  handleSettingChange('safeSearch', !settings.safeSearch)
-                }
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.safeSearch ? 'bg-green-600' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
-                    settings.safeSearch ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
+              <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                {[
+                  { value: 'safe', label: 'Safe' },
+                  { value: 'blur', label: 'Blur' },
+                  { value: 'off', label: 'Off' },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => handleSettingChange('safeSearch', opt.value)}
+                    className={`px-4 py-1.5 text-sm font-medium transition-colors ${
+                      settings.safeSearch === opt.value
+                        ? 'bg-green-600 text-white'
+                        : 'bg-white text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="flex items-center justify-between">

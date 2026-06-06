@@ -616,7 +616,39 @@ class SearchService {
 
     try {
       const response = await axios.get(this.youtubeBaseUrl, { params });
-      return response.data;
+      const data = response.data;
+
+      // Enrich with duration + view counts via a videos.list call (search.list omits these)
+      try {
+        const ids = (data.items || [])
+          .map((i) => i.id?.videoId)
+          .filter(Boolean);
+        if (ids.length) {
+          const detailsResp = await axios.get(
+            'https://www.googleapis.com/youtube/v3/videos',
+            {
+              params: {
+                key: this.youtubeApiKey,
+                part: 'contentDetails,statistics',
+                id: ids.join(','),
+              },
+            }
+          );
+          const detailMap = {};
+          (detailsResp.data.items || []).forEach((d) => {
+            detailMap[d.id] = d;
+          });
+          data.items = (data.items || []).map((i) => ({
+            ...i,
+            contentDetails: detailMap[i.id?.videoId]?.contentDetails,
+            statistics: detailMap[i.id?.videoId]?.statistics,
+          }));
+        }
+      } catch (enrichErr) {
+        console.error('YouTube details enrichment failed:', enrichErr.message);
+      }
+
+      return data;
     } catch (error) {
       console.error(
         'YouTube API error:',
@@ -1101,11 +1133,48 @@ class SearchService {
       snippet: item.snippet.description,
       source: 'youtube',
       sourceName: 'YouTube',
+      channel: item.snippet.channelTitle || 'YouTube',
       date: item.snippet.publishedAt || new Date().toISOString(),
       image: item.snippet.thumbnails?.high?.url || null,
       favicon: null,
       domain: 'youtube.com',
       category: 'videos',
+      duration: this.parseYouTubeDuration(item.contentDetails?.duration),
+      views: item.statistics?.viewCount
+        ? Number(item.statistics.viewCount)
+        : null,
+      verified: true,
+    }));
+  }
+
+  /**
+   * Convert an ISO-8601 duration (e.g. "PT1H2M3S") to "h:mm:ss" / "m:ss".
+   */
+  parseYouTubeDuration(iso) {
+    if (!iso) return null;
+    const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    if (!m) return null;
+    const h = parseInt(m[1] || '0', 10);
+    const min = parseInt(m[2] || '0', 10);
+    const s = parseInt(m[3] || '0', 10);
+    const pad = (n) => String(n).padStart(2, '0');
+    return h > 0 ? `${h}:${pad(min)}:${pad(s)}` : `${min}:${pad(s)}`;
+  }
+
+  formatBingResults(bingData) {
+    if (!bingData || !bingData.webPages || !bingData.webPages.value) return [];
+
+    return bingData.webPages.value.map((item) => ({
+      title: item.name,
+      url: item.url,
+      snippet: item.snippet,
+      source: 'bing',
+      sourceName: 'Bing',
+      date: item.dateLastCrawled || new Date().toISOString(),
+      image: null,
+      favicon: null,
+      domain: this.extractDomain(item.url),
+      category: 'web',
       verified: true,
     }));
   }

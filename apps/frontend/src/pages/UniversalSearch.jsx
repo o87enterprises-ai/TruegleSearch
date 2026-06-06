@@ -36,12 +36,16 @@ import TokenGate from '../components/ui/TokenGate';
 // Hooks and Config
 import { useSearchMode } from '../hooks/useSearchMode';
 import { useLocationDetection } from '../hooks/useLocationDetection';
+import useDeviceTier from '../hooks/useDeviceTier';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 
-export default function UniversalSearch() {
+export default function UniversalSearch({ lockedGreen = false }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
+  const { settings, updateSetting } = useSettings();
+  const { allowHeavyAnimations } = useDeviceTier();
 
   // Get query from URL
   const query = searchParams.get('q') || '';
@@ -49,7 +53,7 @@ export default function UniversalSearch() {
   // Mode management - Default to 'blue' (SearchPortal)
   const modeParam = searchParams.get('mode');
   const { mode: autoMode, modeConfig, overrideMode } = useSearchMode(query);
-  const [mode, setMode] = useState(modeParam || 'blue'); // Default to blue
+  const [mode, setMode] = useState(lockedGreen ? 'green' : (modeParam || 'blue')); // Default to blue; forced green when locked
 
   // Tutorial modal — shown once per device on first visit
   const [showTutorial, setShowTutorial] = useState(() => {
@@ -106,13 +110,14 @@ export default function UniversalSearch() {
     bias: 'all'
   });
 
-  // Update mode when URL param changes
+  // Update mode when URL param changes (ignored in locked green mode)
   useEffect(() => {
+    if (lockedGreen) return;
     const urlMode = searchParams.get('mode');
     if (urlMode) {
       setMode(urlMode);
     }
-  }, [searchParams]);
+  }, [searchParams, lockedGreen]);
 
   // Update search value when query param changes
   useEffect(() => {
@@ -131,6 +136,11 @@ export default function UniversalSearch() {
     // Green pill mode disables Smart features
     if (mode === 'green') {
       setSessionSummaryChoice('none');
+    }
+    // Purple page always starts on the Neutral perspective
+    if (mode === 'purple') {
+      setSelectedPerspectives(['neutral']);
+      setActivePerspectiveCategory(0);
     }
   }, [mode]);
 
@@ -257,6 +267,7 @@ export default function UniversalSearch() {
               sortBy: 'relevance',
               order: 'desc',
               perPage: 20,
+              safeSearch: settings.safeSearch,
             },
           }),
         }
@@ -332,6 +343,8 @@ export default function UniversalSearch() {
    * Handle mode switching via pill toggle (now receives mode string)
    */
   const handlePillModeChange = (newModeOrBool) => {
+    // Green mode is locked — ignore any attempt to switch modes
+    if (lockedGreen) return;
     // Accept either string ('blue'|'red'|'green') or legacy boolean
     const newMode = typeof newModeOrBool === 'boolean'
       ? (newModeOrBool ? 'red' : 'blue')
@@ -347,6 +360,7 @@ export default function UniversalSearch() {
   };
 
   const handleBiasedClick = () => {
+    if (lockedGreen) return;
     setMode('purple');
     const params = new URLSearchParams(searchParams);
     params.set('mode', 'purple');
@@ -354,6 +368,7 @@ export default function UniversalSearch() {
   };
 
   const toggleOSINT = () => {
+    if (lockedGreen) return;
     const newMode = mode === 'ocean' ? 'blue' : 'ocean';
     setMode(newMode);
     const params = new URLSearchParams(searchParams);
@@ -369,17 +384,37 @@ export default function UniversalSearch() {
    * Handle perspective toggle (purple mode)
    */
   const handleTogglePerspective = (perspectiveId) => {
-    setSelectedPerspectives((prev) =>
-      prev.includes(perspectiveId)
-        ? prev.filter((p) => p !== perspectiveId)
-        : [...prev, perspectiveId]
-    );
+    setSelectedPerspectives((prev) => {
+      let next;
+      if (prev.includes(perspectiveId)) {
+        next = prev.filter((p) => p !== perspectiveId);
+      } else {
+        // Selecting a real perspective drops the default 'neutral'
+        next = perspectiveId === 'neutral'
+          ? [...prev, perspectiveId]
+          : [...prev.filter((p) => p !== 'neutral'), perspectiveId];
+      }
+      // Always fall back to Neutral when nothing is selected
+      return next.length > 0 ? next : ['neutral'];
+    });
   };
 
   /**
    * Render appropriate background based on mode
    */
   const renderBackground = () => {
+    // Low-end devices / reduced-motion: skip heavy WebGL+particle backgrounds
+    if (!allowHeavyAnimations) {
+      const LITE_BG = {
+        blue: 'bg-gradient-to-b from-[#0a0e27] via-black to-[#0a0e27]',
+        red: 'bg-gradient-to-b from-[#2a0a0a] via-black to-black',
+        purple: 'bg-gradient-to-br from-[#1a0a2e] via-black to-[#16213e]',
+        ocean: 'bg-gradient-to-b from-[#001f3f] via-[#001020] to-black',
+        green: 'bg-gradient-to-br from-green-950 via-black to-emerald-950',
+      };
+      return <div className={`fixed inset-0 ${LITE_BG[mode] || LITE_BG.blue}`} />;
+    }
+
     switch (mode) {
       case 'blue':
         return (
@@ -458,16 +493,31 @@ export default function UniversalSearch() {
     mainstream: 'bg-purple-500/20 border border-purple-500/50 text-purple-400',
   };
 
+  // Per-mode container accent — each page takes its theme color.
+  // (green uses higher opacity / lighter text for contrast on the LetterGlitch bg)
+  const MODE_ACCENT = {
+    blue:   { border: 'border-cyan-500/40 hover:border-cyan-500/60',     title: 'text-cyan-400 group-hover:text-cyan-300',     link: 'text-cyan-400 hover:text-cyan-300',     iframeBorder: 'border-cyan-500/20',   count: 'text-cyan-300' },
+    ocean:  { border: 'border-cyan-500/40 hover:border-cyan-500/60',     title: 'text-cyan-400 group-hover:text-cyan-300',     link: 'text-cyan-400 hover:text-cyan-300',     iframeBorder: 'border-cyan-500/20',   count: 'text-cyan-300' },
+    red:    { border: 'border-red-500/40 hover:border-red-500/60',       title: 'text-red-400 group-hover:text-red-300',       link: 'text-red-400 hover:text-red-300',       iframeBorder: 'border-red-500/20',    count: 'text-red-300' },
+    purple: { border: 'border-purple-500/40 hover:border-purple-500/60', title: 'text-purple-300 group-hover:text-purple-200', link: 'text-purple-300 hover:text-purple-200', iframeBorder: 'border-purple-500/20', count: 'text-purple-300' },
+    green:  { border: 'border-green-500/50 hover:border-green-500/70',   title: 'text-green-300 group-hover:text-green-200',   link: 'text-green-300 hover:text-green-200',   iframeBorder: 'border-green-500/30',  count: 'text-green-300' },
+  };
+  const modeAccent = MODE_ACCENT[mode] || MODE_ACCENT.blue;
+
   // ── ResultCard ──────────────────────────────────────────────────────────
-  function ResultCard({ result, index, mode, isRedPillMode, perspectiveColors }) {
+  function ResultCard({ result, index, perspectiveColors, accent, safeSearch }) {
     const [viewerOpen, setViewerOpen] = useState(false);
     const [iframeBlocked, setIframeBlocked] = useState(false);
-    const borderClass = mode === 'green'
-      ? 'border-green-500/30 hover:border-green-500/50'
-      : 'border-cyan-500/30 hover:border-cyan-500/50';
-    const titleClass = mode === 'green'
-      ? 'text-green-400 group-hover:text-green-300'
-      : 'text-cyan-400 group-hover:text-cyan-300';
+    const borderClass = accent.border;
+    const titleClass = accent.title;
+    const blurClass = safeSearch === 'blur' ? 'blur-md hover:blur-none transition-all duration-200' : '';
+
+    // Human-friendly source URL (hostname + path)
+    let displayUrl = result.domain || result.url || '';
+    try {
+      const u = new URL(result.url);
+      displayUrl = u.hostname.replace(/^www\./, '') + (u.pathname && u.pathname !== '/' ? u.pathname : '');
+    } catch { /* keep fallback */ }
 
     return (
       <motion.div
@@ -483,7 +533,7 @@ export default function UniversalSearch() {
               <img
                 src={result.image}
                 alt=""
-                className="w-16 h-16 object-cover rounded-lg flex-shrink-0 opacity-80"
+                className={`w-16 h-16 object-cover rounded-lg flex-shrink-0 opacity-80 ${blurClass}`}
                 onError={(e) => { e.target.style.display = 'none'; }}
               />
             )}
@@ -503,39 +553,60 @@ export default function UniversalSearch() {
                   <ExternalLink size={13} className="flex-shrink-0 opacity-40" />
                 </h3>
               </a>
+
+              {/* Source URL */}
+              <a
+                href={result.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 mt-0.5 text-xs text-emerald-400/90 hover:text-emerald-300 transition-colors"
+              >
+                {result.favicon && (
+                  <img src={result.favicon} alt="" className="w-3.5 h-3.5 object-contain opacity-70"
+                    onError={(e) => { e.target.style.display = 'none'; }} />
+                )}
+                <span className="truncate max-w-[320px]">{displayUrl}</span>
+              </a>
+
               <p className="text-sm text-white/70 mt-1 line-clamp-2">{result.snippet}</p>
 
               <div className="flex items-center gap-3 mt-2 text-xs text-white/50 flex-wrap">
-                {result.favicon && result.image && (
-                  <img src={result.favicon} alt="" className="w-4 h-4 object-contain opacity-60"
-                    onError={(e) => { e.target.style.display = 'none'; }} />
-                )}
                 <span className="truncate max-w-[200px]">{result.sourceName || result.domain}</span>
                 {result.date && <span>{new Date(result.date).toLocaleDateString()}</span>}
-                {(isRedPillMode || mode === 'purple') && result.bias && (
+                {result.bias && (
                   <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${perspectiveColors[result.bias] || perspectiveColors.neutral}`}>
                     {result.biasLabel || result.bias}
                   </span>
                 )}
-                <button
-                  onClick={() => { setViewerOpen(!viewerOpen); setIframeBlocked(false); }}
-                  className="ml-auto text-white/30 hover:text-cyan-400 transition-colors text-xs"
-                >
-                  {viewerOpen ? 'Close viewer' : 'Open in viewer'}
-                </button>
+                <div className="ml-auto flex items-center gap-3">
+                  <a
+                    href={result.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-center gap-1 ${accent.link} transition-colors`}
+                  >
+                    <ExternalLink size={12} /> Open link
+                  </a>
+                  <button
+                    onClick={() => { setViewerOpen(!viewerOpen); setIframeBlocked(false); }}
+                    className={`${accent.link} transition-colors`}
+                  >
+                    {viewerOpen ? 'Close' : 'Open in app'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Inline iframe viewer */}
+          {/* Inline iframe viewer (Open in app) */}
           {viewerOpen && (
-            <div className="mt-3 rounded-xl overflow-hidden border border-cyan-500/20">
+            <div className={`mt-3 rounded-xl overflow-hidden border ${accent.iframeBorder}`}>
               <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-white/5">
                 <span className="text-xs text-white/40 truncate flex-1 mr-2">{result.url}</span>
                 <div className="flex gap-2 flex-shrink-0">
                   <a href={result.url} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
-                    <ExternalLink size={11} /> Open
+                    className={`text-xs ${accent.link} flex items-center gap-1`}>
+                    <ExternalLink size={11} /> Open link
                   </a>
                   <button onClick={() => setViewerOpen(false)} className="text-xs text-white/30 hover:text-white">✕</button>
                 </div>
@@ -544,7 +615,7 @@ export default function UniversalSearch() {
                 <div className="flex flex-col items-center justify-center py-8 bg-black/20 gap-2">
                   <p className="text-sm text-white/50 text-center px-4">This page can't be embedded.</p>
                   <a href={result.url} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+                    className={`text-xs ${accent.link} flex items-center gap-1`}>
                     <ExternalLink size={12} /> Open in new tab
                   </a>
                 </div>
@@ -552,7 +623,7 @@ export default function UniversalSearch() {
                 <iframe
                   key={result.url}
                   src={result.url}
-                  className="w-full h-80"
+                  className="w-full h-[60vh]"
                   title="Result preview"
                   sandbox="allow-scripts allow-same-origin"
                   onError={() => setIframeBlocked(true)}
@@ -607,14 +678,14 @@ export default function UniversalSearch() {
             animate={{ opacity: 1, scale: 1 }}
             className="flex justify-center mb-6"
           >
-            <TruegleLogo className="scale-[1.5] sm:scale-[1.8]" onClick={() => navigate('/')} />
+            <TruegleLogo className="scale-[1.5] sm:scale-[1.8]" onClick={lockedGreen ? undefined : () => navigate('/')} />
           </motion.div>
 
           {/* Search Bar - Directly Below Logo (same as SearchResults) */}
           <div className="max-w-4xl mx-auto mb-6">
             <SearchBar
               value={searchValue}
-              showBiasedButton={mode !== 'purple'}
+              showBiasedButton={!lockedGreen && mode !== 'purple'}
               onBiasedClick={handleBiasedClick}
               showUnbiasedButton={mode === 'purple'}
               onUnbiasedClick={() => {
@@ -632,16 +703,18 @@ export default function UniversalSearch() {
               onSearch={handleSearch}
               placeholder={mode === 'purple' ? 'Explore perspectives...' : mode === 'ocean' ? 'OSINT search...' : 'Search for unbiased truth...'}
               size="medium"
-              showPillToggle={true}
+              showPillToggle={!lockedGreen}
               isRedPillMode={isRedPillMode}
               pillMode={mode === 'green' ? 'green' : isRedPillMode ? 'red' : 'blue'}
               onPillModeChange={handlePillModeChange}
+              safeSearch={settings.safeSearch}
+              onSafeSearchChange={(v) => updateSetting('safeSearch', v)}
               showFilters={true}
               filters={filters}
               onFiltersChange={setFilters}
               compactFilters={false}
               showFilterToggle={true}
-              showOSINTToggle={true}
+              showOSINTToggle={!lockedGreen}
               isOSINTMode={isOSINTMode}
               onOSINTToggle={toggleOSINT}
               showCategories={true}
@@ -1080,8 +1153,10 @@ export default function UniversalSearch() {
                 </div>
               ) : (
                 <>
-                  <div className="text-sm text-white/60 mb-4">
-                    {searchResults.length > 0 ? `About ${searchResults.length} results` : 'No results yet - try searching!'}
+                  <div className="text-sm mb-4">
+                    <span className={modeAccent.count}>
+                      {searchResults.length > 0 ? `About ${searchResults.length} results` : 'No results yet - try searching!'}
+                    </span>
                   </div>
 
                   {instantAnswer && (
@@ -1101,8 +1176,9 @@ export default function UniversalSearch() {
                             result={result}
                             index={index}
                             mode={mode}
-                            isRedPillMode={isRedPillMode}
                             perspectiveColors={perspectiveColors}
+                            accent={modeAccent}
+                            safeSearch={settings.safeSearch}
                           />
                         ))}
                       </div>
@@ -1137,8 +1213,9 @@ export default function UniversalSearch() {
                         result={result}
                         index={index}
                         mode={mode}
-                        isRedPillMode={isRedPillMode}
                         perspectiveColors={perspectiveColors}
+                        accent={modeAccent}
+                        safeSearch={settings.safeSearch}
                       />
                     </div>
                   ))}
