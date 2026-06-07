@@ -121,7 +121,7 @@ function validateFilters(filters) {
     category: 'all',
     dateRange: 'any',
     bias: 'all',
-    safeSearch: true,
+    safeSearch: 'safe', // 'safe' | 'blur' | 'off'
     page: 1,
     perPage: 10,
   };

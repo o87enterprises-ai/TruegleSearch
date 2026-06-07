@@ -7,11 +7,52 @@
     <meta name="description" content="Truegle - The unbiased, transparent, and secure search engine. Get multiple perspectives on any topic without algorithmic bias or tracking." />
     <meta name="keywords" content="Truegle, unbiased search, transparent search, secure search, multiple perspectives, no tracking, privacy-focused" />
     <meta name="author" content="Truegle Team" />
+    <link rel="canonical" href="https://trumpafi.online/" />
+    <!-- Open Graph -->
     <meta property="og:title" content="Truegle - Unbiased Search Engine" />
     <meta property="og:description" content="Search without bias. Discover truth from multiple perspectives. No tracking, no cookies, no hidden agendas." />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://trumpafi.online/" />
+    <meta property="og:site_name" content="Truegle" />
+    <meta property="og:image" content="https://trumpafi.online/og-image.png" />
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Truegle - Unbiased Search Engine" />
+    <meta name="twitter:description" content="Search without bias. Discover truth from multiple perspectives. No tracking, no cookies, no hidden agendas." />
+    <meta name="twitter:image" content="https://trumpafi.online/og-image.png" />
     <!-- Parody Disclaimer -->
     <meta name="disclaimer" content="Truegle is not affiliated with, endorsed by, or connected to Google LLC. This is an independent search engine project." />
+    <!-- Structured Data: Organization + WebSite with SearchAction (sitelinks search box) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://trumpafi.online/#organization",
+          "name": "Truegle",
+          "url": "https://trumpafi.online/",
+          "logo": "https://trumpafi.online/og-image.png",
+          "description": "The unbiased, transparent, and secure search engine."
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://trumpafi.online/#website",
+          "url": "https://trumpafi.online/",
+          "name": "Truegle",
+          "publisher": { "@id": "https://trumpafi.online/#organization" },
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://trumpafi.online/search?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        }
+      ]
+    }
+    </script>
     <!-- Google Fonts - Inter & Barlow for professional typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

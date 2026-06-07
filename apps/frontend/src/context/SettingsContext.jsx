@@ -12,7 +12,7 @@ export const useSettings = () => {
 
 export const SettingsProvider = ({ children }) => {
   const [settings, setSettings] = useState({
-    safeSearch: true,
+    safeSearch: 'safe', // 'safe' | 'blur' | 'off'
     adPersonalization: true, // Default to ON as requested
     cookiePreference: 'all', // 'all', 'necessary', 'none'
     dataCollection: false,
@@ -27,9 +27,18 @@ export const SettingsProvider = ({ children }) => {
     if (savedSettings) {
       try {
         const parsedSettings = JSON.parse(savedSettings);
+        // Migrate legacy boolean safeSearch -> tri-state string
+        let migratedSafeSearch = parsedSettings.safeSearch;
+        if (typeof migratedSafeSearch === 'boolean') {
+          migratedSafeSearch = migratedSafeSearch ? 'safe' : 'off';
+        }
+        if (!['safe', 'blur', 'off'].includes(migratedSafeSearch)) {
+          migratedSafeSearch = 'safe';
+        }
         setSettings((prev) => ({
           ...prev,
           ...parsedSettings,
+          safeSearch: migratedSafeSearch,
           // Ensure adPersonalization is true by default if not set
           adPersonalization:
             parsedSettings.adPersonalization !== undefined

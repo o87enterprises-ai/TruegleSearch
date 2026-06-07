@@ -161,6 +161,30 @@ app.use(passport.initialize());
 // Serve static files from public directory (for test.html)
 app.use(express.static('public'));
 
+// SEO: sitemap.xml (uses SitemapGenerator util)
+app.get('/sitemap.xml', (req, res) => {
+  try {
+    const SitemapGenerator = require('./utils/sitemap');
+    const baseURL = (config.frontendUrl || 'https://trumpafi.online').replace(/\/$/, '');
+    const generator = new SitemapGenerator(baseURL);
+    generator.addURL('/', null, 'daily', 1.0);
+    generator.addURL('/search', null, 'daily', 0.9);
+    generator.addURL('/green', null, 'weekly', 0.6);
+    res.header('Content-Type', 'application/xml');
+    res.send(generator.generateSitemap());
+  } catch (error) {
+    res.status(500).send('Error generating sitemap');
+  }
+});
+
+// SEO: robots.txt
+app.get('/robots.txt', (req, res) => {
+  const baseURL = (config.frontendUrl || 'https://trumpafi.online').replace(/\/$/, '');
+  res.type('text/plain').send(
+    `User-agent: *\nAllow: /\nDisallow: /auth/\nDisallow: /onboarding\nDisallow: /settings\n\nSitemap: ${baseURL}/sitemap.xml\n`
+  );
+});
+
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
   try {

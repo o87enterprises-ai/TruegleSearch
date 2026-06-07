@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Disallow auth + account flows from indexing
+Disallow: /auth/
+Disallow: /onboarding
+Disallow: /settings
+
+Sitemap: https://trumpafi.online/sitemap.xml
