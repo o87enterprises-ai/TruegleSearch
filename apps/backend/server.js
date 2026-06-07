@@ -15,6 +15,10 @@ const logger = require('./utils/logger');
 const app = express();
 const PORT = config.port;
 
+// Running behind Vercel's proxy: trust the first proxy hop so express-rate-limit
+// (and req.ip / secure cookies) read the real client IP from X-Forwarded-For.
+app.set('trust proxy', 1);
+
 // CORS - must run before all other middleware
 const ALLOWED_ORIGINS = [
   config.frontendUrl,
