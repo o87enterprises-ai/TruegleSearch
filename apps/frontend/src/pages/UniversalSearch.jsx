@@ -250,6 +250,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
       if (mode === 'red') backendMode = 'red-pill';
       else if (mode === 'purple') backendMode = 'purple';
       else if (mode === 'ocean') backendMode = 'ocean';
+      else if (mode === 'green') backendMode = 'green'; // backend filters AI-generated-content domains
 
       const response = await fetch(
         `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/search`,

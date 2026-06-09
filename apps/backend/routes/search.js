@@ -3,6 +3,8 @@ const router = express.Router();
 const { authenticate } = require('../middleware/auth');
 const { rateLimitSearch } = require('../middleware/rateLimit');
 const SearchService = require('../services/SearchService');
+// WeatherService exports a singleton instance (not a class)
+const weatherService = require('../services/WeatherService');
 
 // Initialize search service
 const searchService = new SearchService();
@@ -29,7 +31,7 @@ router.post('/', rateLimitSearch, async (req, res) => {
     // Perform search using the search service
     const results = await searchService.performSearch(query, validFilters, mode);
 
-    const instantAnswer = buildInstantAnswer(query.trim(), results);
+    const instantAnswer = await buildInstantAnswer(query.trim(), results);
 
     res.json({
       success: true,
@@ -190,10 +192,14 @@ function detectQueryType(query) {
     return 'local_business';
 
   // Weather
-  if (/^(weather|forecast)\b/.test(q) || /\bweather\b/.test(q)) return 'weather';
+  if (/^(weather|forecast|temperature)\b/.test(q) || /\bweather\b/.test(q)) return 'weather';
 
-  // Calculator / unit conversion
-  if (/^\d[\d\s\+\-\*\/\^\(\)\.]+=$/.test(q) || /\d+\s*(plus|minus|times|divided by|percent of)\s*\d+/i.test(q))
+  // Calculator: trailing "=", word operators, or a bare arithmetic expression like "2+2", "15% of 200"
+  if (
+    /^[\d\s\+\-\*\/\^\(\)\.%]+=?\s*$/.test(q) && /[\d]/.test(q) && /[\+\-\*\/\^%]/.test(q) ||
+    /\d+\s*(plus|minus|times|multiplied by|divided by|percent of|mod)\s*\d+/i.test(q) ||
+    /\d+\s*%\s*of\s*\d+/i.test(q)
+  )
     return 'calculation';
 
   // Social profile / person search (name + platform)
@@ -208,13 +214,15 @@ function detectQueryType(query) {
 /**
  * Extract structured instant answer data from search results + pagemap.
  */
-function buildInstantAnswer(query, results) {
-  if (!results || results.length === 0) return null;
-
+async function buildInstantAnswer(query, results) {
   const type = detectQueryType(query);
   if (!type) return null;
 
-  const top = results[0];
+  // calculation/weather are computed independently of web results
+  const needsResults = !['calculation', 'weather'].includes(type);
+  if (needsResults && (!results || results.length === 0)) return null;
+
+  const top = (results && results[0]) || {};
   const pagemap = top.pagemap || {};
   const meta = (pagemap.metatags || [])[0] || {};
   const org = (pagemap.organization || [])[0] || {};
@@ -281,7 +289,75 @@ function buildInstantAnswer(query, results) {
     return { type: 'person', ...p };
   }
 
+  if (type === 'calculation') {
+    const calc = safeCalculate(query);
+    if (calc === null) return null;
+    return { type: 'calculation', expression: query.replace(/=\s*$/, '').trim(), result: calc };
+  }
+
+  if (type === 'weather') {
+    const location = extractWeatherLocation(query);
+    if (!location) return null;
+    try {
+      const data = await weatherService.getCurrentWeather(location);
+      return { type: 'weather', ...data };
+    } catch {
+      // Weather API unavailable — fall through; web results still render.
+      return null;
+    }
+  }
+
   return null;
+}
+
+/**
+ * Pull a location out of a weather query: "weather in Paris" / "weather Paris" /
+ * "Tokyo weather" / "forecast for Berlin". Returns null when no location given.
+ */
+function extractWeatherLocation(query) {
+  let q = query.trim();
+  // strip the weather keyword + optional connector
+  q = q.replace(/\b(weather|forecast|temperature)\b/gi, ' ');
+  q = q.replace(/\b(in|for|at|of|today|now|current|currently)\b/gi, ' ');
+  q = q.replace(/[?!.]/g, ' ').replace(/\s+/g, ' ').trim();
+  return q.length >= 2 ? q : null;
+}
+
+/**
+ * Safely evaluate a basic arithmetic expression. Accepts digits, + - * / ^ % ( )
+ * and the word operators normalized below. Rejects anything with letters/identifiers
+ * so there is no code-execution surface.
+ */
+function safeCalculate(query) {
+  let expr = query.toLowerCase()
+    .replace(/=\s*$/, '')
+    .replace(/\bplus\b/g, '+')
+    .replace(/\bminus\b/g, '-')
+    .replace(/\b(times|multiplied by)\b/g, '*')
+    .replace(/\bdivided by\b/g, '/')
+    .replace(/\bmod\b/g, '%')
+    .replace(/\^/g, '**')
+    .trim();
+
+  // "15% of 200" -> "15/100*200"
+  expr = expr.replace(/(\d+(?:\.\d+)?)\s*%\s*of\s*(\d+(?:\.\d+)?)/g, '($1/100*$2)');
+  // bare trailing percent "50%" -> "(50/100)"
+  expr = expr.replace(/(\d+(?:\.\d+)?)\s*%/g, '($1/100)');
+
+  // Only digits, operators, parens, dots, spaces allowed now.
+  if (!/^[\d\s+\-*/().]+$/.test(expr)) return null;
+  if (!/\d/.test(expr)) return null;
+  if (expr.length > 100) return null;
+
+  try {
+    // eslint-disable-next-line no-new-func — input is sanitized to arithmetic only above
+    const val = Function(`"use strict"; return (${expr});`)();
+    if (typeof val !== 'number' || !isFinite(val)) return null;
+    // round to avoid floating noise like 0.1+0.2
+    return Math.round(val * 1e10) / 1e10;
+  } catch {
+    return null;
+  }
 }
 
 function detectPlatform(url) {

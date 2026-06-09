@@ -1,6 +1,45 @@
 # Session Handoff — Truegle Search
 
-_Last updated: 2026-06-07_
+_Last updated: 2026-06-09_
+
+## Session 2026-06-09 — search outage fix, green-mode AI filter, quick results
+
+**TL;DR:** Production search was returning **0 results**. Root cause was **not CORS** — the
+frontend was being built with no `.env` file, so `VITE_BACKEND_URL` fell back to
+`http://localhost:3001` and got baked into the live bundle; every search from `trumpafi.online`
+tried to reach the user's local machine. Fixed permanently, plus shipped green-mode AI filtering
+and two quick-result widgets. All changes verified live and deployed (frontend → Cloudflare Pages,
+backend → Vercel prod).
+
+### What shipped (all live + verified)
+| Area | Change | Key files |
+|---|---|---|
+| **Search no-results FIX** | `vite.config.js` now defaults `VITE_BACKEND_URL` to the live Vercel backend in production mode (committed → survives fresh clones, since `.env*` is gitignored and absent on the build machine). Recreated `.env.production`/`.env.development`. | `apps/frontend/vite.config.js`, `apps/frontend/.env.*` (gitignored) |
+| **Offline-machine resilience** | SearXNG call timeout 12s→4.5s and `console.error`→`console.warn`. Search already uses `Promise.allSettled`, so a down self-hosted SearXNG never breaks search or adds latency. | `apps/backend/services/SearchService.js` |
+| **Green mode = 0 AI results** | `mode:'green'` now sent FE→BE and handled in `performSearch`: same retrieval as blue, then filters results whose domain is in a blocklist (subdomain-aware; expandable via `AI_CONTENT_DOMAINS` env). | `SearchService.js`, `apps/backend/data/aiContentDomains.js` (NEW), `pages/UniversalSearch.jsx` |
+| **Quick results** | `buildInstantAnswer` is now async; added `calculation` (safe arithmetic eval, no API) and `weather` (live OpenWeather via WeatherService singleton). New `WeatherCard`/`CalculationCard`. | `apps/backend/routes/search.js`, `apps/frontend/src/components/ui/QuickResultCard.jsx` |
+
+### Verified live (curl against prod backend)
+- Search: real Brave results; CORS header correct for `trumpafi.online` ✓
+- Safe search differential: `off`→explicit sites, `safe`→clean (gov/edu/imdb) — **toggle works**, was a stale bundle ✓
+- Calculation: `2+2`→4, `15% of 200`→30 ✓ · Weather: `weather in Paris`→14°C overcast ✓ · Green: 29 results ✓
+
+### Notes / gotchas
+- **Safe-mode toggle** and **"don't show again" modal** were both **stale-bundle bugs** — current code is correct; the redeploy shipped the fixes. Modal still needs a human eyeball on the live site to confirm.
+- **`services/WeatherService.js` exports a SINGLETON instance**, not the class. `require` and use directly — do NOT `new` it (doing so crashed the backend with `FUNCTION_INVOCATION_FAILED`; caught via `vercel logs` and fixed).
+- The old "weather route 404" (Session 9 list) is sidestepped — quick-results call the WeatherService directly and it works.
+
+### Next session — TODO (from user's launch list)
+1. **More quick-results:** sports scores, business/locations/phone/shopping, calendar/events, history, news/breaking (extend `detectQueryType` + `buildInstantAnswer` + add cards).
+2. **Categories logic:** images/social/profiles via Apify + general search APIs (image/social/video tabs).
+3. **OSINT Investigation Agent:** default-flow ("what investigation would you like?" + suggestions), iframe verification panel, install free OSINT frameworks; wire the free endpoints in `OSINTMode.jsx`.
+4. **Multi-input search bar:** audio / files / images end-to-end.
+5. **Privacy hardening:** audit cache/history clearing + no-storage guarantees ("absolute privacy").
+6. **Maps/globe** rendering refine; hardware-limited background rendering.
+7. **SearXNG → primary** with APIs as graceful fallback (user's iMac; flip provider order in `performSearch`).
+8. **Deferred — needs user logins/dashboards:** DNS for `truegle.info`, ads distribution, Google/email OAuth, Search Console, distributor signups. (Google CSE still needs Custom Search API enabled — see below.)
+
+---
 
 ## TL;DR
 The search-UI / safe-search / green-mode / video / SEO batch **plus** a backend trust-proxy fix
