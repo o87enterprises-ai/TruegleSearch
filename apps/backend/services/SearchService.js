@@ -1,8 +1,19 @@
 const axios = require('axios');
 const config = require('../config/env');
+const { AI_CONTENT_DOMAINS } = require('../data/aiContentDomains');
 
 class SearchService {
   constructor() {
+    // Green-mode AI-content blocklist. Seed list + optional env-provided extras
+    // (AI_CONTENT_DOMAINS="a.com,b.com"). Stored lowercased in a Set for O(1) lookup.
+    const envDomains = (process.env.AI_CONTENT_DOMAINS || '')
+      .split(',')
+      .map((d) => d.trim().toLowerCase())
+      .filter(Boolean);
+    this.aiContentDomains = new Set(
+      [...AI_CONTENT_DOMAINS, ...envDomains].map((d) => d.toLowerCase())
+    );
+
     // Google Custom Search
     this.googleApiKey = config.searchApis.google.apiKey;
     this.googleSearchEngineId = config.searchApis.google.searchEngineId;
@@ -65,6 +76,9 @@ class SearchService {
 
       const isRedPill = mode === 'red-pill';
       const isPurple = mode === 'purple';
+      // Green: same retrieval as blue-pill, but AI-generated-content domains are
+      // filtered out of the final results (Green mode promises 0 AI results).
+      const isGreen = mode === 'green';
       const searchPromises = [];
 
       const searchWeb = filters.category === 'all' || filters.category === 'web';
@@ -189,6 +203,13 @@ class SearchService {
 
       if (isRedPill) {
         finalResults = this.sortRedPill(finalResults);
+      }
+
+      // Green mode: strip results from known AI-generated-content domains.
+      if (isGreen) {
+        const before = finalResults.length;
+        finalResults = finalResults.filter((r) => !this.isAiContentDomain(r.url || r.domain));
+        console.log(`🟢 Green AI-filter: removed ${before - finalResults.length} AI-content result(s)`);
       }
 
       console.log(`✨ Final results: ${finalResults.length}`);
@@ -457,11 +478,16 @@ class SearchService {
           'ngrok-skip-browser-warning': 'true',
           'User-Agent': 'TruegleSearch/1.0',
         },
-        timeout: 12000,
+        // Short timeout on purpose: SearXNG is self-hosted and may be offline.
+        // It must never add latency or risk the serverless function timeout —
+        // the API providers (Brave/Google/News/YouTube) cover search regardless.
+        timeout: 4500,
       });
       return { ...response.data, _source: 'searxng' };
     } catch (error) {
-      console.error('SearXNG error:', error.response?.status, error.message);
+      // Expected and non-fatal when the self-hosted SearXNG host is offline.
+      // Search still succeeds via the API providers, so warn (don't error).
+      console.warn('SearXNG unavailable (non-fatal, API providers cover search):', error.response?.status || error.code || error.message);
       throw new Error('SearXNG unavailable');
     }
   }
@@ -1074,6 +1100,30 @@ class SearchService {
     } catch {
       return 'unknown.com';
     }
+  }
+
+  /**
+   * Green mode: is this URL/domain a known AI-generated-content source?
+   * Matches the registrable domain and any subdomain (blocklisted "x.com"
+   * also blocks "blog.x.com").
+   */
+  isAiContentDomain(urlOrDomain) {
+    if (!urlOrDomain || this.aiContentDomains.size === 0) return false;
+    let host;
+    try {
+      host = urlOrDomain.includes('://')
+        ? new URL(urlOrDomain).hostname
+        : urlOrDomain;
+    } catch {
+      host = urlOrDomain;
+    }
+    host = String(host).toLowerCase().replace(/^www\./, '');
+    if (this.aiContentDomains.has(host)) return true;
+    // Subdomain match: blog.example.com -> example.com
+    for (const blocked of this.aiContentDomains) {
+      if (host === blocked || host.endsWith(`.${blocked}`)) return true;
+    }
+    return false;
   }
 
   /**

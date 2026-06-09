@@ -1,4 +1,4 @@
-import { MapPin, Phone, Globe, Clock, Star, ExternalLink, User, ChevronRight } from 'lucide-react';
+import { MapPin, Phone, Globe, Clock, Star, ExternalLink, User, ChevronRight, Cloud, Droplets, Wind, Calculator } from 'lucide-react';
 
 /**
  * QuickResultCard — instant answer panel shown above search results.
@@ -16,8 +16,68 @@ export default function QuickResultCard({ instantAnswer, onDirections }) {
   if (type === 'local_business') return <BusinessCard data={instantAnswer} onDirections={onDirections} />;
   if (type === 'social_profile') return <SocialProfileCard data={instantAnswer} />;
   if (type === 'person') return <PersonCard data={instantAnswer} />;
+  if (type === 'weather') return <WeatherCard data={instantAnswer} />;
+  if (type === 'calculation') return <CalculationCard data={instantAnswer} />;
 
   return null;
+}
+
+// ── Weather Card ──────────────────────────────────────────────────────────────
+
+function WeatherCard({ data }) {
+  const { location, temperature, feelsLike, description, icon, humidity, windSpeed } = data;
+  const iconUrl = icon ? `https://openweathermap.org/img/wn/${icon}@2x.png` : null;
+  const tempF = typeof temperature === 'number' ? Math.round(temperature * 9 / 5 + 32) : null;
+
+  return (
+    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a2a3e]/90 to-[#16213e]/90 border border-sky-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-sky-500/10 p-5">
+      <div className="flex items-center gap-4">
+        {iconUrl ? (
+          <img src={iconUrl} alt={description} className="w-16 h-16 flex-shrink-0" />
+        ) : (
+          <Cloud size={40} className="text-sky-400 flex-shrink-0" />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <MapPin size={13} className="text-sky-400 flex-shrink-0" />
+            <h3 className="text-base font-semibold text-white truncate">{location}</h3>
+          </div>
+          <div className="flex items-baseline gap-2 mt-1">
+            <span className="text-3xl font-bold text-white">{temperature}°C</span>
+            {tempF !== null && <span className="text-sm text-white/50">{tempF}°F</span>}
+          </div>
+          <p className="text-sm text-sky-200/80 capitalize">{description}</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-white/10 text-sm text-white/60">
+        {typeof feelsLike === 'number' && (
+          <span className="flex items-center gap-1.5"><Cloud size={13} />Feels {feelsLike}°C</span>
+        )}
+        {typeof humidity === 'number' && (
+          <span className="flex items-center gap-1.5"><Droplets size={13} />{humidity}% humidity</span>
+        )}
+        {typeof windSpeed === 'number' && (
+          <span className="flex items-center gap-1.5"><Wind size={13} />{windSpeed} m/s wind</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Calculation Card ──────────────────────────────────────────────────────────
+
+function CalculationCard({ data }) {
+  const { expression, result } = data;
+  return (
+    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 border border-emerald-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-emerald-500/10 p-5">
+      <div className="flex items-center gap-2 mb-2 text-emerald-400/70 text-xs font-medium">
+        <Calculator size={13} />
+        Calculator
+      </div>
+      <div className="text-white/50 text-lg">{expression} =</div>
+      <div className="text-white text-4xl font-bold tracking-tight">{result.toLocaleString()}</div>
+    </div>
+  );
 }
 
 // ── Business Card ─────────────────────────────────────────────────────────────
