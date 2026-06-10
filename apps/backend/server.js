@@ -27,6 +27,8 @@ const ALLOWED_ORIGINS = [
   'http://localhost:3001',
   'https://trumpafi.online',
   'https://www.trumpafi.online',
+  'https://truegle.info',
+  'https://www.truegle.info',
   /\.ngrok-free\.app$/,
   /\.ngrok\.io$/,
   /\.vercel\.app$/,
@@ -169,7 +171,7 @@ app.use(express.static('public'));
 app.get('/sitemap.xml', (req, res) => {
   try {
     const SitemapGenerator = require('./utils/sitemap');
-    const baseURL = (config.frontendUrl || 'https://trumpafi.online').replace(/\/$/, '');
+    const baseURL = (config.frontendUrl || 'https://truegle.info').replace(/\/$/, '');
     const generator = new SitemapGenerator(baseURL);
     generator.addURL('/', null, 'daily', 1.0);
     generator.addURL('/search', null, 'daily', 0.9);
@@ -183,7 +185,7 @@ app.get('/sitemap.xml', (req, res) => {
 
 // SEO: robots.txt
 app.get('/robots.txt', (req, res) => {
-  const baseURL = (config.frontendUrl || 'https://trumpafi.online').replace(/\/$/, '');
+  const baseURL = (config.frontendUrl || 'https://truegle.info').replace(/\/$/, '');
   res.type('text/plain').send(
     `User-agent: *\nAllow: /\nDisallow: /auth/\nDisallow: /onboarding\nDisallow: /settings\n\nSitemap: ${baseURL}/sitemap.xml\n`
   );

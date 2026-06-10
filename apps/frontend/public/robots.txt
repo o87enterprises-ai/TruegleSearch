@@ -6,4 +6,4 @@ Disallow: /auth/
 Disallow: /onboarding
 Disallow: /settings
 
-Sitemap: https://trumpafi.online/sitemap.xml
+Sitemap: https://truegle.info/sitemap.xml

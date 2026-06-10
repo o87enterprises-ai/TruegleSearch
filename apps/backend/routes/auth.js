@@ -15,7 +15,7 @@ const BACKEND_URL = process.env.VERCEL_URL
   ? `https://${process.env.VERCEL_URL}`
   : (process.env.BACKEND_URL || 'http://localhost:3001');
 
-const FRONTEND_URL = config.frontendUrl || 'https://trumpafi.online';
+const FRONTEND_URL = config.frontendUrl || 'https://truegle.info';
 
 if (config.googleOAuth && config.googleOAuth.clientId) {
   passport.use(new GoogleStrategy({

@@ -350,7 +350,7 @@ class SearchService {
     }
 
     try {
-      const response = await axios.get(this.googleBaseUrl, { params });
+      const response = await axios.get(this.googleBaseUrl, { params, timeout: 8000 });
       return response.data;
     } catch (error) {
       console.error(
@@ -399,7 +399,7 @@ class SearchService {
     }
 
     try {
-      const response = await axios.get(this.bingBaseUrl, { headers, params });
+      const response = await axios.get(this.bingBaseUrl, { headers, params, timeout: 8000 });
       return response.data;
     } catch (error) {
       console.error(
@@ -601,7 +601,7 @@ class SearchService {
     }
 
     try {
-      const response = await axios.get(this.newsBaseUrl, { params });
+      const response = await axios.get(this.newsBaseUrl, { params, timeout: 8000 });
       return response.data;
     } catch (error) {
       console.error('News API error:', JSON.stringify(error.response?.data, null, 2) || error.message);
@@ -641,7 +641,7 @@ class SearchService {
     }
 
     try {
-      const response = await axios.get(this.youtubeBaseUrl, { params });
+      const response = await axios.get(this.youtubeBaseUrl, { params, timeout: 8000 });
       const data = response.data;
 
       // Enrich with duration + view counts via a videos.list call (search.list omits these)
@@ -658,6 +658,7 @@ class SearchService {
                 part: 'contentDetails,statistics',
                 id: ids.join(','),
               },
+              timeout: 8000,
             }
           );
           const detailMap = {};

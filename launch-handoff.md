@@ -1,10 +1,40 @@
 # TruegleSearch Launch Handoff Document
 
-**Last Updated:** 2026-05-30 (Session 9)
-**Status:** DEPLOYED AND LIVE — SEARCH ALGORITHMS + OSINT PARTIALLY REFACTORED (NOT YET REDEPLOYED)
-**Frontend:** https://truegle-search.pages.dev (Cloudflare Pages)
+**Last Updated:** 2026-06-10 (Session 10)
+**Status:** DEPLOYED AND LIVE — DOMAIN MIGRATION (`truegle.info`) WIRED + SEARCH TIMEOUTS FIXED (LOCAL ONLY, NOT YET DEPLOYED — DEPLOY HELD UNTIL DNS RESOLVES)
+**Frontend:** https://truegle-search.pages.dev (Cloudflare Pages) → new primary domain **truegle.info** (DNS pending)
 **Backend:** https://backend-seven-khaki-60.vercel.app (Vercel)
 **Database:** Neon PostgreSQL (us-east-1)
+
+---
+
+## SESSION 10 COMPLETED WORK — DOMAIN MIGRATION (truegle.info) + SEARCH RELIABILITY (2026-06-10)
+
+### Domain migration — `truegle.info` is the new primary/canonical (code-side DONE)
+User bought `truegle.info` via **IONOS**; keeping `trumpafi.online` as a secondary that also points at Truegle (goal: many owned domains → Truegle, one SEO canonical). Code changes:
+- `apps/backend/server.js` — added `https://truegle.info` + `https://www.truegle.info` to CORS allowlist (kept both `trumpafi.online` entries). `/sitemap.xml` + `/robots.txt` fallback base URL → `truegle.info`.
+- `apps/backend/routes/auth.js` — `FRONTEND_URL` fallback (OAuth redirects) → `truegle.info`.
+- `apps/frontend/index.html` — canonical / OG / Twitter / JSON-LD URLs → `truegle.info`.
+- `apps/frontend/public/sitemap.xml` + `robots.txt` → `truegle.info`.
+- `DEPLOYMENT-INFRA.md` — rewrote §1 with exact IONOS → Cloudflare Pages DNS steps. **DECIDED: Option A — move nameservers to Cloudflare.** §1b covers keeping `trumpafi.online`.
+
+### Search reliability — provider timeouts (code-side DONE)
+- Verified the three stale handoff "bugs" (Weather 404, Brave init error, SerpAPI fallback) are **already resolved** in current code — see 🔍 Search Categories below for the per-item verdict.
+- **Real bug found + fixed:** Google, Bing, News, and both YouTube axios calls in `apps/backend/services/SearchService.js` had **no timeout** → could hang the Vercel function and stall the SerpAPI fallback (which runs after `Promise.allSettled`). Added `timeout: 8000` to all four. Every provider call is now bounded (Google/Bing/Brave/News/YouTube/Unsplash 8s, SearXNG 4.5s, SerpAPI 10s). `node -c` clean.
+
+### Git state at end of session
+- 8 files modified on `main`. **Committed locally, push HELD** until DNS resolves (so frontend `truegle.info` canonical tags + backend deploy go live together against a resolving domain, and to avoid any Vercel git auto-deploy).
+
+### ⏭️ NEXT SESSION — START HERE
+1. **DNS (needs user + IONOS login)** — follow `DEPLOYMENT-INFRA.md` §1 Option A:
+   a. Cloudflare dashboard → Add site `truegle.info` (Free) → copy the 2 nameservers.
+   b. IONOS → `truegle.info` → nameserver settings → paste Cloudflare's nameservers.
+   c. Cloudflare Pages → `truegle-search` project → Custom domains → add `truegle.info` + `www.truegle.info`.
+   d. `trumpafi.online`: 301-redirect → `https://truegle.info` (keep as secondary).
+2. **After DNS resolves:** set `FRONTEND_URL=https://truegle.info` on Vercel backend → **push** `main` → redeploy backend (`vercel deploy --prod --yes`) + frontend (`wrangler pages deploy dist --project-name=truegle-search --branch=main`).
+3. **Verify live:** `https://truegle.info/` loads; search works (timeouts in effect); `truegle.info/ads.txt`, `/sitemap.xml`, `/robots.txt` reachable.
+4. **Then:** Search Console + AdSense re-submit under `truegle.info` (these are sign-up steps → **deferred to last** per user).
+5. **Still queued (code-side, no internet needed):** Shopping category wiring, OSINTMode redesign, BiasedResults purple-mode fix + category-modal audit (see ⭐ TRUEGLE EDITS).
 
 ---
 
@@ -282,6 +312,46 @@ Each search page now has a clearly defined algorithm. This was the core architec
 
 ## REMAINING ITEMS
 
+### ⭐ TRUEGLE EDITS (requested 2026-06-10)
+
+> **⏳ Sign-ups are deferred to LAST.** The user will do all account sign-ups/verifications on their own time (limited internet). Do all code/config-side prep first; leave the actual sign-up clicks for the user at the end.
+
+#### Custom domains — DNS (IONOS) — DO FIRST (code/config side)
+> **Code-side DONE 2026-06-10** (CORS + SEO canonical/OG/JSON-LD + sitemap/robots + OAuth `FRONTEND_URL` all → `truegle.info`). **Decisions:** DNS approach = **move nameservers to Cloudflare** (Option A in `DEPLOYMENT-INFRA.md` §1); frontend/backend **deploy held until DNS resolves**. Remaining steps are user-driven (IONOS login).
+
+| Item | Notes |
+|------|-------|
+| `truegle.info` (NEW primary domain) | Bought & paid for via **IONOS** (user has login). Plan: add `truegle.info` to a Cloudflare account → switch IONOS nameservers to Cloudflare's → add `truegle.info` + `www` as custom domains in the CF Pages `truegle-search` project. Then set Vercel `FRONTEND_URL=https://truegle.info` + redeploy both. |
+| `trumpafi.online` (keep) | Keep this domain pointing at the Truegle page too. More owned domains → Truegle = better. Same DNS pattern (IONOS or current registrar) → Cloudflare Pages. |
+| CORS allowlist | Add `https://truegle.info`, `https://www.truegle.info`, `https://trumpafi.online`, `https://www.trumpafi.online` to allowed origins in `apps/backend/server.js`. |
+| Backend redirect URIs | Update Google OAuth + any callback/redirect URIs and `FRONTEND_URL`/origin config once the custom domain is live. |
+| AdSense / Search Console | Re-submit under `truegle.info` once DNS resolves (sign-up step — deferred to last). |
+
+#### Sign up & verify with ALL distributors  *(⏳ DEFERRED — do last, user-driven)*
+| Item | Notes |
+|------|-------|
+| OAuth providers | Sign up + verify each OAuth distributor (Google, plus any others). See 🔐 Auth below. |
+| Ads | Sign up + verify ad networks (AdSense, etc.). Cross-ref AdSense approval in 🚀 Other. |
+| Databases | Confirm DB provider accounts signed up + verified (Neon, etc.). |
+| Google Cloud Console Indexing | Sign up / enable + verify the Indexing API in Google Cloud Console (submit/verify site indexing). NEW — not previously tracked. |
+| Other distributors | Enumerate remaining distributors (maps, search, social, email, payments) and verify each account is signed up + verified. |
+
+#### Test the important category modals
+| Item | Notes |
+|------|-------|
+| Local | Test the Local category modal end-to-end. |
+| Shopping | Test the Shopping category modal (currently a stub — see 🔍 Search Categories). |
+| Social | Test the Social category modal. |
+| Images | Test the Images category modal. |
+| Vids | Test the Videos category modal. |
+| Maps | Test the Maps category modal. |
+
+#### Activate OAuth: Gmail + emails
+| Item | Notes |
+|------|-------|
+| Gmail OAuth | Activate OAuth for Gmail (scopes/consent), test sign-in + token flow. NEW — not previously tracked. |
+| Email OAuth | Activate OAuth for email accounts/sending; verify email delivery (cross-ref Resend `RESEND_API_KEY`). |
+
 ### Still Needed — NEXT SESSION PRIORITIES
 
 #### 🔐 Auth
@@ -298,8 +368,10 @@ Each search page now has a clearly defined algorithm. This was the core architec
 | Social category | Google scoped search added — test reddit/twitter/facebook results |
 | Shopping category | Currently a stub — needs real wiring (Google Shopping or SerpAPI shopping tab) |
 | Videos category | Should return YouTube results — verify `YOUTUBE_API_KEY` quota |
-| Weather category | Route returning 404 in production — investigate and fix |
-| BraveSearch fallback | `BRAVE_API_KEY` configured but `BraveSearchService` throwing undefined error — fix init |
+| Weather category | ✅ RESOLVED (verified 2026-06-10) — route `POST /api/weather/current` + `/forecast` wired correctly, `WeatherService` singleton + methods match. The old "404" was a stale earlier deploy; weather already works live (instant-answer path confirmed Paris→14°C on 2026-06-09). Just confirm in prod after next deploy. |
+| BraveSearch fallback | ✅ RESOLVED (verified 2026-06-10) — `SearchService` uses its own inline `performBraveSearch` with `config.brave.apiKey` (correctly mapped from `BRAVE_API_KEY` in `env.js`), not the standalone `BraveSearchService` class. No undefined error in current code. Standalone class is only used by `BusinessEnrichmentService` (null-guarded). |
+| SerpAPI whole-web fallback | ✅ ALREADY WIRED (verified 2026-06-10) — `SearchService.performSearch` fires `performSerpSearch` when web results < 5 (`SERP_API_KEY`→`config.serp.apiKey`). Dedupes by URL. No action needed beyond confirming the key is set on Vercel. |
+| Provider timeouts | ✅ FIXED 2026-06-10 — added `timeout: 8000` to Google, Bing, News, and both YouTube axios calls in `SearchService.js` (previously unbounded → could hang the Vercel function and stall the SerpAPI fallback). All provider calls now bounded. **Needs redeploy to take effect.** |
 
 #### 🤖 AI Chatbots
 | Item | Notes |
