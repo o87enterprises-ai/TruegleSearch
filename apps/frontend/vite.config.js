@@ -31,7 +31,27 @@ export default defineConfig(({ mode }) => {
   build: {
     outDir: 'dist',
     sourcemap: true,
-    emptyOutDir: true
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        // Split the heaviest vendors into their own cacheable chunks so the
+        // main bundle isn't a single multi-MB file. Each big library (3D, maps,
+        // charts, animation) only loads on the routes that import it.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          if (id.includes('/three') || id.includes('@react-three')) return 'three'
+          if (id.includes('mapbox-gl') || id.includes('react-map-gl') || id.includes('@mapbox')) return 'mapbox'
+          if (id.includes('leaflet')) return 'leaflet'
+          if (id.includes('echarts')) return 'echarts'
+          if (id.includes('framer-motion')) return 'framer-motion'
+          if (id.includes('lucide-react') || id.includes('react-icons')) return 'icons'
+          if (id.includes('react-router')) return 'react-router'
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'react-vendor'
+          return 'vendor'
+        }
+      }
+    }
   },
   server: {
     host: true,

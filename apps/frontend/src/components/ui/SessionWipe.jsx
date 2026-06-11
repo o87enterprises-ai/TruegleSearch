@@ -68,7 +68,8 @@ async function clearClientStorage() {
  */
 async function wipeServerData(token) {
   try {
-    const response = await fetch('/api/session/wipe', {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+    const response = await fetch(`${backendUrl}/api/session/wipe`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

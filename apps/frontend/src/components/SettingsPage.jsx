@@ -3,13 +3,25 @@ import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import AdSlot from './AdSlot';
 import { useSettings } from '../context/SettingsContext';
+import { NuclearOptionButton } from './ui/SessionWipe';
 
-const { FiSettings, FiShield, FiEye, FiDollarSign, FiGlobe, FiLock, FiCookie } =
+const { FiSettings, FiShield, FiEye, FiDollarSign, FiGlobe, FiLock, FiCookie, FiClock, FiTrash2 } =
   FiIcons;
 
 const SettingsPage = () => {
   const { settings, updateSetting } = useSettings();
   const [showCookieDialog, setShowCookieDialog] = useState(false);
+  const [historyCleared, setHistoryCleared] = useState(false);
+
+  const handleClearHistory = () => {
+    try {
+      localStorage.removeItem('truegle_recent_searches');
+    } catch {
+      // ignore storage errors
+    }
+    setHistoryCleared(true);
+    setTimeout(() => setHistoryCleared(false), 2500);
+  };
 
   const handleSettingChange = (key, value) => {
     updateSetting(key, value);
@@ -317,6 +329,72 @@ const SettingsPage = () => {
             size="leaderboard"
             className="mx-auto"
           />
+        </div>
+
+        {/* Privacy & Data */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="flex items-center mb-4">
+            <SafeIcon icon={FiLock} className="mr-2 text-emerald-600" />
+            <h2 className="text-xl font-semibold">Privacy &amp; Data</h2>
+          </div>
+
+          {/* Save search history toggle */}
+          <div className="flex items-center justify-between py-3 border-b border-gray-100">
+            <div className="flex items-start gap-2">
+              <SafeIcon icon={FiClock} className="mt-1 text-gray-500" size={16} />
+              <div>
+                <h3 className="font-medium">Save search history</h3>
+                <p className="text-sm text-gray-600">
+                  Store recent searches on this device only. Turn off for no local history.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => updateSetting('saveHistory', !settings.saveHistory)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+                settings.saveHistory ? 'bg-emerald-600' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
+                  settings.saveHistory ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Clear search history */}
+          <div className="flex items-center justify-between py-3 border-b border-gray-100">
+            <div>
+              <h3 className="font-medium">Clear search history</h3>
+              <p className="text-sm text-gray-600">Remove recent searches saved on this device.</p>
+            </div>
+            <button
+              onClick={handleClearHistory}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+            >
+              <SafeIcon icon={FiTrash2} size={14} />
+              {historyCleared ? 'Cleared' : 'Clear'}
+            </button>
+          </div>
+
+          {/* Nuclear option: wipe everything */}
+          <div className="flex items-center justify-between py-3">
+            <div>
+              <h3 className="font-medium">Clear all data on this device</h3>
+              <p className="text-sm text-gray-600">
+                Wipe local storage, session data, and cached results, plus server-side ephemeral logs.
+              </p>
+            </div>
+            <NuclearOptionButton token={localStorage.getItem('truegle_token')} />
+          </div>
+
+          <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+            <p className="text-sm text-emerald-800">
+              Truegle does not store your search queries server-side. History is kept only on
+              this device when enabled, and never synced or sold.
+            </p>
+          </div>
         </div>
 
         {/* About */}

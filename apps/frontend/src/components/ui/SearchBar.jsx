@@ -1003,6 +1003,9 @@ export default function SearchBar({
   // Save search to recent
   const saveToRecentSearches = useCallback((query) => {
     try {
+      // Respect the "save search history" privacy setting (default on).
+      const prefs = JSON.parse(localStorage.getItem('truegle_settings') || '{}');
+      if (prefs.saveHistory === false) return;
       const recent = getRecentSearches();
       const filtered = recent.filter(s => s.toLowerCase() !== query.toLowerCase());
       const updated = [query, ...filtered].slice(0, 10);
@@ -1500,12 +1503,6 @@ const handleChange = useCallback((e) => {
               pl-12
               bg-neutral-900/90 backdrop-blur-xl
               border-0
-              ${isFocused
-                ? `shadow-[${colors.shadowFocused}]`
-                : isHovered
-                  ? `shadow-[${colors.shadowHovered}]`
-                  : `shadow-[${colors.shadowDefault}]`
-              }
               rounded-2xl
               text-neutral-50 font-medium tracking-wide
               placeholder:text-neutral-400 placeholder:font-normal
@@ -1521,6 +1518,16 @@ const handleChange = useCallback((e) => {
             style={{
               paddingRight: getRightPadding(),
               letterSpacing: '0.025em',
+              // Mode-themed glow. Values are stored in Tailwind underscore format
+              // (shared with the className maps); convert to real CSS here so we
+              // apply it as an inline style instead of a dynamic arbitrary shadow
+              // class, which Tailwind's JIT scanner can't generate at build time.
+              boxShadow: (isFocused
+                ? colors.shadowFocused
+                : isHovered
+                  ? colors.shadowHovered
+                  : colors.shadowDefault
+              ).replace(/_/g, ' '),
             }}
           />
 

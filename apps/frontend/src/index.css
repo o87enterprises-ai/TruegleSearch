@@ -1,7 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+/* CSS @import must precede all other statements (incl. @tailwind), per the spec. */
 /* Import Truegle design system typography */
 @import './styles/typography.css';
 
@@ -10,6 +7,10 @@
 
 /* Import search components styles */
 @import './styles/search-components.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   /* Spacing scale */

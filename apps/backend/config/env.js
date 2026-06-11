@@ -126,6 +126,8 @@ const envVarsSchema = Joi.object({
 
   // SearXNG self-hosted instance URL (no API key required)
   SEARXNG_URL: Joi.string().optional().description('SearXNG instance URL e.g. https://xyz.ngrok-free.dev'),
+  SEARXNG_PRIMARY: Joi.boolean().default(false).description('Query SearXNG first; paid API providers become fallback'),
+  SEARXNG_PRIMARY_MIN: Joi.number().integer().min(1).default(5).description('Min SearXNG results before the API providers are skipped'),
 
   // Google OAuth
   GOOGLE_CLIENT_ID: Joi.string().optional().description('Google OAuth Client ID'),
@@ -267,6 +269,8 @@ const config = {
   // SearXNG (self-hosted, no API key needed)
   searxng: {
     url: envVars.SEARXNG_URL,
+    primary: envVars.SEARXNG_PRIMARY,
+    primaryMin: envVars.SEARXNG_PRIMARY_MIN,
   },
 
   // Google OAuth

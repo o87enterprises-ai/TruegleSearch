@@ -268,6 +268,11 @@ export default function SignInPage() {
     }
   };
 
+  // Social sign-in is hidden until the Google OAuth consent screen is published
+  // (it's in "Testing" mode, which blocks non-test users). Flip
+  // VITE_SOCIAL_AUTH_ENABLED=true once OAuth is live. Email/password is unaffected.
+  const socialAuthEnabled = import.meta.env.VITE_SOCIAL_AUTH_ENABLED === 'true';
+
   // Simple backup admin trigger (click bottom-right corner of screen)
   const handleCornerClick = (e) => {
     // Only trigger if clicking in bottom-right corner
@@ -364,40 +369,44 @@ export default function SignInPage() {
             </p>
           </div>
 
-          {/* Social Auth */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleSocialAuth('Google')}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/5 hover:bg-white/10 border border-gray-700 hover:border-cyan-500/50 rounded-xl transition-all font-medium"
-            >
-              <Chrome size={20} />
-              <span className="font-body">Google</span>
-            </motion.button>
+          {/* Social Auth — hidden until Google OAuth consent is published (VITE_SOCIAL_AUTH_ENABLED) */}
+          {socialAuthEnabled && (
+            <>
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleSocialAuth('Google')}
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/5 hover:bg-white/10 border border-gray-700 hover:border-cyan-500/50 rounded-xl transition-all font-medium"
+                >
+                  <Chrome size={20} />
+                  <span className="font-body">Google</span>
+                </motion.button>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleSocialAuth('Apple')}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/5 hover:bg-white/10 border border-gray-700 hover:border-cyan-500/50 rounded-xl transition-all font-medium"
-            >
-              <FaApple size={20} />
-              <span className="font-body">Apple</span>
-            </motion.button>
-          </div>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleSocialAuth('Apple')}
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/5 hover:bg-white/10 border border-gray-700 hover:border-cyan-500/50 rounded-xl transition-all font-medium"
+                >
+                  <FaApple size={20} />
+                  <span className="font-body">Apple</span>
+                </motion.button>
+              </div>
 
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-700"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-gray-900/50 text-gray-500 font-body">
-                or sign in with email
-              </span>
-            </div>
-          </div>
+              {/* Divider */}
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-700"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-gray-900/50 text-gray-500 font-body">
+                    or sign in with email
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Freemium Message - Shown when coming from media interfaces */}
           {showFreemiumMessage && (

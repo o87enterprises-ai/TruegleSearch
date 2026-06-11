@@ -159,6 +159,10 @@ export default function SignUpPage() {
     alert(`${provider} authentication would happen here`);
   };
 
+  // Hidden until social OAuth is wired + the Google consent screen is published.
+  // Flip VITE_SOCIAL_AUTH_ENABLED=true to show. Email/password is unaffected.
+  const socialAuthEnabled = import.meta.env.VITE_SOCIAL_AUTH_ENABLED === 'true';
+
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 overflow-y-auto">
       {/* Molecular Background */}
@@ -234,40 +238,44 @@ export default function SignUpPage() {
             </p>
           </div>
 
-          {/* Social Auth */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleSocialAuth('Google')}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/5 hover:bg-white/10 border border-gray-700 hover:border-cyan-500/50 rounded-xl transition-all text-label-large"
-            >
-              <Chrome size={20} />
-              <span>Google</span>
-            </motion.button>
+          {/* Social Auth — hidden until social OAuth is wired (VITE_SOCIAL_AUTH_ENABLED) */}
+          {socialAuthEnabled && (
+            <>
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleSocialAuth('Google')}
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/5 hover:bg-white/10 border border-gray-700 hover:border-cyan-500/50 rounded-xl transition-all text-label-large"
+                >
+                  <Chrome size={20} />
+                  <span>Google</span>
+                </motion.button>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleSocialAuth('Apple')}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/5 hover:bg-white/10 border border-gray-700 hover:border-cyan-500/50 rounded-xl transition-all text-label-large"
-            >
-              <FaApple size={20} />
-              <span>Apple</span>
-            </motion.button>
-          </div>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleSocialAuth('Apple')}
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/5 hover:bg-white/10 border border-gray-700 hover:border-cyan-500/50 rounded-xl transition-all text-label-large"
+                >
+                  <FaApple size={20} />
+                  <span>Apple</span>
+                </motion.button>
+              </div>
 
-          {/* Divider */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-700"></div>
-            </div>
-            <div className="relative flex justify-center">
-              <span className="px-4 bg-gray-900/50 text-body-small text-gray-500">
-                or sign up with email
-              </span>
-            </div>
-          </div>
+              {/* Divider */}
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-700"></div>
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="px-4 bg-gray-900/50 text-body-small text-gray-500">
+                    or sign up with email
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Full-Screen Premium Features Announcement - Shown when coming from media interfaces */}
           {(!hasRememberedFreemium && showFreemiumMessage) && (

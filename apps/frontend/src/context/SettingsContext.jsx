@@ -16,6 +16,7 @@ export const SettingsProvider = ({ children }) => {
     adPersonalization: true, // Default to ON as requested
     cookiePreference: 'all', // 'all', 'necessary', 'none'
     dataCollection: false,
+    saveHistory: true, // persist recent searches in localStorage (off = no search history stored)
     vpnAutoConnect: false,
     defaultFilters: 'all',
     resultsPerPage: 10,

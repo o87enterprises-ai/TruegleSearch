@@ -44,6 +44,12 @@ class SearchService {
 
     // SearXNG (self-hosted metasearch, no API key needed)
     this.searxngUrl = config.searxng && config.searxng.url;
+    // Opt-in: when SEARXNG_PRIMARY=true, SearXNG is queried first and the paid
+    // API providers (Google/Bing/Brave) only run as a fallback when SearXNG is
+    // offline or returns fewer than SEARXNG_PRIMARY_MIN web results. Default off
+    // → unchanged behavior (all providers fire in parallel).
+    this.searxngPrimary = !!(config.searxng && config.searxng.primary);
+    this.searxngPrimaryMin = (config.searxng && config.searxng.primaryMin) || 5;
 
     // Rate limiting configuration
     this.rateLimits = {
@@ -80,6 +86,9 @@ class SearchService {
       // filtered out of the final results (Green mode promises 0 AI results).
       const isGreen = mode === 'green';
       const searchPromises = [];
+      // Results that are fetched + formatted synchronously (SearXNG-primary mode)
+      // rather than via the searchPromises/Promise.allSettled batch below.
+      const preformattedResults = [];
 
       const searchWeb = filters.category === 'all' || filters.category === 'web';
       const searchNews = filters.category === 'all' || filters.category === 'news' || isRedPill;
@@ -101,40 +110,63 @@ class SearchService {
       }
 
       if (searchWeb) {
-        if (this.googleApiKey && this.googleSearchEngineId) {
-          searchPromises.push(this.performGoogleSearch(query, filters));
+        // SearXNG-primary mode (opt-in): query the self-hosted metasearch first
+        // and skip the paid API providers when it returns enough results. Not
+        // used for red-pill, which depends on Brave's alternative-media querying.
+        let searxngServed = false;
+        if (this.searxngPrimary && this.searxngUrl && !isRedPill) {
+          try {
+            const sx = await this.performSearXNGSearch(query, filters);
+            const sxResults = this.formatSearXNGResults(sx);
+            if (sxResults.length >= this.searxngPrimaryMin) {
+              preformattedResults.push(...sxResults);
+              searxngServed = true;
+              console.log(`🔎 SearXNG-primary served ${sxResults.length} web results`);
+            } else {
+              console.log(`🔎 SearXNG-primary thin (${sxResults.length} < ${this.searxngPrimaryMin}) — falling back to API providers`);
+            }
+          } catch {
+            // Offline/error — fall through to the API providers below.
+          }
         }
-        if (this.bingApiKey) {
-          searchPromises.push(this.performBingSearch(query, filters));
-        }
-        if (this.searxngUrl) {
-          searchPromises.push(this.performSearXNGSearch(query, filters));
-        }
-        if (this.braveApiKey) {
-          searchPromises.push(this.performBraveSearch(query, filters));
 
-          if (isRedPill) {
-            // Red pill: use Brave (whole-web index) with alternative-media query terms
-            // Brave indexes rumble/substack/odysee — Google CSE typically does not
-            searchPromises.push(this.performBraveSearch(
-              `${query} site:substack.com OR site:rumble.com OR site:odysee.com OR site:zerohedge.com OR site:rt.com OR site:corbettreport.com`,
-              { ...filters, perPage: 10 }
+        if (!searxngServed) {
+          if (this.googleApiKey && this.googleSearchEngineId) {
+            searchPromises.push(this.performGoogleSearch(query, filters));
+          }
+          if (this.bingApiKey) {
+            searchPromises.push(this.performBingSearch(query, filters));
+          }
+          // Parallel-mode SearXNG (skipped above only when it ran as primary).
+          if (this.searxngUrl && !this.searxngPrimary) {
+            searchPromises.push(this.performSearXNGSearch(query, filters));
+          }
+          if (this.braveApiKey) {
+            searchPromises.push(this.performBraveSearch(query, filters));
+
+            if (isRedPill) {
+              // Red pill: use Brave (whole-web index) with alternative-media query terms
+              // Brave indexes rumble/substack/odysee — Google CSE typically does not
+              searchPromises.push(this.performBraveSearch(
+                `${query} site:substack.com OR site:rumble.com OR site:odysee.com OR site:zerohedge.com OR site:rt.com OR site:corbettreport.com`,
+                { ...filters, perPage: 10 }
+              ));
+              searchPromises.push(this.performBraveSearch(
+                `${query} censored suppressed alternative independent whistleblower`,
+                { ...filters, perPage: 10 }
+              ));
+            }
+          } else if (isRedPill && this.googleApiKey && this.googleSearchEngineId) {
+            // Brave not available — fall back to Google for alternative terms
+            searchPromises.push(this.performGoogleSearch(
+              `${query} "censored" OR "suppressed" OR "alternative view" OR "independent analysis"`,
+              { ...filters, perPage: 5 }
             ));
-            searchPromises.push(this.performBraveSearch(
-              `${query} censored suppressed alternative independent whistleblower`,
-              { ...filters, perPage: 10 }
+            searchPromises.push(this.performGoogleSearch(
+              `${query} site:theintercept.com OR site:thegrayzone.com OR site:mintpressnews.com OR site:corbettreport.com`,
+              { ...filters, perPage: 5 }
             ));
           }
-        } else if (isRedPill && this.googleApiKey && this.googleSearchEngineId) {
-          // Brave not available — fall back to Google for alternative terms
-          searchPromises.push(this.performGoogleSearch(
-            `${query} "censored" OR "suppressed" OR "alternative view" OR "independent analysis"`,
-            { ...filters, perPage: 5 }
-          ));
-          searchPromises.push(this.performGoogleSearch(
-            `${query} site:theintercept.com OR site:thegrayzone.com OR site:mintpressnews.com OR site:corbettreport.com`,
-            { ...filters, perPage: 5 }
-          ));
         }
       }
 
@@ -160,6 +192,15 @@ class SearchService {
 
       const results = await Promise.allSettled(searchPromises);
       let combinedResults = this.combineResults(results);
+
+      // Merge SearXNG-primary results (fetched outside the promise batch), de-duped by URL.
+      if (preformattedResults.length) {
+        const seen = new Set(combinedResults.map((r) => r.url));
+        combinedResults = [
+          ...combinedResults,
+          ...preformattedResults.filter((r) => r.url && !seen.has(r.url)),
+        ];
+      }
       console.log(`🔗 Combined results: ${combinedResults.length}`);
 
       // SerpAPI fallback: fire only when web results are thin (< 5)

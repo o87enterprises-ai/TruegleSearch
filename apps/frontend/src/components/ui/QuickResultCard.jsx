@@ -1,4 +1,4 @@
-import { MapPin, Phone, Globe, Clock, Star, ExternalLink, User, ChevronRight, Cloud, Droplets, Wind, Calculator } from 'lucide-react';
+import { MapPin, Phone, Globe, Clock, Star, ExternalLink, User, ChevronRight, Cloud, Droplets, Wind, Calculator, BookOpen, ArrowRightLeft, Volume2 } from 'lucide-react';
 
 /**
  * QuickResultCard — instant answer panel shown above search results.
@@ -18,8 +18,107 @@ export default function QuickResultCard({ instantAnswer, onDirections }) {
   if (type === 'person') return <PersonCard data={instantAnswer} />;
   if (type === 'weather') return <WeatherCard data={instantAnswer} />;
   if (type === 'calculation') return <CalculationCard data={instantAnswer} />;
+  if (type === 'conversion') return <ConversionCard data={instantAnswer} />;
+  if (type === 'time') return <TimeCard data={instantAnswer} />;
+  if (type === 'definition') return <DefinitionCard data={instantAnswer} />;
 
   return null;
+}
+
+// ── Conversion Card ───────────────────────────────────────────────────────────
+
+const CONVERSION_TITLE = {
+  length: 'Length', mass: 'Weight', volume: 'Volume', speed: 'Speed',
+  digital: 'Data', temperature: 'Temperature', currency: 'Currency',
+};
+
+function ConversionCard({ data }) {
+  const { conversionType, inputValue, result, fromUnit, toUnit, fromLabel, toLabel, rate } = data;
+  const from = fromLabel || fromUnit;
+  const to = toLabel || toUnit;
+  const fmt = (n) => n.toLocaleString(undefined, { maximumFractionDigits: 6 });
+
+  return (
+    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 border border-teal-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-teal-500/10 p-5">
+      <div className="flex items-center gap-2 mb-3 text-teal-400/70 text-xs font-medium">
+        <ArrowRightLeft size={13} />
+        {CONVERSION_TITLE[conversionType] || 'Conversion'}
+      </div>
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="text-white/60 text-xl">
+          {fmt(inputValue)} <span className="text-white/40 text-base">{from}</span>
+        </div>
+        <ArrowRightLeft size={18} className="text-teal-400/60 flex-shrink-0" />
+        <div className="text-white text-3xl font-bold tracking-tight">
+          {fmt(result)} <span className="text-white/50 text-lg font-semibold">{to}</span>
+        </div>
+      </div>
+      {conversionType === 'currency' && rate != null && (
+        <div className="mt-3 pt-3 border-t border-white/10 text-xs text-white/40">
+          1 {fromUnit} = {rate.toLocaleString()} {toUnit} · live rate
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── World Clock Card ──────────────────────────────────────────────────────────
+
+function TimeCard({ data }) {
+  const { location, time, date, timezone } = data;
+  return (
+    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 border border-indigo-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-indigo-500/10 p-5">
+      <div className="flex items-center gap-2 mb-2 text-indigo-400/70 text-xs font-medium">
+        <Clock size={13} />
+        Time in {location}
+      </div>
+      <div className="text-white text-4xl font-bold tracking-tight tabular-nums">{time}</div>
+      <div className="flex items-center gap-2 mt-1 text-sm text-white/50">
+        <span>{date}</span>
+        {timezone && <span className="text-white/30">· {timezone}</span>}
+      </div>
+    </div>
+  );
+}
+
+// ── Definition Card ───────────────────────────────────────────────────────────
+
+function DefinitionCard({ data }) {
+  const { word, phonetic, audio, meanings } = data;
+  return (
+    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 border border-amber-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-amber-500/10 p-5">
+      <div className="flex items-center gap-2 mb-3 text-amber-400/70 text-xs font-medium">
+        <BookOpen size={13} />
+        Definition
+      </div>
+      <div className="flex items-center gap-3 mb-3">
+        <h3 className="text-2xl font-bold text-white capitalize">{word}</h3>
+        {phonetic && <span className="text-sm text-white/40">{phonetic}</span>}
+        {audio && (
+          <button
+            onClick={() => { try { new Audio(audio).play(); } catch { /* ignore */ } }}
+            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-amber-300/80 hover:text-amber-200 transition-colors"
+            aria-label="Play pronunciation"
+          >
+            <Volume2 size={14} />
+          </button>
+        )}
+      </div>
+      <div className="space-y-3">
+        {meanings.map((m, i) => (
+          <div key={i}>
+            {m.partOfSpeech && (
+              <span className="text-xs italic text-amber-300/60 mr-2">{m.partOfSpeech}</span>
+            )}
+            <span className="text-sm text-white/80">{m.definition}</span>
+            {m.example && (
+              <p className="text-xs text-white/40 mt-1 italic">“{m.example}”</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // ── Weather Card ──────────────────────────────────────────────────────────────

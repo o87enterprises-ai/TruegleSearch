@@ -31,6 +31,7 @@ import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { MapViewWrapper } from '../components/map';
 import TutorialModal from '../components/ui/TutorialModal';
 import QuickResultCard from '../components/ui/QuickResultCard';
+import OSINTToolsPanel from '../components/ui/OSINTToolsPanel';
 import TokenGate from '../components/ui/TokenGate';
 
 // Hooks and Config
@@ -39,6 +40,39 @@ import { useLocationDetection } from '../hooks/useLocationDetection';
 import useDeviceTier from '../hooks/useDeviceTier';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+
+// Detect an embeddable video URL (YouTube/Vimeo) and return its iframe embed src.
+// Used so "Open in app" on a video result plays inline instead of loading the
+// watch page (which YouTube blocks via X-Frame-Options).
+function getVideoEmbed(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') {
+      const id = u.pathname.slice(1);
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    if (host.endsWith('youtube.com')) {
+      if (u.pathname === '/watch') {
+        const id = u.searchParams.get('v');
+        return id ? `https://www.youtube.com/embed/${id}` : null;
+      }
+      if (u.pathname.startsWith('/shorts/')) {
+        const id = u.pathname.split('/')[2];
+        return id ? `https://www.youtube.com/embed/${id}` : null;
+      }
+      if (u.pathname.startsWith('/embed/')) return url;
+    }
+    if (host === 'vimeo.com') {
+      const id = u.pathname.split('/').filter(Boolean)[0];
+      return id && /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export default function UniversalSearch({ lockedGreen = false }) {
   const navigate = useNavigate();
@@ -509,6 +543,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
   function ResultCard({ result, index, perspectiveColors, accent, safeSearch }) {
     const [viewerOpen, setViewerOpen] = useState(false);
     const [iframeBlocked, setIframeBlocked] = useState(false);
+    const videoEmbed = getVideoEmbed(result.url);
     const borderClass = accent.border;
     const titleClass = accent.title;
     const blurClass = safeSearch === 'blur' ? 'blur-md hover:blur-none transition-all duration-200' : '';
@@ -592,7 +627,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     onClick={() => { setViewerOpen(!viewerOpen); setIframeBlocked(false); }}
                     className={`${accent.link} transition-colors`}
                   >
-                    {viewerOpen ? 'Close' : 'Open in app'}
+                    {viewerOpen ? 'Close' : videoEmbed ? '▶ Play here' : 'Open in app'}
                   </button>
                 </div>
               </div>
@@ -612,7 +647,18 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   <button onClick={() => setViewerOpen(false)} className="text-xs text-white/30 hover:text-white">✕</button>
                 </div>
               </div>
-              {iframeBlocked ? (
+              {videoEmbed ? (
+                <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
+                  <iframe
+                    key={videoEmbed}
+                    src={`${videoEmbed}?autoplay=1`}
+                    className="absolute inset-0 w-full h-full"
+                    title="Video player"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              ) : iframeBlocked ? (
                 <div className="flex flex-col items-center justify-center py-8 bg-black/20 gap-2">
                   <p className="text-sm text-white/50 text-center px-4">This page can't be embedded.</p>
                   <a href={result.url} target="_blank" rel="noopener noreferrer"
@@ -835,6 +881,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* OSINT Tools (Ocean mode only) — free recon endpoints + iframe verify */}
+          {mode === 'ocean' && <OSINTToolsPanel />}
 
           {/* Perspective Selector (Purple mode only) */}
           {mode === 'purple' && (
