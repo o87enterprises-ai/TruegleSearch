@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 // Import order: React first, then third-party, then internal modules, then types/hooks last.
 import {
   BrowserRouter as Router,
@@ -34,6 +34,7 @@ import RootErrorBoundary from './components/ui/RootErrorBoundary';
 import RouteBoundary from './components/ui/RouteBoundary';
 import PreProductionBanner from './components/ui/PreProductionBanner';
 import { FREE_ACCESS_MODE } from './config/access';
+import { loadSiteWideAds } from './utils/adNetworks';
 // Info Wizard Prompt
 const InfoWizardPrompt = ({
   webStack,
@@ -192,6 +193,12 @@ const AppContent = () => {
   };
 
   const location = useLocation();
+
+  // Load instant-approval ad networks (Monetag / Adsterra) once on mount.
+  // No-op until the corresponding zone IDs are set in the build env.
+  useEffect(() => {
+    loadSiteWideAds();
+  }, []);
 
   // All pages should allow scrolling with min-h-screen
   const containerClassNames = "relative w-screen min-h-screen bg-black overflow-y-auto";
