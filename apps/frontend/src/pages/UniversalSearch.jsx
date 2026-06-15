@@ -35,8 +35,6 @@ import QuickResultCard from '../components/ui/QuickResultCard';
 import OSINTToolsPanel from '../components/ui/OSINTToolsPanel';
 import TokenGate from '../components/ui/TokenGate';
 import RepairsModal from '../components/ui/RepairsModal';
-import AdSlot from '../components/ui/AdSlot';
-import RewardedAdButton from '../components/ui/RewardedAdButton';
 import LanguageSelector from '../components/ui/LanguageSelector';
 
 // Hooks and Config
@@ -1337,14 +1335,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
 
                   {mode !== 'ocean' && searchResults.map((result, index) => (
                     <div key={result.url || index}>
-                      {/* Real display ad after every 3rd result (renders only
-                          when an Adsterra banner key is configured). */}
-                      {index > 0 && index % 3 === 0 && (
-                        <div className="mb-4 flex justify-center">
-                          <AdSlot width={300} height={250} />
-                        </div>
-                      )}
-
                       <ResultCard
                         result={result}
                         index={index}
@@ -1364,10 +1354,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
               {/* Ad Sidebar */}
               <div className="sticky top-4 space-y-4 flex flex-col items-center">
                 <AdSenseAd className="rounded-xl" adSlot="7891234567" format="vertical" />
-                {/* Instant-approval display ad (Adsterra) — shows when configured */}
-                <AdSlot width={300} height={250} />
-                {/* Opt-in: support Truegle by watching a quick ad (shows when configured) */}
-                <RewardedAdButton className="w-full" />
               </div>
             </div>
           </div>

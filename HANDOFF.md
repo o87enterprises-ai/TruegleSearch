@@ -1,11 +1,20 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-06-15 (late evening). Supersedes all prior handoff docs._
+_Last updated: 2026-06-15 (night). Supersedes all prior handoff docs._
 
 This doc is written so it can be handed to **Claude in the web browser** to walk through
 the remaining **dashboard/browser activation steps**. Everything that requires code or a
 computer has already been done and deployed (see "Done this session").
 
-> 🎯 **If you're here to turn on ad revenue, jump to ["STEP A — ACTIVATE AD REVENUE"](#step-a--activate-ad-revenue-monetag--adsterra) below.** Everything is already built and deployed; it just needs zone IDs pasted into the Cloudflare env.
+> 🛑 **MONETAG + ADSTERRA HAVE BEEN REMOVED (2026-06-15 night) — DO NOT RE-ADD THEM.**
+> `truegle.info` was caught in a **Palo Alto Networks threat-intel DNS sinkhole**
+> (`truegle.info → sinkhole.paloaltonetworks.com`), i.e. the domain was classified as
+> **malicious** and is being **blocked for every user on a Palo-Alto-protected network**
+> (corporate / school / enterprise). Root cause = the Monetag service worker we shipped loads
+> `3nbf4.com`, a known **adware/malvertising** host; Adsterra (`highperformanceformat.com` /
+> `profitablecpmrate.com`) is the same instant-approval malvertising class. **All of it was
+> ripped out.** Monetize ONLY with reputable networks (Google AdSense, Ezoic/Mediavine/Raptive
+> tier). See ["AD STRATEGY — what to avoid"](#ad-strategy--what-happened--what-to-avoid). The
+> remaining browser steps below are still valid **except the old "STEP A" (now void)**.
 
 ---
 
@@ -33,12 +42,16 @@ computer has already been done and deployed (see "Done this session").
 - 📣 **EARLY-ACCESS UX.** Dismissible "you're a pre-production user, things may break, send
   feedback" banner (→ truegleai@proton.me) + a transient error bar on breaking errors +
   friendly "search failed / no results" messaging instead of a blank page. (`ff1509f`)
-- 💰 **AD MONETIZATION BUILT (Monetag + Adsterra) — dormant until you add zone IDs.**
-  Site-wide passive tags, in-SERP + sidebar display banners, and an opt-in rewarded
-  "support us — watch a quick ad" button. All config-driven; renders nothing until configured,
-  so no broken slots. **→ See STEP A to switch it on.** (`c0ee1de`)
+- ⚠️→🗑️ **AD MONETIZATION (Monetag + Adsterra) BUILT EARLIER (`c0ee1de`) THEN FULLY REMOVED
+  (night).** Shipping the Monetag service worker (`/sw.js` → loads `3nbf4.com`) got
+  `truegle.info` **flagged as malicious and DNS-sinkholed by Palo Alto Networks**. Removed the
+  `sw.js`, the script loaders (`utils/adNetworks.js`), the Adsterra banner
+  (`components/ui/AdSlot.jsx`), the rewarded button (`RewardedAdButton.jsx`), the config
+  (`config/ads.js`), and every reference in `App.jsx` / `UniversalSearch.jsx`. **Google AdSense
+  (`AdSenseAd.jsx`) is untouched** — it's the only ad code left, and it's reputable. Rebuilt +
+  redeployed clean. See ["AD STRATEGY"](#ad-strategy--what-happened--what-to-avoid).
 
-**Git:** `origin/main` = `c0ee1de`. Frontend deployed via wrangler from this.
+**Git:** `origin/main` = ad-removal commit (see latest). Frontend deployed via wrangler from this.
 
 > ⚠️ **Tell your users to hard-refresh (Ctrl+Shift+R)** — older browser caches may still hold
 > the pre-fix bundle (with the white screen / old admin code). The live server is clean.
@@ -74,7 +87,8 @@ computer has already been done and deployed (see "Done this session").
 | Cloudflare DNS | ✅ Complete | `truegle.info` zone active |
 | 301 Redirect | ✅ Active | trumpafi.online → truegle.info |
 | Legal pages (/privacy /terms /about) | ✅ Live | Prereq for OAuth + AdSense — now satisfied |
-| **Monetag / Adsterra ads** | 🟡 **Built, needs IDs** | Code deployed + dormant. **Activate via STEP A** (paste zone IDs into Cloudflare env + redeploy). Fastest interim revenue. |
+| **Monetag / Adsterra ads** | 🛑 **REMOVED — do not re-add** | Got `truegle.info` flagged malicious + Palo Alto DNS-sinkholed (malvertising scripts `3nbf4.com` / `highperformanceformat.com`). All code ripped out. Monetize via AdSense / reputable networks only — see "AD STRATEGY". |
+| **Domain reputation** | 🛑 **Sinkholed — needs dispute** | `truegle.info → sinkhole.paloaltonetworks.com` (Palo Alto threat intel). Submit reclassification at urlfiltering.paloaltonetworks.com + check Google Safe Browsing. See "AD STRATEGY → Cleanup". |
 | **Google Custom Search API** | ⚠️ **403 / likely quota** | Free tier = 100 queries/day, blown by current traffic; also a project/account access issue (key 403s even tested directly). Search still works — `Promise.allSettled` drops Google and Brave fills in. See Step 1. Ad revenue (Step A) can fund CSE billing. |
 | Google OAuth | 🚫 **Bypassed (intentional)** | Hidden via `OAUTH_ENABLED=false` while in free-access mode; sign-in not required. Re-enable later (Steps 2–3) once auth is fixed. Registration also has a **12-char min-password** mismatch to fix then. |
 | OAuth Branding | ⚠️ Needs fix | Wrong authorized domain `truegle-search.pages.dev` → should be `truegle-search-15k.pages.dev`; also add `truegle.info` + `trumpafi.online`; fill home/privacy/terms URLs. See Step 3. |
@@ -89,50 +103,41 @@ computer has already been done and deployed (see "Done this session").
 
 > Reference values you'll need are in the QUICK REFERENCE table at the bottom.
 
-### STEP A — ACTIVATE AD REVENUE (Monetag + Adsterra)
-**This is the priority right now.** The ad code is already built + deployed; it's dormant until
-these zone IDs exist in the Cloudflare build env. Instant-approval networks (no AdSense-style
-review) → revenue can start today. They stack with AdSense later (no conflict).
+### AD STRATEGY — what happened & what to avoid
+**The old "STEP A — Activate Monetag/Adsterra" is VOID. Do not do it. Do not re-add those env
+vars or any of their scripts.**
 
-**1. Create the accounts + zones (≈10 min):**
-- **Monetag** (`monetag.com`) → Sign up → **Add site** `truegle.info` → create zones:
-  - a **Multitag** zone (site-wide passive — easiest revenue) → copy its **Zone ID** (a number).
-  - a **Rewarded Interstitial** zone (powers the "support us" button) → copy its **Zone ID**.
-- **Adsterra** (`adsterra.com` → Publisher) → **Add website** `truegle.info` → create:
-  - a **Social Bar** unit → copy the **full `src` URL** of its invoke script
-    (looks like `//pl########.profitablecpmrate.com/##/##/##/########.js`).
-  - a **Banner 300×250** unit → copy its **key** (the long hex string in the invoke URL
-    `//www.highperformanceformat.com/<KEY>/invoke.js`).
+**What happened (2026-06-15):** to monetize fast we added Monetag (instant-approval) and
+shipped its service worker at `https://truegle.info/sw.js`, which loads
+`https://3nbf4.com/act/files/service-worker.min.js`. `3nbf4.com` is a Monetag adware/push host
+on enterprise threat-intel blocklists. Result: **Palo Alto Networks DNS-sinkholed
+`truegle.info`** (`truegle.info CNAME → sinkhole.paloaltonetworks.com`) — the domain is now
+classified as **malicious** and silently unreachable for anyone behind a Palo Alto firewall
+(huge share of corporate/school/enterprise traffic). This also endangers Google Safe Browsing
+status, the pending AdSense review, and SEO/domain reputation.
 
-> Approval is usually instant–few hours. You can come back and add IDs as each is approved;
-> partially-configured is fine (only the configured formats render).
+**❌ NEVER use these (they will re-flag the domain):**
+- **Monetag** — domains `3nbf4.com`, `libtl.com`, `*.monetag.com` push/multitag.
+- **Adsterra** — `highperformanceformat.com`, `profitablecpmrate.com` (Social Bar / popunder).
+- Any "instant-approval" push/popunder/popunder-redirect network. Easy approval = low
+  reputation = blocklists. Not worth a sinkholed domain.
 
-**2. Add the IDs to Cloudflare (this is the "activation"):**
-Cloudflare dashboard → **Workers & Pages → `truegle-search` → Settings → Environment variables
-→ Production** → **Add variable** for each (only add the ones you have):
-| Variable name | Value |
-|---|---|
-| `VITE_MONETAG_ZONE` | Monetag **Multitag** zone ID |
-| `VITE_MONETAG_REWARDED_ZONE` | Monetag **Rewarded Interstitial** zone ID |
-| `VITE_ADSTERRA_SOCIALBAR_SRC` | Adsterra Social Bar **src URL** |
-| `VITE_ADSTERRA_BANNER_KEY` | Adsterra 300×250 **banner key** |
+**✅ Safe monetization path:**
+1. **Google AdSense** — already integrated (`AdSenseAd.jsx`, `pub-9542137900411519`), in
+   review (Step 4). Reputable; renders automatically once approved. This is the primary plan.
+2. When traffic justifies it, apply to a **reputable ad-management network** with real review
+   (Ezoic → then Mediavine/Raptive at scale). These vet advertisers and won't blocklist you.
+3. **Direct sponsorships / affiliate** (privacy-tool, VPN affiliates) — on-brand, zero
+   malvertising risk.
 
-**3. Redeploy the frontend so the build picks up the new env vars.** Env-var changes do NOT
-auto-rebuild. Either:
-- Cloudflare → `truegle-search` → **Deployments → Retry/Create deployment** (if Git build is
-  connected), **OR**
-- ask **Claude Code** (computer) to run the two-line frontend deploy (see DEPLOY TOPOLOGY).
-
-**4. Verify:** open `https://truegle.info/search`, run a search → you should see the Social Bar
-+ a 300×250 "Sponsored" banner after the 3rd result / in the sidebar, and a "Support us — watch
-a quick ad" button (if the rewarded zone is set). Check the Monetag/Adsterra dashboards for
-impressions within ~30–60 min.
-
-> 💡 **Recommended order:** start with `VITE_MONETAG_ZONE` (Multitag) + `VITE_MONETAG_REWARDED_ZONE`
-> — fastest to approve, and the income covers enabling Google Custom Search billing so search
-> quality recovers **without charging your users**. Add Adsterra when approved.
->
-> 🛡️ All of this is **GDPR/ad-network-safe to run on a live site**; nothing charges users.
+**🧹 Cleanup still owed (browser/dashboard side):**
+- **Get truegle.info reclassified.** Submit a category dispute at Palo Alto's URL filtering
+  test site (**urlfiltering.paloaltonetworks.com** → look up `truegle.info` → "Request Change"
+  → category should be e.g. *Search Engines*, not malware/adware). Removing the scripts is
+  necessary but the existing classification may persist until disputed.
+- **Check Google Safe Browsing** status: `https://transparencyreport.google.com/safe-browsing/search?url=truegle.info`.
+- Confirm `truegle.info` resolves to a real IP again (not the sinkhole) before assuming users
+  can reach it: `Resolve-DnsName truegle.info -Server 1.1.1.1`.
 
 ### Step 1 — Fix Google Custom Search API 403  ✅ no redeploy needed
 The key itself is being rejected with *"This project does not have access to Custom Search
@@ -257,10 +262,14 @@ gh (o87enterprises-ai).
 
 ## 🏭 PRODUCTION TASKS (launch-critical — no particular order)
 _Things needed to be fully "launched." Most are the browser steps above; a couple are code._
-- [ ] **⭐ ACTIVATE AD REVENUE (Monetag/Adsterra)** — paste zone IDs into Cloudflare env +
-      redeploy (Browser **STEP A**). Built + deployed; just needs IDs. Highest-priority revenue.
+- [ ] **🛑 GET truegle.info UN-SINKHOLED** — dispute the Palo Alto malicious classification
+      (urlfiltering.paloaltonetworks.com) + check Google Safe Browsing. Highest priority: the
+      domain is currently **blocked for enterprise users**. See "AD STRATEGY → Cleanup".
+- [ ] **Monetize the RIGHT way** — AdSense (in review) + later a reputable network
+      (Ezoic/Mediavine/Raptive) or direct/affiliate. **Never** Monetag/Adsterra/instant-approval
+      push-popunder again (they caused the sinkhole). See "AD STRATEGY".
 - [ ] **Google Custom Search API 403/quota** — fix under correct account + enable billing
-      (Browser Step 1). Funded by ad revenue above.
+      (Browser Step 1).
 - [ ] **Re-enable real auth (later)** — fix the registration **12-char password** mismatch, flip
       `FREE_ACCESS_MODE=false` + `OAUTH_ENABLED=true`, publish OAuth + fix branding (Steps 2–3),
       set `VITE_SOCIAL_AUTH_ENABLED=true`, redeploy. (Deferred — site is intentionally free now.)
@@ -278,45 +287,35 @@ _Things needed to be fully "launched." Most are the browser steps above; a coupl
 
 > _Site is ~32,440 monthly requests. Current est. $100–$400/mo. Target $500–$1,500+/mo._
 
-### ⭐ 1. AD MONETIZATION / CPM OPTIMIZATION  ← do this first
-**Base integration is now BUILT + deployed** (Monetag + Adsterra, `c0ee1de`) — just needs zone
-IDs (STEP A). The items below are the *next-level* CPM optimizations on top of that base.
+### ⭐ 1. AD MONETIZATION (REPUTABLE ONLY)  ← un-sinkhole the domain first
+**The Monetag/Adsterra base was removed** (it sinkholed the domain — see "AD STRATEGY"). The
+only ad code left is **Google AdSense** (`AdSenseAd.jsx`, sidebar). Rebuild monetization on
+reputable rails only:
 
-**Container audit (where ads go):**
-| Container | Status | Revenue Potential |
-|-----------|--------|-------------------|
-| In-SERP — after every 3rd result | ✅ Built (AdSlot) | ⭐⭐⭐⭐ Very High |
-| Sidebar 300×250 | ✅ Built (AdSlot) | ⭐⭐ Medium |
-| Rewarded "support us" button | ✅ Built (RewardedAdButton) | ⭐⭐⭐⭐ High |
-| Site-wide Social Bar / Multitag | ✅ Built (loadSiteWideAds) | ⭐⭐⭐ Passive |
-| Hero slot — below AI summary | Empty | ⭐⭐⭐⭐⭐ Highest — add next |
+**Order of operations:**
+1. **Un-sinkhole `truegle.info` first** (Palo Alto dispute + Safe Browsing check) — no ad work
+   matters while the domain is blocked/flagged.
+2. **Get AdSense approved** (Step 4) — primary revenue. Then add AdSense units to high-value
+   slots: a **Hero slot** below the AI summary (highest CPM), **in-SERP** after every 3rd
+   result, and a **sticky 300×600** desktop sidebar — all via `<AdSenseAd>` (reuse the existing
+   component; do NOT introduce other networks' scripts).
+3. **At scale, apply to a vetted ad-management network** (Ezoic → Mediavine/Raptive). These do
+   real review and won't blocklist the domain; they can run header bidding with AdSense.
+4. **Direct sponsorships / privacy-tool affiliates** — on-brand, zero malvertising risk.
 
-**Next-level optimizations (not yet built):** fill the **Hero slot** below the AI summary
-(highest CPM); **lazy-load** slots via `IntersectionObserver`; **auto-refresh** in-SERP slots on
-re-intersection for 2–3× impressions; **sticky 300×600** desktop sidebar; **header bidding**
-(Monetag + AdSense competition). Code map for the base in `apps/frontend/src/config/ads.js`,
-`utils/adNetworks.js`, `components/ui/AdSlot.jsx`, `components/ui/RewardedAdButton.jsx`.
+**CPM optimizations (AdSense-safe):** `<link rel="preconnect" href="https://pagead2.googlesyndication.com">`
+in `<head>`; lazy-load slots via `IntersectionObserver`; sticky sidebar via
+`position: sticky; top: 20px`. **Avoid** auto-refresh/popunder/push patterns that violate
+AdSense policy.
 
-**Network waterfall (competition = higher CPM):**
-| Network | Role | CPM Range |
-|---------|------|-----------|
-| **Monetag** | Base/floor (~75% fill) | $2–$8 |
-| **Google AdSense** | Primary high-CPM (~25%) | $5–$15 US/NL |
-| **Adsterra** | Rewarded + popunder | $10–$25 Tier 1 |
+**❌ Do NOT re-introduce** Monetag (`3nbf4.com`/`libtl.com`), Adsterra
+(`highperformanceformat.com`/`profitablecpmrate.com`), or any instant-approval push/popunder
+network — that is what got the domain sinkholed.
 
-**Implementation:**
-- **Pre-connect** in `<head>`: `<link rel="preconnect" href="https://pagead2.googlesyndication.com">`
-  and `<link rel="preconnect" href="https://cdn.monetag.com">`.
-- **Lazy-load** ad slots via `IntersectionObserver` (inject `data-ad-code` on first intersect).
-- **Auto-refresh** in-SERP slots on re-intersection (`googletag.pubads().refresh()` / Monetag
-  refresh) for 2–3× impressions.
-- **Sticky 300×600 sidebar** (desktop only) via `position: sticky; top: 20px`.
-- **Rewarded ad** — wire the "Watch Ad for +5 Tokens" button to the existing backend
-  (`/api/tokens/ad-session` + `/earn/ad`, 25s min, 6/hr cap); only the FE button is missing.
-
-**Rollout order:** (1) fill Hero slot → +40% immediate · (2) lazy-load + refresh in-SERP →
-2–3× impressions · (3) wire rewarded ad → new revenue stream · (4) sticky sidebar → +15–25% ·
-(5) header bidding (Monetag + AdSense) → maximize CPM competition.
+**Rewarded-tokens note:** the backend rewarded endpoints still exist
+(`/api/tokens/ad-session` + `/earn/ad`, 25s min, 6/hr cap) but the FE button + its Monetag SDK
+were removed. If you ever want rewarded ads back, wire them to an **AdSense-approved rewarded
+format** or a vetted network — never Monetag.
 
 ### 2. SECURITY AUDIT
 Full defensive review before/with real users. Scope: authn/authz (JWT issuance + the
@@ -378,7 +377,7 @@ resolve `npm audit` advisories.
 | Custom Search Engine ID (cx) | `54cdc3626cf504531` |
 | GCP API key name | `Truegle Custom Search API Key` |
 | AdSense publisher | `pub-9542137900411519` |
-| Ad env vars (Cloudflare Prod) | `VITE_MONETAG_ZONE` · `VITE_MONETAG_REWARDED_ZONE` · `VITE_ADSTERRA_SOCIALBAR_SRC` · `VITE_ADSTERRA_BANNER_KEY` |
+| Ad env vars (Cloudflare Prod) | 🛑 **DELETE if present** — `VITE_MONETAG_ZONE` · `VITE_MONETAG_REWARDED_ZONE` · `VITE_ADSTERRA_SOCIALBAR_SRC` · `VITE_ADSTERRA_BANNER_KEY` (Monetag/Adsterra removed; these do nothing now and signal intent to re-add). AdSense needs no env var. |
 | Free-access flags (code) | `apps/frontend/src/config/access.js` → `FREE_ACCESS_MODE`, `OAUTH_ENABLED` |
 | Stripe webhook | `TruegleVercelWebhook` → `/api/payment/webhook` (8 events) |
 | Neon DB | `ep-spring-star-afnjwpg6-pooler` (us-west-2) |
