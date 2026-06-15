@@ -1,30 +1,47 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-06-15 (evening). Supersedes all prior handoff docs._
+_Last updated: 2026-06-15 (late evening). Supersedes all prior handoff docs._
 
 This doc is written so it can be handed to **Claude in the web browser** to walk through
 the remaining **dashboard/browser activation steps**. Everything that requires code or a
 computer has already been done and deployed (see "Done this session").
 
+> 🎯 **If you're here to turn on ad revenue, jump to ["STEP A — ACTIVATE AD REVENUE"](#step-a--activate-ad-revenue-monetag--adsterra) below.** Everything is already built and deployed; it just needs zone IDs pasted into the Cloudflare env.
+
 ---
 
 ## ✅ DONE THIS SESSION (all live + verified)
 
-- **Search outage FIXED.** Search on `truegle.info` was returning nothing due to a stale
-  backend (CORS allowlist already included truegle.info in code, but the deployed Vercel
-  backend predated it). Redeployed backend → verified preflight `204` + real search returns
-  results from the `truegle.info` origin.
-- **Legal pages SHIPPED + live:** `/privacy`, `/terms`, `/about`
-  (`https://truegle.info/privacy` etc. → HTTP 200). These **unblock OAuth publishing AND
-  AdSense review**.
-- **Down-for-repairs modal SHIPPED.** After **2 consecutive search failures** (network/CORS/
-  5xx outage) a friendly maintenance modal appears so global users aren't left with a silent
-  empty page. Auto-clears on the next successful search.
-- **Browser-synced multilingual search SHIPPED.** The engine now detects the visitor's
-  browser language/region and localizes **search results** (Google `lr/hl/gl`, Brave
-  `search_lang/country`, NewsAPI language). A language dropdown sits under the search bar.
-  UI chrome stays English for now.
+**Earlier today**
+- **Search outage FIXED** (stale backend → redeployed; CORS allowlist already had truegle.info).
+- **Legal pages SHIPPED + live:** `/privacy`, `/terms`, `/about` (HTTP 200) — unblock OAuth + AdSense.
+- **Down-for-repairs modal** (after 2 consecutive search failures) + **browser-synced multilingual search**.
 
-**Git:** `origin/main` = `8d05a13`. Frontend + backend both manually deployed from this.
+**This session (pre-production hardening + monetization)**
+- 🩹 **WHITE-SCREEN CRASH FIXED.** The whole site was down with `useLayoutEffect of undefined` —
+  a circular Vite chunk dependency (React split into its own chunk while mapbox/three/vendor
+  cross-imported). Rewrote `manualChunks` to a strictly **acyclic** graph. (`7e46b72`)
+- 🛡️ **3-LAYER CRASH PROTECTION so a white screen can NEVER happen again:** (1) a
+  framework-agnostic global safety net in `main.jsx` that recovers stale-chunk loads and shows
+  a friendly fallback if the app fails to even mount; (2) a **RootErrorBoundary** around the
+  whole app; (3) a **RouteBoundary** around every page so one crash can't kill the site. (`ff1509f`)
+- 🔒 **SECURITY: removed a client-side admin auth-bypass backdoor** on the sign-in page (it
+  minted a fake admin/premium session via Ctrl+Shift+A / triple-click / hidden button). (`c0a9b1a`)
+- 🚪 **FREE-ACCESS MODE (reversible).** OAuth bypassed, all paywalls/token-gates/login-walls
+  removed so every feature is usable without signing in (one flag: `src/config/access.js`).
+  Expensive AI/OSINT endpoints stay backend-protected (cost control) but now degrade to a
+  friendly message instead of a broken login bounce. (`ff1509f`)
+- 📣 **EARLY-ACCESS UX.** Dismissible "you're a pre-production user, things may break, send
+  feedback" banner (→ truegleai@proton.me) + a transient error bar on breaking errors +
+  friendly "search failed / no results" messaging instead of a blank page. (`ff1509f`)
+- 💰 **AD MONETIZATION BUILT (Monetag + Adsterra) — dormant until you add zone IDs.**
+  Site-wide passive tags, in-SERP + sidebar display banners, and an opt-in rewarded
+  "support us — watch a quick ad" button. All config-driven; renders nothing until configured,
+  so no broken slots. **→ See STEP A to switch it on.** (`c0ee1de`)
+
+**Git:** `origin/main` = `c0ee1de`. Frontend deployed via wrangler from this.
+
+> ⚠️ **Tell your users to hard-refresh (Ctrl+Shift+R)** — older browser caches may still hold
+> the pre-fix bundle (with the white screen / old admin code). The live server is clean.
 
 ---
 
@@ -57,8 +74,9 @@ computer has already been done and deployed (see "Done this session").
 | Cloudflare DNS | ✅ Complete | `truegle.info` zone active |
 | 301 Redirect | ✅ Active | trumpafi.online → truegle.info |
 | Legal pages (/privacy /terms /about) | ✅ Live | Prereq for OAuth + AdSense — now satisfied |
-| **Google Custom Search API** | ⚠️ **403** | See Step 1. Testing the real key DIRECTLY in a browser still 403s → it's a **project/account** issue, NOT a Vercel key mismatch. Likely the "API Enabled" screen was viewed under the WRONG Google account (multiple accounts). Brave covers search meanwhile. |
-| Google OAuth | ⚠️ Testing mode | Publish now unblocked (legal pages exist). See Step 2. |
+| **Monetag / Adsterra ads** | 🟡 **Built, needs IDs** | Code deployed + dormant. **Activate via STEP A** (paste zone IDs into Cloudflare env + redeploy). Fastest interim revenue. |
+| **Google Custom Search API** | ⚠️ **403 / likely quota** | Free tier = 100 queries/day, blown by current traffic; also a project/account access issue (key 403s even tested directly). Search still works — `Promise.allSettled` drops Google and Brave fills in. See Step 1. Ad revenue (Step A) can fund CSE billing. |
+| Google OAuth | 🚫 **Bypassed (intentional)** | Hidden via `OAUTH_ENABLED=false` while in free-access mode; sign-in not required. Re-enable later (Steps 2–3) once auth is fixed. Registration also has a **12-char min-password** mismatch to fix then. |
 | OAuth Branding | ⚠️ Needs fix | Wrong authorized domain `truegle-search.pages.dev` → should be `truegle-search-15k.pages.dev`; also add `truegle.info` + `trumpafi.online`; fill home/privacy/terms URLs. See Step 3. |
 | AdSense | 🔄 **In review** | Ownership **VERIFIED 2026-06-15** (both ads.txt + the AdSense `<head>` snippet are live & crawlable). Site status = "Getting ready / Review requested" → awaiting Google **content review** (days–2 wk, email when done). Risk: may land on "Low value content" like the other sites → remedy = content hub + SPA prerender (Post-Prod #5). |
 | Search Console | ⏸️ Not started | See Step 5. |
@@ -67,9 +85,54 @@ computer has already been done and deployed (see "Done this session").
 
 ---
 
-## 🚦 REMAINING BROWSER STEPS (do in this order — each is self-contained)
+## 🚦 REMAINING BROWSER STEPS (each is self-contained)
 
 > Reference values you'll need are in the QUICK REFERENCE table at the bottom.
+
+### STEP A — ACTIVATE AD REVENUE (Monetag + Adsterra)
+**This is the priority right now.** The ad code is already built + deployed; it's dormant until
+these zone IDs exist in the Cloudflare build env. Instant-approval networks (no AdSense-style
+review) → revenue can start today. They stack with AdSense later (no conflict).
+
+**1. Create the accounts + zones (≈10 min):**
+- **Monetag** (`monetag.com`) → Sign up → **Add site** `truegle.info` → create zones:
+  - a **Multitag** zone (site-wide passive — easiest revenue) → copy its **Zone ID** (a number).
+  - a **Rewarded Interstitial** zone (powers the "support us" button) → copy its **Zone ID**.
+- **Adsterra** (`adsterra.com` → Publisher) → **Add website** `truegle.info` → create:
+  - a **Social Bar** unit → copy the **full `src` URL** of its invoke script
+    (looks like `//pl########.profitablecpmrate.com/##/##/##/########.js`).
+  - a **Banner 300×250** unit → copy its **key** (the long hex string in the invoke URL
+    `//www.highperformanceformat.com/<KEY>/invoke.js`).
+
+> Approval is usually instant–few hours. You can come back and add IDs as each is approved;
+> partially-configured is fine (only the configured formats render).
+
+**2. Add the IDs to Cloudflare (this is the "activation"):**
+Cloudflare dashboard → **Workers & Pages → `truegle-search` → Settings → Environment variables
+→ Production** → **Add variable** for each (only add the ones you have):
+| Variable name | Value |
+|---|---|
+| `VITE_MONETAG_ZONE` | Monetag **Multitag** zone ID |
+| `VITE_MONETAG_REWARDED_ZONE` | Monetag **Rewarded Interstitial** zone ID |
+| `VITE_ADSTERRA_SOCIALBAR_SRC` | Adsterra Social Bar **src URL** |
+| `VITE_ADSTERRA_BANNER_KEY` | Adsterra 300×250 **banner key** |
+
+**3. Redeploy the frontend so the build picks up the new env vars.** Env-var changes do NOT
+auto-rebuild. Either:
+- Cloudflare → `truegle-search` → **Deployments → Retry/Create deployment** (if Git build is
+  connected), **OR**
+- ask **Claude Code** (computer) to run the two-line frontend deploy (see DEPLOY TOPOLOGY).
+
+**4. Verify:** open `https://truegle.info/search`, run a search → you should see the Social Bar
++ a 300×250 "Sponsored" banner after the 3rd result / in the sidebar, and a "Support us — watch
+a quick ad" button (if the rewarded zone is set). Check the Monetag/Adsterra dashboards for
+impressions within ~30–60 min.
+
+> 💡 **Recommended order:** start with `VITE_MONETAG_ZONE` (Multitag) + `VITE_MONETAG_REWARDED_ZONE`
+> — fastest to approve, and the income covers enabling Google Custom Search billing so search
+> quality recovers **without charging your users**. Add Adsterra when approved.
+>
+> 🛡️ All of this is **GDPR/ad-network-safe to run on a live site**; nothing charges users.
 
 ### Step 1 — Fix Google Custom Search API 403  ✅ no redeploy needed
 The key itself is being rejected with *"This project does not have access to Custom Search
@@ -194,10 +257,14 @@ gh (o87enterprises-ai).
 
 ## 🏭 PRODUCTION TASKS (launch-critical — no particular order)
 _Things needed to be fully "launched." Most are the browser steps above; a couple are code._
-- [ ] **Google Custom Search API 403** — fix under the correct Google account (Browser Step 1).
-- [ ] **Publish Google OAuth + fix branding** (Browser Steps 2–3), then **flip
-      `VITE_SOCIAL_AUTH_ENABLED=true`** + redeploy frontend so the Google sign-in button shows.
-- [ ] **AdSense** — in review; monitor email (Browser Step 4).
+- [ ] **⭐ ACTIVATE AD REVENUE (Monetag/Adsterra)** — paste zone IDs into Cloudflare env +
+      redeploy (Browser **STEP A**). Built + deployed; just needs IDs. Highest-priority revenue.
+- [ ] **Google Custom Search API 403/quota** — fix under correct account + enable billing
+      (Browser Step 1). Funded by ad revenue above.
+- [ ] **Re-enable real auth (later)** — fix the registration **12-char password** mismatch, flip
+      `FREE_ACCESS_MODE=false` + `OAUTH_ENABLED=true`, publish OAuth + fix branding (Steps 2–3),
+      set `VITE_SOCIAL_AUTH_ENABLED=true`, redeploy. (Deferred — site is intentionally free now.)
+- [ ] **AdSense** — in review; monitor email (Browser Step 4). Stacks with Monetag/Adsterra.
 - [ ] **Search Console + Bing Webmaster** — add property, verify, submit sitemap (Browser Step 5).
 - [ ] **Stripe live keys** — swap on Vercel + redeploy when ready to charge (Browser Step 6).
 - [ ] **Reconnect Cloudflare Pages ↔ GitHub** — lockfile is fixed (`b6defba`), so re-enable
@@ -212,16 +279,23 @@ _Things needed to be fully "launched." Most are the browser steps above; a coupl
 > _Site is ~32,440 monthly requests. Current est. $100–$400/mo. Target $500–$1,500+/mo._
 
 ### ⭐ 1. AD MONETIZATION / CPM OPTIMIZATION  ← do this first
-The strategy for monetizing in a way that **significantly increases CPM** (header-bidding
-competition + high-value placements + lazy/refresh impressions):
+**Base integration is now BUILT + deployed** (Monetag + Adsterra, `c0ee1de`) — just needs zone
+IDs (STEP A). The items below are the *next-level* CPM optimizations on top of that base.
 
 **Container audit (where ads go):**
 | Container | Status | Revenue Potential |
 |-----------|--------|-------------------|
-| Hero slot — below AI summary | Empty | ⭐⭐⭐⭐⭐ Highest |
-| In-SERP — after every 3rd result | Empty | ⭐⭐⭐⭐ Very High |
-| Rewarded ad — freemium unlock | Planned | ⭐⭐⭐⭐ High |
-| Sidebar/Footer | None | ⭐ Low — avoid |
+| In-SERP — after every 3rd result | ✅ Built (AdSlot) | ⭐⭐⭐⭐ Very High |
+| Sidebar 300×250 | ✅ Built (AdSlot) | ⭐⭐ Medium |
+| Rewarded "support us" button | ✅ Built (RewardedAdButton) | ⭐⭐⭐⭐ High |
+| Site-wide Social Bar / Multitag | ✅ Built (loadSiteWideAds) | ⭐⭐⭐ Passive |
+| Hero slot — below AI summary | Empty | ⭐⭐⭐⭐⭐ Highest — add next |
+
+**Next-level optimizations (not yet built):** fill the **Hero slot** below the AI summary
+(highest CPM); **lazy-load** slots via `IntersectionObserver`; **auto-refresh** in-SERP slots on
+re-intersection for 2–3× impressions; **sticky 300×600** desktop sidebar; **header bidding**
+(Monetag + AdSense competition). Code map for the base in `apps/frontend/src/config/ads.js`,
+`utils/adNetworks.js`, `components/ui/AdSlot.jsx`, `components/ui/RewardedAdButton.jsx`.
 
 **Network waterfall (competition = higher CPM):**
 | Network | Role | CPM Range |
@@ -304,6 +378,8 @@ resolve `npm audit` advisories.
 | Custom Search Engine ID (cx) | `54cdc3626cf504531` |
 | GCP API key name | `Truegle Custom Search API Key` |
 | AdSense publisher | `pub-9542137900411519` |
+| Ad env vars (Cloudflare Prod) | `VITE_MONETAG_ZONE` · `VITE_MONETAG_REWARDED_ZONE` · `VITE_ADSTERRA_SOCIALBAR_SRC` · `VITE_ADSTERRA_BANNER_KEY` |
+| Free-access flags (code) | `apps/frontend/src/config/access.js` → `FREE_ACCESS_MODE`, `OAUTH_ENABLED` |
 | Stripe webhook | `TruegleVercelWebhook` → `/api/payment/webhook` (8 events) |
 | Neon DB | `ep-spring-star-afnjwpg6-pooler` (us-west-2) |
 | Cloudflare nameservers | `journey.ns.cloudflare.com` + `newt.ns.cloudflare.com` |
