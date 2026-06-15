@@ -60,7 +60,7 @@ computer has already been done and deployed (see "Done this session").
 | **Google Custom Search API** | ⚠️ **403** | See Step 1. Testing the real key DIRECTLY in a browser still 403s → it's a **project/account** issue, NOT a Vercel key mismatch. Likely the "API Enabled" screen was viewed under the WRONG Google account (multiple accounts). Brave covers search meanwhile. |
 | Google OAuth | ⚠️ Testing mode | Publish now unblocked (legal pages exist). See Step 2. |
 | OAuth Branding | ⚠️ Needs fix | Wrong authorized domain `truegle-search.pages.dev` → should be `truegle-search-15k.pages.dev`; also add `truegle.info` + `trumpafi.online`; fill home/privacy/terms URLs. See Step 3. |
-| AdSense | ⏸️ Ready to submit | ads.txt valid (`pub-9542137900411519`). Submit now that legal pages exist. See Step 4. |
+| AdSense | 🔄 **In review** | Ownership **VERIFIED 2026-06-15** (both ads.txt + the AdSense `<head>` snippet are live & crawlable). Site status = "Getting ready / Review requested" → awaiting Google **content review** (days–2 wk, email when done). Risk: may land on "Low value content" like the other sites → remedy = content hub + SPA prerender (Post-Prod #5). |
 | Search Console | ⏸️ Not started | See Step 5. |
 | Bing Webmaster | ⏸️ Not started | See Step 5. |
 | Stripe | ✅ Verified | Live keys NOT yet swapped on Vercel. See Step 6. |
@@ -113,12 +113,11 @@ Same OAuth consent screen → **Branding**:
   `VITE_SOCIAL_AUTH_ENABLED=true` is set and the frontend is redeployed (ask Claude Code to
   do that once OAuth is published).
 
-### Step 4 — Submit AdSense review
-1. **adsense.google.com** → add/select site `truegle.info`.
-2. `ads.txt` is already live + valid at `https://truegle.info/ads.txt` (publisher
-   `pub-9542137900411519`).
-3. Request **review**. Privacy/Terms/About pages now exist, satisfying the policy prereq.
-   (Approval can take days to ~2 weeks.)
+### Step 4 — AdSense review  ✅ ownership verified, ⏳ now in content review
+DONE 2026-06-15: ownership verified (ads.txt + `<head>` snippet both live), **review
+requested** — site shows "Getting ready". Nothing to do but **wait for Google's email**
+(days–2 wk). Do NOT re-request repeatedly. If it later flips to "Low value content," that's a
+content/crawlability problem → see Post-Prod #5 (content hub + SPA prerender), not ads.txt.
 
 ### Step 5 — Search Console + Bing Webmaster
 **Google Search Console** (search.google.com/search-console):
@@ -193,13 +192,101 @@ gh (o87enterprises-ai).
 
 ---
 
-## 🗺️ NEXT CODE TASKS (for Claude Code, no dashboards needed)
-1. **Sync `package-lock.json`** (`npm install` + commit + push) → re-enables Cloudflare
-   auto-deploy on push.
-2. **Flip `VITE_SOCIAL_AUTH_ENABLED=true`** + redeploy frontend — once OAuth is published.
-3. Wire the 2 auth OSINT tools (Hunter.io email-finder, Shodan) behind the existing TokenGate.
-4. Ad slots: fill Hero slot, wire "Watch Ad for +5 Tokens" (backend `/api/tokens/ad-session`
-   + `/earn/ad` already exists). Add `WebSite`+`SearchAction` JSON-LD for SEO/AI-citation.
+## 🏭 PRODUCTION TASKS (launch-critical — no particular order)
+_Things needed to be fully "launched." Most are the browser steps above; a couple are code._
+- [ ] **Google Custom Search API 403** — fix under the correct Google account (Browser Step 1).
+- [ ] **Publish Google OAuth + fix branding** (Browser Steps 2–3), then **flip
+      `VITE_SOCIAL_AUTH_ENABLED=true`** + redeploy frontend so the Google sign-in button shows.
+- [ ] **AdSense** — in review; monitor email (Browser Step 4).
+- [ ] **Search Console + Bing Webmaster** — add property, verify, submit sitemap (Browser Step 5).
+- [ ] **Stripe live keys** — swap on Vercel + redeploy when ready to charge (Browser Step 6).
+- [ ] **Reconnect Cloudflare Pages ↔ GitHub** — lockfile is fixed (`b6defba`), so re-enable
+      auto-deploy: Pages → `truegle-search` → Settings → Git → Connect (build/output settings in
+      "Known operational notes").
+- [ ] **`SEARXNG` persistent host** (optional) — then `SEARXNG_PRIMARY=true` + redeploy.
+
+---
+
+## 🚀 POST-PRODUCTION TASKS (optimization & hardening — no particular order, EXCEPT #1 first)
+
+> _Site is ~32,440 monthly requests. Current est. $100–$400/mo. Target $500–$1,500+/mo._
+
+### ⭐ 1. AD MONETIZATION / CPM OPTIMIZATION  ← do this first
+The strategy for monetizing in a way that **significantly increases CPM** (header-bidding
+competition + high-value placements + lazy/refresh impressions):
+
+**Container audit (where ads go):**
+| Container | Status | Revenue Potential |
+|-----------|--------|-------------------|
+| Hero slot — below AI summary | Empty | ⭐⭐⭐⭐⭐ Highest |
+| In-SERP — after every 3rd result | Empty | ⭐⭐⭐⭐ Very High |
+| Rewarded ad — freemium unlock | Planned | ⭐⭐⭐⭐ High |
+| Sidebar/Footer | None | ⭐ Low — avoid |
+
+**Network waterfall (competition = higher CPM):**
+| Network | Role | CPM Range |
+|---------|------|-----------|
+| **Monetag** | Base/floor (~75% fill) | $2–$8 |
+| **Google AdSense** | Primary high-CPM (~25%) | $5–$15 US/NL |
+| **Adsterra** | Rewarded + popunder | $10–$25 Tier 1 |
+
+**Implementation:**
+- **Pre-connect** in `<head>`: `<link rel="preconnect" href="https://pagead2.googlesyndication.com">`
+  and `<link rel="preconnect" href="https://cdn.monetag.com">`.
+- **Lazy-load** ad slots via `IntersectionObserver` (inject `data-ad-code` on first intersect).
+- **Auto-refresh** in-SERP slots on re-intersection (`googletag.pubads().refresh()` / Monetag
+  refresh) for 2–3× impressions.
+- **Sticky 300×600 sidebar** (desktop only) via `position: sticky; top: 20px`.
+- **Rewarded ad** — wire the "Watch Ad for +5 Tokens" button to the existing backend
+  (`/api/tokens/ad-session` + `/earn/ad`, 25s min, 6/hr cap); only the FE button is missing.
+
+**Rollout order:** (1) fill Hero slot → +40% immediate · (2) lazy-load + refresh in-SERP →
+2–3× impressions · (3) wire rewarded ad → new revenue stream · (4) sticky sidebar → +15–25% ·
+(5) header bidding (Monetag + AdSense) → maximize CPM competition.
+
+### 2. SECURITY AUDIT
+Full defensive review before/with real users. Scope: authn/authz (JWT issuance + the
+`tokenDenylist` revocation, session handling), input validation on all `/api/*` routes,
+injection (SQL via Neon queries, SSRF in OSINT/proxy + `osint-proxy.js`, command/eval in the
+`calculation` instant-answer), rate limiting, CORS/Helmet/CSP headers (`middleware/security.js`),
+secrets handling (all keys are Vercel env — confirm none leak to the client bundle), payment
+webhook signature verification, and dependency CVEs (`npm audit`). Produce a findings list +
+severity, then patch.
+
+### 3. THOROUGH CODE REVIEW
+End-to-end quality pass (separate from security). Hotspots: oversized pages
+(`UniversalSearch` ~1k lines, `BiasedResults` ~1.15k) → extract sub-components; error handling
++ retries in `SearchService` provider calls; dead/legacy file deletion; consistent env config;
+test coverage for the search pipeline + token/payment flows. Consider running `/code-review`
+(or `/code-review ultra`) on the branch.
+
+### 4. PENETRATION TESTING (own agents) + patch vulnerabilities
+Authorized pentest of the live stack with your own agents — probe auth bypass, token/freemium
+abuse (earning tokens without watching ads, replaying ad-sessions), OSINT endpoint abuse/SSRF,
+IDOR on account/payment routes, rate-limit evasion, XSS via search results/AI summary
+rendering, and the Stripe webhook. Triage findings with #2, then patch any unnoticed vulns.
+
+### 5. ADSENSE APPROVAL-READINESS — content + crawlability
+If/when the review returns "Low value content": (a) **Content hub "The Bias Report"**
+(`/bias-report`) — original case studies of search-engine bias (on-brand, AI-citation bait);
+(b) **SPA prerendering** (react-snap / vite-plugin-ssg) for `/`, `/search`, `/privacy`,
+`/terms`, `/about` so crawlers see real text, not an empty `<div id="root">`.
+
+### 6. SEO / AEO / GEO
+`WebSite` + `SearchAction` JSON-LD on home; `FAQPage` schema wrapping the quick-result cards;
+prerender (shared with #5). Goal = eligibility for AI Overviews / AI citation.
+
+### 7. FEATURE BACKLOG (post-launch, abridged)
+Listings modal (clickable phone/email/hours) · turn-by-turn nav · podcasts category ·
+multi-country/auto-translate result cards · "Take a tour" onboarding · set-as-default-search /
+homepage · Share-for-Premium (24 hr access) · AI-summary follow-up input · social category
+expansion (YT/FB/TikTok/IG in-app viewer) · remember-me auth · neutral-tier collapsed by
+default. (Full list in prior email handoff.)
+
+### 8. CLEANUP
+Delete dead files (`OSINTMode.jsx`, `SearchResults.jsx`, `SearchPortal*`, `BiasedResults.jsx`,
+`ResultsPage.jsx`, `components/SearchResults.jsx`, `components/ui/SearchResultsContainer.jsx`);
+resolve `npm audit` advisories.
 
 ---
 
