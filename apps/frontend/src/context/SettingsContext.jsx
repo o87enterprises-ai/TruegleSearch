@@ -2,6 +2,23 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const SettingsContext = createContext();
 
+// Derive the user's preferred language (ISO 639-1) from the browser.
+export const detectBrowserLanguage = () => {
+  if (typeof navigator === 'undefined') return 'en';
+  const raw = navigator.language || (navigator.languages && navigator.languages[0]) || 'en';
+  const lang = raw.toLowerCase().slice(0, 2).replace(/[^a-z]/g, '');
+  return /^[a-z]{2}$/.test(lang) ? lang : 'en';
+};
+
+// Derive the user's region/country (ISO 3166-1 alpha-2) from the browser locale, if present.
+export const detectBrowserCountry = () => {
+  if (typeof navigator === 'undefined') return '';
+  const raw = navigator.language || (navigator.languages && navigator.languages[0]) || '';
+  const parts = raw.split('-');
+  const country = parts[1] ? parts[1].toUpperCase().replace(/[^A-Z]/g, '') : '';
+  return /^[A-Z]{2}$/.test(country) ? country : '';
+};
+
 export const useSettings = () => {
   const context = useContext(SettingsContext);
   if (!context) {
@@ -20,6 +37,8 @@ export const SettingsProvider = ({ children }) => {
     vpnAutoConnect: false,
     defaultFilters: 'all',
     resultsPerPage: 10,
+    language: detectBrowserLanguage(), // engine language, synced to browser by default
+    country: detectBrowserCountry(), // region hint for result localization
   });
 
   // Load settings from localStorage on mount

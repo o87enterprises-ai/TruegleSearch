@@ -390,6 +390,15 @@ class SearchService {
       params.safe = 'active'; // 'safe' or anything else defaults to on
     }
 
+    // Localization: restrict results + interface language to the user's locale
+    if (filters.language) {
+      params.lr = `lang_${filters.language}`; // restrict to documents in this language
+      params.hl = filters.language; // interface/host language
+    }
+    if (filters.country) {
+      params.gl = filters.country.toLowerCase(); // geolocation boost (e.g. 'br')
+    }
+
     try {
       const response = await axios.get(this.googleBaseUrl, { params, timeout: 8000 });
       return response.data;
@@ -478,6 +487,10 @@ class SearchService {
       const rangeMap = { day: 'pd', week: 'pw', month: 'pm', year: 'py' };
       if (rangeMap[filters.dateRange]) params.freshness = rangeMap[filters.dateRange];
     }
+
+    // Localization
+    if (filters.language) params.search_lang = filters.language;
+    if (filters.country) params.country = filters.country;
 
     try {
       const response = await axios.get(this.braveBaseUrl, {
@@ -626,13 +639,21 @@ class SearchService {
       throw new Error('News API not configured');
     }
 
+    // NewsAPI only supports this subset of language codes; fall back to English otherwise
+    const NEWS_SUPPORTED_LANGS = [
+      'ar', 'de', 'en', 'es', 'fr', 'he', 'it', 'nl', 'no', 'pt', 'ru', 'sv', 'ud', 'zh',
+    ];
+    const newsLanguage = NEWS_SUPPORTED_LANGS.includes(filters.language)
+      ? filters.language
+      : 'en';
+
     const params = {
       apiKey: this.newsApiKey,
       q: query,
       pageSize: filters.perPage || 20,
       page: filters.page || 1,
       sortBy: filters.sortBy === 'date' ? 'publishedAt' : 'relevancy',
-      language: 'en',
+      language: newsLanguage,
     };
 
     // Add date range filter

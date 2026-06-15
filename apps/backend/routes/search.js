@@ -172,6 +172,20 @@ function validateFilters(filters) {
     50
   );
 
+  // Validate language (ISO 639-1 two-letter code); default 'en'
+  const rawLanguage =
+    typeof filters.language === 'string'
+      ? filters.language.toLowerCase().slice(0, 2).replace(/[^a-z]/g, '')
+      : '';
+  validFilters.language = /^[a-z]{2}$/.test(rawLanguage) ? rawLanguage : 'en';
+
+  // Validate optional region/country (ISO 3166-1 alpha-2), e.g. 'US', 'BR'
+  const rawCountry =
+    typeof filters.country === 'string'
+      ? filters.country.toUpperCase().slice(0, 2).replace(/[^A-Z]/g, '')
+      : '';
+  validFilters.country = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : '';
+
   return validFilters;
 }
 

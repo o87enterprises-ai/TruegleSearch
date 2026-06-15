@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -33,6 +33,8 @@ import TutorialModal from '../components/ui/TutorialModal';
 import QuickResultCard from '../components/ui/QuickResultCard';
 import OSINTToolsPanel from '../components/ui/OSINTToolsPanel';
 import TokenGate from '../components/ui/TokenGate';
+import RepairsModal from '../components/ui/RepairsModal';
+import LanguageSelector from '../components/ui/LanguageSelector';
 
 // Hooks and Config
 import { useSearchMode } from '../hooks/useSearchMode';
@@ -118,6 +120,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const [instantAnswer, setInstantAnswer] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [lastSearchedQuery, setLastSearchedQuery] = useState(null);
+
+  // Down-for-repairs: show a maintenance modal after consecutive search failures
+  const [showRepairsModal, setShowRepairsModal] = useState(false);
+  const consecutiveFailuresRef = useRef(0);
+  const REPAIRS_FAILURE_THRESHOLD = 2;
 
   // AI state
   const [aiSummary, setAiSummary] = useState(null);
@@ -226,6 +233,15 @@ export default function UniversalSearch({ lockedGreen = false }) {
   /**
    * Handle search execution
    */
+  // Re-run the active search when the engine language changes, so results
+  // re-localize immediately. Skips initial mount (no prior search yet).
+  useEffect(() => {
+    if (lastSearchedQuery) {
+      handleSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.language]);
+
   const handleSearch = async () => {
     if (!searchValue.trim()) return;
 
@@ -303,6 +319,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
               order: 'desc',
               perPage: 20,
               safeSearch: settings.safeSearch,
+              language: settings.language,
+              country: settings.country,
             },
           }),
         }
@@ -313,6 +331,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
       const data = await response.json();
       setSearchResults(data.results || []);
       setInstantAnswer(data.instantAnswer || null);
+
+      // Successful response — clear the consecutive-failure streak
+      consecutiveFailuresRef.current = 0;
+      if (showRepairsModal) setShowRepairsModal(false);
 
       // Show first-search modal once per session
       if (!firstSearchDone) {
@@ -328,6 +350,14 @@ export default function UniversalSearch({ lockedGreen = false }) {
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
+
+      // Track consecutive malfunctions; surface the maintenance modal once we
+      // hit the threshold (e.g. a backend/CORS outage), so global users aren't
+      // left with a silent empty page.
+      consecutiveFailuresRef.current += 1;
+      if (consecutiveFailuresRef.current >= REPAIRS_FAILURE_THRESHOLD) {
+        setShowRepairsModal(true);
+      }
     } finally {
       setSearchLoading(false);
     }
@@ -802,6 +832,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
                 ) : undefined
               }
             />
+            {/* Language selector — synced to browser language by default */}
+            <div className="flex justify-end mt-2">
+              <LanguageSelector />
+            </div>
           </div>
 
           {/* Multimedia Interface Dropdown (same as SearchResults) */}
@@ -1180,6 +1214,16 @@ export default function UniversalSearch({ lockedGreen = false }) {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Down-for-repairs modal (consecutive search malfunctions) */}
+          <RepairsModal
+            open={showRepairsModal}
+            onClose={() => setShowRepairsModal(false)}
+            onRetry={() => {
+              setShowRepairsModal(false);
+              handleSearch();
+            }}
+          />
 
           {/* Ad Banner 2 - Under AI Summary (same as SearchResults) */}
           <motion.div
