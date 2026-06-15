@@ -26,6 +26,9 @@ import SignUpPage from './pages/SignUpPage';
 import AuthCallback from './pages/AuthCallback';
 import UniversalSearch from './pages/UniversalSearch';
 import FeelingBiasedPage from './pages/FeelingBiasedPage';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import About from './pages/About';
 import NotFound from "./pages/NotFound";
 // Info Wizard Prompt
 const InfoWizardPrompt = ({
@@ -210,6 +213,11 @@ const AppContent = () => {
 
         {/* Feeling Biased Page - Keep as entry point */}
         <Route path="/feeling-biased" element={<FeelingBiasedPage />} />
+
+        {/* Legal / Info Pages (required for OAuth publishing + AdSense) */}
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/about" element={<About />} />
         {/* Onboarding Route */}
         <Route
           path="/onboarding"
