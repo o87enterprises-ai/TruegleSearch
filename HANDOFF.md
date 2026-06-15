@@ -1,171 +1,224 @@
-# Session Handoff — Truegle Search
+# UNIFIED HANDOFF — Truegle Search
+_Last updated: 2026-06-15 (evening). Supersedes all prior handoff docs._
 
-_Consolidated 2026-06-11. Supersedes the former `launch-handoff.md` and `HANDOFF-2026-05-28.md` (now removed). All "current state" claims below were re-verified against the live `main` branch on 2026-06-11._
-
----
-
-## ⚡ CURRENT STATE (read this first)
-
-- **Live frontend:** https://trumpafi.online (Cloudflare Pages project `truegle-search`)
-  - New primary domain **`truegle.info`** is code-wired but **DNS not yet resolving** → still serving on `trumpafi.online`.
-- **Live backend:** https://backend-seven-khaki-60.vercel.app (Vercel project `backend`)
-- **Database:** Neon PostgreSQL (`ep-spring-star-afnjwpg6-pooler`, us-west-2) via `DATABASE_URL`
-- **Repo:** `o87enterprises-ai/TruegleSearch`
-- **Git:** `main` is **1 commit ahead of `origin/main`** — commit `50055ea` (truegle.info migration + search timeouts) is **committed locally, PUSH HELD** until DNS resolves, so the canonical-tag frontend and the backend redeploy go live together against a resolving domain (and to avoid a premature Vercel git auto-deploy). Working tree clean.
-
-### ⛔ The one thing blocking deploy: DNS migration to `truegle.info`
-User bought `truegle.info` via **IONOS**. Plan = move nameservers to Cloudflare (Option A in `DEPLOYMENT-INFRA.md` §1). `trumpafi.online` is kept as a secondary that also points at Truegle (many owned domains → one SEO canonical = `truegle.info`).
-
-**Next-session start sequence:**
-1. **DNS (needs user + IONOS login):**
-   a. Cloudflare dashboard → Add site `truegle.info` (Free) → copy the 2 nameservers.
-   b. IONOS → `truegle.info` → nameserver settings → paste Cloudflare's nameservers.
-   c. Cloudflare Pages → `truegle-search` → Custom domains → add `truegle.info` + `www.truegle.info`.
-   d. `trumpafi.online`: 301-redirect → `https://truegle.info` (keep as secondary).
-2. **After DNS resolves:** set `FRONTEND_URL=https://truegle.info` on Vercel → **push `main`** → redeploy backend (`cd apps/backend && vercel deploy --prod --yes`) + frontend (build then `wrangler pages deploy dist --project-name=truegle-search --branch=main`).
-3. **Verify live:** `https://truegle.info/` loads; search works; `/ads.txt`, `/sitemap.xml`, `/robots.txt` reachable.
-4. **Then (deferred sign-up steps):** Search Console + AdSense re-submit under `truegle.info`.
+This doc is written so it can be handed to **Claude in the web browser** to walk through
+the remaining **dashboard/browser activation steps**. Everything that requires code or a
+computer has already been done and deployed (see "Done this session").
 
 ---
 
-## Deploy topology & commands (verified working)
-- **Frontend** → Cloudflare Pages `truegle-search`, custom domain `trumpafi.online` (truegle.info pending).
-  - Build (Windows): `cd apps/frontend && NODE_OPTIONS='--max-old-space-size=4096' node ../../node_modules/vite/dist/node/cli.js build`
-    (the npm `build` script uses a bash env prefix that fails on Windows cmd).
-  - Deploy: `wrangler pages deploy dist --project-name=truegle-search --branch=main`
-- **Backend** → Vercel `backend`: `cd apps/backend && vercel deploy --prod --yes`
-- CLIs authenticated: `wrangler` (o87enterprises@gmail.com), `vercel` (o87enterprises), `gh` (o87enterprises-ai).
-- Health: `GET /api/health` → `{status:"OK"}`; `GET /api/search/health` → per-provider.
-- Backend logs: `cd apps/backend && vercel logs backend-seven-khaki-60.vercel.app --json`.
+## ✅ DONE THIS SESSION (all live + verified)
+
+- **Search outage FIXED.** Search on `truegle.info` was returning nothing due to a stale
+  backend (CORS allowlist already included truegle.info in code, but the deployed Vercel
+  backend predated it). Redeployed backend → verified preflight `204` + real search returns
+  results from the `truegle.info` origin.
+- **Legal pages SHIPPED + live:** `/privacy`, `/terms`, `/about`
+  (`https://truegle.info/privacy` etc. → HTTP 200). These **unblock OAuth publishing AND
+  AdSense review**.
+- **Down-for-repairs modal SHIPPED.** After **2 consecutive search failures** (network/CORS/
+  5xx outage) a friendly maintenance modal appears so global users aren't left with a silent
+  empty page. Auto-clears on the next successful search.
+- **Browser-synced multilingual search SHIPPED.** The engine now detects the visitor's
+  browser language/region and localizes **search results** (Google `lr/hl/gl`, Brave
+  `search_lang/country`, NewsAPI language). A language dropdown sits under the search bar.
+  UI chrome stays English for now.
+
+**Git:** `origin/main` = `8d05a13`. Frontend + backend both manually deployed from this.
 
 ---
 
-## Project shape (orientation)
-- Monorepo: `apps/frontend` (React 18 + Vite SPA, port 5173) and `apps/backend` (Node/Express API, port 3001).
-- **The live search page is `apps/frontend/src/pages/UniversalSearch.jsx`** rendered at `/search`.
-  Modes = `blue | red/purple | ocean | green` (set via `?mode=` and the pill toggle). Legacy routes
-  (`/search-results`, `/search-portal`, `/results`, `/biased`, `/osint`) all `Navigate` to `/search`.
-- **Mode algorithms (canonical):**
-  | Mode | Algorithm |
-  |------|-----------|
-  | **Blue** | Standard relevance — Google/Brave/News as-is |
-  | **Green** | Identical to Blue, AI/summary features off, **+ filters AI-content domains** (`aiContentDomains.js`, subdomain-aware, expandable via `AI_CONTENT_DOMAINS` env) |
-  | **Red** | Inverted mainstream — conspiracy→alternative→independent→neutral→…→mainstream; explicitly queries substack/rumble/odysee/zerohedge/rt.com etc. (`sortRedPill()`) |
-  | **Purple** | Strict perspective filter — only results matching user-picked perspectives (`mapPerspectivesToBias()`) |
-  | **Ocean** | OSINT pipeline only, no web search (`performOsintSearch()`) |
-- **Dead/legacy files (do NOT use, safe to delete later):** `pages/SearchResults.jsx*`, `pages/SearchPortal*`,
-  `pages/BiasedResults.jsx`, `pages/OSINTMode.jsx`, `pages/OSINTTools.jsx`, `components/ResultsPage.jsx`,
-  `components/SearchResults.jsx`, `components/ui/SearchResultsContainer.jsx`. Imports already removed from `App.jsx`.
+## ⚡ CURRENT STATE
 
-### ⚠️ Gotchas (hard-won)
-- **`services/WeatherService.js` exports a SINGLETON** (`module.exports = new WeatherService()`), not the class.
-  `require` and use directly — do NOT `new` it (doing so crashed the backend with `FUNCTION_INVOCATION_FAILED`).
-- **Stale-bundle traps:** the old "safe-mode toggle broken" and "don't-show-again modal" bugs were stale-bundle
-  artifacts — current code is correct; a redeploy fixes. If a fix "doesn't work live," suspect a stale build first.
-- **`.env*` is gitignored and absent on the build machine** — that's why prod once shipped with `VITE_BACKEND_URL`
-  defaulting to `localhost:3001` (0-results outage). `vite.config.js` now hardcodes the live Vercel backend as the
-  production-mode default so fresh clones build correctly.
+### Infrastructure
+| Item | Status | Notes |
+|------|--------|-------|
+| `truegle.info` / `www.truegle.info` | ✅ Live + SSL | Cloudflare Pages custom domains |
+| `trumpafi.online` | ✅ Live | 301 → `truegle.info` |
+| `truegle-search-15k.pages.dev` | ✅ Live | Pages default domain |
+| Backend | ✅ Live | `https://backend-seven-khaki-60.vercel.app` |
+| Search on truegle.info | ✅ Working | Fixed this session |
+| DNS | ✅ Complete | Cloudflare nameservers active on IONOS |
+
+### Known operational notes
+- **package-lock.json is out of sync** with package.json (missing passport + related deps).
+  Cloudflare Pages **GitHub auto-build is therefore disconnected** — deploys are **manual**
+  via wrangler for now. Fix = `npm install` from repo root, commit the updated lock file,
+  push; then reconnect the Pages Git integration.
+- **Vercel CLI token** expired once this session; re-auth via `vercel login` device flow
+  (can be approved from a phone already logged into Vercel).
 
 ---
 
-## Remaining work (deduped, code-side unless noted)
+## 🗂️ THIRD-PARTY SERVICE STATUS
 
-### Search categories / providers
-- **Verify all ~21 categories** in prod: web, images, news, videos, maps, shopping, social, smart, osint, academic, code, finance, health, legal, local, music, podcasts, recipes, sports, travel, weather.
-- **More quick-results** — still open: sports scores, business/locations/phone, calendar/events, history, news/breaking (extend `detectQueryType` + `buildInstantAnswer` + add cards). Calculation, weather, **definition, unit/temperature conversion, currency, and world-clock** already shipped (see 2026-06-11 session).
-- **Categories logic** — images/social/video via Apify + search APIs (image/social/video tabs).
-- ✅ Already resolved/verified in current code (do NOT re-chase): **Shopping** (fully wired end-to-end via `AsSeenOn`→`/api/shopping/search`→`ShoppingService`→`SerpApiService.shoppingSearch`; the old "stub" note was stale — just verify live with `SERP_API_KEY`), Weather route, Brave inline `performBraveSearch`, SerpAPI whole-web fallback (fires when web < 5, dedupes by URL), provider timeouts (all bounded).
-
-### OSINT
-- ✅ **Free OSINT tools DONE (2026-06-11):** `OSINTToolsPanel.jsx` in Ocean mode wires the 4 free endpoints (`ip-lookup`/`dns-lookup`/`whois`/`username-platforms`) with per-tool forms + in-page iframe verify panel. The live OSINT path is **Ocean mode in `UniversalSearch`**, NOT the dead `OSINTMode.jsx`.
-- **Remaining:** wire the 2 auth endpoints (`/email-finder` Hunter.io, `/shodan/ip/:ip`) as extra tools behind the existing `TokenGate` (need auth header + keys). Delete dead `OSINTMode.jsx`.
-- **Python service** — fix Python 3.14 dep incompat in `OSINT-Harassment-Detector/requirements.txt`; deploy Flask service to a persistent host (Railway/Render/VPS); set `OSINT_SERVICE_URL` on Vercel (backend proxies via `osint-proxy.js`).
-
-### Features requested
-- ✅ **Open-in-app iframe viewer** — DONE (exists on result cards with X-Frame fallback).
-- ✅ **Inline video player** — DONE (2026-06-11): YouTube/Vimeo result links play inline via `getVideoEmbed` + ResultCard "▶ Play here".
-- ✅ **Privacy hardening** — DONE (2026-06-11): `saveHistory` toggle, clear-history, full wipe wired into Settings; no server-side query storage confirmed.
-- **Multi-input search bar** — audio / files / images end-to-end. (Still open.)
-- **Maps/globe** rendering refine (hardware-limited bg rendering; `useDeviceTier` hook already downgrades on low-end).
-- **SearXNG → primary** — provider-order flip is now **implemented behind a flag** (see 2026-06-11 session): set `SEARXNG_PRIMARY=true` (+ optional `SEARXNG_PRIMARY_MIN`, default 5) on the backend once SearXNG runs on a persistent host. Default off = unchanged parallel behavior. Currently `SEARXNG_URL` points at a dead ngrok tunnel → 404 (caught/non-fatal, 4.5s timeout; Brave covers). Reconfigure on a persistent host, then flip the flag.
-- **"Watch Ad for +5 Tokens"** — wire BiasedResults paywall button to a real rewarded ad; server-verified ad-session earning already exists (`/api/tokens/ad-session` + `/earn/ad`, 25s min, 6/hr cap).
-
-### Auth / payments / ads (mostly browser-dashboard, deferred to last per user)
-- **Google OAuth** consent screen still in "Testing" — publish or add test users (Client ID `1004953436750-0a1ni3p4mqaihh3593gvibq7tqsc5gma...`; callback `…/api/auth/google/callback`). Test end-to-end; redirect user back to originating page after callback.
-- **Gmail / email OAuth** — activate scopes/consent, verify delivery (Resend `RESEND_API_KEY` configured).
-- **Google Custom Search JSON API** — was logging `403 PERMISSION_DENIED`; enable Custom Search API in the Cloud project owning `GOOGLE_API_KEY` (no redeploy). Brave covers meanwhile. Also add ~50 broad domains to CSE `54cdc3626cf504531`.
-- **AdSense** — `ads.txt` valid (pub-9542137900411519); request review once `truegle.info` is live; ensure Privacy/Terms/About pages exist.
-- **Search Console + Bing Webmaster** — add/verify `truegle.info`, submit `/sitemap.xml`, request indexing for `/` and `/search`.
-- **Stripe** — test keys live now; webhook `TruegleVercelWebhook` → `…/api/payment/webhook` (8 events). Swap to live keys + complete account verification before charging.
-
-### Known pre-existing issues (follow-up candidates)
-- SPA is client-only → weak crawl/index; real SEO win is prerender/SSG (react-snap / vite-plugin-ssr / Next).
-- ✅ Build warnings FIXED (2026-06-11): `@import` order, `--tw-shadow-color` leak, and code-splitting all resolved (main chunk 4.86 MB → 489 KB). Remaining: `mapbox`/`vendor` chunks are inherently >900 KB (expected); `authService.js` static+dynamic import notice (minor).
-- Several pages exceed 800 lines (BiasedResults ~1150, UniversalSearch ~1000) — extract sub-components.
-- Dead/unwired code worth deleting: `pages/OSINTMode.jsx` (not routed — live OSINT is Ocean mode in `UniversalSearch`); `apps/backend/routes/analytics.js` `logSearch`/`logFailedSearch` (defined, never called); `*.backup-*` files under `components/ui/`.
+| Service | Status | Notes |
+|---------|--------|-------|
+| Cloudflare DNS | ✅ Complete | `truegle.info` zone active |
+| 301 Redirect | ✅ Active | trumpafi.online → truegle.info |
+| Legal pages (/privacy /terms /about) | ✅ Live | Prereq for OAuth + AdSense — now satisfied |
+| **Google Custom Search API** | ⚠️ **403** | See Step 1. Testing the real key DIRECTLY in a browser still 403s → it's a **project/account** issue, NOT a Vercel key mismatch. Likely the "API Enabled" screen was viewed under the WRONG Google account (multiple accounts). Brave covers search meanwhile. |
+| Google OAuth | ⚠️ Testing mode | Publish now unblocked (legal pages exist). See Step 2. |
+| OAuth Branding | ⚠️ Needs fix | Wrong authorized domain `truegle-search.pages.dev` → should be `truegle-search-15k.pages.dev`; also add `truegle.info` + `trumpafi.online`; fill home/privacy/terms URLs. See Step 3. |
+| AdSense | ⏸️ Ready to submit | ads.txt valid (`pub-9542137900411519`). Submit now that legal pages exist. See Step 4. |
+| Search Console | ⏸️ Not started | See Step 5. |
+| Bing Webmaster | ⏸️ Not started | See Step 5. |
+| Stripe | ✅ Verified | Live keys NOT yet swapped on Vercel. See Step 6. |
 
 ---
 
-## Session archive (condensed, newest first)
+## 🚦 REMAINING BROWSER STEPS (do in this order — each is self-contained)
 
-**2026-06-11 — search quick-wins (UNCOMMITTED — holding per "no commit until services active")**
-Code-side work that can't be live-verified until the final deploy; syntax-checked + frontend build passes + pure-compute logic unit-tested (15/15).
-- **Quick-result cards (new):** `definition` (free no-key dictionaryapi.dev), `conversion` (unit + temperature = pure local compute; currency via free no-key open.er-api.com, graceful null on failure), `time` (world clock via curated city→IANA map + `Intl`). Added `detectQueryType` rules (precedence-tested: `weather in paris`/`5 to 10`/`Barack Obama` correctly excluded), `buildInstantAnswer` handlers + helper tables in `apps/backend/routes/search.js`; new `ConversionCard`/`TimeCard`/`DefinitionCard` in `apps/frontend/src/components/ui/QuickResultCard.jsx`.
-- **SearXNG provider-order flip:** `SEARXNG_PRIMARY` / `SEARXNG_PRIMARY_MIN` (Joi schema + `config.searxng` in `env.js`); `SearchService.performSearch` queries SearXNG first and skips the paid API providers when it returns ≥ min results, else falls back. Off by default = byte-identical to before. Not used for red-pill (needs Brave).
-- **Shopping finding (no code):** the shopping pipeline was **already fully wired** (`AsSeenOn`→`/api/shopping/search`→`ShoppingService`→`SerpApiService.shoppingSearch`); the handoff's "stub" was stale. A parallel `SearchService` shopping path was prototyped then reverted to avoid duplicate/unreachable code.
-- **Build cleanup:** fixed `@import` order (`src/index.css`), the `--tw-shadow-color` leak (SearchBar dynamic `shadow-[…]` → inline `style` boxShadow — shadows now actually render), and added `manualChunks` in `vite.config.js` (main bundle **4.86 MB → 489 KB**; mapbox/three/vendor/framer/icons split out). Build is warning-clean (bar inherent big-vendor size notices).
-- **Viewers + privacy:** inline **video player** for YouTube/Vimeo result links (`getVideoEmbed` + ResultCard "▶ Play here" embed; generic in-app iframe viewer already existed). Privacy: new `saveHistory` setting (honored by `SearchBar`), fixed `SessionWipe` server call to use `VITE_BACKEND_URL` (was a relative path → 404 cross-origin), and wired a **Privacy & Data** section into `SettingsPage` (history toggle, clear-history, full device/server wipe via the previously-dead `NuclearOptionButton`). Audit confirmed **no server-side query storage** (both `logSearch` fns are never called; queries go via POST body; tracking tables removed in migration 004).
-- **OSINT overhaul (live Ocean path):** new `components/ui/OSINTToolsPanel.jsx` rendered in `mode === 'ocean'` — per-tool forms wired to the 4 free public endpoints (`/api/osint/ip-lookup`, `/dns-lookup`, `/whois`, `/username-platforms`) with real result rendering + an in-page iframe verification panel (X-Frame fallback). `OSINTMode.jsx` confirmed dead (not routed) — left for deletion. **Deferred:** the 2 auth endpoints (`email-finder` Hunter.io, `shodan`) — add behind the existing `TokenGate` with the auth header + keys.
-- Files touched (this round, all UNCOMMITTED): `apps/backend/routes/search.js`, `apps/backend/services/SearchService.js`, `apps/backend/config/env.js`, `apps/frontend/vite.config.js`, `apps/frontend/src/index.css`, `apps/frontend/src/context/SettingsContext.jsx`, `apps/frontend/src/components/SettingsPage.jsx`, `apps/frontend/src/components/ui/{QuickResultCard,SearchBar,SessionWipe,OSINTToolsPanel}.jsx`, `apps/frontend/src/pages/UniversalSearch.jsx`.
+> Reference values you'll need are in the QUICK REFERENCE table at the bottom.
 
-**S10 — 2026-06-10 · domain migration + search reliability** (commit `50055ea`, push held)
-truegle.info wired into CORS (`server.js`), OAuth `FRONTEND_URL` fallback (`auth.js`), canonical/OG/Twitter/JSON-LD (`index.html`), sitemap/robots. `DEPLOYMENT-INFRA.md` §1 rewritten with IONOS→Cloudflare DNS steps (Option A chosen). **Real bug fixed:** Google/Bing/News/2×YouTube axios calls had no timeout → could hang the Vercel function and stall the SerpAPI fallback; added `timeout: 8000`. All provider calls now bounded.
+### Step 1 — Fix Google Custom Search API 403  ✅ no redeploy needed
+The key itself is being rejected with *"This project does not have access to Custom Search
+JSON API."* — even when tested directly. The usual cause with multiple Google accounts is
+that the API was enabled in the wrong account/project.
+1. Go to **console.cloud.google.com**. In the **top-right avatar**, confirm you are signed
+   into the account that owns project **`truegle-search` (project number `1004953436750`)**.
+2. Top-left project picker → select **`truegle-search`** (confirm the number `1004953436750`).
+3. **APIs & Services → Enabled APIs & services** → look for **"Custom Search API"**.
+   - If it's NOT listed: **+ Enable APIs and Services** → search **"Custom Search API"** →
+     **Enable**.
+   - If it IS listed as enabled but search still 403s, wait ~5 min for propagation, then retest.
+4. **Test it** (any browser), replacing `THE_KEY` with the value from
+   **APIs & Services → Credentials → `Truegle Custom Search API Key` → Show key**:
+   ```
+   https://www.googleapis.com/customsearch/v1?key=THE_KEY&cx=54cdc3626cf504531&q=test
+   ```
+   - JSON with `"items": [...]` → fixed. (No redeploy needed; backend uses the same key.)
+   - Still 403 → you're still in the wrong account/project, or it hasn't propagated.
+5. (Optional) **programmablesearchengine.google.com** → engine `54cdc3626cf504531` → turn on
+   **"Search the entire web"** for broader coverage.
 
-**2026-06-09 — search outage fix + green filter + quick results** (PR #4, `3b100e4`, deployed+verified)
-Prod returned 0 results: frontend built with no `.env` → `VITE_BACKEND_URL` fell back to `localhost:3001` baked into the bundle. Fixed in `vite.config.js` (committed default → live Vercel backend in prod mode). SearXNG timeout 12s→4.5s + error→warn. Green mode now filters AI-content domains FE→BE (`aiContentDomains.js` NEW). `buildInstantAnswer` async; added `calculation` (safe arithmetic, no API) + `weather` (live OpenWeather singleton); new `WeatherCard`/`CalculationCard`. Verified live: real Brave results, safe-search differential works, calc/weather/green all good.
+### Step 2 — Publish Google OAuth consent screen
+Legal pages now exist, so this is unblocked.
+1. **console.cloud.google.com** → project `truegle-search` → **APIs & Services → OAuth
+   consent screen**.
+2. Under **Audience** (or **Publishing status**) → **Publish App** → confirm. Keep basic
+   scopes (email, profile, openid) and **no logo** to avoid Google's verification review.
+3. (Optional) Or, if you'd rather stay in Testing, add tester emails under **Test users**.
 
-**PR #1 / #2 — search UI, safe-search, SEO, trust-proxy, OG** (merged + deployed + verified)
-Mode-matched container colors; mounted missing `SettingsProvider` + tri-state safe/blur/off safe-search; bias pills on all results; visible source URL + open-link/open-in-app; real YouTube video duration/views via `videos.list` + `formatBingResults`; locked `/green` route; `useDeviceTier` perf hook; `robots.txt`/`ads.txt`/`sitemap.xml` + JSON-LD/canonical/OG/Twitter meta. PR #2: `app.set('trust proxy', 1)` (fixed `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` on every request); added 1200×630 branded `og-image.png` (was 404).
+### Step 3 — Fix OAuth Branding
+Same OAuth consent screen → **Branding**:
+- ❌ Remove `truegle-search.pages.dev` (wrong).
+- ✅ Add authorized domains: `truegle-search-15k.pages.dev`, `truegle.info`, `trumpafi.online`.
+- Fill: **Home page** `https://truegle.info`, **Privacy** `https://truegle.info/privacy`,
+  **Terms** `https://truegle.info/terms`.
+- **Credentials → OAuth client `Truegle Search`** → confirm **Authorized redirect URI**
+  `https://backend-seven-khaki-60.vercel.app/api/auth/google/callback`; add **JavaScript
+  origins** `https://truegle.info` and `https://trumpafi.online`. Save.
+- NOTE: the Google sign-in button stays hidden in the app until the frontend env
+  `VITE_SOCIAL_AUTH_ENABLED=true` is set and the frontend is redeployed (ask Claude Code to
+  do that once OAuth is published).
 
-**S8 — Stripe webhooks**
-Fixed raw-body parsing (`express.raw()` for `/api/payment/webhook` BEFORE `express.json()`); created prod webhook `TruegleVercelWebhook` (8 events); `STRIPE_WEBHOOK_SECRET` set on Vercel.
+### Step 4 — Submit AdSense review
+1. **adsense.google.com** → add/select site `truegle.info`.
+2. `ads.txt` is already live + valid at `https://truegle.info/ads.txt` (publisher
+   `pub-9542137900411519`).
+3. Request **review**. Privacy/Terms/About pages now exist, satisfying the policy prereq.
+   (Approval can take days to ~2 weeks.)
 
-**S7 — API-key migration**
-New Google CSE `54cdc3626cf504531`; new Google OAuth client; migrated to new Neon (us-west-2). All keys configured on Vercel: Google Search/OAuth, News, OpenWeather, YouTube, SerpAPI, TomTom, Mapbox, Unsplash, Apify, Hunter.io, Shodan, PayPal, Deepgram, Resend, Brave, Bright Data, Neon. `config/env.js` Joi schema extended.
+### Step 5 — Search Console + Bing Webmaster
+**Google Search Console** (search.google.com/search-console):
+1. **Add property** → `https://truegle.info`.
+2. Verify via **DNS TXT** — add the TXT record in **Cloudflare → truegle.info → DNS**.
+3. **Submit sitemap:** `https://truegle.info/sitemap.xml`.
+4. **URL Inspection** → Request indexing for `/` and `/search`.
 
-**S9 — search algorithms / OSINT / UI** (the canonical mode-algorithm table above)
-Removed Unsplash from `category=all`; added alternative/conspiracy/independent bias tiers (~40 domains); `sortRedPill()`, `mapPerspectivesToBias()`, `performOsintSearch()`; purple strict filter. New free OSINT endpoints (ip-lookup/dns-lookup/whois/username-platforms). Fixed same-results bug (track `lastSearchedQuery`). MultimediaInterface: real YouTube thumbnails + iframe lightbox, removed all mock images/data, empty states.
+**Bing Webmaster** (bing.com/webmasters):
+1. **Add site** → `truegle.info` → **Import from Google Search Console** (one click) or verify
+   via DNS TXT.
+2. Submit sitemap `https://truegle.info/sitemap.xml`.
 
-**S6 — category fixes**
-`performUnsplashSearch` for `category=images`; Google scoped social search; `timeout: 8000` on `unsplash.js`; 3-state safe-search in Google/Bing; SearchBar safe-search toggle; red-pill warning moved to search-execute; tutorial modal steps.
+### Step 6 — Swap Stripe to live keys (only when ready to charge real users)
+**Vercel → project `backend` → Settings → Environment Variables:**
+- `STRIPE_SECRET_KEY` → `sk_live_...` (Stripe → Developers → API Keys)
+- `STRIPE_PUBLISHABLE_KEY` → `pk_live_...`
+- `STRIPE_WEBHOOK_SECRET` → `whsec_...` (Stripe → Webhooks → `TruegleVercelWebhook`)
+- Then **redeploy backend** (ask Claude Code, or `cd apps/backend && vercel deploy --prod --yes`).
 
-**S5 — CORS + voice fix**
-Fixed stale Railway URL in `.env.production` → Vercel backend; fixed `VoiceRecognition.jsx` re-init spam (removed `transcript` from deps).
-
-**S4 — launch day**
-Neon connected + migrations 001-004 (004 removed tracking tables — *no bias, no tracking, no censorship*); red-pill backend; CORS before Helmet; Vercel fixes (`bcryptjs`, `better-sqlite3` try/catch, router basename `/`).
-
-**S3 — security**
-JWT revocation denylist (`tokenDenylist.js`); COOP→`same-origin-allow-popups`, CORP→`cross-origin`; server-verified ad-token earning; `searchAPI.js` thin-proxy refactor; payment FE wiring; OSINT Flask gunicorn/limiter config.
-
-**2026-05-28 — brand + modes + tokens**
-Removed all user-facing "AI" wording → "Smart"/"Search"; 3-way pill (Blue→Red→Green); green AI-free mode + `LetterGlitch` bg; search-summary thin banner (sessionStorage); first-search modal; `TutorialModal` (5-step, once/device); BiasedResults 10-token/session freemium + paywall; SignIn/SignUp redirect fix.
+### Step 7 — (Optional) SearXNG as primary
+Once SearXNG runs on a persistent host, set on Vercel backend: `SEARXNG_URL=https://<host>` +
+`SEARXNG_PRIMARY=true` (optional `SEARXNG_PRIMARY_MIN=5`), then redeploy backend.
 
 ---
 
-## Quick reference
-| Item | Location |
-|------|----------|
-| Search route (BE) | `apps/backend/routes/search.js` |
-| Search service (BE) | `apps/backend/services/SearchService.js` |
-| AI-content blocklist | `apps/backend/data/aiContentDomains.js` |
-| Weather (singleton!) | `apps/backend/services/WeatherService.js` |
-| OSINT free endpoints | `apps/backend/routes/osint.js` · proxy `osint-proxy.js` |
-| Auth middleware / denylist | `apps/backend/middleware/auth.js` · `services/tokenDenylist.js` |
-| Token earning | `apps/backend/routes/tokens.js` |
-| Security headers | `apps/backend/middleware/security.js` |
-| Live search page (FE) | `apps/frontend/src/pages/UniversalSearch.jsx` |
-| Search API proxy (FE) | `apps/frontend/src/services/searchAPI.js` |
-| Payment service (FE) | `apps/frontend/src/services/paymentService.js` |
-| Infra / DNS steps | `DEPLOYMENT-INFRA.md` |
-| Health check | `node apps/backend/scripts/healthcheck.js http://localhost:3001` |
+## 🛠️ DEPLOY TOPOLOGY & COMMANDS (for Claude Code / a computer)
+
+**Frontend (Cloudflare Pages, project `truegle-search`):**
+```
+cd apps/frontend
+NODE_OPTIONS='--max-old-space-size=4096' node ../../node_modules/vite/dist/node/cli.js build
+wrangler pages deploy dist --project-name=truegle-search --branch=main --commit-dirty=true
+```
+**Backend (Vercel, project `backend`):**
+```
+cd apps/backend && vercel deploy --prod --yes
+```
+**Verify:**
+```
+curl https://truegle.info/            # 200
+curl https://truegle.info/ads.txt     # valid
+curl https://backend-seven-khaki-60.vercel.app/api/health          # {"status":"OK"}
+curl https://backend-seven-khaki-60.vercel.app/api/search/health   # per-provider
+```
+CLIs authenticated: wrangler (o87enterprises@gmail.com), vercel (o87enterprises),
+gh (o87enterprises-ai).
+
+---
+
+## 🏗️ PROJECT SHAPE & GOTCHAS
+
+- **Monorepo:** `apps/frontend` (React 18 + Vite SPA, port 5173) + `apps/backend`
+  (Node/Express, port 3001). DB: Neon PostgreSQL (`ep-spring-star-afnjwpg6-pooler`, us-west-2).
+- **Live search page:** `apps/frontend/src/pages/UniversalSearch.jsx` (`/search`). Modes:
+  Blue (standard), Green (Blue + AI-content-domain filter), Red (inverted mainstream),
+  Purple (strict perspective filter), Ocean (OSINT only).
+- **Language plumbing:** FE `SettingsContext` (`detectBrowserLanguage/Country`) →
+  `filters.language/country` in the search POST → backend `validateFilters` →
+  `performGoogleSearch` (lr/hl/gl) / `performBraveSearch` (search_lang/country) / News.
+- **Repairs modal:** `components/ui/RepairsModal.jsx`, driven by `consecutiveFailuresRef`
+  in `UniversalSearch.handleSearch` (threshold 2).
+- **Gotchas:**
+  - `services/WeatherService.js` exports a **singleton** — never `new` it.
+  - If a fix "doesn't work live," suspect a **stale deploy** first; redeploy.
+  - `.env*` is gitignored; `vite.config.js` hardcodes the live Vercel backend as the prod
+    default so fresh clones build correctly.
+  - Correct Pages domain is `truegle-search-15k.pages.dev` (NOT `truegle-search.pages.dev`).
+  - Dead/legacy files safe to delete: `OSINTMode.jsx`, `SearchResults.jsx`, `SearchPortal*`,
+    `BiasedResults.jsx`, `ResultsPage.jsx`, `components/SearchResults.jsx`,
+    `components/ui/SearchResultsContainer.jsx`.
+
+---
+
+## 🗺️ NEXT CODE TASKS (for Claude Code, no dashboards needed)
+1. **Sync `package-lock.json`** (`npm install` + commit + push) → re-enables Cloudflare
+   auto-deploy on push.
+2. **Flip `VITE_SOCIAL_AUTH_ENABLED=true`** + redeploy frontend — once OAuth is published.
+3. Wire the 2 auth OSINT tools (Hunter.io email-finder, Shodan) behind the existing TokenGate.
+4. Ad slots: fill Hero slot, wire "Watch Ad for +5 Tokens" (backend `/api/tokens/ad-session`
+   + `/earn/ad` already exists). Add `WebSite`+`SearchAction` JSON-LD for SEO/AI-citation.
+
+---
+
+## 📋 QUICK REFERENCE
+| Item | Value |
+|------|-------|
+| Frontend URL | `https://truegle.info` |
+| Backend URL | `https://backend-seven-khaki-60.vercel.app` |
+| Cloudflare Pages project | `truegle-search` |
+| Pages default domain | `truegle-search-15k.pages.dev` |
+| GitHub repo | `o87enterprises-ai/TruegleSearch` |
+| Google Cloud project | `truegle-search` (number `1004953436750`) |
+| Google OAuth client | `Truegle Search`, ID starts `1004953436750-0a1ni3p4...` |
+| OAuth callback | `https://backend-seven-khaki-60.vercel.app/api/auth/google/callback` |
+| Custom Search Engine ID (cx) | `54cdc3626cf504531` |
+| GCP API key name | `Truegle Custom Search API Key` |
+| AdSense publisher | `pub-9542137900411519` |
+| Stripe webhook | `TruegleVercelWebhook` → `/api/payment/webhook` (8 events) |
+| Neon DB | `ep-spring-star-afnjwpg6-pooler` (us-west-2) |
+| Cloudflare nameservers | `journey.ns.cloudflare.com` + `newt.ns.cloudflare.com` |
+| IONOS / Cloudflare / Vercel / GitHub accounts | `o87enterprises@gmail.com` · same · `o87enterprises` · `o87enterprises-ai` |
+| Sitemap | `https://truegle.info/sitemap.xml` |
