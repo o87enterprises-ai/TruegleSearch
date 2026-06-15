@@ -36,18 +36,32 @@ export default defineConfig(({ mode }) => {
     rollupOptions: {
       output: {
         // Split the heaviest vendors into their own cacheable chunks so the
-        // main bundle isn't a single multi-MB file. Each big library (3D, maps,
-        // charts, animation) only loads on the routes that import it.
+        // main bundle isn't a single multi-MB file — but keep the chunk graph
+        // strictly ACYCLIC. A previous split put React in its own chunk while
+        // mapbox/three chunks cross-imported each other, creating a circular
+        // dependency: React's live binding was still `undefined` when
+        // framer-motion ran `React.useLayoutEffect`, crashing the whole app
+        // ("can't access property useLayoutEffect of undefined").
+        //
+        // Rules to stay acyclic:
+        //  - React core (react/react-dom/scheduler) has ZERO deps -> its own
+        //    pure-leaf chunk that always initializes first.
+        //  - Only React-*free* heavy libs (plain three, mapbox-gl, echarts,
+        //    leaflet) get their own leaf chunks.
+        //  - Every React *consumer* (framer-motion, react-router, icons,
+        //    @react-three/*, react-map-gl, etc.) stays in ONE `vendor` chunk
+        //    that only ever imports the leaves above — never the reverse.
         manualChunks(id) {
           if (!id.includes('node_modules')) return
-          if (id.includes('/three') || id.includes('@react-three')) return 'three'
-          if (id.includes('mapbox-gl') || id.includes('react-map-gl') || id.includes('@mapbox')) return 'mapbox'
-          if (id.includes('leaflet')) return 'leaflet'
-          if (id.includes('echarts')) return 'echarts'
-          if (id.includes('framer-motion')) return 'framer-motion'
-          if (id.includes('lucide-react') || id.includes('react-icons')) return 'icons'
-          if (id.includes('react-router')) return 'react-router'
-          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) return 'react-vendor'
+          // React core — pure leaf, must load before any consumer.
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) return 'react-vendor'
+          // React-free heavy leaves (note: NOT @react-three / react-map-gl /
+          // echarts-for-react / react-leaflet — those import React and live in
+          // `vendor` so no leaf ever points back into the main graph).
+          if (/[\\/]node_modules[\\/](three|three-stdlib|troika[^\\/]*|postprocessing|meshline)[\\/]/.test(id)) return 'three'
+          if (/[\\/]node_modules[\\/](mapbox-gl|@mapbox)[\\/]/.test(id)) return 'mapbox'
+          if (/[\\/]node_modules[\\/]echarts[\\/]/.test(id)) return 'echarts'
+          if (/[\\/]node_modules[\\/]leaflet[\\/]/.test(id)) return 'leaflet'
           return 'vendor'
         }
       }
