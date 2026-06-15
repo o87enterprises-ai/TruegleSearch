@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, ArrowRight, Chrome, Shield } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Chrome } from 'lucide-react';
 import { FaApple } from 'react-icons/fa';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import MolecularBackground from '../components/backgrounds/MolecularBackground';
@@ -17,11 +17,6 @@ export default function SignInPage() {
   const toast = useToast();
   const location = useLocation();
   const { login } = useAuth(); // Get the login function from auth context
-
-  // Debug message on mount
-  useEffect(() => {
-    console.log('SignInPage mounted - admin login available');
-  }, []);
 
   // Check if coming from media interfaces to show freemium message
   const showFreemiumMessage = location.state?.showFreemiumMessage || false;
@@ -40,137 +35,6 @@ export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const [adminLoginCount, setAdminLoginCount] = useState(0);
-  const [showDebugPanel, setShowDebugPanel] = useState(false);
-
-  // Admin login keyboard shortcut - Multiple activation methods
-  useEffect(() => {
-    let clickCount = 0;
-    let clickTimer;
-
-    const handleKeyDown = (e) => {
-      console.log('🔑 Key pressed:', {
-        key: e.key,
-        code: e.code,
-        ctrlKey: e.ctrlKey,
-        shiftKey: e.shiftKey,
-        altKey: e.altKey,
-        metaKey: e.metaKey,
-        which: e.which,
-        keyCode: e.keyCode
-      });
-
-      // Try multiple key combinations for cross-platform/browser compatibility
-      const isAdminShortcut =
-        // Mac/PC standard
-        (e.ctrlKey && e.shiftKey && e.key === 'A') ||
-        (e.metaKey && e.shiftKey && e.key === 'A') ||
-        // Alt combinations
-        (e.altKey && e.key === 'A') ||
-        // Firefox specific
-        (e.altKey && e.shiftKey && e.key === 'A') ||
-        // Direct key code checks
-        (e.keyCode === 65 && (e.ctrlKey || e.metaKey) && e.shiftKey);
-
-      if (isAdminShortcut) {
-        e.preventDefault();
-        console.log('🎯 Admin shortcut detected!');
-        setAdminLoginCount(prev => {
-          const newCount = prev + 1;
-          console.log('📊 Admin login count:', newCount);
-          if (newCount >= 3) {
-            console.log('✅ Showing admin login button');
-            setShowAdminLogin(true);
-          }
-          return newCount;
-        });
-      }
-    };
-
-    const handleTripleClick = (e) => {
-      clickCount++;
-      clearTimeout(clickTimer);
-
-      clickTimer = setTimeout(() => {
-        clickCount = 0;
-      }, 500);
-
-      if (clickCount === 3) {
-        console.log('🎯 Triple-click detected - activating admin login');
-        setShowAdminLogin(true);
-        clickCount = 0;
-      }
-    };
-
-    const handleLogoTripleClick = (e) => {
-      // Check if clicking on Truegle logo area
-      if (e.target.closest('[data-logo]') || e.target.textContent?.includes('Truegle')) {
-        console.log('🎯 Logo triple-click detected');
-        setShowAdminLogin(true);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('click', handleTripleClick);
-    window.addEventListener('click', handleLogoTripleClick);
-
-    console.log('🎮 Admin login listeners added - Try:');
-    console.log('   • Ctrl+Shift+A (or Cmd+Shift+A on Mac)');
-    console.log('   • Alt+A');
-    console.log('   • Triple-click anywhere');
-    console.log('   • Triple-click on Truegle logo');
-
-    return () => {
-      console.log('🧹 Admin login listeners removed');
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('click', handleTripleClick);
-      window.removeEventListener('click', handleLogoTripleClick);
-      clearTimeout(clickTimer);
-    };
-  }, []);
-
-  // Admin login function that bypasses normal authentication
-  const handleAdminLogin = async () => {
-    setIsLoading(true);
-
-    try {
-      // Create fake admin user session
-      const adminUser = {
-        id: 'admin_12345',
-        email: 'admin@truegle.com',
-        name: 'Truegle Admin',
-        role: 'admin',
-        isVerified: true,
-        tokenBalance: 999,
-        isPremium: true,
-      };
-
-      const adminToken = 'admin_bypass_token_' + Date.now();
-
-      // Log in admin user by calling login function from AuthContext
-      login({
-        user: adminUser,
-        token: adminToken
-      }, true);
-
-      toast.success('Admin Login', 'Welcome back, Administrator!', { pageTheme: 'landing' });
-
-      // Navigate to redirect URL or universal search
-      const adminRedirect = location.state?.redirectTo || '/search';
-      navigate(adminRedirect);
-
-    } catch (error) {
-      console.error('Admin login error:', error);
-      toast.error('Admin Login Failed', 'Unable to log in as admin', { pageTheme: 'landing' });
-      setErrors({ general: 'Admin login failed' });
-      console.error('Admin login error:', error);
-      toast.error('Admin Login Failed', 'Unable to log in as admin', { pageTheme: 'landing' });
-      setErrors({ general: 'Admin login failed' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -273,25 +137,8 @@ export default function SignInPage() {
   // VITE_SOCIAL_AUTH_ENABLED=true once OAuth is live. Email/password is unaffected.
   const socialAuthEnabled = import.meta.env.VITE_SOCIAL_AUTH_ENABLED === 'true';
 
-  // Simple backup admin trigger (click bottom-right corner of screen)
-  const handleCornerClick = (e) => {
-    // Only trigger if clicking in bottom-right corner
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const isBottomRight = x > rect.width * 0.8 && y > rect.height * 0.8;
-
-    if (isBottomRight) {
-      console.log('Corner click detected - activating admin login');
-      setShowAdminLogin(true);
-    }
-  };
-
   return (
-    <div
-      className="min-h-screen relative flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 overflow-y-auto"
-      onClick={handleCornerClick}
-    >
+    <div className="min-h-screen relative flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 overflow-y-auto">
       {/* Molecular Background */}
       <MolecularBackground />
 
@@ -311,9 +158,6 @@ export default function SignInPage() {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 }}
-          data-logo="true"
-          onClick={() => console.log('Logo clicked - triple-click for admin')}
-          title="Triple-click for admin login"
         >
           <button onClick={() => navigate('/')} className="inline-block group">
             <motion.div
@@ -573,125 +417,6 @@ export default function SignInPage() {
               )}
             </NeonButton>
            </form>
-
-           {/* Debug Panel Toggle */}
-           <div className="mt-4 text-center">
-             <button
-               onClick={() => setShowDebugPanel(!showDebugPanel)}
-               className="text-xs text-gray-500 hover:text-gray-400 transition-colors underline"
-             >
-               {showDebugPanel ? 'Hide' : 'Show'} Admin Debug Panel
-             </button>
-           </div>
-
-           {/* Debug Panel */}
-           {showDebugPanel && (
-             <motion.div
-               initial={{ opacity: 0, height: 0 }}
-               animate={{ opacity: 1, height: 'auto' }}
-               exit={{ opacity: 0, height: 0 }}
-               className="mt-4 p-4 bg-black/30 rounded-xl border border-gray-700"
-             >
-               <h3 className="text-sm font-bold text-white mb-3 text-center">🔧 Admin Login Debug Panel</h3>
-
-               <div className="space-y-2 text-xs">
-                 <div className="grid grid-cols-2 gap-2">
-                   <div className="text-gray-400">Status:</div>
-                   <div className={showAdminLogin ? 'text-green-400' : 'text-yellow-400'}>
-                     {showAdminLogin ? '✅ Active' : '⏳ Waiting'}
-                   </div>
-
-                   <div className="text-gray-400">Progress:</div>
-                   <div className="text-white">{adminLoginCount}/3</div>
-                 </div>
-
-                 <div className="mt-3">
-                   <div className="text-gray-400 mb-2">Activation Methods:</div>
-                   <div className="space-y-1 text-gray-300">
-                     <div>• <kbd className="bg-gray-700 px-1 rounded text-xs">Ctrl+Shift+A</kbd> (PC) or <kbd className="bg-gray-700 px-1 rounded text-xs">Cmd+Shift+A</kbd> (Mac)</div>
-                     <div>• <kbd className="bg-gray-700 px-1 rounded text-xs">Alt+A</kbd> (Alternative)</div>
-                     <div>• Triple-click anywhere on page</div>
-                     <div>• Triple-click on Truegle logo</div>
-                     <div>• Inspect element → Find button with id="admin-trigger"</div>
-                   </div>
-                 </div>
-
-                 <div className="mt-3 pt-3 border-t border-gray-700">
-                   <button
-                     onClick={() => {
-                       console.log('🔧 Debug: Force activating admin login');
-                       setShowAdminLogin(true);
-                     }}
-                     className="w-full py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/50 rounded text-red-400 text-xs transition-colors"
-                   >
-                     🚀 Force Activate Admin Login
-                   </button>
-                 </div>
-               </div>
-             </motion.div>
-           )}
-
-           {/* Admin Login Progress Indicator */}
-            {adminLoginCount > 0 && adminLoginCount < 3 && (
-              <div className="mt-4 text-center">
-                <p className="text-xs text-gray-500">
-                  Admin login: {adminLoginCount}/3
-                </p>
-                <p className="text-xs text-gray-400 mb-2">
-                  Try: Ctrl+Shift+A, Alt+A, or triple-click anywhere
-                </p>
-                <div className="flex justify-center gap-1 mt-1">
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className={`w-2 h-2 rounded-full transition-colors ${
-                        i <= adminLoginCount ? 'bg-red-500 animate-pulse' : 'bg-gray-600'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Hidden Admin Trigger (for inspect element access) */}
-            <button
-              id="admin-trigger"
-              className="hidden"
-              onClick={() => {
-                console.log('🎯 Hidden admin trigger clicked');
-                setShowAdminLogin(true);
-              }}
-              title="Admin Login Trigger"
-            >
-              ADMIN
-            </button>
-
-            {/* Admin Login Button - Hidden until activated */}
-            {showAdminLogin && (
-             <motion.div
-               initial={{ opacity: 0, scale: 0.9 }}
-               animate={{ opacity: 1, scale: 1 }}
-               exit={{ opacity: 0, scale: 0.9 }}
-               className="mt-4"
-             >
-               <NeonButton
-                 type="button"
-                 onClick={handleAdminLogin}
-                 variant="secondary"
-                 size="md"
-                 disabled={isLoading}
-                 className="w-full bg-gradient-to-r from-red-600 to-purple-600 border-red-500"
-               >
-                 <Shield className="inline mr-2" size={16} />
-                 Admin Login (Bypass)
-               </NeonButton>
-                <div className="text-xs text-gray-500 text-center mt-2 space-y-1">
-                  <p>🎯 Admin access granted!</p>
-                  <p>Activated via: Keyboard shortcut, triple-click, or inspect element</p>
-                  <p className="text-gray-400">Check console for debug info</p>
-                </div>
-             </motion.div>
-           )}
 
            {/* Sign Up Link */}
            <div className="mt-6 text-center">
