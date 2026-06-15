@@ -145,7 +145,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isRedPillMode, setIsRedPillMode] = useState(false);
   const [isOSINTMode, setIsOSINTMode] = useState(false);
-  const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
+  const cursorGlowRef = useRef(null);
   const [showMap, setShowMap] = useState(false);
   const [mapManuallyClosed, setMapManuallyClosed] = useState(false);
   const { isLocationQuery, detectedLocation } = useLocationDetection(searchValue);
@@ -191,13 +191,28 @@ export default function UniversalSearch({ lockedGreen = false }) {
     }
   }, [mode]);
 
-  // Cursor glow effect
+  // Cursor glow effect — update the overlay's style DIRECTLY (ref + rAF) instead
+  // of setting React state on every mousemove. Previously this re-rendered the
+  // entire (~1500-line) search page on every pixel of movement, which made the
+  // result cards glitch/flicker. Now there are zero re-renders from the cursor.
   useEffect(() => {
-    const handleMouseMove = (e) => {
-      setCursorPosition({ x: e.clientX, y: e.clientY });
+    let rafId = null;
+    let pending = null;
+    const apply = () => {
+      rafId = null;
+      if (cursorGlowRef.current && pending) {
+        cursorGlowRef.current.style.background = `radial-gradient(600px circle at ${pending.x}px ${pending.y}px, rgba(139, 92, 246, 0.15), transparent 40%)`;
+      }
     };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    const handleMouseMove = (e) => {
+      pending = { x: e.clientX, y: e.clientY };
+      if (rafId == null) rafId = requestAnimationFrame(apply);
+    };
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   // Auto-execute search when URL query changes
@@ -598,7 +613,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.05 }}
-        className={`rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border transition-all duration-300 ${borderClass}`}
+        className={`rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border transition-colors duration-300 ${borderClass}`}
       >
         <div className="p-4">
           <div className="flex gap-3">
@@ -746,12 +761,12 @@ export default function UniversalSearch({ lockedGreen = false }) {
         </AnimatePresence>
       </div>
 
-      {/* Cursor Glow Effect */}
+      {/* Cursor Glow Effect — driven imperatively via cursorGlowRef (see effect
+          above) so it never triggers a React re-render. No CSS transition: it
+          would fight the per-frame updates and cause a laggy trailing glitch. */}
       <div
-        className="pointer-events-none fixed inset-0 z-30 transition duration-300"
-        style={{
-          background: `radial-gradient(600px circle at ${cursorPosition.x}px ${cursorPosition.y}px, rgba(139, 92, 246, 0.15), transparent 40%)`,
-        }}
+        ref={cursorGlowRef}
+        className="pointer-events-none fixed inset-0 z-30"
       />
 
       {/* Content - EXACT structure from SearchResults.jsx */}
