@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import AdBanner from './AdBanner';
 import { aiAPI } from '../../services/api';
+import { FREE_ACCESS_MODE } from '../../config/access';
 
 // Map frontend mode strings to backend context strings
 const MODE_TO_CONTEXT = {
@@ -155,7 +156,7 @@ export default function AIChatOverlay({
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
 
-    if (!isAuthed) {
+    if (!FREE_ACCESS_MODE && !isAuthed) {
       onClose();
       navigate('/auth/login', { state: { redirectTo: window.location.pathname + window.location.search } });
       return;
@@ -187,14 +188,17 @@ export default function AIChatOverlay({
       }]);
     } catch (error) {
       console.error('AI chat error:', error);
-      if (error.response?.status === 401) {
+      if (!FREE_ACCESS_MODE && error.response?.status === 401) {
         onClose();
         navigate('/auth/login', { state: { redirectTo: window.location.pathname + window.location.search } });
         return;
       }
-      const errText = error.response?.status === 402
+      const status = error.response?.status;
+      const errText = status === 402
         ? 'You\'ve run out of tokens. Watch an ad or upgrade to Premium.'
-        : error.response?.data?.message || 'Something went wrong. Please try again.';
+        : (status === 401 || status === 403)
+        ? 'The AI assistant is still being tuned up in early access and isn\'t open to everyone yet. Search results work great in the meantime — thanks for your patience!'
+        : error.response?.data?.message || 'Something went wrong on our end. We\'re on it — please try again in a moment.';
       setMessages((prev) => [...prev, {
         id: Date.now() + 1,
         role: 'assistant',

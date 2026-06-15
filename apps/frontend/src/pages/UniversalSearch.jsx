@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { FREE_ACCESS_MODE } from '../config/access';
 import {
   ChevronDown,
   Sparkles,
@@ -120,6 +121,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const [instantAnswer, setInstantAnswer] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [lastSearchedQuery, setLastSearchedQuery] = useState(null);
+  // Distinguish "search failed" (provider/network error) from "0 genuine results"
+  // so users always get a clear message instead of a silent empty page.
+  const [searchError, setSearchError] = useState(false);
 
   // Down-for-repairs: show a maintenance modal after consecutive search failures
   const [showRepairsModal, setShowRepairsModal] = useState(false);
@@ -331,6 +335,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
       const data = await response.json();
       setSearchResults(data.results || []);
       setInstantAnswer(data.instantAnswer || null);
+      setSearchError(false);
 
       // Successful response — clear the consecutive-failure streak
       consecutiveFailuresRef.current = 0;
@@ -350,6 +355,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
+      setSearchError(true);
 
       // Track consecutive malfunctions; surface the maintenance modal once we
       // hit the threshold (e.g. a backend/CORS outage), so global users aren't
@@ -1099,16 +1105,16 @@ export default function UniversalSearch({ lockedGreen = false }) {
                                 role="button"
                                 tabIndex={0}
                                 onClick={() => {
-                                  if (!isAuthenticated) {
+                                  if (!FREE_ACCESS_MODE && !isAuthenticated) {
                                     navigate('/auth/login', { state: { redirectTo: window.location.pathname + window.location.search } });
                                   } else {
                                     setIsChatOpen(true);
                                   }
                                 }}
-                                onKeyDown={(e) => e.key === 'Enter' && (isAuthenticated ? setIsChatOpen(true) : navigate('/auth/login'))}
+                                onKeyDown={(e) => e.key === 'Enter' && ((FREE_ACCESS_MODE || isAuthenticated) ? setIsChatOpen(true) : navigate('/auth/login'))}
                                 className="underline hover:text-white/60 transition-colors cursor-pointer"
                               >
-                                {isAuthenticated ? 'Ask follow-up' : 'Sign in to chat'}
+                                {(FREE_ACCESS_MODE || isAuthenticated) ? 'Ask follow-up' : 'Sign in to chat'}
                               </span>
                             </div>
                           </>
@@ -1252,6 +1258,39 @@ export default function UniversalSearch({ lockedGreen = false }) {
                       {searchResults.length > 0 ? `About ${searchResults.length} results` : 'No results yet - try searching!'}
                     </span>
                   </div>
+
+                  {/* Search failed (provider/network/quota) — reassure + retry */}
+                  {searchError && lastSearchedQuery && (
+                    <div className="mb-4 p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-center">
+                      <div className="text-2xl mb-2">🛠️</div>
+                      <p className="text-amber-200 text-sm font-semibold mb-1">
+                        We're having trouble fetching results right now
+                      </p>
+                      <p className="text-white/50 text-xs mb-4 max-w-md mx-auto">
+                        TruegleSearch is in early access and one of our search
+                        providers may be catching its breath. This is usually
+                        brief — please try again in a moment.
+                      </p>
+                      <button
+                        onClick={() => handleSearch()}
+                        className="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-semibold text-sm border border-amber-500/40 transition-all"
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Genuine zero-results (search succeeded, nothing matched) */}
+                  {!searchError && lastSearchedQuery && searchResults.length === 0 && (
+                    <div className="mb-4 p-5 rounded-2xl bg-white/5 border border-white/10 text-center">
+                      <p className="text-white/80 text-sm font-semibold mb-1">
+                        No results for "{lastSearchedQuery}"
+                      </p>
+                      <p className="text-white/40 text-xs max-w-md mx-auto">
+                        Try different keywords, broader terms, or another search mode.
+                      </p>
+                    </div>
+                  )}
 
                   {instantAnswer && (
                     <QuickResultCard

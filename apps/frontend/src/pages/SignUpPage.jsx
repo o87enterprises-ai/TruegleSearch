@@ -11,6 +11,7 @@ import NeonButton from '../components/ui/NeonButton';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import authService from '../services/authService';
 import { useToast } from '../components/ui/ToastProvider';
+import { OAUTH_ENABLED } from '../config/access';
 
 export default function SignUpPage() {
   const navigate = useNavigate();
@@ -161,7 +162,9 @@ export default function SignUpPage() {
 
   // Hidden until social OAuth is wired + the Google consent screen is published.
   // Flip VITE_SOCIAL_AUTH_ENABLED=true to show. Email/password is unaffected.
-  const socialAuthEnabled = import.meta.env.VITE_SOCIAL_AUTH_ENABLED === 'true';
+  // Also force-hidden while OAUTH_ENABLED is false (pre-production bypass).
+  const socialAuthEnabled =
+    OAUTH_ENABLED && import.meta.env.VITE_SOCIAL_AUTH_ENABLED === 'true';
 
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 overflow-y-auto">

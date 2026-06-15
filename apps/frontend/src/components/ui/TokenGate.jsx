@@ -4,6 +4,7 @@ import { Coins, Play, Crown, Lock, Sparkles, AlertCircle } from 'lucide-react';
 import { useTokens } from '../../context/TokenContext';
 import { useAuth } from '../../context/AuthContext';
 import AdPlayer from './AdPlayer';
+import { FREE_ACCESS_MODE } from '../../config/access';
 
 /**
  * TokenGate Component
@@ -16,6 +17,10 @@ const TokenGate = ({
   showAlways = false, // Always show gate UI even if access is granted
   className = '',
 }) => {
+  // Pre-production: paywalls removed — the gate never blocks. Returned before
+  // any hooks so hook order stays consistent (FREE_ACCESS_MODE is a constant).
+  if (FREE_ACCESS_MODE) return <>{children}</>;
+
   const { isAuthenticated } = useAuth();
   const {
     balance,

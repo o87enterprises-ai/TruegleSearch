@@ -30,6 +30,10 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import About from './pages/About';
 import NotFound from "./pages/NotFound";
+import RootErrorBoundary from './components/ui/RootErrorBoundary';
+import RouteBoundary from './components/ui/RouteBoundary';
+import PreProductionBanner from './components/ui/PreProductionBanner';
+import { FREE_ACCESS_MODE } from './config/access';
 // Info Wizard Prompt
 const InfoWizardPrompt = ({
   webStack,
@@ -114,6 +118,7 @@ const InfoWizardPrompt = ({
  */
 const App = () => {
   return (
+    <RootErrorBoundary>
     <Router basename="/" future={{
       v7_startTransition: true,
       v7_relativeSplatPath: true
@@ -138,6 +143,7 @@ const App = () => {
         </TokenProvider>
       </AuthProvider>
     </Router>
+    </RootErrorBoundary>
   );
 };
 
@@ -146,6 +152,9 @@ const App = () => {
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation(); // Get current location to preserve redirect info
+
+  // Pre-production: auth is bypassed so every page is reachable without login.
+  if (FREE_ACCESS_MODE) return children;
 
   if (loading) {
     return (
@@ -189,18 +198,19 @@ const AppContent = () => {
 
   return (
     <div id="main-content" className={containerClassNames}>
+      <PreProductionBanner />
       <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         {/* Public Routes */}
-        <Route path="/auth/login" element={<SignInPage />} />
-        <Route path="/auth/signup" element={<SignUpPage />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/auth/login" element={<RouteBoundary><SignInPage /></RouteBoundary>} />
+        <Route path="/auth/signup" element={<RouteBoundary><SignUpPage /></RouteBoundary>} />
+        <Route path="/auth/callback" element={<RouteBoundary><AuthCallback /></RouteBoundary>} />
 
         {/* Universal Search Route */}
-        <Route path="/search" element={<UniversalSearch />} />
+        <Route path="/search" element={<RouteBoundary><UniversalSearch /></RouteBoundary>} />
 
         {/* Locked Green Mode - AI-free, no navigation out */}
-        <Route path="/green" element={<UniversalSearch lockedGreen />} />
+        <Route path="/green" element={<RouteBoundary><UniversalSearch lockedGreen /></RouteBoundary>} />
 
         {/* Legacy Routes - Redirect to Universal Search */}
         <Route path="/search-portal" element={<Navigate to="/search" replace />} />
@@ -212,38 +222,38 @@ const AppContent = () => {
         <Route path="/osint/tools" element={<Navigate to="/search?mode=ocean" replace />} />
 
         {/* Feeling Biased Page - Keep as entry point */}
-        <Route path="/feeling-biased" element={<FeelingBiasedPage />} />
+        <Route path="/feeling-biased" element={<RouteBoundary><FeelingBiasedPage /></RouteBoundary>} />
 
         {/* Legal / Info Pages (required for OAuth publishing + AdSense) */}
-        <Route path="/privacy" element={<PrivacyPolicy />} />
-        <Route path="/terms" element={<TermsOfService />} />
-        <Route path="/about" element={<About />} />
+        <Route path="/privacy" element={<RouteBoundary><PrivacyPolicy /></RouteBoundary>} />
+        <Route path="/terms" element={<RouteBoundary><TermsOfService /></RouteBoundary>} />
+        <Route path="/about" element={<RouteBoundary><About /></RouteBoundary>} />
         {/* Onboarding Route */}
         <Route
           path="/onboarding"
           element={
             <ProtectedRoute>
-              <OnboardingPage />
+              <RouteBoundary><OnboardingPage /></RouteBoundary>
             </ProtectedRoute>
           }
         />
         {/* Landing Page */}
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<RouteBoundary><LandingPage /></RouteBoundary>} />
         {/* Settings */}
         <Route
           path="/settings"
           element={
             <ProtectedRoute>
-              <>
+              <RouteBoundary>
                 <Header onSearch={handleSearch} searchQuery={searchQuery} />
                 <SettingsPage />
                 <Footer />
-              </>
+              </RouteBoundary>
             </ProtectedRoute>
           }
         />
         {/* Catch all */}
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={<RouteBoundary><NotFound /></RouteBoundary>} />
       </Routes>
       </AnimatePresence>
     </div>

@@ -5,6 +5,7 @@ import { useSearchMode, SEARCH_MODES } from '../../context/SearchModeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import TokenGate from './TokenGate';
+import { FREE_ACCESS_MODE } from '../../config/access';
 
 /**
  * ModeToggle Component
@@ -24,7 +25,7 @@ const ModeToggle = ({ className = '', size = 'md', showLabels = true }) => {
   const [showTokenGate, setShowTokenGate] = useState(false);
 
   const handleToggle = async () => {
-    if (!isAuthenticated && mode === SEARCH_MODES.BLUE_PILL) {
+    if (!FREE_ACCESS_MODE && !isAuthenticated && mode === SEARCH_MODES.BLUE_PILL) {
       // Redirect to login
       navigate('/auth/login', { state: { redirectTo: window.location.pathname } });
       return;

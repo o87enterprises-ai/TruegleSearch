@@ -11,6 +11,7 @@ import NeonButton from '../components/ui/NeonButton';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import authService from '../services/authService';
 import { useToast } from '../components/ui/ToastProvider';
+import { OAUTH_ENABLED } from '../config/access';
 
 export default function SignInPage() {
   const navigate = useNavigate();
@@ -135,7 +136,8 @@ export default function SignInPage() {
   // Social sign-in is hidden until the Google OAuth consent screen is published
   // (it's in "Testing" mode, which blocks non-test users). Flip
   // VITE_SOCIAL_AUTH_ENABLED=true once OAuth is live. Email/password is unaffected.
-  const socialAuthEnabled = import.meta.env.VITE_SOCIAL_AUTH_ENABLED === 'true';
+  const socialAuthEnabled =
+    OAUTH_ENABLED && import.meta.env.VITE_SOCIAL_AUTH_ENABLED === 'true';
 
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 overflow-y-auto">
