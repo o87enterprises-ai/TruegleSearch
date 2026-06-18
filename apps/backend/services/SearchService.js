@@ -199,15 +199,15 @@ class SearchService {
           }
         } else if (this.braveApiKey) {
           // No dedicated YouTube API key configured: surface videos via the web
-          // provider instead. A plain Brave query naturally returns youtube.com/
-          // vimeo.com links, which are categorized as 'videos' downstream and kept
-          // by the category filter — filling the Videos tab, which would otherwise
-          // be empty when category === 'videos' (searchWeb is false for a non-web
-          // category). NOTE: a `site:youtube.com OR site:vimeo.com` bias does NOT
-          // work — Brave returns 0 for that OR-of-site: syntax.
-          searchPromises.push(this.performBraveSearch(query, { ...filters, perPage: 20 }));
+          // provider instead. Constrain Brave to YouTube with a SINGLE site:
+          // operator (an `OR`-of-two site: filters returns 0 from Brave). These
+          // youtube.com links are categorized 'videos' downstream and kept by the
+          // category filter — filling the Videos tab, which is otherwise empty for
+          // category === 'videos' (searchWeb is false for a non-web category).
+          // A plain (unconstrained) Brave query only surfaces 0-2 youtube links.
+          searchPromises.push(this.performBraveSearch(`${query} site:youtube.com`, { ...filters, perPage: 20 }));
         } else if (this.googleApiKey && this.googleSearchEngineId) {
-          searchPromises.push(this.performGoogleSearch(query, { ...filters, perPage: 20 }));
+          searchPromises.push(this.performGoogleSearch(`${query} site:youtube.com`, { ...filters, perPage: 20 }));
         }
       }
 
