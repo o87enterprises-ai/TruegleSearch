@@ -231,6 +231,35 @@ class SearchService {
         }
       }
 
+      // Quoted-phrase broadening. A query like '"grown shit" mac dre' makes the
+      // web providers (Brave/Google) do strict exact-phrase matching, which can
+      // return very few results and starve the category tabs — especially Videos,
+      // which are just youtube.com links surfaced by the web providers (the
+      // dedicated YouTube API is not configured). When a quoted query comes back
+      // thin, re-run the de-quoted variant and merge in anything new. Exact-match
+      // results were fetched first and still rank highest via relevance scoring.
+      if (/["']/.test(query) && combinedResults.length < 12) {
+        const broadened = query.replace(/["']/g, ' ').replace(/\s+/g, ' ').trim();
+        if (broadened && broadened !== query) {
+          console.log(`🔁 Thin quoted-query result (${combinedResults.length}) — broadening to "${broadened}"`);
+          const broadenPromises = [];
+          if (this.braveApiKey) broadenPromises.push(this.performBraveSearch(broadened, filters));
+          if (this.googleApiKey && this.googleSearchEngineId) broadenPromises.push(this.performGoogleSearch(broadened, filters));
+          if (this.youtubeApiKey) broadenPromises.push(this.performYoutubeSearch(broadened, filters));
+          if (broadenPromises.length) {
+            try {
+              const broadenResults = this.combineResults(await Promise.allSettled(broadenPromises));
+              const seen = new Set(combinedResults.map((r) => r.url));
+              const extra = broadenResults.filter((r) => r.url && !seen.has(r.url));
+              combinedResults = [...combinedResults, ...extra];
+              console.log(`🔁 Broaden merged ${extra.length} extra results (total ${combinedResults.length})`);
+            } catch (broadenErr) {
+              console.error('Quoted-query broaden failed:', broadenErr.message);
+            }
+          }
+        }
+      }
+
       const categorizedResults = this.categorizeByBias(combinedResults);
       console.log(`🏷️  Categorized results: ${categorizedResults.length}`);
 
