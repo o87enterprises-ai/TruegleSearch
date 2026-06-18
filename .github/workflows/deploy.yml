@@ -1,0 +1,65 @@
+name: Deploy (Cloudflare + Vercel)
+
+# Push to main => build frontend and deploy to Cloudflare Pages,
+# and deploy backend to Vercel production. One git push deploys everywhere.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  frontend-cloudflare:
+    name: Frontend -> Cloudflare Pages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: apps/frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: npx vite build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy apps/frontend/dist --project-name=truegle-search --branch=main
+
+  backend-vercel:
+    name: Backend -> Vercel
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+
+      - name: Pull Vercel env (production)
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/backend
+
+      - name: Build
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/backend
+
+      - name: Deploy to Vercel production
+        run: vercel deploy --prebuilt --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --cwd apps/backend
