@@ -197,14 +197,15 @@ class SearchService {
               { ...filters, perPage: 5 }
             ));
           }
-        } else if (this.braveApiKey) {
-          // No dedicated YouTube API key configured: surface videos via the web
-          // provider instead. Constrain Brave to YouTube with a SINGLE site:
-          // operator (an `OR`-of-two site: filters returns 0 from Brave). These
-          // youtube.com links are categorized 'videos' downstream and kept by the
-          // category filter — filling the Videos tab, which is otherwise empty for
-          // category === 'videos' (searchWeb is false for a non-web category).
-          // A plain (unconstrained) Brave query only surfaces 0-2 youtube links.
+        }
+        // Resilient video fallback — ALWAYS runs (not just when the YouTube key is
+        // absent), because the YouTube Data API on this project is frequently
+        // 403/quota-limited, which silently leaves the Videos tab empty. Pull
+        // videos via Brave constrained to YouTube; youtube.com links categorize as
+        // 'videos' downstream and dedupe by URL against any YouTube API results.
+        // (searchWeb is false for category === 'videos', so without this nothing
+        // would populate the tab when YouTube errors.)
+        if (this.braveApiKey) {
           searchPromises.push(this.performBraveSearch(`${query} site:youtube.com`, { ...filters, perPage: 20 }));
         } else if (this.googleApiKey && this.googleSearchEngineId) {
           searchPromises.push(this.performGoogleSearch(`${query} site:youtube.com`, { ...filters, perPage: 20 }));
