@@ -1,19 +1,21 @@
-import { MapPin, Phone, Globe, Clock, Star, ExternalLink, User, ChevronRight, Cloud, Droplets, Wind, Calculator, BookOpen, ArrowRightLeft, Volume2 } from 'lucide-react';
+import { MapPin, Phone, Globe, Clock, Star, ExternalLink, User, ChevronRight, Cloud, Droplets, Wind, Calculator, BookOpen, ArrowRightLeft, Volume2, AppWindow } from 'lucide-react';
 
 /**
  * QuickResultCard — instant answer panel shown above search results.
- * Mirrors Google's Knowledge Panel for business, person, and social queries.
+ * Mirrors Google's Knowledge Panel for simple, non-controversial factual
+ * queries (weather, hours/location, time, conversions, apps, etc). Cards are
+ * informational only — no in-app interactive actions; outbound links open
+ * the relevant external site/map directly.
  *
  * Props:
  *   instantAnswer: object from backend buildInstantAnswer()
- *   onDirections: () => void  — called when user clicks Directions (opens maps category)
  */
-export default function QuickResultCard({ instantAnswer, onDirections }) {
+export default function QuickResultCard({ instantAnswer }) {
   if (!instantAnswer) return null;
 
   const { type } = instantAnswer;
 
-  if (type === 'local_business') return <BusinessCard data={instantAnswer} onDirections={onDirections} />;
+  if (type === 'local_business') return <BusinessCard data={instantAnswer} />;
   if (type === 'social_profile') return <SocialProfileCard data={instantAnswer} />;
   if (type === 'person') return <PersonCard data={instantAnswer} />;
   if (type === 'weather') return <WeatherCard data={instantAnswer} />;
@@ -21,8 +23,52 @@ export default function QuickResultCard({ instantAnswer, onDirections }) {
   if (type === 'conversion') return <ConversionCard data={instantAnswer} />;
   if (type === 'time') return <TimeCard data={instantAnswer} />;
   if (type === 'definition') return <DefinitionCard data={instantAnswer} />;
+  if (type === 'app') return <AppCard data={instantAnswer} />;
 
   return null;
+}
+
+// ── App / AI Model / Service Card ───────────────────────────────────────────
+
+function AppCard({ data }) {
+  const { name, description, image, url } = data;
+
+  return (
+    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 border border-violet-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-violet-500/10 p-5">
+      <div className="flex gap-4">
+        {image ? (
+          <img
+            src={image}
+            alt={name}
+            className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-white/10"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        ) : (
+          <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+            <AppWindow size={26} className="text-violet-400/60" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h3 className="text-lg font-bold text-white truncate">{name}</h3>
+          {description && (
+            <p className="text-sm text-white/60 mt-1 line-clamp-2">{description}</p>
+          )}
+          {url && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 mt-2 text-xs text-violet-300 hover:text-violet-200 transition-colors"
+            >
+              <Globe size={12} />
+              {new URL(url).hostname.replace('www.', '')}
+              <ExternalLink size={10} />
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Conversion Card ───────────────────────────────────────────────────────────
@@ -181,8 +227,9 @@ function CalculationCard({ data }) {
 
 // ── Business Card ─────────────────────────────────────────────────────────────
 
-function BusinessCard({ data, onDirections }) {
-  const { name, phone, address, hours, rating, website, image } = data;
+function BusinessCard({ data }) {
+  const { name, phone, address, hours, rating, website, image, mapsQuery } = data;
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery || address || name)}`;
 
   const stars = rating ? parseFloat(rating) : null;
 
@@ -249,13 +296,15 @@ function BusinessCard({ data, onDirections }) {
 
       {/* Action bar */}
       <div className="flex gap-2 px-5 pb-4">
-        <button
-          onClick={onDirections}
+        <a
+          href={mapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-semibold transition-colors shadow-md shadow-blue-500/25"
         >
           <MapPin size={15} />
           Directions
-        </button>
+        </a>
         {website && (
           <a
             href={website}

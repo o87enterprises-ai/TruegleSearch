@@ -96,8 +96,20 @@ class SearchService {
       const searchImages = filters.category === 'images';
       const searchSocial = filters.category === 'social';
 
-      if (searchImages && this.unsplashAccessKey) {
-        searchPromises.push(this.performUnsplashSearch(query, filters));
+      if (searchImages) {
+        const hasGoogleImages = !!(this.googleApiKey && this.googleSearchEngineId);
+        const hasBraveImages = !!this.braveApiKey;
+        if (hasGoogleImages) {
+          searchPromises.push(this.performGoogleImageSearch(query, filters));
+        }
+        if (hasBraveImages) {
+          searchPromises.push(this.performBraveImageSearch(query, filters));
+        }
+        // Unsplash is generic stock photography, not real photos of the actual
+        // subject — only used as a last resort when no real image source is configured.
+        if (!hasGoogleImages && !hasBraveImages && this.unsplashAccessKey) {
+          searchPromises.push(this.performUnsplashSearch(query, filters));
+        }
       }
 
       if (searchSocial) {
@@ -222,28 +234,29 @@ class SearchService {
       const categorizedResults = this.categorizeByBias(combinedResults);
       console.log(`🏷️  Categorized results: ${categorizedResults.length}`);
 
-      // Purple mode: strict perspective filter — only return results matching selected biases
+      // Purple mode: strict perspective filter — ONLY results matching the
+      // selected perspective(s), strictly date-ranked. No padding with
+      // unrelated "neutral" results — if the filter is sparse, it stays sparse.
       if (isPurple && filters.perspectives && filters.perspectives.length > 0) {
         const mapped = this.mapPerspectivesToBias(filters.perspectives);
         const filtered = categorizedResults.filter(r => mapped.includes(r.bias));
         console.log(`🟣 Purple strict filter: ${filtered.length} results for perspectives [${filters.perspectives.join(',')}]`);
 
-        // Fallback: if < 5 results matched, include neutral results tagged with perspective context
-        if (filtered.length < 5) {
-          const neutral = categorizedResults
-            .filter(r => r.bias === 'neutral')
-            .map(r => ({ ...r, biasLabel: `Unclassified (${filters.perspectives[0] || 'selected lens'})` }));
-          const combined = [...filtered, ...neutral].slice(0, 20);
-          console.log(`🟣 Purple fallback: returning ${combined.length} results (strict: ${filtered.length}, neutral: ${neutral.length})`);
-          return combined;
-        }
-        return filtered;
+        return [...filtered].sort((a, b) => {
+          const diff = new Date(b.date) - new Date(a.date);
+          return filters.order === 'asc' ? -diff : diff;
+        });
       }
 
       let finalResults = this.sortAndFilter(categorizedResults, filters);
 
-      if (isRedPill) {
-        finalResults = this.sortRedPill(finalResults);
+      // Default ranking: combined relevance + recency + source diversity, so
+      // switching category/filters with the same query always re-ranks. Skipped
+      // when the user explicitly asked for a pure date sort (sortAndFilter already
+      // handled that above). Red-pill blends in a bias-tier weight so alternative/
+      // independent sources rank above mainstream ones, instead of a crude tier sort.
+      if (filters.sortBy !== 'date') {
+        finalResults = this.rankResults(query, finalResults, { boostAlternative: isRedPill });
       }
 
       // Green mode: strip results from known AI-generated-content domains.
@@ -303,26 +316,106 @@ class SearchService {
   }
 
   /**
-   * Red pill sort: conspiracy and alternative float to top, mainstream sinks to bottom.
-   * Order: conspiracy → alternative → independent → neutral → center → unbiased → left → right → mainstream
+   * TF-based relevance score (0-1): term frequency in title+snippet, with a
+   * boost for an exact phrase match and for query terms appearing in the title.
    */
-  sortRedPill(results) {
-    const order = {
-      conspiracy: 0,
-      alternative: 1,
-      independent: 2,
-      neutral: 3,
-      center: 4,
-      unbiased: 5,
-      left: 6,
-      right: 7,
-      mainstream: 8,
-    };
-    return [...results].sort((a, b) => {
-      const aRank = order[a.bias] !== undefined ? order[a.bias] : 3;
-      const bRank = order[b.bias] !== undefined ? order[b.bias] : 3;
-      return aRank - bRank;
+  calculateRelevance(query, result) {
+    const q = (query || '').toLowerCase().trim();
+    if (!q) return 0;
+
+    const queryTerms = q.replace(/[^\w\s]/g, ' ').split(/\s+/).filter((t) => t.length > 2);
+    if (queryTerms.length === 0) return 0;
+
+    const title = (result.title || '').toLowerCase();
+    const snippet = (result.snippet || '').toLowerCase();
+    const docText = `${title} ${snippet}`;
+    const docTerms = docText.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(Boolean);
+    if (docTerms.length === 0) return 0;
+
+    let matchScore = 0;
+    queryTerms.forEach((term) => {
+      const count = docTerms.filter((t) => t === term || t.includes(term)).length;
+      matchScore += count / docTerms.length;
     });
+
+    let score = Math.min(matchScore / queryTerms.length, 1);
+    if (docText.includes(q)) score = Math.min(score + 0.2, 1);
+    if (queryTerms.some((term) => title.includes(term))) score = Math.min(score + 0.15, 1);
+    return score;
+  }
+
+  /**
+   * Recency score (0-1): newer results score higher, decaying over roughly a year.
+   */
+  calculateRecency(dateStr) {
+    if (!dateStr) return 0.3;
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 0.3;
+    const daysDiff = (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysDiff < 1) return 1;
+    if (daysDiff < 7) return 0.9;
+    if (daysDiff < 30) return 0.75;
+    if (daysDiff < 90) return 0.6;
+    if (daysDiff < 365) return 0.4;
+    return 0.2;
+  }
+
+  /**
+   * Diversity score (0-1): penalizes repeat results from the same domain so one
+   * site can't dominate a results page.
+   */
+  calculateDiversity(domain, domainCounts) {
+    const count = domainCounts.get(domain) || 0;
+    if (count === 0) return 1;
+    return Math.max(Math.pow(0.5, count), 0.1);
+  }
+
+  /**
+   * Bias-tier weight (0-1) used only in red-pill mode to favor alternative/
+   * independent sources over mainstream ones without a crude tier-only sort.
+   */
+  biasTierWeight(bias) {
+    const weights = {
+      conspiracy: 1,
+      alternative: 0.9,
+      independent: 0.8,
+      neutral: 0.5,
+      center: 0.45,
+      unbiased: 0.4,
+      left: 0.35,
+      right: 0.35,
+      mainstream: 0.1,
+    };
+    return weights[bias] !== undefined ? weights[bias] : 0.5;
+  }
+
+  /**
+   * Rank results by combined relevance + recency + source diversity — the
+   * default "most relevant / most recent first" ranking. In red-pill mode,
+   * `boostAlternative` blends in a bias-tier weight so alternative/independent
+   * sources rank above mainstream ones.
+   */
+  rankResults(query, results, { boostAlternative = false } = {}) {
+    if (!results || results.length === 0) return [];
+
+    const domainCounts = new Map();
+    const scored = results.map((result) => {
+      const domain = result.domain || this.extractDomain(result.url || '');
+      const relevanceScore = this.calculateRelevance(query, result);
+      const recencyScore = this.calculateRecency(result.date);
+      const diversityScore = this.calculateDiversity(domain, domainCounts);
+      domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
+
+      let finalScore = relevanceScore * 0.5 + recencyScore * 0.35 + diversityScore * 0.15;
+      if (boostAlternative) {
+        finalScore = finalScore * 0.6 + this.biasTierWeight(result.bias) * 0.4;
+      }
+
+      return { ...result, relevanceScore, recencyScore, diversityScore, finalScore };
+    });
+
+    scored.sort((a, b) => b.finalScore - a.finalScore);
+    return scored;
   }
 
   /**
@@ -421,6 +514,135 @@ class SearchService {
 
       throw new Error('Google Search service unavailable');
     }
+  }
+
+  /**
+   * Perform Google Image Search (real photos via Custom Search, searchType=image).
+   * Uses the same Google API key/CSE as web search — no separate key required.
+   */
+  async performGoogleImageSearch(query, filters) {
+    if (!this.googleApiKey || !this.googleSearchEngineId) {
+      throw new Error('Google Search API not configured');
+    }
+
+    const googlePerPage = Math.min(filters.perPage || 10, 10);
+    const params = {
+      key: this.googleApiKey,
+      cx: this.googleSearchEngineId,
+      q: query,
+      searchType: 'image',
+      num: googlePerPage,
+      start: ((filters.page || 1) - 1) * googlePerPage + 1,
+    };
+
+    if (filters.safeSearch === 'off') {
+      // no safe param = unrestricted
+    } else if (filters.safeSearch === 'blur') {
+      params.safe = 'medium';
+    } else {
+      params.safe = 'active';
+    }
+
+    if (filters.language) {
+      params.lr = `lang_${filters.language}`;
+      params.hl = filters.language;
+    }
+    if (filters.country) {
+      params.gl = filters.country.toLowerCase();
+    }
+
+    try {
+      const response = await axios.get(this.googleBaseUrl, { params, timeout: 8000 });
+      return { ...response.data, _source: 'google-images' };
+    } catch (error) {
+      console.error(
+        'Google Image Search API error:',
+        JSON.stringify(error.response?.data, null, 2) || error.message
+      );
+      if (error.response?.status === 403) {
+        throw new Error('Google API key invalid or quota exceeded');
+      }
+      if (error.response?.status === 429) {
+        throw new Error('Google API rate limit exceeded');
+      }
+      throw new Error('Google Image Search service unavailable');
+    }
+  }
+
+  formatGoogleImageResults(data) {
+    if (!data || !data.items) return [];
+    return data.items.map((item) => ({
+      title: item.title || 'Untitled Image',
+      url: item.image?.contextLink || item.link,
+      snippet: item.snippet || '',
+      source: 'google-images',
+      sourceName: 'Google Images',
+      date: new Date().toISOString(),
+      image: item.link || null,
+      thumbnail: item.image?.thumbnailLink || null,
+      favicon: null,
+      domain: this.extractDomain(item.image?.contextLink || item.link || ''),
+      category: 'images',
+      verified: true,
+    }));
+  }
+
+  /**
+   * Perform Brave Image Search (real photos). Uses the same Brave API key as
+   * web search — no separate key required.
+   */
+  async performBraveImageSearch(query, filters) {
+    if (!this.braveApiKey) {
+      throw new Error('Brave Search API not configured');
+    }
+
+    const params = {
+      q: query,
+      count: Math.min(filters.perPage || 20, 50),
+      safesearch: filters.safeSearch === 'off' ? 'off' : filters.safeSearch === 'blur' ? 'moderate' : 'strict',
+    };
+    if (filters.country) params.country = filters.country;
+    if (filters.language) params.search_lang = filters.language;
+
+    try {
+      const response = await axios.get('https://api.search.brave.com/res/v1/images/search', {
+        headers: { 'X-Subscription-Token': this.braveApiKey, Accept: 'application/json' },
+        params,
+        timeout: 8000,
+      });
+      return { ...response.data, _source: 'brave-images' };
+    } catch (error) {
+      console.error('Brave Image Search API error:', error.response?.data || error.message);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new Error('Brave API key invalid');
+      }
+      if (error.response?.status === 429) {
+        throw new Error('Brave API rate limit exceeded');
+      }
+      throw new Error('Brave Image Search service unavailable');
+    }
+  }
+
+  formatBraveImageResults(data) {
+    if (!data || !data.results) return [];
+    return data.results.map((item) => {
+      const pageUrl = item.url || item.source || '';
+      const imageUrl = item.properties?.url || item.thumbnail?.original || item.thumbnail?.src || null;
+      return {
+        title: item.title || 'Untitled Image',
+        url: pageUrl,
+        snippet: item.title || '',
+        source: 'brave-images',
+        sourceName: 'Brave Images',
+        date: item.page_age || item.age || new Date().toISOString(),
+        image: imageUrl,
+        thumbnail: item.thumbnail?.src || null,
+        favicon: null,
+        domain: this.extractDomain(pageUrl),
+        category: 'images',
+        verified: true,
+      };
+    });
   }
 
   /**
@@ -828,6 +1050,10 @@ class SearchService {
         return this.formatBraveResults(data);
       case 'searxng':
         return this.formatSearXNGResults(data);
+      case 'google-images':
+        return this.formatGoogleImageResults(data);
+      case 'brave-images':
+        return this.formatBraveImageResults(data);
       default:
         return [];
     }
@@ -878,13 +1104,17 @@ class SearchService {
    * Detect source from API response
    */
   detectSource(data) {
+    // Explicit _source tags first: Google Images shares `kind: 'customsearch#search'`
+    // with plain Google web results, so it must be checked before the generic check below.
+    if (data._source === 'unsplash') return 'unsplash';
+    if (data._source === 'brave') return 'brave';
+    if (data._source === 'searxng') return 'searxng';
+    if (data._source === 'google-images') return 'google-images';
+    if (data._source === 'brave-images') return 'brave-images';
     if (data.items && data.kind === 'customsearch#search') return 'google';
     if (data.webPages && data._type === 'SearchResponse') return 'bing';
     if (data.articles && data.status === 'ok') return 'news';
     if (data.items && data.kind === 'youtube#searchListResponse') return 'youtube';
-    if (data._source === 'unsplash') return 'unsplash';
-    if (data._source === 'brave') return 'brave';
-    if (data._source === 'searxng') return 'searxng';
     return 'unknown';
   }
 

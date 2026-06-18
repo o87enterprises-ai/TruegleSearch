@@ -213,16 +213,28 @@ Provide a balanced 2-3 sentence summary. [/INST]`;
       };
     }
 
-    // Generate a simple, clean summary without meta-commentary
-    const snippets = searchResults.slice(0, 3).map(r => r.snippet || r.title).filter(s => s);
+    // Pull one line from several distinct sources/domains instead of echoing
+    // the first result verbatim, which read like the AI was stating one
+    // article's claim as settled fact.
+    const seenDomains = new Set();
+    const diverse = [];
+    for (const r of searchResults) {
+      const domain = this.extractDomain(r.url || '');
+      if (seenDomains.has(domain)) continue;
+      seenDomains.add(domain);
+      const line = (r.snippet || r.title || '').trim();
+      if (line) diverse.push(line);
+      if (diverse.length >= 3) break;
+    }
 
-    // Create a concise summary from the first few snippets
-    const summary = snippets.length > 0
-      ? snippets[0].substring(0, 200) + (snippets[0].length > 200 ? '...' : '')
-      : `Search results for "${query}" have been retrieved.`;
+    const summary = diverse.length > 1
+      ? `Sources cover "${query}" with differing emphasis: ${diverse.join(' | ')}`
+      : diverse.length === 1
+        ? diverse[0]
+        : `Search results for "${query}" have been retrieved.`;
 
     return {
-      summary,
+      summary: summary.length > 300 ? `${summary.substring(0, 297)}...` : summary,
       model: 'local',
       sourcesAnalyzed: Math.min(searchResults.length, 5),
     };

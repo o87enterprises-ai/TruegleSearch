@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 import { FREE_ACCESS_MODE } from '../config/access';
 import {
   ChevronDown,
@@ -76,6 +77,26 @@ function getVideoEmbed(url) {
     return null;
   }
 }
+
+// The SearchFiltersBar "category" dropdown offers political/content labels
+// (mainstream, conspiracy, democratic, republican, nonpartisan, music, videos,
+// socials, reels, shopping) that don't match the backend's own category/bias
+// vocab directly — map them through so picking one actually changes results
+// instead of silently doing nothing.
+const FILTER_CATEGORY_BIAS_MAP = {
+  mainstream: 'mainstream',
+  conspiracy: 'conspiracy',
+  democratic: 'left',
+  republican: 'right',
+  nonpartisan: 'center',
+};
+const FILTER_CATEGORY_TYPE_MAP = {
+  music: 'web',
+  videos: 'videos',
+  socials: 'social',
+  reels: 'videos',
+  shopping: 'shopping',
+};
 
 export default function UniversalSearch({ lockedGreen = false }) {
   const navigate = useNavigate();
@@ -221,13 +242,15 @@ export default function UniversalSearch({ lockedGreen = false }) {
     }
   }, [searchParams]);
 
-  // Re-search when mode changes (if a search has already been performed)
+  // Re-search whenever the mode, active category pill, filter dropdowns, or
+  // (in purple mode) the selected perspectives change — previously only `mode`
+  // was wired up, so switching categories/filters/perspectives silently left
+  // stale results on screen instead of re-ranking/re-filtering them.
   useEffect(() => {
     if (lastSearchedQuery && searchValue && !searchLoading) {
       handleSearch();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, activeCategory, filters.bias, filters.dateRange, filters.sortBy, filters.order, filters.category, selectedPerspectives]);
 
   // Auto-detect shopping category
   const isShoppingQuery = (query) => {
@@ -258,7 +281,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
     if (lastSearchedQuery) {
       handleSearch();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.language]);
 
   const handleSearch = async () => {
@@ -314,6 +336,14 @@ export default function UniversalSearch({ lockedGreen = false }) {
         searchCategory = activeCategory === 'world' ? 'news' : 'all';
       }
 
+      // The category pills (above) take priority; the filter dropdown only
+      // fills in a content-type/bias hint when the pills haven't already set one.
+      if (searchCategory === 'all' && FILTER_CATEGORY_TYPE_MAP[filters.category]) {
+        searchCategory = FILTER_CATEGORY_TYPE_MAP[filters.category];
+      }
+      const filterCategoryBias = FILTER_CATEGORY_BIAS_MAP[filters.category];
+      const effectiveBias = filters.bias !== 'all' ? filters.bias : (filterCategoryBias || filters.bias);
+
       // Determine backend mode string
       let backendMode = 'blue-pill';
       if (mode === 'red') backendMode = 'red-pill';
@@ -331,11 +361,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
             mode: backendMode,
             filters: {
               category: searchCategory,
-              bias: 'all',
+              bias: effectiveBias,
               perspectives: mode === 'purple' ? selectedPerspectives : [],
-              dateRange: 'any',
-              sortBy: 'relevance',
-              order: 'desc',
+              dateRange: filters.dateRange,
+              sortBy: filters.sortBy,
+              order: filters.order,
               perPage: 20,
               safeSearch: settings.safeSearch,
               language: settings.language,
@@ -365,7 +395,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
 
       // Fetch summary only if not green mode and not dismissed
       if (mode !== 'green' && sessionSummaryChoice !== 'none' && data.results && data.results.length > 0) {
-        fetchAiSummary(searchValue, data.results);
+        fetchAiSummary(searchValue, data.results, backendMode);
       }
     } catch (error) {
       console.error('Search error:', error);
@@ -387,7 +417,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
   /**
    * Fetch AI summary
    */
-  const fetchAiSummary = async (query, results) => {
+  const fetchAiSummary = async (query, results, backendMode = 'blue-pill') => {
     setAiLoading(true);
     try {
       const response = await fetch(
@@ -398,6 +428,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
           body: JSON.stringify({
             query,
             results: results.slice(0, 10),
+            mode: backendMode,
             perspectives: selectedPerspectives,
           }),
         }
@@ -450,6 +481,18 @@ export default function UniversalSearch({ lockedGreen = false }) {
     setMode('purple');
     const params = new URLSearchParams(searchParams);
     params.set('mode', 'purple');
+    navigate(`/search?${params.toString()}`, { replace: true });
+  };
+
+  // Red-pill "deep dive": jump straight into purple mode strictly filtered to
+  // the chosen perspective, reusing the existing perspective-specific pipeline.
+  const handleDeepDivePerspective = (perspectiveId) => {
+    if (lockedGreen) return;
+    setSelectedPerspectives([perspectiveId]);
+    setMode('purple');
+    const params = new URLSearchParams(searchParams);
+    params.set('mode', 'purple');
+    params.set('perspectives', perspectiveId);
     navigate(`/search?${params.toString()}`, { replace: true });
   };
 
@@ -954,13 +997,14 @@ export default function UniversalSearch({ lockedGreen = false }) {
             </div>
           )}
 
-          {/* Ad Banner 1 - Under Search Bar (same as SearchResults) */}
+          {/* Ad Banner 1 - Under Search Bar, right above the AI summary — kept
+              compact so it doesn't crowd out the summary itself */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="max-w-4xl mx-auto mb-6"
+            className="max-w-4xl mx-auto mb-4"
           >
-            <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" />
+            <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" compact />
           </motion.div>
 
           {/* Search Summary — Banner + Expandable Card */}
@@ -1094,21 +1138,29 @@ export default function UniversalSearch({ lockedGreen = false }) {
                           </div>
                         ) : aiSummary ? (
                           <>
-                            <p className="text-sm text-white/80 leading-relaxed mb-3">{aiSummary.summary}</p>
-                            {mode === 'purple' && aiSummary.perspectives?.length > 0 && (
-                              <div className="mb-3 p-3 rounded-lg bg-gradient-to-r from-cyan-500/10 to-purple-500/10 border border-cyan-500/20">
-                                <div className="text-xs font-semibold text-cyan-300 mb-2">Perspective Breakdown:</div>
-                                <div className="space-y-1">
-                                  {aiSummary.perspectives.map((p, i) => (
-                                    <div key={i} className="flex items-center gap-2 text-xs">
-                                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                        p.perspective === 'left' ? 'bg-red-500/30 text-red-300' :
-                                        p.perspective === 'right' ? 'bg-blue-500/30 text-blue-300' :
-                                        p.perspective === 'center' ? 'bg-yellow-500/30 text-yellow-300' :
-                                        'bg-cyan-500/30 text-cyan-300'
-                                      }`}>{p.perspective}</span>
-                                      <span className="text-white/70 flex-1">{p.summary}</span>
-                                    </div>
+                            <div className="text-sm text-white/80 leading-relaxed mb-3 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline [&_strong]:font-semibold [&_code]:bg-white/10 [&_code]:px-1 [&_code]:rounded">
+                              <ReactMarkdown>{aiSummary.summary}</ReactMarkdown>
+                            </div>
+                            {mode === 'red' && aiSummary.perspectives?.length > 0 && (
+                              <div className="mb-3">
+                                <div className="text-xs font-semibold text-red-300 mb-2">
+                                  Choose a perspective to deep dive into:
+                                </div>
+                                <div className="space-y-2">
+                                  {aiSummary.perspectives.map((p) => (
+                                    <button
+                                      key={p.id}
+                                      onClick={() => handleDeepDivePerspective(p.perspectiveId)}
+                                      className="w-full text-left p-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-500/40 transition-all"
+                                    >
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="text-sm font-semibold text-white">{p.label}</span>
+                                        <span className="text-xs text-white/40">
+                                          {p.count} source{p.count === 1 ? '' : 's'}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs text-white/60">{p.summary}</p>
+                                    </button>
                                   ))}
                                 </div>
                               </div>
@@ -1308,10 +1360,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   )}
 
                   {instantAnswer && (
-                    <QuickResultCard
-                      instantAnswer={instantAnswer}
-                      onDirections={() => setActiveCategory('maps')}
-                    />
+                    <QuickResultCard instantAnswer={instantAnswer} />
                   )}
 
                   {/* OSINT mode requires auth + token */}

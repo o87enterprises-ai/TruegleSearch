@@ -236,15 +236,164 @@ router.get('/health', async (req, res) => {
   }
 });
 
+// Page mode -> DB prompt context, so the AI summary actually uses the
+// mode-appropriate prompt instead of always using 'search_results'.
+const MODE_TO_AI_CONTEXT = {
+  'blue-pill': 'search_results',
+  green: 'search_results',
+  ocean: 'osint',
+  'red-pill': 'biased_results',
+  purple: 'perspective_specific',
+};
+
+// Mirrors SearchService.categorizeByBias's tiers/labels so the red-pill
+// perspective list always matches the bias classification already attached
+// to the actual results, instead of the AI inventing its own categories.
+const BIAS_TIER_LABELS = {
+  left: 'Left-Leaning',
+  right: 'Right-Leaning',
+  center: 'Center',
+  unbiased: 'Fact-Based',
+  neutral: 'Unclassified',
+  mainstream: 'Mainstream Media',
+  alternative: 'Alternative Media',
+  conspiracy: 'Fringe / Conspiracy',
+  independent: 'Independent',
+};
+
+// Generic, neutral one-line description per tier — always available as a
+// fallback so the perspective list is never empty even if AI enrichment fails.
+const BIAS_TIER_BLURBS = {
+  left: 'Sources generally associated with progressive or left-leaning framing.',
+  right: 'Sources generally associated with conservative or right-leaning framing.',
+  center: 'Sources aiming for centrist, cross-partisan framing.',
+  unbiased: 'Fact-checking or wire-service sources with minimal editorial framing.',
+  neutral: 'Sources without a clearly classified editorial slant.',
+  mainstream: 'Large, widely-syndicated outlets and platforms.',
+  alternative: 'Independent or non-corporate outlets outside the mainstream press.',
+  conspiracy: 'Fringe sources that often promote unverified or contested claims.',
+  independent: 'Independent journalists, blogs, and creator-published sources.',
+};
+
+// Representative purple-mode PerspectiveSelector id for each bias tier, so a
+// "deep dive" click can jump straight into the existing strict perspective filter.
+const BIAS_TIER_TO_PERSPECTIVE_ID = {
+  left: 'liberal',
+  right: 'conservative',
+  center: 'centrist',
+  unbiased: 'scientific',
+  neutral: 'neutral',
+  mainstream: 'mainstream',
+  alternative: 'alternative',
+  conspiracy: 'conspiracy',
+  independent: 'independent',
+};
+
+function formatResultsForPrompt(results) {
+  return results.map((r) => `${r.title}: ${r.snippet || ''}`).join('\n');
+}
+
+// Round-robin sample across bias tiers so the AI summary reflects a balanced
+// cross-section of sources instead of whichever tier happened to rank first
+// (the root cause of the AI summary reading like it took one article as the truth).
+function buildDiverseSample(results, limit = 8) {
+  const groups = new Map();
+  for (const r of results) {
+    const key = r.bias || 'neutral';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  const groupArrays = [...groups.values()];
+  const sample = [];
+  let index = 0;
+  while (sample.length < limit && groupArrays.some((g) => index < g.length)) {
+    for (const group of groupArrays) {
+      if (index < group.length) sample.push(group[index]);
+      if (sample.length >= limit) break;
+    }
+    index++;
+  }
+  return sample;
+}
+
+// Deterministic perspective breakdown built directly from the bias tiers
+// actually present in the result set — never invented by the AI, so red-pill
+// always presents real, neutral multiple choices instead of one biased paragraph.
+function buildPerspectiveBreakdown(results) {
+  const groups = new Map();
+  for (const r of results) {
+    const tier = r.bias || 'neutral';
+    if (!groups.has(tier)) groups.set(tier, []);
+    groups.get(tier).push(r);
+  }
+  return [...groups.entries()]
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([tier, items]) => ({
+      id: tier,
+      perspectiveId: BIAS_TIER_TO_PERSPECTIVE_ID[tier] || 'neutral',
+      label: BIAS_TIER_LABELS[tier] || 'Unclassified',
+      count: items.length,
+      summary: BIAS_TIER_BLURBS[tier] || BIAS_TIER_BLURBS.neutral,
+      sample: items.slice(0, 3).map((r) => ({ title: r.title, snippet: r.snippet || '' })),
+    }));
+}
+
+// Best-effort: ask the AI for one neutral sentence per perspective tier
+// describing what that tier's sources actually emphasize on this query.
+// Falls back silently to the generic BIAS_TIER_BLURBS on any failure (bad
+// JSON, provider outage, etc.) so the perspective list is always populated.
+async function enrichPerspectiveSummaries(query, perspectives) {
+  if (!perspectives.length) return perspectives;
+
+  try {
+    const groupText = perspectives
+      .map((p) => `id: ${p.id}\n${p.sample.map((s) => `- ${s.title}: ${s.snippet}`).join('\n')}`)
+      .join('\n\n');
+
+    const prompt = `Query: "${query}"\n\nGroups of sources by classification:\n\n${groupText}\n\nFor each group id above, write ONE neutral sentence (max 25 words) describing what that group's sources emphasize about this topic. Do not state opinions as fact or say which group is correct. Respond with ONLY a JSON array, no markdown, no commentary: [{"id":"<group id>","summary":"<sentence>"}]`;
+
+    const result = await aiClient.chat(prompt, 'general', {
+      systemOverride: 'You are a neutral content classifier. Respond with strictly valid JSON only, no markdown formatting.',
+      maxTokens: 600,
+      temperature: 0.3,
+    });
+
+    const text = result.content || result.response || '';
+    const fenced = text.match(/```json\s*([\s\S]*?)```/i);
+    const bare = text.match(/(\[[\s\S]*\])/);
+    const parsed = JSON.parse(fenced ? fenced[1] : bare ? bare[1] : text);
+    if (!Array.isArray(parsed)) return perspectives;
+
+    const byId = new Map(
+      parsed.filter((p) => p && p.id && p.summary).map((p) => [p.id, p.summary])
+    );
+    return perspectives.map((p) => (byId.has(p.id) ? { ...p, summary: byId.get(p.id) } : p));
+  } catch (error) {
+    logger.warn('Perspective enrichment failed, using fallback blurbs:', { error: error.message });
+    return perspectives;
+  }
+}
+
+function fallbackSummary(mode, query) {
+  if (mode === 'red-pill') {
+    return `Coverage of "${query}" spans multiple perspectives below — pick one to explore in depth.`;
+  }
+  if (mode === 'purple') {
+    return `No AI analysis is available right now for the selected perspective(s) on "${query}". Review the filtered results below.`;
+  }
+  return `Search results for "${query}" cover multiple sources. Review the results below for more information.`;
+}
+
 /**
  * @route   POST /api/ai/summary
  * @desc    Generate AI summary of search results (public, rate limited)
  * @access  Public
+ * @body    { query, results, mode?, perspectives? }
  */
 router.post('/summary', rateLimitSearch, async (req, res) => {
-  try {
-    const { query, results } = req.body;
+  const { query, results, mode = 'blue-pill', perspectives = [] } = req.body;
 
+  try {
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
       return res.status(400).json({
         error: 'Invalid request',
@@ -259,28 +408,50 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
       });
     }
 
-    // Try unified AI service first (with multi-provider failover)
-    try {
-      const searchContext = results.slice(0, 5).map(r =>
-        `${r.title}: ${r.snippet || ''}`
-      ).join('\n');
-
-      const aiResponse = await aiClient.analyzeContent(
-        searchContext,
-        'search_results',
-        query,
-        { searchResults: results }
-      );
-
-      // Get perspective analysis from legacy service
-      const perspectives = await aiService.analyzePerspectives(query, results);
+    // Red-pill mode: a neutral, multiple-choice list of perspectives grounded
+    // in the bias classification already attached to the results — replaces
+    // the old single biased paragraph that read like it took one article as the truth.
+    if (mode === 'red-pill') {
+      let breakdown = buildPerspectiveBreakdown(results);
+      breakdown = await enrichPerspectiveSummaries(query, breakdown);
+      breakdown = breakdown.map(({ sample, ...rest }) => rest);
 
       return res.json({
         success: true,
         query: query.trim(),
+        mode,
+        summary: fallbackSummary(mode, query),
+        perspectives: breakdown,
+        sourcesAnalyzed: results.length,
+        model: 'perspective-breakdown',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    const aiContext = MODE_TO_AI_CONTEXT[mode] || 'search_results';
+    // Purple results are already strictly filtered to the selected
+    // perspective(s), so use them as-is; everything else gets a diversified
+    // sample so the summary can't just echo whichever tier ranked first.
+    const sample = mode === 'purple' ? results.slice(0, 8) : buildDiverseSample(results, 8);
+    const searchContext = formatResultsForPrompt(sample);
+    const selectedPerspective = Array.isArray(perspectives) && perspectives.length > 0
+      ? perspectives.join(', ')
+      : 'Neutral';
+
+    // Try unified AI service first (with multi-provider failover)
+    try {
+      const aiResponse = await aiClient.analyzeContent(searchContext, aiContext, query, {
+        searchResults: searchContext,
+        perspective: selectedPerspective,
+      });
+
+      return res.json({
+        success: true,
+        query: query.trim(),
+        mode,
         summary: aiResponse.content || aiResponse.response,
-        perspectives: perspectives,
-        sourcesAnalyzed: Math.min(results.length, 5),
+        perspectives: [],
+        sourcesAnalyzed: sample.length,
         model: aiResponse.provider || 'unified-ai',
         timestamp: new Date().toISOString(),
       });
@@ -293,8 +464,9 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
       return res.json({
         success: true,
         query: query.trim(),
+        mode,
         summary: analysis.summary,
-        perspectives: analysis.perspectives,
+        perspectives: [],
         sourcesAnalyzed: analysis.sourcesAnalyzed,
         model: analysis.model,
         timestamp: analysis.timestamp,
@@ -306,8 +478,9 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
     // Return a fallback summary
     res.json({
       success: true,
-      query: req.body.query || '',
-      summary: `Search results for "${req.body.query}" cover multiple perspectives from various sources. Review the results below for comprehensive information.`,
+      query: query || '',
+      mode,
+      summary: fallbackSummary(mode, query || ''),
       perspectives: [],
       sourcesAnalyzed: 0,
       model: 'fallback',

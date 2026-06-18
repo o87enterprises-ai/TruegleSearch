@@ -124,6 +124,8 @@ function validateFilters(filters) {
     category: 'all',
     dateRange: 'any',
     bias: 'all',
+    sortBy: 'relevance',
+    order: 'desc',
     safeSearch: 'safe', // 'safe' | 'blur' | 'off'
     page: 1,
     perPage: 10,
@@ -163,6 +165,16 @@ function validateFilters(filters) {
   // Perspectives: array of UI perspective IDs for purple mode
   if (Array.isArray(filters.perspectives)) {
     validFilters.perspectives = filters.perspectives.filter(p => typeof p === 'string');
+  }
+
+  // Validate sortBy / order
+  const validSortBy = ['relevance', 'date', 'views'];
+  if (!validSortBy.includes(validFilters.sortBy)) {
+    validFilters.sortBy = 'relevance';
+  }
+  const validOrder = ['asc', 'desc'];
+  if (!validOrder.includes(validFilters.order)) {
+    validFilters.order = 'desc';
   }
 
   // Validate pagination
@@ -231,11 +243,22 @@ function detectQueryType(query) {
   // Social profile / person search (name + platform)
   if (/\b(facebook|instagram|twitter|linkedin|tiktok|youtube)\b/.test(q)) return 'social_profile';
 
+  // Apps / AI models / dev tools / services (direct name lookup)
+  if (APP_NAMES.includes(q) || APP_NAMES.some((name) => q === `${name} app`)) return 'app';
+
   // Person name (2-4 capitalized words, no other keywords)
   if (/^[A-Z][a-z]+ ([A-Z][a-z]+ ?){1,2}$/.test(query)) return 'person';
 
   return null;
 }
+
+// Known app / AI model / dev-tool / service names for direct lookup queries.
+const APP_NAMES = [
+  'chatgpt', 'gpt-4', 'gpt-5', 'claude', 'gemini', 'copilot', 'github copilot', 'perplexity', 'grok',
+  'deepseek', 'midjourney', 'dall-e', 'stable diffusion', 'notion', 'slack', 'discord', 'telegram',
+  'whatsapp', 'zoom', 'spotify', 'netflix', 'figma', 'canva', 'trello', 'asana', 'airtable', 'dropbox',
+  'github', 'gitlab', 'docker', 'vercel', 'cloudflare', 'openai', 'anthropic',
+];
 
 /**
  * Extract structured instant answer data from search results + pagemap.
@@ -346,6 +369,15 @@ async function buildInstantAnswer(query, results) {
   if (type === 'definition') {
     const def = await fetchDefinition(query);
     return def ? { type: 'definition', ...def } : null;
+  }
+
+  if (type === 'app') {
+    const name = meta['og:site_name'] || top.title || query;
+    const description = meta['og:description'] || top.snippet || null;
+    const image = meta['og:image'] || top.image || null;
+    const url = top.url || null;
+    if (!description && !image && !url) return null;
+    return { type: 'app', name, description, image, url, query };
   }
 
   return null;

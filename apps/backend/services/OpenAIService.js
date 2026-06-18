@@ -156,7 +156,7 @@ class OpenAIService {
   /**
    * Analyze content for bias/perspectives (Truegle-specific)
    */
-  async analyzeContentBias(content, queryContext = null) {
+  async analyzeContentBias(content, queryContext = null, options = {}) {
     let prompt = `Analyze the following content and provide:
 
 1. Primary perspectives found
@@ -173,9 +173,9 @@ ${content}
     }
 
     return this.chat(prompt, {
-      systemPrompt: TRUEGLE_AI_SYSTEM_PROMPT,
-      temperature: 0.3,
-      maxTokens: 2000,
+      systemPrompt: options.system || options.systemPrompt || TRUEGLE_AI_SYSTEM_PROMPT,
+      temperature: options.temperature ?? 0.3,
+      maxTokens: options.max_tokens || options.maxTokens || 2000,
     });
   }
 
@@ -183,7 +183,7 @@ ${content}
    * Alias for compatibility with OpenRouter service
    */
   async analyzeContent(content, queryContext = null, options = {}) {
-    return this.analyzeContentBias(content, queryContext);
+    return this.analyzeContentBias(content, queryContext, options);
   }
 
   /**

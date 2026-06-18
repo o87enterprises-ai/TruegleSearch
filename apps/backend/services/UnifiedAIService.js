@@ -91,7 +91,7 @@ class UnifiedAIService {
               ...options,
               temperature: prompt.temperature,
               max_tokens: prompt.max_tokens,
-              system: systemPrompt
+              system: basePrompt
             }
           );
 

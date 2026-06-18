@@ -11,7 +11,7 @@ const sizeToZone = {
   sidebar: 'search-sidebar',
 };
 
-const AdSlot = ({ position, size = 'medium', category, adId, className = '' }) => {
+const AdSlot = ({ position, size = 'medium', category, adId, className = '', compact = false }) => {
   const { settings } = useSettings();
 
   // Don't show ads if ad personalization is off and user chose necessary cookies only
@@ -31,6 +31,7 @@ const AdSlot = ({ position, size = 'medium', category, adId, className = '' }) =
       category={category}
       adId={adId}
       className={className}
+      compact={compact}
     />
   );
 };

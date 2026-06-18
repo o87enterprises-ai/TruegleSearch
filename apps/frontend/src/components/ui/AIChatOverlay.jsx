@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 import {
   X,
   Send,
@@ -289,9 +290,13 @@ export default function AIChatOverlay({
                       </div>
                     )}
                     <div className="flex-1">
-                      <p className="text-white text-sm leading-relaxed">
-                        {message.content}
-                      </p>
+                      <div className="text-white text-sm leading-relaxed [&_p]:mb-2 [&_p]:last:mb-0 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline [&_strong]:font-semibold [&_code]:bg-white/10 [&_code]:px-1 [&_code]:rounded">
+                        {message.role === 'assistant' ? (
+                          <ReactMarkdown>{message.content}</ReactMarkdown>
+                        ) : (
+                          message.content
+                        )}
+                      </div>
                       <div className="flex items-center gap-4 mt-3">
                         <span className="text-xs text-white/40">
                           {message.timestamp.toLocaleTimeString([], {

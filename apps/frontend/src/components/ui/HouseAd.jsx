@@ -61,8 +61,9 @@ const buttonStyles = {
  * @param {string} [props.zone]      ad zone id, recorded with stats
  * @param {Object} [props.ad]        force a specific ad (otherwise auto-picked)
  * @param {string} [props.className]
+ * @param {boolean} [props.compact]  smaller padding/type — for tight spots like next to the AI summary
  */
-const HouseAd = ({ category, zone = 'unknown', adId, ad: forcedAd, className = '' }) => {
+const HouseAd = ({ category, zone = 'unknown', adId, ad: forcedAd, className = '', compact = false }) => {
   // Pinned slot (adId) → that exact ad; otherwise pick once per mount.
   const ad = useMemo(
     () => forcedAd || (adId ? getAdById(adId) : null) || pickHouseAd({ category }),
@@ -90,20 +91,20 @@ const HouseAd = ({ category, zone = 'unknown', adId, ad: forcedAd, className = '
         <div className="text-[10px] uppercase tracking-wide text-white/60 mb-1">
           {label}
         </div>
-        <div className="text-sm font-semibold text-white truncate">{ad.title}</div>
-        {ad.description && (
+        <div className={`font-semibold text-white truncate ${compact ? 'text-xs' : 'text-sm'}`}>{ad.title}</div>
+        {ad.description && !compact && (
           <div className="text-xs text-white/80">{ad.description}</div>
         )}
       </div>
       <span
-        className={`shrink-0 px-4 py-2 rounded-xl bg-gradient-to-r ${btn} text-white text-sm font-semibold whitespace-nowrap shadow-lg`}
+        className={`shrink-0 rounded-xl bg-gradient-to-r ${btn} text-white font-semibold whitespace-nowrap shadow-lg ${compact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'}`}
       >
         {ad.cta || 'Learn More'}
       </span>
     </div>
   );
 
-  const cardClass = `block w-full text-left p-4 rounded-2xl bg-gradient-to-br ${accent} backdrop-blur-xl border-2 shadow-lg transition-all duration-300 hover:scale-[1.02] no-underline ${className}`;
+  const cardClass = `block w-full text-left rounded-2xl bg-gradient-to-br ${accent} backdrop-blur-xl border-2 shadow-lg transition-all duration-300 hover:scale-[1.02] no-underline ${compact ? 'p-2.5' : 'p-4'} ${className}`;
 
   // Contact-action ad → button that opens the advertiser modal (no navigation).
   if (isContact) {

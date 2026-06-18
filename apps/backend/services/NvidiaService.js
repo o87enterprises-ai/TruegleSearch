@@ -92,9 +92,15 @@ class NvidiaService {
    * Content analysis helper (used by the analyze flow). Delegates to chat with an
    * analysis-oriented prompt and returns a chat-shaped result.
    */
-  async analyzeContent(content, options = {}) {
-    const prompt = `Analyze the following content and summarize the primary perspectives, their core arguments, and relevant perspective labels.\n\nContent:\n${content}`;
-    return this.chat(prompt, options);
+  async analyzeContent(content, queryContext = null, options = {}) {
+    const systemPrompt = options.system || options.systemPrompt || null;
+    const queryLine = queryContext ? `User Query Context: ${queryContext}\n\n` : '';
+    // When a DB-driven system prompt already frames the task, send content as-is;
+    // otherwise fall back to a generic instruction wrapper.
+    const userPrompt = systemPrompt
+      ? content
+      : `${queryLine}Analyze the following content and summarize the primary perspectives, their core arguments, and relevant perspective labels.\n\nContent:\n${content}`;
+    return this.chat(userPrompt, { ...options, systemPrompt });
   }
 
   async healthCheck() {
