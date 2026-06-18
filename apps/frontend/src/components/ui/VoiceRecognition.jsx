@@ -7,7 +7,8 @@ const VoiceRecognition = ({
   onStatusChange,
   disabled = false,
   size = 16,
-  className = ""
+  className = "",
+  lang,
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -36,7 +37,9 @@ const VoiceRecognition = ({
     recognitionRef.current = new SpeechRecognition();
     recognitionRef.current.continuous = true;
     recognitionRef.current.interimResults = true;
-    recognitionRef.current.lang = 'en-US';
+    // Default to the browser's language so non-English users are transcribed
+    // correctly; callers can override via the `lang` prop.
+    recognitionRef.current.lang = lang || navigator.language || 'en-US';
 
     recognitionRef.current.onstart = () => {
       if (!isMountedRef.current) return;
@@ -48,19 +51,23 @@ const VoiceRecognition = ({
     recognitionRef.current.onresult = (event) => {
       if (!isMountedRef.current) return;
 
+      // Final results must be appended to the accumulated transcript; interim
+      // results are only for live display. The previous code dropped finals and
+      // re-stored interims into the ref, so finished words were lost/garbled.
       let interimTranscript = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcriptPart = event.results[i][0].transcript;
-        if (!event.results[i].isFinal) {
+        if (event.results[i].isFinal) {
+          transcriptRef.current += transcriptPart;
+        } else {
           interimTranscript += transcriptPart;
         }
       }
 
-      const newTranscript = transcriptRef.current + interimTranscript;
-      setTranscript(newTranscript);
-      transcriptRef.current = newTranscript;
-      onTranscriptChangeRef.current?.(newTranscript);
+      const display = (transcriptRef.current + interimTranscript).trimStart();
+      setTranscript(display);
+      onTranscriptChangeRef.current?.(display);
     };
 
     recognitionRef.current.onerror = (event) => {

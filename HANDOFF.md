@@ -1,5 +1,5 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-06-15 (night). Supersedes all prior handoff docs._
+_Last updated: 2026-06-17. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
 
 This doc is written so it can be handed to **Claude in the web browser** to walk through
 the remaining **dashboard/browser activation steps**. Everything that requires code or a
@@ -15,6 +15,123 @@ computer has already been done and deployed (see "Done this session").
 > ripped out.** Monetize ONLY with reputable networks (Google AdSense, Ezoic/Mediavine/Raptive
 > tier). See ["AD STRATEGY — what to avoid"](#ad-strategy--what-happened--what-to-avoid). The
 > remaining browser steps below are still valid **except the old "STEP A" (now void)**.
+
+---
+
+## 🗓️ SESSION LOG 2026-06-16 → 2026-06-17 (newest first; supersedes older AdSense/ad notes)
+
+### Security headers / CSP added (2026-06-17) — fixes Aikido "CSP header not set" (risk 91)
+- **Root cause:** Cloudflare Pages was serving the frontend with **no security headers at all**
+  (no Content-Security-Policy, HSTS, etc.). Aikido flagged it on `https://truegle.info`.
+- **Fix:** added **`apps/frontend/public/_headers`** (Cloudflare Pages reads `_headers` from the
+  deploy root; living in `public/` means Vite copies it to `dist/_headers` on every build — no
+  build-config change needed). Applies to all routes (`/*`):
+  - **Content-Security-Policy** — `script-src 'self' 'wasm-unsafe-eval'` (the XSS lock; the only
+    `eval`/`new Function` in the bundle is the `new Function("return this")` global polyfill,
+    wrapped in try/catch with a fallback, so blocking it is harmless), `object-src 'none'`,
+    `base-uri`/`form-action`/`frame-ancestors 'self'`.
+  - **`connect-src` is an EXPLICIT allowlist** of the only origins the browser calls directly:
+    `'self'` + backend `https://backend-seven-khaki-60.vercel.app` (search/AI/weather/radar/
+    cameras are all proxied through it) + `https://*.mapbox.com` + `https://api.tomtom.com`
+    (sat tiles) + `https://nominatim.openstreetmap.org` (geocode) + `https://router.project-osrm.org`
+    (directions) + `https://gibs.earthdata.nasa.gov` (NASA imagery) + `https://api-inference.huggingface.co`
+    + `blob:`. **If a direct-call host moves (e.g. custom backend domain) or a new client-side API
+    is added, append it here or the call will be CSP-blocked.**
+  - **`img-src`/`media-src` left as `https:`** on purpose — live traffic-camera feeds, image-search
+    results, YouTube thumbnails and map tiles come from arbitrary domains rendered as `<img>`/
+    `<video>`; locking these would break image search + cameras. `frame-src` is an explicit
+    allowlist (YouTube + Vimeo embeds only).
+  - **Also set:** HSTS (`max-age=63072000; includeSubDomains; preload`), `X-Content-Type-Options:
+    nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`,
+    `Cross-Origin-Opener-Policy: same-origin`, and `Permissions-Policy` keeping
+    `geolocation/camera/microphone=(self)` (app uses `getUserMedia` + `navigator.geolocation`)
+    while disabling `payment/usb/interest-cohort`.
+- **Deployed & verified live (2026-06-17):** rebuilt frontend, `wrangler pages deploy dist
+  --project-name=truegle-search`; `curl -sI https://truegle.info` now returns the full CSP +
+  all security headers. Build note: on Windows the npm `build` script's inline `NODE_OPTIONS=`
+  fails under `cmd.exe` — run `NODE_OPTIONS='--max-old-space-size=4096' npx vite build` from a
+  bash shell instead (or just `npx vite build`). **TODO (deal with later):** make `npm run build`
+  cross-platform by switching the `build`/`vercel-build` scripts in `apps/frontend/package.json`
+  to `cross-env NODE_OPTIONS=--max-old-space-size=4096 vite build` (add `cross-env` as a devDep).
+
+### Monetization pivot — Google AdSense REMOVED, first-party ad network IN
+- **AdSense fully removed.** Google rejected `truegle.info` with *"Google-served ads on screens
+  without publisher-content"* (you cannot put standard display AdSense on search-results pages —
+  that's a separate Programmable-Search product). Deleted `components/ui/AdSenseAd.jsx`, removed
+  the global `adsbygoogle.js` `<script>` from `index.html`, swapped every `<AdSenseAd>` → the
+  first-party `<AdSlot>` in `UniversalSearch` (+ dead `BiasedResults`/`SearchPortal`). Verified
+  live: no `googlesyndication` served. (CSP allowlist entry left in backend `server.js`, harmless.)
+- **First-party house-ad system built** (no external scripts → can't get the domain flagged):
+  `config/houseAds.js` (`HOUSE_ADS` + `AFFILIATE_OFFERS` + `AD_ZONES` + `pickHouseAd()` /
+  `getAdById()`), `components/ui/HouseAd.jsx` (rel="sponsored", privacy-safe local impression/
+  click counts), `components/AdSlot.jsx` upgraded to render house ads. New **`/advertise`**
+  media-kit page + footer link.
+- **House-ad layout (search page pinned slots):** top banner = **advertise-cta**, middle =
+  **OpenOcchio** (git), sidebar = **BriccD** (git); added **github-profile** ad; removed Orchestra.
+  AI-chat-box mock ads (`ui/AdBanner`, rewritten to serve house ads): top = github-profile,
+  bottom = advertise-cta.
+- **Advertiser contact = plain MAILTO** to `truegleai@proton.me` (`AdvertiseContactModal`, opened
+  by any `action:'contact'` ad). User chose mailto over Resend (no extra key). Offer fine print:
+  *first month free; placements ~~$99/mo~~ **50% OFF $49.99/mo limited time**; any paid placement
+  includes Truegle Premium free.* (Numbers live in `houseAds.js` advertise-cta + the modal — adjust freely.)
+  Backend `POST /api/contact/advertise` route exists but is now UNUSED (harmless).
+- **Affiliate network = Impact.com.** Verification meta tag live in `index.html`
+  (`impact-site-verification`). `AFFILIATE_OFFERS` seeded (Proton VPN, Incogni, generic VPN) with
+  **placeholder URLs** — paste your real Impact tracked links after approval, then redeploy.
+
+### Features / fixes
+- **OSINT Email + Phone intel (free, no key):** `GET /api/osint/email-intel` (syntax, role/
+  disposable flags, live MX, Gravatar) + `GET /api/osint/phone-intel` (validity/line-type/country/
+  formats via new dep `libphonenumber-js`). Wired into `OSINTToolsPanel`. Deployed + verified.
+- **AI provider swapped to NVIDIA NIM** (replaces OpenRouter; **Ollama kept**). New
+  `services/NvidiaService.js` (OpenAI-compatible, `integrate.api.nvidia.com`, model
+  `nvidia/nemotron-3-ultra-550b-a55b`, `enable_thinking:false` for clean output). `NVIDIA_API_KEY`
+  set on Vercel + verified. `getProviderOrder` now always includes code-registered providers
+  (nvidia/ollama) even though they aren't rows in the `ai_providers` DB table.
+- **🩹 Backend-wide crash fixed.** Adding the contact route made `EmailService` load at startup;
+  its constructor did `config.email.resend.apiKey` and threw → **every** route 500'd
+  (FUNCTION_INVOCATION_FAILED). Hardened with optional chaining. **Lesson: singleton services
+  (`module.exports = new X()`) must never throw in their constructor.**
+- **🎤 Voice/audio search fixed.** `VoiceRecognition` only captured *interim* results and dropped
+  *final* ones (garbled dictation). Now accumulates finals correctly + defaults to the browser
+  language (helps international users); accepts a `lang` prop.
+- **"Make default search engine" + "Add to Home Screen" added** (were missing): `public/opensearch.xml`
+  + `<link rel="search">`, and `public/manifest.webmanifest` + apple-touch/theme-color meta in `index.html`.
+- **OAuth callback bug fixed:** `auth.js` used per-deploy `VERCEL_URL` (changes every deploy →
+  never matches Google's registered redirect) → now prefers stable `BACKEND_URL`.
+
+### Deploy note
+- Build the frontend with the **project-local vite binary** (`node_modules\.bin\vite.cmd`), **NOT
+  `npx vite`** (npx was pulling a wrong/rolldown version that fails the build).
+
+---
+
+## 🔜 STILL TO ADDRESS (outstanding tasks)
+
+1. **🛑 Un-sinkhole `truegle.info`** (highest priority). From the dev network it now resolves to
+   Cloudflare (not the sinkhole), but **file the Palo Alto reclassification**
+   (urlfiltering.paloaltonetworks.com → request *Search Engines*) + check Google Safe Browsing,
+   so enterprise networks stop blocking it.
+2. **OAuth — finish setup** (code callback already fixed): create a Google OAuth **Web** client
+   (consent screen: external, scopes email/profile/openid, app domain `truegle.info`); set
+   **redirect URI** `https://backend-seven-khaki-60.vercel.app/api/auth/google/callback`; on Vercel
+   set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `BACKEND_URL=https://backend-seven-khaki-60.vercel.app`,
+   `FRONTEND_URL=https://truegle.info` → redeploy backend; then flip **`OAUTH_ENABLED=true`** in
+   `apps/frontend/src/config/access.js` → redeploy frontend.
+3. **AI chat end-to-end** — NVIDIA wired + key set (Ollama kept). Optionally add a free
+   `OPENROUTER_API_KEY` as extra fallback. Verify chat works live (backend auth-gates expensive AI
+   endpoints; confirm it works under `FREE_ACCESS_MODE`).
+4. **Impact affiliates** — get approved, paste real tracked links into `AFFILIATE_OFFERS`
+   (`houseAds.js`), redeploy. (Currently placeholder URLs = $0.)
+5. **Get indexed (SEO)** — Google Search Console + Bing: add property, verify via Cloudflare DNS
+   TXT, submit `https://truegle.info/sitemap.xml`, request indexing for `/` and `/search`.
+6. **`/advertise` page** — replace placeholder pricing (use the $49.99 promo) + real audience/traffic numbers.
+7. **PWA icons** — add proper 192×192 + 512×512 icons (manifest currently reuses `og-image.png`).
+8. **Location filter (optional)** — auto-detect already threads country/language to providers; add a
+   visible country/region dropdown if you want user override.
+9. Carry-overs: Google CSE 403 (optional — Brave covers search), Stripe live keys (when charging),
+   re-enable real auth later (`FREE_ACCESS_MODE` + 12-char password fix), reconnect Cloudflare↔GitHub auto-deploy.
+   **`RESEND_API_KEY` no longer needed** (advertiser contact is mailto now).
 
 ---
 
@@ -92,7 +209,9 @@ computer has already been done and deployed (see "Done this session").
 | **Google Custom Search API** | ⚠️ **403 / likely quota** | Free tier = 100 queries/day, blown by current traffic; also a project/account access issue (key 403s even tested directly). Search still works — `Promise.allSettled` drops Google and Brave fills in. See Step 1. Ad revenue (Step A) can fund CSE billing. |
 | Google OAuth | 🚫 **Bypassed (intentional)** | Hidden via `OAUTH_ENABLED=false` while in free-access mode; sign-in not required. Re-enable later (Steps 2–3) once auth is fixed. Registration also has a **12-char min-password** mismatch to fix then. |
 | OAuth Branding | ⚠️ Needs fix | Wrong authorized domain `truegle-search.pages.dev` → should be `truegle-search-15k.pages.dev`; also add `truegle.info` + `trumpafi.online`; fill home/privacy/terms URLs. See Step 3. |
-| AdSense | 🔄 **In review** | Ownership **VERIFIED 2026-06-15** (both ads.txt + the AdSense `<head>` snippet are live & crawlable). Site status = "Getting ready / Review requested" → awaiting Google **content review** (days–2 wk, email when done). Risk: may land on "Low value content" like the other sites → remedy = content hub + SPA prerender (Post-Prod #5). |
+| Google AdSense | 🛑 **REMOVED 2026-06-17** | Google rejected it ("ads on screens without publisher-content" — display AdSense isn't allowed on search results). All AdSense code/script removed; replaced by the first-party house-ad + Impact-affiliate system. Don't re-add to the search UI. See session log. |
+| Impact.com (affiliates) | 🔄 **Verifying** | Site verification meta tag live in `index.html`. Get approved for programs → paste real tracked links into `AFFILIATE_OFFERS` (`houseAds.js`). |
+| NVIDIA NIM (AI) | ✅ **Live** | Replaced OpenRouter as hosted AI provider; `NVIDIA_API_KEY` set on Vercel + verified. Ollama kept as self-host option. |
 | Search Console | ⏸️ Not started | See Step 5. |
 | Bing Webmaster | ⏸️ Not started | See Step 5. |
 | Stripe | ✅ Verified | Live keys NOT yet swapped on Vercel. See Step 6. |
@@ -376,8 +495,11 @@ resolve `npm audit` advisories.
 | OAuth callback | `https://backend-seven-khaki-60.vercel.app/api/auth/google/callback` |
 | Custom Search Engine ID (cx) | `54cdc3626cf504531` |
 | GCP API key name | `Truegle Custom Search API Key` |
-| AdSense publisher | `pub-9542137900411519` |
-| Ad env vars (Cloudflare Prod) | 🛑 **DELETE if present** — `VITE_MONETAG_ZONE` · `VITE_MONETAG_REWARDED_ZONE` · `VITE_ADSTERRA_SOCIALBAR_SRC` · `VITE_ADSTERRA_BANNER_KEY` (Monetag/Adsterra removed; these do nothing now and signal intent to re-add). AdSense needs no env var. |
+| AdSense publisher | `pub-9542137900411519` — ⚠️ **AdSense REMOVED 2026-06-17** (rejected; first-party ads now). |
+| Ads (current) | First-party house ads (`config/houseAds.js` + `HouseAd`/`AdSlot`) + Impact affiliates + `/advertise` direct-sell. Advertiser contact = mailto `truegleai@proton.me`. |
+| NVIDIA AI key | `NVIDIA_API_KEY` (Vercel) · model `nvidia/nemotron-3-ultra-550b-a55b` · base `https://integrate.api.nvidia.com/v1` |
+| Impact verification | `<meta name="impact-site-verification" value="ccda0e8a-fd60-4ba7-a741-c4f9f625aa7f">` (live in `index.html`) |
+| Ad env vars (Cloudflare Prod) | 🛑 **DELETE if present** — `VITE_MONETAG_ZONE` · `VITE_MONETAG_REWARDED_ZONE` · `VITE_ADSTERRA_SOCIALBAR_SRC` · `VITE_ADSTERRA_BANNER_KEY` (Monetag/Adsterra removed; signal intent to re-add). First-party ads need no env var. |
 | Free-access flags (code) | `apps/frontend/src/config/access.js` → `FREE_ACCESS_MODE`, `OAUTH_ENABLED` |
 | Stripe webhook | `TruegleVercelWebhook` → `/api/payment/webhook` (8 events) |
 | Neon DB | `ep-spring-star-afnjwpg6-pooler` (us-west-2) |

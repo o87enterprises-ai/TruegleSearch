@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Server, Shield, AtSign, Search, Loader2, ExternalLink, X, MapPin,
+  Server, Shield, AtSign, Search, Loader2, ExternalLink, X, MapPin, Mail, Phone,
+  Check, Minus,
 } from 'lucide-react';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
@@ -10,6 +11,8 @@ const TOOLS = [
   { id: 'ip', label: 'IP Lookup', icon: MapPin, placeholder: 'e.g. 8.8.8.8', hint: 'Geolocate an IPv4 address' },
   { id: 'dns', label: 'DNS', icon: Server, placeholder: 'e.g. example.com', hint: 'Resolve DNS records' },
   { id: 'whois', label: 'WHOIS', icon: Shield, placeholder: 'e.g. example.com', hint: 'Domain registration details' },
+  { id: 'email', label: 'Email', icon: Mail, placeholder: 'e.g. name@example.com', hint: 'Validity, MX, disposable/role & Gravatar' },
+  { id: 'phone', label: 'Phone', icon: Phone, placeholder: 'e.g. +14155552671', hint: 'Validity, line type, country & formats (include country code)' },
   { id: 'username', label: 'Username', icon: AtSign, placeholder: 'e.g. johndoe', hint: 'Find profiles across platforms' },
 ];
 
@@ -51,6 +54,8 @@ export default function OSINTToolsPanel() {
       if (tool === 'ip') url = `${BACKEND}/api/osint/ip-lookup?ip=${encodeURIComponent(q)}`;
       else if (tool === 'dns') url = `${BACKEND}/api/osint/dns-lookup?domain=${encodeURIComponent(q)}&type=${dnsType}`;
       else if (tool === 'whois') url = `${BACKEND}/api/osint/whois?domain=${encodeURIComponent(q)}`;
+      else if (tool === 'email') url = `${BACKEND}/api/osint/email-intel?email=${encodeURIComponent(q)}`;
+      else if (tool === 'phone') url = `${BACKEND}/api/osint/phone-intel?phone=${encodeURIComponent(q)}`;
       else url = `${BACKEND}/api/osint/username-platforms?username=${encodeURIComponent(q)}`;
 
       const resp = await fetch(url);
@@ -146,6 +151,8 @@ export default function OSINTToolsPanel() {
             {result.tool === 'ip' && <IpResult data={result.data} />}
             {result.tool === 'dns' && <DnsResult data={result.data} />}
             {result.tool === 'whois' && <WhoisResult data={result.data} />}
+            {result.tool === 'email' && <EmailResult data={result.data} />}
+            {result.tool === 'phone' && <PhoneResult data={result.data} />}
             {result.tool === 'username' && (
               <UsernameResult platforms={result.platforms} onPreview={openPreview} />
             )}
@@ -290,6 +297,94 @@ function WhoisResult({ data }) {
             <span key={i} className="text-[11px] text-cyan-300/70 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">{s}</span>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+function Flag({ label, on, goodWhenOff }) {
+  // goodWhenOff: a "true" value is a warning (e.g. disposable). Default: true = good.
+  const positive = goodWhenOff ? !on : on;
+  return (
+    <div className="flex items-center gap-2">
+      <span className={`flex items-center justify-center w-5 h-5 rounded-full ${
+        positive ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+      }`}>
+        {on ? <Check size={12} /> : <Minus size={12} />}
+      </span>
+      <span className="text-sm text-white/80">{label}</span>
+    </div>
+  );
+}
+
+function EmailResult({ data }) {
+  if (!data) return null;
+  return (
+    <div className="rounded-xl bg-black/30 border border-white/10 p-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+        <Field label="Email" value={data.email} />
+        <Field label="Mailbox" value={data.localPart} />
+        <Field label="Domain" value={data.domain} />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+        <Flag label="Valid syntax" on={data.validSyntax} />
+        <Flag label="Domain accepts mail (MX)" on={data.mxFound} />
+        <Flag label="Disposable / throwaway" on={data.disposable} goodWhenOff />
+        <Flag label="Role / group address" on={data.role} goodWhenOff />
+        <Flag label="Gravatar profile found" on={data.gravatarExists} />
+      </div>
+      {Array.isArray(data.mxRecords) && data.mxRecords.length > 0 && (
+        <div className="mb-3">
+          <div className="text-[11px] uppercase tracking-wide text-cyan-300/50 mb-1">Mail servers</div>
+          <div className="flex flex-wrap gap-1.5">
+            {data.mxRecords.map((mx, i) => (
+              <span key={i} className="text-xs font-mono text-white/80 bg-white/5 px-2 py-0.5 rounded break-all">{mx}</span>
+            ))}
+          </div>
+        </div>
+      )}
+      {data.gravatarUrl && (
+        <div className="flex items-center gap-3">
+          <img src={data.gravatarUrl} alt="Gravatar" className="w-12 h-12 rounded-lg border border-white/10" />
+          <a href={data.gravatarUrl} target="_blank" rel="noopener noreferrer"
+            className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+            <ExternalLink size={12} /> View Gravatar
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PhoneResult({ data }) {
+  if (!data) return null;
+  if (!data.valid) {
+    return (
+      <div className="rounded-xl bg-black/30 border border-white/10 p-4">
+        <Flag label="Valid phone number" on={false} />
+        <p className="text-xs text-white/40 mt-2">{data.reason || 'Number is not valid. Try including the country code, e.g. +1 415 555 2671.'}</p>
+      </div>
+    );
+  }
+  const f = data.formats || {};
+  const prettyType = (data.type || 'unknown').replace(/_/g, ' ');
+  return (
+    <div className="rounded-xl bg-black/30 border border-white/10 p-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+        <Field label="Country" value={data.countryName ? `${data.countryName} (${data.country})` : data.country} />
+        <Field label="Calling code" value={data.callingCode} />
+        <Field label="Line type" value={prettyType} />
+        <Field label="National number" value={data.nationalNumber} />
+      </div>
+      <div className="space-y-1.5">
+        <Field label="International" value={f.international} />
+        <Field label="National" value={f.national} />
+        <Field label="E.164" value={f.e164} />
+      </div>
+      {f.uri && (
+        <a href={f.uri} className="inline-flex items-center gap-1 mt-3 text-xs text-cyan-400 hover:text-cyan-300">
+          <Phone size={12} /> Call
+        </a>
       )}
     </div>
   );

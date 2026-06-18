@@ -222,6 +222,7 @@ app.use('/api/maps', [mapsLimiter, require('./routes/maps')]);
 app.use('/api/shopping', require('./routes/shopping'));
 app.use('/api/social', require('./routes/social'));
 app.use('/api/osint', require('./routes/osint'));
+app.use('/api/contact', require('./routes/contact'));
 app.use('/api/shodan', require('./routes/shodan'));
 app.use('/api/paypal', require('./routes/paypal'));
 app.use('/api/voice', require('./routes/voice'));

@@ -1,9 +1,25 @@
 const express = require('express');
 const axios = require('axios');
+const crypto = require('crypto');
 const router = express.Router();
 const config = require('../config/env');
 const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
+
+// Common disposable / throwaway email domains (small built-in list, no API).
+const DISPOSABLE_EMAIL_DOMAINS = new Set([
+  'mailinator.com', 'guerrillamail.com', '10minutemail.com', 'tempmail.com',
+  'temp-mail.org', 'throwawaymail.com', 'yopmail.com', 'getnada.com',
+  'trashmail.com', 'sharklasers.com', 'dispostable.com', 'maildrop.cc',
+  'fakeinbox.com', 'mailnesia.com', 'mohmal.com', 'spamgourmet.com',
+]);
+
+// Mailbox names that are role/group addresses, not individuals.
+const ROLE_EMAIL_LOCALPARTS = new Set([
+  'admin', 'administrator', 'info', 'support', 'sales', 'contact', 'help',
+  'noreply', 'no-reply', 'webmaster', 'postmaster', 'abuse', 'billing',
+  'hello', 'team', 'office', 'marketing', 'hr', 'jobs', 'careers', 'security',
+]);
 
 // OSINT search using Hunter.io API
 router.get('/email-finder', authenticate, async (req, res) => {
@@ -263,6 +279,134 @@ router.get('/username-platforms', async (req, res) => {
   } catch (error) {
     logger.error('Username platforms error:', error.message);
     res.status(500).json({ error: 'Username lookup failed' });
+  }
+});
+
+/**
+ * @route   GET /api/osint/email-intel
+ * @desc    Free, no-key email intelligence: syntax, role/disposable flags, live
+ *          MX check (domain can receive mail), and Gravatar presence.
+ * @access  Public
+ */
+router.get('/email-intel', async (req, res) => {
+  try {
+    const email = String(req.query.email || '').trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Valid email address required' });
+    }
+
+    const [localPart, domain] = email.split('@');
+
+    // Live MX lookup via Google DNS-over-HTTPS (free, no key).
+    let mxRecords = [];
+    let mxFound = false;
+    try {
+      const dns = await axios.get('https://dns.google/resolve', {
+        params: { name: domain, type: 'MX' },
+        timeout: 8000,
+      });
+      mxRecords = (dns.data?.Answer || [])
+        .filter((a) => a.type === 15) // 15 = MX
+        .map((a) => a.data)
+        .sort();
+      mxFound = mxRecords.length > 0;
+    } catch (e) {
+      // Non-fatal: report MX as unknown rather than failing the whole lookup.
+      logger.warn('email-intel MX lookup failed:', e.message);
+    }
+
+    // Gravatar presence: md5 of the normalized email, d=404 → 200 means avatar exists.
+    const hash = crypto.createHash('md5').update(email).digest('hex');
+    const gravatarUrl = `https://www.gravatar.com/avatar/${hash}`;
+    let gravatarExists = false;
+    try {
+      const g = await axios.get(`${gravatarUrl}?d=404&s=200`, {
+        timeout: 8000,
+        validateStatus: () => true,
+        responseType: 'arraybuffer',
+      });
+      gravatarExists = g.status === 200;
+    } catch (e) {
+      logger.warn('email-intel gravatar check failed:', e.message);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        email,
+        localPart,
+        domain,
+        validSyntax: true,
+        role: ROLE_EMAIL_LOCALPARTS.has(localPart),
+        disposable: DISPOSABLE_EMAIL_DOMAINS.has(domain),
+        mxFound,
+        deliverable: mxFound, // domain accepts mail (best-effort, no SMTP probe)
+        mxRecords,
+        gravatarExists,
+        gravatarUrl: gravatarExists ? `${gravatarUrl}?s=200` : null,
+      },
+    });
+  } catch (error) {
+    logger.error('email-intel error:', error.message);
+    res.status(500).json({ error: 'Email lookup failed', details: 'Service unavailable' });
+  }
+});
+
+/**
+ * @route   GET /api/osint/phone-intel
+ * @desc    Free, no-key phone intelligence via libphonenumber metadata: validity,
+ *          line type, country, calling code, and formatted variants.
+ * @access  Public
+ */
+router.get('/phone-intel', async (req, res) => {
+  try {
+    const phone = String(req.query.phone || '').trim();
+    const country = String(req.query.country || '').trim().toUpperCase() || undefined;
+    if (!phone) {
+      return res.status(400).json({ error: 'Phone number required (include country code, e.g. +14155552671)' });
+    }
+
+    // libphonenumber-js/max bundles line-type metadata (mobile vs fixed line).
+    const { parsePhoneNumberWithError } = require('libphonenumber-js/max');
+
+    let parsed;
+    try {
+      parsed = parsePhoneNumberWithError(phone, country);
+    } catch (e) {
+      return res.json({
+        success: true,
+        data: { input: phone, valid: false, reason: e.message || 'Could not parse number' },
+      });
+    }
+
+    const regionNames =
+      typeof Intl !== 'undefined' && Intl.DisplayNames
+        ? new Intl.DisplayNames(['en'], { type: 'region' })
+        : null;
+
+    res.json({
+      success: true,
+      data: {
+        input: phone,
+        valid: parsed.isValid(),
+        possible: parsed.isPossible(),
+        type: parsed.getType() || 'unknown', // mobile, fixed_line, voip, toll_free, etc.
+        country: parsed.country || null,
+        countryName: parsed.country && regionNames ? regionNames.of(parsed.country) : null,
+        callingCode: parsed.countryCallingCode ? `+${parsed.countryCallingCode}` : null,
+        nationalNumber: parsed.nationalNumber || null,
+        formats: {
+          e164: parsed.number,
+          international: parsed.formatInternational(),
+          national: parsed.formatNational(),
+          uri: parsed.getURI(),
+        },
+      },
+    });
+  } catch (error) {
+    logger.error('phone-intel error:', error.message);
+    res.status(500).json({ error: 'Phone lookup failed', details: 'Service unavailable' });
   }
 });
 

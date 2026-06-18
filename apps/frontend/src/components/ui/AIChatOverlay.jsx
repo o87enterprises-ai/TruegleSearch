@@ -258,14 +258,11 @@ export default function AIChatOverlay({
             </button>
           </div>
 
-          {/* Yellow Ad Banner 1 - Top */}
+          {/* House ad — GitHub profile */}
           <AdBanner
             key={`ad-top-${adKey}`}
-            variant="yellow"
-            size="medium"
-            title="Smart Research Tools"
-            description="Advanced analytics for professionals"
-            ctaText="Learn More"
+            adId="github-profile"
+            zone="chat-top"
             className="mx-6 mt-4"
           />
 
@@ -355,14 +352,11 @@ export default function AIChatOverlay({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Yellow Ad Banner 2 - Bottom */}
+          {/* House ad — advertiser call-to-action (opens contact modal) */}
           <AdBanner
             key={`ad-bottom-${adKey}`}
-            variant="red"
-            size="medium"
-            title="Truegle Premium"
-            description="Unlimited Smart searches without ads"
-            ctaText="Upgrade Now"
+            adId="advertise-cta"
+            zone="chat-bottom"
             className="mx-6 mb-4"
           />
 

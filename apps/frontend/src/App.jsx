@@ -29,10 +29,12 @@ import FeelingBiasedPage from './pages/FeelingBiasedPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import About from './pages/About';
+import Advertise from './pages/Advertise';
 import NotFound from "./pages/NotFound";
 import RootErrorBoundary from './components/ui/RootErrorBoundary';
 import RouteBoundary from './components/ui/RouteBoundary';
 import PreProductionBanner from './components/ui/PreProductionBanner';
+import AdvertiseContactModal from './components/ui/AdvertiseContactModal';
 import { FREE_ACCESS_MODE } from './config/access';
 // Info Wizard Prompt
 const InfoWizardPrompt = ({
@@ -199,6 +201,7 @@ const AppContent = () => {
   return (
     <div id="main-content" className={containerClassNames}>
       <PreProductionBanner />
+      <AdvertiseContactModal />
       <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         {/* Public Routes */}
@@ -228,6 +231,7 @@ const AppContent = () => {
         <Route path="/privacy" element={<RouteBoundary><PrivacyPolicy /></RouteBoundary>} />
         <Route path="/terms" element={<RouteBoundary><TermsOfService /></RouteBoundary>} />
         <Route path="/about" element={<RouteBoundary><About /></RouteBoundary>} />
+        <Route path="/advertise" element={<RouteBoundary><Advertise /></RouteBoundary>} />
         {/* Onboarding Route */}
         <Route
           path="/onboarding"

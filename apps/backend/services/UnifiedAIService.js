@@ -3,7 +3,7 @@
  * Manages multiple AI providers with automatic failover and context-aware prompt selection
  */
 
-const OpenRouterService = require('./OpenRouterService');
+const NvidiaService = require('./NvidiaService');
 const OpenAIService = require('./OpenAIService');
 const AnthropicService = require('./AnthropicService');
 const GeminiService = require('./GeminiService');
@@ -17,7 +17,7 @@ class UnifiedAIService {
     // Initialize all AI providers
     this.providers = {
       ollama: new OllamaService(),
-      openrouter: new OpenRouterService(),
+      nvidia: new NvidiaService(),
       openai: new OpenAIService(),
       anthropic: new AnthropicService(),
       gemini: new GeminiService()
@@ -279,10 +279,17 @@ class UnifiedAIService {
       const providerNames = result.rows.map(row => row.name);
 
       // Filter out unavailable providers
-      const availableProviders = providerNames.filter(name => {
+      const dbProviders = providerNames.filter(name => {
         const provider = this.providers[name];
         return provider && provider.isAvailable && provider.isAvailable();
       });
+
+      // Always include code-registered providers that aren't tracked in the DB
+      // (e.g. nvidia, ollama) so new free providers are used without a migration.
+      const extra = Object.keys(this.providers).filter(
+        (name) => this.providers[name]?.isAvailable?.() && !dbProviders.includes(name)
+      );
+      const availableProviders = [...dbProviders, ...extra];
 
       if (availableProviders.length === 0) {
         throw new Error('No AI providers available');
@@ -295,7 +302,7 @@ class UnifiedAIService {
       logger.error('Error determining provider order:', { error: error.message });
 
       // Fallback to hardcoded priority (Ollama first, then others)
-      return ['ollama', 'openai', 'gemini', 'openrouter', 'anthropic'].filter(name => {
+      return ['ollama', 'nvidia', 'openai', 'gemini', 'anthropic'].filter(name => {
         const provider = this.providers[name];
         return provider && provider.isAvailable && provider.isAvailable();
       });

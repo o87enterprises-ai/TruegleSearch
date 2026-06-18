@@ -12,9 +12,10 @@ const config = require('../config/env');
 
 class EmailService {
   constructor() {
-    this.apiKey = config.email.resend.apiKey;
+    // Defensive: never throw at construction (this is a startup-loaded singleton).
+    this.apiKey = config.email?.resend?.apiKey;
     this.baseUrl = 'https://api.resend.com';
-    this.fromEmail = config.email.resend.fromEmail || 'onboarding@resend.dev';
+    this.fromEmail = config.email?.resend?.fromEmail || 'onboarding@resend.dev';
   }
 
   /**

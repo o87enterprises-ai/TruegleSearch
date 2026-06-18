@@ -24,7 +24,7 @@ import TruegleLogo from '../components/ui/TruegleLogo';
 import SearchBar from '../components/ui/SearchBar';
 import MultimediaInterface from '../components/ui/MultimediaInterface';
 import AIChatOverlay from '../components/ui/AIChatOverlay';
-import AdSenseAd from '../components/ui/AdSenseAd';
+import AdSlot from '../components/AdSlot';
 import { SkeletonSearchResult } from '../components/ui/Skeleton';
 import AsSeenOn from '../components/Content/AsSeenOn';
 import PerspectiveSelector from '../components/search/PerspectiveSelector';
@@ -960,7 +960,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
             animate={{ opacity: 1, y: 0 }}
             className="max-w-4xl mx-auto mb-6"
           >
-            <AdSenseAd className="rounded-2xl" />
+            <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" />
           </motion.div>
 
           {/* Search Summary — Banner + Expandable Card */}
@@ -1252,7 +1252,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
             animate={{ opacity: 1 }}
             className="max-w-4xl mx-auto mb-4"
           >
-            <AdSenseAd className="rounded-2xl" adSlot="8883172859" />
+            <AdSlot className="rounded-2xl" size="large" adId="openocchio" />
           </motion.div>
 
           {/* Results Grid (same as SearchResults) */}
@@ -1353,7 +1353,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
             <div className="lg:col-span-1 space-y-4">
               {/* Ad Sidebar */}
               <div className="sticky top-4 space-y-4 flex flex-col items-center">
-                <AdSenseAd className="rounded-xl" adSlot="7891234567" format="vertical" />
+                <AdSlot className="rounded-xl" size="sidebar" adId="briccd" />
               </div>
             </div>
           </div>

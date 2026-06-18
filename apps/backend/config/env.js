@@ -47,6 +47,8 @@ const envVarsSchema = Joi.object({
   DEEPSEEK_API_KEY: Joi.string().optional().description('DeepSeek API Key - Deprecated - DO NOT USE'),
   OLLAMA_BASE_URL: Joi.string().optional().default('http://localhost:11434').description('Ollama API Base URL (local server with cloud access)'),
   OLLAMA_MODEL: Joi.string().optional().default('qwen3-coder:480b').description('Ollama Model Name (supports cloud models when signed in)'),
+  NVIDIA_API_KEY: Joi.string().optional().description('NVIDIA NIM API Key (integrate.api.nvidia.com)'),
+  NVIDIA_MODEL: Joi.string().optional().default('nvidia/nemotron-3-ultra-550b-a55b').description('NVIDIA NIM model id'),
 
   // Radar API (Maps)
   RADAR_LIVE_SECRET_KEY: Joi.string().optional().description('Radar Live Secret Key'),
@@ -224,6 +226,10 @@ const config = {
     ollama: {
       baseUrl: envVars.OLLAMA_BASE_URL,
       model: envVars.OLLAMA_MODEL,
+    },
+    nvidia: {
+      apiKey: envVars.NVIDIA_API_KEY,
+      model: envVars.NVIDIA_MODEL,
     },
     deepseek: {
       apiKey: envVars.DEEPSEEK_API_KEY, // DEPRECATED - DO NOT USE

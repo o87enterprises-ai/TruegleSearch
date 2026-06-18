@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/"
+                       xmlns:moz="http://www.mozilla.org/2006/browser/search/">
+  <ShortName>Truegle</ShortName>
+  <LongName>Truegle — Unbiased Search</LongName>
+  <Description>The unbiased, transparent, privacy-first search engine.</Description>
+  <InputEncoding>UTF-8</InputEncoding>
+  <Image width="64" height="64" type="image/png">https://truegle.info/og-image.png</Image>
+  <Url type="text/html" method="get" template="https://truegle.info/search?q={searchTerms}"/>
+  <Url type="application/opensearchdescription+xml" rel="self" template="https://truegle.info/opensearch.xml"/>
+  <moz:SearchForm>https://truegle.info/search</moz:SearchForm>
+</OpenSearchDescription>

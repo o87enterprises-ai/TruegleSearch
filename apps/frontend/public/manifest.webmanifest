@@ -1,0 +1,20 @@
+{
+  "name": "Truegle — Unbiased Search",
+  "short_name": "Truegle",
+  "description": "The unbiased, transparent, privacy-first search engine.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "categories": ["search", "utilities", "news"],
+  "icons": [
+    {
+      "src": "/og-image.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
