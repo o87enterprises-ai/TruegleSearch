@@ -909,24 +909,39 @@ class SearchService {
       throw new Error('YouTube API not configured');
     }
 
-    const params = {
-      key: this.youtubeApiKey,
-      part: 'snippet',
-      q: query,
-      type: 'video',
-      maxResults: filters.perPage || 25,
-      order: filters.sortBy === 'views' ? 'viewCount' : 'relevance',
+    const runSearch = async (q) => {
+      const params = {
+        key: this.youtubeApiKey,
+        part: 'snippet',
+        q,
+        type: 'video',
+        maxResults: filters.perPage || 25,
+        order: filters.sortBy === 'views' ? 'viewCount' : 'relevance',
+      };
+
+      // Add date range filter
+      if (filters.dateRange && filters.dateRange !== 'any') {
+        const dateAfter = this.calculateDateFrom(filters.dateRange);
+        params.publishedAfter = new Date(dateAfter).toISOString();
+      }
+
+      const response = await axios.get(this.youtubeBaseUrl, { params, timeout: 8000 });
+      return response.data;
     };
 
-    // Add date range filter
-    if (filters.dateRange && filters.dateRange !== 'any') {
-      const dateAfter = this.calculateDateFrom(filters.dateRange);
-      params.publishedAfter = new Date(dateAfter).toISOString();
-    }
-
     try {
-      const response = await axios.get(this.youtubeBaseUrl, { params, timeout: 8000 });
-      const data = response.data;
+      let data = await runSearch(query);
+
+      // A strict/quoted query (e.g. '"grown shit" mac dre') can over-constrain
+      // YouTube into 0 hits. If so, broaden once by dropping quote operators so
+      // the Videos tab isn't left empty for an otherwise findable query.
+      if ((!data.items || data.items.length === 0) && /["']/.test(query)) {
+        const broadened = query.replace(/["']/g, ' ').replace(/\s+/g, ' ').trim();
+        if (broadened && broadened !== query) {
+          console.log(`📺 YouTube: 0 hits for strict query, retrying broadened "${broadened}"`);
+          data = await runSearch(broadened);
+        }
+      }
 
       // Enrich with duration + view counts via a videos.list call (search.list omits these)
       try {
