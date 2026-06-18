@@ -18,7 +18,37 @@ computer has already been done and deployed (see "Done this session").
 
 ---
 
-## 🗓️ SESSION LOG 2026-06-18 (newest first) — CI/CD: one `git push` now deploys all three platforms
+## 🗓️ SESSION LOG 2026-06-18 (newest first) — CI/CD + Videos-tab fix + CSP
+
+### Videos tab returned nothing — FIXED (commit `a074357`, verified live)
+**Symptom:** the Videos tab showed "No video results found" for every query (console empty, API 200).
+**Root cause (found via `vercel logs`):**
+- The backend reads filters **nested** (`req.body.filters`); for `filters.category === 'videos'` the web
+  providers (Brave/Google) do NOT run — the only video source is the YouTube Data API.
+- The **`YOUTUBE_API_KEY` is configured but ERRORS (403/quota)** — same Google project whose Custom Search
+  also 403s. The error is swallowed by `Promise.allSettled`, so the Videos tab came back empty. (The quotes
+  in the user's `"grown shit" mac dre` query were a red herring — even unquoted was empty.)
+**Fix:** in `SearchService.js` `searchVideos` block, ALWAYS add a Brave fallback **scoped to
+`filters.category === 'videos'`**: `performBraveSearch(`${query} site:youtube.com`, {...filters, perPage:20})`.
+youtube.com links are tagged `videos` by `detectCategory` and kept by the category filter. Now Videos tab
+returns ~12-20 real YouTube results (verified: `mac dre`→20, `"grown shit" mac dre`→12). Scoped to the
+Videos tab so the mixed `all` feed isn't flooded + no extra Brave call per all-search.
+- **Brave gotcha:** `site:youtube.com OR site:vimeo.com` (OR of two `site:`) returns **0** from Brave; a
+  SINGLE `site:youtube.com` works. Also added a general quote-broaden (commit `e4ab351`): quoted queries
+  (`/["']/`) with `<12` results re-run de-quoted + merge.
+- **Still open (optional, non-blocking):** the YouTube Data API key 403s. To restore the proper video
+  source (durations/view-counts), enable **YouTube Data API v3** on that Google Cloud project (same one as
+  the CSE) or check its quota. The Brave fallback means this is now a quality upgrade, not a blocker.
+- **Debug lessons:** `vercel pull` does NOT decrypt **Sensitive** env vars — they show as `KEY=""` locally
+  even though set in prod, so you can't read real keys / repro provider calls locally. Use
+  `vercel logs https://<deployment-url> --token=$TOKEN` (url from `/v6/deployments`) to see backend logs.
+  Windows Python: read API responses with `io.open(f, encoding='utf-8')` (cp1252 chokes on emoji/titles).
+
+### CSP blocked Cloudflare Web Analytics beacon — FIXED (commit `77bd3e6`, verified live)
+Cloudflare Pages auto-injects `static.cloudflareinsights.com/beacon.min.js`, which the CSP (added 2026-06-17)
+was blocking. Added `https://static.cloudflareinsights.com` to `script-src` and `https://cloudflareinsights.com`
+to `connect-src` in `apps/frontend/public/_headers`. Verified live on `truegle.info`. (The other console
+noise — "Speech Recognition not supported" in Firefox, and `OpaqueResponseBlocking` — are benign/separate.)
 
 ### `git push origin main` → auto-deploys GitHub + Cloudflare + Vercel (DONE & verified live)
 **Outcome:** committing and pushing to `main` now builds and deploys **all three platforms with zero
