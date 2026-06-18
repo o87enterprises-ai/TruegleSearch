@@ -930,16 +930,29 @@ class SearchService {
     };
 
     try {
-      let data = await runSearch(query);
+      const data = await runSearch(query);
 
       // A strict/quoted query (e.g. '"grown shit" mac dre') can over-constrain
-      // YouTube into 0 hits. If so, broaden once by dropping quote operators so
-      // the Videos tab isn't left empty for an otherwise findable query.
-      if ((!data.items || data.items.length === 0) && /["']/.test(query)) {
+      // YouTube into 0-1 hits, leaving the Videos tab nearly empty for an
+      // otherwise findable query. When the strict result set is thin, also run a
+      // broadened query (quote operators stripped) and MERGE: strict hits stay
+      // first (most precise), broadened extras fill the rest, deduped by id.
+      const want = filters.perPage || 25;
+      const strictCount = (data.items || []).length;
+      if (strictCount < Math.min(5, want) && /["']/.test(query)) {
         const broadened = query.replace(/["']/g, ' ').replace(/\s+/g, ' ').trim();
         if (broadened && broadened !== query) {
-          console.log(`📺 YouTube: 0 hits for strict query, retrying broadened "${broadened}"`);
-          data = await runSearch(broadened);
+          console.log(`📺 YouTube: thin strict result (${strictCount}), merging broadened "${broadened}"`);
+          try {
+            const more = await runSearch(broadened);
+            const seen = new Set((data.items || []).map((i) => i.id?.videoId).filter(Boolean));
+            const extra = (more.items || []).filter(
+              (i) => i.id?.videoId && !seen.has(i.id.videoId)
+            );
+            data.items = [...(data.items || []), ...extra].slice(0, want);
+          } catch (broadenErr) {
+            console.error('YouTube broadened retry failed:', broadenErr.message);
+          }
         }
       }
 
