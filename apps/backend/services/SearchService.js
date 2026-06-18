@@ -198,17 +198,20 @@ class SearchService {
             ));
           }
         }
-        // Resilient video fallback — ALWAYS runs (not just when the YouTube key is
-        // absent), because the YouTube Data API on this project is frequently
-        // 403/quota-limited, which silently leaves the Videos tab empty. Pull
-        // videos via Brave constrained to YouTube; youtube.com links categorize as
-        // 'videos' downstream and dedupe by URL against any YouTube API results.
-        // (searchWeb is false for category === 'videos', so without this nothing
-        // would populate the tab when YouTube errors.)
-        if (this.braveApiKey) {
-          searchPromises.push(this.performBraveSearch(`${query} site:youtube.com`, { ...filters, perPage: 20 }));
-        } else if (this.googleApiKey && this.googleSearchEngineId) {
-          searchPromises.push(this.performGoogleSearch(`${query} site:youtube.com`, { ...filters, perPage: 20 }));
+        // Resilient video fallback for the dedicated Videos tab only
+        // (category === 'videos', not 'all'). The YouTube Data API on this project
+        // is frequently 403/quota-limited, which silently left the Videos tab
+        // empty (searchWeb is false for a non-web category, so nothing else ran).
+        // Pull videos via Brave constrained to YouTube; youtube.com links
+        // categorize as 'videos' downstream. Scoped to the Videos tab so the mixed
+        // 'all' feed isn't flooded with 20 youtube links and we don't add a Brave
+        // call to every all-search.
+        if (filters.category === 'videos') {
+          if (this.braveApiKey) {
+            searchPromises.push(this.performBraveSearch(`${query} site:youtube.com`, { ...filters, perPage: 20 }));
+          } else if (this.googleApiKey && this.googleSearchEngineId) {
+            searchPromises.push(this.performGoogleSearch(`${query} site:youtube.com`, { ...filters, perPage: 20 }));
+          }
         }
       }
 
