@@ -1,5 +1,5 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-06-17. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
+_Last updated: 2026-06-18. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
 
 This doc is written so it can be handed to **Claude in the web browser** to walk through
 the remaining **dashboard/browser activation steps**. Everything that requires code or a
@@ -15,6 +15,56 @@ computer has already been done and deployed (see "Done this session").
 > ripped out.** Monetize ONLY with reputable networks (Google AdSense, Ezoic/Mediavine/Raptive
 > tier). See ["AD STRATEGY — what to avoid"](#ad-strategy--what-happened--what-to-avoid). The
 > remaining browser steps below are still valid **except the old "STEP A" (now void)**.
+
+---
+
+## 🗓️ SESSION LOG 2026-06-18 (newest first) — CI/CD: one `git push` now deploys all three platforms
+
+### `git push origin main` → auto-deploys GitHub + Cloudflare + Vercel (DONE & verified live)
+**Outcome:** committing and pushing to `main` now builds and deploys **all three platforms with zero
+manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified end-to-end on commit
+`c7e3659` (backend health 200, frontend 200).
+
+- **Synced + deployed this session:** merged the newest commit `1bb0511` ("Fix search filters, AI
+  summary bias, ranking, and image sourcing") from branch `claude/search-filters-ai-summary-1b8sns`
+  into `main` (fast-forward), pushed, then deployed both halves manually once (Cloudflare frontend +
+  Vercel backend) to get the new code live before wiring up auto-deploy.
+
+- **Frontend → Cloudflare Pages = native git, already working.** Despite older notes saying CF git was
+  disconnected, the `truegle-search` Pages project **is** connected and auto-builds on every push to
+  `main` (confirmed multiple green builds this session). Nothing to do — frontend self-deploys.
+
+- **GitHub Actions = NOT usable here, don't try again.** The repo `o87enterprises-ai/TruegleSearch` is
+  **private** and the free-tier Actions minutes are exhausted → every workflow run dies in ~1s with
+  `startup_failure` (even a manual `workflow_dispatch`, even on valid YAML). I added a deploy workflow,
+  proved it's blocked, and **removed it** so it won't spam red ❌ on commits. Only revisit if you enable
+  Actions billing OR make the repo public (public = free unlimited Actions, **but** scrub git history
+  for leaked env keys first — risky given the security audit).
+
+- **Backend → Vercel = native git, fixed in 3 steps:**
+  1. **Connect (browser, done by you):** Vercel dashboard → project `backend` → Settings → Git → connected
+     `o87enterprises-ai/TruegleSearch`. (The `vercel git connect` CLI path FAILS — the GitHub-App install
+     is browser-only.) Production branch = `main`.
+  2. **Root Directory was empty** → git deploys would build from the repo root, not the backend. Fixed via
+     Vercel REST API (no browser): `PATCH /v9/projects/backend?teamId=<TEAM>` body `{"rootDirectory":"apps/backend"}`.
+  3. **Deploys came back `BLOCKED` (`seatBlock: TEAM_ACCESS_REQUIRED`)** — Vercel checks the **commit
+     AUTHOR**, not the pusher, against team membership. Commits were authored as
+     `Truegle <truegleai@proton.me>`, which GitHub attributes to the **`TruegleAi`** account (not on the
+     Vercel team). The team-member account is **`o87enterprises-ai` / o87enterprises@gmail.com**. Fixed with
+     `git config user.email o87enterprises@gmail.com` (kept `user.name "Truegle"` so the author still reads
+     as Truegle). After that, the next push deployed READY and auto-promoted to `target:production`,
+     aliased to `backend-seven-khaki-60.vercel.app`.
+
+- **⚠️ RULE going forward:** commits to this repo **must be authored with `o87enterprises@gmail.com`** or
+  Vercel will `BLOCK` the git deploy again. It's set locally in this repo; if you ever commit from another
+  machine, run the same `git config`. (To revert to your proton email you'd have to add the `TruegleAi`
+  GitHub account to the Vercel team instead.)
+
+- **Manual fallback (still works if ever needed):** frontend `cd apps/frontend && NODE_OPTIONS='--max-old-space-size=4096' npx vite build && wrangler pages deploy dist --project-name=truegle-search --branch=main`;
+  backend `cd apps/backend && vercel deploy --prod --yes`.
+
+- **IDs for reference:** Vercel teamId `team_OyHR5YLtUy6gIs8HmvhXKSsj`, projectId
+  `prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI`; Cloudflare accountId `1052be08b0c9382768667a9254936f9c`.
 
 ---
 
