@@ -9,24 +9,27 @@
 # Truegle's own router still renders its <NotFound /> page either way; only
 # the HTTP status differs.
 #
-# Targets point at /_index.html (a plain copy of index.html), NOT /index.html:
-# Cloudflare Pages' default html_handling auto-redirects (308) any resolved
-# index.html back to '/', and separately false-positives wildcard rules
-# targeting it as an "infinite loop" and silently drops them. Both bugs are
-# keyed on the literal filename "index.html", so a differently-named copy
-# sidesteps them. See github.com/cloudflare/workers-sdk/issues/11824.
+# Targets point at /_index (an extension-less copy of index.html, see
+# scripts/prerender.mjs), NOT /index.html: Cloudflare Pages unconditionally
+# 308-redirects any *.html path to its extension-less form (documented - see
+# "Serving Pages" docs), so a 200 rewrite to /index.html just 308s again on
+# top of it. Separately, its _redirects validator false-positives wildcard
+# rules targeting "index.html" specifically as an "infinite loop" and drops
+# them (github.com/cloudflare/workers-sdk/issues/11824). An extension-less
+# target sidesteps both; _headers sets its Content-Type since Pages can't
+# infer one without an extension.
 
-/search           /_index.html  200
-/search/*         /_index.html  200
-/green            /_index.html  200
-/feeling-biased   /_index.html  200
-/biased           /_index.html  200
-/osint            /_index.html  200
-/osint/*          /_index.html  200
-/search-portal    /_index.html  200
-/search-results   /_index.html  200
-/results          /_index.html  200
-/auth/*           /_index.html  200
-/onboarding       /_index.html  200
-/settings         /_index.html  200
-/rewards          /_index.html  200
+/search           /_index  200
+/search/*         /_index  200
+/green            /_index  200
+/feeling-biased   /_index  200
+/biased           /_index  200
+/osint            /_index  200
+/osint/*          /_index  200
+/search-portal    /_index  200
+/search-results   /_index  200
+/results          /_index  200
+/auth/*           /_index  200
+/onboarding       /_index  200
+/settings         /_index  200
+/rewards          /_index  200

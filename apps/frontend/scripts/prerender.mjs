@@ -131,14 +131,16 @@ async function main() {
     fs.copyFileSync(baseHtmlPath, path.join(distDir, '404.html'));
     console.log('[prerender] wrote dist/404.html');
 
-    // _redirects rules can't target a file literally named index.html: Cloudflare
-    // Pages' default html_handling auto-canonicalizes any resolved index.html into
-    // a 308 redirect to '/', and its _redirects validator separately false-positives
-    // any wildcard rule pointing at it as an "infinite loop" and silently drops the
-    // rule (see github.com/cloudflare/workers-sdk/issues/11824). Serving the SPA
-    // shell from a differently-named file sidesteps both bugs.
-    fs.copyFileSync(baseHtmlPath, path.join(distDir, '_index.html'));
-    console.log('[prerender] wrote dist/_index.html');
+    // _redirects rules can't target *any* .html file: Cloudflare Pages
+    // unconditionally redirects "/foo.html" -> "/foo" (see "Serving Pages" docs),
+    // so a 200 rewrite to /index.html (or /_index.html) just 308s again on top of
+    // it, and its _redirects validator separately false-positives wildcard rules
+    // pointing at "index.html" as an "infinite loop" and silently drops them
+    // (github.com/cloudflare/workers-sdk/issues/11824). Targeting an extension-less
+    // file sidesteps both; _headers sets its Content-Type since Pages can't infer
+    // one from the extension-less name.
+    fs.copyFileSync(baseHtmlPath, path.join(distDir, '_index'));
+    console.log('[prerender] wrote dist/_index');
   } finally {
     fs.rmSync(bundlePath, { force: true });
   }
