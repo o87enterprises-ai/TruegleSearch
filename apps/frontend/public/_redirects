@@ -2,11 +2,12 @@
 # rules, so the prerendered routes (/, /about, /privacy, /terms, /advertise)
 # never hit this file at all - they have a real dist/<route>/index.html.
 #
-# Everything below is for the client-routed app: known SPA routes should load
-# the app shell with a real 200, but a genuinely unknown path should NOT
-# silently serve the homepage with a 200 (a "soft 404" - bad for crawlers and
-# for any automated content-quality screen). Truegle's own router still
-# renders its <NotFound /> page either way; only the HTTP status differs.
+# Cloudflare Pages only supports 200 (rewrite) and 30x (redirect) here - NOT
+# 404, unlike Netlify. So the lines below whitelist known client-routed SPA
+# pages with a real 200. Anything NOT listed here falls through to
+# dist/404.html (written by scripts/prerender.mjs) for a genuine 404 status.
+# Truegle's own router still renders its <NotFound /> page either way; only
+# the HTTP status differs.
 
 /search           /index.html  200
 /search/*         /index.html  200
@@ -22,5 +23,3 @@
 /onboarding       /index.html  200
 /settings         /index.html  200
 /rewards          /index.html  200
-
-/*                /index.html  404

@@ -120,6 +120,16 @@ async function main() {
       fs.writeFileSync(outPath, html);
       console.log(`[prerender] wrote ${path.relative(root, outPath)}`);
     }
+
+    // Cloudflare Pages doesn't support a 404 status on _redirects rewrites —
+    // only 200/30x are allowed. Its real 404 mechanism is a top-level
+    // 404.html: without one, Pages assumes a pure SPA and routes every
+    // unmatched path to index.html with 200 (the soft-404 this fix targets).
+    // With one present, unmatched paths get this file's body with a genuine
+    // 404 status, while the _redirects 200 rules still whitelist real SPA
+    // routes ahead of it. The live app still repaints on mount either way.
+    fs.copyFileSync(baseHtmlPath, path.join(distDir, '404.html'));
+    console.log('[prerender] wrote dist/404.html');
   } finally {
     fs.rmSync(bundlePath, { force: true });
   }
