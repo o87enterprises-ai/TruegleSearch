@@ -16,8 +16,23 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://truegle.info/feeling-biased</loc>
-    <changefreq>weekly</changefreq>
+    <loc>https://truegle.info/about</loc>
+    <changefreq>monthly</changefreq>
     <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://truegle.info/advertise</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://truegle.info/privacy</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://truegle.info/terms</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>

@@ -5,5 +5,9 @@ Allow: /
 Disallow: /auth/
 Disallow: /onboarding
 Disallow: /settings
+Disallow: /rewards
+
+# Mock-data demo page, not real content - don't index
+Disallow: /feeling-biased
 
 Sitemap: https://truegle.info/sitemap.xml
