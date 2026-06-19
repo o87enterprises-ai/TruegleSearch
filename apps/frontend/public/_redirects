@@ -8,18 +8,25 @@
 # dist/404.html (written by scripts/prerender.mjs) for a genuine 404 status.
 # Truegle's own router still renders its <NotFound /> page either way; only
 # the HTTP status differs.
+#
+# Targets point at /_index.html (a plain copy of index.html), NOT /index.html:
+# Cloudflare Pages' default html_handling auto-redirects (308) any resolved
+# index.html back to '/', and separately false-positives wildcard rules
+# targeting it as an "infinite loop" and silently drops them. Both bugs are
+# keyed on the literal filename "index.html", so a differently-named copy
+# sidesteps them. See github.com/cloudflare/workers-sdk/issues/11824.
 
-/search           /index.html  200
-/search/*         /index.html  200
-/green            /index.html  200
-/feeling-biased   /index.html  200
-/biased           /index.html  200
-/osint            /index.html  200
-/osint/*          /index.html  200
-/search-portal    /index.html  200
-/search-results   /index.html  200
-/results          /index.html  200
-/auth/*           /index.html  200
-/onboarding       /index.html  200
-/settings         /index.html  200
-/rewards          /index.html  200
+/search           /_index.html  200
+/search/*         /_index.html  200
+/green            /_index.html  200
+/feeling-biased   /_index.html  200
+/biased           /_index.html  200
+/osint            /_index.html  200
+/osint/*          /_index.html  200
+/search-portal    /_index.html  200
+/search-results   /_index.html  200
+/results          /_index.html  200
+/auth/*           /_index.html  200
+/onboarding       /_index.html  200
+/settings         /_index.html  200
+/rewards          /_index.html  200
