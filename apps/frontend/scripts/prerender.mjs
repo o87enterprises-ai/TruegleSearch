@@ -130,6 +130,15 @@ async function main() {
     // routes ahead of it. The live app still repaints on mount either way.
     fs.copyFileSync(baseHtmlPath, path.join(distDir, '404.html'));
     console.log('[prerender] wrote dist/404.html');
+
+    // _redirects rules can't target a file literally named index.html: Cloudflare
+    // Pages' default html_handling auto-canonicalizes any resolved index.html into
+    // a 308 redirect to '/', and its _redirects validator separately false-positives
+    // any wildcard rule pointing at it as an "infinite loop" and silently drops the
+    // rule (see github.com/cloudflare/workers-sdk/issues/11824). Serving the SPA
+    // shell from a differently-named file sidesteps both bugs.
+    fs.copyFileSync(baseHtmlPath, path.join(distDir, '_index.html'));
+    console.log('[prerender] wrote dist/_index.html');
   } finally {
     fs.rmSync(bundlePath, { force: true });
   }
