@@ -5,7 +5,43 @@
 # rewrites client-routed paths to. It's extension-less on purpose - see the
 # comment in public/_redirects - so Pages can't infer its Content-Type from
 # the filename and would otherwise serve it as application/octet-stream.
+#
+# Cloudflare Pages matches _headers rules against the ORIGINALLY REQUESTED
+# path, not the path a _redirects rule rewrites it to - confirmed live: a
+# request to /search (which _redirects rewrites to /_index) came back as
+# application/octet-stream even with the /_index rule below in place, while
+# a direct request to /_index itself got the right Content-Type. So every
+# source path listed in _redirects needs its own matching rule here too.
 /_index
+  Content-Type: text/html; charset=utf-8
+
+/search
+  Content-Type: text/html; charset=utf-8
+/search/*
+  Content-Type: text/html; charset=utf-8
+/green
+  Content-Type: text/html; charset=utf-8
+/feeling-biased
+  Content-Type: text/html; charset=utf-8
+/biased
+  Content-Type: text/html; charset=utf-8
+/osint
+  Content-Type: text/html; charset=utf-8
+/osint/*
+  Content-Type: text/html; charset=utf-8
+/search-portal
+  Content-Type: text/html; charset=utf-8
+/search-results
+  Content-Type: text/html; charset=utf-8
+/results
+  Content-Type: text/html; charset=utf-8
+/auth/*
+  Content-Type: text/html; charset=utf-8
+/onboarding
+  Content-Type: text/html; charset=utf-8
+/settings
+  Content-Type: text/html; charset=utf-8
+/rewards
   Content-Type: text/html; charset=utf-8
 
 /*
