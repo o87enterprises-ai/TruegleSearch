@@ -1,17 +1,36 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import AdSlot from './AdSlot';
 import { useSettings } from '../context/SettingsContext';
+import { useRewards } from '../context/RewardsContext';
 import { NuclearOptionButton } from './ui/SessionWipe';
 
 const { FiSettings, FiShield, FiEye, FiDollarSign, FiGlobe, FiLock, FiCookie, FiClock, FiTrash2 } =
   FiIcons;
 
+const formatCents = (cents) => `$${(Math.max(0, cents || 0) / 100).toFixed(2)}`;
+
 const SettingsPage = () => {
   const { settings, updateSetting } = useSettings();
+  const {
+    optedIn: rewardsOptedIn,
+    balanceCents: rewardsBalanceCents,
+    loading: rewardsLoading,
+    optIn: rewardsOptIn,
+    optOut: rewardsOptOut,
+    fetchStatus: fetchRewardsStatus,
+  } = useRewards();
   const [showCookieDialog, setShowCookieDialog] = useState(false);
   const [historyCleared, setHistoryCleared] = useState(false);
+
+  const handleRewardsToggle = async () => {
+    const result = rewardsOptedIn ? await rewardsOptOut() : await rewardsOptIn();
+    if (result.success) {
+      await fetchRewardsStatus();
+    }
+  };
 
   const handleClearHistory = () => {
     try {
@@ -320,6 +339,51 @@ const SettingsPage = () => {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Rewards Program */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="flex items-center mb-4">
+            <SafeIcon icon={FiDollarSign} className="mr-2 text-emerald-600" />
+            <h2 className="text-xl font-semibold">Rewards Program</h2>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium">Earn cash for ads you view</h3>
+              <p className="text-sm text-gray-600">
+                Opt in to get paid a small cash reward for ads you genuinely view while waiting
+                on search results. Honestly measured server-side — nothing simulated.
+              </p>
+            </div>
+            <button
+              onClick={handleRewardsToggle}
+              disabled={rewardsLoading}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 disabled:opacity-50 ${
+                rewardsOptedIn ? 'bg-emerald-600' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
+                  rewardsOptedIn ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {rewardsOptedIn && (
+            <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center justify-between flex-wrap gap-2">
+              <p className="text-sm text-emerald-800">
+                Current balance: <strong>{formatCents(rewardsBalanceCents)}</strong>
+              </p>
+              <Link
+                to="/rewards"
+                className="text-sm text-emerald-700 hover:text-emerald-900 underline font-medium"
+              >
+                View Rewards dashboard →
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* Bottom Ad Slot */}

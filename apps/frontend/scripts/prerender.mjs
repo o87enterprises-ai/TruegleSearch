@@ -1,0 +1,131 @@
+#!/usr/bin/env node
+// Runs after `vite build`. Vite ships truegle.info as a pure client-rendered
+// SPA: every route's raw HTML is just <div id="root"></div> plus a script
+// tag. That's invisible to any crawler that doesn't execute JS (or budgets
+// it tightly), which is the confirmed root cause behind both the Impact.com
+// Marketplace decline and `site:truegle.info` returning nothing — see
+// IMPACT_MARKETPLACE_DECLINE_CONTEXT.md, hypothesis H1.
+//
+// This script renders a handful of public, content-bearing routes to real
+// HTML at build time (via esbuild + react-dom/server, not a headless
+// browser — no Chromium dependency to break in a CI build image) and writes
+// each one as a static dist/<route>/index.html with its own <title>/meta
+// description. Cloudflare Pages serves an exact static-file match before
+// falling back to the SPA shell, so these are picked up automatically. The
+// live app is untouched: createRoot().render() still does a full client
+// paint over the prerendered markup on load, same as before.
+
+import { build } from 'esbuild';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(__dirname, '..');
+const distDir = path.join(root, 'dist');
+
+const META = {
+  '/': {
+    title: 'Truegle - Unbiased, Transparent & Secure Search',
+    description:
+      'The unbiased, transparent, and secure search engine. Get multiple perspectives on any topic without algorithmic bias or tracking.',
+  },
+  '/about': {
+    title: 'About Truegle — Unbiased, Transparent & Secure Search',
+    description:
+      "Truegle is a privacy-first search engine built on a simple belief: you deserve to see the web without a filter bubble deciding what you're allowed to find.",
+  },
+  '/privacy': {
+    title: 'Privacy Policy — Truegle',
+    description:
+      'How Truegle collects, uses, and protects your data. No tracking, no profiling, no selling your data.',
+  },
+  '/terms': {
+    title: 'Terms of Service — Truegle',
+    description:
+      'The terms governing your use of Truegle Search, including acceptable use, accounts, payments, and the Rewards Program.',
+  },
+  '/advertise': {
+    title: 'Advertise on Truegle — Reach a Privacy-First Audience',
+    description:
+      'Flat-rate, tracking-free ad placements on Truegle Search. Reach a privacy-conscious, tech-savvy audience without the creep factor.',
+  },
+};
+
+function escapeAttr(str) {
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+
+function setMetaContent(html, selectorAttr, selectorValue, content) {
+  const re = new RegExp(`(<meta ${selectorAttr}="${selectorValue}" content=")[^"]*(")`, 'i');
+  return html.replace(re, `$1${escapeAttr(content)}$2`);
+}
+
+function buildPageHtml(baseHtml, route, renderedMarkup) {
+  const { title, description } = META[route];
+  const canonicalUrl = `https://truegle.info${route === '/' ? '/' : route}`;
+
+  let html = baseHtml;
+  // Title
+  html = html.replace(/<title>[^<]*<\/title>/, `<title>${escapeAttr(title)}</title>`);
+  // Meta description / og / twitter
+  html = setMetaContent(html, 'name', 'description', description);
+  html = setMetaContent(html, 'property', 'og:title', title);
+  html = setMetaContent(html, 'property', 'og:description', description);
+  html = setMetaContent(html, 'name', 'twitter:title', title);
+  html = setMetaContent(html, 'name', 'twitter:description', description);
+  // Canonical + og:url
+  html = html.replace(/<link rel="canonical" href="[^"]*"/, `<link rel="canonical" href="${canonicalUrl}"`);
+  html = html.replace(/(<meta property="og:url" content=")[^"]*(")/, `$1${canonicalUrl}$2`);
+  // Real content for crawlers; the live bundle still replaces this on mount.
+  html = html.replace('<div id="root"></div>', `<div id="root">${renderedMarkup}</div>`);
+  // base: './' in vite.config.js makes every asset path relative, which only
+  // resolves correctly when the HTML is served from the site root. Once the
+  // same markup is written to dist/about/index.html, relative paths would
+  // resolve against /about/ instead and 404. Make every local asset path
+  // absolute so the page works at any depth.
+  html = html.replace(/(href|src)="\.\//g, '$1="/');
+
+  return html;
+}
+
+async function main() {
+  const baseHtmlPath = path.join(distDir, 'index.html');
+  if (!fs.existsSync(baseHtmlPath)) {
+    throw new Error(`${baseHtmlPath} not found — run \`vite build\` before prerender.mjs`);
+  }
+  const baseHtml = fs.readFileSync(baseHtmlPath, 'utf8');
+
+  const bundlePath = path.join(__dirname, `.prerender-bundle-${Date.now()}.mjs`);
+  await build({
+    entryPoints: [path.join(__dirname, 'prerender-entry.jsx')],
+    outfile: bundlePath,
+    bundle: true,
+    format: 'esm',
+    platform: 'node',
+    jsx: 'automatic',
+    packages: 'external', // resolve react/react-dom/react-router-dom natively in this Node process
+    logLevel: 'silent',
+  });
+
+  try {
+    const { ROUTES, renderRoute } = await import(`file://${bundlePath}`);
+
+    for (const route of ROUTES) {
+      const markup = renderRoute(route);
+      const html = buildPageHtml(baseHtml, route, markup);
+
+      const outPath = route === '/' ? baseHtmlPath : path.join(distDir, route.slice(1), 'index.html');
+      fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      fs.writeFileSync(outPath, html);
+      console.log(`[prerender] wrote ${path.relative(root, outPath)}`);
+    }
+  } finally {
+    fs.rmSync(bundlePath, { force: true });
+  }
+}
+
+main().catch((err) => {
+  console.error('[prerender] failed:', err);
+  process.exit(1);
+});

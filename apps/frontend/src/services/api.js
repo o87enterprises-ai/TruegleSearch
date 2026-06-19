@@ -111,6 +111,19 @@ const tokensAPI = {
   getConfig: () => api.get('/tokens/config'),
 };
 
+// Rewards Program API (opt-in cash rewards for honestly-viewed ads)
+const rewardsAPI = {
+  getConfig: () => api.get('/rewards/config'),
+  getStatus: () => api.get('/rewards/status'),
+  optIn: () => api.post('/rewards/opt-in'),
+  optOut: () => api.post('/rewards/opt-out'),
+  startImpressionSession: (adId, zone) => api.post('/rewards/impression-session', { adId, zone }),
+  earn: (sessionId, visibleMs) => api.post('/rewards/earn', { sessionId, visibleMs }),
+  getLedger: (limit = 20) => api.get('/rewards/ledger', { params: { limit } }),
+  getPayouts: () => api.get('/rewards/payouts'),
+  requestPayout: (method, destination) => api.post('/rewards/payout-request', { method, destination }),
+};
+
 // AI API
 const aiAPI = {
   chat: (message, options = {}) =>
@@ -172,6 +185,7 @@ export {
   subscriptionAPI,
   adsAPI,
   tokensAPI,
+  rewardsAPI,
   aiAPI,
   shoppingAPI,
 };

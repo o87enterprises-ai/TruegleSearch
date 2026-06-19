@@ -52,6 +52,45 @@ const TermsOfService = () => (
       </p>
     </LegalSection>
 
+    <LegalSection heading="Rewards Program">
+      <p>
+        Truegle offers an optional Rewards Program that pays a small cash reward for ads you
+        honestly view while waiting on search results. By opting in, you agree to the following:
+      </p>
+      <ul className="list-disc pl-6 space-y-2">
+        <li>
+          <strong>Eligibility:</strong> you must have an account and be opted in. We may require
+          additional verification before processing a payout and may limit participation (for
+          example, by region or account age) at our discretion.
+        </li>
+        <li>
+          <strong>Honest measurement only:</strong> rewards are based on real, server-verified ad
+          viewing time. Using bots, scripts, multiple accounts, browser automation, or any other
+          method to fake or inflate ad views is prohibited and will result in forfeiture of the
+          associated balance and may result in suspension from the program or the Service.
+        </li>
+        <li>
+          <strong>Daily limits and rates:</strong> the reward amount per ad view, the daily cap on
+          rewarded views, and the minimum payout amount are set out at
+          truegle.info/rewards and may change with reasonable notice. Changes are not retroactive
+          to balances already earned.
+        </li>
+        <li>
+          <strong>Payouts:</strong> requesting a payout queues it for processing once your balance
+          meets the posted minimum. Payouts may currently be processed manually rather than
+          instantly, and we may contact you at the destination you provide to complete a payout.
+          We reserve the right to decline a payout request that appears fraudulent or that we
+          cannot verify, and to require additional information before paying out.
+        </li>
+        <li>
+          <strong>Discontinuation:</strong> we may modify, suspend, or discontinue the Rewards
+          Program at any time. If we discontinue it, we will pay out verified, undisputed balances
+          that meet the minimum payout amount at the time of discontinuation, or provide a
+          reasonable opportunity for you to request a payout before balances are closed out.
+        </li>
+      </ul>
+    </LegalSection>
+
     <LegalSection heading="Intellectual Property">
       <p>
         The Truegle name, branding, and original software are owned by Truegle. Search results

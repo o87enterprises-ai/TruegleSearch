@@ -26,6 +26,7 @@ import SearchBar from '../components/ui/SearchBar';
 import MultimediaInterface from '../components/ui/MultimediaInterface';
 import AIChatOverlay from '../components/ui/AIChatOverlay';
 import AdSlot from '../components/AdSlot';
+import RewardAdSlot from '../components/RewardAdSlot';
 import { SkeletonSearchResult } from '../components/ui/Skeleton';
 import AsSeenOn from '../components/Content/AsSeenOn';
 import PerspectiveSelector from '../components/search/PerspectiveSelector';
@@ -1314,6 +1315,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
               {searchLoading ? (
                 <div className="space-y-4">
                   <div className="text-sm text-white/60 mb-4">Searching...</div>
+                  {/* Rewards Program: while results load, opted-in users can earn a
+                      small cash reward for honestly viewing this ad (see /rewards). */}
+                  <RewardAdSlot position="search-loading" size="large" adId="openocchio" />
                   {[1, 2, 3, 4, 5].map((i) => (
                     <SkeletonSearchResult key={i} />
                   ))}

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useRewards } from '../../context/RewardsContext';
 import authService from '../../services/authService';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../../common/SafeIcon';
 
-const { FiTarget, FiTrendingUp, FiUsers, FiShield, FiCheck, FiArrowRight } =
+const { FiTarget, FiTrendingUp, FiUsers, FiShield, FiCheck, FiArrowRight, FiDollarSign } =
   FiIcons;
 
 const OnboardingPage = () => {
@@ -53,6 +54,13 @@ const OnboardingPage = () => {
       title: 'Privacy Settings',
       description: 'Configure your privacy and data preferences',
       component: PrivacyStep,
+    },
+    {
+      id: 'rewards',
+      icon: FiDollarSign,
+      title: 'Earn Cash Rewards',
+      description: 'Get paid for ads you genuinely view',
+      component: RewardsStep,
     },
     {
       id: 'complete',
@@ -396,6 +404,74 @@ const PrivacyStep = ({ data, updateData, onNext, onPrevious }) => {
           </span>
         </label>
       </div>
+
+      <div className="flex space-x-3">
+        <button
+          onClick={onPrevious}
+          className="flex-1 border border-gray-300 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+        >
+          Back
+        </button>
+        <button
+          onClick={onNext}
+          className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center"
+        >
+          Continue <SafeIcon icon={FiArrowRight} className="ml-2" size={16} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const RewardsStep = ({ onNext, onPrevious }) => {
+  const { optedIn, optIn, optOut, loading } = useRewards();
+
+  const handleToggle = async () => {
+    if (optedIn) {
+      await optOut();
+    } else {
+      await optIn();
+    }
+  };
+
+  return (
+    <div>
+      <h3 className="text-xl font-semibold mb-4">Earn Cash for Ads You View</h3>
+      <p className="text-gray-600 mb-6">
+        Opt in and we'll pay you a small cash reward for ads you genuinely view while waiting on
+        search results — honestly measured server-side, nothing simulated. You can change this
+        anytime in Settings.
+      </p>
+
+      <button
+        onClick={handleToggle}
+        disabled={loading}
+        className={`w-full p-4 rounded-lg border-2 text-left transition-colors mb-8 flex items-center justify-between disabled:opacity-50 ${
+          optedIn ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white hover:border-gray-300'
+        }`}
+      >
+        <div>
+          <div className="font-medium text-gray-900">
+            {optedIn ? "You're opted in" : 'Opt in to Rewards'}
+          </div>
+          <div className="text-sm text-gray-600 mt-1">
+            {optedIn
+              ? 'You will earn rewards for honestly-viewed ads.'
+              : 'Tap to start earning while you search.'}
+          </div>
+        </div>
+        <div
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+            optedIn ? 'bg-green-600' : 'bg-gray-300'
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
+              optedIn ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </div>
+      </button>
 
       <div className="flex space-x-3">
         <button

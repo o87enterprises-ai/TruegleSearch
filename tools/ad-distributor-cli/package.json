@@ -1,0 +1,20 @@
+{
+  "name": "truegle-ad-onboarding",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Onboarding checklist CLI for Truegle Search's ad-distributor signups. Does not automate account creation.",
+  "type": "module",
+  "bin": {
+    "ad-onboard": "./bin/ad-onboard.js"
+  },
+  "scripts": {
+    "start": "node bin/ad-onboard.js"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "open": "^10.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

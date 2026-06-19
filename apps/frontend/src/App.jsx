@@ -10,6 +10,7 @@ import {
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TokenProvider } from './context/TokenContext';
+import { RewardsProvider } from './context/RewardsContext';
 import { SearchModeProvider } from './context/SearchModeContext';
 import { TutorialProvider } from './context/TutorialContext';
 import { MapProvider } from './components/map';
@@ -19,6 +20,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import ResultsPage from './components/ResultsPage';
 import SettingsPage from './components/SettingsPage';
+import RewardsDashboard from './pages/RewardsDashboard';
 import OnboardingPage from './components/auth/OnboardingPage';
 import LandingPage from './pages/LandingPage';
 import SignInPage from './pages/SignInPage';
@@ -127,21 +129,23 @@ const App = () => {
     }}>
       <AuthProvider>
         <TokenProvider>
-          <SearchModeProvider>
-            <SettingsProvider>
-              <MapProvider>
-                <TutorialProvider>
-                  <ToastProvider position="top-right">
-                    {/* Skip to content link for accessibility */}
-                    <a href="#main-content" className="skip-to-content">
-                      Skip to main content
-                    </a>
-                    <AppContent />
-                  </ToastProvider>
-                </TutorialProvider>
-              </MapProvider>
-            </SettingsProvider>
-          </SearchModeProvider>
+          <RewardsProvider>
+            <SearchModeProvider>
+              <SettingsProvider>
+                <MapProvider>
+                  <TutorialProvider>
+                    <ToastProvider position="top-right">
+                      {/* Skip to content link for accessibility */}
+                      <a href="#main-content" className="skip-to-content">
+                        Skip to main content
+                      </a>
+                      <AppContent />
+                    </ToastProvider>
+                  </TutorialProvider>
+                </MapProvider>
+              </SettingsProvider>
+            </SearchModeProvider>
+          </RewardsProvider>
         </TokenProvider>
       </AuthProvider>
     </Router>
@@ -251,6 +255,19 @@ const AppContent = () => {
               <RouteBoundary>
                 <Header onSearch={handleSearch} searchQuery={searchQuery} />
                 <SettingsPage />
+                <Footer />
+              </RouteBoundary>
+            </ProtectedRoute>
+          }
+        />
+        {/* Rewards Program dashboard */}
+        <Route
+          path="/rewards"
+          element={
+            <ProtectedRoute>
+              <RouteBoundary>
+                <Header onSearch={handleSearch} searchQuery={searchQuery} />
+                <RewardsDashboard />
                 <Footer />
               </RouteBoundary>
             </ProtectedRoute>
