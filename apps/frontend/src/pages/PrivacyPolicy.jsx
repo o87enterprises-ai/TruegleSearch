@@ -86,6 +86,36 @@ const PrivacyPolicy = () => (
       </p>
     </LegalSection>
 
+    <LegalSection heading="Rewards Program (Opt-In)">
+      <p>
+        The Rewards Program is a separate, <strong>opt-in</strong> feature that pays you a small
+        cash reward for ads you genuinely view while waiting on search results. It is off by
+        default and has no effect on your account unless you turn it on in Settings or at{' '}
+        <strong>truegle.info/rewards</strong>.
+      </p>
+      <p>If you opt in, we additionally collect:</p>
+      <ul className="list-disc pl-6 space-y-2">
+        <li>
+          <strong>Ad view duration:</strong> how long a specific ad was actually visible on your
+          screen, measured server-side, so we can verify and pay rewards honestly. We do not
+          record which pages you searched or what you searched for as part of this measurement —
+          only the ad and the zone it appeared in.
+        </li>
+        <li>
+          <strong>Reward balance and history:</strong> a ledger of earned amounts, your running
+          balance, and any payout requests you submit (including the destination you provide,
+          such as a PayPal email).
+        </li>
+      </ul>
+      <p>
+        This data is used solely to operate the Rewards Program (calculating and paying rewards,
+        preventing abuse of the program, and processing payout requests) and is not sold or
+        shared with advertisers. You can opt out at any time from Settings or the Rewards
+        dashboard; opting out stops new tracking immediately but does not erase the historical
+        ledger needed to account for rewards already paid or owed.
+      </p>
+    </LegalSection>
+
     <LegalSection heading="Your Choices & Rights">
       <ul className="list-disc pl-6 space-y-2">
         <li>Search without an account.</li>
