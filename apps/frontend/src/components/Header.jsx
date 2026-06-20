@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
+import truegleLogo from '../assets/images/truegle.png';
 
 const { FiSearch, FiSettings, FiShield, FiMenu, FiUser, FiLogOut } = FiIcons;
 
@@ -44,7 +45,7 @@ const Header = ({ onSearch, searchQuery }) => {
           onClick={handleLogoClick}
         >
           <img
-            src="/src/Truegle Branding Assets/logo.png"
+            src={truegleLogo}
             alt="Truegle Logo"
             className="h-8 w-auto"
           />

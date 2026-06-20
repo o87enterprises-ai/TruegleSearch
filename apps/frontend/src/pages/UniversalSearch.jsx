@@ -36,6 +36,7 @@ import TutorialModal from '../components/ui/TutorialModal';
 import QuickResultCard from '../components/ui/QuickResultCard';
 import OSINTToolsPanel from '../components/ui/OSINTToolsPanel';
 import TokenGate from '../components/ui/TokenGate';
+import RewardedAdGate from '../components/ui/RewardedAdGate';
 import RepairsModal from '../components/ui/RepairsModal';
 import LanguageSelector from '../components/ui/LanguageSelector';
 
@@ -45,6 +46,8 @@ import { useLocationDetection } from '../hooks/useLocationDetection';
 import useDeviceTier from '../hooks/useDeviceTier';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+import { useTokens } from '../context/TokenContext';
+import { useRewards } from '../context/RewardsContext';
 
 // Detect an embeddable video URL (YouTube/Vimeo) and return its iframe embed src.
 // Used so "Open in app" on a video result plays inline instead of loading the
@@ -105,6 +108,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const { isAuthenticated } = useAuth();
   const { settings, updateSetting } = useSettings();
   const { allowHeavyAnimations } = useDeviceTier();
+  const { checkAccess } = useTokens();
+  const { optedIn: rewardsOptedIn } = useRewards();
 
   // Get query from URL
   const query = searchParams.get('q') || '';
@@ -161,8 +166,17 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const [selectedPerspectives, setSelectedPerspectives] = useState(['neutral']);
   const [activePerspectiveCategory, setActivePerspectiveCategory] = useState(0);
 
+  // Red mode: in-place perspective isolation. Unlike Purple's multi-select,
+  // Red stays in Red mode and hard-filters its OWN results to one perspective.
+  const [redPerspectiveFilter, setRedPerspectiveFilter] = useState(null);
+  const [redPerspectiveLabel, setRedPerspectiveLabel] = useState(null);
+
   // UI state
   const [isChatOpen, setIsChatOpen] = useState(false);
+  // Only shown to users who've exceeded their token limit for ai-chat AND
+  // aren't enrolled in the Rewards Program (enrolled users already earn from
+  // ads elsewhere, see RewardAdSlot)
+  const [showRewardGate, setShowRewardGate] = useState(false);
   const [isRedPillMode, setIsRedPillMode] = useState(false);
   const [isOSINTMode, setIsOSINTMode] = useState(false);
   const cursorGlowRef = useRef(null);
@@ -209,6 +223,12 @@ export default function UniversalSearch({ lockedGreen = false }) {
       setSelectedPerspectives(['neutral']);
       setActivePerspectiveCategory(0);
     }
+    // Leaving Red mode clears any isolated perspective so it doesn't leak
+    // into the next mode/search
+    if (mode !== 'red') {
+      setRedPerspectiveFilter(null);
+      setRedPerspectiveLabel(null);
+    }
   }, [mode]);
 
   // Cursor glow effect — update the overlay's style DIRECTLY (ref + rAF) instead
@@ -251,7 +271,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
     if (lastSearchedQuery && searchValue && !searchLoading) {
       handleSearch();
     }
-  }, [mode, activeCategory, filters.bias, filters.dateRange, filters.sortBy, filters.order, filters.category, selectedPerspectives]);
+  }, [mode, activeCategory, filters.bias, filters.dateRange, filters.sortBy, filters.order, filters.category, selectedPerspectives, redPerspectiveFilter]);
 
   // Auto-detect shopping category
   const isShoppingQuery = (query) => {
@@ -293,8 +313,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
     if (mode !== 'blue') {
       params.set('mode', mode);
     }
-    if (selectedPerspectives.length > 0) {
+    if (mode === 'purple' && selectedPerspectives.length > 0) {
       params.set('perspectives', selectedPerspectives.join(','));
+    } else if (mode === 'red' && redPerspectiveFilter) {
+      params.set('perspectives', redPerspectiveFilter);
     }
     window.history.replaceState({}, '', `/search?${params.toString()}`);
 
@@ -363,7 +385,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
             filters: {
               category: searchCategory,
               bias: effectiveBias,
-              perspectives: mode === 'purple' ? selectedPerspectives : [],
+              perspectives: mode === 'purple'
+                ? selectedPerspectives
+                : (mode === 'red' && redPerspectiveFilter ? [redPerspectiveFilter] : []),
               dateRange: filters.dateRange,
               sortBy: filters.sortBy,
               order: filters.order,
@@ -430,7 +454,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
             query,
             results: results.slice(0, 10),
             mode: backendMode,
-            perspectives: selectedPerspectives,
+            perspectives: backendMode === 'purple'
+              ? selectedPerspectives
+              : (backendMode === 'red-pill' && redPerspectiveFilter ? [redPerspectiveFilter] : []),
           }),
         }
       );
@@ -485,16 +511,36 @@ export default function UniversalSearch({ lockedGreen = false }) {
     navigate(`/search?${params.toString()}`, { replace: true });
   };
 
-  // Red-pill "deep dive": jump straight into purple mode strictly filtered to
-  // the chosen perspective, reusing the existing perspective-specific pipeline.
-  const handleDeepDivePerspective = (perspectiveId) => {
+  // Red-pill perspective isolation: hard-filter Red mode's OWN results down to
+  // a single perspective, in place. Stays in Red mode — replaces the old
+  // behavior of redirecting into Purple mode's multi-select UI.
+  const handleIsolatePerspective = (perspectiveId, label) => {
     if (lockedGreen) return;
-    setSelectedPerspectives([perspectiveId]);
-    setMode('purple');
-    const params = new URLSearchParams(searchParams);
-    params.set('mode', 'purple');
-    params.set('perspectives', perspectiveId);
-    navigate(`/search?${params.toString()}`, { replace: true });
+    setRedPerspectiveFilter(perspectiveId);
+    setRedPerspectiveLabel(label || perspectiveId);
+  };
+
+  const handleClearRedPerspectiveFilter = () => {
+    setRedPerspectiveFilter(null);
+    setRedPerspectiveLabel(null);
+  };
+
+  // Gate opening the AI chat: signed-out users go to login; signed-in users
+  // who are over their ai-chat token limit and NOT in the Rewards Program
+  // must watch a rewarded ad first. Everyone else opens the chat directly.
+  const handleAskFollowUp = async () => {
+    if (!FREE_ACCESS_MODE && !isAuthenticated) {
+      navigate('/auth/login', { state: { redirectTo: window.location.pathname + window.location.search } });
+      return;
+    }
+    if (!FREE_ACCESS_MODE && isAuthenticated && !rewardsOptedIn) {
+      const access = await checkAccess('ai-chat');
+      if (!access.allowed && access.reason === 'insufficient_tokens') {
+        setShowRewardGate(true);
+        return;
+      }
+    }
+    setIsChatOpen(true);
   };
 
   const toggleOSINT = () => {
@@ -998,16 +1044,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
             </div>
           )}
 
-          {/* Ad Banner 1 - Under Search Bar, right above the AI summary — kept
-              compact so it doesn't crowd out the summary itself */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-4xl mx-auto mb-4"
-          >
-            <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" compact />
-          </motion.div>
-
           {/* Search Summary — Banner + Expandable Card */}
           {mode !== 'green' && sessionSummaryChoice !== 'none' && (
             <div className="max-w-4xl mx-auto mb-4">
@@ -1142,16 +1178,29 @@ export default function UniversalSearch({ lockedGreen = false }) {
                             <div className="text-sm text-white/80 leading-relaxed mb-3 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline [&_strong]:font-semibold [&_code]:bg-white/10 [&_code]:px-1 [&_code]:rounded">
                               <ReactMarkdown>{aiSummary.summary}</ReactMarkdown>
                             </div>
-                            {mode === 'red' && aiSummary.perspectives?.length > 0 && (
+                            {mode === 'red' && redPerspectiveFilter && (
+                              <div className="mb-3 flex items-center justify-between gap-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                                <span className="text-sm text-white">
+                                  Isolated to <span className="font-semibold text-red-300">{redPerspectiveLabel}</span> perspective
+                                </span>
+                                <button
+                                  onClick={handleClearRedPerspectiveFilter}
+                                  className="text-xs font-semibold text-white/60 hover:text-white px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 transition-all whitespace-nowrap"
+                                >
+                                  Clear
+                                </button>
+                              </div>
+                            )}
+                            {mode === 'red' && !redPerspectiveFilter && aiSummary.perspectives?.length > 0 && (
                               <div className="mb-3">
                                 <div className="text-xs font-semibold text-red-300 mb-2">
-                                  Choose a perspective to deep dive into:
+                                  Choose a perspective to isolate:
                                 </div>
                                 <div className="space-y-2">
                                   {aiSummary.perspectives.map((p) => (
                                     <button
                                       key={p.id}
-                                      onClick={() => handleDeepDivePerspective(p.perspectiveId)}
+                                      onClick={() => handleIsolatePerspective(p.perspectiveId, p.label)}
                                       className="w-full text-left p-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-red-500/40 transition-all"
                                     >
                                       <div className="flex items-center justify-between mb-1">
@@ -1172,14 +1221,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
                               <span
                                 role="button"
                                 tabIndex={0}
-                                onClick={() => {
-                                  if (!FREE_ACCESS_MODE && !isAuthenticated) {
-                                    navigate('/auth/login', { state: { redirectTo: window.location.pathname + window.location.search } });
-                                  } else {
-                                    setIsChatOpen(true);
-                                  }
-                                }}
-                                onKeyDown={(e) => e.key === 'Enter' && ((FREE_ACCESS_MODE || isAuthenticated) ? setIsChatOpen(true) : navigate('/auth/login'))}
+                                onClick={handleAskFollowUp}
+                                onKeyDown={(e) => e.key === 'Enter' && handleAskFollowUp()}
                                 className="underline hover:text-white/60 transition-colors cursor-pointer"
                               >
                                 {(FREE_ACCESS_MODE || isAuthenticated) ? 'Ask follow-up' : 'Sign in to chat'}
@@ -1299,15 +1342,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
             }}
           />
 
-          {/* Ad Banner 2 - Under AI Summary (same as SearchResults) */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="max-w-4xl mx-auto mb-4"
-          >
-            <AdSlot className="rounded-2xl" size="large" adId="openocchio" />
-          </motion.div>
-
           {/* Results Grid (same as SearchResults) */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Main Results Column */}
@@ -1426,8 +1460,26 @@ export default function UniversalSearch({ lockedGreen = false }) {
             mode === 'ocean' ? 'ocean' :
             'blue'
           }
+          perspectiveLabel={mode === 'red' && redPerspectiveFilter ? redPerspectiveLabel : null}
+          resultsContext={
+            mode === 'red' && redPerspectiveFilter && searchResults.length > 0
+              ? searchResults.slice(0, 8).map((r) => `${r.title}: ${r.snippet || ''}`).join('\n')
+              : null
+          }
         />
       )}
+
+      {/* Rewarded-ad gate: only reached when over the ai-chat token limit
+          and not enrolled in the Rewards Program (see handleAskFollowUp) */}
+      <RewardedAdGate
+        open={showRewardGate}
+        featureName="ai-chat"
+        onClose={() => setShowRewardGate(false)}
+        onUnlocked={() => {
+          setShowRewardGate(false);
+          setIsChatOpen(true);
+        }}
+      />
 
       {/* Tutorial Modal — shown once on first visit */}
       <TutorialModal

@@ -203,7 +203,7 @@ export default function SearchPortal() {
         "name": "Truegle",
         "logo": {
           "@type": "ImageObject",
-          "url": `${window.location.origin}/truegle-logo.png`
+          "url": `${window.location.origin}/og-image.png`
         }
       },
       "mainEntity": {
