@@ -49,6 +49,8 @@ const envVarsSchema = Joi.object({
   OLLAMA_MODEL: Joi.string().optional().default('qwen3-coder:480b').description('Ollama Model Name (supports cloud models when signed in)'),
   NVIDIA_API_KEY: Joi.string().optional().description('NVIDIA NIM API Key (integrate.api.nvidia.com)'),
   NVIDIA_MODEL: Joi.string().optional().default('nvidia/nemotron-3-ultra-550b-a55b').description('NVIDIA NIM model id'),
+  GROQ_API_KEY: Joi.string().optional().description('Groq API Key (console.groq.com) — free tier, no credit card'),
+  GROQ_MODEL: Joi.string().optional().default('llama-3.1-8b-instant').description('Groq model id'),
 
   // Radar API (Maps)
   RADAR_LIVE_SECRET_KEY: Joi.string().optional().description('Radar Live Secret Key'),
@@ -230,6 +232,10 @@ const config = {
     nvidia: {
       apiKey: envVars.NVIDIA_API_KEY,
       model: envVars.NVIDIA_MODEL,
+    },
+    groq: {
+      apiKey: envVars.GROQ_API_KEY,
+      model: envVars.GROQ_MODEL,
     },
     deepseek: {
       apiKey: envVars.DEEPSEEK_API_KEY, // DEPRECATED - DO NOT USE

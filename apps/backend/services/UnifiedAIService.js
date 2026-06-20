@@ -3,6 +3,7 @@
  * Manages multiple AI providers with automatic failover and context-aware prompt selection
  */
 
+const GroqService = require('./GroqService');
 const NvidiaService = require('./NvidiaService');
 const OpenAIService = require('./OpenAIService');
 const AnthropicService = require('./AnthropicService');
@@ -16,11 +17,12 @@ class UnifiedAIService {
   constructor() {
     // Initialize all AI providers
     this.providers = {
-      ollama: new OllamaService(),
+      groq: new GroqService(),
+      gemini: new GeminiService(),
       nvidia: new NvidiaService(),
       openai: new OpenAIService(),
       anthropic: new AnthropicService(),
-      gemini: new GeminiService()
+      ollama: new OllamaService(),
     };
 
     this.promptService = PromptService;
@@ -30,7 +32,7 @@ class UnifiedAIService {
     this.cacheTTL = 3600000; // 1 hour
     this.maxCacheSize = 1000;
 
-    logger.info('UnifiedAIService initialized with 5 providers (including Ollama)');
+    logger.info('UnifiedAIService initialized with 6 providers (Groq first)');
   }
 
   /**
@@ -302,7 +304,7 @@ class UnifiedAIService {
       logger.error('Error determining provider order:', { error: error.message });
 
       // Fallback to hardcoded priority (Ollama first, then others)
-      return ['ollama', 'nvidia', 'openai', 'gemini', 'anthropic'].filter(name => {
+      return ['groq', 'gemini', 'nvidia', 'openai', 'anthropic', 'ollama'].filter(name => {
         const provider = this.providers[name];
         return provider && provider.isAvailable && provider.isAvailable();
       });
