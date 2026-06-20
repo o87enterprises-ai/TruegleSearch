@@ -20,6 +20,7 @@ import { useHealthCheck } from '../hooks/useHealthCheck';
 import MapApiService from '../components/map/services/mapApi';
 import { checkBackendHealth, checkRadarHealth, isServiceHealthy } from '../utils/healthCheck';
 import HealthStatusBanner from '../components/ui/HealthStatusBanner';
+import QuickResultCard from '../components/ui/QuickResultCard';
 
 export default function SearchPortal() {
   const navigate = useNavigate();
@@ -96,6 +97,7 @@ export default function SearchPortal() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [aiSummary, setAiSummary] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [instantAnswer, setInstantAnswer] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');
   const [isOSINTMode, setIsOSINTMode] = useState(false);
 
@@ -314,6 +316,7 @@ export default function SearchPortal() {
 
     setSearchLoading(true);
     setAiSummary(null);
+    setInstantAnswer(null);
     try {
       // Use dedicated maps endpoint when Maps category is selected or for location-based queries
       const useMapsEndpoint = activeCategory === 'maps' || activeCategory === 'local' || isLocationQuery;
@@ -405,6 +408,7 @@ export default function SearchPortal() {
       const data = await response.json();
 
       const results = { results: data.results || [], perspectives: [] };
+      if (data.instantAnswer) setInstantAnswer(data.instantAnswer);
 
       toast.success('Search Complete', `Found ${data.results?.length || 0} results`, { pageTheme: 'search-portal' });
 
@@ -1847,6 +1851,11 @@ export default function SearchPortal() {
                   ? `About ${searchResults.length} results`
                   : 'Enter a search query to see results'}
             </div>
+
+            {/* Instant answer card (weather, calculations, official site, etc.) */}
+            {instantAnswer && !searchLoading && (
+              <QuickResultCard instantAnswer={instantAnswer} />
+            )}
 
             {/* Skeleton loading placeholders */}
             {searchLoading && (

@@ -249,15 +249,36 @@ function detectQueryType(query) {
   // Person name (2-4 capitalized words, no other keywords)
   if (/^[A-Z][a-z]+ ([A-Z][a-z]+ ?){1,2}$/.test(query)) return 'person';
 
+  // Navigational: short brand/company query — 1-3 words, no question prefix.
+  // Catches popular services (aws, cloudflare, stripe …) that are not in APP_NAMES.
+  const words = q.split(/\s+/);
+  if (
+    words.length <= 3 &&
+    !/^(what|how|why|when|who|where|is|are|was|were|will|can|does|do|did|define|explain)\b/.test(q)
+  ) return 'navigational';
+
   return null;
 }
 
 // Known app / AI model / dev-tool / service names for direct lookup queries.
 const APP_NAMES = [
+  // AI / LLM
   'chatgpt', 'gpt-4', 'gpt-5', 'claude', 'gemini', 'copilot', 'github copilot', 'perplexity', 'grok',
-  'deepseek', 'midjourney', 'dall-e', 'stable diffusion', 'notion', 'slack', 'discord', 'telegram',
-  'whatsapp', 'zoom', 'spotify', 'netflix', 'figma', 'canva', 'trello', 'asana', 'airtable', 'dropbox',
-  'github', 'gitlab', 'docker', 'vercel', 'cloudflare', 'openai', 'anthropic',
+  'deepseek', 'midjourney', 'dall-e', 'stable diffusion', 'openai', 'anthropic',
+  // Productivity / collab
+  'notion', 'slack', 'discord', 'telegram', 'whatsapp', 'zoom', 'figma', 'canva',
+  'trello', 'asana', 'airtable', 'dropbox', 'linear', 'jira', 'confluence',
+  // Dev tools / cloud
+  'github', 'gitlab', 'docker', 'vercel', 'cloudflare', 'heroku', 'netlify',
+  'aws', 'amazon web services', 'azure', 'gcp', 'google cloud',
+  'kubernetes', 'terraform', 'ansible', 'redis', 'mongodb', 'postgresql', 'mysql',
+  'npm', 'yarn', 'pip', 'homebrew', 'vscode', 'visual studio code', 'jetbrains',
+  'supabase', 'firebase', 'planetscale', 'neon', 'railway', 'fly.io',
+  // Streaming / media
+  'spotify', 'netflix', 'youtube', 'twitch', 'tiktok', 'instagram', 'twitter',
+  // Other popular services
+  'stripe', 'paypal', 'shopify', 'wordpress', 'webflow', 'squarespace',
+  'datadog', 'sentry', 'pagerduty', 'splunk', 'grafana',
 ];
 
 /**
@@ -378,6 +399,43 @@ async function buildInstantAnswer(query, results) {
     const url = top.url || null;
     if (!description && !image && !url) return null;
     return { type: 'app', name, description, image, url, query };
+  }
+
+  if (type === 'navigational') {
+    // Find the best "official" result: prefer a result whose URL domain/subdomain
+    // contains the query term AND has a shallow URL path (homepage or one level deep).
+    const q = query.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const SOCIAL = ['instagram.com', 'linkedin.com', 'twitter.com', 'facebook.com', 'tiktok.com', 'youtube.com'];
+
+    const scored = (results || []).map((r) => {
+      try {
+        const parsed = new URL(r.url || '');
+        const hostname = parsed.hostname.toLowerCase();
+        const pathLen = parsed.pathname.split('/').filter(Boolean).length;
+        const hostNorm = hostname.replace(/[^a-z0-9]/g, '');
+        const subdomain = hostname.split('.')[0].replace(/[^a-z0-9]/g, '');
+        const isSocial = SOCIAL.some((s) => hostname.includes(s));
+        const isHomepage = pathLen === 0;
+        let score = 0;
+        if (subdomain === q || subdomain.includes(q)) score = isHomepage ? 10 : 7;
+        else if (hostNorm.startsWith(q) || hostNorm.includes(q)) score = isHomepage ? 9 : 5;
+        if (isSocial) score = 0;
+        return { r, score };
+      } catch { return { r, score: 0 }; }
+    });
+
+    const best = scored.sort((a, b) => b.score - a.score)[0];
+    if (!best || best.score === 0) return null;
+
+    const { r: official } = best;
+    return {
+      type: 'navigational',
+      name: official.title || query,
+      url: official.url,
+      snippet: official.snippet || '',
+      domain: official.domain || '',
+      favicon: official.favicon || null,
+    };
   }
 
   return null;

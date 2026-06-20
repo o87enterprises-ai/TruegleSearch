@@ -1,4 +1,4 @@
-import { MapPin, Phone, Globe, Clock, Star, ExternalLink, User, ChevronRight, Cloud, Droplets, Wind, Calculator, BookOpen, ArrowRightLeft, Volume2, AppWindow } from 'lucide-react';
+import { MapPin, Phone, Globe, Clock, Star, ExternalLink, User, ChevronRight, Cloud, Droplets, Wind, Calculator, BookOpen, ArrowRightLeft, Volume2, AppWindow, Link2 } from 'lucide-react';
 
 /**
  * QuickResultCard — instant answer panel shown above search results.
@@ -15,6 +15,7 @@ export default function QuickResultCard({ instantAnswer }) {
 
   const { type } = instantAnswer;
 
+  if (type === 'navigational') return <NavigationalCard data={instantAnswer} />;
   if (type === 'local_business') return <BusinessCard data={instantAnswer} />;
   if (type === 'social_profile') return <SocialProfileCard data={instantAnswer} />;
   if (type === 'person') return <PersonCard data={instantAnswer} />;
@@ -26,6 +27,47 @@ export default function QuickResultCard({ instantAnswer }) {
   if (type === 'app') return <AppCard data={instantAnswer} />;
 
   return null;
+}
+
+// ── Navigational / Official Site Card ────────────────────────────────────────
+
+function NavigationalCard({ data }) {
+  const { name, url, snippet, domain, favicon } = data;
+  let displayDomain = domain;
+  try { displayDomain = new URL(url).hostname.replace('www.', ''); } catch { /* use domain */ }
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mb-6 flex items-start gap-4 p-5 rounded-2xl bg-gradient-to-br from-[#0d1f3c]/90 to-[#162040]/90 border border-blue-500/40 backdrop-blur-xl overflow-hidden shadow-lg shadow-blue-500/15 hover:border-blue-400/60 hover:shadow-blue-400/25 transition-all group block"
+    >
+      {favicon ? (
+        <img
+          src={favicon}
+          alt=""
+          className="w-10 h-10 rounded-lg object-contain flex-shrink-0 border border-white/10 bg-white/5 p-1"
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
+      ) : (
+        <div className="w-10 h-10 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
+          <Link2 size={18} className="text-blue-400" />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="text-xs text-blue-400/70 font-medium truncate">{displayDomain}</span>
+          <span className="text-xs text-white/20 bg-white/10 px-1.5 py-0.5 rounded-full">Official site</span>
+        </div>
+        <h3 className="text-base font-bold text-white group-hover:text-blue-200 transition-colors truncate">{name}</h3>
+        {snippet && (
+          <p className="text-sm text-white/55 mt-1 line-clamp-2">{snippet}</p>
+        )}
+      </div>
+      <ExternalLink size={16} className="text-white/20 group-hover:text-blue-400 transition-colors flex-shrink-0 mt-1" />
+    </a>
+  );
 }
 
 // ── App / AI Model / Service Card ───────────────────────────────────────────

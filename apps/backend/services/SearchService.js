@@ -434,14 +434,74 @@ class SearchService {
   }
 
   /**
+   * Detect if a query is navigational — a short brand/service name lookup
+   * where the user wants the official website, not editorial commentary about it.
+   */
+  isNavigationalQuery(query) {
+    const q = (query || '').trim();
+    const words = q.split(/\s+/);
+    if (words.length > 3) return false;
+    // Exclude informational question patterns
+    if (/^(what|how|why|when|who|where|is|are|was|were|will|can|does|do|did|define|explain)\b/i.test(q)) return false;
+    return true;
+  }
+
+  /**
+   * Score how "official" a result URL is for a navigational query.
+   * High score = the official/homepage result (e.g. aws.amazon.com for "aws").
+   * Social media profile pages and deeply nested paths score near zero.
+   */
+  calculateNavigationalScore(query, result) {
+    const q = (query || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const url = (result.url || '').toLowerCase();
+
+    let hostname = '';
+    let pathParts = [];
+    try {
+      const parsed = new URL(url);
+      hostname = parsed.hostname.toLowerCase();
+      pathParts = parsed.pathname.split('/').filter(Boolean);
+    } catch { return 0; }
+
+    const subdomain = hostname.split('.')[0].replace(/[^a-z0-9]/g, '');
+    const hostNorm = hostname.replace(/[^a-z0-9]/g, '');
+    const isHomepage = pathParts.length === 0;
+    const isShallow = pathParts.length <= 1;
+
+    const SOCIAL = ['instagram.com', 'linkedin.com', 'twitter.com', 'facebook.com', 'tiktok.com'];
+    const isSocial = SOCIAL.some((s) => hostname.includes(s));
+
+    let score = 0;
+
+    if (subdomain === q || subdomain.includes(q)) {
+      // e.g. "aws.amazon.com" for query "aws"
+      score = isHomepage ? 1.0 : (isShallow ? 0.8 : 0.55);
+    } else if (hostNorm.startsWith(q) || hostNorm.includes(q)) {
+      // e.g. "cloudflare.com" for query "cloudflare"
+      score = isHomepage ? 0.9 : (isShallow ? 0.65 : 0.4);
+    } else if (isHomepage) {
+      score = 0.15; // small homepage bonus for any domain
+    }
+
+    if (isSocial) score *= 0.25; // heavy penalty — social profiles ≠ official site
+
+    return Math.min(score, 1.0);
+  }
+
+  /**
    * Rank results by combined relevance + recency + source diversity — the
    * default "most relevant / most recent first" ranking. In red-pill mode,
    * `boostAlternative` blends in a bias-tier weight so alternative/independent
    * sources rank above mainstream ones.
+   *
+   * Navigational queries (short brand-name lookups like "AWS", "cloudflare")
+   * get a strong navigational-score component so the official homepage always
+   * surfaces at the top instead of social-media profiles or job boards.
    */
   rankResults(query, results, { boostAlternative = false } = {}) {
     if (!results || results.length === 0) return [];
 
+    const isNavigational = this.isNavigationalQuery(query);
     const domainCounts = new Map();
     const scored = results.map((result) => {
       const domain = result.domain || this.extractDomain(result.url || '');
@@ -451,6 +511,13 @@ class SearchService {
       domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
 
       let finalScore = relevanceScore * 0.5 + recencyScore * 0.35 + diversityScore * 0.15;
+
+      if (isNavigational) {
+        const navScore = this.calculateNavigationalScore(query, result);
+        // Navigational queries: nav score dominates (70 %), quality signals fill the rest
+        finalScore = finalScore * 0.3 + navScore * 0.7;
+      }
+
       if (boostAlternative) {
         finalScore = finalScore * 0.6 + this.biasTierWeight(result.bias) * 0.4;
       }
