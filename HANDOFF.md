@@ -1,5 +1,5 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-06-18. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
+_Last updated: 2026-06-20. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
 
 This doc is written so it can be handed to **Claude in the web browser** to walk through
 the remaining **dashboard/browser activation steps**. Everything that requires code or a
@@ -15,6 +15,42 @@ computer has already been done and deployed (see "Done this session").
 > ripped out.** Monetize ONLY with reputable networks (Google AdSense, Ezoic/Mediavine/Raptive
 > tier). See ["AD STRATEGY — what to avoid"](#ad-strategy--what-happened--what-to-avoid). The
 > remaining browser steps below are still valid **except the old "STEP A" (now void)**.
+
+---
+
+## 🗓️ SESSION LOG 2026-06-20 — Search ranking + AI chat fix + Ad URLs
+
+### Search result quality — navigational intent + instant answers (SHIPPED, commits `ade45c6`→`69aa3d8`)
+**Problem:** brand-name queries like "AWS" returned aws.amazon.com at position #7 behind social media / jobs pages. No quick-answer cards appeared even though the backend was already building `instantAnswer` objects.
+
+**Fix — backend (`SearchService.js` + `routes/search.js`):**
+- Added `isNavigationalQuery(query)` — returns true for ≤3-word queries without question prefixes (what/how/why/when/who/etc).
+- Added `calculateNavigationalScore(query, result)` — scores URL officiality: subdomain-match + homepage = 1.0; contains query + homepage = 0.9; social media domains (Instagram, LinkedIn, Twitter, etc.) = 0.25× penalty.
+- Modified `rankResults()`: when query is navigational, blends `finalScore * 0.3 + navScore * 0.7` so the official homepage floats to #1.
+- Expanded `APP_NAMES` in `detectQueryType()` from ~15 to ~45 entries (added aws, azure, gcp, stripe, redis, mongodb, supabase, firebase, etc.) and added `navigational` as catch-all type for short brand queries not in the list.
+- `buildInstantAnswer()` now handles `type === 'navigational'` — finds best official result (heavy social penalty) and returns `{ type:'navigational', name, url, snippet, domain, favicon }`.
+
+**Fix — frontend (`SearchPortal.jsx` + `QuickResultCard.jsx`):**
+- Wired `data.instantAnswer` from API response to `instantAnswer` state in `SearchPortal.jsx`.
+- Added `NavigationalCard` component to `QuickResultCard.jsx` — compact "Official site" card with favicon, domain badge, title, snippet, and external link icon.
+- `QuickResultCard` now renders above search results when `instantAnswer` is present.
+
+### Google API key — fixed 403 on Custom Search + YouTube (DONE)
+- Root cause: project had only an OAuth 2.0 Client ID, not an API Key. Created a proper **API Key** in Google Cloud Console restricted to Custom Search API + YouTube Data API v3. Updated `GOOGLE_API_KEY` on Vercel via `vercel env rm` + `vercel env add`.
+
+### AI chat — Groq added as primary free provider (SHIPPED, commit `ade45c6`)
+- **OpenRouter billing failed** → AI chat was dead.
+- Added `services/GroqService.js` (OpenAI-compatible, `api.groq.com/openai/v1`, model `llama-3.1-8b-instant`). Free tier, no credit card required — get key at console.groq.com.
+- `GROQ_API_KEY` set on Vercel.
+- New failover order: **groq → gemini → nvidia → openai → anthropic → ollama**.
+- Switched Gemini default model from `gemini-1.5-pro-latest` → `gemini-1.5-flash` (free tier: 1M tokens/day vs. tiny pro quota).
+- Ollama cannot run on Vercel serverless (no persistent process, no GPU, no disk for model weights). Self-host option only — set `OLLAMA_BASE_URL` to a public URL (e.g. Oracle Cloud Always Free ARM VM) if you want it live.
+
+### House ads — OpenOcchio and BriccD now link to live previews (SHIPPED, commits `3605a42` + `69aa3d8`)
+- Both ads previously linked to GitHub repos. Updated `houseAds.js`:
+  - OpenOcchio → `https://ae5d4d0b.openocchio.pages.dev/` · CTA: "Try it free"
+  - BriccD → `https://briccd.o87enterprises.workers.dev/` · CTA: "Try the demo"
+  - BriccD description updated: *"Design a LEGO world in 3D, then step inside it life-size with Meta AR glasses."* · Title: *"BriccD — Build it. Live in it."*
 
 ---
 
@@ -198,9 +234,7 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
    set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `BACKEND_URL=https://backend-seven-khaki-60.vercel.app`,
    `FRONTEND_URL=https://truegle.info` → redeploy backend; then flip **`OAUTH_ENABLED=true`** in
    `apps/frontend/src/config/access.js` → redeploy frontend.
-3. **AI chat end-to-end** — NVIDIA wired + key set (Ollama kept). Optionally add a free
-   `OPENROUTER_API_KEY` as extra fallback. Verify chat works live (backend auth-gates expensive AI
-   endpoints; confirm it works under `FREE_ACCESS_MODE`).
+3. **AI chat end-to-end** — ✅ Groq is now primary (free, live). Failover chain: groq→gemini→nvidia→openai→anthropic→ollama. Verify chat works live in the browser (backend auth-gates expensive endpoints; confirm it works under `FREE_ACCESS_MODE`).
 4. **Impact affiliates** — get approved, paste real tracked links into `AFFILIATE_OFFERS`
    (`houseAds.js`), redeploy. (Currently placeholder URLs = $0.)
 5. **Get indexed (SEO)** — Google Search Console + Bing: add property, verify via Cloudflare DNS
@@ -291,7 +325,9 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
 | OAuth Branding | ⚠️ Needs fix | Wrong authorized domain `truegle-search.pages.dev` → should be `truegle-search-15k.pages.dev`; also add `truegle.info` + `trumpafi.online`; fill home/privacy/terms URLs. See Step 3. |
 | Google AdSense | 🛑 **REMOVED 2026-06-17** | Google rejected it ("ads on screens without publisher-content" — display AdSense isn't allowed on search results). All AdSense code/script removed; replaced by the first-party house-ad + Impact-affiliate system. Don't re-add to the search UI. See session log. |
 | Impact.com (affiliates) | 🔄 **Verifying** | Site verification meta tag live in `index.html`. Get approved for programs → paste real tracked links into `AFFILIATE_OFFERS` (`houseAds.js`). |
-| NVIDIA NIM (AI) | ✅ **Live** | Replaced OpenRouter as hosted AI provider; `NVIDIA_API_KEY` set on Vercel + verified. Ollama kept as self-host option. |
+| NVIDIA NIM (AI) | ✅ **Live (backup)** | `NVIDIA_API_KEY` set on Vercel. Now 3rd in failover (after Groq + Gemini). |
+| **Groq (AI)** | ✅ **Live — primary** | Free tier, no CC required. `GROQ_API_KEY` set on Vercel. Model: `llama-3.1-8b-instant`. Failover: groq→gemini→nvidia→openai→anthropic→ollama. |
+| **Gemini (AI)** | ✅ **Live (secondary)** | `GEMINI_API_KEY` already on Vercel. Switched to `gemini-1.5-flash` (1M tokens/day free). |
 | Search Console | ⏸️ Not started | See Step 5. |
 | Bing Webmaster | ⏸️ Not started | See Step 5. |
 | Stripe | ✅ Verified | Live keys NOT yet swapped on Vercel. See Step 6. |
