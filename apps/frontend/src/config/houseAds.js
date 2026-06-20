@@ -64,9 +64,9 @@ export const HOUSE_ADS = [
   },
   {
     id: 'briccd',
-    title: 'BriccD',
-    description: 'An o87 Enterprises open-source project.',
-    cta: 'Open preview',
+    title: 'BriccD — Build it. Live in it.',
+    description: 'Design a LEGO world in 3D, then step inside it life-size with Meta AR glasses.',
+    cta: 'Try the demo',
     url: 'https://briccd.o87enterprises.workers.dev/',
     category: 'dev',
     variant: 'purple',
