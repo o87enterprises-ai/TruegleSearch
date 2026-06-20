@@ -1,30 +1,19 @@
 import React from 'react';
+import truegleLogo from '../../assets/images/truegle.png';
 
 const Logo = ({ size = 'md', className = '' }) => {
   const sizes = {
-    sm: 'text-2xl md:text-3xl',
-    md: 'text-4xl md:text-5xl',
-    lg: 'text-5xl md:text-7xl',
+    sm: 'h-8 md:h-10',
+    md: 'h-12 md:h-14',
+    lg: 'h-16 md:h-20',
   };
 
-  const letters = [
-    { char: 'T', color: 'text-brand-red' },
-    { char: 'r', color: 'text-brand-green' },
-    { char: 'u', color: 'text-brand-blue' },
-    { char: 'e', color: 'text-cyan-400' },
-    { char: 'g', color: 'text-brand-yellow' },
-    { char: 'l', color: 'text-brand-green' },
-    { char: 'e', color: 'text-brand-orange' },
-  ];
-
   return (
-    <h1 className={`font-logo font-bold ${sizes[size]} ${className}`}>
-      {letters.map((letter, index) => (
-        <span key={index} className={letter.color}>
-          {letter.char}
-        </span>
-      ))}
-    </h1>
+    <img
+      src={truegleLogo}
+      alt="Truegle"
+      className={`${sizes[size]} w-auto object-contain ${className}`}
+    />
   );
 };
 

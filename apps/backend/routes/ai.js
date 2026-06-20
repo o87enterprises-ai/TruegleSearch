@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuth } = require('../middleware/auth');
 const { rateLimitSearch } = require('../middleware/rateLimit');
 const AIService = require('../services/AIService');
 const TokenService = require('../services/TokenService');
@@ -57,7 +57,7 @@ const MODE_SYSTEM_PROMPTS = {
   search_results: `You are a helpful, neutral search assistant. Answer the user's questions based on the search results context provided. Be concise, factual, and balanced. Cite multiple perspectives where relevant.`,
 };
 
-router.post('/chat', authenticate, rateLimitSearch, async (req, res) => {
+router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
   try {
     const { message, context = 'general', options = {} } = req.body;
 
@@ -68,32 +68,44 @@ router.post('/chat', authenticate, rateLimitSearch, async (req, res) => {
       });
     }
 
-    // Check if user has sufficient tokens for AI access
     const user = req.user;
-    const canAccess = await TokenService.canAccessFeature(user.id, 'ai-chat');
 
-    if (!canAccess) {
-      return res.status(402).json({
-        error: 'Insufficient tokens',
-        message: 'Not enough tokens to access AI chat. Please watch an ad or upgrade your account.'
-      });
+    // Token-gating only applies to signed-in accounts with a real balance row.
+    // Guests (the common case pre-launch — no real accounts yet) get the same
+    // free, ungated access /api/ai/summary already grants them, instead of a
+    // hard 401 that silently broke follow-up chat for everyone not logged in.
+    if (user.isAuthenticated) {
+      const canAccess = await TokenService.canAccessFeature(user.userId, 'ai-chat');
+      if (!canAccess.allowed) {
+        return res.status(402).json({
+          error: 'Insufficient tokens',
+          message: 'Not enough tokens to access AI chat. Please watch an ad or upgrade your account.'
+        });
+      }
     }
 
-    // Inject mode-specific system prompt override when available
-    const systemOverride = MODE_SYSTEM_PROMPTS[context];
+    // Inject mode-specific system prompt override when available. For an
+    // isolated red-pill perspective, fold the perspective + its sample
+    // sources into the override so follow-ups stay grounded in that
+    // perspective's results instead of the generic alternative-media prompt.
+    let systemOverride = MODE_SYSTEM_PROMPTS[context];
+    if (context === 'red_pill' && options.perspectiveLabel) {
+      const sample = typeof options.searchResults === 'string' ? options.searchResults : '';
+      systemOverride = `${systemOverride} The user has isolated their results to ONLY the "${options.perspectiveLabel}" perspective on this topic. Answer strictly from what that perspective's sources say — do not reintroduce other perspectives unless explicitly asked.${sample ? `\n\nIsolated sources:\n${sample}` : ''}`;
+    }
     const response = await aiClient.chat(message, context, {
       ...options,
-      userName: user.name || 'User',
+      userName: user.email || 'User',
       ...(systemOverride ? { systemOverride } : {}),
     });
 
-    // Deduct token if not from cache
-    if (!response.fromCache) {
-      await TokenService.spendToken(user.id, 'ai-chat');
+    // Deduct token if not from cache (authenticated users only)
+    if (user.isAuthenticated && !response.fromCache) {
+      await TokenService.spendToken(user.userId, 'ai-chat');
     }
 
     logger.info('AI chat successful:', {
-      userId: user.id,
+      userId: user.userId || 'guest',
       context,
       fromCache: response.fromCache,
       provider: response.provider
@@ -108,7 +120,7 @@ router.post('/chat', authenticate, rateLimitSearch, async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    logger.error('AI chat error:', { error: error.message, userId: req.user?.id });
+    logger.error('AI chat error:', { error: error.message, userId: req.user?.userId });
 
     if (error.message.includes('Rate limit')) {
       return res.status(429).json({
@@ -374,9 +386,12 @@ async function enrichPerspectiveSummaries(query, perspectives) {
   }
 }
 
-function fallbackSummary(mode, query) {
+function fallbackSummary(mode, query, perspectives = []) {
   if (mode === 'red-pill') {
-    return `Coverage of "${query}" spans multiple perspectives below — pick one to explore in depth.`;
+    if (Array.isArray(perspectives) && perspectives.length > 0) {
+      return `No AI analysis is available right now for the isolated perspective on "${query}". Review the filtered results below.`;
+    }
+    return `Coverage of "${query}" spans multiple perspectives below — pick one to isolate and explore in depth.`;
   }
   if (mode === 'purple') {
     return `No AI analysis is available right now for the selected perspective(s) on "${query}". Review the filtered results below.`;
@@ -408,10 +423,17 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
       });
     }
 
-    // Red-pill mode: a neutral, multiple-choice list of perspectives grounded
-    // in the bias classification already attached to the results — replaces
-    // the old single biased paragraph that read like it took one article as the truth.
-    if (mode === 'red-pill') {
+    // An isolated red-pill perspective behaves like Purple: the results are
+    // already hard-filtered to one perspective server-side (SearchService's
+    // isPurple||isRedPill strict filter), so it gets a real narrative summary
+    // of THAT perspective instead of the neutral multi-choice breakdown below.
+    const isIsolatedRedPill = mode === 'red-pill' && Array.isArray(perspectives) && perspectives.length > 0;
+
+    // Red-pill mode (unfiltered): a neutral, multiple-choice list of perspectives
+    // grounded in the bias classification already attached to the results —
+    // replaces the old single biased paragraph that read like it took one
+    // article as the truth.
+    if (mode === 'red-pill' && !isIsolatedRedPill) {
       let breakdown = buildPerspectiveBreakdown(results);
       breakdown = await enrichPerspectiveSummaries(query, breakdown);
       breakdown = breakdown.map(({ sample, ...rest }) => rest);
@@ -429,10 +451,11 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
     }
 
     const aiContext = MODE_TO_AI_CONTEXT[mode] || 'search_results';
-    // Purple results are already strictly filtered to the selected
-    // perspective(s), so use them as-is; everything else gets a diversified
-    // sample so the summary can't just echo whichever tier ranked first.
-    const sample = mode === 'purple' ? results.slice(0, 8) : buildDiverseSample(results, 8);
+    // Purple results, and an isolated red-pill perspective, are already
+    // strictly filtered to the selected perspective(s), so use them as-is;
+    // everything else gets a diversified sample so the summary can't just
+    // echo whichever tier ranked first.
+    const sample = (mode === 'purple' || isIsolatedRedPill) ? results.slice(0, 8) : buildDiverseSample(results, 8);
     const searchContext = formatResultsForPrompt(sample);
     const selectedPerspective = Array.isArray(perspectives) && perspectives.length > 0
       ? perspectives.join(', ')
@@ -480,7 +503,7 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
       success: true,
       query: query || '',
       mode,
-      summary: fallbackSummary(mode, query || ''),
+      summary: fallbackSummary(mode, query || '', perspectives),
       perspectives: [],
       sourcesAnalyzed: 0,
       model: 'fallback',

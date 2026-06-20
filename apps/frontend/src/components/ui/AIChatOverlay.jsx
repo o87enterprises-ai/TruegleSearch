@@ -38,7 +38,9 @@ export default function AIChatOverlay({
   initialSummary,
   mode = 'blue', // 'blue' | 'red' | 'purple' | 'ocean'
   context, // deprecated — use mode instead
-  themeColor = 'red'
+  themeColor = 'red',
+  perspectiveLabel = null, // Red mode: label of the isolated perspective, if any
+  resultsContext = null, // Red mode: sample of the isolated results, for follow-up grounding
 }) {
   const navigate = useNavigate();
   const resolvedMode = mode || 'blue';
@@ -176,7 +178,11 @@ export default function AIChatOverlay({
     setAdKey((prev) => prev + 1);
 
     try {
-      const response = await aiAPI.chat(inputValue, { context: resolvedContext });
+      const response = await aiAPI.chat(inputValue, {
+        context: resolvedContext,
+        ...(perspectiveLabel ? { perspectiveLabel } : {}),
+        ...(resultsContext ? { searchResults: resultsContext } : {}),
+      });
       const content = response.data.response?.choices?.[0]?.message?.content
         || response.data.response?.content
         || response.data.response

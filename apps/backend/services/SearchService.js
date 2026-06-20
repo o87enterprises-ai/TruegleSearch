@@ -2,6 +2,33 @@ const axios = require('axios');
 const config = require('../config/env');
 const { AI_CONTENT_DOMAINS } = require('../data/aiContentDomains');
 
+// Some providers (Brave in particular, when text_decorations isn't disabled)
+// embed highlight markup like "<strong>term</strong>" in title/snippet text,
+// and HTML entities (&#x27;, &amp;, etc.) sometimes leak through un-decoded.
+// Result cards render these as plain text, so without this cleanup pass
+// literal tags/entities show up verbatim — what users see as "broken/garbled"
+// titles.
+const HTML_ENTITIES = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  '#39': "'", '#x27': "'", '#x2F': '/', '#47': '/',
+};
+function cleanResultText(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text
+    .replace(/<[^>]*>/g, '')
+    .replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, code) => {
+      if (HTML_ENTITIES[code] !== undefined) return HTML_ENTITIES[code];
+      if (code[0] === '#') {
+        const codepoint = code[1] === 'x' || code[1] === 'X'
+          ? parseInt(code.slice(2), 16)
+          : parseInt(code.slice(1), 10);
+        return Number.isNaN(codepoint) ? match : String.fromCodePoint(codepoint);
+      }
+      return match;
+    })
+    .trim();
+}
+
 class SearchService {
   constructor() {
     // Green-mode AI-content blocklist. Seed list + optional env-provided extras
@@ -281,10 +308,13 @@ class SearchService {
       // Purple mode: strict perspective filter — ONLY results matching the
       // selected perspective(s), strictly date-ranked. No padding with
       // unrelated "neutral" results — if the filter is sparse, it stays sparse.
-      if (isPurple && filters.perspectives && filters.perspectives.length > 0) {
+      // Red-pill mode's in-place perspective isolation reuses this same strict
+      // filter (instead of redirecting into Purple mode) once the user has
+      // isolated to a single perspective.
+      if ((isPurple || isRedPill) && filters.perspectives && filters.perspectives.length > 0) {
         const mapped = this.mapPerspectivesToBias(filters.perspectives);
         const filtered = categorizedResults.filter(r => mapped.includes(r.bias));
-        console.log(`🟣 Purple strict filter: ${filtered.length} results for perspectives [${filters.perspectives.join(',')}]`);
+        console.log(`${isPurple ? '🟣 Purple' : '🔴 Red-pill'} strict filter: ${filtered.length} results for perspectives [${filters.perspectives.join(',')}]`);
 
         return [...filtered].sort((a, b) => {
           const diff = new Date(b.date) - new Date(a.date);
@@ -644,6 +674,7 @@ class SearchService {
       q: query,
       count: Math.min(filters.perPage || 20, 50),
       safesearch: filters.safeSearch === 'off' ? 'off' : filters.safeSearch === 'blur' ? 'moderate' : 'strict',
+      text_decorations: false,
     };
     if (filters.country) params.country = filters.country;
     if (filters.language) params.search_lang = filters.language;
@@ -747,6 +778,9 @@ class SearchService {
       count: Math.min(filters.perPage || 10, 20),
       offset: ((filters.page || 1) - 1) * (filters.perPage || 10),
       safesearch: filters.safeSearch === 'off' ? 'off' : filters.safeSearch === 'blur' ? 'moderate' : 'strict',
+      // Brave embeds <strong> highlight markup in title/description by default;
+      // we render these as plain text, so ask for undecorated strings instead.
+      text_decorations: false,
     };
 
     if (filters.dateRange && filters.dateRange !== 'any') {
@@ -1161,6 +1195,14 @@ class SearchService {
         const formatted = this.formatResults(result.value, source);
         combined.push(...formatted);
       }
+    });
+
+    // Strip leftover highlight markup / HTML entities from every provider's
+    // title and snippet before anything downstream (ranking, AI summaries,
+    // the result cards) ever sees the raw text.
+    combined.forEach((r) => {
+      r.title = cleanResultText(r.title);
+      r.snippet = cleanResultText(r.snippet);
     });
 
     // Remove duplicates based on URL
