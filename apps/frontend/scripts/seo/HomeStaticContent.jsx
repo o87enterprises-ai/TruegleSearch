@@ -18,7 +18,7 @@ const SEARCH_MODES = [
 ];
 
 const HomeStaticContent = () => (
-  <div>
+  <div id="seo-home">
     <h1>Truegle — Unbiased, Transparent &amp; Secure Search</h1>
     <p>
       Search without bias. Discover truth from multiple perspectives. No tracking, no

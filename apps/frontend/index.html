@@ -71,6 +71,40 @@
     <!-- Mapbox GL JS CSS -->
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.18.0/mapbox-gl.css" rel="stylesheet">
     <title>Truegle - Unbiased, Transparent & Secure Search</title>
+    <!-- Zero-latency fallback paint: applies before any network request
+         finishes, so the pre-hydration window (real on slow connections)
+         never shows a bare unstyled document. React replaces all of this
+         the instant it mounts. #seo-home only matches scripts/prerender.mjs's
+         "/" snapshot (see HomeStaticContent.jsx) - the other prerendered
+         routes (about/privacy/terms/advertise) already render the real,
+         fully-styled page components, so they don't need it. -->
+    <style>
+      html, body { background: #000; }
+      #seo-home {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 4rem 1.5rem 2rem;
+        text-align: center;
+        color: #94a3b8;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      }
+      #seo-home h1 {
+        font-size: 1.75rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
+        text-wrap: balance;
+        background: linear-gradient(90deg, #4285f4, #ea4335, #fbbc05, #34a853);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      #seo-home h2 { color: #f1f5f9; margin: 2rem 0 0.75rem; font-size: 1.1rem; }
+      #seo-home p { line-height: 1.6; margin-bottom: 0.75rem; }
+      #seo-home ul { list-style: none; padding: 0; text-align: left; max-width: 420px; margin: 0 auto; }
+      #seo-home li { margin-bottom: 0.5rem; }
+      #seo-home nav { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; margin-top: 2rem; }
+      #seo-home nav a { color: #60a5fa; text-decoration: none; font-size: 0.875rem; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
