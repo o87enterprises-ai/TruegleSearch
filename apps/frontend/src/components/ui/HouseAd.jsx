@@ -58,16 +58,17 @@ const buttonStyles = {
 /**
  * @param {Object} props
  * @param {string} [props.category]  contextual hint (e.g. search mode)
+ * @param {string} [props.query]     the user's search query — matched against ad.keywords
  * @param {string} [props.zone]      ad zone id, recorded with stats
  * @param {Object} [props.ad]        force a specific ad (otherwise auto-picked)
  * @param {string} [props.className]
  * @param {boolean} [props.compact]  smaller padding/type — for tight spots like next to the AI summary
  */
-const HouseAd = ({ category, zone = 'unknown', adId, ad: forcedAd, className = '', compact = false }) => {
+const HouseAd = ({ category, query, zone = 'unknown', adId, ad: forcedAd, className = '', compact = false }) => {
   // Pinned slot (adId) → that exact ad; otherwise pick once per mount.
   const ad = useMemo(
-    () => forcedAd || (adId ? getAdById(adId) : null) || pickHouseAd({ category }),
-    [forcedAd, adId, category]
+    () => forcedAd || (adId ? getAdById(adId) : null) || pickHouseAd({ category, query }),
+    [forcedAd, adId, category, query]
   );
   const counted = useRef(false);
 

@@ -16,7 +16,9 @@
  *   description one line of body copy
  *   cta         button label
  *   url         destination (own project / repo / live site)
- *   category    used later for contextual targeting per search mode
+ *   category    soft contextual bucket (search mode / vertical)
+ *   keywords    words/phrases that should pull this ad up for a matching search
+ *                query (see pickHouseAd) — same idea as CJ/affiliate KEYWORDS
  *   variant     'yellow' | 'blue' | 'purple' | 'green' (card accent)
  *   weight      relative share of impressions (higher = shown more)
  *   sponsor     false for house ads; true once a slot is paid for
@@ -47,6 +49,7 @@ export const HOUSE_ADS = [
     url: 'https://github.com/o87enterprises-ai',
     label: 'From our projects',
     category: 'dev',
+    keywords: ['github', 'open source', 'code', 'developer', 'programming', 'repository'],
     variant: 'blue',
     weight: 3,
     sponsor: false,
@@ -58,6 +61,7 @@ export const HOUSE_ADS = [
     cta: 'Try it free',
     url: 'https://ae5d4d0b.openocchio.pages.dev/',
     category: 'truth',
+    keywords: ['ai', 'chatgpt', 'gpt', 'artificial intelligence', 'ai detector', 'ai generated', 'plagiarism'],
     variant: 'green',
     weight: 3,
     sponsor: false,
@@ -69,6 +73,7 @@ export const HOUSE_ADS = [
     cta: 'Try the demo',
     url: 'https://briccd.o87enterprises.workers.dev/',
     category: 'dev',
+    keywords: ['lego', '3d', 'ar', 'augmented reality', 'meta quest', 'vr', 'building game'],
     variant: 'purple',
     weight: 2,
     sponsor: false,
@@ -80,6 +85,7 @@ export const HOUSE_ADS = [
     cta: 'Find Grants',
     url: 'https://github.com/o87enterprises-ai/Open-Grants',
     category: 'tools',
+    keywords: ['grant', 'grants', 'funding', 'nonprofit funding', 'small business grant', 'scholarship'],
     variant: 'blue',
     weight: 2,
     sponsor: false,
@@ -91,6 +97,7 @@ export const HOUSE_ADS = [
     cta: 'Generate a Site',
     url: 'https://github.com/o87enterprises-ai/ABS-webgen-1.0',
     category: 'dev',
+    keywords: ['website builder', 'web design', 'landing page', 'site generator', 'build a website'],
     variant: 'yellow',
     weight: 2,
     sponsor: false,
@@ -102,6 +109,7 @@ export const HOUSE_ADS = [
     cta: 'Open PhysicAIn',
     url: 'https://github.com/o87enterprises-ai/PhysicAIn',
     category: 'research',
+    keywords: ['physics', 'science', 'research', 'simulation', 'physics homework'],
     variant: 'blue',
     weight: 1,
     sponsor: false,
@@ -113,6 +121,7 @@ export const HOUSE_ADS = [
     cta: 'Try It Free',
     url: 'https://github.com/o87enterprises-ai/OpenFuelEcon',
     category: 'tools',
+    keywords: ['mpg', 'fuel economy', 'gas mileage', 'car', 'vehicle', 'fuel cost'],
     variant: 'green',
     weight: 1,
     sponsor: false,
@@ -154,6 +163,7 @@ export const AFFILIATE_OFFERS = [
     url: 'https://protonvpn.com/', // TODO: replace with your Proton affiliate link
     label: 'Sponsored',
     category: 'privacy',
+    keywords: ['vpn', 'proton', 'browse anonymously', 'hide my ip', 'encrypt traffic'],
     variant: 'purple',
     weight: 3,
     sponsor: true,
@@ -167,6 +177,7 @@ export const AFFILIATE_OFFERS = [
     url: 'https://incogni.com/', // TODO: replace with your Incogni affiliate link
     label: 'Sponsored',
     category: 'privacy',
+    keywords: ['data broker', 'remove my data', 'opt out', 'personal data removal', 'people search site'],
     variant: 'blue',
     weight: 3,
     sponsor: true,
@@ -180,6 +191,7 @@ export const AFFILIATE_OFFERS = [
     url: 'https://example.com/', // TODO: replace with NordVPN/Surfshark/PIA affiliate link
     label: 'Sponsored',
     category: 'privacy',
+    keywords: ['vpn', 'no logs vpn', 'anonymous browsing', 'best vpn'],
     variant: 'green',
     weight: 0, // hidden until you activate a program — set >0 to enable
     sponsor: true,
@@ -187,7 +199,8 @@ export const AFFILIATE_OFFERS = [
   },
   {
     // CJ Affiliate, O&O Software (auto-approved, link ID 17293513). Real tracked
-    // link — first live affiliate offer, not a placeholder.
+    // link — first live affiliate offer, not a placeholder. Keywords lifted
+    // straight from the advertiser's own CJ links export.
     id: 'aff-oo-shutup10',
     title: 'O&O ShutUp10 — Stop Windows from spying on you',
     description: 'Locks down Windows telemetry and data collection with one click. Free tool.',
@@ -195,6 +208,7 @@ export const AFFILIATE_OFFERS = [
     url: 'https://www.anrdoezrs.net/click-101807644-17293513',
     label: 'Sponsored',
     category: 'privacy',
+    keywords: ['windows', 'windows 10', 'windows 11', 'microsoft', 'telemetry', 'data protection', 'spying'],
     variant: 'blue',
     weight: 2,
     sponsor: true,
@@ -216,17 +230,37 @@ export const AD_ZONES = {
   'settings-medium': { label: 'Settings', format: '300x250', house: true },
 };
 
+function tokenize(text) {
+  return (text || '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/** True if any word in `queryTokens` also appears in one of `ad.keywords`. */
+function matchesQuery(ad, queryTokens) {
+  if (!ad.keywords || ad.keywords.length === 0) return false;
+  const keywordTokens = new Set(ad.keywords.flatMap(tokenize));
+  return queryTokens.some((token) => keywordTokens.has(token));
+}
+
 /**
  * Pick a house ad to show. Honors flight windows and does weighted selection so
- * higher-weight ads appear more often. `category` optionally biases toward ads
- * matching the current context (search mode), falling back to the full pool.
+ * higher-weight ads appear more often.
+ *
+ * Two soft filters narrow the pool before weighting, applied in priority order
+ * — each only kicks in if it actually has a match, otherwise it falls through:
+ *   1. `query`    — ad.keywords vs. the words in the user's search query
+ *   2. `category` — ad.category vs. the current context (search mode)
+ * No query/category match → draws from the full live pool.
  *
  * @param {Object}  [opts]
+ * @param {string}  [opts.query]     the user's search query (contextual targeting)
  * @param {string}  [opts.category]  preferred category (soft filter)
  * @param {Date}    [opts.now]       injectable clock for testing
  * @returns {Object|null} a house ad, or null if none are eligible
  */
-export function pickHouseAd({ category, now = new Date() } = {}) {
+export function pickHouseAd({ category, query, now = new Date() } = {}) {
   // Affiliate offers + house ads share the same inventory. Affiliates pay real
   // money, so they carry higher weights; weight: 0 drops an entry out entirely.
   const pool0 = [...AFFILIATE_OFFERS, ...HOUSE_ADS];
@@ -239,9 +273,13 @@ export function pickHouseAd({ category, now = new Date() } = {}) {
 
   if (live.length === 0) return null;
 
-  // Soft category preference: if any match, draw from those; else use all.
-  const matched = category ? live.filter((ad) => ad.category === category) : [];
-  const pool = matched.length > 0 ? matched : live;
+  const queryTokens = tokenize(query);
+  const keywordMatched = queryTokens.length > 0 ? live.filter((ad) => matchesQuery(ad, queryTokens)) : [];
+  const categoryMatched = category ? live.filter((ad) => ad.category === category) : [];
+
+  const pool = keywordMatched.length > 0 ? keywordMatched
+    : categoryMatched.length > 0 ? categoryMatched
+    : live;
 
   const total = pool.reduce((sum, ad) => sum + (ad.weight || 1), 0);
   let roll = Math.random() * total;
