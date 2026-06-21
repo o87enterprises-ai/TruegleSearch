@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { pickHouseAd, getAdById } from '../../config/houseAds';
+import ClaimPremiumOffer from './ClaimPremiumOffer';
 
 /** Fire-and-forget signal that opens the global advertiser contact modal. */
 export function openAdvertiseModal() {
@@ -141,7 +142,7 @@ const HouseAd = ({ category, query, zone = 'unknown', adId, ad: forcedAd, classN
     </div>
   );
 
-  const cardClass = `block w-full text-left rounded-2xl bg-gradient-to-br ${accent} backdrop-blur-xl border-2 shadow-lg transition-all duration-300 hover:scale-[1.02] no-underline ${tier.card} ${className}`;
+  const cardClass = `block w-full text-left rounded-2xl bg-gradient-to-br ${accent} backdrop-blur-xl border-2 shadow-lg transition-all duration-300 hover:scale-[1.02] no-underline ${tier.card}`;
 
   // Contact-action ad → button that opens the advertiser modal (no navigation).
   if (isContact) {
@@ -151,7 +152,7 @@ const HouseAd = ({ category, query, zone = 'unknown', adId, ad: forcedAd, classN
         onClick={() => { bump(ad.id, 'clicks'); openAdvertiseModal(); }}
         data-ad-zone={zone}
         data-ad-id={ad.id}
-        className={cardClass}
+        className={`${cardClass} ${className}`}
       >
         {inner}
       </button>
@@ -159,17 +160,20 @@ const HouseAd = ({ category, query, zone = 'unknown', adId, ad: forcedAd, classN
   }
 
   return (
-    <a
-      href={ad.url}
-      target="_blank"
-      rel="sponsored noopener noreferrer"
-      onClick={() => bump(ad.id, 'clicks')}
-      data-ad-zone={zone}
-      data-ad-id={ad.id}
-      className={cardClass}
-    >
-      {inner}
-    </a>
+    <div className={className}>
+      <a
+        href={ad.url}
+        target="_blank"
+        rel="sponsored noopener noreferrer"
+        onClick={() => bump(ad.id, 'clicks')}
+        data-ad-zone={zone}
+        data-ad-id={ad.id}
+        className={cardClass}
+      >
+        {inner}
+      </a>
+      {ad.affiliate && <ClaimPremiumOffer offerId={ad.id} offerTitle={ad.title} />}
+    </div>
   );
 };
 

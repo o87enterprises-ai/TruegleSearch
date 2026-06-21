@@ -214,6 +214,7 @@ app.use('/api/auth', [authLimiter, require('./routes/auth')]);
 app.use('/api/analytics', require('./routes/analytics').router);
 app.use('/api/tokens', require('./routes/tokens'));
 app.use('/api/rewards', require('./routes/rewards'));
+app.use('/api/affiliate-premium', require('./routes/affiliate-premium'));
 app.use('/api/session', require('./routes/session'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/prompts', require('./routes/prompts'));
