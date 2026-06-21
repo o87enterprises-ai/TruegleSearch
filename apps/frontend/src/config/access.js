@@ -13,8 +13,10 @@
 export const FREE_ACCESS_MODE = true;
 
 // When true, social sign-in (Google/Apple) buttons + flows are shown.
-// Kept OFF until the Google OAuth consent screen is published AND login works.
-export const OAUTH_ENABLED = false;
+// Backend Google OAuth verified live 2026-06-21 (BACKEND_URL fixed, redirect URI
+// confirmed registered in Google Console). Also requires VITE_SOCIAL_AUTH_ENABLED=true
+// at build time (see SignInPage/SignUpPage) before the button actually renders.
+export const OAUTH_ENABLED = true;
 
 // When true, show the dismissible "early access / pre-production" banner so
 // users understand the site isn't open to the world yet and are invited to
