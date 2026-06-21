@@ -16,7 +16,9 @@
  *   description one line of body copy
  *   cta         button label
  *   url         destination (own project / repo / live site)
- *   category    used later for contextual targeting per search mode
+ *   category    soft contextual bucket (search mode / vertical)
+ *   keywords    words/phrases that should pull this ad up for a matching search
+ *                query (see pickHouseAd) — same idea as CJ/affiliate KEYWORDS
  *   variant     'yellow' | 'blue' | 'purple' | 'green' (card accent)
  *   weight      relative share of impressions (higher = shown more)
  *   sponsor     false for house ads; true once a slot is paid for
@@ -47,6 +49,7 @@ export const HOUSE_ADS = [
     url: 'https://github.com/o87enterprises-ai',
     label: 'From our projects',
     category: 'dev',
+    keywords: ['github', 'open source', 'code', 'developer', 'programming', 'repository'],
     variant: 'blue',
     weight: 3,
     sponsor: false,
@@ -58,6 +61,7 @@ export const HOUSE_ADS = [
     cta: 'Try it free',
     url: 'https://ae5d4d0b.openocchio.pages.dev/',
     category: 'truth',
+    keywords: ['ai', 'chatgpt', 'gpt', 'artificial intelligence', 'ai detector', 'ai generated', 'plagiarism'],
     variant: 'green',
     weight: 3,
     sponsor: false,
@@ -69,6 +73,7 @@ export const HOUSE_ADS = [
     cta: 'Try the demo',
     url: 'https://briccd.o87enterprises.workers.dev/',
     category: 'dev',
+    keywords: ['lego', '3d', 'ar', 'augmented reality', 'meta quest', 'vr', 'building game'],
     variant: 'purple',
     weight: 2,
     sponsor: false,
@@ -80,6 +85,7 @@ export const HOUSE_ADS = [
     cta: 'Find Grants',
     url: 'https://github.com/o87enterprises-ai/Open-Grants',
     category: 'tools',
+    keywords: ['grant', 'grants', 'funding', 'nonprofit funding', 'small business grant', 'scholarship'],
     variant: 'blue',
     weight: 2,
     sponsor: false,
@@ -91,6 +97,7 @@ export const HOUSE_ADS = [
     cta: 'Generate a Site',
     url: 'https://github.com/o87enterprises-ai/ABS-webgen-1.0',
     category: 'dev',
+    keywords: ['website builder', 'web design', 'landing page', 'site generator', 'build a website'],
     variant: 'yellow',
     weight: 2,
     sponsor: false,
@@ -102,6 +109,7 @@ export const HOUSE_ADS = [
     cta: 'Open PhysicAIn',
     url: 'https://github.com/o87enterprises-ai/PhysicAIn',
     category: 'research',
+    keywords: ['physics', 'science', 'research', 'simulation', 'physics homework'],
     variant: 'blue',
     weight: 1,
     sponsor: false,
@@ -113,6 +121,7 @@ export const HOUSE_ADS = [
     cta: 'Try It Free',
     url: 'https://github.com/o87enterprises-ai/OpenFuelEcon',
     category: 'tools',
+    keywords: ['mpg', 'fuel economy', 'gas mileage', 'car', 'vehicle', 'fuel cost'],
     variant: 'green',
     weight: 1,
     sponsor: false,
@@ -125,21 +134,24 @@ export const HOUSE_ADS = [
  * These pay per signup/sale and double as "demand" that keeps inventory full.
  * They are disclosed to users as "Sponsored" (FTC/EU disclosure requirement).
  *
- * >>> ACTION REQUIRED <<<
- * The `url`s below are PLACEHOLDERS. They will NOT earn anything until you:
- *   1. Apply to each program (links in the comments).
- *   2. Replace the url with YOUR tracked affiliate link (it contains your ID).
- *   3. Verify the program's terms allow placement on a search engine / via paid
- *      and display traffic — a few forbid it.
- * Until then they still render as normal on-brand ads (no harm), they just
- * don't pay. Set `weight: 0` to hide any offer you haven't activated yet.
+ * >>> SOME OF THESE ARE STILL PLACEHOLDERS <<<
+ * Any `url` with a TODO comment is a placeholder — it will NOT earn anything
+ * until you apply to the program and swap in your tracked affiliate link.
+ * Entries without a TODO (e.g. `aff-oo-shutup10`) are real, live, tracked links.
+ * Until activated, placeholders still render as normal on-brand ads (no harm),
+ * they just don't pay. Set `weight: 0` to hide any offer you haven't activated.
  *
- * Good privacy-aligned programs to apply to (audience fit + decent payouts):
+ * Audience is NOT privacy-niche-only — Truegle's pitch ("everyone deserves
+ * privacy, free search, and to see the perspectives of the outlets they
+ * visit") is universal, not gatekept. So: apply broadly via CJ/Impact/etc,
+ * not just to privacy-keyword advertisers, and add whatever gets approved —
+ * not every entry here needs `category: 'privacy'`.
  *   - Proton (VPN / Pass / Mail) — proton.me/partners  (on-brand; you already use Proton)
  *   - Incogni (data-broker removal) — incogni.com/affiliates  (strong payouts, very on-brand)
  *   - NordVPN / Surfshark — via Impact / CJ affiliate networks
  *   - Private Internet Access — via affiliate networks
  *   - Privacy-friendly hosting (e.g. 1984 Hosting, Njalla) — check each site
+ *   - Whatever else CJ/Impact approve you for — see tools/ad-distributor-cli
  * Don't add anything sketchy here — same rule as the rest of the file.
  */
 export const AFFILIATE_OFFERS = [
@@ -151,6 +163,7 @@ export const AFFILIATE_OFFERS = [
     url: 'https://protonvpn.com/', // TODO: replace with your Proton affiliate link
     label: 'Sponsored',
     category: 'privacy',
+    keywords: ['vpn', 'proton', 'browse anonymously', 'hide my ip', 'encrypt traffic'],
     variant: 'purple',
     weight: 3,
     sponsor: true,
@@ -164,6 +177,7 @@ export const AFFILIATE_OFFERS = [
     url: 'https://incogni.com/', // TODO: replace with your Incogni affiliate link
     label: 'Sponsored',
     category: 'privacy',
+    keywords: ['data broker', 'remove my data', 'opt out', 'personal data removal', 'people search site'],
     variant: 'blue',
     weight: 3,
     sponsor: true,
@@ -177,8 +191,157 @@ export const AFFILIATE_OFFERS = [
     url: 'https://example.com/', // TODO: replace with NordVPN/Surfshark/PIA affiliate link
     label: 'Sponsored',
     category: 'privacy',
+    keywords: ['vpn', 'no logs vpn', 'anonymous browsing', 'best vpn'],
     variant: 'green',
     weight: 0, // hidden until you activate a program — set >0 to enable
+    sponsor: true,
+    affiliate: true,
+  },
+  {
+    // CJ Affiliate, O&O Software (auto-approved, link ID 17293513). Real tracked
+    // link — first live affiliate offer, not a placeholder. Keywords lifted
+    // straight from the advertiser's own CJ links export.
+    id: 'aff-oo-shutup10',
+    title: 'O&O ShutUp10 — Stop Windows from spying on you',
+    description: 'Locks down Windows telemetry and data collection with one click. Free tool.',
+    cta: 'Get ShutUp10',
+    url: 'https://www.anrdoezrs.net/click-101807644-17293513',
+    label: 'Sponsored',
+    category: 'privacy',
+    keywords: ['windows', 'windows 10', 'windows 11', 'microsoft', 'telemetry', 'data protection', 'spying'],
+    variant: 'blue',
+    weight: 2,
+    sponsor: true,
+    affiliate: true,
+  },
+  // CJ Affiliate, O&O Software (same advertiser/link ID as aff-oo-shutup10 above).
+  // The advertiser's CJ inventory has 49 link variants total — mostly the same
+  // handful of products repeated across banner sizes and German/English copy.
+  // One canonical English text-link entry per distinct product is enough here
+  // since HouseAd renders its own card, not the advertiser's banner image.
+  {
+    id: 'aff-oo-diskrecovery',
+    title: 'O&O DiskRecovery — Get deleted files back',
+    description: 'Recovers deleted or lost files, even from formatted or damaged drives.',
+    cta: 'Recover My Files',
+    url: 'https://www.tkqlhce.com/click-101807644-17065234',
+    label: 'Sponsored',
+    category: 'tools',
+    keywords: ['diskrecovery', 'data recovery', 'recover deleted files', 'undelete', 'lost files', 'formatted drive', 'disaster recovery'],
+    variant: 'blue',
+    weight: 2,
+    sponsor: true,
+    affiliate: true,
+  },
+  {
+    id: 'aff-oo-safeerase',
+    title: 'O&O SafeErase — Permanently wipe your data',
+    description: 'Securely erases files and drives so deleted data can never be recovered.',
+    cta: 'Erase Securely',
+    url: 'https://www.jdoqocy.com/click-101807644-17065229',
+    label: 'Sponsored',
+    category: 'privacy',
+    keywords: ['safeerase', 'wipe drive', 'secure delete', 'data wipe', 'overwrite data', 'ssd wipe', 'dod wipe', 'gutmann method'],
+    variant: 'purple',
+    weight: 2,
+    sponsor: true,
+    affiliate: true,
+  },
+  {
+    id: 'aff-oo-diskimage',
+    title: 'O&O DiskImage — Full backups, one click',
+    description: 'Backs up, clones, or images your entire PC so a crash never costs you your data.',
+    cta: 'Back Up Now',
+    url: 'https://www.jdoqocy.com/click-101807644-11045083',
+    label: 'Sponsored',
+    category: 'tools',
+    keywords: ['diskimage', 'backup software', 'clone drive', 'disk clone', 'system image', 'data backup'],
+    variant: 'green',
+    weight: 2,
+    sponsor: true,
+    affiliate: true,
+  },
+  {
+    id: 'aff-oo-defrag',
+    title: 'O&O Defrag — Speed up a slow PC',
+    description: 'Defragments your drive for noticeably faster load and access times.',
+    cta: 'Speed It Up',
+    url: 'https://www.tkqlhce.com/click-101807644-10565919',
+    label: 'Sponsored',
+    category: 'tools',
+    keywords: ['defrag', 'defragmentation', 'slow pc', 'speed up computer', 'fragmented hard disk', 'disk performance'],
+    variant: 'yellow',
+    weight: 2,
+    sponsor: true,
+    affiliate: true,
+  },
+  {
+    id: 'aff-oo-bluecon',
+    title: "O&O BlueCon — When Windows won't boot",
+    description: 'A bootable rescue toolkit for password resets, repairs, and disaster recovery.',
+    cta: 'Get the Rescue Kit',
+    url: 'https://www.jdoqocy.com/click-101807644-12056858',
+    label: 'Sponsored',
+    category: 'tools',
+    keywords: ['bluecon', "windows won't boot", 'disaster recovery', 'boot rescue', 'password reset', 'blue screen', 'system repair'],
+    variant: 'blue',
+    weight: 2,
+    sponsor: true,
+    affiliate: true,
+  },
+  {
+    id: 'aff-oo-diskcommander',
+    title: 'O&O DiskCommander — Find what is eating your storage',
+    description: 'Analyzes drives and folders so you can find and clear out space-wasting files fast.',
+    cta: 'Free Up Space',
+    url: 'https://www.tkqlhce.com/click-101807644-17233055',
+    label: 'Sponsored',
+    category: 'tools',
+    keywords: ['diskcommander', 'storage space', 'disk usage', 'duplicate files', 'clean up disk', 'full disk'],
+    variant: 'green',
+    weight: 2,
+    sponsor: true,
+    affiliate: true,
+  },
+  {
+    id: 'aff-oo-diskstat',
+    title: 'O&O DiskStat — See where your storage went',
+    description: 'Visual breakdown of what is using your disk space, on one PC or across a network.',
+    cta: 'Check My Storage',
+    url: 'https://www.tkqlhce.com/click-101807644-17065238',
+    label: 'Sponsored',
+    category: 'tools',
+    keywords: ['diskstat', 'storage space', 'disk usage', 'space wasters', 'network storage'],
+    variant: 'purple',
+    weight: 2,
+    sponsor: true,
+    affiliate: true,
+  },
+  {
+    id: 'aff-oo-powerpack',
+    title: 'O&O PowerPack — Backup, speed, security, sync',
+    description: 'Bundles DiskImage, Defrag, SafeErase, and AutoBackup at one price.',
+    cta: 'Get the Bundle',
+    url: 'https://www.dpbolvw.net/click-101807644-11928760',
+    label: 'Sponsored',
+    category: 'tools',
+    keywords: ['powerpack', 'o&o bundle', 'backup and speed', 'windows toolkit'],
+    variant: 'yellow',
+    weight: 2,
+    sponsor: true,
+    affiliate: true,
+  },
+  {
+    id: 'aff-oo-win11-migration',
+    title: 'Migrating to Windows 11? Do it the easy way',
+    description: 'Windows 10 support is ending — this kit handles the switch to Windows 11 for you.',
+    cta: 'Start Migration',
+    url: 'https://www.jdoqocy.com/click-101807644-17277834',
+    label: 'Sponsored',
+    category: 'tools',
+    keywords: ['windows 10', 'windows 11', 'migration', 'upgrade windows', 'end of support'],
+    variant: 'blue',
+    weight: 2,
     sponsor: true,
     affiliate: true,
   },
@@ -198,17 +361,37 @@ export const AD_ZONES = {
   'settings-medium': { label: 'Settings', format: '300x250', house: true },
 };
 
+function tokenize(text) {
+  return (text || '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/** True if any word in `queryTokens` also appears in one of `ad.keywords`. */
+function matchesQuery(ad, queryTokens) {
+  if (!ad.keywords || ad.keywords.length === 0) return false;
+  const keywordTokens = new Set(ad.keywords.flatMap(tokenize));
+  return queryTokens.some((token) => keywordTokens.has(token));
+}
+
 /**
  * Pick a house ad to show. Honors flight windows and does weighted selection so
- * higher-weight ads appear more often. `category` optionally biases toward ads
- * matching the current context (search mode), falling back to the full pool.
+ * higher-weight ads appear more often.
+ *
+ * Two soft filters narrow the pool before weighting, applied in priority order
+ * — each only kicks in if it actually has a match, otherwise it falls through:
+ *   1. `query`    — ad.keywords vs. the words in the user's search query
+ *   2. `category` — ad.category vs. the current context (search mode)
+ * No query/category match → draws from the full live pool.
  *
  * @param {Object}  [opts]
+ * @param {string}  [opts.query]     the user's search query (contextual targeting)
  * @param {string}  [opts.category]  preferred category (soft filter)
  * @param {Date}    [opts.now]       injectable clock for testing
  * @returns {Object|null} a house ad, or null if none are eligible
  */
-export function pickHouseAd({ category, now = new Date() } = {}) {
+export function pickHouseAd({ category, query, now = new Date() } = {}) {
   // Affiliate offers + house ads share the same inventory. Affiliates pay real
   // money, so they carry higher weights; weight: 0 drops an entry out entirely.
   const pool0 = [...AFFILIATE_OFFERS, ...HOUSE_ADS];
@@ -221,9 +404,13 @@ export function pickHouseAd({ category, now = new Date() } = {}) {
 
   if (live.length === 0) return null;
 
-  // Soft category preference: if any match, draw from those; else use all.
-  const matched = category ? live.filter((ad) => ad.category === category) : [];
-  const pool = matched.length > 0 ? matched : live;
+  const queryTokens = tokenize(query);
+  const keywordMatched = queryTokens.length > 0 ? live.filter((ad) => matchesQuery(ad, queryTokens)) : [];
+  const categoryMatched = category ? live.filter((ad) => ad.category === category) : [];
+
+  const pool = keywordMatched.length > 0 ? keywordMatched
+    : categoryMatched.length > 0 ? categoryMatched
+    : live;
 
   const total = pool.reduce((sum, ad) => sum + (ad.weight || 1), 0);
   let roll = Math.random() * total;

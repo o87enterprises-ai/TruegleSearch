@@ -70,7 +70,7 @@ export const NETWORKS = {
   cj: {
     name: 'CJ Affiliate',
     kind: 'affiliate',
-    status: 'available',
+    status: 'in_progress',
     applyUrl: 'https://signup.cj.com/member/signup/publisher/',
     reviewTime: 'Account: near-instant after email confirmation. Per advertiser program: varies.',
     requirements: [
@@ -78,7 +78,14 @@ export const NETWORKS = {
       'Apply separately to each advertiser program you want, via the CJ Account Manager',
       'W-9/W-8BEN + payment details required before payouts',
     ],
-    notes: 'Tracked links go into AFFILIATE_OFFERS in houseAds.js, same pattern as Impact.',
+    notes:
+      'Account live (publisher ID 7995117, created 2026-06-21). Applying broadly, not just '
+        + 'privacy-keyword advertisers — Truegle\'s audience isn\'t privacy-niche-only, so any '
+        + 'on-brand, decent-EPC advertiser that gets approved is fair game. 27 pending / 2 '
+        + 'auto-approved (incl. O&O Software) from the first "privacy" keyword batch. First real '
+        + 'tracked link (O&O ShutUp10, link ID 17293513) is live in AFFILIATE_OFFERS as '
+        + '`aff-oo-shutup10`. As more advertisers approve, pull their CJ links export and add one '
+        + 'AFFILIATE_OFFERS entry per advertiser, same pattern.',
     credentialFields: ['WEBSITE_ID', 'PERSONAL_ACCESS_TOKEN'],
     envTarget: 'apps/frontend/src/config/houseAds.js -> AFFILIATE_OFFERS',
   },

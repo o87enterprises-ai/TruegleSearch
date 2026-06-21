@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -1387,16 +1387,23 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   )}
 
                   {mode !== 'ocean' && searchResults.map((result, index) => (
-                    <div key={result.url || index}>
-                      <ResultCard
-                        result={result}
-                        index={index}
-                        mode={mode}
-                        perspectiveColors={perspectiveColors}
-                        accent={modeAccent}
-                        safeSearch={settings.safeSearch}
-                      />
-                    </div>
+                    <Fragment key={result.url || index}>
+                      <div>
+                        <ResultCard
+                          result={result}
+                          index={index}
+                          mode={mode}
+                          perspectiveColors={perspectiveColors}
+                          accent={modeAccent}
+                          safeSearch={settings.safeSearch}
+                        />
+                      </div>
+                      {/* An ad slot between every 5 results — content/category matched
+                          to the query when possible, weighted-random otherwise. */}
+                      {(index + 1) % 5 === 0 && index !== searchResults.length - 1 && (
+                        <AdSlot size="small" query={lastSearchedQuery || query} compact />
+                      )}
+                    </Fragment>
                   ))}
                 </>
               )}
