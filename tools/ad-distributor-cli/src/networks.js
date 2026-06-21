@@ -38,16 +38,22 @@ export const NETWORKS = {
   impact: {
     name: 'Impact.com',
     kind: 'affiliate',
-    status: 'in_progress',
+    status: 'declined',
     applyUrl: 'https://app.impact.com/login/login-input.ihtml',
-    reviewTime: '~2 business days',
+    reviewTime: 'Marketplace: N/A (declined). Direct brand program: varies per advertiser.',
     requirements: [
-      'Already mid-application for Truegle — site-verification meta tag is live in apps/frontend/index.html',
-      'Accept the Media Partner Service Agreement + Master Campaign Agreement',
-      'Verify at least one media property (the Truegle Search domain)',
+      'Marketplace access was DECLINED ("you currently do not qualify") - this does NOT affect '
+        + 'existing/pending brand relationships or direct invitations, per Impact\'s own decline notice',
+      'Workaround: apply directly to each advertiser\'s own affiliate program via their public '
+        + 'signup link instead of being discovered through Marketplace search (e.g. look for '
+        + '"Proton VPN affiliate program", "Incogni affiliate program" signup pages)',
+      'Your impact.com account (site-verification meta tag still live in apps/frontend/index.html) '
+        + 'stays usable for this direct-application path',
     ],
     notes:
-      'Once approved, swap the 3 placeholder URLs in houseAds.js (AFFILIATE_OFFERS, around lines 151/164/177) for real tracked links.',
+      'Once accepted into a brand\'s direct program, swap that one placeholder URL in houseAds.js '
+        + '(AFFILIATE_OFFERS, around lines 151/164/177) for the real tracked link. Do not keep '
+        + 'retrying the Marketplace listing path - it is closed, not slow.',
     credentialFields: ['ACCOUNT_SID', 'AUTH_TOKEN'],
     envTarget: 'apps/frontend/src/config/houseAds.js -> AFFILIATE_OFFERS[].url',
   },
