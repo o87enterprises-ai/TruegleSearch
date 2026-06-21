@@ -1,5 +1,5 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-06-20. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
+_Last updated: 2026-06-21. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
 
 This doc is written so it can be handed to **Claude in the web browser** to walk through
 the remaining **dashboard/browser activation steps**. Everything that requires code or a
@@ -18,7 +18,30 @@ computer has already been done and deployed (see "Done this session").
 
 ---
 
-## 🗓️ SESSION LOG 2026-06-20 — Search ranking + AI chat fix + Ad URLs
+## 🗓️ SESSION LOG 2026-06-20 — SearXNG promoted to primary + Search ranking + AI chat fix + Ad URLs
+
+### SearXNG promoted to primary search provider — AWS Elastic IP (SHIPPED, commits `a24dee3`→`9763e62`)
+**Outcome:** the self-hosted SearXNG metasearch instance is now the **primary** search provider in
+production — verified live, real queries return `"source":"searxng"` results (aggregated via
+Google/Startpage/etc. engines) before the paid API providers ever fire.
+- SearXNG is now running on a **persistent AWS host with a permanent Elastic IP** (previous notes
+  referenced an ngrok tunnel / "your iMac, a VPS" as placeholders — that's superseded). `SEARXNG_URL`
+  on Vercel backend points at that Elastic IP.
+- Set `SEARXNG_PRIMARY=true` on the Vercel backend → `SearchService` now queries SearXNG first;
+  Google/Bing/Brave only run as fallback when SearXNG is offline or returns fewer than
+  `SEARXNG_PRIMARY_MIN` (default 5) web results (`SearchService.js` line ~129, pre-existing code from
+  an earlier session — this was the first time it was actually turned on).
+- Backend redeployed to pick up the new env vars (commits `a24dee3`, `ce5c912`, `9763e62` are empty
+  marker commits — the actual changes were env vars set directly on the Vercel dashboard, not code).
+- **Verified live this session:** `POST /api/search` for both a synthetic query and a real query
+  (`weather forecast new york`) returns `source:"searxng"` results mixed with YouTube/news as
+  supplementary providers. The paid Google/Brave APIs are no longer doing the bulk of the work.
+- **Known gap:** `GET /api/search/health` does **not** report a `searxng` field —
+  `SearchService.getHealthStatus()` (`SearchService.js` ~line 1709) only has cases for
+  google/bing/news/youtube. Not a functional problem (confirmed working via real queries above), just
+  a monitoring blind spot — add a `searxng` case calling `performSearXNGSearch` if you want parity.
+- This closes out the former "Step 7 — (Optional) SearXNG as primary" — see the REMAINING BROWSER
+  STEPS section below, now marked done.
 
 ### Search result quality — navigational intent + instant answers (SHIPPED, commits `ade45c6`→`69aa3d8`)
 **Problem:** brand-name queries like "AWS" returned aws.amazon.com at position #7 behind social media / jobs pages. No quick-answer cards appeared even though the backend was already building `instantAnswer` objects.
@@ -235,6 +258,9 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
    `FRONTEND_URL=https://truegle.info` → redeploy backend; then flip **`OAUTH_ENABLED=true`** in
    `apps/frontend/src/config/access.js` → redeploy frontend.
 3. **AI chat end-to-end** — ✅ Groq is now primary (free, live). Failover chain: groq→gemini→nvidia→openai→anthropic→ollama. Verify chat works live in the browser (backend auth-gates expensive endpoints; confirm it works under `FREE_ACCESS_MODE`).
+   **SearXNG is now primary for web search** (✅ done — AWS Elastic IP host, `SEARXNG_PRIMARY=true`,
+   verified live). Optional follow-up: add a `searxng` case to `SearchService.getHealthStatus()` so
+   `/api/search/health` reports it instead of being silent on it.
 4. **Impact affiliates** — get approved, paste real tracked links into `AFFILIATE_OFFERS`
    (`houseAds.js`), redeploy. (Currently placeholder URLs = $0.)
 5. **Get indexed (SEO)** — Google Search Console + Bing: add property, verify via Cloudflare DNS
@@ -328,6 +354,7 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
 | NVIDIA NIM (AI) | ✅ **Live (backup)** | `NVIDIA_API_KEY` set on Vercel. Now 3rd in failover (after Groq + Gemini). |
 | **Groq (AI)** | ✅ **Live — primary** | Free tier, no CC required. `GROQ_API_KEY` set on Vercel. Model: `llama-3.1-8b-instant`. Failover: groq→gemini→nvidia→openai→anthropic→ollama. |
 | **Gemini (AI)** | ✅ **Live (secondary)** | `GEMINI_API_KEY` already on Vercel. Switched to `gemini-1.5-flash` (1M tokens/day free). |
+| **SearXNG (self-hosted search)** | ✅ **Live — primary** | Hosted on a persistent AWS host with a permanent Elastic IP. `SEARXNG_URL` + `SEARXNG_PRIMARY=true` set on Vercel backend; redeployed and verified live (real queries return `source:"searxng"`). Paid API providers (Google/Bing/Brave) now only fire as fallback. `/api/search/health` doesn't report it yet (cosmetic gap, not functional). |
 | Search Console | ⏸️ Not started | See Step 5. |
 | Bing Webmaster | ⏸️ Not started | See Step 5. |
 | Stripe | ✅ Verified | Live keys NOT yet swapped on Vercel. See Step 6. |
@@ -441,9 +468,12 @@ content/crawlability problem → see Post-Prod #5 (content hub + SPA prerender),
 - `STRIPE_WEBHOOK_SECRET` → `whsec_...` (Stripe → Webhooks → `TruegleVercelWebhook`)
 - Then **redeploy backend** (ask Claude Code, or `cd apps/backend && vercel deploy --prod --yes`).
 
-### Step 7 — (Optional) SearXNG as primary
-Once SearXNG runs on a persistent host, set on Vercel backend: `SEARXNG_URL=https://<host>` +
-`SEARXNG_PRIMARY=true` (optional `SEARXNG_PRIMARY_MIN=5`), then redeploy backend.
+### Step 7 — SearXNG as primary  ✅ DONE (2026-06-20)
+SearXNG now runs on a persistent AWS host with a permanent Elastic IP. `SEARXNG_URL` set on the
+Vercel backend, `SEARXNG_PRIMARY=true`, backend redeployed. Verified live: real search queries
+return `source:"searxng"` results ahead of the paid API providers. See the SearXNG session-log
+entry above for the verification details and the one known gap (`/api/search/health` doesn't
+report a `searxng` field yet — cosmetic, not functional).
 
 ---
 
@@ -514,7 +544,8 @@ _Things needed to be fully "launched." Most are the browser steps above; a coupl
 - [ ] **Reconnect Cloudflare Pages ↔ GitHub** — lockfile is fixed (`b6defba`), so re-enable
       auto-deploy: Pages → `truegle-search` → Settings → Git → Connect (build/output settings in
       "Known operational notes").
-- [ ] **`SEARXNG` persistent host** (optional) — then `SEARXNG_PRIMARY=true` + redeploy.
+- [x] **`SEARXNG` persistent host** — ✅ done 2026-06-20. AWS Elastic IP host, `SEARXNG_PRIMARY=true`,
+      verified live. Optional follow-up: add `searxng` to `SearchService.getHealthStatus()`.
 
 ---
 
