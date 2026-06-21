@@ -38,22 +38,32 @@ export const NETWORKS = {
   impact: {
     name: 'Impact.com',
     kind: 'affiliate',
-    status: 'declined',
+    status: 'in_progress',
     applyUrl: 'https://app.impact.com/login/login-input.ihtml',
-    reviewTime: 'Marketplace: N/A (declined). Direct brand program: varies per advertiser.',
+    reviewTime: 'No official waiting period documented. Review: ~2 business days (72hrs per another help page).',
     requirements: [
-      'Marketplace access was DECLINED ("you currently do not qualify") - this does NOT affect '
-        + 'existing/pending brand relationships or direct invitations, per Impact\'s own decline notice',
-      'Workaround: apply directly to each advertiser\'s own affiliate program via their public '
-        + 'signup link instead of being discovered through Marketplace search (e.g. look for '
-        + '"Proton VPN affiliate program", "Incogni affiliate program" signup pages)',
-      'Your impact.com account (site-verification meta tag still live in apps/frontend/index.html) '
-        + 'stays usable for this direct-application path',
+      'Previously declined 2026-06-21 for "limited reach" / unverifiable site content - root cause '
+        + 'fixed (commit 8df0535) and verified LIVE in production: real prerendered HTML on every '
+        + 'public route (not an empty <div id="root">), real 404s instead of soft-404s, robots.txt, '
+        + 'and sitemap.xml. Confirmed via curl against truegle.info on 2026-06-21.',
+      'Media property verification: DONE - <meta name="impact-site-verification"> is live in '
+        + 'apps/frontend/index.html and confirmed present in the production response.',
+      'Before resubmitting, in the Impact dashboard itself (outside this repo): complete profile '
+        + '(company logo 150x150, business description, content/interest keywords, business model), '
+        + 'designate a point-of-contact user, and accept the Partner User Agreement + Master Campaign '
+        + 'Agreement if prompted again.',
+      'Unknown/unverifiable from code: actual traffic volume. Impact\'s own decline reasons include '
+        + '"media properties lack enough traffic or audience" - no published numeric minimum. '
+        + 'HANDOFF.md estimates ~32,440 monthly requests; have current traffic stats ready in case '
+        + 'the application or a PDM follow-up asks for them.',
+      'No self-serve "reapply" button is documented - resubmit via the Marketplace tab in your '
+        + 'existing account first; if that is not available, contact your Partner Development '
+        + 'Manager (per Impact\'s help center) and reference that the site-content issue is fixed.',
     ],
     notes:
-      'Once accepted into a brand\'s direct program, swap that one placeholder URL in houseAds.js '
-        + '(AFFILIATE_OFFERS, around lines 151/164/177) for the real tracked link. Do not keep '
-        + 'retrying the Marketplace listing path - it is closed, not slow.',
+      'Do NOT create a new Impact account to reapply - the existing account already has the '
+        + 'verification tag live and matches the domain. Once approved, swap the 3 placeholder URLs '
+        + 'in houseAds.js (AFFILIATE_OFFERS, around lines 151/164/177) for real tracked links.',
     credentialFields: ['ACCOUNT_SID', 'AUTH_TOKEN'],
     envTarget: 'apps/frontend/src/config/houseAds.js -> AFFILIATE_OFFERS[].url',
   },

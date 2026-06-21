@@ -225,13 +225,22 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
 - **Affiliate network = Impact.com.** Verification meta tag live in `index.html`
   (`impact-site-verification`). `AFFILIATE_OFFERS` seeded (Proton VPN, Incogni, generic VPN) with
   **placeholder URLs** — paste your real Impact tracked links after approval, then redeploy.
-  **🛑 UPDATE 2026-06-21: Impact.com Marketplace application DECLINED** ("you currently do not
-  qualify for access to impact.com's Marketplace"). Per Impact's own decline notice, this does
-  **not** affect existing/pending brand program relationships, and the account can still be used
-  to partner directly with brands via their own signup links or invitations. **Don't keep retrying
-  the Marketplace path — it's closed, not slow.** Next step: apply directly to each advertiser's
-  own affiliate program (Proton VPN, Incogni, a VPN network) instead of relying on Marketplace
-  discovery. `tools/ad-distributor-cli` (`info impact`) reflects this.
+  **🛑 2026-06-21: Marketplace application DECLINED** ("you currently do not qualify for access
+  to impact.com's Marketplace"). Per Impact's own help docs, declines are caused by one of:
+  unverifiable identity, unverifiable/low-quality media properties, insufficient traffic/audience,
+  or an MPA (policy) violation. The likely cause here was the second one — at decline time the
+  site shipped pure client-rendered HTML (empty `<div id="root">` to anything that doesn't run JS)
+  plus soft-404s on every unmatched path, so an automated content-quality screen would have seen
+  no real content. **That root cause is already fixed** (commit `8df0535`, 2026-06-19 — build-time
+  prerendering for `/`, `/about`, `/privacy`, `/terms`, `/advertise`, real `_redirects`-based 404s,
+  `robots.txt`, `sitemap.xml`) and **verified live in production 2026-06-21** via `curl`:
+  `truegle.info/` now serves real prerendered text in the initial HTML, `/about` (and the other
+  static routes) serve the full styled page at HTTP 200, and an unmatched path returns a genuine
+  404 instead of the old soft-404. **Ready to reapply** — `tools/ad-distributor-cli` (`info impact`)
+  has the full pre-reapply checklist (Impact-side profile fields to fill in, no documented waiting
+  period, traffic stats to have on hand since there's no published minimum, and where to resubmit
+  if there's no self-serve button). Do not create a new Impact account — the existing one already
+  carries the live verification tag for this domain.
 
 ### Features / fixes
 - **OSINT Email + Phone intel (free, no key):** `GET /api/osint/email-intel` (syntax, role/
@@ -365,7 +374,7 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
 | Google OAuth | 🚫 **Bypassed (intentional)** | Hidden via `OAUTH_ENABLED=false` while in free-access mode; sign-in not required. Re-enable later (Steps 2–3) once auth is fixed. Registration also has a **12-char min-password** mismatch to fix then. |
 | OAuth Branding | ⚠️ Needs fix | Wrong authorized domain `truegle-search.pages.dev` → should be `truegle-search-15k.pages.dev`; also add `truegle.info` + `trumpafi.online`; fill home/privacy/terms URLs. See Step 3. |
 | Google AdSense | 🛑 **REMOVED 2026-06-17** | Google rejected it ("ads on screens without publisher-content" — display AdSense isn't allowed on search results). All AdSense code/script removed; replaced by the first-party house-ad + Impact-affiliate system. Don't re-add to the search UI. See session log. |
-| Impact.com (affiliates) | 🛑 **Marketplace declined 2026-06-21** | Marketplace access denied; direct brand-program signups unaffected per Impact's own notice. Apply directly to each advertiser's program → paste real tracked links into `AFFILIATE_OFFERS` (`houseAds.js`). |
+| Impact.com (affiliates) | 🟡 **Ready to reapply** | Declined 2026-06-21 (likely cause: no crawlable content / soft-404s). Root cause fixed + verified live 2026-06-21 (prerendering, real 404s, robots.txt, sitemap). See `tools/ad-distributor-cli` `info impact` for the pre-reapply checklist, then resubmit in the Impact dashboard. |
 | NVIDIA NIM (AI) | ✅ **Live (backup)** | `NVIDIA_API_KEY` set on Vercel. Now 3rd in failover (after Groq + Gemini). |
 | **Groq (AI)** | ✅ **Live — primary** | Free tier, no CC required. `GROQ_API_KEY` set on Vercel. Model: `llama-3.1-8b-instant`. Failover: groq→gemini→nvidia→openai→anthropic→ollama. |
 | **Gemini (AI)** | ✅ **Live (secondary)** | `GEMINI_API_KEY` already on Vercel. Switched to `gemini-1.5-flash` (1M tokens/day free). |
