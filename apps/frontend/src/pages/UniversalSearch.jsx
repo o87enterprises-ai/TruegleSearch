@@ -998,14 +998,14 @@ export default function UniversalSearch({ lockedGreen = false }) {
             </div>
           )}
 
-          {/* Ad Banner 1 - Under Search Bar, right above the AI summary — kept
-              compact so it doesn't crowd out the summary itself */}
+          {/* Ad Banner 1 - Under Search Bar, right above the AI summary — the
+              pinned "Claim this spot" CTA, sized up slightly to stand out */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             className="max-w-4xl mx-auto mb-4"
           >
-            <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" compact />
+            <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" featured />
           </motion.div>
 
           {/* Search Summary — Banner + Expandable Card */}
@@ -1305,7 +1305,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
             animate={{ opacity: 1 }}
             className="max-w-4xl mx-auto mb-4"
           >
-            <AdSlot className="rounded-2xl" size="large" adId="openocchio" />
+            <AdSlot className="rounded-2xl" size="large" />
           </motion.div>
 
           {/* Results Grid (same as SearchResults) */}
@@ -1317,7 +1317,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   <div className="text-sm text-white/60 mb-4">Searching...</div>
                   {/* Rewards Program: while results load, opted-in users can earn a
                       small cash reward for honestly viewing this ad (see /rewards). */}
-                  <RewardAdSlot position="search-loading" size="large" adId="openocchio" />
+                  <RewardAdSlot position="search-loading" size="large" />
                   {[1, 2, 3, 4, 5].map((i) => (
                     <SkeletonSearchResult key={i} />
                   ))}
@@ -1401,7 +1401,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                       {/* An ad slot between every 5 results — content/category matched
                           to the query when possible, weighted-random otherwise. */}
                       {(index + 1) % 5 === 0 && index !== searchResults.length - 1 && (
-                        <AdSlot size="small" query={lastSearchedQuery || query} compact />
+                        <AdSlot size="small" query={lastSearchedQuery || query} />
                       )}
                     </Fragment>
                   ))}
@@ -1413,7 +1413,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
             <div className="lg:col-span-1 space-y-4">
               {/* Ad Sidebar */}
               <div className="sticky top-4 space-y-4 flex flex-col items-center">
-                <AdSlot className="rounded-xl" size="sidebar" adId="briccd" />
+                <AdSlot className="rounded-xl" size="sidebar" />
               </div>
             </div>
           </div>
