@@ -15,6 +15,14 @@ computer has already been done and deployed (see "Done this session").
 > ripped out.** Monetize ONLY with reputable networks (Google AdSense, Ezoic/Mediavine/Raptive
 > tier). See ["AD STRATEGY — what to avoid"](#ad-strategy--what-happened--what-to-avoid). The
 > remaining browser steps below are still valid **except the old "STEP A" (now void)**.
+>
+> ✅ **UPDATE 2026-06-21 — domain reputation cleared, verified clean:** Palo Alto's
+> urlfiltering.paloaltonetworks.com lookup now shows `truegle.info` as
+> `Computer-and-Internet-Info`, **Low-Risk** (the only other tag is `Newly-Registered-Domain`,
+> which is benign and ages off automatically ~32 days post-registration — no action possible or
+> needed). Google Safe Browsing transparency report shows **"No unsafe content found."** DNS
+> resolves to real Cloudflare IPs (not the sinkhole) and the site returns HTTP 200. The
+> un-sinkhole task is **done** — see STILL TO ADDRESS #1, now closed.
 
 ---
 
@@ -247,10 +255,10 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
 
 ## 🔜 STILL TO ADDRESS (outstanding tasks)
 
-1. **🛑 Un-sinkhole `truegle.info`** (highest priority). From the dev network it now resolves to
-   Cloudflare (not the sinkhole), but **file the Palo Alto reclassification**
-   (urlfiltering.paloaltonetworks.com → request *Search Engines*) + check Google Safe Browsing,
-   so enterprise networks stop blocking it.
+1. ~~**🛑 Un-sinkhole `truegle.info`**~~ ✅ **DONE, verified 2026-06-21.** Palo Alto category
+   lookup shows `Computer-and-Internet-Info` / Low-Risk (no malware/sinkhole tag); Google Safe
+   Browsing shows "No unsafe content found"; DNS resolves to real Cloudflare IPs; site returns
+   HTTP 200. No further action needed.
 2. **OAuth — finish setup** (code callback already fixed): create a Google OAuth **Web** client
    (consent screen: external, scopes email/profile/openid, app domain `truegle.info`); set
    **redirect URI** `https://backend-seven-khaki-60.vercel.app/api/auth/google/callback`; on Vercel
@@ -345,7 +353,7 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
 | 301 Redirect | ✅ Active | trumpafi.online → truegle.info |
 | Legal pages (/privacy /terms /about) | ✅ Live | Prereq for OAuth + AdSense — now satisfied |
 | **Monetag / Adsterra ads** | 🛑 **REMOVED — do not re-add** | Got `truegle.info` flagged malicious + Palo Alto DNS-sinkholed (malvertising scripts `3nbf4.com` / `highperformanceformat.com`). All code ripped out. Monetize via AdSense / reputable networks only — see "AD STRATEGY". |
-| **Domain reputation** | 🛑 **Sinkholed — needs dispute** | `truegle.info → sinkhole.paloaltonetworks.com` (Palo Alto threat intel). Submit reclassification at urlfiltering.paloaltonetworks.com + check Google Safe Browsing. See "AD STRATEGY → Cleanup". |
+| **Domain reputation** | ✅ **Clean — verified 2026-06-21** | Palo Alto category lookup: `Computer-and-Internet-Info`, Low-Risk (no malware/sinkhole tag; the residual `Newly-Registered-Domain` tag is benign and self-clears ~32 days post-registration). Google Safe Browsing: "No unsafe content found." DNS resolves to real Cloudflare IPs, site returns HTTP 200. |
 | **Google Custom Search API** | ⚠️ **403 / likely quota** | Free tier = 100 queries/day, blown by current traffic; also a project/account access issue (key 403s even tested directly). Search still works — `Promise.allSettled` drops Google and Brave fills in. See Step 1. Ad revenue (Step A) can fund CSE billing. |
 | Google OAuth | 🚫 **Bypassed (intentional)** | Hidden via `OAUTH_ENABLED=false` while in free-access mode; sign-in not required. Re-enable later (Steps 2–3) once auth is fixed. Registration also has a **12-char min-password** mismatch to fix then. |
 | OAuth Branding | ⚠️ Needs fix | Wrong authorized domain `truegle-search.pages.dev` → should be `truegle-search-15k.pages.dev`; also add `truegle.info` + `trumpafi.online`; fill home/privacy/terms URLs. See Step 3. |
@@ -392,14 +400,12 @@ status, the pending AdSense review, and SEO/domain reputation.
 3. **Direct sponsorships / affiliate** (privacy-tool, VPN affiliates) — on-brand, zero
    malvertising risk.
 
-**🧹 Cleanup still owed (browser/dashboard side):**
-- **Get truegle.info reclassified.** Submit a category dispute at Palo Alto's URL filtering
-  test site (**urlfiltering.paloaltonetworks.com** → look up `truegle.info` → "Request Change"
-  → category should be e.g. *Search Engines*, not malware/adware). Removing the scripts is
-  necessary but the existing classification may persist until disputed.
-- **Check Google Safe Browsing** status: `https://transparencyreport.google.com/safe-browsing/search?url=truegle.info`.
-- Confirm `truegle.info` resolves to a real IP again (not the sinkhole) before assuming users
-  can reach it: `Resolve-DnsName truegle.info -Server 1.1.1.1`.
+**🧹 Cleanup — ✅ DONE, verified 2026-06-21:**
+- **truegle.info reclassified.** Palo Alto's URL filtering lookup (urlfiltering.paloaltonetworks.com)
+  now shows `Computer-and-Internet-Info`, Low-Risk — no malware/adware tag.
+- **Google Safe Browsing** checked: `https://transparencyreport.google.com/safe-browsing/search?url=truegle.info`
+  → "No unsafe content found."
+- **DNS confirmed** resolving to real Cloudflare IPs (not the sinkhole); site returns HTTP 200.
 
 ### Step 1 — Fix Google Custom Search API 403  ✅ no redeploy needed
 The key itself is being rejected with *"This project does not have access to Custom Search
@@ -527,9 +533,9 @@ gh (o87enterprises-ai).
 
 ## 🏭 PRODUCTION TASKS (launch-critical — no particular order)
 _Things needed to be fully "launched." Most are the browser steps above; a couple are code._
-- [ ] **🛑 GET truegle.info UN-SINKHOLED** — dispute the Palo Alto malicious classification
-      (urlfiltering.paloaltonetworks.com) + check Google Safe Browsing. Highest priority: the
-      domain is currently **blocked for enterprise users**. See "AD STRATEGY → Cleanup".
+- [x] **GET truegle.info UN-SINKHOLED** — ✅ done, verified 2026-06-21. Palo Alto category is
+      clean (`Computer-and-Internet-Info`, Low-Risk), Google Safe Browsing shows no issues, DNS
+      resolves to Cloudflare. See "AD STRATEGY → Cleanup".
 - [ ] **Monetize the RIGHT way** — AdSense (in review) + later a reputable network
       (Ezoic/Mediavine/Raptive) or direct/affiliate. **Never** Monetag/Adsterra/instant-approval
       push-popunder again (they caused the sinkhole). See "AD STRATEGY".
@@ -559,8 +565,8 @@ only ad code left is **Google AdSense** (`AdSenseAd.jsx`, sidebar). Rebuild mone
 reputable rails only:
 
 **Order of operations:**
-1. **Un-sinkhole `truegle.info` first** (Palo Alto dispute + Safe Browsing check) — no ad work
-   matters while the domain is blocked/flagged.
+1. ~~Un-sinkhole `truegle.info` first~~ ✅ **done, verified 2026-06-21** (clean Palo Alto category +
+   Safe Browsing) — no longer a blocker for ad work.
 2. **Get AdSense approved** (Step 4) — primary revenue. Then add AdSense units to high-value
    slots: a **Hero slot** below the AI summary (highest CPM), **in-SERP** after every 3rd
    result, and a **sticky 300×600** desktop sidebar — all via `<AdSenseAd>` (reuse the existing
