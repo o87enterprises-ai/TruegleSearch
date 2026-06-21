@@ -125,21 +125,24 @@ export const HOUSE_ADS = [
  * These pay per signup/sale and double as "demand" that keeps inventory full.
  * They are disclosed to users as "Sponsored" (FTC/EU disclosure requirement).
  *
- * >>> ACTION REQUIRED <<<
- * The `url`s below are PLACEHOLDERS. They will NOT earn anything until you:
- *   1. Apply to each program (links in the comments).
- *   2. Replace the url with YOUR tracked affiliate link (it contains your ID).
- *   3. Verify the program's terms allow placement on a search engine / via paid
- *      and display traffic — a few forbid it.
- * Until then they still render as normal on-brand ads (no harm), they just
- * don't pay. Set `weight: 0` to hide any offer you haven't activated yet.
+ * >>> SOME OF THESE ARE STILL PLACEHOLDERS <<<
+ * Any `url` with a TODO comment is a placeholder — it will NOT earn anything
+ * until you apply to the program and swap in your tracked affiliate link.
+ * Entries without a TODO (e.g. `aff-oo-shutup10`) are real, live, tracked links.
+ * Until activated, placeholders still render as normal on-brand ads (no harm),
+ * they just don't pay. Set `weight: 0` to hide any offer you haven't activated.
  *
- * Good privacy-aligned programs to apply to (audience fit + decent payouts):
+ * Audience is NOT privacy-niche-only — Truegle's pitch ("everyone deserves
+ * privacy, free search, and to see the perspectives of the outlets they
+ * visit") is universal, not gatekept. So: apply broadly via CJ/Impact/etc,
+ * not just to privacy-keyword advertisers, and add whatever gets approved —
+ * not every entry here needs `category: 'privacy'`.
  *   - Proton (VPN / Pass / Mail) — proton.me/partners  (on-brand; you already use Proton)
  *   - Incogni (data-broker removal) — incogni.com/affiliates  (strong payouts, very on-brand)
  *   - NordVPN / Surfshark — via Impact / CJ affiliate networks
  *   - Private Internet Access — via affiliate networks
  *   - Privacy-friendly hosting (e.g. 1984 Hosting, Njalla) — check each site
+ *   - Whatever else CJ/Impact approve you for — see tools/ad-distributor-cli
  * Don't add anything sketchy here — same rule as the rest of the file.
  */
 export const AFFILIATE_OFFERS = [
@@ -179,6 +182,21 @@ export const AFFILIATE_OFFERS = [
     category: 'privacy',
     variant: 'green',
     weight: 0, // hidden until you activate a program — set >0 to enable
+    sponsor: true,
+    affiliate: true,
+  },
+  {
+    // CJ Affiliate, O&O Software (auto-approved, link ID 17293513). Real tracked
+    // link — first live affiliate offer, not a placeholder.
+    id: 'aff-oo-shutup10',
+    title: 'O&O ShutUp10 — Stop Windows from spying on you',
+    description: 'Locks down Windows telemetry and data collection with one click. Free tool.',
+    cta: 'Get ShutUp10',
+    url: 'https://www.anrdoezrs.net/click-101807644-17293513',
+    label: 'Sponsored',
+    category: 'privacy',
+    variant: 'blue',
+    weight: 2,
     sponsor: true,
     affiliate: true,
   },
