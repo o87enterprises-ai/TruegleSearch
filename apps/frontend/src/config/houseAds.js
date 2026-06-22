@@ -1,11 +1,10 @@
 /*
  * House-ad inventory.
  *
- * These are FIRST-PARTY ads: they point at our own projects and load no
- * external scripts. They fill the ad inventory now and double as live demos of
- * the ad formats we sell on /advertise. When a slot is sold, a paid campaign is
- * just another entry in this list with `sponsor: true` and a flight window —
- * the rendering path is identical, so nothing else has to change.
+ * This is now just the pinned "advertise here" promo — a permanent CTA that
+ * sells our own open ad inventory. It is NOT part of the auto-pick rotation
+ * (see pickHouseAd, which draws only from AFFILIATE_OFFERS); it only ever
+ * shows where a slot explicitly pins `adId="advertise-cta"`.
  *
  * Do NOT add third-party ad-network <script> tags here. The whole point of this
  * system is that it can never get the domain flagged the way Monetag did.
@@ -39,91 +38,6 @@ export const HOUSE_ADS = [
     category: 'house',
     variant: 'yellow',
     weight: 4,
-    sponsor: false,
-  },
-  {
-    id: 'github-profile',
-    title: 'Built by o87 Enterprises',
-    description: 'Explore our open-source projects on GitHub.',
-    cta: 'View GitHub',
-    url: 'https://github.com/o87enterprises-ai',
-    label: 'From our projects',
-    category: 'dev',
-    keywords: ['github', 'open source', 'code', 'developer', 'programming', 'repository'],
-    variant: 'blue',
-    weight: 3,
-    sponsor: false,
-  },
-  {
-    id: 'openocchio',
-    title: 'OpenOcchio — The AI Integrity Gauge',
-    description: 'Measure how much of what you read was written by a machine.',
-    cta: 'Try it free',
-    url: 'https://ae5d4d0b.openocchio.pages.dev/',
-    category: 'truth',
-    keywords: ['ai', 'chatgpt', 'gpt', 'artificial intelligence', 'ai detector', 'ai generated', 'plagiarism'],
-    variant: 'green',
-    weight: 3,
-    sponsor: false,
-  },
-  {
-    id: 'briccd',
-    title: 'BriccD — Build it. Live in it.',
-    description: 'Design a LEGO world in 3D, then step inside it life-size with Meta AR glasses.',
-    cta: 'Try the demo',
-    url: 'https://briccd.o87enterprises.workers.dev/',
-    category: 'dev',
-    keywords: ['lego', '3d', 'ar', 'augmented reality', 'meta quest', 'vr', 'building game'],
-    variant: 'purple',
-    weight: 2,
-    sponsor: false,
-  },
-  {
-    id: 'open-grants',
-    title: 'Open-Grants — Funding, found for you',
-    description: 'Automated grant discovery and application, end to end.',
-    cta: 'Find Grants',
-    url: 'https://github.com/o87enterprises-ai/Open-Grants',
-    category: 'tools',
-    keywords: ['grant', 'grants', 'funding', 'nonprofit funding', 'small business grant', 'scholarship'],
-    variant: 'blue',
-    weight: 2,
-    sponsor: false,
-  },
-  {
-    id: 'abs-webgen',
-    title: 'ABS WebGen — Ship a site in minutes',
-    description: 'Describe it, generate it, deploy it. A website generator.',
-    cta: 'Generate a Site',
-    url: 'https://github.com/o87enterprises-ai/ABS-webgen-1.0',
-    category: 'dev',
-    keywords: ['website builder', 'web design', 'landing page', 'site generator', 'build a website'],
-    variant: 'yellow',
-    weight: 2,
-    sponsor: false,
-  },
-  {
-    id: 'physicain',
-    title: 'PhysicAIn — AI for physics research',
-    description: 'AI-powered physics research and analysis, open source.',
-    cta: 'Open PhysicAIn',
-    url: 'https://github.com/o87enterprises-ai/PhysicAIn',
-    category: 'research',
-    keywords: ['physics', 'science', 'research', 'simulation', 'physics homework'],
-    variant: 'blue',
-    weight: 1,
-    sponsor: false,
-  },
-  {
-    id: 'openfuelecon',
-    title: 'OpenFuelEcon — Know your real MPG',
-    description: 'An open-source fuel economy tool with no guesswork.',
-    cta: 'Try It Free',
-    url: 'https://github.com/o87enterprises-ai/OpenFuelEcon',
-    category: 'tools',
-    keywords: ['mpg', 'fuel economy', 'gas mileage', 'car', 'vehicle', 'fuel cost'],
-    variant: 'green',
-    weight: 1,
     sponsor: false,
   },
 ];
@@ -392,9 +306,9 @@ function matchesQuery(ad, queryTokens) {
  * @returns {Object|null} a house ad, or null if none are eligible
  */
 export function pickHouseAd({ category, query, now = new Date() } = {}) {
-  // Affiliate offers + house ads share the same inventory. Affiliates pay real
-  // money, so they carry higher weights; weight: 0 drops an entry out entirely.
-  const pool0 = [...AFFILIATE_OFFERS, ...HOUSE_ADS];
+  // Auto-pick draws only from paid/affiliate inventory — HOUSE_ADS is just the
+  // pinned "advertise here" promo and never enters random rotation.
+  const pool0 = AFFILIATE_OFFERS;
   const live = pool0.filter((ad) => {
     if ((ad.weight || 0) <= 0) return false;
     if (ad.flightStart && new Date(ad.flightStart) > now) return false;

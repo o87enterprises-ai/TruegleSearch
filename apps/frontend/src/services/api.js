@@ -124,6 +124,13 @@ const rewardsAPI = {
   requestPayout: (method, destination) => api.post('/rewards/payout-request', { method, destination }),
 };
 
+// Affiliate Premium Offer API (self-reported "sign up, get 1 month Premium free")
+const affiliatePremiumAPI = {
+  getConfig: () => api.get('/affiliate-premium/config'),
+  getStatus: () => api.get('/affiliate-premium/status'),
+  claim: (offerId) => api.post('/affiliate-premium/claim', { offerId }),
+};
+
 // AI API
 const aiAPI = {
   chat: (message, options = {}) =>
@@ -186,6 +193,7 @@ export {
   adsAPI,
   tokensAPI,
   rewardsAPI,
+  affiliatePremiumAPI,
   aiAPI,
   shoppingAPI,
 };

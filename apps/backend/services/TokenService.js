@@ -1,5 +1,6 @@
 // Token Service for Freemium System
 const { query } = require('../db/connection');
+const AffiliatePremiumService = require('./AffiliatePremiumService');
 
 // Feature categories and their token costs
 const FEATURE_CONFIG = {
@@ -22,8 +23,13 @@ class TokenService {
    * Get user's token balance and usage stats
    */
   static async getBalance(userId) {
+    // Lazily claw back any self-reported affiliate-offer claim that's still
+    // unconfirmed past its window, before reading premium status — see
+    // AffiliatePremiumService for why this is safe to call on every read.
+    await AffiliatePremiumService.sweepExpiredClaims(userId);
+
     const result = await query(
-      `SELECT token_balance, feature_usage, game_tokens_earned, subscription_tier
+      `SELECT token_balance, feature_usage, game_tokens_earned, subscription_tier, premium_until
        FROM users WHERE id = $1`,
       [userId]
     );
@@ -33,7 +39,8 @@ class TokenService {
     }
 
     const user = result.rows[0];
-    const isPremium = user.subscription_tier === 'premium';
+    const isPremiumFromOffer = !!user.premium_until && new Date(user.premium_until) > new Date();
+    const isPremium = user.subscription_tier === 'premium' || isPremiumFromOffer;
 
     return {
       balance: user.token_balance,
