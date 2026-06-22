@@ -49,17 +49,21 @@ const ClaimPremiumOffer = ({ offerId, offerTitle }) => {
             e.stopPropagation();
             setShowModal(true);
           }}
-          className="mt-1.5 block text-[11px] text-cyan-300 hover:text-cyan-200 underline underline-offset-2"
+          className="mt-1.5 flex w-full items-center gap-1.5 overflow-hidden rounded-lg border border-cyan-400/40 bg-cyan-500/10 px-2.5 py-1.5 text-[11px] font-medium text-cyan-300 transition-colors hover:bg-cyan-500/20 hover:text-cyan-200"
         >
-          Signed up already? Claim 1 month Premium free &rarr;
+          <Gift size={12} className="shrink-0" />
+          <span className="truncate whitespace-nowrap">Signed up already? Claim 1 month Premium free</span>
+          <span className="shrink-0">&rarr;</span>
         </button>
       ) : (
         <a
           href="/auth/login"
           onClick={(e) => e.stopPropagation()}
-          className="mt-1.5 inline-block text-[11px] text-cyan-300 hover:text-cyan-200 underline underline-offset-2"
+          className="mt-1.5 flex w-full items-center gap-1.5 overflow-hidden rounded-lg border border-cyan-400/40 bg-cyan-500/10 px-2.5 py-1.5 text-[11px] font-medium text-cyan-300 transition-colors hover:bg-cyan-500/20 hover:text-cyan-200"
         >
-          Sign in to claim 1 month Premium free &rarr;
+          <Gift size={12} className="shrink-0" />
+          <span className="truncate whitespace-nowrap">Sign in to claim 1 month Premium free</span>
+          <span className="shrink-0">&rarr;</span>
         </a>
       )}
 

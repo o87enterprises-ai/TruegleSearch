@@ -25,6 +25,7 @@ export default function AuthCallback() {
         role: searchParams.get('role'),
         tokenBalance: Number(searchParams.get('tokenBalance') || 0),
         isPremium: searchParams.get('isPremium') === 'true',
+        googleVerified: searchParams.get('googleVerified') === 'true',
       },
     });
 

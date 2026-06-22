@@ -1,7 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const router = express.Router();
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuth } = require('../middleware/auth');
 const { rateLimitSearch } = require('../middleware/rateLimit');
 const SearchService = require('../services/SearchService');
 // WeatherService exports a singleton instance (not a class)
@@ -15,7 +15,7 @@ const searchService = new SearchService();
  * @desc    Perform unbiased search across multiple sources
  * @access  Public (rate limited)
  */
-router.post('/', rateLimitSearch, async (req, res) => {
+router.post('/', rateLimitSearch, optionalAuth, async (req, res) => {
   try {
     const { query, filters = {}, mode = 'blue-pill' } = req.body;
 
@@ -28,6 +28,13 @@ router.post('/', rateLimitSearch, async (req, res) => {
 
     // Validate filters
     const validFilters = validateFilters(filters);
+
+    // Safe Search "off" is gated behind Google sign-in (used as a lightweight
+    // age-verification signal) — downgrade to 'safe' server-side so the
+    // restriction can't be bypassed by calling the API directly.
+    if (validFilters.safeSearch === 'off' && !req.user?.googleVerified) {
+      validFilters.safeSearch = 'safe';
+    }
 
     // Perform search using the search service
     const results = await searchService.performSearch(query, validFilters, mode);

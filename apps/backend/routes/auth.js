@@ -60,7 +60,7 @@ if (config.googleOAuth && config.googleOAuth.clientId) {
 function issueTokenAndRedirect(user, res) {
   TokenService.getBalance(user.id).then(tokenBalance => {
     const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
+      { userId: user.id, email: user.email, role: user.role, googleVerified: !!user.googleId },
       config.jwtSecret,
       { expiresIn: '24h' }
     );
@@ -72,6 +72,7 @@ function issueTokenAndRedirect(user, res) {
       role: user.role,
       tokenBalance: tokenBalance.balance,
       isPremium: tokenBalance.isPremium,
+      googleVerified: !!user.googleId,
     });
     res.redirect(`${FRONTEND_URL}/auth/callback?${params.toString()}`);
   }).catch(() => {
@@ -134,7 +135,7 @@ router.post(
 
       // Generate JWT token
       const token = jwt.sign(
-        { userId: savedUser.id, email: savedUser.email, role: savedUser.role },
+        { userId: savedUser.id, email: savedUser.email, role: savedUser.role, googleVerified: false },
         config.jwtSecret,
         { expiresIn: '24h' }
       );
@@ -149,6 +150,7 @@ router.post(
           role: savedUser.role,
           tokenBalance: tokenBalance.balance,
           isPremium: tokenBalance.isPremium,
+          googleVerified: false,
         },
         token,
         expiresIn: 86400, // 24 hours in seconds
@@ -211,7 +213,7 @@ router.post(
 
       // Generate JWT token
       const token = jwt.sign(
-        { userId: user.id, email: user.email, role: user.role },
+        { userId: user.id, email: user.email, role: user.role, googleVerified: !!user.googleId },
         config.jwtSecret,
         { expiresIn: '24h' }
       );
@@ -227,6 +229,7 @@ router.post(
           isVerified: user.isVerified,
           tokenBalance: tokenBalance.balance,
           isPremium: tokenBalance.isPremium,
+          googleVerified: !!user.googleId,
         },
         token,
         expiresIn: 86400, // 24 hours in seconds
@@ -290,6 +293,7 @@ router.get('/validate', async (req, res) => {
         isVerified: user.isVerified,
         tokenBalance: tokenBalance.balance,
         isPremium: tokenBalance.isPremium,
+        googleVerified: !!user.googleId,
       },
     });
   } catch (error) {

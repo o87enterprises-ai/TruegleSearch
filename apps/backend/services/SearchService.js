@@ -2,6 +2,23 @@ const axios = require('axios');
 const config = require('../config/env');
 const { AI_CONTENT_DOMAINS } = require('../data/aiContentDomains');
 
+// YouTube's Data API returns titles/descriptions HTML-entity-encoded
+// (e.g. "&#39;" for an apostrophe) since they're meant for HTML embeds —
+// decode before they reach the frontend, which renders them as plain text.
+const NAMED_HTML_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+
+function decodeHtmlEntities(str) {
+  if (!str) return str;
+  return str.replace(/&(#\d+|#x[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, entity) => {
+    if (entity[0] === '#') {
+      const isHex = entity[1] === 'x' || entity[1] === 'X';
+      const code = parseInt(isHex ? entity.slice(2) : entity.slice(1), isHex ? 16 : 10);
+      return Number.isNaN(code) ? match : String.fromCodePoint(code);
+    }
+    return NAMED_HTML_ENTITIES[entity] ?? match;
+  });
+}
+
 class SearchService {
   constructor() {
     // Green-mode AI-content blocklist. Seed list + optional env-provided extras
@@ -1610,12 +1627,12 @@ class SearchService {
     if (!youtubeData || !youtubeData.items) return [];
 
     return youtubeData.items.map((item) => ({
-      title: item.snippet.title,
+      title: decodeHtmlEntities(item.snippet.title),
       url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
-      snippet: item.snippet.description,
+      snippet: decodeHtmlEntities(item.snippet.description),
       source: 'youtube',
       sourceName: 'YouTube',
-      channel: item.snippet.channelTitle || 'YouTube',
+      channel: decodeHtmlEntities(item.snippet.channelTitle) || 'YouTube',
       date: item.snippet.publishedAt || new Date().toISOString(),
       image: item.snippet.thumbnails?.high?.url || null,
       favicon: null,

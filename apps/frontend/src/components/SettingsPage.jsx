@@ -13,7 +13,7 @@ const { FiSettings, FiShield, FiEye, FiDollarSign, FiGlobe, FiLock, FiCookie, Fi
 const formatCents = (cents) => `$${(Math.max(0, cents || 0) / 100).toFixed(2)}`;
 
 const SettingsPage = () => {
-  const { settings, updateSetting } = useSettings();
+  const { settings, updateSetting, canDisableSafeSearch } = useSettings();
   const {
     optedIn: rewardsOptedIn,
     balanceCents: rewardsBalanceCents,
@@ -135,22 +135,31 @@ const SettingsPage = () => {
                 <p className="text-sm text-gray-600">
                   Filter explicit content — Safe hides it, Blur obscures imagery, Off shows everything
                 </p>
+                {!canDisableSafeSearch && (
+                  <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                    <SafeIcon icon={FiLock} size={11} />
+                    "Off" requires signing in with Google
+                  </p>
+                )}
               </div>
               <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
                 {[
                   { value: 'safe', label: 'Safe' },
                   { value: 'blur', label: 'Blur' },
-                  { value: 'off', label: 'Off' },
+                  { value: 'off', label: 'Off', locked: !canDisableSafeSearch },
                 ].map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => handleSettingChange('safeSearch', opt.value)}
-                    className={`px-4 py-1.5 text-sm font-medium transition-colors ${
+                    className={`px-4 py-1.5 text-sm font-medium transition-colors flex items-center gap-1 ${
                       settings.safeSearch === opt.value
                         ? 'bg-green-600 text-white'
+                        : opt.locked
+                        ? 'bg-gray-50 text-gray-400 hover:bg-gray-100'
                         : 'bg-white text-gray-700 hover:bg-gray-100'
                     }`}
                   >
+                    {opt.locked && <SafeIcon icon={FiLock} size={10} />}
                     {opt.label}
                   </button>
                 ))}
