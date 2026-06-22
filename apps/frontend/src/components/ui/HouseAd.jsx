@@ -57,10 +57,12 @@ const buttonStyles = {
 };
 
 // Three visual tiers, picked by the `compact`/`featured` props. `standard` is
-// the baseline every ad slot uses now — full description + room for a logo.
-// `featured` is reserved for the pinned "Claim this spot" CTA, sized up just
-// enough to stand out without breaking the grid. `compact` stays available
-// for any future tight-spot placement even though nothing uses it today.
+// the baseline every sponsored ad slot uses now — taller than a single line,
+// with full description and room for a logo. `featured` is reserved for the
+// pinned "Claim this spot" CTA and is deliberately the largest tier on the
+// page so it reads as the premier spot, not just another sponsored card.
+// `compact` stays available for any future tight-spot placement even though
+// nothing uses it today.
 const sizing = {
   compact: {
     card: 'p-2.5',
@@ -70,18 +72,18 @@ const sizing = {
     logo: 'w-8 h-8',
   },
   standard: {
-    card: 'p-4',
+    card: 'p-5',
     title: 'text-sm',
     description: 'text-xs',
     button: 'px-4 py-2 text-sm',
-    logo: 'w-10 h-10',
+    logo: 'w-12 h-12',
   },
   featured: {
-    card: 'p-5',
-    title: 'text-base',
+    card: 'p-7',
+    title: 'text-lg',
     description: 'text-sm',
-    button: 'px-5 py-2.5 text-base',
-    logo: 'w-12 h-12',
+    button: 'px-6 py-3 text-base',
+    logo: 'w-16 h-16',
   },
 };
 
