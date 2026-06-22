@@ -271,6 +271,14 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
 
 ## 🔜 STILL TO ADDRESS (outstanding tasks)
 
+> **Session plan (set 2026-06-22):** next session = **ads exclusively** — Carbon Ads
+> (approval pending), the CJ Affiliate / Real Defense (iolo) approval, TreatMyUTI direct
+> affiliate, and wiring the now-approved **Proton Partner Program** real link into
+> `houseAds.js` (see THIRD-PARTY SERVICE STATUS above), plus Impact.com reapplication
+> and the Mediavine Journey / AdSense-for-Search options already discussed. The session
+> *after that* picks back up the `ai-marketplace` branch (Agent Commerce Network
+> scaffold — see its session log entry and `HANDOFF.md` on that branch).
+
 1. ~~**🛑 Un-sinkhole `truegle.info`**~~ ✅ **DONE, verified 2026-06-21.** Palo Alto category
    lookup shows `Computer-and-Internet-Info` / Low-Risk (no malware/sinkhole tag); Google Safe
    Browsing shows "No unsafe content found"; DNS resolves to real Cloudflare IPs; site returns
@@ -375,6 +383,7 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
 | OAuth Branding | ⚠️ Needs fix | Wrong authorized domain `truegle-search.pages.dev` → should be `truegle-search-15k.pages.dev`; also add `truegle.info` + `trumpafi.online`; fill home/privacy/terms URLs. See Step 3. |
 | Google AdSense | 🛑 **REMOVED 2026-06-17** | Google rejected it ("ads on screens without publisher-content" — display AdSense isn't allowed on search results). All AdSense code/script removed; replaced by the first-party house-ad + Impact-affiliate system. Don't re-add to the search UI. See session log. |
 | Impact.com (affiliates) | 🟡 **Ready to reapply** | Declined 2026-06-21 (likely cause: no crawlable content / soft-404s). Root cause fixed + verified live 2026-06-21 (prerendering, real 404s, robots.txt, sitemap). See `tools/ad-distributor-cli` `info impact` for the pre-reapply checklist, then resubmit in the Impact dashboard. |
+| **Proton Partner Program (affiliate)** | ✅ **Approved 2026-06-22** | Approval email received for `partners.proton.me` (covers Proton VPN/Pass/Mail). **Not yet wired to code** — `houseAds.js`'s `aff-proton-vpn` entry still points at the placeholder `https://protonvpn.com/` (TODO comment, `weight: 3`). Next ads session: log in to `partners.proton.me`, enter IBAN (payouts are automatic per TUNE dashboard instructions), grab the real tracked link from the Partner Guide / marketing assets, and swap it into `AFFILIATE_OFFERS` (`aff-proton-vpn`, and consider adding separate Pass/Mail entries since the program covers more than just VPN). |
 | NVIDIA NIM (AI) | ✅ **Live (backup)** | `NVIDIA_API_KEY` set on Vercel. Now 3rd in failover (after Groq + Gemini). |
 | **Groq (AI)** | ✅ **Live — primary** | Free tier, no CC required. `GROQ_API_KEY` set on Vercel. Model: `llama-3.1-8b-instant`. Failover: groq→gemini→nvidia→openai→anthropic→ollama. |
 | **Gemini (AI)** | ✅ **Live (secondary)** | `GEMINI_API_KEY` already on Vercel. Switched to `gemini-1.5-flash` (1M tokens/day free). |
