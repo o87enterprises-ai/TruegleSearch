@@ -43,6 +43,7 @@ const authenticate = (req, res, next) => {
       userId: decoded.userId,
       email: decoded.email,
       role: decoded.role || 'user',
+      googleVerified: decoded.googleVerified === true,
     };
 
     next();
@@ -98,11 +99,13 @@ const optionalAuth = (req, res, next) => {
         email: decoded.email,
         role: decoded.role || 'user',
         isAuthenticated: true,
+        googleVerified: decoded.googleVerified === true,
       };
     } else {
       req.user = {
         isAuthenticated: false,
         role: 'guest',
+        googleVerified: false,
       };
     }
 
@@ -112,6 +115,7 @@ const optionalAuth = (req, res, next) => {
     req.user = {
       isAuthenticated: false,
       role: 'guest',
+      googleVerified: false,
     };
     next();
   }

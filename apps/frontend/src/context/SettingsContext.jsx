@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 const SettingsContext = createContext();
 
@@ -28,6 +29,12 @@ export const useSettings = () => {
 };
 
 export const SettingsProvider = ({ children }) => {
+  const { isAuthenticated, user, loading: authLoading } = useAuth();
+  // Disabling Safe Search is gated behind Google sign-in — used as a
+  // lightweight age-verification signal to keep the "off" mode out of
+  // children's reach. Plain email/password accounts don't qualify.
+  const canDisableSafeSearch = isAuthenticated && user?.googleVerified === true;
+
   const [settings, setSettings] = useState({
     safeSearch: 'safe', // 'safe' | 'blur' | 'off'
     adPersonalization: true, // Default to ON as requested
@@ -76,7 +83,20 @@ export const SettingsProvider = ({ children }) => {
     localStorage.setItem('truegle_settings', JSON.stringify(settings));
   }, [settings]);
 
+  // If Safe Search is somehow 'off' (stale localStorage, logout, expired
+  // session) without Google verification, snap it back to 'safe'.
+  useEffect(() => {
+    if (authLoading) return;
+    if (settings.safeSearch === 'off' && !canDisableSafeSearch) {
+      setSettings((prev) => ({ ...prev, safeSearch: 'safe' }));
+    }
+  }, [authLoading, canDisableSafeSearch, settings.safeSearch]);
+
   const updateSetting = (key, value) => {
+    if (key === 'safeSearch' && value === 'off' && !canDisableSafeSearch) {
+      window.dispatchEvent(new CustomEvent('truegle:safesearch-locked'));
+      return;
+    }
     setSettings((prev) => ({
       ...prev,
       [key]: value,
@@ -86,6 +106,7 @@ export const SettingsProvider = ({ children }) => {
   const value = {
     settings,
     updateSetting,
+    canDisableSafeSearch,
   };
 
   return (

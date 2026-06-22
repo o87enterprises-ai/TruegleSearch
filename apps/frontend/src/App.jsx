@@ -37,6 +37,7 @@ import RootErrorBoundary from './components/ui/RootErrorBoundary';
 import RouteBoundary from './components/ui/RouteBoundary';
 import PreProductionBanner from './components/ui/PreProductionBanner';
 import AdvertiseContactModal from './components/ui/AdvertiseContactModal';
+import SafeSearchLockModal from './components/ui/SafeSearchLockModal';
 import { FREE_ACCESS_MODE } from './config/access';
 // Info Wizard Prompt
 const InfoWizardPrompt = ({
@@ -206,6 +207,7 @@ const AppContent = () => {
     <div id="main-content" className={containerClassNames}>
       <PreProductionBanner />
       <AdvertiseContactModal />
+      <SafeSearchLockModal />
       <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         {/* Public Routes */}
