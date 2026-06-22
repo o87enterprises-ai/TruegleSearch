@@ -191,6 +191,24 @@ app.get('/robots.txt', (req, res) => {
   );
 });
 
+// Agent Commerce Network: ai.txt manifest, pointing AI agents/crawlers at the
+// machine-readable endpoints (scaffold — see HANDOFF.md).
+app.get('/ai.txt', (req, res) => {
+  const baseURL = (config.frontendUrl || 'https://truegle.info').replace(/\/$/, '');
+  res.type('text/plain').send(
+    [
+      '# Truegle Agent Commerce Network',
+      `Product-Sitemap: ${baseURL}/api/agent/sitemap/products.json`,
+      `Register: POST ${baseURL}/api/agent/register`,
+      `Issue-Key: POST ${baseURL}/api/agent/keys`,
+      `Search: POST ${baseURL}/api/agent/embeddings/search`,
+      `Stream: GET ${baseURL}/api/agent/products/stream`,
+      `Transact: POST ${baseURL}/api/agent/transact`,
+      '',
+    ].join('\n')
+  );
+});
+
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
   try {
@@ -231,6 +249,7 @@ app.use('/api/voice', require('./routes/voice'));
 app.use('/api/unsplash', require('./routes/unsplash'));
 app.use('/api/osint-tools', require('./routes/osint-proxy'));
 app.use('/api/payment', require('./routes/payment'));
+app.use('/api/agent', require('./routes/agentCommerce'));
 
 // 404 handler
 app.use('*', (req, res) => {

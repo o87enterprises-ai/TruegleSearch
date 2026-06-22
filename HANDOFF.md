@@ -26,6 +26,82 @@ computer has already been done and deployed (see "Done this session").
 
 ---
 
+## 🗓️ SESSION LOG 2026-06-22 — AI Agent Commerce Network (scaffold, branch `ai-marketplace`, **NOT merged/deployed**)
+
+**Why:** traditional search-result-click monetization is shrinking as AI agents start
+doing the browsing instead of humans. This is a forward-looking bet: a product
+marketplace built for *AI agents* to query and buy from directly, monetized via
+per-API-key quotas + a 402-Payment-Required upgrade flow (same idea as the existing
+human-facing token system in `routes/tokens.js`, just agent-facing).
+
+**Status: scaffold only.** Lives entirely on branch `ai-marketplace`, branched from
+`main`. Nothing here is merged, deployed, or linked from the live product. Treat this
+as a translated, idiomatic starting point — not a finished feature — before deciding
+whether to build it out further.
+
+**What this is:** a translation of a pasted Flask/SQLAlchemy/SQLite "Agent Commerce
+Network" design doc into Truegle's actual stack (Express.js + raw-SQL/PostgreSQL,
+matching the conventions in `TokenService.js`/`User.js`), with a few correctness/security
+fixes applied along the way (see "Fixed vs. the original design" below).
+
+**New files:**
+- `apps/backend/migrations/007_add_agent_commerce.sql` — `agent_identities`,
+  `agent_api_keys`, `agent_products`, `agent_transactions` tables.
+- `apps/backend/services/AgentEmbeddingService.js` — `embed(text)` via Gemini
+  `text-embedding-004` (reuses the existing optional `GEMINI_API_KEY`, no new env var),
+  falling back to a deterministic hashed-bag-of-words pseudo-vector when no provider is
+  configured so search never throws — it just degrades to keyword-ish matching. Also
+  `cosineSimilarity(a, b)`, properly normalized.
+- `apps/backend/services/AgentCommerceService.js` — agent identity registration
+  (`did:truegle:<uuid>`, one per existing human user — reuses login, no new auth
+  system), API key issuance/lookup/quota consumption, product ingest + semantic
+  search (capped at 500 candidates — fine now, swap to pgvector/ANN index if the
+  catalog grows past that), transaction recording.
+- `apps/backend/middleware/agentQuota.js` — `agentKeyAuth` (full 402 quota gate) and
+  `agentKeyIdentifyOnly` (lighter check used only by `/purchase-key`).
+- `apps/backend/routes/agentCommerce.js` — mounted at `/api/agent`: `POST /register`,
+  `POST /keys`, `POST /products/ingest` (all human-JWT-gated via existing
+  `authenticate`), `GET /products`, `POST /embeddings/search`, `GET /products/stream`
+  (SSE), `POST /transact`, `POST /purchase-key` (all agent-API-key-gated), plus a
+  public `GET /sitemap/products.json`.
+- `apps/backend/server.js` — mounted the router; added `GET /ai.txt` manifest (same
+  inline-route style as the existing `/robots.txt`).
+
+**Fixed vs. the original design** (the pasted blueprint had real bugs):
+- API keys were a plaintext DB primary key in the original → now only a SHA-256 hash
+  + short prefix is stored; the raw key is returned once at issuance and never
+  persisted.
+- The original's quota middleware would have applied to `/purchase-key` itself, so an
+  agent at 0 quota could never reach the endpoint meant to rescue it → split into two
+  middlewares; `/purchase-key` uses the one that doesn't check quota.
+- "Cosine similarity" in the original was actually an unnormalized dot product →
+  implemented real normalized cosine similarity.
+- Original SSE used a blocking `while True: time.sleep(2)` with no disconnect
+  handling → reimplemented with `setInterval` + `req.on('close')` cleanup.
+- The fallback embedding's first draft used signed hash buckets, which could
+  coincidentally cancel real overlap between related strings (verified: two clearly
+  related O&O/Windows strings scored 0.000 similarity) → switched to unsigned hashed
+  bag-of-words counts at a wider dimension (256), which now scores related text
+  noticeably higher than unrelated text (~0.32 vs. 0.0 in a quick check).
+
+**Known limitations / explicitly NOT done:**
+- `/purchase-key` does not collect payment — it just issues the requested tier's key
+  for free. Needs wiring to the existing Stripe flow in `routes/payment.js` before
+  this could go live.
+- `GET /products/stream` (SSE) **will not work on Vercel's serverless deployment** —
+  serverless function instances don't hold a connection open across the `setInterval`
+  ticks the way a long-running process does. Fine for local dev / a persistent
+  container or VM; would need a different transport (polling, or a host that supports
+  long-lived connections) for production.
+- The no-provider fallback embedding is keyword-ish, not truly semantic — good enough to
+  keep the feature from throwing, not a substitute for a real embedding model.
+- No DB to test against in this sandbox — verified by `require()`-loading every new
+  module (all load cleanly) and unit-testing `AgentEmbeddingService` standalone (no DB
+  dependency); the SQL in the migration and the query shapes in
+  `AgentCommerceService.js` have not been run against a live Postgres instance yet.
+
+---
+
 ## 🗓️ SESSION LOG 2026-06-20 — SearXNG promoted to primary + Search ranking + AI chat fix + Ad URLs
 
 ### SearXNG promoted to primary search provider — AWS Elastic IP (SHIPPED, commits `a24dee3`→`9763e62`)
