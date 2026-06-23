@@ -32,7 +32,6 @@ import AsSeenOn from '../components/Content/AsSeenOn';
 import PerspectiveSelector from '../components/search/PerspectiveSelector';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { MapViewWrapper } from '../components/map';
-import TutorialModal from '../components/ui/TutorialModal';
 import QuickResultCard from '../components/ui/QuickResultCard';
 import OSINTToolsPanel from '../components/ui/OSINTToolsPanel';
 import TokenGate from '../components/ui/TokenGate';
@@ -113,15 +112,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const modeParam = searchParams.get('mode');
   const { mode: autoMode, modeConfig, overrideMode } = useSearchMode(query);
   const [mode, setMode] = useState(lockedGreen ? 'green' : (modeParam || 'blue')); // Default to blue; forced green when locked
-
-  // Tutorial modal — shown once per device on first visit
-  const [showTutorial, setShowTutorial] = useState(() => {
-    try {
-      return localStorage.getItem('truegle_tutorial_done') !== 'true';
-    } catch {
-      return false;
-    }
-  });
 
   // Summary banner: null = not chosen, 'show' = show for session, 'none' = dismissed for session
   const [sessionSummaryChoice, setSessionSummaryChoice] = useState(
@@ -1435,12 +1425,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
           }
         />
       )}
-
-      {/* Tutorial Modal — shown once on first visit */}
-      <TutorialModal
-        isOpen={showTutorial}
-        onClose={() => setShowTutorial(false)}
-      />
     </div>
   );
 }

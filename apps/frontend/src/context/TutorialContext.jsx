@@ -41,6 +41,21 @@ export const TutorialProvider = ({ children }) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
   }, [preferences]);
 
+  // Auto-open the onboarding tutorial exactly once, right after a brand-new
+  // account is created (flag set by AuthContext.login(..., isNewSignup=true)).
+  // Existing accounts and guests never see this automatically.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const justSignedUp = localStorage.getItem('truegle_just_signed_up');
+    if (justSignedUp === 'true') {
+      localStorage.removeItem('truegle_just_signed_up');
+      if (!preferences.dismissed.main && !preferences.neverShowAgain) {
+        setActiveTutorial('main');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
+
   /**
    * Check if a specific tutorial should be shown
    */
@@ -134,6 +149,16 @@ export const TutorialProvider = ({ children }) => {
     }));
   }, []);
 
+  // Manually open the main onboarding tutorial (e.g. from the footer link).
+  const openTutorial = useCallback(() => {
+    setActiveTutorial('main');
+  }, []);
+
+  // Close without recording a permanent dismissal — used by the modal's "X".
+  const closeTutorial = useCallback(() => {
+    setActiveTutorial(null);
+  }, []);
+
   const value = {
     // State
     preferences,
@@ -146,6 +171,8 @@ export const TutorialProvider = ({ children }) => {
 
     // Actions
     showTutorial,
+    openTutorial,
+    closeTutorial,
     dismissTutorial,
     dismissTutorialPermanently,
     startTour,

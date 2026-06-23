@@ -38,6 +38,8 @@ import RouteBoundary from './components/ui/RouteBoundary';
 import PreProductionBanner from './components/ui/PreProductionBanner';
 import AdvertiseContactModal from './components/ui/AdvertiseContactModal';
 import SafeSearchLockModal from './components/ui/SafeSearchLockModal';
+import TutorialModal from './components/ui/TutorialModal';
+import { useTutorials } from './context/TutorialContext';
 import { FREE_ACCESS_MODE } from './config/access';
 // Info Wizard Prompt
 const InfoWizardPrompt = ({
@@ -183,6 +185,19 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+// Single global onboarding tutorial — auto-opens once after signup,
+// otherwise only reachable via the "Tutorial" link in the footer.
+const TutorialModalRoot = () => {
+  const { activeTutorial, closeTutorial, dismissTutorialPermanently } = useTutorials();
+  return (
+    <TutorialModal
+      isOpen={activeTutorial === 'main'}
+      onClose={closeTutorial}
+      onDontShowAgain={() => dismissTutorialPermanently('main')}
+    />
+  );
+};
+
 // Main application routes/content
 const AppContent = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -208,6 +223,7 @@ const AppContent = () => {
       <PreProductionBanner />
       <AdvertiseContactModal />
       <SafeSearchLockModal />
+      <TutorialModalRoot />
       <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         {/* Public Routes */}

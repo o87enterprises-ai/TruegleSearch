@@ -116,7 +116,7 @@ export default function SignUpPage() {
         login({
           user: result.user,
           token: result.token
-        }, true);
+        }, true, true);
 
         // Check for anonymous navigation state
         const fromOSINT = location.state?.fromOSINT;

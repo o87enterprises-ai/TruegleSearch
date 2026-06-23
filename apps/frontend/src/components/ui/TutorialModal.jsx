@@ -128,25 +128,20 @@ const STEPS = [
   },
 ];
 
-export default function TutorialModal({ isOpen, onClose }) {
+export default function TutorialModal({ isOpen, onClose, onDontShowAgain }) {
   const [step, setStep] = useState(0);
   const current = STEPS[step];
   const isFirst = step === 0;
   const isLast = step === STEPS.length - 1;
 
-  // Just close without marking done — user can see it again
+  // Just close without marking done — user can reopen from the footer link
   const handleClose = () => {
     onClose();
   };
 
   // "Don't show again" — close and persist the preference
   const handleDontShowAgain = () => {
-    try {
-      localStorage.setItem('truegle_tutorial_done', 'true');
-    } catch {
-      // ignore
-    }
-    onClose();
+    (onDontShowAgain || onClose)();
   };
 
   return (

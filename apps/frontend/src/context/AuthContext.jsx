@@ -66,12 +66,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const login = (userData, rememberMe = true) => {
+  const login = (userData, rememberMe = true, isNewSignup = false) => {
     console.log('Login called with:', userData, 'rememberMe:', rememberMe);
     localStorage.setItem('truegle_token', userData.token);
     localStorage.setItem('truegle_user', JSON.stringify(userData.user));
     localStorage.setItem('truegle_remember_me', rememberMe.toString());
     sessionStorage.setItem('truegle_session_active', 'true');
+    if (isNewSignup) {
+      // Flag picked up once by TutorialContext to auto-open onboarding, then cleared.
+      localStorage.setItem('truegle_just_signed_up', 'true');
+    }
     setUser(userData.user);
     setIsAuthenticated(true);
   };
