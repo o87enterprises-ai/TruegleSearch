@@ -17,10 +17,22 @@ class OllamaService {
   constructor() {
     this.baseUrl = config.ai.ollama?.baseUrl || 'http://localhost:11434';
     this.model = config.ai.ollama?.model || 'qwen3-coder:480b';
+    this.authToken = config.ai.ollama?.authToken || null;
     this.available = true;
 
     logger.info(`OllamaService initialized: ${this.baseUrl} with model ${this.model}`);
     logger.info('Cloud models: Available if signed in via `ollama signin`');
+  }
+
+  /**
+   * Headers for requests to the Ollama server. A remote, self-hosted box
+   * (e.g. AWS) has no built-in auth, so it must sit behind a reverse proxy
+   * that checks this shared-secret bearer token.
+   */
+  authHeaders() {
+    return this.authToken
+      ? { Authorization: `Bearer ${this.authToken}` }
+      : {};
   }
 
   /**
@@ -57,7 +69,8 @@ class OllamaService {
         {
           timeout: 120000,
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...this.authHeaders()
           }
         }
       );
@@ -187,7 +200,8 @@ Analysis:`;
     try {
       // Try to list models to verify Ollama is running
       const response = await axios.get(`${this.baseUrl}/api/tags`, {
-        timeout: 5000
+        timeout: 5000,
+        headers: this.authHeaders()
       });
 
       const models = response.data.models || [];
@@ -217,13 +231,15 @@ Analysis:`;
 
   /**
    * Check if service is available
-   * Ollama requires a running server, so we need to verify connectivity
+   * A localhost server is always considered available. A remote, self-hosted
+   * server (e.g. an AWS box running Gemma) is only treated as available once
+   * an auth token is configured, so we never send requests to an unprotected
+   * public endpoint by mistake.
    * @returns {boolean} Availability status
    */
   isAvailable() {
-    // Ollama only works with localhost (not in production/serverless)
-    // Return false if baseUrl is not localhost/127.0.0.1
-    if (!this.baseUrl.includes('localhost') && !this.baseUrl.includes('127.0.0.1')) {
+    const isLocal = this.baseUrl.includes('localhost') || this.baseUrl.includes('127.0.0.1');
+    if (!isLocal && !this.authToken) {
       return false;
     }
     return this.available;

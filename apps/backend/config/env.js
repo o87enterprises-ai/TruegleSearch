@@ -45,8 +45,9 @@ const envVarsSchema = Joi.object({
   OPENAI_API_KEY: Joi.string().optional().description('OpenAI API Key (Backup AI Provider)'),
   ANTHROPIC_API_KEY: Joi.string().optional().description('Anthropic Claude API Key'),
   DEEPSEEK_API_KEY: Joi.string().optional().description('DeepSeek API Key - Deprecated - DO NOT USE'),
-  OLLAMA_BASE_URL: Joi.string().optional().default('http://localhost:11434').description('Ollama API Base URL (local server with cloud access)'),
+  OLLAMA_BASE_URL: Joi.string().optional().default('http://localhost:11434').description('Ollama API Base URL (local server, or a self-hosted remote box e.g. AWS)'),
   OLLAMA_MODEL: Joi.string().optional().default('qwen3-coder:480b').description('Ollama Model Name (supports cloud models when signed in)'),
+  OLLAMA_AUTH_TOKEN: Joi.string().optional().description('Shared-secret bearer token for a remote Ollama instance sitting behind an auth proxy'),
   NVIDIA_API_KEY: Joi.string().optional().description('NVIDIA NIM API Key (integrate.api.nvidia.com)'),
   NVIDIA_MODEL: Joi.string().optional().default('nvidia/nemotron-3-ultra-550b-a55b').description('NVIDIA NIM model id'),
   GROQ_API_KEY: Joi.string().optional().description('Groq API Key (console.groq.com) — free tier, no credit card'),
@@ -228,6 +229,7 @@ const config = {
     ollama: {
       baseUrl: envVars.OLLAMA_BASE_URL,
       model: envVars.OLLAMA_MODEL,
+      authToken: envVars.OLLAMA_AUTH_TOKEN,
     },
     nvidia: {
       apiKey: envVars.NVIDIA_API_KEY,
@@ -411,6 +413,9 @@ config.getSafeConfig = () => {
       }
       if (safeConfig.ai[service].keys) {
         safeConfig.ai[service].keys = safeConfig.ai[service].keys.map(() => '***MASKED***');
+      }
+      if (safeConfig.ai[service].authToken) {
+        safeConfig.ai[service].authToken = '***MASKED***';
       }
     });
   }
