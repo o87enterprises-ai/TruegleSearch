@@ -166,6 +166,13 @@ export default function TruegleMap({
     }
   }, [state.markers]);
 
+  // Mirror externally-set selected marker (e.g. a geocoded search result) into the popup.
+  useEffect(() => {
+    if (state.selectedMarker) {
+      setSelectedMarker(state.selectedMarker);
+    }
+  }, [state.selectedMarker]);
+
   // Detect mobile device and force fullscreen on phones only
   useEffect(() => {
     const checkMobile = () => {

@@ -391,7 +391,7 @@ function fallbackSummary(mode, query) {
  * @body    { query, results, mode?, perspectives? }
  */
 router.post('/summary', rateLimitSearch, async (req, res) => {
-  const { query, results, mode = 'blue-pill', perspectives = [] } = req.body;
+  const { query, results, mode = 'blue-pill', perspectives = [], isQuestion = false } = req.body;
 
   try {
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -438,9 +438,16 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
       ? perspectives.join(', ')
       : 'Neutral';
 
+    // Question-phrased queries get an instruction to answer directly up
+    // front, so the frontend can surface that opening line as a quick-answer
+    // card instead of making the user read the whole summary to find it.
+    const queryForAi = isQuestion
+      ? `${query}\n\n(This is a direct question — answer it in the first sentence, plainly and concisely, then add supporting context.)`
+      : query;
+
     // Try unified AI service first (with multi-provider failover)
     try {
-      const aiResponse = await aiClient.analyzeContent(searchContext, aiContext, query, {
+      const aiResponse = await aiClient.analyzeContent(searchContext, aiContext, queryForAi, {
         searchResults: searchContext,
         perspective: selectedPerspective,
       });
@@ -450,6 +457,7 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
         query: query.trim(),
         mode,
         summary: aiResponse.content || aiResponse.response,
+        isQuestion,
         perspectives: [],
         sourcesAnalyzed: sample.length,
         model: aiResponse.provider || 'unified-ai',

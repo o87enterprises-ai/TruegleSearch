@@ -44,7 +44,7 @@ import { useLocationDetection } from '../hooks/useLocationDetection';
 import useDeviceTier from '../hooks/useDeviceTier';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
-import { isQuestionQuery } from '../utils/queryIntent';
+import { isQuestionQuery, getQuickAnswer } from '../utils/queryIntent';
 
 // Detect an embeddable video URL (YouTube/Vimeo) and return its iframe embed src.
 // Used so "Open in app" on a video result plays inline instead of loading the
@@ -423,6 +423,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
             results: results.slice(0, 10),
             mode: backendMode,
             perspectives: selectedPerspectives,
+            isQuestion: isQuestionQuery(query),
           }),
         }
       );
@@ -435,6 +436,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
         perspectives: data.perspectives,
         sourcesAnalyzed: data.sourcesAnalyzed,
         model: data.model,
+        isQuestion: data.isQuestion || false,
       });
     } catch (error) {
       console.error('AI summary error:', error);
@@ -1134,6 +1136,21 @@ export default function UniversalSearch({ lockedGreen = false }) {
                           </div>
                         ) : aiSummary ? (
                           <>
+                            {aiSummary.isQuestion && (
+                              <div className={`mb-3 p-3 rounded-xl border ${
+                                mode === 'red' ? 'bg-red-500/10 border-red-500/30' :
+                                mode === 'purple' ? 'bg-purple-500/10 border-purple-500/30' :
+                                mode === 'ocean' ? 'bg-cyan-500/10 border-cyan-500/30' :
+                                'bg-cyan-500/10 border-cyan-500/30'
+                              }`}>
+                                <div className="text-[10px] uppercase tracking-wide text-white/40 mb-1">
+                                  Quick Answer
+                                </div>
+                                <p className="text-sm text-white font-medium leading-snug">
+                                  {getQuickAnswer(aiSummary.summary)}
+                                </p>
+                              </div>
+                            )}
                             <div className="text-sm text-white/80 leading-relaxed mb-3 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline [&_strong]:font-semibold [&_code]:bg-white/10 [&_code]:px-1 [&_code]:rounded">
                               <ReactMarkdown>{aiSummary.summary}</ReactMarkdown>
                             </div>

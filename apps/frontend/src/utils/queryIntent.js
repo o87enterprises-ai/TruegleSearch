@@ -18,3 +18,15 @@ export function isQuestionQuery(query) {
   const firstWord = trimmed.split(/\s+/)[0]?.toLowerCase().replace(/[^a-z']/g, '');
   return QUESTION_WORDS.includes(firstWord);
 }
+
+/**
+ * Pulls the leading sentence out of an AI summary to use as a quick-answer
+ * snippet — the backend is asked to answer questions in the first sentence,
+ * so this just isolates it for the highlighted card.
+ */
+export function getQuickAnswer(summary) {
+  if (!summary) return '';
+  const stripped = summary.replace(/^#+\s*/, '').trim();
+  const match = stripped.match(/^.*?[.!?](?:\s|$)/);
+  return (match ? match[0] : stripped).trim();
+}

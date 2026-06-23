@@ -1,5 +1,12 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import MapApiService from '../components/map/services/mapApi';
+import { isQuestionQuery } from '../utils/queryIntent';
+
+// Mapbox returns { lon, lat }; the map context expects { lat, lng }.
+function toLatLng(position) {
+  if (!position) return null;
+  return { lat: position.lat, lng: position.lng ?? position.lon };
+}
 
 const LOCATION_KEYWORDS = {
   nearMe: ['near me', 'nearby', 'around me', 'close to me', 'closest'],
@@ -66,7 +73,7 @@ export function useLocationDetection(query = '') {
             const location = match[1].trim();
             const result = await MapApiService.geocode(location);
             if (result && result.data && result.data.length > 0) {
-              const coords = result.data[0].position;
+              const coords = toLatLng(result.data[0].position);
               setDetectedLocation({
                 query: searchQuery,
                 type: 'location',
@@ -81,7 +88,7 @@ export function useLocationDetection(query = '') {
             const zipcode = match[1];
             const result = await MapApiService.geocode(zipcode);
             if (result && result.data && result.data.length > 0) {
-              const coords = result.data[0].position;
+              const coords = toLatLng(result.data[0].position);
               setDetectedLocation({
                 query: searchQuery,
                 type: 'zipcode',
@@ -96,7 +103,7 @@ export function useLocationDetection(query = '') {
             const destination = match[1].trim();
             const result = await MapApiService.geocode(destination);
             if (result && result.data && result.data.length > 0) {
-              const coords = result.data[0].position;
+              const coords = toLatLng(result.data[0].position);
               setDetectedLocation({
                 query: searchQuery,
                 type: 'directions',
@@ -108,8 +115,32 @@ export function useLocationDetection(query = '') {
               return coords;
             }
           }
-          
+
           break;
+        }
+      }
+
+      // No keyword pattern matched — check if the bare query is itself a place/business
+      // name (e.g. "Walmart", "Coiner Park") rather than a general web search.
+      if (!isQuestionQuery(searchQuery) && searchQuery.trim().split(/\s+/).length <= 6) {
+        try {
+          const result = await MapApiService.geocode(searchQuery, { types: 'poi,address,place' });
+          const best = result?.data?.[0];
+          if (best && (best.relevance === undefined || best.relevance >= 0.6)) {
+            const coords = toLatLng(best.position);
+            setQueryType('place');
+            setDetectedLocation({
+              query: searchQuery,
+              type: 'place',
+              locationName: searchQuery.trim(),
+              coordinates: coords,
+              address: best.address,
+            });
+            setIsLocationQuery(true);
+            return coords;
+          }
+        } catch (err) {
+          // Not a recognizable place — fall through to a normal search.
         }
       }
 
