@@ -52,6 +52,10 @@ const envVarsSchema = Joi.object({
   NVIDIA_API_KEY: Joi.string().optional().description('NVIDIA NIM API Key (integrate.api.nvidia.com)'),
   NVIDIA_MODEL: Joi.string().optional().default('nvidia/nemotron-3-ultra-550b-a55b').description('NVIDIA NIM model id'),
   GROQ_API_KEY: Joi.string().optional().description('Groq API Key (console.groq.com) — free tier, no credit card'),
+  GROQ_API_KEY_2: Joi.string().optional().description('Groq API Key 2 — rotated to when key 1 rate-limits'),
+  GROQ_API_KEY_3: Joi.string().optional().description('Groq API Key 3 — rotated to when key 2 rate-limits'),
+  GROQ_API_KEY_4: Joi.string().optional().description('Groq API Key 4 — rotated to when key 3 rate-limits'),
+  GROQ_API_KEY_5: Joi.string().optional().description('Groq API Key 5 — rotated to when key 4 rate-limits'),
   GROQ_MODEL: Joi.string().optional().default('llama-3.1-8b-instant').description('Groq model id'),
 
   // Radar API (Maps)
@@ -240,6 +244,13 @@ const config = {
     groq: {
       apiKey: envVars.GROQ_API_KEY,
       model: envVars.GROQ_MODEL,
+      keys: [
+        envVars.GROQ_API_KEY,
+        envVars.GROQ_API_KEY_2,
+        envVars.GROQ_API_KEY_3,
+        envVars.GROQ_API_KEY_4,
+        envVars.GROQ_API_KEY_5,
+      ].filter(k => k),
     },
     deepseek: {
       apiKey: envVars.DEEPSEEK_API_KEY, // DEPRECATED - DO NOT USE
