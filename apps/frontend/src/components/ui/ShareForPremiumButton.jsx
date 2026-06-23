@@ -68,7 +68,9 @@ export default function ShareForPremiumButton({
   const handleShare = (platform) => {
     const shareText =
       'Just discovered Truegle - unbiased search without algorithmic bubbles! 🌈🔍 #Truegle #UnbiasedSearch';
-    const shareUrl = 'https://truegle.com';
+    // Tag every share with its source platform so we can later attribute
+    // signups/clicks back to which share channel actually drove them.
+    const shareUrl = `https://truegle.com/?ref=share_${platform.id}`;
 
     const url = platform.shareUrl(shareText, shareUrl);
 
