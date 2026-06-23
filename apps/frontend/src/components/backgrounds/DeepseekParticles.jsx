@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 
-const AnimatedBackground = ({ showStageControls = true, enableMouseMovement = false }) => {
+const AnimatedBackground = ({ enableMouseMovement = false }) => {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const cameraRef = useRef(null);
@@ -17,7 +17,8 @@ const AnimatedBackground = ({ showStageControls = true, enableMouseMovement = fa
   const raycasterRef = useRef(new THREE.Raycaster());
   const currentStageRef = useRef(0);
 
-  const [currentStage, setCurrentStage] = useState(4);
+  // Locked to stage 2 (Perfect Sphere) — stage switching removed for the purple page.
+  const [currentStage] = useState(2);
   const [prevStage, setPrevStage] = useState(0);
   const [stageJustChanged, setStageJustChanged] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -715,18 +716,6 @@ const AnimatedBackground = ({ showStageControls = true, enableMouseMovement = fa
     }
   };
 
-  // Keyboard controls for stage changes
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (e.key >= '1' && e.key <= '5') {
-        setCurrentStage(parseInt(e.key) - 1);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, []);
-
   // Handle stage changes
   useEffect(() => {
     console.log(`🎯 STAGE CHANGE: ${prevStage} → ${currentStage}`);
@@ -826,53 +815,6 @@ const AnimatedBackground = ({ showStageControls = true, enableMouseMovement = fa
 
   return (
     <>
-      {showStageControls && (
-        <div className="fixed top-4 left-4 z-10 bg-black/80 text-white p-4 rounded-lg font-mono">
-          <div className="text-sm mb-2">Stage Controls</div>
-          <div className="flex gap-2 mb-2 flex-wrap">
-            <button
-              onClick={() => setCurrentStage(0)}
-              className={`px-3 py-1 rounded text-xs ${currentStage === 0 ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-            >
-              Singularity
-            </button>
-            <button
-              onClick={() => setCurrentStage(1)}
-              className={`px-3 py-1 rounded text-xs ${currentStage === 1 ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-            >
-              Circle
-            </button>
-            <button
-              onClick={() => setCurrentStage(2)}
-              className={`px-3 py-1 rounded text-xs ${currentStage === 2 ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-            >
-              Sphere
-            </button>
-            <button
-              onClick={() => setCurrentStage(3)}
-              className={`px-3 py-1 rounded text-xs ${currentStage === 3 ? 'bg-purple-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-            >
-              Purple Torus
-            </button>
-            <button
-              onClick={() => setCurrentStage(4)}
-              className={`px-3 py-1 rounded text-xs ${currentStage === 4 ? 'bg-pink-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-            >
-              Particle Field
-            </button>
-          </div>
-          <div className="text-xs opacity-70">
-            Current: Stage {currentStage} - {
-              {0: 'Singularity', 1: 'Circle', 2: 'Perfect Sphere', 3: 'Purple Torus', 4: 'Particle Field'}[currentStage]
-            }
-          </div>
-          {currentStage === 3 && (
-            <div className="text-xs mt-2 text-purple-400">
-              {hoveredTube ? `🔍 ${hoveredTube} - Drag to rotate!` : 'Click & drag to rotate purple torus...'}
-            </div>
-          )}
-        </div>
-      )}
       <div
         ref={mountRef}
         id="canvas-container"

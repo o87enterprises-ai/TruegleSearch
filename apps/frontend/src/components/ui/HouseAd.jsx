@@ -59,8 +59,8 @@ const buttonStyles = {
 // Three visual tiers, picked by the `compact`/`featured` props. `standard` is
 // the baseline every sponsored ad slot uses now — taller than a single line,
 // with full description and room for a logo. `featured` is reserved for the
-// pinned "Claim this spot" CTA and is deliberately the largest tier on the
-// page so it reads as the premier spot, not just another sponsored card.
+// pinned "Claim this spot" CTA — slightly larger than standard to read as the
+// premier spot, kept compact so it doesn't push results below the fold.
 // `compact` stays available for any future tight-spot placement even though
 // nothing uses it today.
 const sizing = {
@@ -79,11 +79,11 @@ const sizing = {
     logo: 'w-12 h-12',
   },
   featured: {
-    card: 'p-7',
-    title: 'text-lg',
-    description: 'text-sm',
-    button: 'px-6 py-3 text-base',
-    logo: 'w-16 h-16',
+    card: 'p-5',
+    title: 'text-base',
+    description: 'text-xs',
+    button: 'px-5 py-2 text-sm',
+    logo: 'w-12 h-12',
   },
 };
 

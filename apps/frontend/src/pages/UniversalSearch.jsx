@@ -44,6 +44,7 @@ import { useLocationDetection } from '../hooks/useLocationDetection';
 import useDeviceTier from '../hooks/useDeviceTier';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+import { isQuestionQuery } from '../utils/queryIntent';
 
 // Detect an embeddable video URL (YouTube/Vimeo) and return its iframe embed src.
 // Used so "Open in app" on a video result plays inline instead of loading the
@@ -107,6 +108,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
 
   // Get query from URL
   const query = searchParams.get('q') || '';
+  const queryIsQuestion = isQuestionQuery(query);
 
   // Mode management - Default to 'blue' (SearchPortal)
   const modeParam = searchParams.get('mode');
@@ -989,14 +991,17 @@ export default function UniversalSearch({ lockedGreen = false }) {
           )}
 
           {/* Ad Banner 1 - Under Search Bar, right above the AI summary — the
-              pinned "Claim this spot" CTA, sized up slightly to stand out */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-4xl mx-auto mb-4"
-          >
-            <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" featured />
-          </motion.div>
+              pinned "Claim this spot" CTA. Hidden on question-phrased queries
+              so the quick-answer card gets the space instead. */}
+          {!queryIsQuestion && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-4xl mx-auto mb-4"
+            >
+              <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" featured />
+            </motion.div>
+          )}
 
           {/* Search Summary — Banner + Expandable Card */}
           {mode !== 'green' && sessionSummaryChoice !== 'none' && (
