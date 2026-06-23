@@ -42,6 +42,7 @@ const envVarsSchema = Joi.object({
   OPENROUTER_API_KEY_5: Joi.string().optional().description('OpenRouter API Key 5'),
   OPENROUTER_API_KEY_6: Joi.string().optional().description('OpenRouter API Key 6'),
   GEMINI_API_KEY: Joi.string().optional().description('Google Gemini API Key'),
+  GEMINI_MODEL: Joi.string().optional().default('gemini-2.0-flash').description('Gemini model id'),
   OPENAI_API_KEY: Joi.string().optional().description('OpenAI API Key (Backup AI Provider)'),
   ANTHROPIC_API_KEY: Joi.string().optional().description('Anthropic Claude API Key'),
   DEEPSEEK_API_KEY: Joi.string().optional().description('DeepSeek API Key - Deprecated - DO NOT USE'),
@@ -225,6 +226,7 @@ const config = {
     },
     gemini: {
       apiKey: envVars.GEMINI_API_KEY,
+      model: envVars.GEMINI_MODEL,
     },
     ollama: {
       baseUrl: envVars.OLLAMA_BASE_URL,
