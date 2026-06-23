@@ -12,15 +12,23 @@ import {
   Repeat2,
   ThumbsUp,
 } from 'lucide-react';
+import SocialEmbed from './SocialEmbed';
+
+// Platforms with a stable, no-login, no-API-key embed widget. Facebook and
+// Instagram gate their oEmbed behind app-review tokens, so they stay as
+// link-out cards instead of silently failing to render.
+const EMBEDDABLE_PLATFORMS = new Set(['Twitter / X', 'Reddit', 'TikTok']);
 
 export default function MultimediaInterface({ category, onClose, searchQuery }) {
   const [selectedItem, setSelectedItem] = useState(null);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [socialPlatformFilter, setSocialPlatformFilter] = useState('All');
 
   useEffect(() => {
     if (category && searchQuery) {
       setLoading(true);
+      setSocialPlatformFilter('All');
       let categoryFilter = '';
       if (category === 'pics') categoryFilter = 'images';
       else if (category === 'vids') categoryFilter = 'videos';
@@ -80,7 +88,10 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
                   id: post.id || post.url,
                   url: post.url,
                   platform: post.domain?.includes('reddit') ? 'Reddit'
-                    : post.domain?.includes('twitter') ? 'Twitter / X'
+                    : (post.domain?.includes('twitter') || post.domain?.includes('x.com')) ? 'Twitter / X'
+                    : post.domain?.includes('tiktok') ? 'TikTok'
+                    : (post.domain?.includes('youtube') || post.domain?.includes('youtu.be')) ? 'YouTube'
+                    : post.domain?.includes('instagram') ? 'Instagram'
                     : post.domain?.includes('facebook') ? 'Facebook'
                     : post.sourceName || 'Social',
                   author: post.domain || 'Unknown',
@@ -179,43 +190,77 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
   const platformColors = {
     'Reddit': 'border-orange-500/50 text-orange-400',
     'Twitter / X': 'border-blue-500/50 text-blue-400',
+    'TikTok': 'border-pink-500/50 text-pink-400',
+    'YouTube': 'border-red-500/50 text-red-400',
+    'Instagram': 'border-purple-500/50 text-purple-400',
     'Facebook': 'border-blue-600/50 text-blue-300',
     'Social': 'border-cyan-500/50 text-cyan-400',
   };
 
-  const SocialGrid = ({ posts }) => (
-    <div className="space-y-3">
-      {posts.length === 0 ? (
-        <div className="text-center py-12 text-white/50">No social results found for this query.</div>
-      ) : posts.map((post) => (
-        <a
-          key={post.id}
-          href={post.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all group"
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${platformColors[post.platform] || platformColors['Social']}`}>
-              {post.platform}
-            </span>
-            <span className="text-white/40 text-xs">{post.author}</span>
-            {post.timestamp && <span className="text-white/30 text-xs ml-auto">{post.timestamp}</span>}
+  const SocialGrid = ({ posts }) => {
+    const platforms = ['All', ...Array.from(new Set(posts.map((p) => p.platform)))];
+    const filteredPosts = socialPlatformFilter === 'All'
+      ? posts
+      : posts.filter((p) => p.platform === socialPlatformFilter);
+
+    return (
+      <div>
+        {/* Platform tabs — quick-switch between social apps without leaving the page */}
+        {posts.length > 0 && (
+          <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+            {platforms.map((platform) => (
+              <button
+                key={platform}
+                onClick={() => setSocialPlatformFilter(platform)}
+                className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-full border transition-all whitespace-nowrap ${
+                  socialPlatformFilter === platform
+                    ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300'
+                    : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
+                }`}
+              >
+                {platform}
+              </button>
+            ))}
           </div>
-          <p className="text-white/90 font-semibold text-sm mb-1 group-hover:text-white transition-colors line-clamp-2">
-            {post.title}
-          </p>
-          {post.text && post.text !== post.title && (
-            <p className="text-white/60 text-xs line-clamp-2">{post.text}</p>
-          )}
-          <div className="mt-2 text-xs text-cyan-400/60 flex items-center gap-1">
-            <ExternalLink size={10} />
-            <span className="truncate">{post.url}</span>
-          </div>
-        </a>
-      ))}
-    </div>
-  );
+        )}
+
+        <div className="space-y-3">
+          {filteredPosts.length === 0 ? (
+            <div className="text-center py-12 text-white/50">No social results found for this query.</div>
+          ) : filteredPosts.map((post) => (
+            <div
+              key={post.id}
+              className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-all"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${platformColors[post.platform] || platformColors['Social']}`}>
+                  {post.platform}
+                </span>
+                <span className="text-white/40 text-xs">{post.author}</span>
+                {post.timestamp && <span className="text-white/30 text-xs ml-auto">{post.timestamp}</span>}
+                <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-white/30 hover:text-white/70">
+                  <ExternalLink size={12} />
+                </a>
+              </div>
+
+              {EMBEDDABLE_PLATFORMS.has(post.platform) ? (
+                <SocialEmbed url={post.url} platform={post.platform} title={post.title} />
+              ) : (
+                <a href={post.url} target="_blank" rel="noopener noreferrer" className="block group">
+                  <p className="text-white/90 font-semibold text-sm mb-1 group-hover:text-white transition-colors line-clamp-2">
+                    {post.title}
+                  </p>
+                  {post.text && post.text !== post.title && (
+                    <p className="text-white/60 text-xs line-clamp-2">{post.text}</p>
+                  )}
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   // Render based on category
   const renderContent = () => {
