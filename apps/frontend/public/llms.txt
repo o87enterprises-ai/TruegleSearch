@@ -1,0 +1,37 @@
+# Truegle
+
+> Truegle is an independent, privacy-first search engine built on radical transparency. We surface multiple perspectives on every query — political, cultural, scientific, and alternative — without algorithmic suppression or tracking.
+
+## What Truegle Is
+
+Truegle is a search engine that does not filter, bias, or suppress results based on institutional preferences. Our mission is to give every user a flashlight into the corners of the internet that mainstream search engines actively avoid indexing or ranking. We believe knowledge should not be gatekept by institutions, governments, or corporate interests.
+
+## Core Principles
+
+- No user tracking, no cookies, no hidden data collection
+- Multiple perspectives shown for every query — mainstream and alternative
+- AI-powered summaries that present facts without editorial bias
+- Ad revenue shared with users (coming soon)
+- Privacy as a feature, not a policy checkbox
+
+## Key Features
+
+- Universal search across web, images, video, maps, social, news, and shopping
+- AI quick-answer cards for direct questions
+- OSINT tools for independent investigators
+- Social media search with embedded posts (no login required)
+- Map search with local business discovery
+- Dark-mode first, mobile-friendly interface
+
+## Who This Is For
+
+People who are tired of algorithmic bubbles. Researchers who need access to suppressed or alternative sources. Privacy-conscious users who refuse to be tracked. Independent thinkers who want to see the full picture, not the curated one.
+
+## Pages
+
+- https://truegle.info/ — Homepage and main search
+- https://truegle.info/search — Search results
+- https://truegle.info/about — About Truegle and our mission
+- https://truegle.info/privacy — Privacy policy
+- https://truegle.info/advertise — Advertising information
+- https://truegle.info/terms — Terms of service

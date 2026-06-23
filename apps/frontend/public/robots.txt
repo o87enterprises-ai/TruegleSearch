@@ -11,3 +11,18 @@ Disallow: /rewards
 Disallow: /feeling-biased
 
 Sitemap: https://truegle.info/sitemap.xml
+
+# AI crawler guidance
+User-agent: GPTBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+# LLMs.txt: https://truegle.info/llms.txt
