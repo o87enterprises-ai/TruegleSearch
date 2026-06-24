@@ -890,6 +890,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   isRedPillMode ? 'from-red-600 to-red-500' : 'from-blue-600 to-cyan-600'
                 ) : undefined
               }
+              isLoading={searchLoading}
             />
             {/* Language selector — synced to browser language by default */}
             <div className="flex justify-end mt-2">
@@ -1003,6 +1004,50 @@ export default function UniversalSearch({ lockedGreen = false }) {
             >
               <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" featured />
             </motion.div>
+          )}
+
+          {/* Quick Result Card — business/place/weather/conversion etc */}
+          {instantAnswer && (
+            <div className="max-w-4xl mx-auto mb-4">
+              <QuickResultCard instantAnswer={instantAnswer} />
+            </div>
+          )}
+
+          {/* Prominent Question Answer — auto-shown for direct questions, no click required */}
+          {aiSummary?.isQuestion && mode !== 'green' && (
+            <div className="max-w-4xl mx-auto mb-4">
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`p-5 rounded-2xl backdrop-blur-xl border shadow-lg ${
+                  mode === 'red' ? 'bg-red-950/70 border-red-500/40 shadow-red-500/10' :
+                  mode === 'purple' ? 'bg-purple-950/70 border-purple-500/40 shadow-purple-500/10' :
+                  mode === 'ocean' ? 'bg-cyan-950/70 border-cyan-500/40 shadow-cyan-500/10' :
+                  'bg-[#0d1f3c]/90 border-cyan-500/40 shadow-cyan-500/10'
+                }`}
+              >
+                <div className={`flex items-center gap-2 mb-3 text-xs font-semibold uppercase tracking-widest ${
+                  mode === 'red' ? 'text-red-400' : mode === 'purple' ? 'text-purple-400' :
+                  mode === 'ocean' ? 'text-cyan-400' : 'text-cyan-400'
+                }`}>
+                  <Sparkles size={13} />
+                  Quick Answer
+                </div>
+                {aiLoading ? (
+                  <div className="flex items-center gap-3">
+                    <div className={`animate-spin w-5 h-5 border-2 border-t-transparent rounded-full ${
+                      mode === 'red' ? 'border-red-500' : mode === 'purple' ? 'border-purple-500' :
+                      mode === 'ocean' ? 'border-cyan-500' : 'border-cyan-500'
+                    }`} />
+                    <span className="text-white/60 text-sm">Finding your answer...</span>
+                  </div>
+                ) : (
+                  <p className="text-white text-lg font-medium leading-snug">
+                    {getQuickAnswer(aiSummary.summary)}
+                  </p>
+                )}
+              </motion.div>
+            </div>
           )}
 
           {/* Search Summary — Banner + Expandable Card */}
