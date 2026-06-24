@@ -1,5 +1,17 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-06-23. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
+_Last updated: 2026-06-24. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
+
+---
+
+## 🗓️ SESSION LOG 2026-06-24 — Map bug fixes: search dropdown stacking + geolocation zoom race (SHIPPED, merged to main)
+
+User-reported on the Maps view: (1) the map's place-search autocomplete dropdown rendered *behind* the map toolbar, and (2) zoom never landed correctly after granting browser location permission.
+
+**Root causes found in `apps/frontend/src/components/map/MapViewWrapper.jsx` and `apps/frontend/src/pages/SearchPortal.jsx`:**
+- Search dropdown container was `z-20`; the map's toolbar (`TruegleMap.jsx`) is `z-40` non-fullscreen / `z-50` fullscreen — dropdown was always underneath. Fixed: raised to `z-[60]`.
+- Two independent, uncoordinated `navigator.geolocation.getCurrentPosition` calls fired on map open: SearchPortal's "Enable Location" modal (`handleLocationGranted`) only set local React state and never touched the map, while `MapViewWrapper`'s own silent auto-effect (no timeout, zoom 10) raced it via `actions.flyTo`. Whichever resolved last won, so the explicit "Allow Location" click visually did nothing while the silent background fetch — capped at zoom 10 — sometimes hung indefinitely (no timeout set).
+- Fix: wired SearchPortal's modal grant handler to `actions.flyTo(location, 15)` + `actions.addMarker(...)` (mirrors the working pattern already used in `TruegleMap.jsx`'s own location handler), and aligned `MapViewWrapper`'s silent effect to the same zoom level/marker/`{ enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }` options so both paths converge on the same result instead of fighting.
+- Verified via production build (`vite build`) + ESLint clean on both files. **Not visually verified in a real browser** — this remote container has no display, no Mapbox token configured, and no browser-automation tooling installed.
 
 ---
 
