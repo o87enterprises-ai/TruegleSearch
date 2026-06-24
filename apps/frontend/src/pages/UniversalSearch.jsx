@@ -891,6 +891,15 @@ export default function UniversalSearch({ lockedGreen = false }) {
                 ) : undefined
               }
               isLoading={searchLoading}
+              customActionButtons={
+                <a
+                  href="/extract"
+                  className="inline-flex items-center justify-center gap-2 h-12 px-5 min-w-[150px] rounded-xl bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-semibold shadow-lg shadow-yellow-400/20 hover:shadow-yellow-300/30 transition-all duration-200 ease-out"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                  Transcribe URL
+                </a>
+              }
             />
             {/* Language selector — synced to browser language by default */}
             <div className="flex justify-end mt-2">
