@@ -1,5 +1,78 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-06-21. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
+_Last updated: 2026-06-23. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
+
+---
+
+## 🗓️ SESSION LOG 2026-06-23 — Extractor tool · UX fixes · SEO indexing · AI provider hardening
+
+### Content Extractor — `/extract` (SHIPPED, branch merged to main)
+New freemium tool at `truegle.info/extract` targeting content creators and developers.
+
+**Backend — `apps/backend/routes/extract.js` (mounted at `/api/extract`):**
+- `POST /api/extract/transcript` — accepts any YouTube URL, extracts full caption transcript via `youtube-transcript` npm package. Returns `{ transcript, wordCount, segmentCount, videoId }`. Only YouTube supported (no video download = no DMCA risk). Error if captions disabled/age-restricted.
+- `POST /api/extract/images` — accepts any public URL, scrapes `og:image`, `twitter:image`, and all `<img>` src tags. Returns up to 24 resolved absolute image URLs.
+- Both endpoints use `rateLimitSearch` middleware. New dep: `youtube-transcript` (installed in backend).
+
+**Frontend — `apps/frontend/src/pages/ExtractPage.jsx` (route `/extract`):**
+- URL input + mode toggle (Transcript / Images).
+- **Spin system** (localStorage, no auth required): 3 free extractions per 24-hour rolling window. State keys: `truegle_extract_spins` → `{ remaining, resetAt, adUsed }`.
+- **Ad gate modal**: when spins hit 0, a modal offers "Watch a short ad." Ad is a 5-second countdown stub (no real ad SDK yet — wire in a real rewarded format when ad network is approved). Grants 3 more spins on claim.
+- **Watermark**: every copy/download appends `\n\n---\nExtracted via Truegle · truegle.info` to transcript text. Visible footer on image results too.
+- **Premium CTA** shown in result footer: "Remove watermark with Premium."
+- Image results render as a responsive grid; broken images hide via `onError`.
+- Added to `App.jsx` router at `/extract`.
+
+**Yellow "Transcribe URL" button:**
+- Added to the SearchBar action row (same row as Search + Feeling Biased) via the existing `customActionButtons` prop.
+- Wired in both `UniversalSearch.jsx` and `LandingPage.jsx`.
+- All search modes (biased, OSINT, deep-dive) inherit it automatically — they all route through `UniversalSearch`.
+
+**Future upgrade path:** Groq offers a free Whisper API (`whisper-large-v3-turbo`) at `POST https://api.groq.com/openai/v1/audio/transcriptions`. Wire it as a fallback for non-YouTube URLs once audio upload UX is built.
+
+---
+
+### UX improvements — search page (SHIPPED)
+- **Loading indicator on search bar**: wired `isLoading={searchLoading}` to `<SearchBar>` in `UniversalSearch.jsx`. The built-in spinner activates the moment the user hits Enter (SearchBar already had this prop; it just wasn't connected).
+- **Quick Answer card front-and-center**: `QuickResultCard` (business/place/weather/navigational) and the Prominent Question Answer card both now render *above* the AI summary section — no scroll required. The Question Answer card auto-shows for question-phrased queries with a mode-aware themed border and a "Finding your answer…" loading state while AI resolves.
+
+---
+
+### New 404 page (SHIPPED)
+Replaced the old GameBoy moon-landing Easter egg with a clean branded placeholder:
+- `apps/frontend/src/pages/NotFound.jsx` — black backdrop, `TruegleLogo` (animated), large `404?!` in white with cyan `?!`, "Page Not Found" subtitle, white "Return to Truegle" button.
+- **TODO**: user will design a custom background animation to match brand identity. The current page is intentionally minimal as a placeholder.
+
+---
+
+### AI provider hardening (SHIPPED)
+- **Gemini model fix**: `gemini-1.5-flash` was deprecated → changed default to `gemini-2.0-flash` in `GeminiService.js`. Configurable via `GEMINI_MODEL` env var on Vercel.
+- **Groq key rotation**: `GroqService.js` fully rewritten. Supports `GROQ_API_KEY` through `GROQ_API_KEY_5` (5 keys = 5× free quota). Auto-rotates on 429 (rate limit) or 401 (bad key) using a do-while loop. `healthCheck()` now reports `activeKeyIndex` and `totalKeys`. Keys 2–3 already set on Vercel (`GROQ_API_KEY_2`, `GROQ_API_KEY_3`).
+- **Ollama remote auth**: `OllamaService.js` now accepts `OLLAMA_AUTH_TOKEN` env var. Remote (non-localhost) hosts require the token; adds `Authorization: Bearer <token>` header to all requests. `isAvailable()` returns false for remote hosts without a token set.
+- **OpenAI key removed**: user never signed up with OpenAI (against Truegle's mission). Malformed key with embedded newline was causing "Invalid character in header content" errors. Removed via `vercel env rm`.
+- **Anthropic**: API key added but Evaluation plan requires paid credits — effectively unavailable at $0 budget. Key is set but will always fail until credits are loaded.
+
+---
+
+### SEO / Indexing (SHIPPED)
+- **llms.txt** (`apps/frontend/public/llms.txt`): AI crawler guidance file describing Truegle's mission, features, and page URLs. Referenced in `index.html` via `<link rel="alternate" type="text/plain" href="/llms.txt">`. Makes Truegle discoverable by Perplexity, ChatGPT Search, etc.
+- **IndexNow**: key file `11aa6a4fa968d5abec8df44c8e8c35c0.txt` at root, `<meta name="indexnow-key">` in `index.html`, `<meta name="msvalidate.01">` for Bing Webmaster verification.
+- **robots.txt**: added explicit `Allow` rules for GPTBot, PerplexityBot, ClaudeBot, anthropic-ai.
+- **Sitemap**: all 7 URLs now have `<lastmod>2026-06-23</lastmod>`.
+- **Bing Webmaster Tools**: imported from Google Search Console (one click). 5 URLs submitted via URL Submission (covers Bing, Yahoo, DuckDuckGo). Sitemap submitted.
+
+---
+
+### Share-for-Premium referral tag (SHIPPED, commit `fa3ac23`)
+`ShareForPremiumButton.jsx`: share URL changed from `https://truegle.com` to `` `https://truegle.com/?ref=share_${platform.id}` ``. Each platform (Twitter, WhatsApp, etc.) gets its own `ref` tag so analytics can attribute which platform's shares convert.
+
+---
+
+### Deployment note — CLI vs. truegle.info
+`vercel --prod` CLI deploys alias to `frontend-drab-ten-41.vercel.app`, **not** `truegle.info`. The `truegle.info` custom domain follows the Git-connected main branch. **Always merge to main to update truegle.info.** (The CLI deploy URL is useful to preview changes before merging.)
+
+Backend CLI deploy fails with path-doubling error when run from `apps/backend/` because Vercel project has `rootDirectory=apps/backend` set. Workaround: `VERCEL_ORG_ID=team_OyHR5YLtUy6gIs8HmvhXKSsj VERCEL_PROJECT_ID=prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI vercel deploy --prod <repo_root>` from the TruegleSearch root.
+
+---
 
 This doc is written so it can be handed to **Claude in the web browser** to walk through
 the remaining **dashboard/browser activation steps**. Everything that requires code or a
@@ -376,8 +449,8 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
 | Google AdSense | 🛑 **REMOVED 2026-06-17** | Google rejected it ("ads on screens without publisher-content" — display AdSense isn't allowed on search results). All AdSense code/script removed; replaced by the first-party house-ad + Impact-affiliate system. Don't re-add to the search UI. See session log. |
 | Impact.com (affiliates) | 🟡 **Ready to reapply** | Declined 2026-06-21 (likely cause: no crawlable content / soft-404s). Root cause fixed + verified live 2026-06-21 (prerendering, real 404s, robots.txt, sitemap). See `tools/ad-distributor-cli` `info impact` for the pre-reapply checklist, then resubmit in the Impact dashboard. |
 | NVIDIA NIM (AI) | ✅ **Live (backup)** | `NVIDIA_API_KEY` set on Vercel. Now 3rd in failover (after Groq + Gemini). |
-| **Groq (AI)** | ✅ **Live — primary** | Free tier, no CC required. `GROQ_API_KEY` set on Vercel. Model: `llama-3.1-8b-instant`. Failover: groq→gemini→nvidia→openai→anthropic→ollama. |
-| **Gemini (AI)** | ✅ **Live (secondary)** | `GEMINI_API_KEY` already on Vercel. Switched to `gemini-1.5-flash` (1M tokens/day free). |
+| **Groq (AI)** | ✅ **Live — primary** | Free tier, no CC required. Keys `GROQ_API_KEY` + `GROQ_API_KEY_2` + `GROQ_API_KEY_3` set on Vercel (supports up to `_5`). Auto-rotates on 429/401. Model: `llama-3.1-8b-instant`. Failover: groq→gemini→nvidia→openai→anthropic→ollama. |
+| **Gemini (AI)** | ✅ **Live (secondary)** | `GEMINI_API_KEY` on Vercel. Model: `gemini-2.0-flash` (was `gemini-1.5-flash` — deprecated, caused 404s, fixed 2026-06-23). Configurable via `GEMINI_MODEL` env var. |
 | **SearXNG (self-hosted search)** | ✅ **Live — primary** | Hosted on a persistent AWS host with a permanent Elastic IP. `SEARXNG_URL` + `SEARXNG_PRIMARY=true` set on Vercel backend; redeployed and verified live (real queries return `source:"searxng"`). Paid API providers (Google/Bing/Brave) now only fire as fallback. `/api/search/health` doesn't report it yet (cosmetic gap, not functional). |
 | Search Console | ⏸️ Not started | See Step 5. |
 | Bing Webmaster | ⏸️ Not started | See Step 5. |
