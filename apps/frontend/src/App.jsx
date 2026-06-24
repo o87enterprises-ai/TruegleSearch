@@ -28,6 +28,7 @@ import SignUpPage from './pages/SignUpPage';
 import AuthCallback from './pages/AuthCallback';
 import UniversalSearch from './pages/UniversalSearch';
 import FeelingBiasedPage from './pages/FeelingBiasedPage';
+import ExtractPage from './pages/ExtractPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import About from './pages/About';
@@ -248,6 +249,7 @@ const AppContent = () => {
 
         {/* Feeling Biased Page - Keep as entry point */}
         <Route path="/feeling-biased" element={<RouteBoundary><FeelingBiasedPage /></RouteBoundary>} />
+        <Route path="/extract" element={<RouteBoundary><ExtractPage /></RouteBoundary>} />
 
         {/* Legal / Info Pages (required for OAuth publishing + AdSense) */}
         <Route path="/privacy" element={<RouteBoundary><PrivacyPolicy /></RouteBoundary>} />
