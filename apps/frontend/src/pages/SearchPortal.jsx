@@ -14,7 +14,7 @@ import AdSlot from '../components/AdSlot';
 import MultimediaInterface from '../components/ui/MultimediaInterface';
 import { SkeletonSearchResult, SkeletonCard } from '../components/ui/Skeleton';
 import { useToast, ToastProvider } from '../components/ui/ToastProvider';
-import { MapViewWrapper } from '../components/map';
+import { MapViewWrapper, useMap } from '../components/map';
 import { useLocationDetection } from '../hooks/useLocationDetection';
 import { useHealthCheck } from '../hooks/useHealthCheck';
 import MapApiService from '../components/map/services/mapApi';
@@ -33,6 +33,7 @@ export default function SearchPortal() {
   const [showHealthBanner, setShowHealthBanner] = useState(true);
   const { isLocationQuery, detectedLocation } = useLocationDetection(searchValue);
   const { health, isBackendHealthy, isRadarHealthy, isAnyServiceUnhealthy } = useHealthCheck();
+  const { actions } = useMap();
 
   // Function to detect if the search query is shopping-related
   const isShoppingQuery = (query) => {
@@ -1211,8 +1212,20 @@ export default function SearchPortal() {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          setUserLocation({ lat: latitude, lng: longitude });
+          const location = { lat: latitude, lng: longitude };
+          setUserLocation(location);
           console.log('User location obtained:', latitude, longitude);
+
+          // Drive the actual map view — fly to the user and drop a marker.
+          actions.flyTo(location, 15);
+          actions.addMarker({
+            id: 'current-location',
+            lat: latitude,
+            lng: longitude,
+            name: 'Your Location',
+            category: 'CURRENT_LOCATION',
+            address: 'Current Location',
+          });
 
           // If a business is selected, open directions
           if (selectedBusiness) {

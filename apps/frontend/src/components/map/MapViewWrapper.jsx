@@ -91,12 +91,25 @@ export default function MapViewWrapper({
           // Only update map if no detected location
           if (!detectedLocation) {
             setMapCenter([location.lng, location.lat]);
-            setMapZoom(10);
-            actions.flyTo(location, 10);
+            // Match the zoom level used by the explicit "allow location" flow
+            // (SearchPortal) so the two redundant geolocation requests converge
+            // on the same end state instead of fighting over the zoom level.
+            setMapZoom(15);
+            actions.flyTo(location, 15);
+            actions.addMarker({
+              id: 'current-location',
+              lat: location.lat,
+              lng: location.lng,
+              name: 'Your Location',
+              category: 'CURRENT_LOCATION',
+              address: 'Current Location',
+            });
           }
         },
         (error) => {
-          console.log('Geolocation error:', error.message);             }
+          console.log('Geolocation error:', error.message);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
   }, [isOpen, detectedLocation, userLocation]); // actions.flyTo is stable, no need to include in deps
@@ -340,7 +353,7 @@ export default function MapViewWrapper({
         {/* Map Container - Removed redundant header controls */}
         <div style={{ flex: 1, position: 'relative' }}>
           {/* Google-Maps-style place search bar */}
-          <div className="absolute top-3 left-3 right-3 z-20 max-w-sm">
+          <div className="absolute top-3 left-3 right-3 z-[60] max-w-sm">
             <div className="flex items-center gap-2 bg-white rounded-full shadow-lg px-4 py-2.5">
               <SearchIcon size={16} className="text-gray-500 shrink-0" />
               <input
