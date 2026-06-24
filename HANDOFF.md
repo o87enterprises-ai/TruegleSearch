@@ -3,6 +3,25 @@ _Last updated: 2026-06-24. Supersedes all prior handoff docs. **See the 2026-06-
 
 ---
 
+## 🗓️ SESSION LOG 2026-06-24 (cont'd) — Live site (truegle.info) stuck on a stale Cloudflare Pages build ⚠️ NEEDS DASHBOARD ACCESS
+
+User reported the Transcribe button / `/extract` route / new 404 page (merged earlier in commits `ba5bf84`, `65a9977`, `6a6e00e`) weren't showing on the live `truegle.info` site despite being on `main`.
+
+**Confirmed NOT a git/merge problem** — all three commits are present on `origin/main` (`git log` verified).
+
+**Confirmed IS a stale Cloudflare Pages deployment**, and stale by more than just this feature. Live-probed `https://truegle.info`:
+- Homepage JS bundle (`/assets/index-5VNdvv9V.js`) contains zero occurrences of `"Transcribe"` and zero occurrences of `"404?!"` (the new 404 page's copy).
+- `https://truegle.info/llms.txt` → 404, even though that file was added to the repo back in commit `ee35d33` ("Add multi-engine indexing: llms.txt, IndexNow key, Bing verification, sitemap lastmod") — an *earlier* session than the Transcribe work.
+- `https://truegle.info/sitemap.xml` → 200 but has **no `<lastmod>` tags**, even though that same `ee35d33` commit added them.
+- `https://truegle.info/extract` (direct nav) → 404.
+- Response headers show `cf-cache-status: REVALIDATED` on the JS bundle — Cloudflare re-checked with origin and origin itself served the old asset, so this isn't a simple CDN-cache-staleness issue; the deployed build itself is old.
+
+**Conclusion:** the live site is pinned to (or auto-deploy is stuck on) a Cloudflare Pages build from *before* `ee35d33`, i.e. stale by at least 2 sessions, not just the most recent one. Per `DEPLOYMENT-INFRA.md` the frontend is hosted on **Cloudflare Pages** (project `truegle-search`), not Vercel (Vercel only hosts the backend). The available Cloudflare MCP tools in this environment (`mcp__Cloudflare_Developer_Platform__*`) only cover Workers/D1/KV/R2/Hyperdrive — **there is no tool to list Pages projects, deployments, or build logs**, and there's no Vercel CLI session or GitHub Actions workflow to check either. This needs a human to open the **Cloudflare Pages dashboard → `truegle-search` project → Deployments tab** and check: (a) whether the GitHub integration is still triggering builds on push to `main`, (b) whether recent builds are failing, and (c) whether the `truegle.info` custom domain is still attached to the latest production deployment or pinned to an old one.
+
+**Fixed in the same pass (small, unrelated, low-risk):** `apps/frontend/public/_redirects` was missing a `/extract` entry, so a direct nav/refresh on `/extract` 404'd even on a fresh deploy (the SPA still boots and renders correctly client-side via `dist/404.html`'s fallback, just with the wrong HTTP status). Added `/extract  /_index  200` alongside the other SPA-route entries. Merged to `main` (commit `fc786e8`).
+
+---
+
 ## 🗓️ SESSION LOG 2026-06-24 — Map bug fixes: search dropdown stacking + geolocation zoom race (SHIPPED, merged to main)
 
 User-reported on the Maps view: (1) the map's place-search autocomplete dropdown rendered *behind* the map toolbar, and (2) zoom never landed correctly after granting browser location permission.
