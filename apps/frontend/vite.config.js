@@ -30,7 +30,13 @@ export default defineConfig(({ mode }) => {
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    // Sourcemaps are disabled in production: generating them for the heavy
+    // mapbox/three/echarts bundles added ~11MB of work per build and pushed
+    // Cloudflare Pages' build container over its memory/time budget, causing
+    // intermittent "No deployment available" failures. Dropping them makes
+    // builds reliable (and keeps our source unexposed). Re-enable locally with
+    // VITE_SOURCEMAP=true if you need to debug a production bundle.
+    sourcemap: process.env.VITE_SOURCEMAP === 'true',
     emptyOutDir: true,
     chunkSizeWarningLimit: 900,
     rollupOptions: {
