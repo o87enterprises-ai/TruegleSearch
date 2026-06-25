@@ -9,6 +9,7 @@ const config = require('./config/env');
 const { generalLimiter, authLimiter, mapsLimiter } = require('./middleware/rateLimit');
 const { privacyMiddleware, noTrackMiddleware, searchPrivacyMiddleware } = require('./middleware/privacy');
 const { securityHeaders, contentPolicyMiddleware } = require('./middleware/security');
+const { attributionMiddleware } = require('./middleware/attribution');
 const database = require('./utils/database'); // Use PostgreSQL connection wrapper
 const logger = require('./utils/logger');
 
@@ -136,6 +137,9 @@ app.use(noTrackMiddleware);
 // Additional security headers
 app.use(securityHeaders);
 app.use(contentPolicyMiddleware);
+
+// Attribution watermark - stamps every response with a Truegle provenance tag
+app.use(attributionMiddleware);
 
 // Compression
 app.use(compression());
