@@ -6,6 +6,7 @@ const { rateLimitSearch } = require('../middleware/rateLimit');
 const SearchService = require('../services/SearchService');
 // WeatherService exports a singleton instance (not a class)
 const weatherService = require('../services/WeatherService');
+const watermark = require('../utils/watermark');
 
 // Initialize search service
 const searchService = new SearchService();
@@ -41,14 +42,26 @@ router.post('/', rateLimitSearch, optionalAuth, async (req, res) => {
 
     const instantAnswer = await buildInstantAnswer(query.trim(), results);
 
+    // Weave an invisible canary watermark into each result's snippet so that
+    // scraped text carries Truegle provenance even if the visible attribution
+    // field is stripped. Uses the per-request traceId from attributionMiddleware.
+    const traceId = req.truegleTraceId;
+    const watermarkedResults = traceId
+      ? results.map((r) =>
+          r && typeof r.snippet === 'string'
+            ? { ...r, snippet: watermark.embed(r.snippet, traceId) }
+            : r
+        )
+      : results;
+
     res.json({
       success: true,
       query: query.trim(),
       filters: validFilters,
-      results: results,
+      results: watermarkedResults,
       instantAnswer: instantAnswer || null,
       timestamp: new Date().toISOString(),
-      resultCount: results.length,
+      resultCount: watermarkedResults.length,
     });
   } catch (error) {
     console.error('Search error:', error);
