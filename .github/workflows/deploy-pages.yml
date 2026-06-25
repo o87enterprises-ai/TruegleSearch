@@ -1,0 +1,47 @@
+# Builds the frontend on GitHub's runners and deploys it straight to
+# Cloudflare Pages via the API — bypassing Cloudflare's own (currently failing)
+# build integration. Runs on every push to main that touches the frontend, and
+# can be triggered manually from the Actions tab.
+#
+# Required repo secret:
+#   CLOUDFLARE_API_TOKEN  - a token with the "Cloudflare Pages: Edit" permission
+# The account ID below is not secret (it appears in dashboard URLs).
+name: Deploy frontend to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/frontend/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build frontend
+        run: npm run build:frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: pages deploy apps/frontend/dist --project-name=truegle-search --branch=main
+        env:
+          CLOUDFLARE_ACCOUNT_ID: 1052be08b0c9382768667a9254936f9c
