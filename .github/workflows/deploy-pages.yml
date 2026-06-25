@@ -9,13 +9,17 @@
 name: Deploy frontend to Cloudflare Pages
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/frontend/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/deploy-pages.yml'
+  # Auto-deploy on push is intentionally DISABLED for now so this workflow
+  # never consumes GitHub Actions minutes while Actions billing is unresolved.
+  # To re-enable automatic deploys later: (1) sort out GitHub Actions billing,
+  # (2) add the CLOUDFLARE_API_TOKEN repo secret, (3) uncomment the push block.
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'apps/frontend/**'
+  #     - 'package.json'
+  #     - 'package-lock.json'
+  #     - '.github/workflows/deploy-pages.yml'
   workflow_dispatch: {}
 
 jobs:
