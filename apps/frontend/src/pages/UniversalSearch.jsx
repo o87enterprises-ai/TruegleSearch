@@ -1471,6 +1471,24 @@ export default function UniversalSearch({ lockedGreen = false }) {
                       )}
                     </Fragment>
                   ))}
+
+                  {/* Attribution badge — appears under the results so scraped/
+                      shared result pages carry a visible Truegle credit. */}
+                  {searchResults.length > 0 && (
+                    <div className="mt-6 pt-4 border-t border-white/10 text-center">
+                      <span className="text-xs text-white/40">
+                        Results from{' '}
+                        <a
+                          href="https://truegle.info"
+                          rel="noopener noreferrer"
+                          className="text-white/60 hover:text-white/90 underline-offset-2 hover:underline"
+                        >
+                          Truegle
+                        </a>{' '}
+                        — the unbiased search engine
+                      </span>
+                    </div>
+                  )}
                 </>
               )}
             </div>
