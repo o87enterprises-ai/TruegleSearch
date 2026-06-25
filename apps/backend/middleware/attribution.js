@@ -17,7 +17,11 @@
 
 const crypto = require('crypto');
 
-const ATTRIBUTION_TEXT = 'Scraped from Truegle — https://truegle.info';
+// NOTE: this string is sent as an HTTP HEADER value (X-Truegle-Attribution),
+// so it MUST stay ASCII/latin1. Non-ASCII characters (e.g. an em-dash) make
+// Node's res.setHeader throw ERR_INVALID_CHAR on every request. Use a plain
+// hyphen, not "—".
+const ATTRIBUTION_TEXT = 'Scraped from Truegle - https://truegle.info';
 const ATTRIBUTION_SOURCE = 'Truegle';
 
 /**
@@ -41,8 +45,14 @@ const attributionMiddleware = (req, res, next) => {
   req.truegleTraceId = traceId;
 
   // Layer 1: header on every response, regardless of body type.
-  res.setHeader('X-Truegle-Attribution', ATTRIBUTION_TEXT);
-  res.setHeader('X-Truegle-Trace-Id', traceId);
+  // Guard the header writes: a watermark/attribution detail must NEVER be able
+  // to 500 a request (a non-ASCII char here previously took down every route).
+  try {
+    res.setHeader('X-Truegle-Attribution', ATTRIBUTION_TEXT);
+    res.setHeader('X-Truegle-Trace-Id', traceId);
+  } catch (err) {
+    // Swallow and continue — attribution is best-effort, not load-bearing.
+  }
 
   // Layer 2: inject an attribution block into JSON object bodies.
   const originalJson = res.json.bind(res);
