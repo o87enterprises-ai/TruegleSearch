@@ -1,4 +1,5 @@
 const rateLimit = require('express-rate-limit');
+const { getClientIp } = require('./botDetection');
 
 /**
  * General rate limiter for all API endpoints
@@ -39,8 +40,28 @@ const searchLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    // Use user ID if authenticated, otherwise IP address
-    return req.user && req.user.userId ? req.user.userId : req.ip;
+    // Use user ID if authenticated, otherwise the real client IP
+    // (Cloudflare-aware, falls back to req.ip).
+    return req.user && req.user.userId ? req.user.userId : getClientIp(req);
+  },
+});
+
+/**
+ * Bot-aware limiter for the search API. Only counts requests flagged as
+ * suspicious by botDetection — normal users skip it entirely — so a scraper
+ * that slips past UA-based blocking still hits a hard, low ceiling.
+ */
+const suspiciousBotLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => getClientIp(req),
+  skip: (req) => !(req.botInfo && req.botInfo.suspicious),
+  message: {
+    error: 'Rate limit exceeded',
+    message:
+      'Unusual request pattern detected. If you are a person, please try again shortly.',
   },
 });
 
@@ -68,7 +89,7 @@ const apiKeyLimiter = rateLimit({
     message: 'Please wait before creating more API keys.',
   },
   keyGenerator: (req) => {
-    return req.user ? req.user.userId : req.ip;
+    return req.user ? req.user.userId : getClientIp(req);
   },
 });
 
@@ -122,7 +143,7 @@ const tieredLimiter = (tier = 'free') => {
       message: `Your ${tier} tier allows ${config.max} requests per minute. Please upgrade for higher limits.`,
     },
     keyGenerator: (req) => {
-      return req.user ? req.user.userId : req.ip;
+      return req.user ? req.user.userId : getClientIp(req);
     },
   });
 };
@@ -150,4 +171,5 @@ module.exports = {
   rateLimitSearch,
   tieredLimiter,
   mapsLimiter,
+  suspiciousBotLimiter,
 };

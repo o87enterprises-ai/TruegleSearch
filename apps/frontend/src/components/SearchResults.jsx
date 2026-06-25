@@ -114,6 +114,25 @@ const SearchResults = ({ results, loading, filters }) => {
           </p>
         </div>
       )}
+
+      {results.length > 0 && (
+        <div className="pt-4 mt-2 border-t border-gray-100 flex items-center justify-center">
+          <span className="inline-flex items-center space-x-1.5 text-xs text-gray-400">
+            <SafeIcon icon={FiTag} size={12} />
+            <span>
+              Results from{' '}
+              <a
+                href="https://truegle.info"
+                className="text-gray-500 hover:text-blue-600"
+                rel="noopener noreferrer"
+              >
+                Truegle
+              </a>{' '}
+              &mdash; the unbiased search engine
+            </span>
+          </span>
+        </div>
+      )}
     </div>
   );
 };

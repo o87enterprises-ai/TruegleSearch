@@ -6,7 +6,8 @@ const morgan = require('morgan');
 require('dotenv').config();
 
 const config = require('./config/env');
-const { generalLimiter, authLimiter, mapsLimiter } = require('./middleware/rateLimit');
+const { generalLimiter, authLimiter, mapsLimiter, suspiciousBotLimiter } = require('./middleware/rateLimit');
+const { botDetection, blockBadBots } = require('./middleware/botDetection');
 const { privacyMiddleware, noTrackMiddleware, searchPrivacyMiddleware } = require('./middleware/privacy');
 const { securityHeaders, contentPolicyMiddleware } = require('./middleware/security');
 const { attributionMiddleware } = require('./middleware/attribution');
@@ -141,6 +142,9 @@ app.use(contentPolicyMiddleware);
 // Attribution watermark - stamps every response with a Truegle provenance tag
 app.use(attributionMiddleware);
 
+// Bot detection - annotates req.botInfo for downstream enforcement
+app.use(botDetection);
+
 // Compression
 app.use(compression());
 
@@ -213,7 +217,7 @@ app.get('/api/health', async (req, res) => {
 });
 
 // API routes
-app.use('/api/search', [searchPrivacyMiddleware, require('./routes/search')]);
+app.use('/api/search', [blockBadBots, suspiciousBotLimiter, searchPrivacyMiddleware, require('./routes/search')]);
 app.use('/api/auth', [authLimiter, require('./routes/auth')]);
 app.use('/api/analytics', require('./routes/analytics').router);
 app.use('/api/tokens', require('./routes/tokens'));
