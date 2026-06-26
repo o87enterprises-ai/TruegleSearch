@@ -33,6 +33,8 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import About from './pages/About';
 import Advertise from './pages/Advertise';
+import Blog from './pages/Blog';
+import BlogPost from './pages/BlogPost';
 import NotFound from "./pages/NotFound";
 import RootErrorBoundary from './components/ui/RootErrorBoundary';
 import RouteBoundary from './components/ui/RouteBoundary';
@@ -256,6 +258,10 @@ const AppContent = () => {
         <Route path="/terms" element={<RouteBoundary><TermsOfService /></RouteBoundary>} />
         <Route path="/about" element={<RouteBoundary><About /></RouteBoundary>} />
         <Route path="/advertise" element={<RouteBoundary><Advertise /></RouteBoundary>} />
+
+        {/* Blog / editorial content (crawlable publisher content for SEO + ads) */}
+        <Route path="/blog" element={<RouteBoundary><Blog /></RouteBoundary>} />
+        <Route path="/blog/:slug" element={<RouteBoundary><BlogPost /></RouteBoundary>} />
         {/* Onboarding Route */}
         <Route
           path="/onboarding"
