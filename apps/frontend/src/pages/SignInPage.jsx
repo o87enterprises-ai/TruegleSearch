@@ -133,11 +133,10 @@ export default function SignInPage() {
     }
   };
 
-  // Social sign-in is hidden until the Google OAuth consent screen is published
-  // (it's in "Testing" mode, which blocks non-test users). Flip
-  // VITE_SOCIAL_AUTH_ENABLED=true once OAuth is live. Email/password is unaffected.
-  const socialAuthEnabled =
-    OAUTH_ENABLED && import.meta.env.VITE_SOCIAL_AUTH_ENABLED === 'true';
+  // Google OAuth is live (backend verified, consent screen published), so the
+  // social sign-in button follows the single OAUTH_ENABLED master switch.
+  // Email/password is unaffected either way.
+  const socialAuthEnabled = OAUTH_ENABLED;
 
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 overflow-y-auto">

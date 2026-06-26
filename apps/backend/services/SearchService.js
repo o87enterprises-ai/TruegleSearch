@@ -1715,6 +1715,16 @@ class SearchService {
         description: 'Video content from YouTube',
         configured: !!this.youtubeApiKey,
       },
+      {
+        id: 'searxng',
+        name: 'SearXNG (self-hosted)',
+        enabled: !!this.searxngUrl,
+        requiresAuth: false,
+        description: this.searxngPrimary
+          ? 'Primary metasearch (self-hosted)'
+          : 'Metasearch fallback (self-hosted)',
+        configured: !!this.searxngUrl,
+      },
     ];
 
     return sources;
@@ -1746,6 +1756,10 @@ class SearchService {
               break;
             case 'youtube':
               await this.performYoutubeSearch('test', { perPage: 1 });
+              healthStatus[source.id] = 'healthy';
+              break;
+            case 'searxng':
+              await this.performSearXNGSearch('test', { page: 1 });
               healthStatus[source.id] = 'healthy';
               break;
             default:
