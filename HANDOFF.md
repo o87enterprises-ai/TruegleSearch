@@ -1,9 +1,28 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-06-24. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
+_Last updated: 2026-06-26. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
 
 ---
 
-## 🗓️ SESSION LOG 2026-06-24 (cont'd) — Live site (truegle.info) stuck on a stale Cloudflare Pages build ⚠️ NEEDS DASHBOARD ACCESS
+## 🗓️ SESSION LOG 2026-06-26 — Anti-scraping watermarking + Cloudflare auto-deploy FIXED at the root
+
+### Anti-scraping / attribution (SHIPPED, live + verified)
+Layered system so scraped content is watermarked, traceable, and (for obvious bots) blocked — without hurting legit SEO crawlers:
+- `apps/backend/middleware/attribution.js` — `X-Truegle-Attribution` + per-request `X-Truegle-Trace-Id` headers on every response, plus an `attribution` block (with `traceId`) injected into every JSON object body.
+- `apps/backend/utils/watermark.js` + `apps/backend/scripts/check-watermark.js` — invisible zero-width-unicode canary woven into each result snippet (`TRUEGLE:<traceId>`), with a CLI to detect it in suspect text.
+- `apps/backend/middleware/botDetection.js` — allow-lists Googlebot/Bingbot/social unfurlers; 403s automation (curl/python-requests/scrapy/headless) on `/api/search`; tight 5/min limiter for suspicious requests. Reads CF headers (`cf-connecting-ip`, `cf-verified-bot`, `cf-threat-score`). Toggle: `BOT_DETECTION_DISABLED=true`.
+- Visible "Results from Truegle" badge under search results in **`apps/frontend/src/pages/UniversalSearch.jsx`** (the component actually rendered at `/search` — NOT `components/SearchResults.jsx`, which is unused dead code that still has a stray copy of the badge).
+- Docs: `docs/ANTI-SCRAPING.md`.
+
+### ⚠️→✅ Backend 500 outage (caused + fixed same session)
+The attribution header value originally contained a non-ASCII em-dash, so `res.setHeader` threw `ERR_INVALID_CHAR` on EVERY request → backend 500 across all routes (live search was down). Fixed: ASCII hyphen + a `try/catch` guard around the header writes so attribution can never 500 a request. Lesson for next time: boot the server and hit a route, not just `node --check`.
+
+### ✅ Cloudflare Pages auto-deploy FIXED — root cause found (this resolves the 2026-06-24 entry below)
+The "stale build / deploys are manual via wrangler" problem was caused by **`package-lock.json` being out of sync**: `youtube-transcript@^1.3.1` was in `package.json` (the `/extract` tool) but missing from the lockfile, so Cloudflare's `npm ci` failed its sync check in ~0 seconds (the instant "Build failed" checks). Regenerated the lockfile (PR #15, `02a0f03`) → **Cloudflare's own build now succeeds and auto-deploys on push to `main` again** (verified: a fresh CF-built bundle deployed to truegle.info, badge live, HTTP 200).
+- Removed the stop-gap `.github/workflows/deploy-pages.yml` (a GitHub-Actions→Pages deploy added while CF builds were broken) since native CF auto-deploy is restored — and to avoid consuming GitHub Actions minutes. Backend still auto-deploys via Vercel.
+
+---
+
+## 🗓️ SESSION LOG 2026-06-24 (cont'd) — ✅ RESOLVED 2026-06-26 (see entry above) — Live site (truegle.info) was stuck on a stale Cloudflare Pages build
 
 User reported the Transcribe button / `/extract` route / new 404 page (merged earlier in commits `ba5bf84`, `65a9977`, `6a6e00e`) weren't showing on the live `truegle.info` site despite being on `main`.
 
@@ -398,7 +417,8 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
 8. **Location filter (optional)** — auto-detect already threads country/language to providers; add a
    visible country/region dropdown if you want user override.
 9. Carry-overs: Google CSE 403 (optional — Brave covers search), Stripe live keys (when charging),
-   re-enable real auth later (`FREE_ACCESS_MODE` + 12-char password fix), reconnect Cloudflare↔GitHub auto-deploy.
+   re-enable real auth later (`FREE_ACCESS_MODE` + 12-char password fix). ~~reconnect
+   Cloudflare↔GitHub auto-deploy~~ ✅ **DONE 2026-06-26 (PR #15 — lockfile sync).**
    **`RESEND_API_KEY` no longer needed** (advertiser contact is mailto now).
 
 ---
@@ -456,10 +476,11 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
 | DNS | ✅ Complete | Cloudflare nameservers active on IONOS |
 
 ### Known operational notes
-- **package-lock.json is out of sync** with package.json (missing passport + related deps).
-  Cloudflare Pages **GitHub auto-build is therefore disconnected** — deploys are **manual**
-  via wrangler for now. Fix = `npm install` from repo root, commit the updated lock file,
-  push; then reconnect the Pages Git integration.
+- ~~**package-lock.json is out of sync** … Cloudflare Pages auto-build disconnected, deploys
+  manual via wrangler.~~ ✅ **FIXED 2026-06-26 (PR #15).** The missing dep was
+  `youtube-transcript` (not passport); regenerated the lockfile so `npm ci` passes again.
+  Cloudflare's GitHub auto-build now succeeds and **auto-deploys on push to `main`** — no more
+  manual wrangler deploys.
 - **Vercel CLI token** expired once this session; re-auth via `vercel login` device flow
   (can be approved from a phone already logged into Vercel).
 
