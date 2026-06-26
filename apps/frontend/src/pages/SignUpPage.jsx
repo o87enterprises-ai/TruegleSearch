@@ -160,11 +160,10 @@ export default function SignUpPage() {
     alert(`${provider} authentication would happen here`);
   };
 
-  // Hidden until social OAuth is wired + the Google consent screen is published.
-  // Flip VITE_SOCIAL_AUTH_ENABLED=true to show. Email/password is unaffected.
-  // Also force-hidden while OAUTH_ENABLED is false (pre-production bypass).
-  const socialAuthEnabled =
-    OAUTH_ENABLED && import.meta.env.VITE_SOCIAL_AUTH_ENABLED === 'true';
+  // Google OAuth is live (backend verified, consent screen published), so the
+  // social sign-in button follows the single OAUTH_ENABLED master switch.
+  // Email/password is unaffected either way.
+  const socialAuthEnabled = OAUTH_ENABLED;
 
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 overflow-y-auto">

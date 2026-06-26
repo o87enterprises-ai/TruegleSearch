@@ -12,8 +12,13 @@ Disallow: /feeling-biased
 
 Sitemap: https://truegle.info/sitemap.xml
 
-# AI crawler guidance
+# AI / answer-engine crawler guidance — explicitly welcome the major
+# generative engines so Truegle can be surfaced/cited in AI answers (GEO/AEO).
 User-agent: GPTBot
+Allow: /
+
+# ChatGPT Search live crawler
+User-agent: OAI-SearchBot
 Allow: /
 
 User-agent: PerplexityBot
@@ -23,6 +28,18 @@ User-agent: ClaudeBot
 Allow: /
 
 User-agent: anthropic-ai
+Allow: /
+
+# Google Gemini / AI Overviews grounding
+User-agent: Google-Extended
+Allow: /
+
+# Apple Intelligence
+User-agent: Applebot-Extended
+Allow: /
+
+# Common Crawl (feeds many open LLMs)
+User-agent: CCBot
 Allow: /
 
 # LLMs.txt: https://truegle.info/llms.txt
