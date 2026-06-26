@@ -22,6 +22,8 @@
 /search           /_index  200
 /search/*         /_index  200
 /extract          /_index  200
+/blog             /_index  200
+/blog/*           /_index  200
 /green            /_index  200
 /feeling-biased   /_index  200
 /biased           /_index  200

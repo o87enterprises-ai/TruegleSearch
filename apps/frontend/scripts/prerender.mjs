@@ -109,7 +109,11 @@ async function main() {
   });
 
   try {
-    const { ROUTES, renderRoute } = await import(`file://${bundlePath}`);
+    const { ROUTES, renderRoute, ROUTE_META } = await import(`file://${bundlePath}`);
+
+    // Blog routes ship their META from the bundle (single source of truth in
+    // src/content/blogPosts.jsx); merge it into the static META above.
+    Object.assign(META, ROUTE_META || {});
 
     for (const route of ROUTES) {
       const markup = renderRoute(route);
