@@ -9,6 +9,7 @@ import {
   ExternalLink,
   ThumbsUp,
   ThumbsDown,
+  Eye,
   X,
 } from 'lucide-react';
 
@@ -726,6 +727,17 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   >
                     <ExternalLink size={12} /> Open link
                   </a>
+                  {result.proxyUrl && (
+                    <a
+                      href={result.proxyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open this page through Truegle's anonymous proxy — the site never sees your IP or browser"
+                      className={`flex items-center gap-1 ${accent.link} transition-colors`}
+                    >
+                      <Eye size={12} /> View anonymously
+                    </a>
+                  )}
                   <button
                     onClick={() => { setViewerOpen(!viewerOpen); setIframeBlocked(false); }}
                     className={`${accent.link} transition-colors`}
@@ -777,8 +789,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
                 </div>
               ) : (
                 <iframe
-                  key={result.url}
-                  src={result.url}
+                  key={result.proxyUrl || result.url}
+                  src={result.proxyUrl || result.url}
                   className="w-full h-[60vh]"
                   title="Result preview"
                   sandbox="allow-scripts allow-same-origin"

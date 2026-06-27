@@ -99,6 +99,36 @@ Then verify: `curl https://www.cloudflare.com/cdn-cgi/trace` should show `warp=o
 
 ---
 
+## 🗓️ SESSION LOG 2026-06-27 (b) — Anonymous View (SearXNG result proxy) + transcript fix + Morty script
+
+### Anonymous View / proxied page views (SHIPPED — gated, off until host configured)
+Startpage-style "Anonymous View" reusing the SearXNG result-proxy (Morty) we
+already self-host on AWS. Root cause it addresses: SearXNG's **JSON API returns
+raw URLs** — proxification only happens in SearXNG's HTML template — so the app
+never had proxy links. We now replicate SearXNG's `proxify()` server-side.
+- `apps/backend/config/env.js`: new `SEARXNG_RESULT_PROXY_URL` + `SEARXNG_RESULT_PROXY_KEY`.
+- `apps/backend/services/SearchService.js`: `buildResultProxyUrl(url)` + `attachProxyUrls()`
+  (extends anonymous view to Brave/Google/Bing/News results, not just SearXNG).
+- `apps/frontend/src/pages/UniversalSearch.jsx` (`ResultCard`): "View anonymously" link + iframe.
+- **Off by default** — activates only when the two env vars are set.
+- Docs: `docs/ANONYMOUS-VIEW.md`.
+
+### Morty setup script (SHIPPED — `scripts/setup-morty.sh`)
+One-shot EC2-host script: generates the HMAC key, runs Morty in Docker on
+`127.0.0.1:3000`, prints the settings.yml block + Vercel env vars. Front with TLS
+at `anon.truegle.info`.
+
+### YouTube transcript fix — accurate errors + proxy support (SHIPPED, host action needed)
+Root cause: YouTube rate-limits/captchas our datacenter IP. Old route always blamed
+"captions disabled," which was wrong.
+- New `apps/backend/services/TranscriptService.js` replaces the unmaintained
+  `youtube-transcript` dep. Loads watch page → parses `ytInitialPlayerResponse` → timedtext.
+  Classifies errors (RATE_LIMITED / NO_CAPTIONS / AGE_RESTRICTED / UNAVAILABLE / FETCH_FAILED).
+- Supports `TRANSCRIPT_PROXY_URL` env var to route through a non-blocked IP.
+- **TODO (host):** set a residential/rotating proxy on Vercel.
+
+---
+
 ## 🗓️ SESSION LOG 2026-06-27 — Bug fixes, share button, landing page, trending feed, SearXNG media categories
 
 ### Three user-reported bugs (SHIPPED, all on `main`)
