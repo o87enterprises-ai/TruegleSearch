@@ -3,6 +3,62 @@ _Last updated: 2026-06-27. Supersedes all prior handoff docs. **See the 2026-06-
 
 ---
 
+## 🗓️ SESSION LOG 2026-06-27b — Green mode persistence, SearXNG labeling, proxy/social/VPN roadmap
+
+### Green mode preference — ask once, never again (SHIPPED)
+- Moved `truegle_first_search_done` from `sessionStorage` → `localStorage` (`truegle_mode_pref_asked`).
+- Added `truegle_mode_pref` key: written on every pill-toggle change AND on first-modal answer. Initializes mode from it on load (URL param `?mode=` still overrides for direct links).
+- Modal copy updated: added "Your choice is saved — we won't ask again. Change anytime via the pill toggle."
+- "No, keep Smart features" button now explicitly saves `'blue'` preference (was silently defaulting).
+
+### SearXNG result source labeling (SHIPPED)
+- `formatSearXNGResults` and `formatSearXNGCategoryResults` now set `sourceName` to `"<engine> · via Truegle"` (e.g. "google · via Truegle", "brave · via Truegle") instead of the raw engine string.
+- Tells users which underlying engine surfaced the result while making clear it came through Truegle's self-hosted, no-tracking metasearch layer — not a direct call to that provider.
+
+### Anonymous View (Option A) — PLANNED, not yet built
+SearXNG ships with built-in result proxying via **Morty** (a self-contained Go proxy). Steps to enable on the AWS instance:
+1. On the AWS host: run Morty alongside SearXNG (Docker: `ghcr.io/searxng/morty:latest`), expose on an internal port (e.g. 3002). Set `MORTY_URL` and `MORTY_KEY` in SearXNG's `settings.yml`.
+2. Add `SEARXNG_MORTY_URL=https://<aws-host>/morty` env var to Vercel backend.
+3. In `apps/backend/config/env.js`: add `SEARXNG_MORTY_URL: Joi.string().optional()` under the `searxng` block.
+4. In `SearchService.formatSearXNGResults`: add `proxyUrl: this.mortyUrl ? buildMortyUrl(item.url, this.mortyKey) : null` to each result.
+5. In `UniversalSearch.jsx` result card: add a "View anonymously" button next to "Open link" that opens `result.proxyUrl` when available.
+Option B (custom backend proxy route — more branding control, bigger SSRF risk): see note in this session's discussion. Defer until Option A is proven.
+
+### Social media feed aggregator — PLANNED, not yet built
+**Goal:** let users view content from Twitter/X, Reddit, Instagram, TikTok, LinkedIn, YouTube, etc. in a unified tabbed interface inside Truegle — no need to navigate to each platform. Huge UX win for content creators managing multiple accounts.
+
+**Architecture decision needed:**
+- **Iframe embed approach**: nearly impossible — Twitter/X, Instagram, TikTok all send `X-Frame-Options: DENY` or `frame-ancestors 'none'`. Iframes will be blank walls.
+- **oEmbed / public API approach**: many platforms expose oEmbed (YouTube, Reddit, Twitter). Returns HTML snippets for individual posts — good for "search results that preview social content" but not a live feed.
+- **RSS feed proxy**: Reddit supports RSS (`/r/topic.rss`), YouTube channels have feeds, some Twitter lists via third-party RSS bridges. Backend fetches + caches RSS → renders as a live feed panel. **Most feasible, zero API key cost, works today.**
+- **Official APIs** (Twitter v2 free tier, Reddit OAuth, YouTube Data): gives real feed access but rate-limited and requires OAuth per-user for personalized feeds.
+- **Recommended path for v1**: RSS-backed feed aggregator with fallback to SearXNG `social media` category. No auth needed, works for public content. Build a `/api/social/feed?platform=reddit|youtube|twitter` backend route that fetches the platform's RSS/Atom feed and returns normalized `{title, url, snippet, image, author, date}` objects. Frontend: a new "Social" sidebar tab on the search results page with platform switcher buttons.
+- **v2**: Add OAuth "Connect your accounts" for personalized feeds (Twitter home timeline, Instagram, etc.).
+
+### Sitewide VPN / proxy chain — OPTIONS DISCUSSED, infrastructure decision needed
+**Goal:** add a network-layer privacy shield for all user → Truegle → internet traffic, so even the AWS SearXNG host doesn't see real user IPs, and upstream search providers only see Truegle's IP.
+
+**What's already true:** SearXNG on AWS already proxies all search requests — upstream engines see the AWS Elastic IP, never the user's IP. That's significant.
+
+**What's not yet protected:** if users visit result pages directly (clicking links), those sites see the user's real IP. That's what Anonymous View (Morty) solves.
+
+**Free persistent options for the AWS host itself:**
+1. **WireGuard** (free, self-hosted): Install WireGuard on the AWS instance, route SearXNG outbound traffic through it. Requires a second endpoint (another VPS, or a friend's server). Free but needs another machine.
+2. **Tor exit via torify/torsocks** (free): Wrap SearXNG's outbound requests through the Tor network. Significant latency (2–5 s extra). Search engines actively block Tor exit nodes — will cause CAPTCHAs and blocks on Google/Bing. Not recommended for search traffic.
+3. **Residential proxy rotation** (not free): Bright Data, Oxylabs, etc. — expensive but unblockable. Already partially wired in `apps/backend/config/env.js` (`BRIGHT_DATA_*`).
+4. **Cloudflare WARP on the AWS host** (free): Install Cloudflare WARP on the EC2 instance. Routes all outbound traffic through Cloudflare's network, masking the Elastic IP from upstream engines. Zero cost, easy setup (`warp-cli`), low latency. **Best free option for adding a network layer over AWS.**
+
+**Recommendation**: install Cloudflare WARP on the AWS EC2 instance for the SearXNG host. Commands:
+```bash
+curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+sudo apt update && sudo apt install cloudflare-warp
+warp-cli register && warp-cli connect
+```
+Then verify: `curl https://www.cloudflare.com/cdn-cgi/trace` should show `warp=on`. No cost, no new servers.
+
+---
+
 ## 🗓️ SESSION LOG 2026-06-27 — Bug fixes, share button, landing page, trending feed, SearXNG media categories
 
 ### Three user-reported bugs (SHIPPED, all on `main`)

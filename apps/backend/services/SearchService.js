@@ -917,7 +917,9 @@ class SearchService {
       url: item.url,
       snippet: item.content || '',
       source: 'searxng',
-      sourceName: item.engine || 'SearXNG',
+      // Show the aggregated engine so users know the provenance, but make clear
+      // it came through Truegle's self-hosted metasearch (no direct tracking).
+      sourceName: item.engine ? `${item.engine} · via Truegle` : 'Truegle Metasearch',
       date: item.publishedDate || new Date().toISOString(),
       image: item.img_src || null,
       favicon: null,
@@ -976,7 +978,7 @@ class SearchService {
           url: item.url,
           snippet: item.content || '',
           source: 'searxng',
-          sourceName: item.engine || 'SearXNG',
+          sourceName: item.engine ? `${item.engine} · via Truegle` : 'Truegle Metasearch',
           date: item.publishedDate || null,
           favicon: null,
           domain: this.extractDomain(item.url),
