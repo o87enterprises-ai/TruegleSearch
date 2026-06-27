@@ -3,6 +3,46 @@ _Last updated: 2026-06-27. Supersedes all prior handoff docs. **See the 2026-06-
 
 ---
 
+## 🗓️ SESSION LOG 2026-06-27c — Extract page redesign + App loading screen + Social feed panel
+
+### `/extract` page — full UI redesign (SHIPPED)
+Complete shell redesign of `apps/frontend/src/pages/ExtractPage.jsx` while preserving all extraction logic (`handleExtract`, spin system, ad modal, copy/download).
+
+**What changed:**
+- **Yellow-tinted starfield** — inline `YellowStarfield` canvas component with gold-interpolated stars (white→amber based on per-star `gold` factor). Distinct from the white starfields on other pages. Subtle yellow ambient glow behind the canvas.
+- **TruegleLogo** on top (medium size, navigates to `/`), followed by "Content Extractor" heading in a yellow–amber gradient and a brief description.
+- **Pill mode bar** added at the top of the page with four pills: Smart (blue) · Green · Red Pill · **Extract (yellow)**. Yellow is the extract-native mode; selecting any other pill navigates away to that mode's search page (`/search`, `/search?mode=green`, `/search?mode=red`).
+- **Action buttons** in the top-right: "Extract" (yellow, primary) + "Return to Search" (grey, navigates to `/search?mode=<active pill>`).
+- **Simplified URL bar** — `Link2` icon + plain URL input + "Extract" submit button. No voice/camera/file inputs, no category chips, no AI-summary toggle.
+- **Transcript / Images toggle** — two pill buttons replace the old filters button; switching clears results.
+- **Extracted content renders directly below the bar** — transcript (with expand/collapse + copy/.txt download + spin counter) or image grid (3–4 column responsive, broken-image hiding).
+- **Ad containers** — `AdSlot` slots above and below the content area kept.
+- **Spin gate + ad modal** — preserved logic: 3 free/day, 5-second countdown ad stub → 3 bonus spins on claim. No real ad SDK yet (wire in rewarded format when ad network is approved).
+- **Watermark** appended to copy/download: `\n\n---\nExtracted via Truegle · truegle.info`.
+
+### App loading screen redesign (SHIPPED)
+Updated `ProtectedRoute` loading state in `apps/frontend/src/App.jsx`:
+- **Before:** plain white screen, blue spinner, gray "Loading…" text.
+- **After:** black background, 80 randomly-scattered CSS `animate-pulse` white stars with randomized size/opacity/delay, `TruegleLogo` (large, centered), three `animate-bounce` blue dots below the logo.
+- Import of `TruegleLogo` added to `App.jsx`.
+
+### Social feed panel (SHIPPED — prior sub-session)
+- `/api/social/feed` endpoint (`apps/backend/routes/social.js`) — fetches Reddit, Hacker News, GitHub in parallel via `Promise.allSettled`; normalizes to shared shape; returns `{ results, platforms, errors }`.
+- `MultimediaInterface.jsx` Social tab upgraded: `FeedPlatformTabs`, `RedditCard`, `HNCard`, `GitHubCard`, `YouTubeCard` (via SearXNG videos category), `ComingSoonPanel` for Twitter/X, Instagram, TikTok, Facebook (explains API access limitations).
+
+### Bug fixes (SHIPPED — prior sub-session)
+- **Search results page freeze** — 7 map service files had a broken `getBackendUrl()` returning `''` in production → all map/geocode POSTs hit Cloudflare Pages (405). Fixed: all 7 files now use `import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'` directly.
+- **CSP inline script blocked** — Cloudflare Beacon inline script hash `'sha256-qsUG590fP2ZJ57ebibYm/ibZ7a6/xr76adozIVNz9mE='` added to `script-src` in `_headers`.
+
+### Pending (deferred to v2)
+- **Anonymous View via Morty** — enable on AWS SearXNG instance (see 2026-06-27b log for full steps).
+- **Social OAuth** — Instagram, TikTok, Twitter/X, Facebook personalized feeds require platform app review (v2).
+- **Cloudflare WARP** on AWS EC2 (see 2026-06-27b log for install commands).
+- **`/api/search/health` searxng field** — cosmetic monitoring gap, not functional.
+- **Ad SDK for rewarded extractions** — current ad modal is a 5s countdown stub; wire real rewarded format when ad network is approved.
+
+---
+
 ## 🗓️ SESSION LOG 2026-06-27b — Green mode persistence, SearXNG labeling, proxy/social/VPN roadmap
 
 ### Green mode preference — ask once, never again (SHIPPED)
