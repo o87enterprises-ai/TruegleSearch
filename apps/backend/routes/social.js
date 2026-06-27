@@ -246,4 +246,155 @@ router.post('/direct-search', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Free RSS/JSON social feed — no API key required
+// Fetches Reddit, Hacker News, and GitHub in parallel then normalises to a
+// shared result shape.  Falls back to SearXNG social-media category when the
+// self-hosted instance is reachable.
+// ---------------------------------------------------------------------------
+
+const FEED_TIMEOUT = 6000; // ms per upstream call
+
+function normaliseReddit(posts, query) {
+  return (posts || []).map((p) => {
+    const d = p.data || p;
+    return {
+      id: d.id || d.name,
+      platform: 'Reddit',
+      title: d.title || '',
+      url: d.url?.startsWith('http') ? d.url : `https://reddit.com${d.permalink}`,
+      permalink: `https://reddit.com${d.permalink || ''}`,
+      snippet: d.selftext ? d.selftext.slice(0, 200) : '',
+      author: d.author || 'u/anonymous',
+      subreddit: d.subreddit_name_prefixed || `r/${d.subreddit || 'all'}`,
+      date: d.created_utc ? new Date(d.created_utc * 1000).toISOString() : null,
+      score: d.score ?? null,
+      comments: d.num_comments ?? null,
+      thumbnail: (d.thumbnail && d.thumbnail.startsWith('http')) ? d.thumbnail : null,
+      flair: d.link_flair_text || null,
+    };
+  });
+}
+
+function normaliseHN(hits) {
+  return (hits || []).map((h) => ({
+    id: String(h.objectID),
+    platform: 'Hacker News',
+    title: h.title || h.story_title || '',
+    url: h.url || `https://news.ycombinator.com/item?id=${h.objectID}`,
+    permalink: `https://news.ycombinator.com/item?id=${h.objectID}`,
+    snippet: h.story_text ? h.story_text.replace(/<[^>]+>/g, '').slice(0, 200) : '',
+    author: h.author || '',
+    subreddit: null,
+    date: h.created_at || null,
+    score: h.points ?? null,
+    comments: h.num_comments ?? null,
+    thumbnail: null,
+    flair: null,
+  }));
+}
+
+function normaliseGitHub(repos) {
+  return (repos || []).map((r) => ({
+    id: String(r.id),
+    platform: 'GitHub',
+    title: r.full_name || r.name || '',
+    url: r.html_url || '',
+    permalink: r.html_url || '',
+    snippet: r.description || '',
+    author: r.owner?.login || '',
+    subreddit: null,
+    date: r.updated_at || r.created_at || null,
+    score: r.stargazers_count ?? null,
+    comments: r.open_issues_count ?? null,
+    thumbnail: r.owner?.avatar_url || null,
+    flair: r.language || null,
+  }));
+}
+
+async function fetchReddit(query, limit) {
+  const params = new URLSearchParams({ q: query, sort: 'hot', limit, type: 'link', t: 'week' });
+  const url = `https://www.reddit.com/search.json?${params}`;
+  const res = await axios.get(url, {
+    timeout: FEED_TIMEOUT,
+    headers: { 'User-Agent': 'TruegleSearch/1.0 (social-feed)' },
+  });
+  return normaliseReddit(res.data?.data?.children?.map((c) => c.data) || [], query);
+}
+
+async function fetchHackerNews(query, limit) {
+  const params = new URLSearchParams({ query, tags: 'story', hitsPerPage: limit });
+  const url = `https://hn.algolia.com/api/v1/search?${params}`;
+  const res = await axios.get(url, { timeout: FEED_TIMEOUT });
+  return normaliseHN(res.data?.hits || []);
+}
+
+async function fetchGitHub(query, limit) {
+  const params = new URLSearchParams({ q: query, sort: 'stars', order: 'desc', per_page: limit });
+  const url = `https://api.github.com/search/repositories?${params}`;
+  const res = await axios.get(url, {
+    timeout: FEED_TIMEOUT,
+    headers: { Accept: 'application/vnd.github.v3+json', 'User-Agent': 'TruegleSearch/1.0' },
+  });
+  return normaliseGitHub(res.data?.items || []);
+}
+
+/**
+ * POST /api/social/feed
+ * body: { query: string, platforms?: string[] }
+ * platforms defaults to ['reddit','hackernews','github'] when omitted or ['all'].
+ * Returns: { results: [...], platforms: { reddit: [...], hackernews: [...], github: [...] } }
+ */
+router.post('/feed', async (req, res) => {
+  try {
+    const { query, platforms: requestedPlatforms } = req.body;
+    if (!query || typeof query !== 'string' || !query.trim()) {
+      return res.status(400).json({ error: 'query is required' });
+    }
+
+    const q = query.trim();
+    const limit = 20;
+    const all = !requestedPlatforms || requestedPlatforms.includes('all');
+    const want = (p) => all || requestedPlatforms.includes(p);
+
+    // Kick off all requested platform fetches in parallel; each is
+    // independently fault-tolerant — a single failure doesn't kill the rest.
+    const [redditResult, hnResult, ghResult] = await Promise.allSettled([
+      want('reddit') ? fetchReddit(q, limit) : Promise.resolve([]),
+      want('hackernews') ? fetchHackerNews(q, limit) : Promise.resolve([]),
+      want('github') ? fetchGitHub(q, limit) : Promise.resolve([]),
+    ]);
+
+    const reddit = redditResult.status === 'fulfilled' ? redditResult.value : [];
+    const hackernews = hnResult.status === 'fulfilled' ? hnResult.value : [];
+    const github = ghResult.status === 'fulfilled' ? ghResult.value : [];
+
+    if (redditResult.status === 'rejected') logger.warn('Reddit feed failed:', redditResult.reason?.message);
+    if (hnResult.status === 'rejected') logger.warn('HN feed failed:', hnResult.reason?.message);
+    if (ghResult.status === 'rejected') logger.warn('GitHub feed failed:', ghResult.reason?.message);
+
+    // Merged chronological feed across all platforms
+    const all_results = [...reddit, ...hackernews, ...github].sort((a, b) => {
+      if (!a.date && !b.date) return 0;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return new Date(b.date) - new Date(a.date);
+    });
+
+    return res.json({
+      query: q,
+      results: all_results,
+      platforms: { reddit, hackernews, github },
+      errors: {
+        reddit: redditResult.status === 'rejected' ? 'unavailable' : null,
+        hackernews: hnResult.status === 'rejected' ? 'unavailable' : null,
+        github: ghResult.status === 'rejected' ? 'unavailable' : null,
+      },
+    });
+  } catch (error) {
+    logger.error('Social feed error:', error);
+    return res.status(500).json({ error: 'Social feed unavailable', details: 'Service error' });
+  }
+});
+
 module.exports = router;

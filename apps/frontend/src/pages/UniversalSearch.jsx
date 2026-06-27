@@ -115,7 +115,13 @@ export default function UniversalSearch({ lockedGreen = false }) {
   // Mode management - Default to 'blue' (SearchPortal)
   const modeParam = searchParams.get('mode');
   const { mode: autoMode, modeConfig, overrideMode } = useSearchMode(query);
-  const [mode, setMode] = useState(lockedGreen ? 'green' : (modeParam || 'blue')); // Default to blue; forced green when locked
+  // Persist mode preference across sessions — if user has set a preference, honour it;
+  // URL param overrides (so direct links like ?mode=red still work).
+  const [mode, setMode] = useState(() => {
+    if (lockedGreen) return 'green';
+    if (modeParam) return modeParam;
+    return localStorage.getItem('truegle_mode_pref') || 'blue';
+  });
 
   // Summary banner: null = not chosen, 'show' = show for session, 'none' = dismissed for session
   const [sessionSummaryChoice, setSessionSummaryChoice] = useState(
@@ -124,10 +130,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const [showNoSummaryConfirm, setShowNoSummaryConfirm] = useState(false);
   const [summaryCollapsed, setSummaryCollapsed] = useState(false);
 
-  // First-search modal (shown once per session)
+  // First-search modal: shown exactly once ever (localStorage, not sessionStorage).
+  // Skip entirely if user already has a saved preference.
   const [showFirstSearchModal, setShowFirstSearchModal] = useState(false);
   const [firstSearchDone, setFirstSearchDone] = useState(
-    () => sessionStorage.getItem('truegle_first_search_done') === 'true'
+    () => localStorage.getItem('truegle_mode_pref_asked') === 'true'
   );
 
   // Search state
@@ -386,10 +393,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
       consecutiveFailuresRef.current = 0;
       if (showRepairsModal) setShowRepairsModal(false);
 
-      // Show first-search modal once per session
+      // Show green-mode preference modal exactly once ever (localStorage).
       if (!firstSearchDone) {
         setFirstSearchDone(true);
-        sessionStorage.setItem('truegle_first_search_done', 'true');
+        localStorage.setItem('truegle_mode_pref_asked', 'true');
         setShowFirstSearchModal(true);
       }
 
@@ -469,6 +476,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
       ? (newModeOrBool ? 'red' : 'blue')
       : newModeOrBool;
     setMode(newMode);
+    localStorage.setItem('truegle_mode_pref', newMode);
     const params = new URLSearchParams(searchParams);
     if (newMode === 'blue') {
       params.delete('mode');
@@ -1354,10 +1362,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     </div>
                     <h3 className="text-white font-bold text-lg">Disable Smart Features?</h3>
                   </div>
-                  <p className="text-white/60 text-sm mb-5">
+                  <p className="text-white/60 text-sm mb-1">
                     Switch to <strong className="text-green-400">Green Pill Mode</strong> for a
                     completely AI-free search experience — pure results, no summaries, no chat assistant.
                   </p>
+                  <p className="text-white/40 text-xs mb-5">Your choice is saved — we won't ask again. Change it anytime via the pill toggle.</p>
                   <div className="flex gap-3">
                     <button
                       onClick={() => {
@@ -1369,7 +1378,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
                       Yes, go Green
                     </button>
                     <button
-                      onClick={() => setShowFirstSearchModal(false)}
+                      onClick={() => {
+                        localStorage.setItem('truegle_mode_pref', 'blue');
+                        setShowFirstSearchModal(false);
+                      }}
                       className="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-all"
                     >
                       No, keep Smart features

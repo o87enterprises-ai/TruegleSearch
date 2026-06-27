@@ -4,17 +4,7 @@
  * Source: https://github.com/opentrafficcam/map
  */
 
-// Smart backend URL detection - works for both local and external (ngrok) access
-const getBackendUrl = () => {
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const isLocalIP = window.location.hostname.match(/^192\.168\.\d+\.\d+$/) ||
-                    window.location.hostname.match(/^10\.\d+\.\d+\.\d+$/);
-
-  // Only use absolute URL for localhost, otherwise use relative (goes through Vite proxy)
-  return (isLocalhost || isLocalIP) ? 'http://localhost:3001' : '';
-};
-
-const BACKEND_URL = getBackendUrl();
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 /**
  * Calculate distance between two coordinates (Haversine formula)
