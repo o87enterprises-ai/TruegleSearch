@@ -11,7 +11,6 @@ import {
   ThumbsDown,
   LogIn,
 } from 'lucide-react';
-import AdBanner from './AdBanner';
 import { aiAPI } from '../../services/api';
 import { FREE_ACCESS_MODE } from '../../config/access';
 
@@ -57,7 +56,6 @@ export default function AIChatOverlay({
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [adKey, setAdKey] = useState(0);
   const messagesEndRef = useRef(null);
 
   // Theme color mappings for different modes
@@ -173,7 +171,6 @@ export default function AIChatOverlay({
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
-    setAdKey((prev) => prev + 1);
 
     try {
       const response = await aiAPI.chat(inputValue, { context: resolvedContext });
@@ -258,14 +255,6 @@ export default function AIChatOverlay({
               <X size={24} />
             </button>
           </div>
-
-          {/* House ad — GitHub profile */}
-          <AdBanner
-            key={`ad-top-${adKey}`}
-            adId="github-profile"
-            zone="chat-top"
-            className="mx-6 mt-4"
-          />
 
           {/* Messages Container */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -356,14 +345,6 @@ export default function AIChatOverlay({
 
             <div ref={messagesEndRef} />
           </div>
-
-          {/* House ad — advertiser call-to-action (opens contact modal) */}
-          <AdBanner
-            key={`ad-bottom-${adKey}`}
-            adId="advertise-cta"
-            zone="chat-bottom"
-            className="mx-6 mb-4"
-          />
 
           {/* Input Area */}
           <div className={`p-6 border-t ${colors.border} bg-gradient-to-r ${colors.bgGradient}`}>

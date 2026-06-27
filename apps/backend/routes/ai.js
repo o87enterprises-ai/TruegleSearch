@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuth } = require('../middleware/auth');
 const { rateLimitSearch } = require('../middleware/rateLimit');
 const AIService = require('../services/AIService');
 const TokenService = require('../services/TokenService');
@@ -57,7 +57,7 @@ const MODE_SYSTEM_PROMPTS = {
   search_results: `You are a helpful, neutral search assistant. Answer the user's questions based on the search results context provided. Be concise, factual, and balanced. Cite multiple perspectives where relevant.`,
 };
 
-router.post('/chat', authenticate, rateLimitSearch, async (req, res) => {
+router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
   try {
     const { message, context = 'general', options = {} } = req.body;
 
@@ -68,32 +68,35 @@ router.post('/chat', authenticate, rateLimitSearch, async (req, res) => {
       });
     }
 
-    // Check if user has sufficient tokens for AI access
     const user = req.user;
-    const canAccess = await TokenService.canAccessFeature(user.id, 'ai-chat');
+    const isAuthed = user?.isAuthenticated && user?.userId;
 
-    if (!canAccess) {
-      return res.status(402).json({
-        error: 'Insufficient tokens',
-        message: 'Not enough tokens to access AI chat. Please watch an ad or upgrade your account.'
-      });
+    // Only enforce token gate for signed-in users
+    if (isAuthed) {
+      const canAccess = await TokenService.canAccessFeature(user.userId, 'ai-chat');
+      if (!canAccess) {
+        return res.status(402).json({
+          error: 'Insufficient tokens',
+          message: 'Not enough tokens to access AI chat. Please watch an ad or upgrade your account.'
+        });
+      }
     }
 
     // Inject mode-specific system prompt override when available
     const systemOverride = MODE_SYSTEM_PROMPTS[context];
     const response = await aiClient.chat(message, context, {
       ...options,
-      userName: user.name || 'User',
+      userName: isAuthed ? (user.name || 'User') : 'Guest',
       ...(systemOverride ? { systemOverride } : {}),
     });
 
-    // Deduct token if not from cache
-    if (!response.fromCache) {
-      await TokenService.spendToken(user.id, 'ai-chat');
+    // Deduct token for authenticated users
+    if (isAuthed && !response.fromCache) {
+      await TokenService.spendToken(user.userId, 'ai-chat');
     }
 
     logger.info('AI chat successful:', {
-      userId: user.id,
+      userId: isAuthed ? user.userId : 'guest',
       context,
       fromCache: response.fromCache,
       provider: response.provider
