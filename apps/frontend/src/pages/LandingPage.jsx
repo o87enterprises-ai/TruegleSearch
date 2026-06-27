@@ -400,14 +400,12 @@ export default function LandingPage() {
                 searchIconColor="text-green-500/80"
                 onSearch={() => {
                   setShowGlitch(true);
-                  setTimeout(() => {
-                    const modeParam = pillMode !== 'blue' ? `&mode=${pillMode}` : '';
-                    if (searchQuery.trim()) {
-                      navigate(`/search?q=${encodeURIComponent(searchQuery)}${modeParam}`);
-                    } else {
-                      navigate(pillMode !== 'blue' ? `/search?mode=${pillMode}` : '/search');
-                    }
-                  }, 1000);
+                  const modeParam = pillMode !== 'blue' ? `&mode=${pillMode}` : '';
+                  if (searchQuery.trim()) {
+                    navigate(`/search?q=${encodeURIComponent(searchQuery)}${modeParam}`);
+                  } else {
+                    navigate(pillMode !== 'blue' ? `/search?mode=${pillMode}` : '/search');
+                  }
                 }}
                 placeholder={
                   pillMode === 'red' ? 'Explore the Rabbit Hole...' :
@@ -417,12 +415,8 @@ export default function LandingPage() {
                 size="large"
                 showBiasedButton={true}
                 onBiasedClick={() => {
-                  // Show the glitch effect first
                   setShowGlitch(true);
-                  setTimeout(() => {
-                    // Navigate directly to search with purple mode
-                    navigate('/search?mode=purple');
-                  }, 1000); // Allow glitch to show for 1 second before navigating
+                  navigate('/search?mode=purple');
                 }}
                 customActionButtons={
                   <button
@@ -920,18 +914,10 @@ export default function LandingPage() {
 
           <button
             onClick={() => {
-              // Show the glitch effect first
               setShowGlitch(true);
-              setTimeout(() => {
-                // For media interfaces, navigate to molecular signup page with freemium message
-                navigate('/auth/signup', {
-                  state: { showFreemiumMessage: true },
-                });
-
-                // Reset states
-                setShowMicrophoneInterface(false);
-                setTranscript('');
-              }, 1000); // Allow glitch to show for 1 second before navigating
+              navigate('/auth/signup', { state: { showFreemiumMessage: true } });
+              setShowMicrophoneInterface(false);
+              setTranscript('');
             }}
             className="mt-8 px-6 py-3 bg-gradient-to-r from-red-600 to-red-800 text-white font-bold rounded-xl hover:from-red-500 hover:to-red-700 transition-all"
           >
@@ -975,17 +961,9 @@ export default function LandingPage() {
 
           <button
             onClick={() => {
-              // Show the glitch effect first
               setShowGlitch(true);
-              setTimeout(() => {
-                // For media interfaces, navigate to molecular signup page with freemium message
-                navigate('/auth/signup', {
-                  state: { showFreemiumMessage: true },
-                });
-
-                // Reset states
-                setShowCameraInterface(false);
-              }, 1000); // Allow glitch to show for 1 second before navigating
+              navigate('/auth/signup', { state: { showFreemiumMessage: true } });
+              setShowCameraInterface(false);
             }}
             className="mt-6 px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-800 text-white font-bold rounded-xl hover:from-gray-500 hover:to-gray-700 transition-all"
           >
@@ -1075,17 +1053,9 @@ export default function LandingPage() {
             <div className="text-center">
               <button
                 onClick={() => {
-                  // Show the glitch effect first
                   setShowGlitch(true);
-                  setTimeout(() => {
-                    // For media interfaces, navigate to molecular signup page with freemium message
-                    navigate('/auth/signup', {
-                      state: { showFreemiumMessage: true },
-                    });
-
-                    // Reset states
-                    setShowFilesInterface(false);
-                  }, 1000); // Allow glitch to show for 1 second before navigating
+                  navigate('/auth/signup', { state: { showFreemiumMessage: true } });
+                  setShowFilesInterface(false);
                 }}
                 className="px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-800 text-white font-bold rounded-xl hover:from-gray-500 hover:to-gray-700 transition-all"
               >

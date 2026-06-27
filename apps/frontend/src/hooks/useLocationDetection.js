@@ -120,13 +120,17 @@ export function useLocationDetection(query = '') {
         }
       }
 
-      // No keyword pattern matched — check if the bare query is itself a place/business
-      // name (e.g. "Walmart", "Coiner Park") rather than a general web search.
-      if (!isQuestionQuery(searchQuery) && searchQuery.trim().split(/\s+/).length <= 6) {
+      // No keyword pattern matched — only open the map when the query very
+      // confidently resolves to a geographic place. Require ≥2 words (single words
+      // are almost always topic searches, not place names), ≤4 words (longer
+      // queries are rarely pure place names), and a high geocode relevance (≥0.85)
+      // so common brand names / tech terms don't accidentally trigger the map.
+      const words = searchQuery.trim().split(/\s+/);
+      if (!isQuestionQuery(searchQuery) && words.length >= 2 && words.length <= 4) {
         try {
           const result = await MapApiService.geocode(searchQuery, { types: 'poi,address,place' });
           const best = result?.data?.[0];
-          if (best && (best.relevance === undefined || best.relevance >= 0.6)) {
+          if (best && best.relevance >= 0.85) {
             const coords = toLatLng(best.position);
             setQueryType('place');
             setDetectedLocation({
