@@ -20,6 +20,7 @@ import {
   File as FileIcon,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import ModesAndTrending from '../components/landing/ModesAndTrending';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import NeonButton from '../components/ui/NeonButton';
 import GlassCard from '../components/ui/GlassCard';
@@ -509,6 +510,9 @@ export default function LandingPage() {
             </div>
           </motion.div>
         </div>
+
+        {/* Mode showcase + Trending feed */}
+        <ModesAndTrending />
 
         {/* Features Section */}
         <div id="features" className="py-20 px-4">

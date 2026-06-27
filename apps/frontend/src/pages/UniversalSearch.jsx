@@ -33,6 +33,7 @@ import PerspectiveSelector from '../components/search/PerspectiveSelector';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { MapViewWrapper } from '../components/map';
 import QuickResultCard from '../components/ui/QuickResultCard';
+import TruegleShareButton from '../components/ui/TruegleShareButton';
 import OSINTToolsPanel from '../components/ui/OSINTToolsPanel';
 import TokenGate from '../components/ui/TokenGate';
 import RepairsModal from '../components/ui/RepairsModal';
@@ -634,7 +635,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const modeAccent = MODE_ACCENT[mode] || MODE_ACCENT.blue;
 
   // ── ResultCard ──────────────────────────────────────────────────────────
-  function ResultCard({ result, index, perspectiveColors, accent, safeSearch }) {
+  function ResultCard({ result, index, perspectiveColors, accent, safeSearch, currentQuery, currentMode }) {
     const [viewerOpen, setViewerOpen] = useState(false);
     const [iframeBlocked, setIframeBlocked] = useState(false);
     const videoEmbed = getVideoEmbed(result.url);
@@ -723,6 +724,12 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   >
                     {viewerOpen ? 'Close' : videoEmbed ? '▶ Play here' : 'Open in app'}
                   </button>
+                  <TruegleShareButton
+                    result={result}
+                    query={currentQuery}
+                    mode={currentMode}
+                    compact
+                  />
                 </div>
               </div>
             </div>
@@ -1452,6 +1459,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
                             perspectiveColors={perspectiveColors}
                             accent={modeAccent}
                             safeSearch={settings.safeSearch}
+                            currentQuery={lastSearchedQuery}
+                            currentMode={mode}
                           />
                         ))}
                       </div>
@@ -1468,6 +1477,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
                           perspectiveColors={perspectiveColors}
                           accent={modeAccent}
                           safeSearch={settings.safeSearch}
+                          currentQuery={lastSearchedQuery}
+                          currentMode={mode}
                         />
                       </div>
                       {/* An ad slot between every 5 results — content/category matched
