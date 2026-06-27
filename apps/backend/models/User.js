@@ -49,6 +49,9 @@ class User {
         ]
       );
       const row = result.rows[0];
+      // Keep the instance in sync with the persisted row so callers that don't
+      // reassign the return value still see up-to-date fields.
+      this.id = row.id;
       return this._mapRowToUser(row);
     } else {
       // Create new user
@@ -64,6 +67,12 @@ class User {
         ]
       );
       const row = result.rows[0];
+      // Critical: assign the DB-generated id back onto the instance. The Google
+      // OAuth flow does `await user.save()` and then reads `user.id` (for token
+      // init + balance lookup) without reassigning the return value — without
+      // this, new OAuth users had a null id, getBalance() threw "User not found",
+      // and the flow redirected to /auth/login?error=oauth_failed.
+      this.id = row.id;
       return this._mapRowToUser(row);
     }
   }
