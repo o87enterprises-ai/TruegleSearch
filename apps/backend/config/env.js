@@ -138,6 +138,13 @@ const envVarsSchema = Joi.object({
   SEARXNG_URL: Joi.string().optional().description('SearXNG instance URL e.g. https://xyz.ngrok-free.dev'),
   SEARXNG_PRIMARY: Joi.boolean().default(false).description('Query SearXNG first; paid API providers become fallback'),
   SEARXNG_PRIMARY_MIN: Joi.number().integer().min(1).default(5).description('Min SearXNG results before the API providers are skipped'),
+  // Anonymous "proxied page view" (Startpage-style). When the SearXNG host runs a
+  // result proxy (Morty / SearXNG `result_proxy`), set these so the backend can
+  // attach a signed proxy link to each result. URL points at the proxy root; the
+  // key is the base64 of the proxy's HMAC key (the same `!!binary` value used in
+  // SearXNG settings.yml → result_proxy.key). Unset → feature off (no behavior change).
+  SEARXNG_RESULT_PROXY_URL: Joi.string().optional().description('SearXNG/Morty result-proxy base URL for anonymous page views'),
+  SEARXNG_RESULT_PROXY_KEY: Joi.string().optional().description('Base64 HMAC key matching the proxy (settings.yml result_proxy.key)'),
 
   // Google OAuth
   GOOGLE_CLIENT_ID: Joi.string().optional().description('Google OAuth Client ID'),
@@ -298,6 +305,8 @@ const config = {
     url: envVars.SEARXNG_URL,
     primary: envVars.SEARXNG_PRIMARY,
     primaryMin: envVars.SEARXNG_PRIMARY_MIN,
+    resultProxyUrl: envVars.SEARXNG_RESULT_PROXY_URL,
+    resultProxyKey: envVars.SEARXNG_RESULT_PROXY_KEY,
   },
 
   // Google OAuth

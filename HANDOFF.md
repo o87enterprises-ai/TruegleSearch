@@ -3,6 +3,34 @@ _Last updated: 2026-06-27. Supersedes all prior handoff docs. **See the 2026-06-
 
 ---
 
+## 🗓️ SESSION LOG 2026-06-27 (b) — Anonymous View (SearXNG result proxy) + SearXNG health confirmed
+
+### Anonymous View / proxied page views (SHIPPED — gated, off until host configured)
+Startpage-style "Anonymous View" reusing the SearXNG result-proxy (Morty) we
+already self-host on AWS. Root cause it addresses: SearXNG's **JSON API returns
+raw URLs** — proxification only happens in SearXNG's HTML template — so the app
+never had proxy links. We now replicate SearXNG's `proxify()` server-side.
+- `apps/backend/config/env.js`: new `SEARXNG_RESULT_PROXY_URL` + `SEARXNG_RESULT_PROXY_KEY`
+  (key is base64 of the proxy HMAC key, matching settings.yml `result_proxy.key` `!!binary`).
+- `apps/backend/services/SearchService.js`: `buildResultProxyUrl(url)` →
+  `{proxy}?mortyurl=<url>&mortyhash=<hmac-sha256(key,url)>`; `proxyUrl` attached in
+  `formatSearXNGResults` + `formatSearXNGCategoryResults`. HMAC verified to match
+  SearXNG/Morty's canonical hexdigest.
+- `apps/frontend/src/pages/UniversalSearch.jsx` (`ResultCard`): "View anonymously"
+  link + in-app iframe now uses `proxyUrl` when present (also fixes the common
+  `X-Frame-Options` "can't be embedded" failure).
+- **Off by default** — activates only when the two env vars are set. Host setup +
+  Vercel vars documented in `docs/ANONYMOUS-VIEW.md`.
+- **TODO (host-side, not code):** deploy Morty next to SearXNG on AWS, set
+  `result_proxy` in settings.yml, set the two Vercel env vars, redeploy.
+
+### SearXNG health monitoring — already present (former "known gap" closed)
+`getAvailableSources()` already lists `searxng` and `getHealthStatus()` already
+tests it (`SearchService.js` ~1837/1879); `/api/search/health` reports it. The
+older "known gap" note elsewhere in this file is stale — no change needed.
+
+---
+
 ## 🗓️ SESSION LOG 2026-06-27 — Bug fixes, share button, landing page, trending feed, SearXNG media categories
 
 ### Three user-reported bugs (SHIPPED, all on `main`)
