@@ -1,9 +1,36 @@
 const express = require('express');
 const axios = require('axios');
 const router = express.Router();
-const { YoutubeTranscript } = require('youtube-transcript');
+const { fetchTranscript } = require('../services/TranscriptService');
 const logger = require('../utils/logger');
 const { rateLimitSearch } = require('../middleware/rateLimit');
+
+// Map TranscriptService error codes → HTTP status + an honest, specific message.
+// (The old code always said "captions disabled", which was wrong: the usual
+// cause in production is YouTube rate-limiting our datacenter IP.)
+const TRANSCRIPT_ERRORS = {
+  RATE_LIMITED: {
+    status: 429,
+    error:
+      "YouTube is temporarily rate-limiting Truegle's server. Please try again in a few minutes.",
+  },
+  NO_CAPTIONS: {
+    status: 422,
+    error: 'This video has no captions/subtitles available to extract.',
+  },
+  AGE_RESTRICTED: {
+    status: 422,
+    error: 'This video is age-restricted or requires sign-in, so its transcript cannot be fetched.',
+  },
+  UNAVAILABLE: {
+    status: 404,
+    error: 'This video is unavailable (private, removed, or region-blocked).',
+  },
+  FETCH_FAILED: {
+    status: 502,
+    error: 'Could not reach YouTube to fetch the transcript. Please try again.',
+  },
+};
 
 function getYouTubeId(url) {
   const patterns = [
@@ -37,7 +64,7 @@ router.post('/transcript', rateLimitSearch, async (req, res) => {
   }
 
   try {
-    const segments = await YoutubeTranscript.fetchTranscript(ytId);
+    const segments = await fetchTranscript(ytId);
     const text = segments
       .map((s) => s.text)
       .join(' ')
@@ -53,10 +80,12 @@ router.post('/transcript', rateLimitSearch, async (req, res) => {
       segmentCount: segments.length,
     });
   } catch (err) {
-    logger.warn('Transcript extraction failed:', { error: err.message, ytId });
-    return res.status(422).json({
-      error: 'Could not extract transcript. The video may have captions disabled or be age-restricted.',
-    });
+    logger.warn('Transcript extraction failed:', { code: err.code, error: err.message, ytId });
+    const mapped = TRANSCRIPT_ERRORS[err.code] || {
+      status: 422,
+      error: 'Could not extract transcript for this video.',
+    };
+    return res.status(mapped.status).json({ error: mapped.error, code: err.code });
   }
 });
 

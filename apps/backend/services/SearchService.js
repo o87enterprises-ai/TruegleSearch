@@ -318,6 +318,10 @@ class SearchService {
         }
       }
 
+      // Anonymous view: extend proxied page views to the fallback providers
+      // (SearXNG results already carry proxyUrl from format time).
+      combinedResults = this.attachProxyUrls(combinedResults);
+
       const categorizedResults = this.categorizeByBias(combinedResults);
       console.log(`🏷️  Categorized results: ${categorizedResults.length}`);
 
@@ -911,6 +915,25 @@ class SearchService {
     }
     const sep = this.resultProxyUrl.includes('?') ? '&' : '?';
     return `${this.resultProxyUrl}${sep}${params.toString()}`;
+  }
+
+  /**
+   * Attach an anonymous-view `proxyUrl` to every result that doesn't already
+   * have one (SearXNG results get theirs at format time). This extends anonymous
+   * view to the fallback providers (Brave/Google/Bing/News/SerpAPI). No-op when
+   * the result proxy isn't configured, and skips image results (their page URL
+   * isn't what the user views).
+   * @param {Array} results
+   * @returns {Array} the same array, mutated in place
+   */
+  attachProxyUrls(results) {
+    if (!this.resultProxyUrl || !Array.isArray(results)) return results;
+    for (const r of results) {
+      if (!r.proxyUrl && r.category !== 'images' && r.url && /^https?:\/\//i.test(r.url)) {
+        r.proxyUrl = this.buildResultProxyUrl(r.url);
+      }
+    }
+    return results;
   }
 
   async performSearXNGSearch(query, filters) {

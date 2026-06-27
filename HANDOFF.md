@@ -29,6 +29,34 @@ never had proxy links. We now replicate SearXNG's `proxify()` server-side.
 tests it (`SearchService.js` ~1837/1879); `/api/search/health` reports it. The
 older "known gap" note elsewhere in this file is stale — no change needed.
 
+### Anonymous view extended to fallback providers (SHIPPED)
+`SearchService.attachProxyUrls()` runs once over the merged result set (before
+categorize) and signs a `proxyUrl` for any result missing one — so Brave / Google
+/ Bing / News / SerpAPI results get anonymous view too, not just SearXNG. Skips
+image results. Still gated on `SEARXNG_RESULT_PROXY_URL`.
+
+### Morty setup script (SHIPPED — `scripts/setup-morty.sh`)
+One-shot EC2-host script: generates the HMAC key, runs Morty in Docker on
+`127.0.0.1:3000`, prints the settings.yml block + Vercel env vars. Front with TLS
+at `anon.truegle.info`.
+
+### YouTube transcript fix — accurate errors + proxy support (SHIPPED, host action needed)
+Root cause of the user-reported "captions disabled" failure: **YouTube
+captcha/rate-limits our datacenter IP** (reproduced: the lib throws "YouTube is
+receiving too many requests from this IP"). The old `/extract` route always
+blamed "captions disabled," which was wrong.
+- New `apps/backend/services/TranscriptService.js` replaces the unmaintained
+  `youtube-transcript` dep (removed from `package.json`; added `https-proxy-agent`).
+  Loads watch page → brace-matches `ytInitialPlayerResponse` → parses timedtext.
+  Classifies errors (RATE_LIMITED / NO_CAPTIONS / AGE_RESTRICTED / UNAVAILABLE /
+  FETCH_FAILED); `routes/extract.js` maps each to an honest status + message.
+- Supports `TRANSCRIPT_PROXY_URL` (http://user:pass@host:port) to route fetches
+  through a non-blocked IP. **TODO (host):** set a residential/rotating proxy on
+  Vercel — a plain datacenter proxy will also get blocked.
+- Parsing unit-tested (`__tests__/transcript.test.js`, 8 tests green). Happy-path
+  network fetch NOT verifiable from the dev sandbox (outbound to YouTube is
+  blocked here), so production verification still needed once the proxy is set.
+
 ---
 
 ## 🗓️ SESSION LOG 2026-06-27 — Bug fixes, share button, landing page, trending feed, SearXNG media categories

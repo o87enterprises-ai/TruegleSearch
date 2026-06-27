@@ -146,6 +146,12 @@ const envVarsSchema = Joi.object({
   SEARXNG_RESULT_PROXY_URL: Joi.string().optional().description('SearXNG/Morty result-proxy base URL for anonymous page views'),
   SEARXNG_RESULT_PROXY_KEY: Joi.string().optional().description('Base64 HMAC key matching the proxy (settings.yml result_proxy.key)'),
 
+  // YouTube blocks datacenter IPs (Vercel/AWS) with a captcha wall, which breaks
+  // transcript extraction in production. Set this to an HTTP(S) proxy
+  // (ideally residential/rotating) to route transcript fetches through it.
+  // Format: http://user:pass@host:port  — unset → direct (works locally only).
+  TRANSCRIPT_PROXY_URL: Joi.string().optional().description('HTTP(S) proxy for YouTube transcript fetches (bypasses datacenter-IP captcha)'),
+
   // Google OAuth
   GOOGLE_CLIENT_ID: Joi.string().optional().description('Google OAuth Client ID'),
   GOOGLE_CLIENT_SECRET: Joi.string().optional().description('Google OAuth Client Secret'),
@@ -307,6 +313,11 @@ const config = {
     primaryMin: envVars.SEARXNG_PRIMARY_MIN,
     resultProxyUrl: envVars.SEARXNG_RESULT_PROXY_URL,
     resultProxyKey: envVars.SEARXNG_RESULT_PROXY_KEY,
+  },
+
+  // Content extraction (YouTube transcripts)
+  transcript: {
+    proxyUrl: envVars.TRANSCRIPT_PROXY_URL,
   },
 
   // Google OAuth
