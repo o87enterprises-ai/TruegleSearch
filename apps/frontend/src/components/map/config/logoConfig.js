@@ -1,4 +1,4 @@
-export const logoPath = '/assets/logo.png';
+export const logoPath = '/og-image.png';
 
 export const defaultLogoConfig = {
   src: logoPath,
