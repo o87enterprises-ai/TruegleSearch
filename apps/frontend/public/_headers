@@ -19,6 +19,12 @@
   Content-Type: text/html; charset=utf-8
 /search/*
   Content-Type: text/html; charset=utf-8
+/extract
+  Content-Type: text/html; charset=utf-8
+/blog
+  Content-Type: text/html; charset=utf-8
+/blog/*
+  Content-Type: text/html; charset=utf-8
 /green
   Content-Type: text/html; charset=utf-8
 /feeling-biased
