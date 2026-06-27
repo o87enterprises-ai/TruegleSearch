@@ -11,6 +11,10 @@ import {
   MessageCircle,
   Repeat2,
   ThumbsUp,
+  ArrowUp,
+  Star,
+  GitFork,
+  Code,
 } from 'lucide-react';
 import SocialEmbed from './SocialEmbed';
 
@@ -19,11 +23,35 @@ import SocialEmbed from './SocialEmbed';
 // link-out cards instead of silently failing to render.
 const EMBEDDABLE_PLATFORMS = new Set(['Twitter / X', 'Reddit', 'TikTok']);
 
+const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+
+const PLATFORM_META = {
+  'All':          { label: 'All',          color: 'border-cyan-400 text-cyan-300',    bg: 'bg-cyan-500/20' },
+  'Reddit':       { label: 'Reddit',       color: 'border-orange-400 text-orange-300', bg: 'bg-orange-500/20' },
+  'Hacker News':  { label: 'Hacker News',  color: 'border-yellow-400 text-yellow-300', bg: 'bg-yellow-500/20' },
+  'GitHub':       { label: 'GitHub',       color: 'border-slate-300 text-slate-200',   bg: 'bg-slate-500/20' },
+  'Twitter / X':  { label: 'Twitter / X',  color: 'border-sky-400 text-sky-300',      bg: 'bg-sky-500/20' },
+  'TikTok':       { label: 'TikTok',       color: 'border-pink-400 text-pink-300',    bg: 'bg-pink-500/20' },
+  'YouTube':      { label: 'YouTube',      color: 'border-red-400 text-red-300',      bg: 'bg-red-500/20' },
+  'Instagram':    { label: 'Instagram',    color: 'border-purple-400 text-purple-300', bg: 'bg-purple-500/20' },
+  'Social':       { label: 'Social',       color: 'border-cyan-400 text-cyan-300',    bg: 'bg-cyan-500/20' },
+};
+
+function fmt(n) {
+  if (n == null) return null;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+  return String(n);
+}
+
 export default function MultimediaInterface({ category, onClose, searchQuery }) {
   const [selectedItem, setSelectedItem] = useState(null);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [socialPlatformFilter, setSocialPlatformFilter] = useState('All');
+  // RSS-backed feed data: { reddit, hackernews, github } — populated for soc tab
+  const [feedPlatforms, setFeedPlatforms] = useState(null);
+  const [feedLoading, setFeedLoading] = useState(false);
 
   useEffect(() => {
     if (category && searchQuery) {
@@ -113,6 +141,22 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
     }
   }, [category, searchQuery]);
 
+  // RSS feed fetch — fires in parallel with the SearXNG call for soc tab
+  useEffect(() => {
+    if (category !== 'soc' || !searchQuery) return;
+    setFeedLoading(true);
+    setFeedPlatforms(null);
+    fetch(`${BACKEND}/api/social/feed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: searchQuery }),
+    })
+      .then((r) => r.json())
+      .then((d) => setFeedPlatforms(d.platforms || null))
+      .catch(() => setFeedPlatforms(null))
+      .finally(() => setFeedLoading(false));
+  }, [category, searchQuery]);
+
   // Empty fallbacks — no fake data shown when APIs return nothing
   const mockImages = [];
   const mockVideos = [];
@@ -187,76 +231,178 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
     </div>
   );
 
-  const platformColors = {
-    'Reddit': 'border-orange-500/50 text-orange-400',
-    'Twitter / X': 'border-blue-500/50 text-blue-400',
-    'TikTok': 'border-pink-500/50 text-pink-400',
-    'YouTube': 'border-red-500/50 text-red-400',
-    'Instagram': 'border-purple-500/50 text-purple-400',
-    'Facebook': 'border-blue-600/50 text-blue-300',
-    'Social': 'border-cyan-500/50 text-cyan-400',
+  // Build merged list of social posts across all available sources
+  const buildFeedList = () => {
+    if (!feedPlatforms) return data; // fall back to SearXNG results while RSS loads
+    const { reddit = [], hackernews = [], github = [] } = feedPlatforms;
+    const merged = [...reddit, ...hackernews, ...github];
+    if (merged.length === 0) return data; // nothing from RSS → show SearXNG results
+    return merged;
   };
 
-  const SocialGrid = ({ posts }) => {
-    const platforms = ['All', ...Array.from(new Set(posts.map((p) => p.platform)))];
-    const filteredPosts = socialPlatformFilter === 'All'
-      ? posts
-      : posts.filter((p) => p.platform === socialPlatformFilter);
+  const FeedPlatformTabs = ({ activePlatform, onChange, feedPlatforms, searxPosts }) => {
+    const tabs = ['All'];
+    if (feedPlatforms?.reddit?.length) tabs.push('Reddit');
+    if (feedPlatforms?.hackernews?.length) tabs.push('Hacker News');
+    if (feedPlatforms?.github?.length) tabs.push('GitHub');
+    if (searxPosts.length) tabs.push('Web Social');
+    return (
+      <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 scrollbar-none">
+        {tabs.map((t) => {
+          const meta = PLATFORM_META[t] || PLATFORM_META['Social'];
+          const active = activePlatform === t;
+          return (
+            <button
+              key={t}
+              onClick={() => onChange(t)}
+              className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-full border transition-all whitespace-nowrap ${
+                active ? `${meta.bg} ${meta.color}` : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
+              }`}
+            >
+              {t}
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const RedditCard = ({ post }) => (
+    <a href={post.permalink || post.url} target="_blank" rel="noopener noreferrer"
+      className="block p-4 rounded-xl bg-orange-950/20 border border-orange-500/20 hover:border-orange-400/40 transition-all group">
+      <div className="flex items-center gap-2 mb-2 text-xs text-orange-400/70">
+        <span className="font-semibold">{post.subreddit}</span>
+        <span className="text-white/30">·</span>
+        <span>u/{post.author}</span>
+        {post.date && <span className="ml-auto text-white/30">{new Date(post.date).toLocaleDateString()}</span>}
+      </div>
+      <p className="text-white/90 font-semibold text-sm leading-snug line-clamp-3 group-hover:text-white transition-colors mb-2">
+        {post.title}
+      </p>
+      {post.snippet && <p className="text-white/50 text-xs line-clamp-2 mb-2">{post.snippet}</p>}
+      <div className="flex items-center gap-3 text-xs text-white/40">
+        {post.score != null && (
+          <span className="flex items-center gap-1"><ArrowUp size={11} className="text-orange-400" />{fmt(post.score)}</span>
+        )}
+        {post.comments != null && (
+          <span className="flex items-center gap-1"><MessageCircle size={11} />{fmt(post.comments)} comments</span>
+        )}
+        {post.flair && <span className="px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/30">{post.flair}</span>}
+        <ExternalLink size={11} className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
+    </a>
+  );
+
+  const HNCard = ({ post }) => (
+    <a href={post.url} target="_blank" rel="noopener noreferrer"
+      className="block p-4 rounded-xl bg-yellow-950/20 border border-yellow-500/20 hover:border-yellow-400/40 transition-all group">
+      <p className="text-white/90 font-semibold text-sm leading-snug line-clamp-2 group-hover:text-white transition-colors mb-2">
+        {post.title}
+      </p>
+      <div className="flex items-center gap-3 text-xs text-white/40">
+        {post.score != null && (
+          <span className="flex items-center gap-1"><ArrowUp size={11} className="text-yellow-400" />{fmt(post.score)} pts</span>
+        )}
+        {post.comments != null && (
+          <a href={post.permalink} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1 hover:text-yellow-300 transition-colors">
+            <MessageCircle size={11} />{fmt(post.comments)} comments
+          </a>
+        )}
+        <span>by {post.author}</span>
+        {post.date && <span className="ml-auto">{new Date(post.date).toLocaleDateString()}</span>}
+      </div>
+    </a>
+  );
+
+  const GitHubCard = ({ post }) => (
+    <a href={post.url} target="_blank" rel="noopener noreferrer"
+      className="block p-4 rounded-xl bg-slate-900/40 border border-slate-500/20 hover:border-slate-400/40 transition-all group">
+      <div className="flex items-start gap-3">
+        {post.thumbnail && (
+          <img src={post.thumbnail} alt={post.author} className="w-8 h-8 rounded-full shrink-0 opacity-80" />
+        )}
+        <div className="min-w-0">
+          <p className="text-white/90 font-semibold text-sm group-hover:text-white transition-colors truncate">{post.title}</p>
+          {post.snippet && <p className="text-white/50 text-xs mt-1 line-clamp-2">{post.snippet}</p>}
+          <div className="flex items-center gap-3 mt-2 text-xs text-white/40">
+            {post.flair && <span className="flex items-center gap-1"><Code size={10} />{post.flair}</span>}
+            {post.score != null && <span className="flex items-center gap-1"><Star size={10} className="text-yellow-400" />{fmt(post.score)}</span>}
+            {post.comments != null && <span className="flex items-center gap-1"><GitFork size={10} />{fmt(post.comments)}</span>}
+            {post.date && <span className="ml-auto">{new Date(post.date).toLocaleDateString()}</span>}
+          </div>
+        </div>
+      </div>
+    </a>
+  );
+
+  const LegacySocialCard = ({ post }) => {
+    const meta = PLATFORM_META[post.platform] || PLATFORM_META['Social'];
+    return (
+      <div className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-all">
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${meta.color}`}>{post.platform}</span>
+          <span className="text-white/40 text-xs">{post.author}</span>
+          {post.timestamp && <span className="text-white/30 text-xs ml-auto">{post.timestamp}</span>}
+          <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-white/30 hover:text-white/70"><ExternalLink size={12} /></a>
+        </div>
+        {EMBEDDABLE_PLATFORMS.has(post.platform) ? (
+          <SocialEmbed url={post.url} platform={post.platform} title={post.title} />
+        ) : (
+          <a href={post.url} target="_blank" rel="noopener noreferrer" className="block group">
+            <p className="text-white/90 font-semibold text-sm mb-1 group-hover:text-white line-clamp-2">{post.title}</p>
+            {post.text && post.text !== post.title && <p className="text-white/60 text-xs line-clamp-2">{post.text}</p>}
+          </a>
+        )}
+      </div>
+    );
+  };
+
+  const SocialFeedPanel = () => {
+    const allFeedPosts = buildFeedList();
+    const reddit = feedPlatforms?.reddit || [];
+    const hackernews = feedPlatforms?.hackernews || [];
+    const github = feedPlatforms?.github || [];
+
+    const getFilteredPosts = () => {
+      switch (socialPlatformFilter) {
+        case 'Reddit': return reddit;
+        case 'Hacker News': return hackernews;
+        case 'GitHub': return github;
+        case 'Web Social': return data;
+        default: return allFeedPosts.length > 0 ? allFeedPosts : data;
+      }
+    };
+
+    const posts = getFilteredPosts();
+    const isLoading = feedLoading && !feedPlatforms;
+
+    if (isLoading) {
+      return (
+        <div className="flex items-center justify-center py-16">
+          <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full" />
+          <span className="ml-3 text-white/60 text-sm">Loading social feeds…</span>
+        </div>
+      );
+    }
 
     return (
       <div>
-        {/* Platform tabs — quick-switch between social apps without leaving the page */}
-        {posts.length > 0 && (
-          <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
-            {platforms.map((platform) => (
-              <button
-                key={platform}
-                onClick={() => setSocialPlatformFilter(platform)}
-                className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-full border transition-all whitespace-nowrap ${
-                  socialPlatformFilter === platform
-                    ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300'
-                    : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
-                }`}
-              >
-                {platform}
-              </button>
-            ))}
-          </div>
-        )}
-
+        <FeedPlatformTabs
+          activePlatform={socialPlatformFilter}
+          onChange={setSocialPlatformFilter}
+          feedPlatforms={feedPlatforms}
+          searxPosts={data}
+        />
         <div className="space-y-3">
-          {filteredPosts.length === 0 ? (
-            <div className="text-center py-12 text-white/50">No social results found for this query.</div>
-          ) : filteredPosts.map((post) => (
-            <div
-              key={post.id}
-              className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-all"
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${platformColors[post.platform] || platformColors['Social']}`}>
-                  {post.platform}
-                </span>
-                <span className="text-white/40 text-xs">{post.author}</span>
-                {post.timestamp && <span className="text-white/30 text-xs ml-auto">{post.timestamp}</span>}
-                <a href={post.url} target="_blank" rel="noopener noreferrer" className="text-white/30 hover:text-white/70">
-                  <ExternalLink size={12} />
-                </a>
-              </div>
-
-              {EMBEDDABLE_PLATFORMS.has(post.platform) ? (
-                <SocialEmbed url={post.url} platform={post.platform} title={post.title} />
-              ) : (
-                <a href={post.url} target="_blank" rel="noopener noreferrer" className="block group">
-                  <p className="text-white/90 font-semibold text-sm mb-1 group-hover:text-white transition-colors line-clamp-2">
-                    {post.title}
-                  </p>
-                  {post.text && post.text !== post.title && (
-                    <p className="text-white/60 text-xs line-clamp-2">{post.text}</p>
-                  )}
-                </a>
-              )}
-            </div>
-          ))}
+          {posts.length === 0 ? (
+            <div className="text-center py-12 text-white/50">No results found for this query.</div>
+          ) : posts.map((post) => {
+            if (post.platform === 'Reddit') return <RedditCard key={post.id} post={post} />;
+            if (post.platform === 'Hacker News') return <HNCard key={post.id} post={post} />;
+            if (post.platform === 'GitHub') return <GitHubCard key={post.id} post={post} />;
+            return <LegacySocialCard key={post.id || post.url} post={post} />;
+          })}
         </div>
       </div>
     );
@@ -264,7 +410,7 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
 
   // Render based on category
   const renderContent = () => {
-    if (loading) {
+    if (loading && category !== 'soc') {
       return (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full"></div>
@@ -285,12 +431,7 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
       case 'audio':
         return <AudioGrid audio={data.length > 0 ? data : mockAudio} />;
       case 'soc':
-        return (
-          <SocialGrid
-            posts={data.length > 0 ? data : mockSocialPosts}
-            onSelect={setSelectedItem}
-          />
-        );
+        return <SocialFeedPanel />;
       default:
         return null;
     }
