@@ -26,16 +26,46 @@ const EMBEDDABLE_PLATFORMS = new Set(['Twitter / X', 'Reddit', 'TikTok']);
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 const PLATFORM_META = {
-  'All':          { label: 'All',          color: 'border-cyan-400 text-cyan-300',    bg: 'bg-cyan-500/20' },
+  'All':          { label: 'All',          color: 'border-cyan-400 text-cyan-300',     bg: 'bg-cyan-500/20' },
   'Reddit':       { label: 'Reddit',       color: 'border-orange-400 text-orange-300', bg: 'bg-orange-500/20' },
   'Hacker News':  { label: 'Hacker News',  color: 'border-yellow-400 text-yellow-300', bg: 'bg-yellow-500/20' },
   'GitHub':       { label: 'GitHub',       color: 'border-slate-300 text-slate-200',   bg: 'bg-slate-500/20' },
-  'Twitter / X':  { label: 'Twitter / X',  color: 'border-sky-400 text-sky-300',      bg: 'bg-sky-500/20' },
-  'TikTok':       { label: 'TikTok',       color: 'border-pink-400 text-pink-300',    bg: 'bg-pink-500/20' },
-  'YouTube':      { label: 'YouTube',      color: 'border-red-400 text-red-300',      bg: 'bg-red-500/20' },
-  'Instagram':    { label: 'Instagram',    color: 'border-purple-400 text-purple-300', bg: 'bg-purple-500/20' },
-  'Social':       { label: 'Social',       color: 'border-cyan-400 text-cyan-300',    bg: 'bg-cyan-500/20' },
+  'YouTube':      { label: 'YouTube',      color: 'border-red-400 text-red-300',       bg: 'bg-red-500/20' },
+  'Web Social':   { label: 'Web Social',   color: 'border-cyan-400 text-cyan-300',     bg: 'bg-cyan-500/20' },
+  'Social':       { label: 'Social',       color: 'border-cyan-400 text-cyan-300',     bg: 'bg-cyan-500/20' },
 };
+
+// Platforms gated behind paid APIs or Meta app-review — shown as coming-soon tiles
+const COMING_SOON_PLATFORMS = [
+  {
+    key: 'Twitter / X',
+    color: 'border-sky-500/30 text-sky-400',
+    bg: 'from-sky-950/40 to-slate-950/40',
+    reason: 'Twitter/X shut down free API access in 2023. Feed requires a paid developer subscription.',
+    cta: null,
+  },
+  {
+    key: 'Instagram',
+    color: 'border-purple-500/30 text-purple-400',
+    bg: 'from-purple-950/40 to-pink-950/40',
+    reason: "Instagram's API requires Meta app review and user OAuth. Connect your account to see your feed.",
+    cta: 'Connect Instagram',
+  },
+  {
+    key: 'TikTok',
+    color: 'border-pink-500/30 text-pink-400',
+    bg: 'from-pink-950/40 to-rose-950/40',
+    reason: 'TikTok requires an approved developer account. Connect your account to browse your feed here.',
+    cta: 'Connect TikTok',
+  },
+  {
+    key: 'Facebook',
+    color: 'border-blue-500/30 text-blue-400',
+    bg: 'from-blue-950/40 to-indigo-950/40',
+    reason: "Facebook's Graph API requires Meta app review and user OAuth. Connect your account to see your feed.",
+    cta: 'Connect Facebook',
+  },
+];
 
 function fmt(n) {
   if (n == null) return null;
@@ -52,6 +82,9 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
   // RSS-backed feed data: { reddit, hackernews, github } — populated for soc tab
   const [feedPlatforms, setFeedPlatforms] = useState(null);
   const [feedLoading, setFeedLoading] = useState(false);
+  // YouTube results fetched via SearXNG videos category
+  const [ytVideos, setYtVideos] = useState([]);
+  const [ytLoading, setYtLoading] = useState(false);
 
   useEffect(() => {
     if (category && searchQuery) {
@@ -157,6 +190,44 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
       .finally(() => setFeedLoading(false));
   }, [category, searchQuery]);
 
+  // YouTube feed — SearXNG videos category, free, no API key
+  useEffect(() => {
+    if (category !== 'soc' || !searchQuery) return;
+    setYtLoading(true);
+    setYtVideos([]);
+    fetch(`${BACKEND}/api/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: searchQuery, filters: { category: 'videos', bias: 'all', dateRange: 'any', perPage: 20 } }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        const vids = (d.results || []).map((v) => {
+          let videoId = null;
+          try {
+            const u = new URL(v.url);
+            if (u.hostname.includes('youtube.com')) videoId = u.searchParams.get('v');
+            else if (u.hostname === 'youtu.be') videoId = u.pathname.slice(1);
+          } catch { /* ignore */ }
+          return {
+            id: videoId || v.url,
+            platform: 'YouTube',
+            title: v.title,
+            url: v.url,
+            thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : v.image,
+            channel: v.channel || v.sourceName || 'YouTube',
+            date: v.date,
+            duration: v.duration || null,
+            views: v.views ?? null,
+            videoId,
+          };
+        }).filter((v) => v.title);
+        setYtVideos(vids);
+      })
+      .catch(() => setYtVideos([]))
+      .finally(() => setYtLoading(false));
+  }, [category, searchQuery]);
+
   // Empty fallbacks — no fake data shown when APIs return nothing
   const mockImages = [];
   const mockVideos = [];
@@ -231,38 +302,55 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
     </div>
   );
 
-  // Build merged list of social posts across all available sources
+  // Build merged list of open-web posts (Reddit + HN + GitHub)
   const buildFeedList = () => {
-    if (!feedPlatforms) return data; // fall back to SearXNG results while RSS loads
+    if (!feedPlatforms) return data;
     const { reddit = [], hackernews = [], github = [] } = feedPlatforms;
     const merged = [...reddit, ...hackernews, ...github];
-    if (merged.length === 0) return data; // nothing from RSS → show SearXNG results
+    if (merged.length === 0) return data;
     return merged;
   };
 
-  const FeedPlatformTabs = ({ activePlatform, onChange, feedPlatforms, searxPosts }) => {
-    const tabs = ['All'];
-    if (feedPlatforms?.reddit?.length) tabs.push('Reddit');
-    if (feedPlatforms?.hackernews?.length) tabs.push('Hacker News');
-    if (feedPlatforms?.github?.length) tabs.push('GitHub');
-    if (searxPosts.length) tabs.push('Web Social');
+  const FeedPlatformTabs = ({ activePlatform, onChange, feedPlatforms, ytVids, searxPosts }) => {
+    const liveTabs = ['All'];
+    if (feedPlatforms?.reddit?.length) liveTabs.push('Reddit');
+    if (feedPlatforms?.hackernews?.length) liveTabs.push('Hacker News');
+    if (feedPlatforms?.github?.length) liveTabs.push('GitHub');
+    if (ytVids.length) liveTabs.push('YouTube');
+    if (searxPosts.length) liveTabs.push('Web Social');
+
     return (
-      <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1 scrollbar-none">
-        {tabs.map((t) => {
-          const meta = PLATFORM_META[t] || PLATFORM_META['Social'];
-          const active = activePlatform === t;
-          return (
+      <div className="mb-5">
+        {/* Live tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none flex-wrap">
+          {liveTabs.map((t) => {
+            const meta = PLATFORM_META[t] || PLATFORM_META['Social'];
+            const active = activePlatform === t;
+            return (
+              <button
+                key={t}
+                onClick={() => onChange(t)}
+                className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-full border transition-all whitespace-nowrap ${
+                  active ? `${meta.bg} ${meta.color}` : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
+                }`}
+              >
+                {t}
+              </button>
+            );
+          })}
+          {/* Coming-soon tabs — always visible so users know they're planned */}
+          {COMING_SOON_PLATFORMS.map((p) => (
             <button
-              key={t}
-              onClick={() => onChange(t)}
-              className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-full border transition-all whitespace-nowrap ${
-                active ? `${meta.bg} ${meta.color}` : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'
+              key={p.key}
+              onClick={() => onChange(p.key)}
+              className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-full border transition-all whitespace-nowrap opacity-60 ${
+                activePlatform === p.key ? `${p.color} opacity-100` : 'bg-white/5 border-white/10 text-white/40 hover:opacity-80'
               }`}
             >
-              {t}
+              {p.key} 🔒
             </button>
-          );
-        })}
+          ))}
+        </div>
       </div>
     );
   };
@@ -336,6 +424,55 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
     </a>
   );
 
+  const YouTubeCard = ({ post }) => (
+    <a href={post.url} target="_blank" rel="noopener noreferrer"
+      className="flex gap-3 p-3 rounded-xl bg-red-950/20 border border-red-500/20 hover:border-red-400/40 transition-all group">
+      {post.thumbnail && (
+        <div className="relative shrink-0 w-32 rounded-lg overflow-hidden">
+          <img src={post.thumbnail} alt={post.title} className="w-full aspect-video object-cover" />
+          {post.duration && (
+            <span className="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/80 text-white text-[10px] font-medium">
+              {post.duration}
+            </span>
+          )}
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="text-white/90 font-semibold text-sm leading-snug line-clamp-2 group-hover:text-white transition-colors mb-1">
+          {post.title}
+        </p>
+        <p className="text-red-400/70 text-xs mb-2">{post.channel}</p>
+        <div className="flex items-center gap-3 text-xs text-white/40">
+          {post.views != null && <span>{fmt(post.views)} views</span>}
+          {post.date && <span>{new Date(post.date).toLocaleDateString()}</span>}
+          <ExternalLink size={11} className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </div>
+    </a>
+  );
+
+  const ComingSoonPanel = ({ platform }) => {
+    const meta = COMING_SOON_PLATFORMS.find((p) => p.key === platform);
+    if (!meta) return null;
+    return (
+      <div className={`rounded-2xl border p-8 bg-gradient-to-br ${meta.bg} ${meta.color} text-center`}>
+        <p className="text-4xl mb-4">🔒</p>
+        <h3 className="text-white font-bold text-lg mb-2">{meta.key} — Coming Soon</h3>
+        <p className="text-white/60 text-sm max-w-sm mx-auto mb-5">{meta.reason}</p>
+        {meta.cta ? (
+          <button
+            disabled
+            className="px-5 py-2 rounded-xl bg-white/10 border border-white/20 text-white/50 text-sm font-semibold cursor-not-allowed"
+          >
+            {meta.cta} (Coming Soon)
+          </button>
+        ) : (
+          <p className="text-white/30 text-xs">No free integration available at this time.</p>
+        )}
+      </div>
+    );
+  };
+
   const LegacySocialCard = ({ post }) => {
     const meta = PLATFORM_META[post.platform] || PLATFORM_META['Social'];
     return (
@@ -363,21 +500,23 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
     const reddit = feedPlatforms?.reddit || [];
     const hackernews = feedPlatforms?.hackernews || [];
     const github = feedPlatforms?.github || [];
+    const isComingSoon = COMING_SOON_PLATFORMS.some((p) => p.key === socialPlatformFilter);
 
     const getFilteredPosts = () => {
       switch (socialPlatformFilter) {
-        case 'Reddit': return reddit;
+        case 'Reddit':      return reddit;
         case 'Hacker News': return hackernews;
-        case 'GitHub': return github;
-        case 'Web Social': return data;
-        default: return allFeedPosts.length > 0 ? allFeedPosts : data;
+        case 'GitHub':      return github;
+        case 'YouTube':     return ytVideos;
+        case 'Web Social':  return data;
+        default:            return allFeedPosts.length > 0 ? allFeedPosts : data;
       }
     };
 
     const posts = getFilteredPosts();
-    const isLoading = feedLoading && !feedPlatforms;
+    const isLoading = (feedLoading && !feedPlatforms) || (ytLoading && socialPlatformFilter === 'YouTube');
 
-    if (isLoading) {
+    if (isLoading && !isComingSoon) {
       return (
         <div className="flex items-center justify-center py-16">
           <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full" />
@@ -392,18 +531,25 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
           activePlatform={socialPlatformFilter}
           onChange={setSocialPlatformFilter}
           feedPlatforms={feedPlatforms}
+          ytVids={ytVideos}
           searxPosts={data}
         />
-        <div className="space-y-3">
-          {posts.length === 0 ? (
-            <div className="text-center py-12 text-white/50">No results found for this query.</div>
-          ) : posts.map((post) => {
-            if (post.platform === 'Reddit') return <RedditCard key={post.id} post={post} />;
-            if (post.platform === 'Hacker News') return <HNCard key={post.id} post={post} />;
-            if (post.platform === 'GitHub') return <GitHubCard key={post.id} post={post} />;
-            return <LegacySocialCard key={post.id || post.url} post={post} />;
-          })}
-        </div>
+
+        {isComingSoon ? (
+          <ComingSoonPanel platform={socialPlatformFilter} />
+        ) : (
+          <div className="space-y-3">
+            {posts.length === 0 ? (
+              <div className="text-center py-12 text-white/50">No results found for this query.</div>
+            ) : posts.map((post) => {
+              if (post.platform === 'Reddit')      return <RedditCard key={post.id} post={post} />;
+              if (post.platform === 'Hacker News') return <HNCard key={post.id} post={post} />;
+              if (post.platform === 'GitHub')      return <GitHubCard key={post.id} post={post} />;
+              if (post.platform === 'YouTube')     return <YouTubeCard key={post.id} post={post} />;
+              return <LegacySocialCard key={post.id || post.url} post={post} />;
+            })}
+          </div>
+        )}
       </div>
     );
   };
