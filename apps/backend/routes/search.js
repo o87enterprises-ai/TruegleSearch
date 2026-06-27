@@ -7,9 +7,22 @@ const SearchService = require('../services/SearchService');
 // WeatherService exports a singleton instance (not a class)
 const weatherService = require('../services/WeatherService');
 const watermark = require('../utils/watermark');
+const { query: dbQuery } = require('../db/connection');
 
 // Initialize search service
 const searchService = new SearchService();
+
+// Fire-and-forget: log a query for trending analytics.
+// Normalises whitespace and lowercases so "AI" and "ai " count together.
+// Intentionally swallows errors — logging must never break search.
+function logSearchQuery(rawQuery, mode) {
+  const q = rawQuery.trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 200);
+  if (!q) return;
+  dbQuery(
+    'INSERT INTO search_queries (query, mode) VALUES ($1, $2)',
+    [q, mode || 'blue-pill']
+  ).catch(() => {});
+}
 
 /**
  * @route   POST /api/search
@@ -54,6 +67,9 @@ router.post('/', rateLimitSearch, optionalAuth, async (req, res) => {
         )
       : results;
 
+    // Log for trending — after response is sent so it never adds latency.
+    logSearchQuery(query, mode);
+
     res.json({
       success: true,
       query: query.trim(),
@@ -91,6 +107,52 @@ router.post('/', rateLimitSearch, optionalAuth, async (req, res) => {
       error: 'Search failed',
       message: 'Unable to perform search at this time. Please try again.',
     });
+  }
+});
+
+/**
+ * @route   GET /api/search/trending
+ * @desc    Top queries from the last 24 h, grouped by normalised text.
+ *          Returns up to 12 entries with their most-used mode so the
+ *          landing page can show real trending pills.
+ * @access  Public (read-only, no PII)
+ */
+router.get('/trending', async (req, res) => {
+  try {
+    const { rows } = await dbQuery(`
+      SELECT
+        query,
+        COUNT(*)::int                                         AS count,
+        MODE() WITHIN GROUP (ORDER BY mode)                  AS top_mode
+      FROM search_queries
+      WHERE created_at > NOW() - INTERVAL '24 hours'
+        AND LENGTH(query) >= 3
+        AND LENGTH(query) <= 120
+      GROUP BY query
+      ORDER BY count DESC, MAX(created_at) DESC
+      LIMIT 12
+    `);
+
+    // Map backend mode strings back to the frontend's short form
+    const modeMap = {
+      'red-pill': 'red',
+      'blue-pill': 'blue',
+      'purple': 'purple',
+      'ocean': 'ocean',
+      'green': 'blue',
+    };
+
+    const trending = rows.map(r => ({
+      query: r.query,
+      count: r.count,
+      mode: modeMap[r.top_mode] || 'blue',
+    }));
+
+    res.json({ success: true, trending, generatedAt: new Date().toISOString() });
+  } catch (err) {
+    // Table may not exist yet on a fresh deploy — return empty so the
+    // frontend falls back to its static list gracefully.
+    res.json({ success: true, trending: [], generatedAt: new Date().toISOString() });
   }
 });
 

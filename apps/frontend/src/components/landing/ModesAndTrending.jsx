@@ -118,10 +118,32 @@ const MODE_PILL = {
   ocean:  'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
 };
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+
 function TrendingFeed() {
   const navigate = useNavigate();
+  // pool = whatever we're displaying; starts as static fallback
+  const [pool, setPool] = useState(TRENDING);
+  const [live, setLive] = useState(false);
   const [visible, setVisible] = useState(TRENDING.slice(0, 8));
   const [tick, setTick] = useState(0);
+
+  // Fetch real trending data once on mount; keep static list as fallback
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/api/search/trending`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.trending && data.trending.length >= 4) {
+          // Merge live results with static so we always have ≥ 8 pills even
+          // on a fresh deploy with no query history yet.
+          const liveQueries = new Set(data.trending.map((t) => t.query));
+          const fallback = TRENDING.filter((t) => !liveQueries.has(t.query));
+          setPool([...data.trending, ...fallback]);
+          setLive(true);
+        }
+      })
+      .catch(() => {}); // network error → stay on static
+  }, []);
 
   // Cycle one item every 4 s to give the feed a "live" feel
   useEffect(() => {
@@ -130,11 +152,10 @@ function TrendingFeed() {
   }, []);
 
   useEffect(() => {
-    const pool = [...TRENDING];
     const shift = tick % pool.length;
     const rotated = [...pool.slice(shift), ...pool.slice(0, shift)];
     setVisible(rotated.slice(0, 8));
-  }, [tick]);
+  }, [tick, pool]);
 
   return (
     <motion.div
@@ -147,6 +168,9 @@ function TrendingFeed() {
         <TrendingUp size={16} className="text-orange-400" />
         <span className="text-sm font-semibold text-white/70 uppercase tracking-wider">Trending on Truegle</span>
         <span className="ml-1 w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+        {live && (
+          <span className="ml-1 text-[10px] text-orange-400/60 font-medium tracking-wide">LIVE</span>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">

@@ -267,11 +267,32 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Run any outstanding auto-migrations (idempotent — uses IF NOT EXISTS).
+// Keeps schema in sync on Vercel deploys without a manual migration step.
+const { query: dbQuery } = require('./db/connection');
+const fs = require('fs');
+const path = require('path');
+async function autoMigrate() {
+  const migrationsDir = path.join(__dirname, 'db', 'migrations');
+  const files = fs.readdirSync(migrationsDir)
+    .filter(f => f.endsWith('.sql') && !f.includes('rollback'))
+    .sort();
+  for (const file of files) {
+    try {
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      await dbQuery(sql);
+    } catch (err) {
+      logger.warn(`Auto-migration ${file} skipped/failed: ${err.message}`);
+    }
+  }
+}
+
 // Start server with database connection
 const startServer = async () => {
   try {
     // Connect to database
     await database.connect();
+    await autoMigrate();
 
     app.listen(PORT, () => {
       logger.info('Truegle Backend Server started', {
@@ -292,9 +313,11 @@ if (process.env.VERCEL !== '1') {
   startServer();
 } else {
   // Initialize database connection for serverless
-  database.connect().catch(err => {
-    logger.error('Database connection failed in serverless', { error: err.message });
-  });
+  database.connect()
+    .then(() => autoMigrate())
+    .catch(err => {
+      logger.error('Database connection failed in serverless', { error: err.message });
+    });
 }
 
 module.exports = app;
