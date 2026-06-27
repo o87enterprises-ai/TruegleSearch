@@ -1,5 +1,43 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-06-26. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
+_Last updated: 2026-06-27. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
+
+---
+
+## 🗓️ SESSION LOG 2026-06-27 — Bug fixes, share button, landing page, trending feed, SearXNG media categories
+
+### Three user-reported bugs (SHIPPED, all on `main`)
+1. **Map auto-opens while typing** — `useLocationDetection` was driven off live `searchValue`; the bare-query geocode fallback matched almost every short term. Fixed: now driven off `lastSearchedQuery` (the submitted query). Map-close reset also rekeyed to submitted query.
+2. **"Transcribe URL" never routed to /extract** — the button was `<a href="/extract">` (full-page reload). Fixed: `onClick={(e) => { e.preventDefault(); navigate('/extract'); }}` in both `UniversalSearch.jsx` and `LandingPage.jsx`.
+3. **New Google OAuth users hit `/auth/login?error=oauth_failed`** — `User.save()` never assigned the DB-generated `id` back onto the instance, so `getBalance(null)` threw "User not found". Fixed in `apps/backend/models/User.js`: `this.id = row.id` after both INSERT and UPDATE.
+
+### `/extract` page served as octet-stream download (SHIPPED)
+`/extract` and `/blog*` were in `_redirects` (→ `/_index 200`) but missing from `_headers`. Cloudflare Pages matches `_headers` against the *original* URL, not the rewrite target, so both routes served as `application/octet-stream` → browser download dialog. Fixed: added `Content-Type: text/html` entries for `/extract`, `/blog`, `/blog/*` to `apps/frontend/public/_headers`.
+
+### "Posted on Truegle" share button (SHIPPED — `apps/frontend/src/components/ui/TruegleShareButton.jsx`)
+- Appears on every result card action row, gated to registered users only
+- Platform picker: Twitter/X, Bluesky, LinkedIn, Reddit, + copy-to-clipboard
+- Auto-composes "Posted on Truegle" with result title, URL, query, and mode hashtag
+- Anonymous users see a greyed "Sign in to share" prompt → `/auth/signup`
+
+### Landing page mode showcase + trending feed (SHIPPED — `apps/frontend/src/components/landing/ModesAndTrending.jsx`)
+- **Mode showcase strip** (4 cards: Blue/Red/Purple/Ocean) inserted between hero and existing features section; each card shows a live example query that routes to that mode on click
+- **Trending on Truegle** pill feed below the cards; rotates every 4 s; fetches live data from `/api/search/trending`
+
+### Real-time trending endpoint (SHIPPED — `apps/backend/routes/search.js` + migration `002_create_search_queries.sql`)
+- `search_queries` Postgres table (query, mode, created_at — no PII)
+- Auto-migration runs on server start (`server.js`) — idempotent `IF NOT EXISTS`, works on Vercel serverless
+- Fire-and-forget `logSearchQuery()` called after every successful search
+- `GET /api/search/trending` aggregates last 24 h, returns top 12 with most-used mode via `MODE()` aggregate
+- Frontend merges live results with static fallback; shows "LIVE" badge when real data arrives; graceful error fallback
+
+### SearXNG media categories — images / videos / social (SHIPPED — `apps/backend/services/SearchService.js`)
+- `performSearXNGCategorySearch(query, searxCategory, filters)` — passes SearXNG's `categories` param so the self-hosted instance routes to the right engine group (images aggregates Bing Images/Google Images/Flickr/etc.; videos aggregates YouTube/Vimeo/etc.; social media aggregates Reddit/Twitter/HN/etc.)
+- `formatSearXNGCategoryResults()` — maps SearXNG's category-specific fields: `img_src`/`thumbnail_src`/`resolution` for images; `iframe_src`/`thumbnail`/YouTube ID extraction for videos; standard fields for social
+- **Images tab**: SearXNG fires first (free, no quota); Google Images + Brave Images still run in parallel as supplements. Unsplash now only fires when SearXNG, Google Images, AND Brave Images are all absent.
+- **Videos tab**: SearXNG added in parallel to YouTube Data API + Brave/Google site:youtube.com fallbacks
+- **Social tab**: SearXNG `social media` category added alongside existing Google CSE social search
+- `detectSource` and `formatResults` updated to handle `searxng-images`, `searxng-videos`, `searxng-social-media` source tags
+- **Net effect**: pics/vids/socials tabs now work even when paid API quotas are exhausted (Unsplash quota-exceeded, YouTube 403, etc.)
 
 ---
 

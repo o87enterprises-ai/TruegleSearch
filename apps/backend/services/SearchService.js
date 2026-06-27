@@ -114,6 +114,11 @@ class SearchService {
       const searchSocial = filters.category === 'social';
 
       if (searchImages) {
+        // SearXNG images: free, self-hosted, aggregates Bing Images / Google Images /
+        // Unsplash / Flickr / etc. — always try first, no API key needed.
+        if (this.searxngUrl) {
+          searchPromises.push(this.performSearXNGCategorySearch(query, 'images', filters));
+        }
         const hasGoogleImages = !!(this.googleApiKey && this.googleSearchEngineId);
         const hasBraveImages = !!this.braveApiKey;
         if (hasGoogleImages) {
@@ -122,20 +127,28 @@ class SearchService {
         if (hasBraveImages) {
           searchPromises.push(this.performBraveImageSearch(query, filters));
         }
-        // Unsplash is generic stock photography, not real photos of the actual
-        // subject — only used as a last resort when no real image source is configured.
-        if (!hasGoogleImages && !hasBraveImages && this.unsplashAccessKey) {
+        // Unsplash is generic stock photography — only last resort with no other source.
+        if (!hasGoogleImages && !hasBraveImages && !this.searxngUrl && this.unsplashAccessKey) {
           searchPromises.push(this.performUnsplashSearch(query, filters));
         }
       }
 
       if (searchSocial) {
+        // SearXNG social media: aggregates Reddit, Twitter/X, HN, etc. — free, no key.
+        if (this.searxngUrl) {
+          searchPromises.push(this.performSearXNGCategorySearch(query, 'social media', filters));
+        }
         if (this.googleApiKey && this.googleSearchEngineId) {
           searchPromises.push(this.performGoogleSearch(
             `${query} site:reddit.com OR site:twitter.com OR site:facebook.com`,
             { ...filters, perPage: 10 }
           ));
         }
+      }
+
+      // SearXNG videos: free alternative/supplement to the YouTube Data API
+      if (searchVideos && this.searxngUrl) {
+        searchPromises.push(this.performSearXNGCategorySearch(query, 'videos', filters));
       }
 
       if (searchWeb) {
@@ -914,6 +927,104 @@ class SearchService {
     }));
   }
 
+  /**
+   * SearXNG category search — passes the `categories` param so the instance
+   * routes to the right engines (images / videos / social media / news).
+   * @param {string} searxCategory  SearXNG category string, e.g. 'images', 'videos', 'social media'
+   */
+  async performSearXNGCategorySearch(query, searxCategory, filters) {
+    if (!this.searxngUrl) throw new Error('SearXNG not configured');
+
+    const params = {
+      q: query,
+      format: 'json',
+      categories: searxCategory,
+      pageno: filters.page || 1,
+    };
+
+    try {
+      const response = await axios.get(`${this.searxngUrl}/search`, {
+        params,
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+          'User-Agent': 'TruegleSearch/1.0',
+        },
+        timeout: 5000,
+      });
+      return { ...response.data, _source: `searxng-${searxCategory.replace(' ', '-')}` };
+    } catch (error) {
+      console.warn(`SearXNG ${searxCategory} unavailable:`, error.response?.status || error.code || error.message);
+      throw new Error(`SearXNG ${searxCategory} unavailable`);
+    }
+  }
+
+  /**
+   * Format SearXNG category results into the unified result shape.
+   * SearXNG returns different fields per category:
+   *   images  → img_src, thumbnail_src, source (domain), resolution
+   *   videos  → iframe_src, thumbnail, length, publishedDate
+   *   social  → same as web but engines are reddit/twitter/HN/etc.
+   */
+  formatSearXNGCategoryResults(data, searxCategory) {
+    if (!data || !data.results) return [];
+
+    return data.results
+      .filter((item) => item.url)
+      .map((item) => {
+        const base = {
+          title: item.title || item.url,
+          url: item.url,
+          snippet: item.content || '',
+          source: 'searxng',
+          sourceName: item.engine || 'SearXNG',
+          date: item.publishedDate || null,
+          favicon: null,
+          domain: this.extractDomain(item.url),
+          verified: true,
+        };
+
+        if (searxCategory === 'images') {
+          return {
+            ...base,
+            image: item.img_src || item.thumbnail_src || null,
+            thumbnail: item.thumbnail_src || item.img_src || null,
+            resolution: item.resolution || null,
+            photographer: item.source || null,
+            category: 'images',
+          };
+        }
+
+        if (searxCategory === 'videos') {
+          // Extract YouTube video ID if present so the frontend can build a thumbnail
+          let videoId = null;
+          try {
+            const u = new URL(item.url);
+            if (u.hostname.includes('youtube.com')) videoId = u.searchParams.get('v');
+            else if (u.hostname === 'youtu.be') videoId = u.pathname.slice(1);
+          } catch { /* ignore */ }
+
+          return {
+            ...base,
+            image: videoId
+              ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+              : (item.thumbnail || null),
+            thumbnail: item.thumbnail || null,
+            iframeSrc: item.iframe_src || null,
+            duration: item.length || null,
+            videoId,
+            category: 'videos',
+          };
+        }
+
+        // social media — tag with platform name from engine field
+        return {
+          ...base,
+          image: item.img_src || null,
+          category: 'social',
+        };
+      });
+  }
+
   formatBraveResults(data) {
     if (!data || !data.web || !data.web.results) return [];
 
@@ -1206,6 +1317,12 @@ class SearchService {
         return this.formatBraveResults(data);
       case 'searxng':
         return this.formatSearXNGResults(data);
+      case 'searxng-images':
+        return this.formatSearXNGCategoryResults(data, 'images');
+      case 'searxng-videos':
+        return this.formatSearXNGCategoryResults(data, 'videos');
+      case 'searxng-social-media':
+        return this.formatSearXNGCategoryResults(data, 'social media');
       case 'google-images':
         return this.formatGoogleImageResults(data);
       case 'brave-images':
@@ -1267,6 +1384,7 @@ class SearchService {
     if (data._source === 'searxng') return 'searxng';
     if (data._source === 'google-images') return 'google-images';
     if (data._source === 'brave-images') return 'brave-images';
+    if (data._source && data._source.startsWith('searxng-')) return data._source;
     if (data.items && data.kind === 'customsearch#search') return 'google';
     if (data.webPages && data._type === 'SearchResponse') return 'bing';
     if (data.articles && data.status === 'ok') return 'news';
