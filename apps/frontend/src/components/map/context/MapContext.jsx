@@ -1,13 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { PROVIDERS, ROUTE_MODES, DEFAULT_CENTER, MAP_CONTROLS, MAP_VIEW_MODES, DEFAULT_MAP_VIEW_MODE } from '../config/constants';
 
-// Smart backend URL detection - works for both local and external (ngrok) access
-const getBackendUrl = () => {
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const isLocalIP = window.location.hostname.match(/^192\.168\.\d+\.\d+$/) ||
-                    window.location.hostname.match(/^10\.\d+\.\d+\.\d+$/);
-  return (isLocalhost || isLocalIP) ? 'http://localhost:3001' : '';
-};
+const getBackendUrl = () => import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 const MapContext = createContext(null);
 

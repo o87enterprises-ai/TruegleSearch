@@ -14,13 +14,7 @@ import truegleLogo from '../../assets/images/truegle.png';
 import LogoOverlay from './LogoOverlay';
 import { Search as SearchIcon } from 'lucide-react';
 
-// Smart backend URL detection - works for both local and external (ngrok) access
-const getBackendUrl = () => {
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const isLocalIP = window.location.hostname.match(/^192\.168\.\d+\.\d+$/) ||
-                    window.location.hostname.match(/^10\.\d+\.\d+\.\d+$/);
-  return (isLocalhost || isLocalIP) ? 'http://localhost:3001' : '';
-};
+const getBackendUrl = () => import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export default function MapViewWrapper({
   children,
