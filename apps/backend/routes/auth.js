@@ -14,7 +14,11 @@ const logger = require('../utils/logger');
 // Prefer an explicit, STABLE backend URL for the OAuth callback. process.env
 // VERCEL_URL is the per-deployment hostname (changes every deploy), which would
 // never match Google's registered redirect URI — so it's only the last resort.
+// VERCEL_PROJECT_PRODUCTION_URL is Vercel's system env for the stable production
+// alias (e.g. backend-seven-khaki-60.vercel.app). Unlike VERCEL_URL it never
+// changes between deployments, so the callbackURL always matches Google's registered URI.
 const BACKEND_URL = process.env.BACKEND_URL
+  || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null)
   || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3001');
 
 const FRONTEND_URL = config.frontendUrl || 'https://truegle.info';
