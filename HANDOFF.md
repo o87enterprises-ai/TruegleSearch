@@ -3,6 +3,67 @@ _Last updated: 2026-06-28. Supersedes all prior handoff docs._
 
 ---
 
+## 🔴 FIRST TASK NEXT SESSION — Install browser automation
+
+Before doing anything else, install proper browser automation so Claude can operate the Cloudflare dashboard, Vercel, and other browser-gated services without needing the user to navigate manually.
+
+**Priority order:**
+1. **Hermes** — install as MCP server in `~/.claude.json`
+2. **Manus** — install as MCP server in `~/.claude.json`
+3. **Playwright MCP** (`@playwright/mcp`) — `npm install -g @playwright/mcp` then add as MCP server
+
+If none of those work or aren't available, the user has a shelved build of a **custom headless hybrid browser agent** to fall back to — ask them to point you at that repo.
+
+Once browser automation is confirmed working, use it to:
+- Verify Cloudflare Pages build logs for `truegle-search` (check prerender step ran successfully)
+- Purge Cloudflare cache for `sitemap.xml` and `robots.txt` (still serving stale cached versions)
+- Confirm blog canonical: `curl -s https://truegle.info/blog/what-is-a-filter-bubble | grep canonical` should show the blog URL, not the homepage
+
+---
+
+## 🗓️ SESSION LOG 2026-06-28 — SEO Phase 1 + 2 + Cloudflare AI crawler fix
+
+### SEO audit completed (truegle.info-audit/)
+Full audit run via `/seo audit`. Health score: **40/100**. Artifacts in `truegle.info-audit/`:
+- `FULL-AUDIT-REPORT.md` — complete findings
+- `ACTION-PLAN.md` — 4-phase prioritized plan
+- `audit-data.json` — structured data
+
+### Phase 1 fixes shipped (commit `32a5320`)
+- **P1-1**: Build assertion added to `prerender.mjs` — fails Cloudflare build if `dist/blog/` is missing
+- **P1-3**: Removed `/search` + all `?mode=` URLs from `sitemap.xml`; added `X-Robots-Tag: noindex` to `/search` routes in `_headers`; added `Disallow: /search` to `robots.txt` — **VERIFIED LIVE** (`X-Robots-Tag: noindex, follow` confirmed on `/search`)
+- **P1-4**: Sitemap cleaned — trailing-slash URLs, real git-derived `lastmod` dates, `changefreq`/`priority` removed, disallowed pages removed
+- **P1-5**: Organization schema logo fixed: string `og-image.png` → `ImageObject` with `truegle.png`; added `foundingDate` and `contactPoint`
+- **P1-6**: `impact-site-verification` `value=` → `content=`
+- **P2-3**: `/assets/*` gets `Cache-Control: public, max-age=31536000, immutable`
+
+### Phase 2 fixes shipped (commit `6a1a1ca`)
+- **P2-6**: `BlogPost.jsx` schema upgraded — typed `mainEntityOfPage`, `image` ImageObject, `@id`/`url`, `isPartOf Blog`, publisher by `@id`
+- **P2-8**: Live H1 in `LandingPage.jsx` — visually-hidden text added so Googlebot sees "Truegle — Unbiased, Transparent & Secure Search"
+- **P2-9**: `llms.txt` expanded with 7 FAQ Q&A pairs, About the Team, Technology stack, blog URLs — **VERIFIED LIVE**
+
+### Cloudflare AI crawler conflict fixed (user action — dashboard)
+- Disabled **"Block AI training bots"** (WAF managed rule that was hard-blocking GPTBot, ClaudeBot, etc.)
+- Disabled **"Instruct AI bot traffic with robots.txt"** (was prepending `Disallow: /` for AI bots before the manual `Allow: /` entries)
+- `robots.txt` now serves clean with only the manual file — all AI bots have `Allow: /`
+
+### Blog prerender still not confirmed (P1-1 BLOCKER — needs verification next session)
+The Cloudflare Pages build config was ALREADY correct (`npm run build` / `apps/frontend` / `dist`) — screenshot confirmed. A fresh build was triggered by saving the settings. The blog canonical still showed homepage URL (`https://truegle.info/`) instead of `https://truegle.info/blog/what-is-a-filter-bubble` at end of session — **needs verification after next Cloudflare build completes**.
+
+**Verification command:**
+```
+curl -s https://truegle.info/blog/what-is-a-filter-bubble | grep canonical
+```
+- ✅ Success: `canonical" href="https://truegle.info/blog/what-is-a-filter-bubble"`
+- ❌ Still broken: `canonical" href="https://truegle.info/"`
+
+If still broken after a clean build, check Cloudflare Pages build logs for the prerender step output — look for `[prerender] wrote dist\blog\...` lines.
+
+### Sitemap/robots.txt CDN cache stale
+Both files were updated in the commit but Cloudflare CDN is serving cached old versions. Next session: use browser automation to **Purge Everything** from Cloudflare → Caching → Configuration after confirming blog prerender is working.
+
+---
+
 ## 🗓️ SESSION LOG 2026-06-28 — Ad network integration + affiliate setup + adult CPM gating
 
 ### Adsterra — APPROVED (2026-06-28)
