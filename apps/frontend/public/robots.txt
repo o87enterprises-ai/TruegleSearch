@@ -1,7 +1,8 @@
 User-agent: *
 Allow: /
 
-# Disallow auth + account flows from indexing
+# Disallow dynamic/auth/non-content paths
+Disallow: /search
 Disallow: /auth/
 Disallow: /onboarding
 Disallow: /settings

@@ -125,6 +125,14 @@ async function main() {
       console.log(`[prerender] wrote ${path.relative(root, outPath)}`);
     }
 
+    // Fail the build if blog prerender files are missing — catches deployment
+    // config regressions where the prerender step runs but its output isn't
+    // included in the Pages artifact.
+    const blogDir = path.join(distDir, 'blog');
+    if (!fs.existsSync(blogDir) || !fs.existsSync(path.join(blogDir, 'what-is-a-filter-bubble', 'index.html'))) {
+      throw new Error('FAIL: blog prerender missing — dist/blog/ was not created. Check prerender-entry.jsx and the Cloudflare Pages build command.');
+    }
+
     // Cloudflare Pages doesn't support a 404 status on _redirects rewrites —
     // only 200/30x are allowed. Its real 404 mechanism is a top-level
     // 404.html: without one, Pages assumes a pure SPA and routes every
