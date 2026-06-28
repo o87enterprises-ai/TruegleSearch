@@ -11,16 +11,51 @@ export const ADSTERRA = {
 };
 
 /**
- * Renders an Adsterra iframe banner.
+ * Maps Truegle search context to Adsterra campaign keyword categories.
+ *
+ * When you create campaigns in Adsterra's dashboard, target these keyword
+ * strings to serve ads matched to the user's active perspective/mode.
+ * Each key corresponds to the `searchContext` prop or URL ?mode= value.
+ *
+ * Example Adsterra campaign targeting setup:
+ *   Campaign A (conservative media) → keywords: conservative, right-wing, traditional
+ *   Campaign B (progressive brands) → keywords: progressive, liberal, social-justice
+ *   Campaign C (tech/security tools) → keywords: osint, privacy, cybersecurity
+ */
+const CONTEXT_KEYWORDS = {
+  // UI search modes (from ?mode= URL param or localStorage preference)
+  'blue':         ['liberal', 'progressive', 'mainstream', 'center'],
+  'red':          ['conservative', 'right-wing', 'traditional', 'republican'],
+  'purple':       ['bipartisan', 'cross-partisan', 'multi-perspective', 'political'],
+  'ocean':        ['osint', 'privacy', 'cybersecurity', 'intelligence', 'tech'],
+  'green':        ['research', 'academic', 'science', 'factual'],
+  // Perspective filter values (from ?perspectives= or selectedPerspectives state)
+  'neutral':      ['non-partisan', 'centrist', 'balanced', 'independent'],
+  'left':         ['progressive', 'liberal', 'social-justice', 'democrat'],
+  'right':        ['conservative', 'right-wing', 'republican', 'traditional'],
+  // Legacy SearchModeContext pill names (kept for backward compat)
+  'red-pill':     ['conservative', 'right-wing', 'traditional', 'political-right'],
+  'blue-pill':    ['liberal', 'progressive', 'mainstream', 'political-left'],
+  // Demographic / identity signals (pass explicitly from campaign-specific placements)
+  'gen-z':        ['gen-z', 'youth', 'social-media', 'trending'],
+  'lgbtq':        ['lgbtq', 'pride', 'inclusion', 'diversity'],
+  'business':     ['business', 'finance', 'investing', 'entrepreneur'],
+};
+
+/**
+ * Renders an Adsterra iframe banner via first-party proxy (/ad/:key).
  *
  * Props:
- *   format        — key from ADSTERRA object above (e.g. 'banner728x90')
- *   adultGated    — if true, only renders when: authenticated + safeSearch=off + adult query
- *   isAuthenticated, safeSearch, query  — required when adultGated=true
+ *   format         — key from ADSTERRA object above (e.g. 'banner728x90')
+ *   searchContext  — active search mode / perspective for campaign targeting
+ *                    (e.g. 'red-pill', 'neutral', 'ocean'). Optional.
+ *   adultGated     — if true, only renders when: authenticated + safeSearch=off + adult query
+ *   isAuthenticated, safeSearch, query — required when adultGated=true
  *   className
  */
 export default function AdsterraBanner({
   format = 'banner728x90',
+  searchContext = null,
   adultGated = false,
   isAuthenticated,
   safeSearch,
@@ -58,20 +93,31 @@ export default function AdsterraBanner({
     const container = containerRef.current;
     container.innerHTML = '';
 
-    // Define atOptions globally on window to avoid inline script CSP violations
+    // Build keyword list for Adsterra campaign targeting
+    const keywords = searchContext ? (CONTEXT_KEYWORDS[searchContext] ?? []) : [];
+
+    // atOptions is read by invoke.js immediately on load
     window.atOptions = {
       key: placement.key,
       format: 'iframe',
       height: placement.h,
       width: placement.w,
-      params: {},
+      params: {
+        // Passed to Adsterra's targeting engine — wire these to campaigns in
+        // the Adsterra dashboard to serve perspective-matched ads
+        ...(keywords.length > 0 && { keywords }),
+      },
     };
 
     const invoke = document.createElement('script');
-    invoke.src = `//www.highperformanceformat.com/${placement.key}/invoke.js`;
+    // Load through our first-party proxy at /ad/:key (Cloudflare Pages Function)
+    // instead of directly from highperformanceformat.com (third-party, blocked by
+    // Edge/Firefox Tracking Prevention). The function fetches from HPF server-side,
+    // rewrites domain references to ads.truegle.info, and returns the script.
+    invoke.src = `/ad/${placement.key}`;
     invoke.async = true;
     container.appendChild(invoke);
-  }, [shouldRender]);
+  }, [shouldRender, searchContext]);
 
   useEffect(() => {
     if (!shouldRender) {

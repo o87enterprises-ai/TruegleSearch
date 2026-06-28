@@ -163,6 +163,16 @@ export default function UniversalSearch({ lockedGreen = false }) {
 
   // Purple mode: Perspective state
   const [selectedPerspectives, setSelectedPerspectives] = useState(['neutral']);
+
+  // Ad targeting context — prefer the most specific signal available.
+  // Passed to AdsterraBanner so Adsterra campaigns can be keyword-targeted
+  // to match the user's active perspective or search mode.
+  const adContext = (() => {
+    const p = selectedPerspectives[0];
+    if (p && p !== 'neutral') return p;       // 'left' | 'right' → highest specificity
+    if (mode && mode !== 'blue') return mode; // 'red' | 'purple' | 'ocean' | 'green'
+    return 'neutral';
+  })();
   const [activePerspectiveCategory, setActivePerspectiveCategory] = useState(0);
 
   // UI state
@@ -1324,7 +1334,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
           {mode !== 'green' && (
             <div className="flex justify-center my-4">
               <AdColorWrapper type="cpm">
-                <AdsterraBanner format="banner728x90" />
+                <AdsterraBanner format="banner728x90" searchContext={adContext} />
               </AdColorWrapper>
             </div>
           )}
@@ -1333,6 +1343,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
           <AdColorWrapper type="adult" className="my-4 flex justify-center">
             <AdsterraBanner
               format="banner300x250"
+              searchContext={adContext}
               adultGated
               isAuthenticated={isAuthenticated}
               safeSearch={settings.safeSearch}
@@ -1587,7 +1598,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                 {/* Adsterra 300x250 medium rectangle — non-adult, all users */}
                 {mode !== 'green' && (
                   <AdColorWrapper type="cpm">
-                    <AdsterraBanner format="banner300x250" />
+                    <AdsterraBanner format="banner300x250" searchContext={adContext} />
                   </AdColorWrapper>
                 )}
                 {/* Fallback house ad when Adsterra doesn't fill */}
