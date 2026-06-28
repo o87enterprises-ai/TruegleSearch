@@ -19,6 +19,8 @@ const SEARCH_MODES = [
 
 const HomeStaticContent = () => (
   <div id="seo-home">
+    <div id="seo-stars" aria-hidden="true" />
+    <img id="seo-logo" src="/truegle.png" alt="Truegle logo" />
     <h1>Truegle — Unbiased, Transparent &amp; Secure Search</h1>
     <p>
       Search without bias. Discover truth from multiple perspectives. No tracking, no
