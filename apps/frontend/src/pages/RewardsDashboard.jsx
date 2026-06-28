@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useRewards } from '../context/RewardsContext';
 import { rewardsAPI } from '../services/api';
+import HouseAd from '../components/ui/HouseAd';
 
 const formatCents = (cents) => `$${(Math.max(0, cents || 0) / 100).toFixed(2)}`;
 
@@ -223,6 +224,14 @@ const RewardsDashboard = () => {
             </div>
           </>
         )}
+
+        {/* Featured Partner Offer */}
+        <div className="mt-8 pt-6 border-t border-white/10">
+          <div className="text-[10px] uppercase tracking-wider text-cyan-400/80 mb-3 font-mono">
+            Featured Privacy Partner Offer
+          </div>
+          <HouseAd adId="aff-proton-vpn" />
+        </div>
 
         <div className="mt-8 text-sm text-white/50">
           <Link to="/settings" className="hover:text-white/80">← Back to Settings</Link>

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { getAdById } from '../config/houseAds';
 
 /**
  * Shared layout for static legal/info pages (Privacy, Terms, About).
@@ -10,6 +11,9 @@ const LegalPage = ({ title, lastUpdated, children }) => {
     document.title = `${title} — Truegle`;
     window.scrollTo(0, 0);
   }, [title]);
+
+  const protonAd = getAdById('aff-proton-vpn');
+  const protonUrl = protonAd?.url || 'https://protonvpn.com/';
 
   return (
     <div className="min-h-screen bg-black text-gray-200">
@@ -28,18 +32,27 @@ const LegalPage = ({ title, lastUpdated, children }) => {
             </p>
           )}
         </header>
-
+ 
         <article className="legal-prose space-y-6 leading-relaxed text-gray-300">
           {children}
         </article>
 
         <footer className="mt-14 pt-6 border-t border-gray-800 text-sm text-gray-500">
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <Link to="/privacy" className="hover:text-gray-300">Privacy</Link>
             <Link to="/terms" className="hover:text-gray-300">Terms</Link>
             <Link to="/about" className="hover:text-gray-300">About</Link>
             <a href="mailto:truegleai@proton.me" className="hover:text-gray-300">
               Contact
+            </a>
+            <span className="text-gray-700">|</span>
+            <a
+              href={protonUrl}
+              target="_blank"
+              rel="sponsored noopener noreferrer"
+              className="hover:text-gray-300 text-blue-400/90 font-mono text-xs flex items-center gap-1"
+            >
+              Proton VPN
             </a>
           </div>
           <p className="mt-4">© {new Date().getFullYear()} Truegle Search. All rights reserved.</p>

@@ -1579,6 +1579,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
               {/* Ad Sidebar */}
               <div className="sticky top-4 space-y-4 flex flex-col items-center">
                 <AdSlot className="rounded-xl" size="sidebar" />
+                
+                {/* Revive Display Ads (300x250) */}
+                <ReviveAd zone="display300x250a" className="w-full flex justify-center" />
+                <ReviveAd zone="display300x250b" className="w-full flex justify-center" />
               </div>
             </div>
           </div>
