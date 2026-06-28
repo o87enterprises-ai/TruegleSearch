@@ -52,24 +52,24 @@ export const useSearchMode = (query) => {
   useEffect(() => {
     const config = {
       blue: {
-        name: 'Standard',
-        description: 'Balanced search results',
-        color: '#3b82f6', // blue-500
+        name: 'Mainstream',
+        description: 'Traditional · establishment · widely-accepted sources',
+        color: '#3b82f6',
       },
       red: {
-        name: 'Alternative',
-        description: 'Alternative viewpoints and conspiracy theories',
-        color: '#ef4444', // red-500
+        name: 'Free Thinker',
+        description: 'Alternative · independent · questions the official narrative',
+        color: '#ef4444',
       },
       purple: {
-        name: 'Multi-Perspective',
-        description: 'Results from different political perspectives',
-        color: '#a855f7', // purple-500
+        name: 'Skeptical',
+        description: 'Conservative · skeptical · counter-mainstream perspective',
+        color: '#a855f7',
       },
       ocean: {
-        name: 'OSINT',
-        description: 'Open source intelligence gathering',
-        color: '#14b8a6', // teal-500
+        name: 'Privacy & Tech',
+        description: 'Developers · security researchers · OSINT · privacy advocates',
+        color: '#14b8a6',
       },
     };
 

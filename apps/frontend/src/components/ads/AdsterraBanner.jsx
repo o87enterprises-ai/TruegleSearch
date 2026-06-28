@@ -23,23 +23,23 @@ export const ADSTERRA = {
  *   Campaign C (tech/security tools) → keywords: osint, privacy, cybersecurity
  */
 const CONTEXT_KEYWORDS = {
-  // UI search modes (from ?mode= URL param or localStorage preference)
-  'blue':         ['liberal', 'progressive', 'mainstream', 'center'],
-  'red':          ['conservative', 'right-wing', 'traditional', 'republican'],
-  'purple':       ['bipartisan', 'cross-partisan', 'multi-perspective', 'political'],
-  'ocean':        ['osint', 'privacy', 'cybersecurity', 'intelligence', 'tech'],
-  'green':        ['research', 'academic', 'science', 'factual'],
-  // Perspective filter values (from ?perspectives= or selectedPerspectives state)
-  'neutral':      ['non-partisan', 'centrist', 'balanced', 'independent'],
-  'left':         ['progressive', 'liberal', 'social-justice', 'democrat'],
-  'right':        ['conservative', 'right-wing', 'republican', 'traditional'],
-  // Legacy SearchModeContext pill names (kept for backward compat)
-  'red-pill':     ['conservative', 'right-wing', 'traditional', 'political-right'],
-  'blue-pill':    ['liberal', 'progressive', 'mainstream', 'political-left'],
-  // Demographic / identity signals (pass explicitly from campaign-specific placements)
-  'gen-z':        ['gen-z', 'youth', 'social-media', 'trending'],
-  'lgbtq':        ['lgbtq', 'pride', 'inclusion', 'diversity'],
-  'business':     ['business', 'finance', 'investing', 'entrepreneur'],
+  // UI search modes — matches actual meanings of each mode
+  'blue':     ['mainstream', 'traditional', 'liberal', 'establishment', 'legacy-media'],
+  'red':      ['alternative', 'conspiracy', 'independent', 'free-thinker', 'counter-narrative'],
+  'purple':   ['conservative', 'skeptical', 'right-wing', 'traditional-values', 'anti-establishment'],
+  'ocean':    ['privacy', 'cybersecurity', 'osint', 'developer', 'tech', 'infosec'],
+  'green':    ['research', 'academic', 'science', 'factual'],
+  // Perspective filter values
+  'neutral':  ['non-partisan', 'centrist', 'balanced', 'independent'],
+  'left':     ['progressive', 'liberal', 'social-justice', 'democrat'],
+  'right':    ['conservative', 'republican', 'traditional', 'right-wing'],
+  // Legacy pill names
+  'red-pill': ['alternative', 'free-thinker', 'counter-narrative', 'independent'],
+  'blue-pill':['mainstream', 'traditional', 'establishment', 'liberal'],
+  // Demographic signals (set explicitly at placement level for targeted campaigns)
+  'gen-z':    ['gen-z', 'youth', 'social-media', 'trending'],
+  'lgbtq':    ['lgbtq', 'pride', 'inclusion', 'diversity'],
+  'business': ['business', 'finance', 'investing', 'entrepreneur'],
 };
 
 /**
