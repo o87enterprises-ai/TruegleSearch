@@ -48,9 +48,14 @@ export default function AdsterraBanner({
     const container = containerRef.current;
     container.innerHTML = '';
 
-    const cfg = document.createElement('script');
-    cfg.text = `atOptions = { 'key': '${placement.key}', 'format': 'iframe', 'height': ${placement.h}, 'width': ${placement.w}, 'params': {} };`;
-    container.appendChild(cfg);
+    // Define atOptions globally on window to avoid inline script CSP violations
+    window.atOptions = {
+      key: placement.key,
+      format: 'iframe',
+      height: placement.h,
+      width: placement.w,
+      params: {},
+    };
 
     const invoke = document.createElement('script');
     invoke.src = `//www.highperformanceformat.com/${placement.key}/invoke.js`;
