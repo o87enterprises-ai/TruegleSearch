@@ -1,5 +1,84 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-06-27. Supersedes all prior handoff docs._
+_Last updated: 2026-06-28. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ SESSION LOG 2026-06-28 — Ad network integration + affiliate setup + adult CPM gating
+
+### Adsterra — APPROVED (2026-06-28)
+Account approved. Placement IDs (get actual ad code keys from Adsterra dashboard → Ad Units → Get Ad Code):
+
+| Ad Unit | Placement ID |
+|---|---|
+| Popunder | 30006380 |
+| Smartlink | 30006381 |
+| Social Bar | 30006382 |
+| Native Banner | 30006383 |
+| Banner 468x60 | 30006384 |
+| Banner 300x250 | 30006385 |
+| Banner 160x300 | 30006386 |
+| Banner 728x90 | 30006387 |
+| Banner 320x50 | 30006388 |
+| Banner 160x600 | 30006389 |
+
+Adult ads toggle available in Adsterra dashboard — enable when ready to boost CPM.
+
+**All ad codes hardcoded directly in `AdsterraBanner.jsx` — no env vars needed.**
+
+| Format | Key | Placement ID |
+|---|---|---|
+| Banner 468x60 | `7e53f17316c72708e8417a8a991171ac` | 30006384 |
+| Banner 300x250 | `0fca9299f48c601ea125d688c11ff7d2` | 30006385 |
+| Banner 728x90 | `d5f657ea7d55fc33ea532071957a2857` | 30006387 |
+| Banner 160x300 | `ffac08ed0f599aa8f389d387aa76001b` | 30006386 |
+| Banner 160x600 | `c16f5233d71714d3151e160ac5778be2` | 30006389 |
+| Popunder | `https://pl30106879.effectivecpmnetwork.com/03/50/81/03508109c0353dafe874e4f377262a99.js` | 30006380 |
+| Social Bar | `https://pl30106881.effectivecpmnetwork.com/f3/a9/76/f3a976b8789fcc63ba068a860561783b.js` | 30006382 |
+| Smartlink | `https://www.effectivecpmnetwork.com/g385gzr0?key=63a965f91d254672ac250654790b5b8c` | 30006381 |
+
+Popunder injected in `index.html` `<head>`. Social Bar injected before `</body>`. Banner formats rendered via `<AdsterraBanner format="..." />` React component.
+
+### Adult CPM ad gating (SHIPPED 2026-06-28)
+New component: `apps/frontend/src/components/ads/AdsterraBanner.jsx`
+- Triple-gated: authenticated + `safeSearch === 'off'` + adult keyword in query
+- Adult keyword list: `apps/frontend/src/utils/adultKeywords.js` (extend as needed)
+- Wired into `UniversalSearch.jsx` after AI summary block (728×90 slot)
+- Zero adult ads show to unauthenticated users or safe-search-on users, ever
+
+### Other CPM networks to apply (priority order)
+1. **HilltopAds** (hilltopads.com) — CPM display, permissive content, low traffic minimum
+2. **PopAds** (popads.net) — instant approval, CPM popunder
+3. **ylliX** (yllix.com) — CPM display, instant approval
+4. **A-ADS** (anonymous-ads.com) — Bitcoin CPM, zero requirements, no KYC
+
+Note: Adsterra caused sinkhole in prior session — expect ad blocker flags. For now revenue > reputation cost.
+
+### Revive zone configuration (DONE 2026-06-28)
+- Zone 4: Interstitial or Floating DHTML, 640×480
+- Zone 5: Banner, Button or Rectangle, 720×405
+- Cloudflare Page Rule active: `ads.truegle.info/*` → SSL Flexible (fixes 522 error)
+- `ads.truegle.info` returns 200 via HTTPS ✓
+- Playwright automation script: `scripts/revive-admin.mjs` (run with `REVIVE_PASS=... node scripts/revive-admin.mjs <cmd>`)
+  - `list-zones` — prints all zones
+  - `configure-zones` — sets zone 4+5 types and sizes
+
+### Affiliates approved (CJ + direct)
+Wire these via Revive HTML banners or direct inline links. All CPA/revenue-share (not CPM):
+
+| Program | Network | Commission | Notes |
+|---|---|---|---|
+| **Proton** (VPN/Mail/Drive) | Direct (partners.proton.me) | Revenue share | Enter IBAN in TUNE dashboard. High relevance — privacy audience perfect fit |
+| **Intego** (Mac security) | CJ | 25% per sale | 45-day cookie. Mac security software |
+| **Personalabs** (blood tests/STD) | CJ | % per sale | Health/STD testing — relevant to adult audience |
+| **TreatMyUTI.com** | CJ | 10% per sale | 30-day cookie. Female 18-80 demo |
+| **SKUTCHI Designs** (office furniture) | CJ | 10% per sale | $2k avg order. Low relevance for search users |
+
+**Proton affiliate** is the highest-priority integration — privacy-first brand + privacy-first search engine = natural conversion. Add Proton banner/link to search results, about page, and rewards page.
+
+**Next session: affiliate integration**
+1. Log into partners.proton.me → get tracking links + banners → add to Revive as HTML banners → link to Zone 3 (leaderboard)
+2. Log into CJ account → get Intego + Personalabs banner HTML → add to Revive → link to Zone 1/2 (300×250)
+3. Wire Proton text link into the About page and Privacy page footer
 
 ---
 

@@ -29,6 +29,7 @@ import AIChatOverlay from '../components/ui/AIChatOverlay';
 import AdSlot from '../components/AdSlot';
 import RewardAdSlot from '../components/RewardAdSlot';
 import ReviveAd from '../components/ads/ReviveAd';
+import AdsterraBanner from '../components/ads/AdsterraBanner';
 import { SkeletonSearchResult } from '../components/ui/Skeleton';
 import AsSeenOn from '../components/Content/AsSeenOn';
 import PerspectiveSelector from '../components/search/PerspectiveSelector';
@@ -1315,6 +1316,23 @@ export default function UniversalSearch({ lockedGreen = false }) {
               <ReviveAd zone="videoInline" style={{ width: '100%', aspectRatio: '16/9' }} />
             </div>
           )}
+
+          {/* Standard CPM banner — all users, non-adult */}
+          {mode !== 'green' && (
+            <div className="flex justify-center my-4">
+              <AdsterraBanner format="banner728x90" />
+            </div>
+          )}
+
+          {/* Adult CPM banner — authenticated + safe search off + adult query only */}
+          <AdsterraBanner
+            format="banner300x250"
+            adultGated
+            isAuthenticated={isAuthenticated}
+            safeSearch={settings.safeSearch}
+            query={query}
+            className="my-4"
+          />
 
           {/* No Summary Confirmation Modal */}
           <AnimatePresence>
