@@ -15,8 +15,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
-    // Ensures clean builds every time
-    emptyOutDir: true
+    emptyOutDir: true,
+    modulePreload: { polyfill: false },
   },
   // Optimize for game development
   server: {
