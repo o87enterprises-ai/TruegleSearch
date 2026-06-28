@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { isAdultQuery } from '../../utils/adultKeywords';
 
 // Adsterra placement keys — all formats for truegle.info (site ID 5880564)
@@ -31,6 +31,16 @@ export default function AdsterraBanner({
   const injected = useRef(false);
 
   const placement = ADSTERRA[format];
+
+  // Consent state — read from window flag (set by CookieConsent component)
+  const [adsAllowed, setAdsAllowed] = useState(() => !!window.__truegle_ad_consent);
+
+  useEffect(() => {
+    const onConsent = (e) => setAdsAllowed(!!e.detail?.ads);
+    window.addEventListener('truegle:consent', onConsent);
+    return () => window.removeEventListener('truegle:consent', onConsent);
+  }, []);
+
   if (!placement) return null;
 
   const adultOk = !adultGated || (
@@ -39,7 +49,7 @@ export default function AdsterraBanner({
     isAdultQuery(query)
   );
 
-  const shouldRender = adultOk;
+  const shouldRender = adultOk && adsAllowed;
 
   useEffect(() => {
     if (!shouldRender || injected.current || !containerRef.current) return;

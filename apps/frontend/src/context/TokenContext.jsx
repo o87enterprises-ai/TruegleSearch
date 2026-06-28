@@ -9,20 +9,30 @@ const FREEMIUM_KEY_SEARCHES = 'truegle_freemium_searches';
 const FREEMIUM_KEY_TOKENS = 'truegle_freemium_tokens';
 const FREEMIUM_KEY_DATE = 'truegle_freemium_date';
 
+function lsGet(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function lsSet(key, val) {
+  try { localStorage.setItem(key, val); } catch { /* quota / SecurityError — ignore */ }
+}
+
 function getFreemiumState() {
-  const today = new Date().toISOString().slice(0, 10);
-  const storedDate = localStorage.getItem(FREEMIUM_KEY_DATE);
-  if (storedDate !== today) {
-    // New day — reset daily searches but keep flag active
-    localStorage.setItem(FREEMIUM_KEY_DATE, today);
-    localStorage.setItem(FREEMIUM_KEY_SEARCHES, '0');
-    localStorage.setItem(FREEMIUM_KEY_TOKENS, String(FREEMIUM_DAILY_LIMIT));
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const storedDate = lsGet(FREEMIUM_KEY_DATE);
+    if (storedDate !== today) {
+      lsSet(FREEMIUM_KEY_DATE, today);
+      lsSet(FREEMIUM_KEY_SEARCHES, '0');
+      lsSet(FREEMIUM_KEY_TOKENS, String(FREEMIUM_DAILY_LIMIT));
+    }
+    return {
+      active: lsGet(FREEMIUM_KEY_FLAG) === 'true',
+      tokens: parseInt(lsGet(FREEMIUM_KEY_TOKENS) || '10', 10),
+      searches: parseInt(lsGet(FREEMIUM_KEY_SEARCHES) || '0', 10),
+    };
+  } catch {
+    return { active: false, tokens: FREEMIUM_DAILY_LIMIT, searches: 0 };
   }
-  return {
-    active: localStorage.getItem(FREEMIUM_KEY_FLAG) === 'true',
-    tokens: parseInt(localStorage.getItem(FREEMIUM_KEY_TOKENS) || '10', 10),
-    searches: parseInt(localStorage.getItem(FREEMIUM_KEY_SEARCHES) || '0', 10),
-  };
 }
 
 const TokenContext = createContext();
@@ -57,8 +67,8 @@ export const TokenProvider = ({ children }) => {
     if (state.tokens <= 0) return { allowed: false, reason: 'quota_exhausted' };
     const newTokens = state.tokens - 1;
     const newSearches = state.searches + 1;
-    localStorage.setItem(FREEMIUM_KEY_TOKENS, String(newTokens));
-    localStorage.setItem(FREEMIUM_KEY_SEARCHES, String(newSearches));
+    lsSet(FREEMIUM_KEY_TOKENS, String(newTokens));
+    lsSet(FREEMIUM_KEY_SEARCHES, String(newSearches));
     setFreemiumState({ ...state, tokens: newTokens, searches: newSearches });
     return { allowed: true, tokensRemaining: newTokens };
   }, []);
@@ -66,7 +76,7 @@ export const TokenProvider = ({ children }) => {
   const refillFreemiumFromAd = useCallback((amount = 3) => {
     const state = getFreemiumState();
     const newTokens = Math.min(state.tokens + amount, FREEMIUM_DAILY_LIMIT);
-    localStorage.setItem(FREEMIUM_KEY_TOKENS, String(newTokens));
+    lsSet(FREEMIUM_KEY_TOKENS, String(newTokens));
     setFreemiumState({ ...state, tokens: newTokens });
     return newTokens;
   }, []);
