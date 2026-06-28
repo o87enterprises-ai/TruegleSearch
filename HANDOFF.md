@@ -3,6 +3,139 @@ _Last updated: 2026-06-28. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ SESSION LOG 2026-06-28 — Ad proxy, consent modal, mode fixes, popunder, campaign targeting
+
+### First-party Adsterra proxy (LIVE)
+All Adsterra scripts now load through Cloudflare Pages Functions instead of directly from third-party domains. This eliminates "Tracking Prevention blocked access to storage" errors in Edge/Firefox (which were degrading targeted ad quality and eCPM).
+
+| Route | Proxies | Domain rewritten to |
+|---|---|---|
+| `GET /ad/:key` | `highperformanceformat.com/:key/invoke.js` | `ads.truegle.info` in script content |
+| `GET /pop` | `millionairelucidlytransmitted.com/03/50/.../invoke.js` | no rewrite (tracking pings allowed via CSP) |
+
+`ads.truegle.info` is an Adsterra-managed CNAME already pointing to their CDN — rewriting HPF domain references to it makes all ad-related requests appear first-party to the browser.
+
+### GDPR Cookie Consent modal (LIVE — `CookieConsent.jsx`)
+- Slide-up banner delays 1.2s so it doesn't flash over the loading screen
+- **No Reject option** — premium is the only way to remove ads. Free users must accept ad cookies.
+- Ad cookies locked on free plan (lock icon + "Premium required" badge in Customize panel)
+- Analytics (Cloudflare) toggle remains optional
+- Primary CTA: "Accept & start earning rewards"
+- Dispatches `window.dispatchEvent(new CustomEvent('truegle:consent', { detail: { ads: true/false } }))` and sets `window.__truegle_ad_consent`
+- All ad loading (banners + popunder) is gated on this consent signal
+
+### Popunder reactivated (consent-gated, once-per-session)
+`AdScriptLoader.jsx` reactivated. Loads `/pop` (first-party proxy) only after user accepts cookie consent. Uses `sessionStorage` to fire once per browser session.
+
+**Popunder zone:** `Popunder_1` — truegle.info
+**Script:** `millionairelucidlytransmitted.com/03/50/81/03508109c0353dafe874e4f377262a99.js`
+
+### Adsterra Smartlink (stored in `AdScriptLoader.jsx`)
+```
+https://millionairelucidlytransmitted.com/g385gzr0?key=63a965f91d254672ac250654790b5b8c
+```
+Exported as `ADSTERRA_SMARTLINK` constant. Use as:
+- Fallback link in house-ad / claim slots when Adsterra banner doesn't fill
+- Target URL for "sponsored" text links anywhere on site
+- CPA revenue when users click through to advertiser
+
+### Adsterra Referral Program (LIVE — `/advertise` page)
+5% lifetime revenue share for referred publishers. Banner + CTA added to `/advertise` above the contact section.
+- **Referral URL:** `https://beta.publishers.adsterra.com/referral/Pqd4tGsBZw`
+- **Banner:** `https://landings-cdn.adsterratech.com/referralBanners/png/728%20x%2090%20px.png`
+
+### Mode color semantics — CORRECTED everywhere
+
+| Mode | Correct meaning | Old (wrong) description |
+|---|---|---|
+| Blue | Mainstream · Traditional · Liberal (establishment/legacy media) | "Standard · Unbiased" |
+| Red | Alternative · Free Thinker (questions official narrative, conspiracy-adjacent) | "Independent · Alternative" |
+| Purple | Skeptical · Conservative (counter-mainstream, accountability journalism) | "All Perspectives" |
+| Ocean | Privacy · Security · OSINT (developers, infosec, suspicious of surveillance) | "OSINT · Research" |
+
+Updated in: `useSearchMode.js`, `ModesAndTrending.jsx`, `AdsterraBanner.jsx` CONTEXT_KEYWORDS.
+
+### Perspective-based ad campaign targeting infrastructure (READY TO USE)
+`AdsterraBanner.jsx` now accepts a `searchContext` prop and passes keyword arrays to `window.atOptions.params.keywords`. `UniversalSearch.jsx` derives `adContext` from the most specific signal available: perspective filter > search mode.
+
+**To activate in Adsterra dashboard — create campaigns with these keyword targets:**
+
+| Mode / Context | Adsterra campaign keywords | Target audience |
+|---|---|---|
+| `blue` | mainstream, traditional, liberal, establishment, legacy-media | Centrist/liberal mainstream users |
+| `red` | alternative, conspiracy, independent, free-thinker, counter-narrative | Alt-media, free thinkers, conspiracy-curious |
+| `purple` | conservative, skeptical, right-wing, traditional-values, anti-establishment | Conservative / skeptical users |
+| `ocean` | privacy, cybersecurity, osint, developer, tech, infosec | Dev / security / privacy audience |
+| `left` perspective | progressive, liberal, social-justice, democrat | Left-perspective filter users |
+| `right` perspective | conservative, republican, traditional, right-wing | Right-perspective filter users |
+| `neutral` perspective | non-partisan, centrist, balanced, independent | Centrist filter users |
+| `gen-z` (explicit) | gen-z, youth, social-media, trending | Pass `searchContext="gen-z"` explicitly |
+| `lgbtq` (explicit) | lgbtq, pride, inclusion, diversity | Pass `searchContext="lgbtq"` explicitly |
+| `business` (explicit) | business, finance, investing, entrepreneur | Pass `searchContext="business"` explicitly |
+
+**Campaign setup steps:**
+1. Adsterra dashboard → Campaigns → Create Campaign
+2. Targeting → Keywords → paste the keyword list for that audience
+3. Match campaign creative/vertical to the audience (e.g. conservative news for `purple`, VPN/privacy tool for `ocean`)
+4. Higher relevance → higher CTR → higher eCPM → larger rewards payouts
+
+### Social Bar — TODO (next session or when Adsterra approves zone)
+Social Bar is a high-CPM format (up to 30× higher CTR than standard web push). Key facts:
+- Works like in-page push — no user subscription needed, all visitors see it
+- Ad-blocker resistant (dynamic iFrame)
+- Lightweight (single script tag above `</body>`)
+- Best CPMs from: Entertainment, Streaming, E-commerce, Gaming advertisers
+- Documented CPM range: $1–$3.9 average; top publishers earning $7k–$11k/month on news/entertainment sites
+
+**To enable:** Get Social Bar ad tag from Adsterra dashboard → Websites → + Ad Unit → Social Bar.
+Paste script above `</body>` in `index.html`, or inject via `AdScriptLoader.jsx` (consent-gated, same pattern as popunder).
+
+### Accessibility fixes (this session)
+- `FileInput.jsx` / `CameraInput.jsx`: `aria-hidden="true"` + `tabIndex={-1}` on hidden file inputs
+- `Toast.jsx`: added `role="region"` + `aria-live="polite"` to notifications container
+- `SignUpPage.jsx`: added `id` + `name` to notify-me email input
+- CSP hash `sha256-SHjvrCsgwojSAPfnKP7i/G6fuEoY6yesZXQ073Yoa44=` added to `_headers`
+- `index.html`: removed `onerror` inline handler (was the blocked inline script at :261); added `-webkit-text-wrap: balance`; added `mobile-web-app-capable` meta
+
+---
+
+## 🗓️ SESSION LOG 2026-06-28 — Ad fix, UX polish, CSP cleanup, auth flag
+
+### Ads
+- **Skyscraper removed**: `banner160x600` in the sidebar replaced with `banner300x250` (medium rectangle). Skyscraper was rendering above the results column and breaking page layout.
+- **Popunder + Social Bar disabled**: `AdScriptLoader.jsx` now returns null. These scripts injected dynamic inline scripts that violated CSP and triggered Adsterra's 18+ tag even in safe-search mode. CPM revenue now served exclusively via iframe-based banner formats (300×250, 728×90, 468×60).
+- **CSP cleaned up**: Removed `effectivecpmnetwork.com`, `utt.impactcdn.com` from `script-src` and `connect-src` in `public/_headers` — those domains are no longer loaded.
+
+### Impact.com inline script removed
+The inline IIFE in `index.html` (`utt.impactcdn.com`) was the primary CSP violation source. Removed (Impact.com account is closed; script was inert). Impact.com meta verification tag also removed. CSP sha256 hash for that inline script removed.
+
+### BackgroundAnimation disabled on LandingPage
+`<BackgroundAnimation />` commented out in `LandingPage.jsx`. The Prism/Aurora/LaserFlow WebGL components were crashing in a retry loop (10–20 attempts per page load) on devices without WebGL, causing the loading experience to glitch. Re-enable when a WebGL capability check + graceful CSS fallback is in place.
+
+### QuickResultCard UX upgrade
+- Added animated "Quick Answer" header label with pulsing Zap icon above each card
+- Entire card wrapped in framer-motion entrance animation (slide-up + fade, spring easing)
+- `theme.accent` colour used for the label so it matches the active search mode
+
+### File/image/audio search wired up
+SearchBar `FileInput` and `CameraInput` callbacks now populate the search text input:
+- **Text files** (.txt, .md, .csv, .json): reads first 300 chars, sets as query
+- **Audio files**: sets query to `"audio transcript: <filename>"`
+- **Image files**: appends `"image: <filename>"` to existing query
+- **CameraInput**: sets `"image search visual query"` and triggers search
+- All callbacks trigger `onSubmit()`/`onSearch()` after setting the value
+
+### OAuth disabled
+`OAUTH_ENABLED = false` in `config/access.js`. OAuth was blocking users from gated features. Direct email/phone + payment flow to be implemented as replacement.
+
+### Pending (next session)
+- Auth redesign: email/phone registration → direct payment → one-time access code (premium)
+- Freemium tier: zero-auth with on-screen token counter + mandatory ads to refill quota
+- Payment payout routes: Cash App, PayPal, Venmo, Chime, FB Pay, Zelle, bank routing/account number. $20 min / $50 max / 10% fee. OpenPay repo not found in workspace — confirm location before implementing.
+- Adsterra popunder replacement: if CPM drops without popunder, consider Adsterra Native Banner (placement 30006383) as CSP-safe alternative.
+
+---
+
 ## 🔴 IMPACT.COM — PERMANENTLY CLOSED — DO NOT REVISIT
 
 Impact.com **declined and will continue to decline** — reason: **traffic volume sub-50K/month**, not a technical issue. No amount of SEO fixes, prerendering, or canonical corrections will change this decision. Stop discussing Impact.com as a pending action item. Remove it from all action plans. Revisit only when monthly traffic exceeds 50K.
@@ -26,6 +159,72 @@ Once browser automation is confirmed working, use it to:
 - Verify Cloudflare Pages build logs for `truegle-search` (check prerender step ran successfully)
 - Purge Cloudflare cache for `sitemap.xml` and `robots.txt` (still serving stale cached versions)
 - Confirm blog canonical: `curl -s https://truegle.info/blog/what-is-a-filter-bubble | grep canonical` should show the blog URL, not the homepage
+
+---
+
+## 🗓️ SESSION LOG 2026-06-28 — Ad color system + Adsterra CPM + QuickResultCard UX
+
+### Adsterra re-integrated (deliberately, controlled) — LIVE
+Adsterra was previously removed due to the Monetag/sinkhole incident. It has been re-added in a clean, controlled way using only their direct script URLs (no service workers, no `3nbf4.com`, no Monetag). Domain reputation was verified clean before re-adding.
+
+**What's live:**
+- **Popunder** (`pl30106879.effectivecpmnetwork.com`) — fires once per page load
+- **Social Bar** (`pl30106881.effectivecpmnetwork.com`) — fires once per page load
+- **Banner ads** (300×250, 728×90, 160×300, 160×600) — rendered via `AdsterraBanner.jsx` in search results
+
+**Key clarification — cookies:** Truegle sets **ZERO cookies**. All user preferences live in `localStorage`. The cookies visible in DevTools (from `effectivecpmnetwork.com` / `highperformanceformat.com`) belong to Adsterra — they are third-party cookies on Adsterra's own domain, not Truegle cookies. We cannot prevent Adsterra from setting their own cookies without blocking their scripts entirely.
+
+**Revenue model:** Adsterra uses CPM (cost-per-thousand impressions). Impressions are counted at the HTTP/script level — **no cookies are required to earn revenue**. Scripts should always fire unconditionally for maximum CPM earnings.
+
+### AdScriptLoader component (NEW — `apps/frontend/src/components/ads/AdScriptLoader.jsx`)
+React component that dynamically injects the Adsterra popunder + social bar scripts once per page lifecycle using `document.createElement('script')`. Module-level `injected` flag prevents double injection. Placed in `App.jsx` inside the `SettingsProvider` tree — fires for all users unconditionally.
+
+**Note:** Dynamic injection means the scripts do NOT appear in `curl` of the static HTML — this is correct and expected. Scripts fire in the browser.
+
+### Ad color system (SHIPPED — all commits on main)
+New component `apps/frontend/src/components/ads/AdColorWrapper.jsx` wraps every ad slot with a colored glow border + small label badge:
+
+| Color | CSS class | Ad type | Badge |
+|---|---|---|---|
+| Neon apple-green | `.ad-cpm` | CPM/affiliate (Adsterra banners, affiliate links) | "Sponsored" |
+| Yellow | `.ad-claim` | Unsold inventory / claim spots | "Ad Spot" |
+| Pulsing red ↔ blue | `.ad-adult` | Adult CPM (triple-gated) | "18+ Ad" |
+| Pulsing red + white border | `.ad-reward` | Watch & Earn rewarded ads | "Watch & Earn" |
+
+CSS keyframe animations defined in `apps/frontend/src/index.css`. All ad slots in `UniversalSearch.jsx` wrapped with the appropriate `<AdColorWrapper type="...">`.
+
+### QuickResultCard — moved below search bar + mode-themed
+- Moved to render directly below the search bar / LanguageSelector on every search (no scroll required).
+- Mode-color theming added: blue page → blue border/glow, red page → red, biased → purple, ocean → ocean blue, green → emerald.
+- `QuickResultCard` accepts `mode` prop; all 10 sub-components (business, place, weather, etc.) use `theme` from `MODE_THEME` map.
+
+### New blog post live: `/blog/understanding-our-ad-color-system`
+- slug: `understanding-our-ad-color-system`
+- title: "What the Ad Colors on Truegle Mean — and Why We Show Them"
+- date: 2026-06-28, 3 min read
+- Explains all 4 ad color types + the transparency philosophy
+- Added to `blogPosts.jsx`, prerendered at `/blog/understanding-our-ad-color-system/index.html`
+- Sitemap updated to 12 URLs (was 11)
+
+### Blog canonical bug — FIXED ✅ (this session)
+Root cause: `_redirects` had `/blog` and `/blog/*` as 200 rewrite rules. In Cloudflare Pages, a 200 rewrite in `_redirects` **wins over a directory-index lookup**, so all blog posts were served the SPA shell (with homepage canonical) instead of the prerendered static file. Fix: removed those two lines from `_redirects` (commit `b290c77`).
+
+All 4 blog posts verified live with correct canonicals:
+- `/blog/understanding-our-ad-color-system/` ✅
+- `/blog/what-is-a-filter-bubble/` ✅
+- `/blog/how-to-search-privately/` ✅
+- `/blog/why-multiple-perspectives-matter/` ✅
+
+**Rule for future:** Never add a prerendered route to `_redirects`. Only pure client-side SPA routes (no static file) go in `_redirects`.
+
+### Safe-search Adsterra banners in search results
+Added `<AdsterraBanner format="banner728x90">` and `<AdsterraBanner format="banner160x600">` (skyscraper sidebar) wrapped in `<AdColorWrapper type="cpm">` to the search results page. Safe-search banners show to all users. Adult banners remain triple-gated (auth + safeSearch=off + adult query).
+
+### Commits this session (all on main)
+- `b290c77` — Fix blog canonical: remove /blog/* from _redirects
+- `8f04ffd` — Update HANDOFF: Impact.com closed, blog canonical fixed
+- `e1bfe9e` — Add ad color system, quick results below search bar, AdScriptLoader, blog post, mode-themed cards
+- `81ce0dc` — Always fire Adsterra scripts (removed cookie gate)
 
 ---
 
@@ -868,13 +1067,14 @@ manual steps** — no more hand-running `wrangler` / `vercel deploy`. Verified e
 | Cloudflare DNS | ✅ Complete | `truegle.info` zone active |
 | 301 Redirect | ✅ Active | trumpafi.online → truegle.info |
 | Legal pages (/privacy /terms /about) | ✅ Live | Prereq for OAuth + AdSense — now satisfied |
-| **Monetag / Adsterra ads** | 🛑 **REMOVED — do not re-add** | Got `truegle.info` flagged malicious + Palo Alto DNS-sinkholed (malvertising scripts `3nbf4.com` / `highperformanceformat.com`). All code ripped out. Monetize via AdSense / reputable networks only — see "AD STRATEGY". |
+| **Monetag** | 🛑 **PERMANENTLY REMOVED** | Caused Palo Alto DNS sinkhole via `3nbf4.com` malvertising. Never re-add. |
+| **Adsterra** | ✅ **LIVE (re-integrated 2026-06-28)** | Re-added cleanly: popunder + social bar via `AdScriptLoader.jsx`, banners via `AdsterraBanner.jsx`. No service workers, no `3nbf4.com`. ~30 impressions live. Fires unconditionally for CPM revenue. Third-party cookies (`effectivecpmnetwork.com`) are Adsterra's own — Truegle sets zero cookies. |
 | **Domain reputation** | ✅ **Clean — verified 2026-06-21** | Palo Alto category lookup: `Computer-and-Internet-Info`, Low-Risk (no malware/sinkhole tag; the residual `Newly-Registered-Domain` tag is benign and self-clears ~32 days post-registration). Google Safe Browsing: "No unsafe content found." DNS resolves to real Cloudflare IPs, site returns HTTP 200. |
 | **Google Custom Search API** | ⚠️ **403 / likely quota** | Free tier = 100 queries/day, blown by current traffic; also a project/account access issue (key 403s even tested directly). Search still works — `Promise.allSettled` drops Google and Brave fills in. See Step 1. Ad revenue (Step A) can fund CSE billing. |
 | Google OAuth | 🚫 **Bypassed (intentional)** | Hidden via `OAUTH_ENABLED=false` while in free-access mode; sign-in not required. Re-enable later (Steps 2–3) once auth is fixed. Registration also has a **12-char min-password** mismatch to fix then. |
 | OAuth Branding | ⚠️ Needs fix | Wrong authorized domain `truegle-search.pages.dev` → should be `truegle-search-15k.pages.dev`; also add `truegle.info` + `trumpafi.online`; fill home/privacy/terms URLs. See Step 3. |
 | Google AdSense | 🛑 **REMOVED 2026-06-17** | Google rejected it ("ads on screens without publisher-content" — display AdSense isn't allowed on search results). All AdSense code/script removed; replaced by the first-party house-ad + Impact-affiliate system. Don't re-add to the search UI. See session log. |
-| Impact.com (affiliates) | 🟡 **Ready to reapply** | Declined 2026-06-21 (likely cause: no crawlable content / soft-404s). Root cause fixed + verified live 2026-06-21 (prerendering, real 404s, robots.txt, sitemap). See `tools/ad-distributor-cli` `info impact` for the pre-reapply checklist, then resubmit in the Impact dashboard. |
+| Impact.com (affiliates) | 🔴 **CLOSED — do not revisit** | Declined twice. **Reason: traffic sub-50K/month** (not a tech/content issue). No fix until monthly traffic exceeds 50K. See the hard-stop note at the top of this document. |
 | NVIDIA NIM (AI) | ✅ **Live (backup)** | `NVIDIA_API_KEY` set on Vercel. Now 3rd in failover (after Groq + Gemini). |
 | **Groq (AI)** | ✅ **Live — primary** | Free tier, no CC required. Keys `GROQ_API_KEY` + `GROQ_API_KEY_2` + `GROQ_API_KEY_3` set on Vercel (supports up to `_5`). Auto-rotates on 429/401. Model: `llama-3.1-8b-instant`. Failover: groq→gemini→nvidia→openai→anthropic→ollama. |
 | **Gemini (AI)** | ✅ **Live (secondary)** | `GEMINI_API_KEY` on Vercel. Model: `gemini-2.0-flash` (was `gemini-1.5-flash` — deprecated, caused 404s, fixed 2026-06-23). Configurable via `GEMINI_MODEL` env var. |
