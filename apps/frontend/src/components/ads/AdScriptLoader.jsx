@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { useSettings } from '../../context/SettingsContext';
 
 const SCRIPTS = [
   // Adsterra Popunder
@@ -9,22 +8,17 @@ const SCRIPTS = [
 ];
 
 /**
- * Injects Adsterra page-level scripts (popunder + social bar) only when the
- * user's cookie preference allows third-party scripts. Preference 'none'
- * skips all script injection so no third-party cookies are set.
- *
- * Mount once at the app root (App.jsx). Scripts are injected once per
- * page load; re-renders are no-ops after the first injection.
+ * Injects Adsterra page-level scripts (popunder + social bar) once per page
+ * load. Adsterra impressions count at the script/HTTP level — no cookies are
+ * required to earn CPM revenue. The cookies Adsterra sets are their own
+ * third-party cookies (effectivecpmnetwork.com), not Truegle-set cookies.
+ * Truegle itself sets zero cookies; all user preferences live in localStorage.
  */
 let injected = false;
 
 export default function AdScriptLoader() {
-  const { settings } = useSettings();
-
   useEffect(() => {
     if (injected) return;
-    if (settings.cookiePreference === 'none') return;
-
     injected = true;
     SCRIPTS.forEach((src) => {
       const s = document.createElement('script');
@@ -32,7 +26,7 @@ export default function AdScriptLoader() {
       s.async = true;
       document.body.appendChild(s);
     });
-  }, [settings.cookiePreference]);
+  }, []);
 
   return null;
 }
