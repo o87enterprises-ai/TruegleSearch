@@ -1,13 +1,14 @@
-# Cloudflare Pages serves an exact static file match before evaluating these
-# rules, so the prerendered routes (/, /about, /privacy, /terms, /advertise)
-# never hit this file at all - they have a real dist/<route>/index.html.
+# Cloudflare Pages serves static file matches (exact files AND directory
+# indexes) before evaluating these rules. Prerendered routes have real
+# dist/<route>/index.html files and must NOT appear here — a 200 rewrite
+# rule wins over a directory-index lookup, causing the SPA shell to be served
+# instead of the prerendered HTML (breaking canonical/title/og tags for
+# crawlers). The routes below are pure client-side SPA routes with no
+# prerendered file.
 #
 # Cloudflare Pages only supports 200 (rewrite) and 30x (redirect) here - NOT
-# 404, unlike Netlify. So the lines below whitelist known client-routed SPA
-# pages with a real 200. Anything NOT listed here falls through to
-# dist/404.html (written by scripts/prerender.mjs) for a genuine 404 status.
-# Truegle's own router still renders its <NotFound /> page either way; only
-# the HTTP status differs.
+# 404, unlike Netlify. Anything NOT listed here AND without a prerendered
+# file falls through to dist/404.html for a genuine 404 status.
 #
 # Targets point at /_index (an extension-less copy of index.html, see
 # scripts/prerender.mjs), NOT /index.html: Cloudflare Pages unconditionally
@@ -22,8 +23,9 @@
 /search           /_index  200
 /search/*         /_index  200
 /extract          /_index  200
-/blog             /_index  200
-/blog/*           /_index  200
+# /blog and /blog/* are intentionally NOT here — all blog routes are
+# prerendered (dist/blog/index.html + dist/blog/<slug>/index.html).
+# Adding them here would cause the 200 rewrite to override the static files.
 /green            /_index  200
 /feeling-biased   /_index  200
 /biased           /_index  200
