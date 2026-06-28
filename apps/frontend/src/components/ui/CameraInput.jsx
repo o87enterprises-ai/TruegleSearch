@@ -256,6 +256,8 @@ const CameraInput = ({
                         accept="image/*"
                         onChange={handleFileUpload}
                         className="hidden"
+                        aria-hidden="true"
+                        tabIndex={-1}
                       />
                     </label>
                   </div>

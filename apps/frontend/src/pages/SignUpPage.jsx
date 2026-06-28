@@ -221,6 +221,8 @@ export default function SignUpPage() {
                   <form onSubmit={saveNotifyEmail} className="flex gap-2 mb-5">
                     <input
                       type="email"
+                      id="notify-email"
+                      name="notify-email"
                       value={notifyEmail}
                       onChange={(e) => setNotifyEmail(e.target.value)}
                       placeholder="you@example.com — notify me at launch"

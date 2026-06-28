@@ -101,6 +101,8 @@ const FileInput = ({
           multiple={multiple}
           onChange={handleFileChange}
           className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
         />
 
         {/* Drag and drop overlay */}
