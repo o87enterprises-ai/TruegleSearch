@@ -49,19 +49,50 @@ Results are powered by our own self-hosted SearXNG metasearch instance — no co
 
 People who are tired of algorithmic bubbles. Researchers who need access to suppressed or alternative sources. Privacy-conscious users who refuse to be tracked. Journalists and investigators using OSINT. Content creators who need quick transcripts. Independent thinkers who want to see the full picture, not the curated one.
 
+## About the Team
+
+Truegle was founded in 2025 by an independent developer committed to building a search engine that serves users rather than advertisers. Contact: truegleai@proton.me.
+
+## Technology
+
+Truegle aggregates results from multiple search providers via a self-hosted SearXNG metasearch instance. AI summaries are generated from aggregated snippets without sending queries to third-party AI APIs. The stack is a React SPA hosted on Cloudflare Pages with a Node.js backend on Vercel.
+
+## Frequently Asked Questions
+
+**Does Truegle track my searches?**
+No. Truegle does not log queries, set tracking cookies, build user profiles, or share data with advertisers. The self-hosted SearXNG backend processes queries server-side and discards them immediately. No personal identifiers are retained between sessions. This is verifiable: Truegle's privacy policy at https://truegle.info/privacy/ describes exactly what data is and is not stored.
+
+**What makes Truegle different from DuckDuckGo or Brave Search?**
+DuckDuckGo and Brave rely on their own index or Bing's API — both are single-source results with the same filter bubble risk. Truegle runs a self-hosted SearXNG instance that queries multiple providers simultaneously and surfaces results from each, labeled by source. The Red mode actively inverts mainstream ranking bias to surface independent and alternative sources first. No other mainstream privacy search engine offers this.
+
+**What is Truegle Green mode?**
+Green mode filters out URLs from domains predominantly publishing AI-generated content, returning only results from human-authored sources. As AI-generated text floods search indexes, Green mode is designed for users who want to read original human thinking rather than synthetic summaries.
+
+**What is the Rewards Program?**
+Users who opt in to the Rewards Program can earn real cash by watching short ads while waiting on search results. Ad duration is verified server-side only — no client-side tracking. Earnings can be withdrawn via PayPal when the minimum balance is reached. Participation is entirely optional and can be disabled at any time.
+
+**Is Truegle free to use?**
+Yes. Truegle is free with no account required. The Rewards Program, OSINT tools, and all search modes are available without registration. The Content Transcriber offers 3 free uses per 24-hour period; additional uses can be unlocked by watching an ad.
+
+**What OSINT tools does Truegle include?**
+Truegle includes email intelligence (MX records, role/disposable detection, Gravatar lookup), phone intelligence (line type, carrier, country, number formatting), username lookup across platforms, and domain intelligence — all accessible directly from the search interface without external site visits.
+
+**How does the AI multi-perspective summary work?**
+For each query, Truegle generates an AI summary that explicitly presents mainstream, alternative, and opposing viewpoints from the aggregated results. The summary identifies source perspectives rather than blending them into a single editorial voice. This is designed to surface what the sources say rather than what an algorithm thinks you want to hear.
+
+## Blog Posts
+
+- https://truegle.info/blog/what-is-a-filter-bubble — What is a filter bubble and how does Truegle prevent one?
+- https://truegle.info/blog/how-to-search-privately — How to search the web privately without being tracked
+- https://truegle.info/blog/why-multiple-perspectives-matter — Why seeing multiple perspectives in search results matters
+
 ## Pages
 
 - https://truegle.info/ — Homepage and main search
-- https://truegle.info/search — Universal search results (web, images, video, maps, social, news)
-- https://truegle.info/search?mode=ocean — OSINT mode (deep-web, intelligence tools)
-- https://truegle.info/search?mode=red — Deep Dive / Red Pill mode (inverted mainstream bias)
-- https://truegle.info/search?mode=purple — Perspective filter mode
-- https://truegle.info/green — AI-free clean search mode
+- https://truegle.info/green — AI-free clean search mode (human-authored sources only)
 - https://truegle.info/extract — Content transcriber and image extractor tool
-- https://truegle.info/rewards — Ad Rewards Program dashboard
-- https://truegle.info/feeling-biased — Bias-aware search entry point
-- https://truegle.info/about — About Truegle and our mission
-- https://truegle.info/advertise — Advertising information and media kit
+- https://truegle.info/about/ — About Truegle and our mission
+- https://truegle.info/advertise/ — Advertising information and media kit
 - https://truegle.info/blog — Editorial content: search bias, privacy, independent research
-- https://truegle.info/privacy — Privacy policy
-- https://truegle.info/terms — Terms of service
+- https://truegle.info/privacy/ — Privacy policy
+- https://truegle.info/terms/ — Terms of service

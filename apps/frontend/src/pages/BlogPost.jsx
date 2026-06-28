@@ -27,20 +27,34 @@ const BlogPost = ({ slug: slugProp }) => {
     );
   }
 
+  const postUrl = `https://truegle.info/blog/${post.slug}`;
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
+    '@id': postUrl,
+    url: postUrl,
     headline: post.title,
     description: post.description,
     datePublished: post.date,
     dateModified: post.date,
-    author: { '@type': 'Organization', name: 'Truegle' },
-    publisher: {
-      '@type': 'Organization',
-      name: 'Truegle',
-      url: 'https://truegle.info',
+    author: { '@type': 'Organization', '@id': 'https://truegle.info/#organization', name: 'Truegle' },
+    publisher: { '@id': 'https://truegle.info/#organization' },
+    image: {
+      '@type': 'ImageObject',
+      url: 'https://truegle.info/og-image.png',
+      width: 1200,
+      height: 630,
     },
-    mainEntityOfPage: `https://truegle.info/blog/${post.slug}`,
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': postUrl,
+    },
+    isPartOf: {
+      '@type': 'Blog',
+      '@id': 'https://truegle.info/blog',
+      name: 'Truegle Blog',
+      url: 'https://truegle.info/blog',
+    },
   };
 
   return (

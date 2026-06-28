@@ -398,9 +398,21 @@ export default function LandingPage() {
                   transition: 'all 0.3s ease',
                 }}
               >
-                <div className="inline-flex items-baseline justify-center gap-1 sm:gap-4 flex-nowrap w-full max-w-[90vw] px-2">
-                  {/* Placeholder for moved text - will be added after Why Truegle? */}
-                </div>
+                <span
+                  style={{
+                    position: 'absolute',
+                    width: '1px',
+                    height: '1px',
+                    padding: 0,
+                    margin: '-1px',
+                    overflow: 'hidden',
+                    clip: 'rect(0,0,0,0)',
+                    whiteSpace: 'nowrap',
+                    border: 0,
+                  }}
+                >
+                  Truegle — Unbiased, Transparent &amp; Secure Search
+                </span>
               </div>
             </h1>
 
