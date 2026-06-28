@@ -3,6 +3,14 @@ _Last updated: 2026-06-28. Supersedes all prior handoff docs._
 
 ---
 
+## 🔴 IMPACT.COM — PERMANENTLY CLOSED — DO NOT REVISIT
+
+Impact.com **declined and will continue to decline** — reason: **traffic volume sub-50K/month**, not a technical issue. No amount of SEO fixes, prerendering, or canonical corrections will change this decision. Stop discussing Impact.com as a pending action item. Remove it from all action plans. Revisit only when monthly traffic exceeds 50K.
+
+The `impact-site-verification` meta tag and UTT tracking script in `index.html` can stay (harmless) but are inert until reapplication is viable.
+
+---
+
 ## 🔴 FIRST TASK NEXT SESSION — Install browser automation
 
 Before doing anything else, install proper browser automation so Claude can operate the Cloudflare dashboard, Vercel, and other browser-gated services without needing the user to navigate manually.
@@ -47,20 +55,18 @@ Full audit run via `/seo audit`. Health score: **40/100**. Artifacts in `truegle
 - Disabled **"Instruct AI bot traffic with robots.txt"** (was prepending `Disallow: /` for AI bots before the manual `Allow: /` entries)
 - `robots.txt` now serves clean with only the manual file — all AI bots have `Allow: /`
 
-### Blog prerender still not confirmed (P1-1 BLOCKER — needs verification next session)
-The Cloudflare Pages build config was ALREADY correct (`npm run build` / `apps/frontend` / `dist`) — screenshot confirmed. A fresh build was triggered by saving the settings. The blog canonical still showed homepage URL (`https://truegle.info/`) instead of `https://truegle.info/blog/what-is-a-filter-bubble` at end of session — **needs verification after next Cloudflare build completes**.
+### Blog prerender + canonical — FIXED (2026-06-28, later session)
+Root cause found and fixed: `_redirects` had `/blog` and `/blog/*` pointing to `_index` (SPA shell). A 200 rewrite in `_redirects` **wins over a directory-index lookup**, so all blog posts were served the SPA shell instead of `dist/blog/<slug>/index.html`. Fixed by removing those two lines from `_redirects` (commit `b290c77`).
 
-**Verification command:**
-```
-curl -s https://truegle.info/blog/what-is-a-filter-bubble | grep canonical
-```
-- ✅ Success: `canonical" href="https://truegle.info/blog/what-is-a-filter-bubble"`
-- ❌ Still broken: `canonical" href="https://truegle.info/"`
+All three blog posts now serve correct canonicals and titles — **VERIFIED LIVE:**
+- `https://truegle.info/blog/what-is-a-filter-bubble/` → canonical: `https://truegle.info/blog/what-is-a-filter-bubble` ✅
+- `https://truegle.info/blog/how-to-search-privately/` → canonical: `https://truegle.info/blog/how-to-search-privately` ✅
+- `https://truegle.info/blog/why-multiple-perspectives-matter/` → canonical: `https://truegle.info/blog/why-multiple-perspectives-matter` ✅
 
-If still broken after a clean build, check Cloudflare Pages build logs for the prerender step output — look for `[prerender] wrote dist\blog\...` lines.
+**Rule for future blog/prerendered routes:** Never add a prerendered route to `_redirects`. Only pure client-side SPA routes (no static file) go in `_redirects`.
 
-### Sitemap/robots.txt CDN cache stale
-Both files were updated in the commit but Cloudflare CDN is serving cached old versions. Next session: use browser automation to **Purge Everything** from Cloudflare → Caching → Configuration after confirming blog prerender is working.
+### Sitemap/robots.txt
+Serving fresh — no cache purge needed.
 
 ---
 
