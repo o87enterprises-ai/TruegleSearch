@@ -289,8 +289,10 @@ export default function LandingPage() {
     <div
       className={`min-h-screen relative ${isRedPillMode ? 'bg-[#1a0a0a]' : 'bg-blue-900/20'}`}
     >
-      {/* Background Animation */}
-      <BackgroundAnimation />
+      {/* BackgroundAnimation disabled: WebGL unavailable in many browsers causes
+          repeated Prism/Aurora crash loops and a broken loading experience.
+          Re-enable once WebGL fallback is stable. */}
+      {/* <BackgroundAnimation /> */}
 
       {/* Content */}
       <div className="relative z-10">

@@ -1,4 +1,5 @@
-import { MapPin, Phone, Globe, Clock, Star, ExternalLink, User, ChevronRight, Cloud, Droplets, Wind, Calculator, BookOpen, ArrowRightLeft, Volume2, AppWindow, Link2 } from 'lucide-react';
+import { MapPin, Phone, Globe, Clock, Star, ExternalLink, User, ChevronRight, Cloud, Droplets, Wind, Calculator, BookOpen, ArrowRightLeft, Volume2, AppWindow, Link2, Zap } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const MODE_THEME = {
   red:    { border: 'border-red-500/50',    shadow: 'shadow-red-500/20',    accent: 'text-red-400',    bg: 'from-[#1a0808]/95 to-[#0f0505]/95' },
@@ -36,7 +37,27 @@ export default function QuickResultCard({ instantAnswer, mode = 'blue' }) {
   })();
 
   if (!card) return null;
-  return card;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+    >
+      <div className="mb-2 flex items-center gap-1.5">
+        <motion.div
+          animate={{ scale: [1, 1.15, 1], opacity: [0.7, 1, 0.7] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <Zap size={12} className={`${theme.accent}`} />
+        </motion.div>
+        <span className={`text-[10px] font-semibold uppercase tracking-widest ${theme.accent} opacity-70`}>
+          Quick Answer
+        </span>
+      </div>
+      {card}
+    </motion.div>
+  );
 }
 
 // ── Navigational / Official Site Card ────────────────────────────────────────

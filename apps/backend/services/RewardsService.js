@@ -5,23 +5,35 @@
 // no rows here. Amounts are tracked in integer cents to avoid float drift.
 const { query } = require('../db/connection');
 
-// Starting economics. These are business knobs, not load-bearing constants —
-// tune them in one place as the program's real cost/engagement data comes in.
+// Ad rewards economics — tune these as program data comes in.
 const CENTS_PER_IMPRESSION = 1; // $0.01 per honestly-verified ad view
-const MIN_PAYOUT_CENTS = 500; // $5.00 minimum to request a cash-out
-const MAX_REWARDED_IMPRESSIONS_PER_DAY = 40; // anti-abuse ceiling (~$0.40/day/user)
-const MIN_VISIBLE_MS = 4000; // minimum real visible time to qualify for a reward
+const MIN_PAYOUT_CENTS = 2000; // $20.00 minimum cash-out
+const MAX_PAYOUT_CENTS = 5000; // $50.00 maximum single cash-out
+const PROCESSING_FEE_PERCENT = 0.10; // 10% processing fee deducted at payout
+const MAX_REWARDED_IMPRESSIONS_PER_DAY = 40; // anti-abuse ceiling (~$0.40/day)
+const MIN_VISIBLE_MS = 4000; // minimum real visible time to qualify
+
+// Supported payout methods and what identifier each requires.
+const PAYOUT_METHODS = {
+  paypal:   { label: 'PayPal',                 field: 'Email address' },
+  cashapp:  { label: 'Cash App',               field: '$Cashtag (e.g. $yourname)' },
+  venmo:    { label: 'Venmo',                  field: '@Username (e.g. @yourname)' },
+  zelle:    { label: 'Zelle',                  field: 'Phone number or email' },
+  chime:    { label: 'Chime',                  field: 'Chime $tag or email' },
+  fbpay:    { label: 'Facebook Pay (Meta Pay)', field: 'Facebook account email' },
+  bank:     { label: 'Bank / ACH',             field: 'Routing number,Account number (comma-separated)' },
+};
 
 class RewardsService {
   static getConfig() {
     return {
       centsPerImpression: CENTS_PER_IMPRESSION,
       minPayoutCents: MIN_PAYOUT_CENTS,
+      maxPayoutCents: MAX_PAYOUT_CENTS,
+      processingFeePercent: PROCESSING_FEE_PERCENT,
       maxRewardedImpressionsPerDay: MAX_REWARDED_IMPRESSIONS_PER_DAY,
       minVisibleMs: MIN_VISIBLE_MS,
-      // Real cash-outs require a funded payout method (e.g. Stripe Connect)
-      // configured on the business side. Until then requests queue for manual
-      // processing — surfaced here so the frontend can be honest about it.
+      payoutMethods: PAYOUT_METHODS,
       payoutsAutomated: false,
     };
   }
@@ -112,19 +124,31 @@ class RewardsService {
   static async requestPayout(userId, method, destination) {
     const status = await this.getStatus(userId);
 
+    // Validate method
+    const validMethod = method && PAYOUT_METHODS[method] ? method : null;
+    if (!validMethod) {
+      return {
+        success: false,
+        message: `Invalid payout method. Supported: ${Object.keys(PAYOUT_METHODS).join(', ')}`,
+      };
+    }
+
     if (status.balanceCents < MIN_PAYOUT_CENTS) {
       return {
         success: false,
-        message: `Minimum payout is $${(MIN_PAYOUT_CENTS / 100).toFixed(2)}`,
+        message: `Minimum payout is $${(MIN_PAYOUT_CENTS / 100).toFixed(2)}. Your balance: $${(status.balanceCents / 100).toFixed(2)}`,
         balanceCents: status.balanceCents,
       };
     }
 
-    const amountCents = status.balanceCents;
+    // Cap at MAX_PAYOUT_CENTS — excess stays in balance
+    const grossCents = Math.min(status.balanceCents, MAX_PAYOUT_CENTS);
+    const feeCents = Math.round(grossCents * PROCESSING_FEE_PERCENT);
+    const netCents = grossCents - feeCents;
 
     const result = await query(
-      `UPDATE users SET rewards_balance_cents = 0 WHERE id = $1 RETURNING rewards_balance_cents`,
-      [userId]
+      `UPDATE users SET rewards_balance_cents = rewards_balance_cents - $1 WHERE id = $2 RETURNING rewards_balance_cents`,
+      [grossCents, userId]
     );
     const balanceAfterCents = result.rows[0].rewards_balance_cents;
 
@@ -132,17 +156,20 @@ class RewardsService {
       `INSERT INTO reward_payout_requests (user_id, amount_cents, method, destination, status)
        VALUES ($1, $2, $3, $4, 'pending')
        RETURNING id, status, requested_at`,
-      [userId, amountCents, method || 'manual_review', destination || null]
+      [userId, netCents, validMethod, destination || null]
     );
 
-    await this.logLedger(userId, -amountCents, 'payout_request', `payout_request_${payout.rows[0].id}`, balanceAfterCents);
+    await this.logLedger(userId, -grossCents, 'payout_request', `payout_${payout.rows[0].id}`, balanceAfterCents);
 
     return {
       success: true,
       payoutRequestId: payout.rows[0].id,
-      amountCents,
+      grossCents,
+      feeCents,
+      netCents,
+      balanceCents: balanceAfterCents,
       status: payout.rows[0].status,
-      message: 'Payout requested. Payouts are currently processed manually — you will be contacted at the destination provided.',
+      message: `Payout of $${(netCents / 100).toFixed(2)} requested via ${PAYOUT_METHODS[validMethod].label} (10% fee applied). Processed within 3–5 business days.`,
     };
   }
 

@@ -12,11 +12,10 @@
 // When true, all login walls and token/premium gates are bypassed app-wide.
 export const FREE_ACCESS_MODE = true;
 
-// When true, social sign-in (Google/Apple) buttons + flows are shown.
-// Backend Google OAuth verified live 2026-06-21 (BACKEND_URL fixed, redirect URI
-// confirmed registered in Google Console). Also requires VITE_SOCIAL_AUTH_ENABLED=true
-// at build time (see SignInPage/SignUpPage) before the button actually renders.
-export const OAUTH_ENABLED = true;
+// OAuth disabled: social sign-in (Google/Apple) is preventing users from reaching
+// gated features. Direct email/phone + payment registration is being implemented
+// to replace it. Flip back to true once the OAuth callback flow is re-verified.
+export const OAUTH_ENABLED = false;
 
 // When true, show the dismissible "early access / pre-production" banner so
 // users understand the site isn't open to the world yet and are invited to

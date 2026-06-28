@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, ArrowRight, Chrome } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Chrome, Key, Phone, Zap } from 'lucide-react';
 import { FaApple } from 'react-icons/fa';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import MolecularBackground from '../components/backgrounds/MolecularBackground';
@@ -12,6 +12,8 @@ import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import authService from '../services/authService';
 import { useToast } from '../components/ui/ToastProvider';
 import { OAUTH_ENABLED } from '../config/access';
+
+const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export default function SignInPage() {
   const navigate = useNavigate();
@@ -25,10 +27,21 @@ export default function SignInPage() {
   // Check if there's a redirect URL after successful login
   const redirectTo = location.state?.redirectTo || null;
 
+  const [signInMode, setSignInMode] = useState(
+    location.state?.showCodeEntry ? 'code' : 'email'
+  ); // 'email' | 'code'
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
+
+  // Access-code sign-in state
+  const [codeContact, setCodeContact] = useState('');
+  const [codeContactType, setCodeContactType] = useState('email');
+  const [accessCode, setAccessCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+  const [codeLoading, setCodeLoading] = useState(false);
 
   const [errors, setErrors] = useState({});
   const [rememberMe, setRememberMe] = useState(false);
@@ -126,6 +139,47 @@ export default function SignInPage() {
     }
   };
 
+  const handleCodeSubmit = async (e) => {
+    e.preventDefault();
+    setCodeError('');
+    if (!codeContact.trim()) { setCodeError('Enter your email or phone number'); return; }
+    if (!accessCode.trim() || accessCode.trim().length < 6) { setCodeError('Enter your access code'); return; }
+
+    setCodeLoading(true);
+    try {
+      const body = codeContactType === 'email'
+        ? { email: codeContact.trim().toLowerCase(), code: accessCode.trim().toUpperCase() }
+        : { phone: codeContact.trim(), code: accessCode.trim().toUpperCase() };
+
+      const res = await fetch(`${BACKEND}/api/auth/verify-access-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setCodeError(data.error || 'Invalid or expired access code');
+        return;
+      }
+
+      toast.success('Welcome!', 'Premium access activated.', { pageTheme: 'landing' });
+      login({ user: data.user, token: data.token }, true);
+      navigate(redirectTo || '/search');
+    } catch {
+      setCodeError('Network error. Please try again.');
+    } finally {
+      setCodeLoading(false);
+    }
+  };
+
+  const continueFreemium = () => {
+    localStorage.setItem('truegle_freemium', 'true');
+    localStorage.setItem('truegle_freemium_searches', '0');
+    localStorage.setItem('truegle_freemium_tokens', '10');
+    navigate('/search');
+  };
+
   const handleSocialAuth = (provider) => {
     if (provider === 'Google') {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://backend-seven-khaki-60.vercel.app';
@@ -203,7 +257,7 @@ export default function SignInPage() {
           data-feature-card="true"
         >
           {/* Header */}
-          <div className="text-center mb-8">
+          <div className="text-center mb-5">
             <h1 className="text-lg sm:text-xl md:text-2xl font-bold mb-2 font-display tracking-tight">
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-orange-400">
                 Welcome Back
@@ -213,6 +267,102 @@ export default function SignInPage() {
               Sign in to continue searching
             </p>
           </div>
+
+          {/* Mode toggle: email/password vs access code */}
+          <div className="flex gap-2 mb-5">
+            {[
+              { key: 'email', label: 'Email', icon: Mail },
+              { key: 'code', label: 'Access Code', icon: Key },
+            ].map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSignInMode(key)}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-medium transition-all border ${
+                  signInMode === key
+                    ? 'bg-cyan-600/20 border-cyan-500/60 text-cyan-300'
+                    : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                }`}
+              >
+                <Icon size={13} />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Access Code sign-in form */}
+          <AnimatePresence mode="wait">
+          {signInMode === 'code' && (
+            <motion.form
+              key="code-form"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              onSubmit={handleCodeSubmit}
+              className="space-y-3 mb-4"
+            >
+              {/* contact type toggle */}
+              <div className="flex gap-2">
+                {[{ key: 'email', label: 'Email', icon: Mail }, { key: 'phone', label: 'Phone', icon: Phone }].map(({ key, label, icon: Icon }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setCodeContactType(key)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs border transition-all ${
+                      codeContactType === key
+                        ? 'bg-cyan-600/20 border-cyan-500/50 text-cyan-300'
+                        : 'bg-white/5 border-white/10 text-gray-400'
+                    }`}
+                  >
+                    <Icon size={12} />{label}
+                  </button>
+                ))}
+              </div>
+
+              <input
+                type={codeContactType === 'email' ? 'email' : 'tel'}
+                value={codeContact}
+                onChange={(e) => setCodeContact(e.target.value)}
+                placeholder={codeContactType === 'email' ? 'your@email.com' : '+1 (555) 000-0000'}
+                className="w-full px-4 py-2.5 bg-black/30 border border-gray-700 text-white placeholder-gray-500 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all text-sm"
+              />
+
+              <input
+                type="text"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                placeholder="Access code (e.g. A1B2C3D4)"
+                maxLength={8}
+                className="w-full px-4 py-2.5 bg-black/30 border border-gray-700 text-white placeholder-gray-500 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all text-sm font-mono tracking-widest"
+              />
+
+              {codeError && <p className="text-red-400 text-xs">{codeError}</p>}
+
+              <NeonButton type="submit" variant="primary" size="lg" disabled={codeLoading} className="w-full">
+                {codeLoading ? 'Verifying…' : <>Activate Premium <ArrowRight className="inline ml-2" size={16} /></>}
+              </NeonButton>
+
+              <button
+                type="button"
+                onClick={continueFreemium}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-sm rounded-xl transition-all"
+              >
+                <Zap size={14} />
+                Continue Free (10 searches/day)
+              </button>
+
+              <p className="text-center text-gray-500 text-xs">
+                No code?{' '}
+                <button type="button" onClick={() => navigate('/auth/signup')} className="text-cyan-400 hover:text-cyan-300">
+                  Get premium access
+                </button>
+              </p>
+            </motion.form>
+          )}
+          </AnimatePresence>
+
+          {/* Email/password form — only shown in email mode */}
+          {signInMode === 'email' && <>
 
           {/* Social Auth — hidden until Google OAuth consent is published (VITE_SOCIAL_AUTH_ENABLED) */}
           {socialAuthEnabled && (
@@ -431,6 +581,18 @@ export default function SignInPage() {
               </button>
             </p>
           </div>
+
+          {/* Freemium shortcut for email-mode users */}
+          <button
+            type="button"
+            onClick={continueFreemium}
+            className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-sm rounded-xl transition-all"
+          >
+            <Zap size={14} />
+            Continue Free (10 searches/day)
+          </button>
+
+          </>}
         </motion.div>
 
         {/* Footer Links */}

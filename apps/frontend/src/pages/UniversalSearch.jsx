@@ -1584,10 +1584,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
             <div className="lg:col-span-1 space-y-4">
               {/* Ad Sidebar */}
               <div className="sticky top-4 space-y-4 flex flex-col items-center">
-                {/* Adsterra 160x600 skyscraper — non-adult, all users */}
+                {/* Adsterra 300x250 medium rectangle — non-adult, all users */}
                 {mode !== 'green' && (
                   <AdColorWrapper type="cpm">
-                    <AdsterraBanner format="banner160x600" />
+                    <AdsterraBanner format="banner300x250" />
                   </AdColorWrapper>
                 )}
                 {/* Fallback house ad when Adsterra doesn't fill */}

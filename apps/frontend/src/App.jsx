@@ -17,6 +17,7 @@ import { MapProvider } from './components/map';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { SettingsProvider } from './context/SettingsContext';
 import AdScriptLoader from './components/ads/AdScriptLoader';
+import FreemiumTokenBar from './components/ui/FreemiumTokenBar';
 import TruegleLogo from './components/ui/TruegleLogo';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -148,6 +149,7 @@ const App = () => {
                         Skip to main content
                       </a>
                       <AdScriptLoader />
+                      <FreemiumTokenBar />
                       <AppContent />
                     </ToastProvider>
                   </TutorialProvider>

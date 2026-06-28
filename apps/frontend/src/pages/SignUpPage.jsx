@@ -1,618 +1,363 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, ArrowRight, Chrome } from 'lucide-react';
-import { FaApple } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+// import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js'; // premium pay flow — coming soon
+import {
+  Mail, Phone, ArrowRight, Check, Sparkles, Zap, Eye,
+  Share2, Users, Clock, CreditCard, Lock,
+} from 'lucide-react';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import MolecularBackground from '../components/backgrounds/MolecularBackground';
 import CursorGlow from '../components/ui/CursorGlow';
-import NeonButton from '../components/ui/NeonButton';
-import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
-import authService from '../services/authService';
-import { useToast } from '../components/ui/ToastProvider';
-import { OAUTH_ENABLED } from '../config/access';
+
+// const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'; // premium pay flow — coming soon
+// const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID || 'sb';      // premium pay flow — coming soon
+
+// ── Premium pricing tiers (displayed as Coming Soon, all inputs disabled) ────
+const PREMIUM_TIERS = [
+  {
+    id: 'monthly',
+    icon: Sparkles,
+    label: 'Standard',
+    badge: 'Most Popular',
+    badgeColor: 'yellow',
+    price: '$4.99',
+    period: '/mo',
+    strikethrough: '$9.99',
+    discount: '50% off launch price',
+    description: 'Full ad-free premium access, billed monthly.',
+    ctaLabel: 'Subscribe — $4.99/mo',
+    input: null,
+  },
+  {
+    id: 'prepaid6',
+    icon: CreditCard,
+    label: '6-Month Prepay',
+    badge: 'Best Value',
+    badgeColor: 'emerald',
+    price: '$12.47',
+    period: '/6 mo',
+    strikethrough: '$49.99',
+    discount: '75% off',
+    description: 'Pay once for 6 months and save the most.',
+    ctaLabel: 'Prepay 6 months — $12.47',
+    input: null,
+  },
+  {
+    id: 'monthly3',
+    icon: Clock,
+    label: '3-Month Special',
+    badge: '50% off × 3',
+    badgeColor: 'blue',
+    price: '$2.50',
+    period: '/mo for 3 mo',
+    strikethrough: '$4.99',
+    discount: '50% off, month-to-month',
+    description: 'Half price for your first 3 months, cancel anytime.',
+    ctaLabel: 'Start at $2.50/mo',
+    input: null,
+  },
+  {
+    id: 'affiliate',
+    icon: Users,
+    label: 'Affiliate Partner',
+    badge: '1 Month Free',
+    badgeColor: 'purple',
+    price: 'Free',
+    period: '1 month',
+    strikethrough: null,
+    discount: 'No credit card required',
+    description: 'Sign up through one of our partners and get 1 month premium free — no CC needed.',
+    ctaLabel: 'Choose an affiliate partner',
+    input: { placeholder: 'Select affiliate partner…', type: 'select' },
+  },
+  {
+    id: 'social',
+    icon: Share2,
+    label: 'Share & Try',
+    badge: '24hr Free',
+    badgeColor: 'cyan',
+    price: 'Free',
+    period: '24 hours',
+    strikethrough: null,
+    discount: 'Share to any social feed',
+    description: 'Post about Truegle to your social feed and verify completion to unlock 24 hours of premium access.',
+    ctaLabel: 'Share to unlock 24hr premium',
+    input: { placeholder: 'Paste your post link to verify…', type: 'text' },
+  },
+];
+
+const BADGE_COLORS = {
+  yellow:  'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+  emerald: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+  blue:    'bg-blue-500/20 text-blue-300 border-blue-500/30',
+  purple:  'bg-purple-500/20 text-purple-300 border-purple-500/30',
+  cyan:    'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+};
 
 export default function SignUpPage() {
   const navigate = useNavigate();
-  const toast = useToast();
-  const location = useLocation();
-  const { login } = useAuth(); // Get the login function from auth context
+  const [step, setStep] = useState('main'); // 'main' | 'confirmed'
+  const [notifyEmail, setNotifyEmail] = useState('');
+  const [notifySaved, setNotifySaved] = useState(false);
 
-  // Check if coming from media interfaces to show freemium message
-  const showFreemiumMessage = location.state?.showFreemiumMessage || false;
-  const [showFullScreenAnnouncement, setShowFullScreenAnnouncement] = useState(showFreemiumMessage);
-  // Check if there's a redirect URL after successful signup
-  const redirectTo = location.state?.redirectTo || null;
-  
-  // Check localStorage for remember me preference
-  const hasRememberedFreemium = localStorage.getItem('truegle_remember_freemium') === 'true';
-
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
-
-  const [errors, setErrors] = useState({});
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [rememberMeFreemium, setRememberMeFreemium] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [focusedField, setFocusedField] = useState(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // Password strength calculation
-  const getPasswordStrength = (password) => {
-    if (!password) return { score: 0, label: '', color: '' };
-
-    let score = 0;
-    if (password.length >= 8) score++;
-    if (password.length >= 12) score++;
-    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
-    if (/[0-9]/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
-
-    const levels = [
-      { score: 0, label: '', color: '' },
-      { score: 1, label: 'Very Weak', color: 'bg-red-500' },
-      { score: 2, label: 'Weak', color: 'bg-orange-500' },
-      { score: 3, label: 'Fair', color: 'bg-yellow-500' },
-      { score: 4, label: 'Good', color: 'bg-green-500' },
-      { score: 5, label: 'Strong', color: 'bg-cyan-500' },
-    ];
-
-    return levels[score];
+  const startFreemium = () => {
+    localStorage.setItem('truegle_freemium', 'true');
+    localStorage.setItem('truegle_freemium_searches', '0');
+    localStorage.setItem('truegle_freemium_tokens', '10');
+    setStep('confirmed');
   };
 
-  const passwordStrength = getPasswordStrength(formData.password);
-
-  // Validation
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 12) {
-      newErrors.password = 'Password must be at least 12 characters';
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    if (!agreedToTerms) {
-      newErrors.terms = 'You must agree to the terms';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-
-
-  const handleSubmit = async (e) => {
+  const saveNotifyEmail = (e) => {
     e.preventDefault();
-
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-
-    try {
-      // Call the actual authentication service to register user
-      const result = await authService.register(formData.email, formData.password, formData.name);
-
-      if (result.success) {
-        toast.success('Account Created', `Welcome to Truegle, ${result.user.name}!`, { pageTheme: 'landing' });
-
-        // Log user in by calling login function from AuthContext
-        // Default rememberMe to true for new signups
-        login({
-          user: result.user,
-          token: result.token
-        }, true, true);
-
-        // Check for anonymous navigation state
-        const fromOSINT = location.state?.fromOSINT;
-        const fromBiased = location.state?.fromBiased;
-        const anonymous = location.state?.anonymous;
-
-        // Priority 1: honour explicit redirectTo (set by ProtectedRoute)
-        if (redirectTo) {
-          navigate(redirectTo);
-          return;
-        }
-
-        // Priority 2: anonymous navigation state flags
-        if (fromOSINT) {
-          navigate('/search?mode=ocean');
-          return;
-        }
-        if (fromBiased) {
-          navigate('/search?mode=purple');
-          return;
-        }
-
-        // Priority 3: fall back to universal search, preserving pill mode
-        const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
-        navigate(isRedPillMode ? '/search?mode=red' : '/search');
-      } else {
-        toast.error('Registration Failed', result.error || 'Failed to create account', { pageTheme: 'landing' });
-        setErrors({ general: result.error || 'Failed to create account. Please try again.' });
-      }
-    } catch (error) {
-      console.error('Signup error:', error);
-      toast.error('Registration Error', 'An unexpected error occurred. Please try again.', { pageTheme: 'landing' });
-      setErrors({ general: 'Failed to create account. Please try again.' });
-    } finally {
-      setIsLoading(false);
-    }
+    if (!notifyEmail.trim()) return;
+    // TODO: POST to waitlist endpoint when premium launches
+    // await fetch(`${BACKEND}/api/waitlist`, { method: 'POST', body: JSON.stringify({ email: notifyEmail }) });
+    setNotifySaved(true);
   };
 
-  const handleSocialAuth = (provider) => {
-    if (provider === 'Google') {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://backend-seven-khaki-60.vercel.app';
-      window.location.href = `${backendUrl}/api/auth/google`;
-    }
-  };
-
-  // Google OAuth is live (backend verified, consent screen published), so the
-  // social sign-in button follows the single OAUTH_ENABLED master switch.
-  // Email/password is unaffected either way.
-  const socialAuthEnabled = OAUTH_ENABLED;
+  // ── PREMIUM PAY FLOW — commented out until payment processing is live ─────
+  // const handleContactSubmit = async (e) => { ... }  // registers pending user + creates PayPal order
+  // const createOrder = () => paypalOrderId;
+  // const onApprove = async (data) => { ... }         // captures order, returns access code
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen relative flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 overflow-y-auto">
-      {/* Molecular Background */}
+    <div className="min-h-screen relative bg-[#060e1a] overflow-hidden">
       <MolecularBackground />
-
-      {/* Cursor Glow */}
       <CursorGlow />
 
-      {/* Content */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="relative z-10 w-full max-w-[90%] sm:max-w-sm"
-      >
-        {/* Logo */}
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-start px-4 py-10">
         <motion.div
-          className="text-center mb-3 sm:mb-4 md:mb-6"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-lg"
         >
-          <button onClick={() => navigate('/')} className="inline-block group">
-            <motion.div
-              animate={{
-                filter: [
-                  'drop-shadow(0 0 20px rgba(0,229,255,0.4)) drop-shadow(0 0 40px rgba(139,92,246,0.3))',
-                  'drop-shadow(0 0 30px rgba(0,229,255,0.5)) drop-shadow(0 0 50px rgba(139,92,246,0.4))',
-                  'drop-shadow(0 0 20px rgba(0,229,255,0.4)) drop-shadow(0 0 40px rgba(139,92,246,0.3))',
-                ],
-              }}
-              whileHover={{
-                filter: [
-                  'drop-shadow(0 0 40px rgba(0,229,255,0.8)) drop-shadow(0 0 60px rgba(139,92,246,0.6))',
-                  'drop-shadow(0 0 50px rgba(139,92,246,0.8)) drop-shadow(0 0 70px rgba(255,107,0,0.6))',
-                  'drop-shadow(0 0 40px rgba(0,229,255,0.8)) drop-shadow(0 0 60px rgba(139,92,246,0.6))',
-                ],
-              }}
-              transition={{
-                duration: 3,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-            >
-              <div className="scale-[1.3] sm:scale-[1.6] md:scale-[2.0]">
-                <TruegleLogo size="xlarge" animated={true} />
-              </div>
-            </motion.div>
-          </button>
-        </motion.div>
-
-
-        {/* Form Card */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3, duration: 0.5 }}
-          className="relative backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-2xl max-h-[65vh] overflow-y-auto custom-scrollbar"
-          style={{
-            background:
-              'linear-gradient(135deg, rgba(15, 15, 35, 0.95) 0%, rgba(25, 25, 45, 0.9) 50%, rgba(15, 15, 35, 0.95) 100%)',
-            border: '1px solid rgba(0, 229, 255, 0.2)',
-          }}
-          data-feature-card="true"
-        >
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-headline-medium mb-2">
-              <span className="gradient-cyan-purple">Join Truegle</span>
-            </h1>
-            <p className="text-body-large text-gray-400">
-              Start searching without bias
-            </p>
+          {/* Logo */}
+          <div className="flex flex-col items-center mb-8">
+            <TruegleLogo size="medium" />
+            <p className="text-white/50 text-sm mt-2">private search, your rules</p>
           </div>
 
-          {/* Social Auth — hidden until social OAuth is wired (VITE_SOCIAL_AUTH_ENABLED) */}
-          {socialAuthEnabled && (
-            <>
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleSocialAuth('Google')}
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/5 hover:bg-white/10 border border-gray-700 hover:border-cyan-500/50 rounded-xl transition-all text-label-large"
-                >
-                  <Chrome size={20} />
-                  <span>Google</span>
-                </motion.button>
+          <AnimatePresence mode="wait">
 
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleSocialAuth('Apple')}
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/5 hover:bg-white/10 border border-gray-700 hover:border-cyan-500/50 rounded-xl transition-all text-label-large"
-                >
-                  <FaApple size={20} />
-                  <span>Apple</span>
-                </motion.button>
-              </div>
-
-              {/* Divider */}
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-700"></div>
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="px-4 bg-gray-900/50 text-body-small text-gray-500">
-                    or sign up with email
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Full-Screen Premium Features Announcement - Shown when coming from media interfaces */}
-          {(!hasRememberedFreemium && showFreemiumMessage) && (
-            <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            {/* ── Main view ──────────────────────────────────────────────── */}
+            {step === 'main' && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="relative w-full max-w-2xl bg-gray-900/95 backdrop-blur-xl rounded-2xl border-2 border-cyan-500 p-8 text-center"
+                key="main"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                className="space-y-4"
               >
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/20 via-purple-500/20 to-cyan-500/20 blur-xl animate-pulse"></div>
-                <div className="relative z-10">
-                  <h2 className="text-3xl font-bold text-cyan-400 mb-6">
-                    🎉 Premium Features Free!
-                  </h2>
-                  <p className="text-white text-lg mb-6 max-w-2xl mx-auto">
-                    Here, use our premium features for free. If you want to give us money, of course we'll accept it. But we won't make you pay us to use our service. We'll let the advertisers pay for that 🤣. Truegle. Truly Freemium.
+                {/* ── Freemium hero card (primary / active) ─────────────── */}
+                <div className="bg-gradient-to-br from-white/8 to-white/4 border border-white/15 rounded-2xl p-6 backdrop-blur-xl">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Zap size={18} className="text-cyan-400" />
+                    <span className="text-white font-bold text-lg">Start Searching — Free</span>
+                  </div>
+                  <p className="text-white/55 text-sm mb-5">
+                    No account, no credit card, no tracking beyond search. 10 searches per day
+                    with ad-supported quota refills.
                   </p>
 
-                  {/* Remember Me Checkbox */}
-                  <label className="flex items-center justify-center gap-3 mb-6 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={rememberMeFreemium}
-                      onChange={(e) => setRememberMeFreemium(e.target.checked)}
-                      className="w-5 h-5 rounded border-2 border-cyan-500/50 bg-black/50 text-cyan-500
-                        focus:ring-2 focus:ring-cyan-500/50 focus:ring-offset-0
-                        checked:bg-cyan-600 checked:border-cyan-600
-                        cursor-pointer transition-all"
-                    />
-                    <span className="text-white/80 text-sm group-hover:text-white transition-colors">
-                      Remember me on this device
-                    </span>
-                  </label>
+                  <ul className="space-y-2 mb-6">
+                    {[
+                      'Core web, image & news search',
+                      '10 searches/day (watch ads to refill)',
+                      'Quick Answer cards & AI snippets',
+                      'Ad rewards program — earn cash from ads you see',
+                      'Upgrade to premium anytime',
+                    ].map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-sm text-white/70">
+                        <Check size={13} className="text-cyan-400 flex-shrink-0 mt-0.5" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
 
                   <button
-                    onClick={() => {
-                      // Save preference if remember me is checked
-                      if (rememberMeFreemium) {
-                        try {
-                          localStorage.setItem('truegle_remember_freemium', 'true');
-                        } catch {
-                          // Ignore localStorage errors
-                        }
-                      }
-                      setShowFullScreenAnnouncement(false);
-                    }}
-                    className="px-8 py-4 bg-gradient-to-r from-cyan-600 to-purple-600 text-white font-bold rounded-xl hover:from-cyan-500 hover:to-purple-500 transition-all shadow-lg shadow-cyan-500/30"
+                    onClick={startFreemium}
+                    className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyan-900/40"
                   >
-                    CONTINUE
+                    <Zap size={16} />
+                    Start Searching Free
+                    <ArrowRight size={16} />
                   </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
-            {/* Email */}
-            <div>
-              <label className="block text-label-medium text-gray-300 mb-2">
-                Email
-              </label>
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Mail size={20} />
+                  <p className="text-center text-white/30 text-xs mt-3">
+                    Already have an access code?{' '}
+                    <button
+                      onClick={() => navigate('/auth/login', { state: { showCodeEntry: true } })}
+                      className="text-cyan-400 hover:text-cyan-300"
+                    >
+                      Sign in
+                    </button>
+                  </p>
                 </div>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  onFocus={() => setFocusedField('email')}
-                  onBlur={() => setFocusedField(null)}
-                  className={`w-full pl-12 pr-4 py-2.5 sm:py-3 bg-black/30 text-white placeholder-gray-500 border rounded-xl focus:outline-none focus:ring-2 transition-all text-body-medium ${
-                    errors.email
-                      ? 'border-red-500 focus:ring-red-500/50'
-                      : focusedField === 'email'
-                        ? 'border-cyan-500 focus:ring-cyan-500/50'
-                        : 'border-gray-700 hover:border-gray-600'
-                  }`}
-                  placeholder="your@email.com"
-                />
-              </div>
-              {errors.email && (
-                <motion.p
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-2 text-body-small text-red-400"
-                >
-                  {errors.email}
-                </motion.p>
-              )}
-            </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-label-medium text-gray-300 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Lock size={20} />
-                </div>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
-                  className={`w-full pl-12 pr-12 py-2.5 sm:py-3 bg-black/30 text-white placeholder-gray-500 border rounded-xl focus:outline-none focus:ring-2 transition-all text-body-medium ${
-                    errors.password
-                      ? 'border-red-500 focus:ring-red-500/50'
-                      : focusedField === 'password'
-                        ? 'border-cyan-500 focus:ring-cyan-500/50'
-                        : 'border-gray-700 hover:border-gray-600'
-                  }`}
-                  placeholder="Create a strong password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
-                >
-                  {showPassword ? '👁️' : '👁️‍🗨️'}
-                </button>
-              </div>
-
-              {/* Password Strength */}
-              {formData.password && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="mt-3"
-                >
-                  <div className="flex gap-1 mb-2">
-                    {[1, 2, 3, 4, 5].map((level) => (
-                      <div
-                        key={level}
-                        className={`h-1 flex-1 rounded-full transition-all ${
-                          level <= passwordStrength.score
-                            ? passwordStrength.color
-                            : 'bg-gray-700'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  {passwordStrength.label && (
-                    <p className="text-label-small text-gray-400">
-                      Password strength:{' '}
-                      <span
-                        className={
-                          passwordStrength.score >= 4
-                            ? 'text-green-400'
-                            : 'text-orange-400'
-                        }
-                      >
-                        {passwordStrength.label}
+                {/* ── Premium — Coming Soon ──────────────────────────────── */}
+                <div className="relative">
+                  {/* Coming Soon overlay label */}
+                  <div className="flex items-center gap-3 mb-3 px-1">
+                    <div className="flex-1 h-px bg-white/10" />
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={13} className="text-yellow-400" />
+                      <span className="text-yellow-400/90 text-xs font-semibold uppercase tracking-widest">
+                        Premium — Coming Soon
                       </span>
+                      <Sparkles size={13} className="text-yellow-400" />
+                    </div>
+                    <div className="flex-1 h-px bg-white/10" />
+                  </div>
+
+                  <p className="text-white/40 text-xs text-center mb-4 px-2">
+                    Premium is launching soon at <span className="line-through text-white/25">$9.99/mo</span>{' '}
+                    <span className="text-yellow-300 font-semibold">$4.99/mo</span> — 50% off for early adopters.
+                    Preview the plans below. Enter your email to be notified at launch.
+                  </p>
+
+                  {/* Notify-me email (no backend call yet) */}
+                  <form onSubmit={saveNotifyEmail} className="flex gap-2 mb-5">
+                    <input
+                      type="email"
+                      value={notifyEmail}
+                      onChange={(e) => setNotifyEmail(e.target.value)}
+                      placeholder="you@example.com — notify me at launch"
+                      className="flex-1 px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/25 text-sm focus:outline-none focus:border-cyan-500/40 transition-all"
+                    />
+                    <button
+                      type="submit"
+                      disabled={notifySaved}
+                      className="px-4 py-2.5 bg-white/10 hover:bg-white/15 border border-white/15 text-white/70 hover:text-white text-sm rounded-xl transition-all disabled:opacity-60 flex-shrink-0"
+                    >
+                      {notifySaved ? <Check size={15} className="text-emerald-400" /> : 'Notify me'}
+                    </button>
+                  </form>
+                  {notifySaved && (
+                    <p className="text-emerald-400 text-xs text-center mb-3">
+                      You're on the list — we'll email you at launch.
                     </p>
                   )}
-                </motion.div>
-              )}
 
-              {errors.password && (
-                <motion.p
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-2 text-body-small text-red-400"
-                >
-                  {errors.password}
-                </motion.p>
-              )}
-            </div>
+                  {/* Premium tier cards — all disabled */}
+                  <div className="space-y-3">
+                    {PREMIUM_TIERS.map((tier) => {
+                      const Icon = tier.icon;
+                      return (
+                        <div
+                          key={tier.id}
+                          className="relative bg-white/[0.03] border border-white/8 rounded-2xl p-5 backdrop-blur-xl opacity-60 cursor-not-allowed select-none"
+                        >
+                          {/* Lock overlay */}
+                          <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-full px-2 py-1">
+                            <Lock size={10} className="text-white/40" />
+                            <span className="text-white/40 text-[10px] font-semibold uppercase tracking-wider">Coming Soon</span>
+                          </div>
 
-            {/* Confirm Password */}
-            <div>
-              <label className="block text-label-medium text-gray-300 mb-2">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Lock size={20} />
+                          {/* Header row */}
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="w-9 h-9 rounded-xl bg-white/8 flex items-center justify-center flex-shrink-0">
+                              <Icon size={17} className="text-white/50" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-white/80 font-semibold text-sm">{tier.label}</span>
+                                {tier.badge && (
+                                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${BADGE_COLORS[tier.badgeColor]}`}>
+                                    {tier.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-white/40 text-xs mt-0.5">{tier.description}</p>
+                            </div>
+                          </div>
+
+                          {/* Pricing row */}
+                          <div className="flex items-baseline gap-2 mb-3">
+                            <span className="text-white/80 font-bold text-xl">{tier.price}</span>
+                            <span className="text-white/40 text-sm">{tier.period}</span>
+                            {tier.strikethrough && (
+                              <span className="text-white/25 text-sm line-through">{tier.strikethrough}</span>
+                            )}
+                            <span className="ml-auto text-white/40 text-xs">{tier.discount}</span>
+                          </div>
+
+                          {/* Optional input (grayed) */}
+                          {tier.input && (
+                            <input
+                              type="text"
+                              placeholder={tier.input.placeholder}
+                              disabled
+                              className="w-full mb-3 px-3 py-2 bg-white/5 border border-white/8 rounded-xl text-white/30 placeholder-white/20 text-sm cursor-not-allowed"
+                            />
+                          )}
+
+                          {/* CTA button (grayed) */}
+                          <button
+                            disabled
+                            className="w-full py-2.5 bg-white/8 border border-white/10 text-white/30 text-sm font-semibold rounded-xl cursor-not-allowed"
+                          >
+                            {tier.ctaLabel}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <p className="text-center text-white/25 text-xs mt-4">
+                    All premium plans are disabled while payment processing is being set up.
+                    Free access is fully functional now.
+                  </p>
                 </div>
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={formData.confirmPassword}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      confirmPassword: e.target.value,
-                    })
-                  }
-                  onFocus={() => setFocusedField('confirmPassword')}
-                  onBlur={() => setFocusedField(null)}
-                  className={`w-full pl-12 pr-12 py-2.5 sm:py-3 bg-black/30 text-white placeholder-gray-500 border rounded-xl focus:outline-none focus:ring-2 transition-all text-body-medium ${
-                    errors.confirmPassword
-                      ? 'border-red-500 focus:ring-red-500/50'
-                      : focusedField === 'confirmPassword'
-                        ? 'border-cyan-500 focus:ring-cyan-500/50'
-                        : 'border-gray-700 hover:border-gray-600'
-                  }`}
-                  placeholder="Re-enter your password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
-                >
-                  {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
-                </button>
-              </div>
-              {errors.confirmPassword && (
-                <motion.p
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-2 text-body-small text-red-400"
-                >
-                  {errors.confirmPassword}
-                </motion.p>
-              )}
-            </div>
-
-            {/* Terms Checkbox */}
-            <div className="flex items-start gap-3 pt-2">
-              <input
-                type="checkbox"
-                id="terms"
-                checked={agreedToTerms}
-                onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="mt-1 w-4 h-4 rounded border-gray-700 bg-black/30 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
-              />
-              <label htmlFor="terms" className="text-body-small text-gray-400">
-                I agree to the{' '}
-                <a
-                  href="/terms"
-                  className="text-cyan-400 hover:text-cyan-300 underline"
-                >
-                  Terms of Service
-                </a>{' '}
-                and{' '}
-                <a
-                  href="/privacy"
-                  className="text-cyan-400 hover:text-cyan-300 underline"
-                >
-                  Privacy Policy
-                </a>
-              </label>
-            </div>
-            {errors.terms && (
-              <motion.p
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-body-small text-red-400"
-              >
-                {errors.terms}
-              </motion.p>
-            )}
-
-            {/* General Error */}
-            {errors.general && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-red-500/10 border border-red-500/30 rounded-xl p-3"
-              >
-                <p className="text-body-small text-red-400">{errors.general}</p>
               </motion.div>
             )}
 
-            {/* Submit Button */}
-            <NeonButton
-              type="submit"
-              variant="primary"
-              size="lg"
-              disabled={isLoading}
-              className="w-full mt-6"
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block mr-2" />
-                  Creating Account...
-                </>
-              ) : (
-                <>
-                  Enter
-                  <ArrowRight className="inline ml-2" size={20} />
-                </>
-              )}
-            </NeonButton>
-          </form>
-
-          {/* Sign In Link */}
-          <div className="mt-6 text-center">
-            <p className="text-body-medium text-gray-400">
-              Already have an account?{' '}
-              <button
-                onClick={() => navigate('/auth/login', { state: { redirectTo, showFreemiumMessage } })}
-                className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
+            {/* ── Freemium confirmed ─────────────────────────────────────── */}
+            {step === 'confirmed' && (
+              <motion.div
+                key="confirmed"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-xl text-center"
               >
-                Sign in
-              </button>
-            </p>
-          </div>
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', delay: 0.15, stiffness: 220 }}
+                  className="w-16 h-16 rounded-full bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center mx-auto mb-4"
+                >
+                  <Eye size={28} className="text-cyan-400" />
+                </motion.div>
+
+                <h2 className="text-xl font-bold text-white mb-1">You're in.</h2>
+                <p className="text-white/55 text-sm mb-6">
+                  You have <span className="text-white font-semibold">10 free searches</span> today.
+                  Watch ads anytime to refill your quota. Premium plans are coming soon — enter your
+                  email on the signup page to be first in line.
+                </p>
+
+                <button
+                  onClick={() => navigate('/search')}
+                  className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                  <Zap size={16} />
+                  Start searching
+                  <ArrowRight size={16} />
+                </button>
+
+                <button
+                  onClick={() => setStep('main')}
+                  className="mt-3 w-full py-2 text-white/35 hover:text-white/60 text-sm transition-colors"
+                >
+                  ← Back
+                </button>
+              </motion.div>
+            )}
+
+          </AnimatePresence>
         </motion.div>
-
-        {/* Footer Links */}
-        <div className="mt-6 flex justify-center">
-          <AnonymousSearchLink />
-        </div>
-
-        <div className="mt-4 text-center">
-          <div className="flex justify-center gap-6 text-body-small text-gray-500">
-            <a href="/terms" className="hover:text-cyan-400 transition-colors">
-              Terms
-            </a>
-            <a
-              href="/privacy"
-              className="hover:text-cyan-400 transition-colors"
-            >
-              Privacy
-            </a>
-            <a
-              href="/contact"
-              className="hover:text-cyan-400 transition-colors"
-            >
-              Contact
-            </a>
-          </div>
-        </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

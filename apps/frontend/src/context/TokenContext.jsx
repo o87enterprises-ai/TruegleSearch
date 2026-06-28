@@ -2,6 +2,29 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { tokensAPI } from '../services/api';
 import { useAuth } from './AuthContext';
 
+// ── Freemium constants (localStorage-based, no auth required) ────────────────
+const FREEMIUM_DAILY_LIMIT = 10;
+const FREEMIUM_KEY_FLAG = 'truegle_freemium';
+const FREEMIUM_KEY_SEARCHES = 'truegle_freemium_searches';
+const FREEMIUM_KEY_TOKENS = 'truegle_freemium_tokens';
+const FREEMIUM_KEY_DATE = 'truegle_freemium_date';
+
+function getFreemiumState() {
+  const today = new Date().toISOString().slice(0, 10);
+  const storedDate = localStorage.getItem(FREEMIUM_KEY_DATE);
+  if (storedDate !== today) {
+    // New day — reset daily searches but keep flag active
+    localStorage.setItem(FREEMIUM_KEY_DATE, today);
+    localStorage.setItem(FREEMIUM_KEY_SEARCHES, '0');
+    localStorage.setItem(FREEMIUM_KEY_TOKENS, String(FREEMIUM_DAILY_LIMIT));
+  }
+  return {
+    active: localStorage.getItem(FREEMIUM_KEY_FLAG) === 'true',
+    tokens: parseInt(localStorage.getItem(FREEMIUM_KEY_TOKENS) || '10', 10),
+    searches: parseInt(localStorage.getItem(FREEMIUM_KEY_SEARCHES) || '0', 10),
+  };
+}
+
 const TokenContext = createContext();
 
 export const useTokens = () => {
@@ -20,6 +43,33 @@ export const TokenProvider = ({ children }) => {
   const [isPremium, setIsPremium] = useState(false);
   const [loading, setLoading] = useState(false);
   const [featureConfig, setFeatureConfig] = useState({});
+
+  // Freemium state (zero-auth, localStorage-backed)
+  const [freemiumState, setFreemiumState] = useState(() => getFreemiumState());
+
+  const refreshFreemium = useCallback(() => {
+    setFreemiumState(getFreemiumState());
+  }, []);
+
+  const consumeFreemiumSearch = useCallback(() => {
+    const state = getFreemiumState();
+    if (!state.active) return { allowed: false, reason: 'not_freemium' };
+    if (state.tokens <= 0) return { allowed: false, reason: 'quota_exhausted' };
+    const newTokens = state.tokens - 1;
+    const newSearches = state.searches + 1;
+    localStorage.setItem(FREEMIUM_KEY_TOKENS, String(newTokens));
+    localStorage.setItem(FREEMIUM_KEY_SEARCHES, String(newSearches));
+    setFreemiumState({ ...state, tokens: newTokens, searches: newSearches });
+    return { allowed: true, tokensRemaining: newTokens };
+  }, []);
+
+  const refillFreemiumFromAd = useCallback((amount = 3) => {
+    const state = getFreemiumState();
+    const newTokens = Math.min(state.tokens + amount, FREEMIUM_DAILY_LIMIT);
+    localStorage.setItem(FREEMIUM_KEY_TOKENS, String(newTokens));
+    setFreemiumState({ ...state, tokens: newTokens });
+    return newTokens;
+  }, []);
 
   // Fetch balance when user authenticates
   useEffect(() => {
@@ -216,6 +266,10 @@ export const TokenProvider = ({ children }) => {
     featureConfig,
     maxGameTokens: 10,
 
+    // Freemium state (zero-auth)
+    freemium: freemiumState,
+    freemiumDailyLimit: FREEMIUM_DAILY_LIMIT,
+
     // Actions
     fetchBalance,
     checkAccess,
@@ -223,6 +277,11 @@ export const TokenProvider = ({ children }) => {
     startAdSession,
     earnFromAd,
     earnFromGame,
+
+    // Freemium actions
+    consumeFreemiumSearch,
+    refillFreemiumFromAd,
+    refreshFreemium,
 
     // Helpers
     getFreeUsesRemaining,

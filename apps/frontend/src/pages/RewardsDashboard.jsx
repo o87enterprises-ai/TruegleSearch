@@ -18,9 +18,20 @@ const RewardsDashboard = () => {
   const { optedIn, balanceCents, lifetimeEarnedCents, config, loading, fetchStatus, optIn, optOut } = useRewards();
   const [ledger, setLedger] = useState([]);
   const [payouts, setPayouts] = useState([]);
+  const [payoutMethod, setPayoutMethod] = useState('paypal');
   const [destination, setDestination] = useState('');
   const [payoutMessage, setPayoutMessage] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const PAYOUT_METHODS = {
+    paypal:  { label: 'PayPal',          field: 'PayPal email address' },
+    cashapp: { label: 'Cash App',        field: '$Cashtag (e.g. $yourname)' },
+    venmo:   { label: 'Venmo',           field: '@Username (e.g. @yourname)' },
+    zelle:   { label: 'Zelle',           field: 'Phone number or email' },
+    chime:   { label: 'Chime',           field: 'Chime $tag or email' },
+    fbpay:   { label: 'Meta Pay',        field: 'Facebook account email' },
+    bank:    { label: 'Bank / ACH',      field: 'Routing number, Account number (comma-separated)' },
+  };
 
   const loadHistory = useCallback(async () => {
     if (!optedIn) return;
@@ -53,7 +64,7 @@ const RewardsDashboard = () => {
     setSubmitting(true);
     setPayoutMessage(null);
     try {
-      const response = await rewardsAPI.requestPayout('manual_review', destination.trim());
+      const response = await rewardsAPI.requestPayout(payoutMethod, destination.trim());
       setPayoutMessage({ type: 'success', text: response.data.data.message });
       setDestination('');
       await fetchStatus();
@@ -68,7 +79,12 @@ const RewardsDashboard = () => {
     }
   };
 
-  const minPayoutCents = config?.minPayoutCents ?? 500;
+  const minPayoutCents = config?.minPayoutCents ?? 2000;
+  const maxPayoutCents = config?.maxPayoutCents ?? 5000;
+  const feePercent = config?.processingFeePercent ?? 0.10;
+  const grossCents = Math.min(balanceCents, maxPayoutCents);
+  const feeCents = Math.round(grossCents * feePercent);
+  const netCents = grossCents - feeCents;
   const canRequestPayout = optedIn && balanceCents >= minPayoutCents;
 
   return (
@@ -142,32 +158,79 @@ const RewardsDashboard = () => {
             {/* Payout request */}
             <div className="p-6 rounded-2xl bg-white/5 border border-white/10 mb-6">
               <h2 className="text-lg font-semibold mb-3">Request a payout</h2>
+
               {!config?.payoutsAutomated && (
                 <p className="text-sm text-amber-300/90 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-4">
-                  Payouts are currently processed manually while we set up automated cash transfers.
-                  Submitting a request queues it for review — it does not move money instantly.
+                  Payouts are processed manually (3–5 business days). Submitting queues your request — money moves after manual review.
                 </p>
               )}
-              <p className="text-sm text-white/60 mb-4">
-                Minimum payout: {formatCents(minPayoutCents)}. Your balance: {formatCents(balanceCents)}.
+
+              {/* Balance / fee summary */}
+              <div className="grid grid-cols-3 gap-3 mb-4 text-center">
+                <div className="bg-black/30 rounded-xl p-3 border border-white/10">
+                  <div className="text-xs text-white/50 mb-1">Your balance</div>
+                  <div className="font-bold text-white">{formatCents(balanceCents)}</div>
+                </div>
+                <div className="bg-black/30 rounded-xl p-3 border border-white/10">
+                  <div className="text-xs text-white/50 mb-1">10% fee</div>
+                  <div className="font-bold text-red-400">−{formatCents(feeCents)}</div>
+                </div>
+                <div className="bg-black/30 rounded-xl p-3 border border-emerald-500/30">
+                  <div className="text-xs text-white/50 mb-1">You receive</div>
+                  <div className="font-bold text-emerald-400">{formatCents(netCents)}</div>
+                </div>
+              </div>
+
+              <p className="text-xs text-white/40 mb-4">
+                Min: {formatCents(minPayoutCents)} · Max per request: {formatCents(maxPayoutCents)} · Excess stays in your balance
               </p>
-              <form onSubmit={handlePayoutRequest} className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="text"
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                  placeholder="PayPal email or payout destination"
-                  disabled={!canRequestPayout || submitting}
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-black/40 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-emerald-400 disabled:opacity-50"
-                />
+
+              <form onSubmit={handlePayoutRequest} className="space-y-3">
+                {/* Method selector */}
+                <div>
+                  <label className="text-xs text-white/50 block mb-1.5">Payout method</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {Object.entries(PAYOUT_METHODS).map(([key, { label }]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => { setPayoutMethod(key); setDestination(''); }}
+                        className={`py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
+                          payoutMethod === key
+                            ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
+                            : 'bg-white/5 border-white/10 text-white/60 hover:border-white/20'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Destination */}
+                <div>
+                  <label className="text-xs text-white/50 block mb-1.5">
+                    {PAYOUT_METHODS[payoutMethod]?.field || 'Destination'}
+                  </label>
+                  <input
+                    type="text"
+                    value={destination}
+                    onChange={(e) => setDestination(e.target.value)}
+                    placeholder={PAYOUT_METHODS[payoutMethod]?.field}
+                    disabled={!canRequestPayout || submitting}
+                    className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-emerald-400 disabled:opacity-50 text-sm"
+                  />
+                </div>
+
                 <button
                   type="submit"
-                  disabled={!canRequestPayout || submitting}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 font-semibold hover:opacity-90 transition-all disabled:opacity-40"
+                  disabled={!canRequestPayout || submitting || !destination.trim()}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 font-semibold hover:opacity-90 transition-all disabled:opacity-40 text-sm"
                 >
-                  {submitting ? 'Submitting...' : 'Request payout'}
+                  {submitting ? 'Submitting…' : `Request ${formatCents(netCents)} via ${PAYOUT_METHODS[payoutMethod]?.label}`}
                 </button>
               </form>
+
               {payoutMessage && (
                 <p className={`text-sm mt-3 ${payoutMessage.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
                   {payoutMessage.text}

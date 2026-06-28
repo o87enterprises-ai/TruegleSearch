@@ -1602,15 +1602,18 @@ const handleChange = useCallback((e) => {
               {/* Camera Input */}
               <CameraInput
                 onImageCapture={(imageDataUrl) => {
-                  // Handle image capture - could trigger image search
-                  console.log('Image captured for search:', imageDataUrl);
+                  // Set a descriptive search query for the captured image
+                  const query = localValue.trim()
+                    ? `${localValue} image search`
+                    : 'image search visual query';
+                  setLocalValue(query);
+                  onChange?.(query);
                 }}
                 onSearchSubmit={() => {
-                  // Trigger search when image is captured/uploaded
-                  if (localValue.trim()) {
-                    onSubmit?.();
-                    onSearch?.();
-                  }
+                  const q = localValue.trim() ? `${localValue} image search` : 'image search visual query';
+                  setLocalValue(q);
+                  onChange?.(q);
+                  setTimeout(() => { onSubmit?.(); onSearch?.(); }, 50);
                 }}
                 size={config.iconSize - 4}
               />
@@ -1618,15 +1621,41 @@ const handleChange = useCallback((e) => {
               {/* File Input */}
               <FileInput
                 onFileSelect={(files) => {
-                  // Handle file selection - could trigger file-based search
-                  console.log('Files selected for search:', files);
+                  if (!files || files.length === 0) return;
+                  const file = files[0];
+                  const isText = file.type.startsWith('text/') || /\.(txt|md|csv|json)$/i.test(file.name);
+                  const isAudio = file.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac)$/i.test(file.name);
+                  const isImage = file.type.startsWith('image/');
+
+                  if (isText && file.file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                      // Use first 300 chars of text file as query
+                      const content = (e.target.result || '').slice(0, 300).trim().replace(/\s+/g, ' ');
+                      if (content) {
+                        setLocalValue(content);
+                        onChange?.(content);
+                      }
+                    };
+                    reader.readAsText(file.file);
+                  } else if (isAudio) {
+                    const query = `audio transcript: ${file.name.replace(/\.[^.]+$/, '')}`;
+                    setLocalValue(query);
+                    onChange?.(query);
+                  } else if (isImage) {
+                    const query = localValue.trim()
+                      ? `${localValue} image: ${file.name}`
+                      : `image search: ${file.name}`;
+                    setLocalValue(query);
+                    onChange?.(query);
+                  } else {
+                    // Generic file — use filename as query hint
+                    const query = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+                    if (query) { setLocalValue(query); onChange?.(query); }
+                  }
                 }}
                 onSearchSubmit={() => {
-                  // Trigger search when file is uploaded
-                  if (localValue.trim()) {
-                    onSubmit?.();
-                    onSearch?.();
-                  }
+                  setTimeout(() => { onSubmit?.(); onSearch?.(); }, 100);
                 }}
                 size={config.iconSize - 4}
               />
