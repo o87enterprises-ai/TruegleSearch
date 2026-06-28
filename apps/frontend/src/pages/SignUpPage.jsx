@@ -156,8 +156,10 @@ export default function SignUpPage() {
   };
 
   const handleSocialAuth = (provider) => {
-    console.log(`Authenticating with ${provider}...`);
-    alert(`${provider} authentication would happen here`);
+    if (provider === 'Google') {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://backend-seven-khaki-60.vercel.app';
+      window.location.href = `${backendUrl}/api/auth/google`;
+    }
   };
 
   // Google OAuth is live (backend verified, consent screen published), so the
