@@ -28,6 +28,7 @@ import MultimediaInterface from '../components/ui/MultimediaInterface';
 import AIChatOverlay from '../components/ui/AIChatOverlay';
 import AdSlot from '../components/AdSlot';
 import RewardAdSlot from '../components/RewardAdSlot';
+import ReviveAd from '../components/ads/ReviveAd';
 import { SkeletonSearchResult } from '../components/ui/Skeleton';
 import AsSeenOn from '../components/Content/AsSeenOn';
 import PerspectiveSelector from '../components/search/PerspectiveSelector';
@@ -946,11 +947,17 @@ export default function UniversalSearch({ lockedGreen = false }) {
               activeCategory === 'vids' ||
               activeCategory === 'audio' ||
               activeCategory === 'soc') && (
-              <MultimediaInterface
-                category={activeCategory}
-                onClose={() => setActiveCategory('all')}
-                searchQuery={searchValue}
-              />
+              <>
+                <MultimediaInterface
+                  category={activeCategory}
+                  onClose={() => setActiveCategory('all')}
+                  searchQuery={searchValue}
+                />
+                {/* Inline video ad for media tabs — plays per session until user exits tab */}
+                <div className="max-w-4xl mx-auto mt-4 mb-2">
+                  <ReviveAd zone="videoInline" style={{ width: '100%', aspectRatio: '16/9' }} />
+                </div>
+              </>
             )}
           </AnimatePresence>
 
@@ -976,6 +983,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   }}
                   detectedLocation={detectedLocation}
                 />
+                {/* Leaderboard ad below map */}
+                <div className="mt-4 flex justify-center">
+                  <ReviveAd zone="leaderboard728x90" />
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -1298,6 +1309,13 @@ export default function UniversalSearch({ lockedGreen = false }) {
             </div>
           )}
 
+          {/* Inline video ad — shown after AI expanded summary */}
+          {mode !== 'green' && aiSummary && !summaryCollapsed && (
+            <div className="max-w-4xl mx-auto mb-4">
+              <ReviveAd zone="videoInline" style={{ width: '100%', aspectRatio: '16/9' }} />
+            </div>
+          )}
+
           {/* No Summary Confirmation Modal */}
           <AnimatePresence>
             {showNoSummaryConfirm && (
@@ -1473,6 +1491,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   {/* OSINT mode requires auth + token */}
                   {mode === 'ocean' && searchResults.length > 0 && (
                     <TokenGate featureName="osint-tools">
+                      {/* Inline video ad — OSINT page, plays per session */}
+                      <div className="mb-4">
+                        <ReviveAd zone="videoInline" style={{ width: '100%', aspectRatio: '16/9' }} />
+                      </div>
                       <div className="space-y-4">
                         {searchResults.map((result, index) => (
                           <ResultCard

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import AdSlot from '../components/AdSlot';
+import ReviveAd from '../components/ads/ReviveAd';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 const FREE_SPINS = 3;
@@ -419,8 +420,10 @@ export default function ExtractPage() {
             </motion.div>
           )}
 
-          {/* ── Bottom ad ── */}
-          <AdSlot size="large" className="mb-8" />
+          {/* ── Bottom ad — Revive Zone 5 inline video ── */}
+          <div className="mb-8">
+            <ReviveAd zone="videoInline" style={{ width: '100%', aspectRatio: '16/9' }} />
+          </div>
         </div>
       </div>
 
@@ -445,7 +448,7 @@ export default function ExtractPage() {
               )}
               {!adDone && adCountdown < 5 && (
                 <div className="py-3">
-                  <div className="w-16 h-16 rounded-full border-4 border-yellow-500/30 border-t-yellow-400 animate-spin mx-auto mb-3" />
+                  <ReviveAd zone="videoInline" style={{ width: '100%', aspectRatio: '16/9', marginBottom: 12 }} />
                   <p className="text-yellow-300 text-sm">Ad playing… {adCountdown}s</p>
                 </div>
               )}

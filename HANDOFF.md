@@ -1,5 +1,70 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-06-27. Supersedes all prior handoff docs. **See the 2026-06-16→17 session log directly below — it supersedes conflicting older entries, especially anything about Google AdSense (now fully removed).**_
+_Last updated: 2026-06-27. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ SESSION LOG 2026-06-27d — Revive Adserver install + ad tag wiring + GitTools setup
+
+### Revive Adserver 5.4.1 on EC2 (DONE)
+Self-hosted open-source ad server running at `http://44.236.219.63:9090/www/admin/` (admin: `trueroot`).
+
+- Docker Compose stack at `/home/ec2-user/revive/` — container `revive` (port 9090→80) + `revive-db` (MariaDB 10.11).
+- 5 zones configured:
+  - Zone 1 & 2: 300×250 display banners
+  - Zone 3: 728×90 leaderboard
+  - Zone 4: Rich media overlay (delivery=7) — used for token gate / freemium wall
+  - Zone 5: Video in-stream (delivery=6) — inline video on feature pages
+
+### Revive ad tag wiring into frontend (SHIPPED)
+New component: `apps/frontend/src/components/ads/ReviveAd.jsx`
+- Renders Revive zones via `<iframe src="https://ads.truegle.info/www/delivery/ai.php?zoneid=N&cb=RAND" />`
+- Exports `ZONES` constants for all 5 zones
+
+Wired into:
+- **`AdPlayer.jsx`** (token gate overlay): Zone 4 rich media replaces placeholder animation when ad plays
+- **`LandingPage.jsx`**: Zone 5 inline video inserted above footer
+- **`ExtractPage.jsx`**: Zone 5 replaces spinner in ad modal + replaces bottom AdSlot
+- **`UniversalSearch.jsx`**:
+  - Zone 5 after MultimediaInterface when vids/pics/soc tab active
+  - Zone 3 leaderboard below map view
+  - Zone 5 after AI expanded summary (when not collapsed)
+  - Zone 5 inside OSINT TokenGate (ocean mode)
+
+CSP updated in `apps/frontend/public/_headers`:
+- Added `https://ads.truegle.info` to `frame-src` and `child-src`
+
+### Infrastructure needed to activate ads (PENDING — action required)
+**1. Cloudflare DNS A record:**
+- Name: `ads`, Value: `44.236.219.63`, Proxied: YES (orange cloud)
+- Cloudflare proxying = HTTPS termination at edge → HTTP to origin (solves mixed-content for HTTPS frontend)
+
+**2. nginx reverse proxy on EC2:**
+- Script at `scripts/revive-nginx.conf` — deploy to `/etc/nginx/conf.d/revive.conf`
+- Routes port 80 → Docker port 9090
+- EC2 security group must allow port 80 from Cloudflare IPs
+
+**Note on Cloudflare port proxying:** Cloudflare only proxies standard ports (80/443). Port 9090 is NOT proxied. The nginx config on the EC2 is REQUIRED to bridge port 80 → 9090.
+
+### GitTools repos installed (DONE — via Gemini CLI)
+11 repos configured for Claude Code. Key ones:
+- **SuperPowers**: Claude Code plugin (skills: TDD, debugging, git worktrees)
+- **ClaudeSEO v2.2.0**: SEO audit skill plugin (`/seo audit <url>`)
+- **FireCrawl**: Plugin + CLI — needs `firecrawl login --api-key "fc-YOUR-API-KEY"`
+- **BrowserUse**: MCP server (stdio) configured in `~/.claude.json` for `GitTools` directory
+- **Fabric**: CLI at `~/.local/bin/fabric.exe` — needs `fabric --setup` to init API keys
+- **OpenMontage**: Python venv ready, skills auto-load from `.claude/skills/`
+- **OpenVoice**: Python 3.12 venv with patched deps
+- **OpenHiggsfield**: Built via npm
+- **n8n, Whisper, AirLLM**: Source available, not compiled
+
+**Next steps for tools:**
+1. Run `fabric --setup` to configure Fabric with your AI API keys
+2. Run `firecrawl login --api-key "fc-YOUR-API-KEY"` to authenticate FireCrawl
+3. BrowserUse MCP server activates automatically when Claude Code opens inside `GitTools` directory
+
+### OAuth fix (SHIPPED — commit `a60f898`)
+- Root cause: `BACKEND_URL` fell back to `VERCEL_URL` (per-deployment URL, changes every deploy) → callbackURL never matched Google's registered redirect URI
+- Fixed: now uses `VERCEL_PROJECT_PRODUCTION_URL` as stable middle fallback
 
 ---
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Volume2, VolumeX, Clock, CheckCircle, X } from 'lucide-react';
+import ReviveAd, { ZONES } from '../ads/ReviveAd';
 
 const AD_DURATION = 30; // seconds
 
@@ -142,33 +143,13 @@ const AdPlayer = ({
                 <p className="text-green-300">+1 token added to your balance</p>
               </motion.div>
             ) : (
-              // Playing state - demo placeholder
+              // Playing state — Revive Zone 4 overlay creative
               <>
-                <video
-                  ref={videoRef}
-                  className="w-full h-full object-cover"
-                  muted={isMuted}
-                  playsInline
-                  loop
-                >
-                  {/* Placeholder - in production would load actual ad content */}
-                </video>
-
-                {/* Placeholder animation while "playing" */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <motion.div
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      opacity: [0.5, 1, 0.5],
-                    }}
-                    transition={{
-                      duration: 2,
-                      repeat: Infinity,
-                    }}
-                    className="w-24 h-24 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center"
-                  >
-                    <span className="text-white text-lg font-bold">Ad</span>
-                  </motion.div>
+                <div className="absolute inset-0">
+                  <ReviveAd
+                    zone={ZONES.overlayRichMedia}
+                    style={{ width: '100%', height: '100%' }}
+                  />
                 </div>
 
                 {/* Progress bar */}
