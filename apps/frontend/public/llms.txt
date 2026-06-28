@@ -1,37 +1,67 @@
 # Truegle
 
-> Truegle is an independent, privacy-first search engine built on radical transparency. We surface multiple perspectives on every query — political, cultural, scientific, and alternative — without algorithmic suppression or tracking.
+> Truegle is an independent, privacy-first search engine built on radical transparency. We surface multiple perspectives on every query — political, cultural, scientific, and alternative — without algorithmic suppression, tracking, or censorship.
 
 ## What Truegle Is
 
 Truegle is a search engine that does not filter, bias, or suppress results based on institutional preferences. Our mission is to give every user a flashlight into the corners of the internet that mainstream search engines actively avoid indexing or ranking. We believe knowledge should not be gatekept by institutions, governments, or corporate interests.
 
+Results are powered by our own self-hosted SearXNG metasearch instance — no corporate API dependency, no query logging, no profiling.
+
 ## Core Principles
 
-- No user tracking, no cookies, no hidden data collection
-- Multiple perspectives shown for every query — mainstream and alternative
+- No user tracking, no cookies, no history retention
+- Multiple perspectives shown for every query — mainstream, alternative, and opposing
 - AI-powered summaries that present facts without editorial bias
-- Ad revenue shared with users (coming soon)
 - Privacy as a feature, not a policy checkbox
+- Ad revenue shared with users via the Rewards Program
 
 ## Key Features
 
-- Universal search across web, images, video, maps, social, news, and shopping
-- AI quick-answer cards for direct questions
-- OSINT tools for independent investigators
-- Social media search with embedded posts (no login required)
-- Map search with local business discovery
-- Dark-mode first, mobile-friendly interface
+### Search
+- Universal search: web, images, video, maps, news, social, shopping
+- Self-hosted SearXNG as primary search layer — zero corporate tracking
+- AI multi-perspective summary for every query (mainstream + alternative viewpoints)
+- Bias detection and source transparency filtering
+- Instant answer cards for navigational, question, and calculator queries
+- Blue (standard), Red (deep dive), Purple (perspective filter), Ocean (OSINT), Green (AI-free) modes
+
+### Privacy
+- Anonymous result viewing — open links through a privacy proxy; destination sites never see your IP
+- Auto history deletion — no query log stored on our servers
+- No fingerprinting, no cookies, no user profiling
+
+### Tools
+- **Content Transcriber** (`/extract`): paste any YouTube URL and get the full transcript; also extracts images from any public page. 3 free uses per 24 hours; watch a short ad for 3 bonus uses.
+- **OSINT Intelligence**: email intel (MX records, role/disposable flags, Gravatar), phone intel (line type, country, formats), username and domain lookup — all from within the search page.
+- **Social Feed Aggregator**: Reddit, Hacker News, GitHub trending, and YouTube feeds unified in a single tab — no login required, no algorithm.
+
+### Rewards
+- **Ad Rewards Program** (`/rewards`): opt in to earn real cash for ads you genuinely watch while waiting on search results. Duration measured server-side only. PayPal cashout when balance reaches minimum. Opt out at any time.
+
+### Other
+- Voice search (browser Speech Recognition API)
+- Camera search (image-based queries)
+- Map search with local business discovery and turn-by-turn directions
+- Dark-mode first, mobile-friendly, installable as PWA
 
 ## Who This Is For
 
-People who are tired of algorithmic bubbles. Researchers who need access to suppressed or alternative sources. Privacy-conscious users who refuse to be tracked. Independent thinkers who want to see the full picture, not the curated one.
+People who are tired of algorithmic bubbles. Researchers who need access to suppressed or alternative sources. Privacy-conscious users who refuse to be tracked. Journalists and investigators using OSINT. Content creators who need quick transcripts. Independent thinkers who want to see the full picture, not the curated one.
 
 ## Pages
 
 - https://truegle.info/ — Homepage and main search
-- https://truegle.info/search — Search results
+- https://truegle.info/search — Universal search results (web, images, video, maps, social, news)
+- https://truegle.info/search?mode=ocean — OSINT mode (deep-web, intelligence tools)
+- https://truegle.info/search?mode=red — Deep Dive / Red Pill mode (inverted mainstream bias)
+- https://truegle.info/search?mode=purple — Perspective filter mode
+- https://truegle.info/green — AI-free clean search mode
+- https://truegle.info/extract — Content transcriber and image extractor tool
+- https://truegle.info/rewards — Ad Rewards Program dashboard
+- https://truegle.info/feeling-biased — Bias-aware search entry point
 - https://truegle.info/about — About Truegle and our mission
+- https://truegle.info/advertise — Advertising information and media kit
+- https://truegle.info/blog — Editorial content: search bias, privacy, independent research
 - https://truegle.info/privacy — Privacy policy
-- https://truegle.info/advertise — Advertising information
 - https://truegle.info/terms — Terms of service

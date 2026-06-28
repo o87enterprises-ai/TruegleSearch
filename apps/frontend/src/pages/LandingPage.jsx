@@ -228,18 +228,60 @@ export default function LandingPage() {
 
   const features = [
     {
-      icon: Zap,
-      title: 'OSINT & SEO Tools',
+      icon: Sparkles,
+      title: 'Self-Hosted Private SERP',
       description:
-        'Ethical Digital Forensics. Gather intel on usernames, email addresses, and phone numbers.',
+        'Results powered by our own SearXNG metasearch instance — no Google tracking, no API quotas, no corporate censorship. Real results, no middlemen.',
+      gradient: 'rgba(34, 197, 94, 1), rgba(0, 229, 255, 1)',
+    },
+    {
+      icon: Zap,
+      title: 'OSINT Intelligence Tools',
+      description:
+        'Ethical digital forensics built in. Look up usernames, emails, phone numbers, and domains without leaving the search page.',
       gradient: 'rgba(255, 107, 0, 1), rgba(239, 68, 68, 1)',
     },
     {
-      icon: Sparkles,
-      title: 'Source Identification & Insights',
+      icon: Eye,
+      title: 'Anonymous View',
       description:
-        "Truegle's Unbiased Search — perspectives filtering, bias detection, and source transparency.",
-      gradient: 'rgba(34, 197, 94, 1), rgba(0, 229, 255, 1)',
+        'Open any result through our privacy proxy — the destination site never sees your real IP. Browse links from search results without leaving a trail.',
+      gradient: 'rgba(139, 92, 246, 1), rgba(59, 130, 246, 1)',
+    },
+    {
+      icon: Filter,
+      title: 'Multi-Perspective AI Summary',
+      description:
+        'Every search gets an AI-generated briefing that surfaces mainstream, alternative, and opposing viewpoints side-by-side — not just the consensus.',
+      gradient: 'rgba(245, 158, 11, 1), rgba(239, 68, 68, 1)',
+    },
+    {
+      icon: Mic,
+      title: 'Content Transcriber',
+      description:
+        'Paste any YouTube URL and get the full transcript instantly — no account needed. Extract images from any public page. 3 free uses per day.',
+      gradient: 'rgba(234, 179, 8, 1), rgba(251, 146, 60, 1)',
+    },
+    {
+      icon: Gift,
+      title: 'Ad Rewards Program',
+      description:
+        'Opt in and earn real cash for ads you actually watch while results load. No extra tracking, no fake points — server-side measured, PayPal cashout.',
+      gradient: 'rgba(16, 185, 129, 1), rgba(6, 182, 212, 1)',
+    },
+    {
+      icon: Paperclip,
+      title: 'Social Feed Aggregator',
+      description:
+        'Reddit, Hacker News, GitHub, and YouTube feeds unified in a single tab — no login, no algorithm. Switch platforms without leaving Truegle.',
+      gradient: 'rgba(99, 102, 241, 1), rgba(168, 85, 247, 1)',
+    },
+    {
+      icon: Shield,
+      title: 'No Bias. No Tracking. No Agenda.',
+      description:
+        'History auto-deletes. Zero cookies. No profiling. Every query is treated the same whether you\'re a student, journalist, or researcher.',
+      gradient: 'rgba(20, 184, 166, 1), rgba(34, 197, 94, 1)',
     },
   ];
 
@@ -640,7 +682,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {features.map((feature, index) => (
                 <EnhancedFeatureCard
                   key={index}
