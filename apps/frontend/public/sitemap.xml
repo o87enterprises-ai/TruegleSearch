@@ -40,7 +40,11 @@
   <!-- Blog -->
   <url>
     <loc>https://truegle.info/blog</loc>
-    <lastmod>2026-06-26</lastmod>
+    <lastmod>2026-06-28</lastmod>
+  </url>
+  <url>
+    <loc>https://truegle.info/blog/understanding-our-ad-color-system</loc>
+    <lastmod>2026-06-28</lastmod>
   </url>
   <url>
     <loc>https://truegle.info/blog/what-is-a-filter-bubble</loc>

@@ -13,6 +13,99 @@ import { LegalSection } from '../components/LegalPage';
  */
 export const BLOG_POSTS = [
   {
+    slug: 'understanding-our-ad-color-system',
+    title: 'What the Ad Colors on Truegle Mean — and Why We Show Them',
+    description:
+      'Every ad on Truegle is color-coded so you can tell at a glance what kind of ad it is and whether it benefits you directly. Here is what each color means.',
+    date: '2026-06-28',
+    readingTime: '3 min read',
+    body: (
+      <>
+        <p>
+          Most search engines hide their ad infrastructure. You see a result, you may not
+          even know it's paid placement, and you have no idea where the money flows. Truegle
+          does the opposite: every ad slot on the platform carries a visible color-coded
+          badge so you know exactly what you're looking at before you decide to engage.
+        </p>
+
+        <LegalSection heading="Yellow — Available Ad Spots">
+          <p>
+            A <strong>yellow-bordered slot</strong> is an unsold or house ad space — inventory
+            we haven't filled with a paying advertiser yet. You'll see a "Claim This Spot"
+            prompt. These slots exist so advertisers can see exactly where their placement
+            would appear. If you're a business that wants to reach a privacy-conscious,
+            independent-minded audience, yellow is your invitation.
+          </p>
+          <p>
+            Yellow means: <em>no third-party advertiser is paying to influence what you see
+            here right now.</em>
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Neon Green — CPM and Affiliate Ads">
+          <p>
+            A <strong>neon apple-green border</strong> marks a paid CPM (cost-per-thousand
+            impressions) or affiliate ad — things like display banners from our ad network
+            partner Adsterra, or affiliate product links. These ads are served to all users
+            regardless of query content.
+          </p>
+          <p>
+            Green means: <em>a real advertiser paid to be here. Truegle earns revenue from
+            this impression or any resulting purchase.</em> We never use this revenue to
+            influence search rankings — it funds server costs and the Rewards Program.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Red and Blue Pulse — Adult Content Ads">
+          <p>
+            A <strong>pulsing red-and-blue glow</strong> identifies an adult-content ad. These
+            are only ever shown to users who meet all three conditions simultaneously: signed
+            in with a Google-verified account (our lightweight age signal), Safe Search set
+            to Off, and searching for a query that contains adult-intent keywords.
+          </p>
+          <p>
+            If you don't meet all three conditions, you will never see a red-blue pulsing ad —
+            ever. The triple gate is enforced both client-side and server-side.
+          </p>
+          <p>
+            The bright, alternating pulse is intentional: adult ads should be unmistakably
+            visible as such so users can make an informed choice about engaging with them.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Pulsing Red with White Border — Watch &amp; Earn Ads">
+          <p>
+            A <strong>pulsing red slot with a white border</strong> is a Rewards Program ad.
+            If you've opted in to the Truegle Rewards Program at{' '}
+            <a href="/rewards" className="text-blue-400 hover:text-blue-300">/rewards</a>,
+            watching this ad for its full duration earns you a small real-cash credit
+            toward a PayPal payout.
+          </p>
+          <p>
+            Watch time is measured server-side using an IntersectionObserver + visibility
+            tracking — the client cannot spoof it. You earn only for genuine views. The red
+            pulse is the signal: <em>this one pays you.</em>
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Why We Do This">
+          <p>
+            Truegle's core promise is transparency. That extends to how we make money.
+            Color-coding every ad type means you're never left guessing whether something
+            is organic content or paid placement, who benefits from the transaction, or
+            whether content is age-appropriate. We think every search engine should work
+            this way.
+          </p>
+          <p>
+            If you have questions about our ad policies or want to advertise on Truegle,
+            visit{' '}
+            <a href="/advertise" className="text-blue-400 hover:text-blue-300">/advertise</a>.
+          </p>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
     slug: 'what-is-a-filter-bubble',
     title: 'What Is a Filter Bubble — and How to Escape It',
     description:

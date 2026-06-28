@@ -16,6 +16,7 @@ import { TutorialProvider } from './context/TutorialContext';
 import { MapProvider } from './components/map';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { SettingsProvider } from './context/SettingsContext';
+import AdScriptLoader from './components/ads/AdScriptLoader';
 import TruegleLogo from './components/ui/TruegleLogo';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -146,6 +147,7 @@ const App = () => {
                       <a href="#main-content" className="skip-to-content">
                         Skip to main content
                       </a>
+                      <AdScriptLoader />
                       <AppContent />
                     </ToastProvider>
                   </TutorialProvider>

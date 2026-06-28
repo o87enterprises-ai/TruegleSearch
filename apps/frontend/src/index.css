@@ -845,3 +845,17 @@ canvas { display: block !important; margin: 0 auto !important; image-rendering: 
     transform: rotateX(55deg) rotateZ(360deg);
   }
 }
+
+/* Ad color-code animations */
+@keyframes adult-glow {
+  0%, 100% { box-shadow: 0 0 14px 3px rgba(239,68,68,0.55); border-color: rgba(239,68,68,0.75); }
+  50%       { box-shadow: 0 0 18px 5px rgba(59,130,246,0.55); border-color: rgba(59,130,246,0.75); }
+}
+@keyframes reward-glow {
+  0%, 100% { box-shadow: 0 0 10px 2px rgba(239,68,68,0.40); }
+  50%       { box-shadow: 0 0 20px 6px rgba(239,68,68,0.70); }
+}
+.ad-adult  { animation: adult-glow 2s ease-in-out infinite; border-width: 2px; border-style: solid; border-radius: 1rem; }
+.ad-reward { animation: reward-glow 1.8s ease-in-out infinite; border: 2px solid rgba(255,255,255,0.75); border-radius: 1rem; }
+.ad-cpm    { box-shadow: 0 0 12px 2px rgba(170,255,0,0.30); border: 2px solid rgba(170,255,0,0.65); border-radius: 1rem; }
+.ad-claim  { box-shadow: 0 0 10px 2px rgba(250,204,21,0.25); border: 2px solid rgba(250,204,21,0.60); border-radius: 1rem; }

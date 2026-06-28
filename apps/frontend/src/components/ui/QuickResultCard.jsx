@@ -1,37 +1,47 @@
 import { MapPin, Phone, Globe, Clock, Star, ExternalLink, User, ChevronRight, Cloud, Droplets, Wind, Calculator, BookOpen, ArrowRightLeft, Volume2, AppWindow, Link2 } from 'lucide-react';
 
+const MODE_THEME = {
+  red:    { border: 'border-red-500/50',    shadow: 'shadow-red-500/20',    accent: 'text-red-400',    bg: 'from-[#1a0808]/95 to-[#0f0505]/95' },
+  purple: { border: 'border-purple-500/50', shadow: 'shadow-purple-500/20', accent: 'text-purple-400', bg: 'from-[#12081a]/95 to-[#0b0510]/95' },
+  ocean:  { border: 'border-cyan-500/50',   shadow: 'shadow-cyan-500/20',   accent: 'text-cyan-400',   bg: 'from-[#041414]/95 to-[#020c0c]/95' },
+  green:  { border: 'border-emerald-500/50',shadow: 'shadow-emerald-500/20',accent: 'text-emerald-400',bg: 'from-[#041209]/95 to-[#020b05]/95' },
+  blue:   { border: 'border-blue-500/50',   shadow: 'shadow-blue-500/20',   accent: 'text-blue-400',   bg: 'from-[#060e1a]/95 to-[#030812]/95' },
+};
+
 /**
  * QuickResultCard — instant answer panel shown above search results.
- * Mirrors Google's Knowledge Panel for simple, non-controversial factual
- * queries (weather, hours/location, time, conversions, apps, etc). Cards are
- * informational only — no in-app interactive actions; outbound links open
- * the relevant external site/map directly.
  *
  * Props:
  *   instantAnswer: object from backend buildInstantAnswer()
+ *   mode: 'blue' | 'red' | 'purple' | 'ocean' | 'green' — matches search page mode
  */
-export default function QuickResultCard({ instantAnswer }) {
+export default function QuickResultCard({ instantAnswer, mode = 'blue' }) {
   if (!instantAnswer) return null;
 
+  const theme = MODE_THEME[mode] || MODE_THEME.blue;
   const { type } = instantAnswer;
 
-  if (type === 'navigational') return <NavigationalCard data={instantAnswer} />;
-  if (type === 'local_business') return <BusinessCard data={instantAnswer} />;
-  if (type === 'social_profile') return <SocialProfileCard data={instantAnswer} />;
-  if (type === 'person') return <PersonCard data={instantAnswer} />;
-  if (type === 'weather') return <WeatherCard data={instantAnswer} />;
-  if (type === 'calculation') return <CalculationCard data={instantAnswer} />;
-  if (type === 'conversion') return <ConversionCard data={instantAnswer} />;
-  if (type === 'time') return <TimeCard data={instantAnswer} />;
-  if (type === 'definition') return <DefinitionCard data={instantAnswer} />;
-  if (type === 'app') return <AppCard data={instantAnswer} />;
+  const card = (() => {
+    if (type === 'navigational')  return <NavigationalCard  data={instantAnswer} theme={theme} />;
+    if (type === 'local_business') return <BusinessCard     data={instantAnswer} theme={theme} />;
+    if (type === 'social_profile') return <SocialProfileCard data={instantAnswer} theme={theme} />;
+    if (type === 'person')         return <PersonCard        data={instantAnswer} theme={theme} />;
+    if (type === 'weather')        return <WeatherCard       data={instantAnswer} theme={theme} />;
+    if (type === 'calculation')    return <CalculationCard   data={instantAnswer} theme={theme} />;
+    if (type === 'conversion')     return <ConversionCard    data={instantAnswer} theme={theme} />;
+    if (type === 'time')           return <TimeCard          data={instantAnswer} theme={theme} />;
+    if (type === 'definition')     return <DefinitionCard    data={instantAnswer} theme={theme} />;
+    if (type === 'app')            return <AppCard           data={instantAnswer} theme={theme} />;
+    return null;
+  })();
 
-  return null;
+  if (!card) return null;
+  return card;
 }
 
 // ── Navigational / Official Site Card ────────────────────────────────────────
 
-function NavigationalCard({ data }) {
+function NavigationalCard({ data, theme }) {
   const { name, url, snippet, domain, favicon } = data;
   let displayDomain = domain;
   try { displayDomain = new URL(url).hostname.replace('www.', ''); } catch { /* use domain */ }
@@ -41,7 +51,7 @@ function NavigationalCard({ data }) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="mb-6 flex items-start gap-4 p-5 rounded-2xl bg-gradient-to-br from-[#0d1f3c]/90 to-[#162040]/90 border border-blue-500/40 backdrop-blur-xl overflow-hidden shadow-lg shadow-blue-500/15 hover:border-blue-400/60 hover:shadow-blue-400/25 transition-all group block"
+      className={`mb-6 flex items-start gap-4 p-5 rounded-2xl bg-gradient-to-br ${theme.bg} border ${theme.border} backdrop-blur-xl overflow-hidden shadow-lg ${theme.shadow} hover:brightness-110 transition-all group block`}
     >
       {favicon ? (
         <img
@@ -51,13 +61,13 @@ function NavigationalCard({ data }) {
           onError={(e) => { e.target.style.display = 'none'; }}
         />
       ) : (
-        <div className="w-10 h-10 rounded-lg bg-blue-500/15 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
-          <Link2 size={18} className="text-blue-400" />
+        <div className={`w-10 h-10 rounded-lg bg-white/5 border ${theme.border} flex items-center justify-center flex-shrink-0`}>
+          <Link2 size={18} className={theme.accent} />
         </div>
       )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="text-xs text-blue-400/70 font-medium truncate">{displayDomain}</span>
+          <span className={`text-xs ${theme.accent} opacity-70 font-medium truncate`}>{displayDomain}</span>
           <span className="text-xs text-white/20 bg-white/10 px-1.5 py-0.5 rounded-full">Official site</span>
         </div>
         <h3 className="text-base font-bold text-white group-hover:text-blue-200 transition-colors truncate">{name}</h3>
@@ -72,11 +82,11 @@ function NavigationalCard({ data }) {
 
 // ── App / AI Model / Service Card ───────────────────────────────────────────
 
-function AppCard({ data }) {
+function AppCard({ data, theme }) {
   const { name, description, image, url } = data;
 
   return (
-    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 border border-violet-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-violet-500/10 p-5">
+    <div className={`mb-6 rounded-2xl bg-gradient-to-br ${theme.bg} border ${theme.border} backdrop-blur-xl overflow-hidden shadow-lg ${theme.shadow} p-5`}>
       <div className="flex gap-4">
         {image ? (
           <img
@@ -86,8 +96,8 @@ function AppCard({ data }) {
             onError={(e) => { e.target.style.display = 'none'; }}
           />
         ) : (
-          <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
-            <AppWindow size={26} className="text-violet-400/60" />
+          <div className={`w-16 h-16 rounded-xl bg-white/5 border ${theme.border} flex items-center justify-center flex-shrink-0`}>
+            <AppWindow size={26} className={`${theme.accent} opacity-60`} />
           </div>
         )}
         <div className="flex-1 min-w-0">
@@ -120,15 +130,15 @@ const CONVERSION_TITLE = {
   digital: 'Data', temperature: 'Temperature', currency: 'Currency',
 };
 
-function ConversionCard({ data }) {
+function ConversionCard({ data, theme }) {
   const { conversionType, inputValue, result, fromUnit, toUnit, fromLabel, toLabel, rate } = data;
   const from = fromLabel || fromUnit;
   const to = toLabel || toUnit;
   const fmt = (n) => n.toLocaleString(undefined, { maximumFractionDigits: 6 });
 
   return (
-    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 border border-teal-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-teal-500/10 p-5">
-      <div className="flex items-center gap-2 mb-3 text-teal-400/70 text-xs font-medium">
+    <div className={`mb-6 rounded-2xl bg-gradient-to-br ${theme.bg} border ${theme.border} backdrop-blur-xl overflow-hidden shadow-lg ${theme.shadow} p-5`}>
+      <div className={`flex items-center gap-2 mb-3 ${theme.accent} opacity-70 text-xs font-medium`}>
         <ArrowRightLeft size={13} />
         {CONVERSION_TITLE[conversionType] || 'Conversion'}
       </div>
@@ -152,11 +162,11 @@ function ConversionCard({ data }) {
 
 // ── World Clock Card ──────────────────────────────────────────────────────────
 
-function TimeCard({ data }) {
+function TimeCard({ data, theme }) {
   const { location, time, date, timezone } = data;
   return (
-    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 border border-indigo-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-indigo-500/10 p-5">
-      <div className="flex items-center gap-2 mb-2 text-indigo-400/70 text-xs font-medium">
+    <div className={`mb-6 rounded-2xl bg-gradient-to-br ${theme.bg} border ${theme.border} backdrop-blur-xl overflow-hidden shadow-lg ${theme.shadow} p-5`}>
+      <div className={`flex items-center gap-2 mb-2 ${theme.accent} opacity-70 text-xs font-medium`}>
         <Clock size={13} />
         Time in {location}
       </div>
@@ -171,11 +181,11 @@ function TimeCard({ data }) {
 
 // ── Definition Card ───────────────────────────────────────────────────────────
 
-function DefinitionCard({ data }) {
+function DefinitionCard({ data, theme }) {
   const { word, phonetic, audio, meanings } = data;
   return (
-    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 border border-amber-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-amber-500/10 p-5">
-      <div className="flex items-center gap-2 mb-3 text-amber-400/70 text-xs font-medium">
+    <div className={`mb-6 rounded-2xl bg-gradient-to-br ${theme.bg} border ${theme.border} backdrop-blur-xl overflow-hidden shadow-lg ${theme.shadow} p-5`}>
+      <div className={`flex items-center gap-2 mb-3 ${theme.accent} opacity-70 text-xs font-medium`}>
         <BookOpen size={13} />
         Definition
       </div>
@@ -211,18 +221,18 @@ function DefinitionCard({ data }) {
 
 // ── Weather Card ──────────────────────────────────────────────────────────────
 
-function WeatherCard({ data }) {
+function WeatherCard({ data, theme }) {
   const { location, temperature, feelsLike, description, icon, humidity, windSpeed } = data;
   const iconUrl = icon ? `https://openweathermap.org/img/wn/${icon}@2x.png` : null;
   const tempF = typeof temperature === 'number' ? Math.round(temperature * 9 / 5 + 32) : null;
 
   return (
-    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a2a3e]/90 to-[#16213e]/90 border border-sky-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-sky-500/10 p-5">
+    <div className={`mb-6 rounded-2xl bg-gradient-to-br ${theme.bg} border ${theme.border} backdrop-blur-xl overflow-hidden shadow-lg ${theme.shadow} p-5`}>
       <div className="flex items-center gap-4">
         {iconUrl ? (
           <img src={iconUrl} alt={description} className="w-16 h-16 flex-shrink-0" />
         ) : (
-          <Cloud size={40} className="text-sky-400 flex-shrink-0" />
+          <Cloud size={40} className={`${theme.accent} flex-shrink-0`} />
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -233,7 +243,7 @@ function WeatherCard({ data }) {
             <span className="text-3xl font-bold text-white">{temperature}°C</span>
             {tempF !== null && <span className="text-sm text-white/50">{tempF}°F</span>}
           </div>
-          <p className="text-sm text-sky-200/80 capitalize">{description}</p>
+          <p className={`text-sm ${theme.accent} opacity-80 capitalize`}>{description}</p>
         </div>
       </div>
       <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-white/10 text-sm text-white/60">
@@ -253,11 +263,11 @@ function WeatherCard({ data }) {
 
 // ── Calculation Card ──────────────────────────────────────────────────────────
 
-function CalculationCard({ data }) {
+function CalculationCard({ data, theme }) {
   const { expression, result } = data;
   return (
-    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 border border-emerald-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-emerald-500/10 p-5">
-      <div className="flex items-center gap-2 mb-2 text-emerald-400/70 text-xs font-medium">
+    <div className={`mb-6 rounded-2xl bg-gradient-to-br ${theme.bg} border ${theme.border} backdrop-blur-xl overflow-hidden shadow-lg ${theme.shadow} p-5`}>
+      <div className={`flex items-center gap-2 mb-2 ${theme.accent} opacity-70 text-xs font-medium`}>
         <Calculator size={13} />
         Calculator
       </div>
@@ -269,14 +279,14 @@ function CalculationCard({ data }) {
 
 // ── Business Card ─────────────────────────────────────────────────────────────
 
-function BusinessCard({ data }) {
+function BusinessCard({ data, theme }) {
   const { name, phone, address, hours, rating, website, image, mapsQuery } = data;
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery || address || name)}`;
 
   const stars = rating ? parseFloat(rating) : null;
 
   return (
-    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 border border-blue-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-blue-500/10">
+    <div className={`mb-6 rounded-2xl bg-gradient-to-br ${theme.bg} border ${theme.border} backdrop-blur-xl overflow-hidden shadow-lg ${theme.shadow}`}>
       <div className="flex gap-4 p-5">
         {/* Business image */}
         {image && (
@@ -314,7 +324,7 @@ function BusinessCard({ data }) {
             {phone && (
               <a
                 href={`tel:${phone.replace(/\D/g, '')}`}
-                className="flex items-center gap-2 text-sm text-blue-300 hover:text-blue-200 transition-colors"
+                className={`flex items-center gap-2 text-sm ${theme.accent} hover:brightness-110 transition-colors`}
               >
                 <Phone size={13} className="flex-shrink-0" />
                 {phone}
@@ -342,7 +352,7 @@ function BusinessCard({ data }) {
           href={mapsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-400 text-white text-sm font-semibold transition-colors shadow-md shadow-blue-500/25"
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-semibold transition-colors border ${theme.border}`}
         >
           <MapPin size={15} />
           Directions
@@ -376,15 +386,15 @@ const PLATFORM_COLORS = {
   Reddit: 'bg-orange-600',
 };
 
-function SocialProfileCard({ data }) {
+function SocialProfileCard({ data, theme }) {
   const { query, profiles } = data;
   if (!profiles || profiles.length === 0) return null;
 
   return (
-    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 border border-purple-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-purple-500/10 p-5">
+    <div className={`mb-6 rounded-2xl bg-gradient-to-br ${theme.bg} border ${theme.border} backdrop-blur-xl overflow-hidden shadow-lg ${theme.shadow} p-5`}>
       <div className="flex items-center gap-2 mb-4">
-        <User size={16} className="text-purple-400" />
-        <h3 className="text-base font-semibold text-white">Social profiles for <span className="text-purple-300">{query}</span></h3>
+        <User size={16} className={theme.accent} />
+        <h3 className="text-base font-semibold text-white">Social profiles for <span className={theme.accent}>{query}</span></h3>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -413,28 +423,28 @@ function SocialProfileCard({ data }) {
 
 // ── Person Card ───────────────────────────────────────────────────────────────
 
-function PersonCard({ data }) {
+function PersonCard({ data, theme }) {
   const { name, description, image, title, url, profiles } = data;
 
   return (
-    <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/90 to-[#16213e]/90 border border-cyan-500/30 backdrop-blur-xl overflow-hidden shadow-lg shadow-cyan-500/10">
+    <div className={`mb-6 rounded-2xl bg-gradient-to-br ${theme.bg} border ${theme.border} backdrop-blur-xl overflow-hidden shadow-lg ${theme.shadow}`}>
       <div className="flex gap-4 p-5">
         {image ? (
           <img
             src={image}
             alt={name}
-            className="w-20 h-20 rounded-full object-cover flex-shrink-0 border-2 border-cyan-500/40"
+            className={`w-20 h-20 rounded-full object-cover flex-shrink-0 border-2 ${theme.border}`}
             onError={(e) => { e.target.style.display = 'none'; }}
           />
         ) : (
-          <div className="w-20 h-20 rounded-full bg-white/5 border-2 border-white/10 flex items-center justify-center flex-shrink-0">
+          <div className={`w-20 h-20 rounded-full bg-white/5 border-2 ${theme.border} flex items-center justify-center flex-shrink-0`}>
             <User size={28} className="text-white/30" />
           </div>
         )}
 
         <div className="flex-1 min-w-0">
           <h3 className="text-xl font-bold text-white">{name}</h3>
-          {title && <p className="text-sm text-cyan-400 mt-0.5">{title}</p>}
+          {title && <p className={`text-sm ${theme.accent} mt-0.5`}>{title}</p>}
           {description && (
             <p className="text-sm text-white/60 mt-2 line-clamp-3">{description}</p>
           )}
@@ -443,7 +453,7 @@ function PersonCard({ data }) {
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 mt-2 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+              className={`inline-flex items-center gap-1 mt-2 text-xs ${theme.accent} hover:brightness-110 transition-colors`}
             >
               <Globe size={11} />
               {new URL(url).hostname.replace('www.', '')}

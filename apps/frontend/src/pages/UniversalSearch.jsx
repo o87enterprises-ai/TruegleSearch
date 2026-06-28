@@ -30,6 +30,7 @@ import AdSlot from '../components/AdSlot';
 import RewardAdSlot from '../components/RewardAdSlot';
 import ReviveAd from '../components/ads/ReviveAd';
 import AdsterraBanner from '../components/ads/AdsterraBanner';
+import AdColorWrapper from '../components/ads/AdColorWrapper';
 import { SkeletonSearchResult } from '../components/ui/Skeleton';
 import AsSeenOn from '../components/Content/AsSeenOn';
 import PerspectiveSelector from '../components/search/PerspectiveSelector';
@@ -942,6 +943,13 @@ export default function UniversalSearch({ lockedGreen = false }) {
             </div>
           </div>
 
+          {/* Quick Result Card — directly below search bar for instant visibility */}
+          {instantAnswer && (
+            <div className="max-w-4xl mx-auto mb-4 mt-2">
+              <QuickResultCard instantAnswer={instantAnswer} mode={mode === 'green' ? 'green' : mode === 'red' ? 'red' : mode === 'purple' ? 'purple' : mode === 'ocean' ? 'ocean' : 'blue'} />
+            </div>
+          )}
+
           {/* Multimedia Interface Dropdown (same as SearchResults) */}
           <AnimatePresence>
             {(activeCategory === 'pics' ||
@@ -1056,15 +1064,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
               animate={{ opacity: 1, y: 0 }}
               className="max-w-4xl mx-auto mb-4"
             >
-              <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" featured />
+              <AdColorWrapper type="claim">
+                <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" featured />
+              </AdColorWrapper>
             </motion.div>
-          )}
-
-          {/* Quick Result Card — business/place/weather/conversion etc */}
-          {instantAnswer && (
-            <div className="max-w-4xl mx-auto mb-4">
-              <QuickResultCard instantAnswer={instantAnswer} />
-            </div>
           )}
 
           {/* Prominent Question Answer — auto-shown for direct questions, no click required */}
@@ -1320,19 +1323,22 @@ export default function UniversalSearch({ lockedGreen = false }) {
           {/* Standard CPM banner — all users, non-adult */}
           {mode !== 'green' && (
             <div className="flex justify-center my-4">
-              <AdsterraBanner format="banner728x90" />
+              <AdColorWrapper type="cpm">
+                <AdsterraBanner format="banner728x90" />
+              </AdColorWrapper>
             </div>
           )}
 
           {/* Adult CPM banner — authenticated + safe search off + adult query only */}
-          <AdsterraBanner
-            format="banner300x250"
-            adultGated
-            isAuthenticated={isAuthenticated}
-            safeSearch={settings.safeSearch}
-            query={query}
-            className="my-4"
-          />
+          <AdColorWrapper type="adult" className="my-4 flex justify-center">
+            <AdsterraBanner
+              format="banner300x250"
+              adultGated
+              isAuthenticated={isAuthenticated}
+              safeSearch={settings.safeSearch}
+              query={query}
+            />
+          </AdColorWrapper>
 
           {/* No Summary Confirmation Modal */}
           <AnimatePresence>
@@ -1444,7 +1450,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
             animate={{ opacity: 1 }}
             className="max-w-4xl mx-auto mb-4"
           >
-            <AdSlot className="rounded-2xl" size="large" />
+            <AdColorWrapper type="claim">
+              <AdSlot className="rounded-2xl" size="large" />
+            </AdColorWrapper>
           </motion.div>
 
           {/* Results Grid (same as SearchResults) */}
@@ -1456,7 +1464,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   <div className="text-sm text-white/60 mb-4">Searching...</div>
                   {/* Rewards Program: while results load, opted-in users can earn a
                       small cash reward for honestly viewing this ad (see /rewards). */}
-                  <RewardAdSlot position="search-loading" size="large" />
+                  <AdColorWrapper type="reward">
+                    <RewardAdSlot position="search-loading" size="large" />
+                  </AdColorWrapper>
                   {[1, 2, 3, 4, 5].map((i) => (
                     <SkeletonSearchResult key={i} />
                   ))}
@@ -1500,10 +1510,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                         Try different keywords, broader terms, or another search mode.
                       </p>
                     </div>
-                  )}
-
-                  {instantAnswer && (
-                    <QuickResultCard instantAnswer={instantAnswer} />
                   )}
 
                   {/* OSINT mode requires auth + token */}
@@ -1578,11 +1584,23 @@ export default function UniversalSearch({ lockedGreen = false }) {
             <div className="lg:col-span-1 space-y-4">
               {/* Ad Sidebar */}
               <div className="sticky top-4 space-y-4 flex flex-col items-center">
-                <AdSlot className="rounded-xl" size="sidebar" />
-                
+                {/* Adsterra 160x600 skyscraper — non-adult, all users */}
+                {mode !== 'green' && (
+                  <AdColorWrapper type="cpm">
+                    <AdsterraBanner format="banner160x600" />
+                  </AdColorWrapper>
+                )}
+                {/* Fallback house ad when Adsterra doesn't fill */}
+                <AdColorWrapper type="claim">
+                  <AdSlot className="rounded-xl" size="sidebar" />
+                </AdColorWrapper>
                 {/* Revive Display Ads (300x250) */}
-                <ReviveAd zone="display300x250a" className="w-full flex justify-center" />
-                <ReviveAd zone="display300x250b" className="w-full flex justify-center" />
+                <AdColorWrapper type="cpm">
+                  <ReviveAd zone="display300x250a" className="w-full flex justify-center" />
+                </AdColorWrapper>
+                <AdColorWrapper type="cpm">
+                  <ReviveAd zone="display300x250b" className="w-full flex justify-center" />
+                </AdColorWrapper>
               </div>
             </div>
           </div>
