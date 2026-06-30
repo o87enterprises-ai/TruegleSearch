@@ -11,6 +11,15 @@ import {
 // of a blank white page.
 installGlobalErrorHandlers();
 
+// Ads load by default — Truegle is 100% ad-supported and the cookie banner has
+// no "reject" path (removing ads requires a Premium upgrade). Pre-set the global
+// ad-consent flag so Adsterra tags fire on first paint instead of waiting for a
+// banner click that most visitors never make. An explicit opt-out (future
+// Premium / DNT handling) can set this to false before the ad components mount.
+if (window.__truegle_ad_consent === undefined) {
+  window.__truegle_ad_consent = true;
+}
+
 function dismissLoader() {
   const loader = document.getElementById('truegle-loader');
   if (!loader) return;
