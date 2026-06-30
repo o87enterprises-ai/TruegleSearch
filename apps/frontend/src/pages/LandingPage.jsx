@@ -27,7 +27,7 @@ import NeonButton from '../components/ui/NeonButton';
 import GlassCard from '../components/ui/GlassCard';
 import CursorGlow from '../components/ui/CursorGlow';
 import EnhancedFeatureCard from '../components/ui/EnhancedFeatureCard';
-import BackgroundAnimation from '../components/BackgroundAnimation';
+import LandingBackground from '../components/LandingBackground';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import SearchBar from '../components/ui/SearchBar';
 import ShareForPremiumButton from '../components/ui/ShareForPremiumButton';
@@ -288,10 +288,10 @@ export default function LandingPage() {
     <div
       className={`min-h-screen relative ${isRedPillMode ? 'bg-[#1a0a0a]' : 'bg-blue-900/20'}`}
     >
-      {/* BackgroundAnimation disabled: WebGL unavailable in many browsers causes
-          repeated Prism/Aurora crash loops and a broken loading experience.
-          Re-enable once WebGL fallback is stable. */}
-      {/* <BackgroundAnimation /> */}
+      {/* Animated background: always-on CSS aurora/starfield with the rich WebGL
+          layer gated behind capability detection + an error boundary that falls
+          back to the CSS layer (so it can never crash-loop like before). */}
+      <LandingBackground />
 
       {/* Content */}
       <div className="relative z-10">
