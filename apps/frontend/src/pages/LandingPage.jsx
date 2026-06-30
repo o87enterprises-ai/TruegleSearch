@@ -4,7 +4,7 @@ import ReviveAd from '../components/ads/ReviveAd';
 // This file is now the canonical LandingPage for route "/".
 // Please update your project imports to use this file for the landing page.
 
-import { useState, useEffect, useRef, Fragment, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -121,7 +121,6 @@ export default function LandingPage() {
   const isRedPillMode = pillMode === 'red';
 
   const [showWarning, setShowWarning] = useState(false);
-  const [showGlitch, setShowGlitch] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
   const [permissionType, setPermissionType] = useState(null);
   const [showMicrophoneInterface, setShowMicrophoneInterface] = useState(false);
@@ -456,7 +455,6 @@ export default function LandingPage() {
                 biasedButtonGradient="from-red-600 to-red-800"
                 searchIconColor="text-green-500/80"
                 onSearch={() => {
-                  setShowGlitch(true);
                   const modeParam = pillMode !== 'blue' ? `&mode=${pillMode}` : '';
                   if (searchQuery.trim()) {
                     navigate(`/search?q=${encodeURIComponent(searchQuery)}${modeParam}`);
@@ -472,7 +470,6 @@ export default function LandingPage() {
                 size="large"
                 showBiasedButton={true}
                 onBiasedClick={() => {
-                  setShowGlitch(true);
                   navigate('/search?mode=purple');
                 }}
                 customActionButtons={
@@ -976,7 +973,6 @@ export default function LandingPage() {
 
           <button
             onClick={() => {
-              setShowGlitch(true);
               navigate('/auth/signup', { state: { showFreemiumMessage: true } });
               setShowMicrophoneInterface(false);
               setTranscript('');
@@ -1023,7 +1019,6 @@ export default function LandingPage() {
 
           <button
             onClick={() => {
-              setShowGlitch(true);
               navigate('/auth/signup', { state: { showFreemiumMessage: true } });
               setShowCameraInterface(false);
             }}
@@ -1115,7 +1110,6 @@ export default function LandingPage() {
             <div className="text-center">
               <button
                 onClick={() => {
-                  setShowGlitch(true);
                   navigate('/auth/signup', { state: { showFreemiumMessage: true } });
                   setShowFilesInterface(false);
                 }}
@@ -1183,53 +1177,6 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* Letter Glitch Animation */}
-      {showGlitch && (
-        <Fragment>
-          <style>
-            {`
-              @keyframes glitch-letters {
-                0% { opacity: 0.8; transform: translateX(0); }
-                20% { opacity: 0.4; transform: translateX(-2px); }
-                40% { opacity: 1; transform: translateX(2px); }
-                60% { opacity: 0.6; transform: translateX(-1px); }
-                80% { opacity: 0.9; transform: translateX(1px); }
-                100% { opacity: 0.8; transform: translateX(0); }
-              }
-            `}
-          </style>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
-            <div className="relative w-full h-full overflow-hidden">
-              <div className="absolute inset-0 font-mono text-white text-center text-4xl md:text-6xl flex items-center justify-center">
-                {Array.from({ length: 20 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-full h-16 flex items-center justify-center"
-                    style={{ top: `${i * 5}%` }}
-                  >
-                    {Array.from({ length: 50 }).map((_, j) => (
-                      <span
-                        key={j}
-                        className="inline-block glitch-char"
-                        style={{
-                          animation: `glitch-letters 0.1s infinite alternate`,
-                          animationDelay: `${Math.random() * 0.2}s`,
-                        }}
-                      >
-                        {String.fromCharCode(
-                          Math.random() > 0.5
-                            ? Math.random() * 26 + 65
-                            : Math.random() * 10 + 48
-                        )}
-                      </span>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Fragment>
-      )}
     </div>
   );
 }
