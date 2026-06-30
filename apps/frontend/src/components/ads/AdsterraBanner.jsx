@@ -67,8 +67,10 @@ export default function AdsterraBanner({
 
   const placement = ADSTERRA[format];
 
-  // Consent state — read from window flag (set by CookieConsent component)
-  const [adsAllowed, setAdsAllowed] = useState(() => !!window.__truegle_ad_consent);
+  // Consent state — ads load by default (Truegle is ad-supported; the only way
+  // to remove ads is upgrading to Premium). `window.__truegle_ad_consent` is
+  // pre-set to true at app init (see main.jsx); CookieConsent can still flip it.
+  const [adsAllowed, setAdsAllowed] = useState(() => window.__truegle_ad_consent !== false);
 
   useEffect(() => {
     const onConsent = (e) => setAdsAllowed(!!e.detail?.ads);
@@ -76,15 +78,16 @@ export default function AdsterraBanner({
     return () => window.removeEventListener('truegle:consent', onConsent);
   }, []);
 
-  if (!placement) return null;
-
   const adultOk = !adultGated || (
     isAuthenticated &&
     safeSearch === 'off' &&
     isAdultQuery(query)
   );
 
-  const shouldRender = adultOk && adsAllowed;
+  // Include `placement` here so the effects below never touch placement.key
+  // when an unknown `format` is passed — and so all hooks run before any early
+  // return (React rules-of-hooks). The final guard covers the !placement case.
+  const shouldRender = !!placement && adultOk && adsAllowed;
 
   useEffect(() => {
     if (!shouldRender || injected.current || !containerRef.current) return;
@@ -110,11 +113,13 @@ export default function AdsterraBanner({
     };
 
     const invoke = document.createElement('script');
-    // Load through our first-party proxy at /ad/:key (Cloudflare Pages Function)
-    // instead of directly from highperformanceformat.com (third-party, blocked by
-    // Edge/Firefox Tracking Prevention). The function fetches from HPF server-side,
-    // rewrites domain references to ads.truegle.info, and returns the script.
-    invoke.src = `/ad/${placement.key}`;
+    // Load Adsterra's invoke.js DIRECTLY from highperformanceformat.com, client-side.
+    // The previous first-party proxy (/ad/:key) fetched this server-side from
+    // Cloudflare's edge — so Adsterra only ever saw a datacenter IP with no real
+    // user, returned an empty fill, and recorded zero impressions. Ad networks
+    // must see the end-user's browser/IP to serve and count an impression, so the
+    // tag has to run in the visitor's browser.
+    invoke.src = `https://www.highperformanceformat.com/${placement.key}/invoke.js`;
     invoke.async = true;
     container.appendChild(invoke);
   }, [shouldRender, searchContext]);

@@ -4,7 +4,7 @@ import ReviveAd from '../components/ads/ReviveAd';
 // This file is now the canonical LandingPage for route "/".
 // Please update your project imports to use this file for the landing page.
 
-import { useState, useEffect, useRef, Fragment, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -27,7 +27,7 @@ import NeonButton from '../components/ui/NeonButton';
 import GlassCard from '../components/ui/GlassCard';
 import CursorGlow from '../components/ui/CursorGlow';
 import EnhancedFeatureCard from '../components/ui/EnhancedFeatureCard';
-import BackgroundAnimation from '../components/BackgroundAnimation';
+import LandingBackground from '../components/LandingBackground';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import SearchBar from '../components/ui/SearchBar';
 import ShareForPremiumButton from '../components/ui/ShareForPremiumButton';
@@ -121,7 +121,6 @@ export default function LandingPage() {
   const isRedPillMode = pillMode === 'red';
 
   const [showWarning, setShowWarning] = useState(false);
-  const [showGlitch, setShowGlitch] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
   const [permissionType, setPermissionType] = useState(null);
   const [showMicrophoneInterface, setShowMicrophoneInterface] = useState(false);
@@ -289,10 +288,10 @@ export default function LandingPage() {
     <div
       className={`min-h-screen relative ${isRedPillMode ? 'bg-[#1a0a0a]' : 'bg-blue-900/20'}`}
     >
-      {/* BackgroundAnimation disabled: WebGL unavailable in many browsers causes
-          repeated Prism/Aurora crash loops and a broken loading experience.
-          Re-enable once WebGL fallback is stable. */}
-      {/* <BackgroundAnimation /> */}
+      {/* Animated background: always-on CSS aurora/starfield with the rich WebGL
+          layer gated behind capability detection + an error boundary that falls
+          back to the CSS layer (so it can never crash-loop like before). */}
+      <LandingBackground />
 
       {/* Content */}
       <div className="relative z-10">
@@ -456,7 +455,6 @@ export default function LandingPage() {
                 biasedButtonGradient="from-red-600 to-red-800"
                 searchIconColor="text-green-500/80"
                 onSearch={() => {
-                  setShowGlitch(true);
                   const modeParam = pillMode !== 'blue' ? `&mode=${pillMode}` : '';
                   if (searchQuery.trim()) {
                     navigate(`/search?q=${encodeURIComponent(searchQuery)}${modeParam}`);
@@ -472,7 +470,6 @@ export default function LandingPage() {
                 size="large"
                 showBiasedButton={true}
                 onBiasedClick={() => {
-                  setShowGlitch(true);
                   navigate('/search?mode=purple');
                 }}
                 customActionButtons={
@@ -976,7 +973,6 @@ export default function LandingPage() {
 
           <button
             onClick={() => {
-              setShowGlitch(true);
               navigate('/auth/signup', { state: { showFreemiumMessage: true } });
               setShowMicrophoneInterface(false);
               setTranscript('');
@@ -1023,7 +1019,6 @@ export default function LandingPage() {
 
           <button
             onClick={() => {
-              setShowGlitch(true);
               navigate('/auth/signup', { state: { showFreemiumMessage: true } });
               setShowCameraInterface(false);
             }}
@@ -1115,7 +1110,6 @@ export default function LandingPage() {
             <div className="text-center">
               <button
                 onClick={() => {
-                  setShowGlitch(true);
                   navigate('/auth/signup', { state: { showFreemiumMessage: true } });
                   setShowFilesInterface(false);
                 }}
@@ -1164,7 +1158,7 @@ export default function LandingPage() {
             <div className="flex justify-center gap-6 relative z-10">
               <button
                 onClick={() => {
-                  updateRedPillMode(true);
+                  updatePillMode('red');
                   setShowWarning(false);
                 }}
                 className="px-8 py-4 bg-gradient-to-r from-red-600 to-red-800 text-white font-bold rounded-xl hover:from-red-500 hover:to-red-700 transition-all shadow-lg shadow-red-500/30"
@@ -1183,53 +1177,6 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* Letter Glitch Animation */}
-      {showGlitch && (
-        <Fragment>
-          <style>
-            {`
-              @keyframes glitch-letters {
-                0% { opacity: 0.8; transform: translateX(0); }
-                20% { opacity: 0.4; transform: translateX(-2px); }
-                40% { opacity: 1; transform: translateX(2px); }
-                60% { opacity: 0.6; transform: translateX(-1px); }
-                80% { opacity: 0.9; transform: translateX(1px); }
-                100% { opacity: 0.8; transform: translateX(0); }
-              }
-            `}
-          </style>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
-            <div className="relative w-full h-full overflow-hidden">
-              <div className="absolute inset-0 font-mono text-white text-center text-4xl md:text-6xl flex items-center justify-center">
-                {Array.from({ length: 20 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="absolute w-full h-16 flex items-center justify-center"
-                    style={{ top: `${i * 5}%` }}
-                  >
-                    {Array.from({ length: 50 }).map((_, j) => (
-                      <span
-                        key={j}
-                        className="inline-block glitch-char"
-                        style={{
-                          animation: `glitch-letters 0.1s infinite alternate`,
-                          animationDelay: `${Math.random() * 0.2}s`,
-                        }}
-                      >
-                        {String.fromCharCode(
-                          Math.random() > 0.5
-                            ? Math.random() * 26 + 65
-                            : Math.random() * 10 + 48
-                        )}
-                      </span>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Fragment>
-      )}
     </div>
   );
 }

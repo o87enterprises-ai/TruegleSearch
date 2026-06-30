@@ -7,7 +7,6 @@ import {
   Navigate,
   useLocation,
 } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TokenProvider } from './context/TokenContext';
 import { RewardsProvider } from './context/RewardsContext';
@@ -260,7 +259,12 @@ const AppContent = () => {
       <AdvertiseContactModal />
       <SafeSearchLockModal />
       <TutorialModalRoot />
-      <AnimatePresence mode="wait">
+      {/* NOTE: Do NOT wrap <Routes> in <AnimatePresence mode="wait">. The route
+          elements have no motion exit variants, and the landing page runs several
+          infinite framer-motion animations; mode="wait" then holds the new route
+          until an exit that never completes, so navigating (e.g. landing search →
+          /search) changed the URL but left the old page mounted. Plain Routes with
+          a pathname key remounts reliably on every navigation. */}
       <Routes location={location} key={location.pathname}>
         {/* Public Routes */}
         <Route path="/auth/login" element={<RouteBoundary><SignInPage /></RouteBoundary>} />
@@ -335,7 +339,6 @@ const AppContent = () => {
         {/* Catch all */}
         <Route path="*" element={<RouteBoundary><NotFound /></RouteBoundary>} />
       </Routes>
-      </AnimatePresence>
     </div>
   );
 };
