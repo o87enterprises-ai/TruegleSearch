@@ -1158,7 +1158,7 @@ export default function LandingPage() {
             <div className="flex justify-center gap-6 relative z-10">
               <button
                 onClick={() => {
-                  updateRedPillMode(true);
+                  updatePillMode('red');
                   setShowWarning(false);
                 }}
                 className="px-8 py-4 bg-gradient-to-r from-red-600 to-red-800 text-white font-bold rounded-xl hover:from-red-500 hover:to-red-700 transition-all shadow-lg shadow-red-500/30"

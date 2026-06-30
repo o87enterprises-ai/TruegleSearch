@@ -78,15 +78,16 @@ export default function AdsterraBanner({
     return () => window.removeEventListener('truegle:consent', onConsent);
   }, []);
 
-  if (!placement) return null;
-
   const adultOk = !adultGated || (
     isAuthenticated &&
     safeSearch === 'off' &&
     isAdultQuery(query)
   );
 
-  const shouldRender = adultOk && adsAllowed;
+  // Include `placement` here so the effects below never touch placement.key
+  // when an unknown `format` is passed — and so all hooks run before any early
+  // return (React rules-of-hooks). The final guard covers the !placement case.
+  const shouldRender = !!placement && adultOk && adsAllowed;
 
   useEffect(() => {
     if (!shouldRender || injected.current || !containerRef.current) return;
