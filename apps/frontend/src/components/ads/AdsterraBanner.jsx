@@ -1,55 +1,48 @@
 import { useEffect, useRef, useState } from 'react';
 import { isAdultQuery } from '../../utils/adultKeywords';
-
-// Adsterra placement keys — all formats for truegle.info (site ID 5880564)
-export const ADSTERRA = {
-  banner468x60:  { key: '7e53f17316c72708e8417a8a991171ac',  w: 468, h: 60  },
-  banner300x250: { key: '0fca9299f48c601ea125d688c11ff7d2',  w: 300, h: 250 },
-  banner728x90:  { key: 'd5f657ea7d55fc33ea532071957a2857',  w: 728, h: 90  },
-  banner160x300: { key: 'ffac08ed0f599aa8f389d387aa76001b',  w: 160, h: 300 },
-  banner160x600: { key: 'c16f5233d71714d3151e160ac5778be2',  w: 160, h: 600 },
-};
+import { ADSTERRA, adInvokeUrl } from '../../config/ads';
 
 /**
  * Maps Truegle search context to Adsterra campaign keyword categories.
- *
- * When you create campaigns in Adsterra's dashboard, target these keyword
- * strings to serve ads matched to the user's active perspective/mode.
- * Each key corresponds to the `searchContext` prop or URL ?mode= value.
- *
- * Example Adsterra campaign targeting setup:
- *   Campaign A (conservative media) → keywords: conservative, right-wing, traditional
- *   Campaign B (progressive brands) → keywords: progressive, liberal, social-justice
- *   Campaign C (tech/security tools) → keywords: osint, privacy, cybersecurity
+ * Wire these strings to campaigns in the Adsterra dashboard to serve ads
+ * matched to the user's active perspective/mode.
  */
 const CONTEXT_KEYWORDS = {
-  // UI search modes — matches actual meanings of each mode
   'blue':     ['mainstream', 'traditional', 'liberal', 'establishment', 'legacy-media'],
   'red':      ['alternative', 'conspiracy', 'independent', 'free-thinker', 'counter-narrative'],
   'purple':   ['conservative', 'skeptical', 'right-wing', 'traditional-values', 'anti-establishment'],
   'ocean':    ['privacy', 'cybersecurity', 'osint', 'developer', 'tech', 'infosec'],
   'green':    ['research', 'academic', 'science', 'factual'],
-  // Perspective filter values
   'neutral':  ['non-partisan', 'centrist', 'balanced', 'independent'],
   'left':     ['progressive', 'liberal', 'social-justice', 'democrat'],
   'right':    ['conservative', 'republican', 'traditional', 'right-wing'],
-  // Legacy pill names
   'red-pill': ['alternative', 'free-thinker', 'counter-narrative', 'independent'],
   'blue-pill':['mainstream', 'traditional', 'establishment', 'liberal'],
-  // Demographic signals (set explicitly at placement level for targeted campaigns)
   'gen-z':    ['gen-z', 'youth', 'social-media', 'trending'],
   'lgbtq':    ['lgbtq', 'pride', 'inclusion', 'diversity'],
   'business': ['business', 'finance', 'investing', 'entrepreneur'],
 };
 
 /**
- * Renders an Adsterra iframe banner via first-party proxy (/ad/:key).
+ * Renders ONE Adsterra placement inside its own isolated <iframe srcdoc>.
+ *
+ * Why an iframe per banner: Adsterra's invoke.js reads a single global
+ * `window.atOptions`. With multiple banners on a page (which Truegle has),
+ * injecting invoke.js into the shared page makes the last atOptions win and the
+ * script's document.write can blow away the page. Giving each placement its own
+ * iframe document means each gets its own `atOptions`/`window`, so any number of
+ * slots coexist correctly.
+ *
+ * We set atOptions on the iframe's contentWindow and append invoke.js as an
+ * EXTERNAL <script> (no inline script), so the page CSP is satisfied without
+ * 'unsafe-inline'. invoke.js loads from the configurable AD_DOMAIN (see
+ * config/ads.js) — point that at Adsterra's first-party anti-adblock domain to
+ * bypass ad/tracking blockers.
  *
  * Props:
- *   format         — key from ADSTERRA object above (e.g. 'banner728x90')
+ *   format         — key from ADSTERRA (e.g. 'banner728x90')
  *   searchContext  — active search mode / perspective for campaign targeting
- *                    (e.g. 'red-pill', 'neutral', 'ocean'). Optional.
- *   adultGated     — if true, only renders when: authenticated + safeSearch=off + adult query
+ *   adultGated     — if true, only renders when authenticated + safeSearch=off + adult query
  *   isAuthenticated, safeSearch, query — required when adultGated=true
  *   className
  */
@@ -62,14 +55,13 @@ export default function AdsterraBanner({
   query,
   className = '',
 }) {
-  const containerRef = useRef(null);
+  const iframeRef = useRef(null);
   const injected = useRef(false);
 
   const placement = ADSTERRA[format];
 
-  // Consent state — ads load by default (Truegle is ad-supported; the only way
-  // to remove ads is upgrading to Premium). `window.__truegle_ad_consent` is
-  // pre-set to true at app init (see main.jsx); CookieConsent can still flip it.
+  // Ads load by default (Truegle is ad-supported). window.__truegle_ad_consent
+  // is pre-set to true at app init; only an explicit opt-out flips it to false.
   const [adsAllowed, setAdsAllowed] = useState(() => window.__truegle_ad_consent !== false);
 
   useEffect(() => {
@@ -84,60 +76,76 @@ export default function AdsterraBanner({
     isAdultQuery(query)
   );
 
-  // Include `placement` here so the effects below never touch placement.key
-  // when an unknown `format` is passed — and so all hooks run before any early
-  // return (React rules-of-hooks). The final guard covers the !placement case.
+  // Include `placement` so all hooks run before any early return and the effect
+  // never touches placement.key for an unknown format.
   const shouldRender = !!placement && adultOk && adsAllowed;
-
-  useEffect(() => {
-    if (!shouldRender || injected.current || !containerRef.current) return;
-    injected.current = true;
-
-    const container = containerRef.current;
-    container.innerHTML = '';
-
-    // Build keyword list for Adsterra campaign targeting
-    const keywords = searchContext ? (CONTEXT_KEYWORDS[searchContext] ?? []) : [];
-
-    // atOptions is read by invoke.js immediately on load
-    window.atOptions = {
-      key: placement.key,
-      format: 'iframe',
-      height: placement.h,
-      width: placement.w,
-      params: {
-        // Passed to Adsterra's targeting engine — wire these to campaigns in
-        // the Adsterra dashboard to serve perspective-matched ads
-        ...(keywords.length > 0 && { keywords }),
-      },
-    };
-
-    const invoke = document.createElement('script');
-    // Load Adsterra's invoke.js DIRECTLY from highperformanceformat.com, client-side.
-    // The previous first-party proxy (/ad/:key) fetched this server-side from
-    // Cloudflare's edge — so Adsterra only ever saw a datacenter IP with no real
-    // user, returned an empty fill, and recorded zero impressions. Ad networks
-    // must see the end-user's browser/IP to serve and count an impression, so the
-    // tag has to run in the visitor's browser.
-    invoke.src = `https://www.highperformanceformat.com/${placement.key}/invoke.js`;
-    invoke.async = true;
-    container.appendChild(invoke);
-  }, [shouldRender, searchContext]);
 
   useEffect(() => {
     if (!shouldRender) {
       injected.current = false;
-      if (containerRef.current) containerRef.current.innerHTML = '';
+      return;
     }
-  }, [shouldRender]);
+    const iframe = iframeRef.current;
+    if (!iframe || injected.current) return;
+
+    const writeAd = () => {
+      try {
+        const doc = iframe.contentDocument;
+        const win = iframe.contentWindow;
+        if (!doc || !win) return;
+
+        const keywords = searchContext ? (CONTEXT_KEYWORDS[searchContext] ?? []) : [];
+        // Each iframe gets its OWN atOptions — no cross-banner collision.
+        win.atOptions = {
+          key: placement.key,
+          format: 'iframe',
+          height: placement.h,
+          width: placement.w,
+          params: { ...(keywords.length > 0 && { keywords }) },
+        };
+
+        doc.body.style.margin = '0';
+        doc.body.style.overflow = 'hidden';
+
+        // External script (not inline) → satisfies page CSP without unsafe-inline.
+        const s = doc.createElement('script');
+        s.src = adInvokeUrl(placement.key);
+        s.async = true;
+        doc.body.appendChild(s);
+        injected.current = true;
+      } catch {
+        /* cross-origin or torn down — ignore */
+      }
+    };
+
+    // srcdoc iframes are ready almost immediately, but guard with onload too.
+    if (iframe.contentDocument?.body) writeAd();
+    else iframe.addEventListener('load', writeAd, { once: true });
+
+    return () => iframe.removeEventListener?.('load', writeAd);
+  }, [shouldRender, searchContext, placement]);
 
   if (!shouldRender) return null;
 
   return (
-    <div
-      ref={containerRef}
+    <iframe
+      ref={iframeRef}
+      title="Advertisement"
+      srcDoc="<!doctype html><html><head></head><body></body></html>"
+      width={placement.w}
+      height={placement.h}
+      scrolling="no"
+      // allow popunder/click-through to open in a new tab
+      sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-top-navigation-by-user-activation"
       className={className}
-      style={{ width: placement.w, height: placement.h, margin: '0 auto', overflow: 'hidden' }}
+      style={{
+        width: placement.w,
+        height: placement.h,
+        border: 0,
+        display: 'block',
+        margin: '0 auto',
+        overflow: 'hidden',
+      }}
     />
   );
 }
