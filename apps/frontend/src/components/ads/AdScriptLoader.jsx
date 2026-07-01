@@ -1,25 +1,31 @@
 import { useEffect } from 'react';
+import { POP_SCRIPT_URL, SOCIAL_BAR_SCRIPT_URL } from '../../config/ads';
 
 // Adsterra Smartlink — used as fallback / house-ad destination
 export const ADSTERRA_SMARTLINK = 'https://millionairelucidlytransmitted.com/g385gzr0?key=63a965f91d254672ac250654790b5b8c';
 
-const SESSION_KEY = 'truegle_pop_fired';
+const POP_SESSION_KEY = 'truegle_pop_fired';
+const SOCIAL_SESSION_KEY = 'truegle_social_fired';
 
-// Adsterra Popunder anti-adblock script. Loaded DIRECTLY client-side from the
-// Adsterra delivery domain — the previous /pop proxy fetched it server-side from
-// Cloudflare's edge, so Adsterra saw a datacenter IP, returned an empty script,
-// and never registered a popunder. The tag must run in the visitor's browser.
-const POPUNDER_SCRIPT = 'https://millionairelucidlytransmitted.com/03/50/81/03508109c0353dafe874e4f377262a99.js';
+function loadScript(url) {
+  const s = document.createElement('script');
+  s.src = url;
+  s.async = true;
+  document.body.appendChild(s);
+}
 
 function loadPopunder() {
   // Fire once per browser session only
-  if (sessionStorage.getItem(SESSION_KEY)) return;
-  sessionStorage.setItem(SESSION_KEY, '1');
+  if (sessionStorage.getItem(POP_SESSION_KEY)) return;
+  sessionStorage.setItem(POP_SESSION_KEY, '1');
+  loadScript(POP_SCRIPT_URL);
+}
 
-  const s = document.createElement('script');
-  s.src = POPUNDER_SCRIPT;
-  s.async = true;
-  document.body.appendChild(s);
+function loadSocialBar() {
+  if (!SOCIAL_BAR_SCRIPT_URL) return;
+  if (sessionStorage.getItem(SOCIAL_SESSION_KEY)) return;
+  sessionStorage.setItem(SOCIAL_SESSION_KEY, '1');
+  loadScript(SOCIAL_BAR_SCRIPT_URL);
 }
 
 export default function AdScriptLoader() {
@@ -28,11 +34,15 @@ export default function AdScriptLoader() {
     // is pre-set to true at app init; only an explicit opt-out flips it to false.
     if (window.__truegle_ad_consent !== false) {
       loadPopunder();
+      loadSocialBar();
       return;
     }
 
     const onConsent = (e) => {
-      if (e.detail?.ads) loadPopunder();
+      if (e.detail?.ads) {
+        loadPopunder();
+        loadSocialBar();
+      }
     };
     window.addEventListener('truegle:consent', onConsent);
     return () => window.removeEventListener('truegle:consent', onConsent);

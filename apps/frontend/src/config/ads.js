@@ -27,6 +27,15 @@ export const POP_SCRIPT_URL =
   import.meta.env.VITE_POP_SCRIPT_URL ||
   'https://millionairelucidlytransmitted.com/03/50/81/03508109c0353dafe874e4f377262a99.js';
 
+/**
+ * Adsterra Social Bar (In-Page Push) — zone 30006382.
+ * Get the script tag from Adsterra dashboard → copy the src URL → set
+ * VITE_SOCIAL_BAR_SCRIPT_URL in Cloudflare Pages env vars → redeploy.
+ * Leave unset to keep the slot disabled.
+ */
+export const SOCIAL_BAR_SCRIPT_URL =
+  import.meta.env.VITE_SOCIAL_BAR_SCRIPT_URL || null;
+
 /** Build the invoke.js URL for an Adsterra placement key via the active domain. */
 export const adInvokeUrl = (key) => `https://${AD_DOMAIN}/${key}/invoke.js`;
 
