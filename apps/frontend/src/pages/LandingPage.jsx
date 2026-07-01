@@ -1,5 +1,5 @@
 import { cssDebug } from '../utils/cssDebug';
-import ReviveAd from '../components/ads/ReviveAd';
+import AdsterraBanner from '../components/ads/AdsterraBanner';
 // MAIN LANDING PAGE ROUTE COMPONENT
 // This file is now the canonical LandingPage for route "/".
 // Please update your project imports to use this file for the landing page.
@@ -740,9 +740,9 @@ export default function LandingPage() {
           </motion.div>
         </div>
 
-        {/* Inline video ad — landing page footer */}
+        {/* Inline ad — landing page footer */}
         <div className="py-8 px-4 flex justify-center">
-          <ReviveAd zone="videoInline" style={{ width: '100%', maxWidth: 720, aspectRatio: '16/9' }} />
+          <AdsterraBanner format="banner728x90" />
         </div>
 
         {/* Footer */}
