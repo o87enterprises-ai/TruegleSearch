@@ -1,5 +1,77 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-06-28. Supersedes all prior handoff docs._
+_Last updated: 2026-07-02. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ SESSION LOG 2026-07-02 — Adsterra ads live, Firefox ETP fix, Smartlink footer
+
+### 🔴 PERMANENT FACTS — DO NOT RE-DERIVE, DO NOT ASK THE USER AGAIN
+
+#### Adsterra API — COMPLETELY INACCESSIBLE
+Every endpoint variation has been exhausted across three sessions:
+- `publishers.adsterra.com/api/v1/*` → 404 "File not found"
+- `beta.publishers.adsterra.com/api/v1/*` → "No route found" for every path tried (sites, zones, statistic/zones, statistic/sites, statistic/date, placements, publisher/sites, zones/create, etc.)
+- `api.adsterra.com/v1/*` → HTML dashboard page (no API)
+- The Adsterra Publisher API **does not expose zone creation or zone listing endpoints at all**
+- **Zone creation MUST be done in the Adsterra dashboard UI — there is no programmatic alternative**
+- **Stop trying API endpoints. Stop asking the user to look for API access. It does not exist.**
+
+#### Adsterra Anti-AdBlock — ONLY THE POPUNDER HAS ONE
+The "ANTI-ADBLOCK JS SYNC" code shown in the Adsterra dashboard (truegle.info ad tags page) is ONLY for the Popunder zone:
+- **Popunder anti-adblock URL:** `https://millionairelucidlytransmitted.com/03/50/81/03508109c0353dafe874e4f377262a99.js`
+- **Banner zones (728x90, 300x250, 468x60, 160x600, 160x300, 320x50, Native Banner) have NO anti-adblock variants** — the dashboard provides only the standard `invoke.js` URLs for banners
+- There is no individual "anti-adblock zone code" for banner formats. They don't exist in this account.
+- **Stop asking the user to find banner anti-adblock codes. They do not exist in this account.**
+
+#### Adsterra CNAME Anti-AdBlock
+- The code to thread `AD_DOMAIN` through `adframe.html` is already shipped (PRs #29, #30)
+- Setting `VITE_AD_DOMAIN=cdn.truegle.info` in Cloudflare Pages + a CNAME DNS record is the path forward when the user has desktop access
+- The Adsterra dashboard may show a CNAME target under "Anti-AdBlock" for the site — not per-zone
+
+#### Current banner zones serve ADULT content
+All zone keys currently in `apps/frontend/src/config/ads.js` were created with adult content enabled in the Adsterra dashboard. They serve adult ads to all visitors. **New non-adult zones must be created in the Adsterra dashboard.**
+
+#### Adsterra Smartlink
+- URL: `https://millionairelucidlytransmitted.com/g385gzr0?key=63a965f91d254672ac250654790b5b8c`
+- Stored in `apps/frontend/src/config/ads.js` as `SMARTLINK_URL`
+- Renders as a "Sponsored / Discover relevant offers →" link in the results footer
+- Plain `<a href>` — NOT a script load — so Firefox ETP cannot block it
+
+### What was done this session (PRs #29, #30 — merged to main)
+
+**PR #29 — Firefox ETP CNAME wiring:**
+- `adframe.html` now reads invoke.js domain from URL param `d` (falls back to `millionairelucidlytransmitted.com`)
+- `AdsterraBanner.jsx` imports `AD_DOMAIN` from config and passes it as `d` param
+- `_headers` CSP for `/adframe.html` gains `https://*.truegle.info` so CNAME subdomain is pre-whitelisted
+- Root cause established: Firefox Mobile Enhanced Tracking Protection silently drops all requests to `millionairelucidlytransmitted.com` before they hit the network — that's why MobiDevTools showed zero Adsterra requests. It was never a Referer/domain/srcdoc problem.
+
+**PR #30 — Smartlink footer:**
+- `SMARTLINK_URL` added to `config/ads.js`
+- Footer `AdSlot size="small"` replaced with styled Smartlink anchor
+
+### 🔜 NEXT SESSION — Replace adult zones + create private adult campaign
+
+The user confirmed ads ARE loading now but all banner zones serve adult content. Next session must:
+
+1. **User action first (dashboard):** In Adsterra → Websites → truegle.info → create NEW zones for each format WITH adult content disabled:
+   - Banner 728x90 (non-adult)
+   - Banner 300x250 (non-adult)
+   - Banner 468x60 (non-adult)
+   - Banner 160x600 (non-adult)
+   - Banner 320x50 (non-adult)
+   - Native Banner (non-adult)
+
+2. **User action (dashboard):** Create a SEPARATE private/unlisted set of adult zones (same formats) — these will ONLY load when all 5 adult gates pass (authenticated + safeSearch=off + adult keywords + age confirmed + consent not revoked). Do NOT advertise or link these zones publicly.
+
+3. **Once user provides the new zone keys:** Update `apps/frontend/src/config/ads.js`:
+   - Replace current keys in `ADSTERRA` with the new non-adult keys
+   - Add a new `ADSTERRA_ADULT` object with the adult-only zone keys
+   - Update `AdsterraBanner.jsx` to use `ADSTERRA_ADULT[format]` when `adultGated=true`
+
+4. **CNAME setup (when at desktop):**
+   - Adsterra dashboard → look for "Anti-AdBlock" or "Custom Domain" at the site level
+   - Get CNAME target → create `cdn CNAME [target]` in Cloudflare DNS
+   - Set `VITE_AD_DOMAIN=cdn.truegle.info` in Cloudflare Pages env → redeploy
 
 ---
 
