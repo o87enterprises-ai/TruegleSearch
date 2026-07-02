@@ -1460,16 +1460,18 @@ export default function UniversalSearch({ lockedGreen = false }) {
             }}
           />
 
-          {/* Ad Banner 2 - Under AI Summary (same as SearchResults) */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="max-w-4xl mx-auto mb-4"
-          >
-            <AdColorWrapper type="claim">
-              <AdSlot className="rounded-2xl" size="large" />
-            </AdColorWrapper>
-          </motion.div>
+          {/* Ad Banner 2 - Under AI Summary */}
+          {mode !== 'green' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="max-w-4xl mx-auto mb-4 flex justify-center"
+            >
+              <AdColorWrapper type="cpm">
+                <AdsterraBanner format="banner728x90" searchContext={adContext} />
+              </AdColorWrapper>
+            </motion.div>
+          )}
 
           {/* Results Grid (same as SearchResults) */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -1567,10 +1569,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
                           currentMode={mode}
                         />
                       </div>
-                      {/* An ad slot between every 5 results — content/category matched
-                          to the query when possible, weighted-random otherwise. */}
-                      {(index + 1) % 5 === 0 && index !== searchResults.length - 1 && (
-                        <AdSlot size="small" query={lastSearchedQuery || query} />
+                      {/* Adsterra banner between every 3 results */}
+                      {(index + 1) % 3 === 0 && index !== searchResults.length - 1 && (
+                        <div className="flex justify-center my-2">
+                          <AdsterraBanner format="banner300x250" searchContext={adContext} />
+                        </div>
                       )}
                     </Fragment>
                   ))}
@@ -1592,6 +1595,13 @@ export default function UniversalSearch({ lockedGreen = false }) {
                       </span>
                     </div>
                   )}
+
+                  {/* Single affiliate link in footer — one per results page */}
+                  {searchResults.length > 0 && (
+                    <div className="mt-4">
+                      <AdSlot size="small" query={lastSearchedQuery || query} />
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -1606,10 +1616,12 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     <AdsterraBanner format="banner300x250" searchContext={adContext} />
                   </AdColorWrapper>
                 )}
-                {/* Fallback house ad when Adsterra doesn't fill */}
-                <AdColorWrapper type="claim">
-                  <AdSlot className="rounded-xl" size="sidebar" />
-                </AdColorWrapper>
+                {/* Adsterra 160x600 skyscraper — fills remaining sidebar height */}
+                {mode !== 'green' && (
+                  <AdColorWrapper type="cpm">
+                    <AdsterraBanner format="banner160x600" searchContext={adContext} />
+                  </AdColorWrapper>
+                )}
               </div>
             </div>
           </div>
