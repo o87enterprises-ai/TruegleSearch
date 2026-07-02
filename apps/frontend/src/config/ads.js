@@ -28,6 +28,15 @@ export const POP_SCRIPT_URL =
   'https://millionairelucidlytransmitted.com/03/50/81/03508109c0353dafe874e4f377262a99.js';
 
 /**
+ * Adsterra Smartlink — performance link that auto-matches offers to the visitor.
+ * Unlike banner scripts, this is a plain href so Firefox ETP cannot block it.
+ * Override with VITE_SMARTLINK_URL if the key changes.
+ */
+export const SMARTLINK_URL =
+  import.meta.env.VITE_SMARTLINK_URL ||
+  'https://millionairelucidlytransmitted.com/g385gzr0?key=63a965f91d254672ac250654790b5b8c';
+
+/**
  * Adsterra Social Bar (In-Page Push) — zone 30006382.
  * Get the script tag from Adsterra dashboard → copy the src URL → set
  * VITE_SOCIAL_BAR_SCRIPT_URL in Cloudflare Pages env vars → redeploy.

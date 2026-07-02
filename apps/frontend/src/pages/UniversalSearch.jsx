@@ -30,6 +30,7 @@ import AdSlot from '../components/AdSlot';
 import RewardAdSlot from '../components/RewardAdSlot';
 import AdsterraBanner from '../components/ads/AdsterraBanner';
 import AdColorWrapper from '../components/ads/AdColorWrapper';
+import { SMARTLINK_URL } from '../config/ads';
 import AdultConsentGate from '../components/ui/AdultConsentGate';
 import { SkeletonSearchResult } from '../components/ui/Skeleton';
 import AsSeenOn from '../components/Content/AsSeenOn';
@@ -1596,10 +1597,18 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     </div>
                   )}
 
-                  {/* Single affiliate link in footer — one per results page */}
-                  {searchResults.length > 0 && (
-                    <div className="mt-4">
-                      <AdSlot size="small" query={lastSearchedQuery || query} />
+                  {/* Adsterra Smartlink — plain href, not blocked by Firefox ETP */}
+                  {searchResults.length > 0 && SMARTLINK_URL && (
+                    <div className="mt-6 text-center">
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Sponsored</p>
+                      <a
+                        href={SMARTLINK_URL}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        className="text-sm text-blue-500 hover:text-blue-400 underline underline-offset-2"
+                      >
+                        Discover relevant offers →
+                      </a>
                     </div>
                   )}
                 </>
