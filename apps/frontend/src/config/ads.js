@@ -49,38 +49,40 @@ export const SOCIAL_BAR_SCRIPT_URL =
 export const adInvokeUrl = (key) => `https://${AD_DOMAIN}/${key}/invoke.js`;
 
 /**
- * Adsterra placement keys — all formats for truegle.info (site ID 5880564).
- * Each ad slot in the app maps to one of these via `pickFormat()` below.
+ * Adsterra placement keys — truegle.info (site ID 5880564).
+ *
+ * SMALL ZONES DEACTIVATED 2026-07-02:
+ * Adsterra permanently locks the adult-content toggle ON once a zone is
+ * activated — there is no way to disable it. Keys for small formats have been
+ * removed so Adsterra marks those zones inactive after 14 days of zero
+ * impressions. Once the user creates new zones (adult OFF) in the dashboard,
+ * add the new keys back here.
+ *
+ * Pending replacement (removed keys, zones going inactive):
+ *   banner320x50  — was 5c0cc5f396ae48cbf68f63ec86024c3f
+ *   banner300x250 — was 0fca9299f48c601ea125d688c11ff7d2
+ *   banner468x60  — was 7e53f17316c72708e8417a8a991171ac
+ *   nativeBanner  — was a7a8599f485ec0638131d8f99bc29cb7
+ *
+ * Active zones (all adult-gated at every call site):
  */
 export const ADSTERRA = {
-  banner468x60:  { key: '7e53f17316c72708e8417a8a991171ac', w: 468, h: 60  },
-  banner300x250: { key: '0fca9299f48c601ea125d688c11ff7d2', w: 300, h: 250 },
   banner728x90:  { key: 'd5f657ea7d55fc33ea532071957a2857', w: 728, h: 90  },
   banner160x300: { key: 'ffac08ed0f599aa8f389d387aa76001b', w: 160, h: 300 },
   banner160x600: { key: 'c16f5233d71714d3151e160ac5778be2', w: 160, h: 600 },
-  banner320x50:  { key: '5c0cc5f396ae48cbf68f63ec86024c3f', w: 320, h: 50  },
-  nativeBanner:  { key: 'a7a8599f485ec0638131d8f99bc29cb7', w: 320, h: 280, native: true },
 };
 
 /**
- * Maps a logical slot name (the old Revive zone names + a few aliases) to the
- * closest Adsterra banner format, so we can swap every slot to Adsterra without
- * re-picking sizes at each call site.
+ * Maps a logical slot name to the closest active Adsterra format.
+ * Small-format aliases removed pending zone replacement.
  */
 export const SLOT_FORMAT = {
-  // wide / leaderboard placements
   leaderboard728x90: 'banner728x90',
-  leaderboard: 'banner728x90',
-  videoInline: 'banner728x90', // 16:9 inline slots → widest banner we have
-  // rectangle placements
-  display300x250a: 'banner300x250',
-  display300x250b: 'banner300x250',
-  rectangle: 'banner300x250',
-  inline: 'banner300x250',
-  // vertical / sidebar placements
-  sidebar: 'banner160x600',
-  skyscraper: 'banner160x600',
+  leaderboard:       'banner728x90',
+  videoInline:       'banner728x90',
+  sidebar:           'banner160x600',
+  skyscraper:        'banner160x600',
 };
 
-export const pickFormat = (slot, fallback = 'banner300x250') =>
+export const pickFormat = (slot, fallback = 'banner728x90') =>
   SLOT_FORMAT[slot] || fallback;

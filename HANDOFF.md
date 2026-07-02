@@ -52,14 +52,28 @@ Only the Popunder zone has an anti-adblock URL. Banners have none. **Stop asking
 #### Current zones — all have adult content ON
 Until the user toggles them off in the dashboard, ALL zone keys in `config/ads.js` serve adult ads.
 
-### ⚠️ DASHBOARD ACTIONS STILL NEEDED (user must do these)
+### 🔴 PERMANENT FACT — ADULT TOGGLE CANNOT BE DISABLED
+Adsterra permanently locks the adult-content toggle ON the moment a zone is activated. It is not possible to disable it after activation. **Do not suggest the dashboard toggle as a fix — it does not work.**
 
-1. **Disable adult toggle** for small zones in Adsterra dashboard:
-   - Banner 320×50 (key `5c0cc5f396ae48cbf68f63ec86024c3f`)
-   - Banner 300×250 (key `0fca9299f48c601ea125d688c11ff7d2`)
-   - Banner 468×60 (key `7e53f17316c72708e8417a8a991171ac`)
-   - Native Banner (key `a7a8599f485ec0638131d8f99bc29cb7`)
+The only path is:
+1. Remove the zone key from code → zone goes inactive after 14 days of zero impressions
+2. User creates a NEW zone (adult OFF, set before first activation) in the Adsterra dashboard
+3. User provides the new key → update `config/ads.js`
 
+### ⚠️ SMALL ZONES DEACTIVATED — AWAITING REPLACEMENT
+
+Small-format keys removed from `config/ads.js` on 2026-07-02. All call sites that rendered small formats now silently render nothing (`AdsterraBanner` returns null when the key is missing). These zones will go inactive in ~14 days.
+
+| Format | Old key (do not reuse) | Status |
+|---|---|---|
+| banner320x50 | `5c0cc5f396ae48cbf68f63ec86024c3f` | Deactivating (14 days) |
+| banner300x250 | `0fca9299f48c601ea125d688c11ff7d2` | Deactivating (14 days) |
+| banner468x60 | `7e53f17316c72708e8417a8a991171ac` | Deactivating (14 days) |
+| nativeBanner | `a7a8599f485ec0638131d8f99bc29cb7` | Deactivating (14 days) |
+
+**Next session action:** Once user creates replacement zones (adult OFF) in Adsterra dashboard, add the new keys to `ADSTERRA` in `apps/frontend/src/config/ads.js` and redeploy.
+
+### ⚠️ LARGE ZONES ACTIVE (adult-gated in all call sites):
 2. **Keep adult toggle ON** for large zones:
    - Banner 728×90 (key `d5f657ea7d55fc33ea532071957a2857`)
    - Banner 160×600 (key `c16f5233d71714d3151e160ac5778be2`)
