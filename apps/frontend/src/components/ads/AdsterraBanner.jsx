@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { isAdultQuery } from '../../utils/adultKeywords';
-import { ADSTERRA, adInvokeUrl } from '../../config/ads';
+import { ADSTERRA } from '../../config/ads';
 import { adultAdsApproved } from '../ui/AdultConsentGate';
 
 /**
@@ -23,11 +23,14 @@ const CONTEXT_KEYWORDS = {
 };
 
 /**
- * Renders ONE Adsterra placement inside its own isolated <iframe srcdoc>.
+ * Renders ONE Adsterra placement inside an <iframe src="/adframe.html?...">.
+ *
+ * Loading via a real same-origin URL (not srcdoc) ensures Adsterra sees
+ * "Referer: https://truegle.info" and serves the ad. The srcdoc approach
+ * sent a null referer, causing Adsterra to reject every impression.
  *
  * NON-ADULT banners (adultGated=false, the default):
  *   Render for ALL users as long as ad consent is not explicitly revoked.
- *   No authentication, no age check, no safe-search requirement.
  *
  * ADULT banners (adultGated=true):
  *   Require ALL five gates:
@@ -36,13 +39,6 @@ const CONTEXT_KEYWORDS = {
  *     3. Safe search is explicitly 'off' (safeSearch prop)
  *     4. Current query contains adult keywords (isAdultQuery(query))
  *     5. User confirmed age this session via AdultConsentGate modal
- *
- * Props:
- *   format         — key from ADSTERRA config (e.g. 'banner728x90')
- *   searchContext  — active search mode / perspective for campaign targeting
- *   adultGated     — if true, apply 5-gate adult check before rendering
- *   isAuthenticated, safeSearch, query — required when adultGated=true
- *   className
  */
 export default function AdsterraBanner({
   format = 'banner728x90',
@@ -53,9 +49,6 @@ export default function AdsterraBanner({
   query = '',
   className = '',
 }) {
-  const iframeRef = useRef(null);
-  const injected = useRef(false);
-
   const placement = ADSTERRA[format];
 
   // Ad consent: true by default; flips to false on explicit opt-out only.
@@ -64,7 +57,6 @@ export default function AdsterraBanner({
   );
 
   // Gate 5: session-level adult consent (honor system age modal).
-  // Starts from sessionStorage so it survives React re-renders.
   const [sessionAdultOk, setSessionAdultOk] = useState(() => adultAdsApproved());
 
   useEffect(() => {
@@ -92,69 +84,28 @@ export default function AdsterraBanner({
 
   const shouldRender = !!placement && adsAllowed && adultOk;
 
-  useEffect(() => {
-    if (!shouldRender) {
-      injected.current = false;
-      return;
-    }
-    const iframe = iframeRef.current;
-    if (!iframe || injected.current) return;
-
-    const writeAd = () => {
-      try {
-        const doc = iframe.contentDocument;
-        const win = iframe.contentWindow;
-        if (!doc || !win) return;
-
-        doc.body.style.margin = '0';
-        doc.body.style.overflow = 'hidden';
-
-        if (placement.native) {
-          // Native banner: container div as target, no atOptions
-          const container = doc.createElement('div');
-          container.id = `container-${placement.key}`;
-          doc.body.appendChild(container);
-        } else {
-          const keywords = searchContext ? (CONTEXT_KEYWORDS[searchContext] ?? []) : [];
-          win.atOptions = {
-            key: placement.key,
-            format: 'iframe',
-            height: placement.h,
-            width: placement.w,
-            params: { ...(keywords.length > 0 && { keywords }) },
-          };
-        }
-
-        const s = doc.createElement('script');
-        s.src = adInvokeUrl(placement.key);
-        s.async = true;
-        doc.body.appendChild(s);
-        injected.current = true;
-      } catch {
-        /* cross-origin or torn-down — ignore */
-      }
-    };
-
-    if (iframe.contentDocument?.body) writeAd();
-    else iframe.addEventListener('load', writeAd, { once: true });
-
-    return () => iframe.removeEventListener?.('load', writeAd);
-  }, [shouldRender, searchContext, placement]);
-
   if (!shouldRender) return null;
+
+  const keywords = searchContext ? (CONTEXT_KEYWORDS[searchContext] ?? []) : [];
+  const kwParam = keywords.length > 0 ? `&kw=${encodeURIComponent(keywords.join(','))}` : '';
+
+  const src = placement.native
+    ? `/adframe.html?k=${placement.key}&native=1${kwParam}`
+    : `/adframe.html?k=${placement.key}&h=${placement.h}&w=${placement.w}${kwParam}`;
+
+  const w = placement.native ? '100%' : placement.w;
 
   return (
     <iframe
-      ref={iframeRef}
       title="Advertisement"
-      srcDoc="<!doctype html><html><head></head><body></body></html>"
-      width={placement.w}
+      src={src}
+      width={w}
       height={placement.h}
       scrolling="no"
-      sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-top-navigation-by-user-activation"
+      referrerPolicy="strict-origin-when-cross-origin"
       className={className}
       style={{
-        width: placement.w,
+        width: w,
         height: placement.h,
         border: 0,
         display: 'block',

@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>body{margin:0;overflow:hidden;background:transparent}</style>
+</head>
+<body>
+<script>
+(function(){
+  var s = new URLSearchParams(location.search);
+  var key = s.get('k');
+  if (!key) return;
+  var native = s.get('native') === '1';
+  var kw = s.get('kw');
+  if (native) {
+    var div = document.createElement('div');
+    div.id = 'container-' + key;
+    document.body.appendChild(div);
+  } else {
+    var params = kw ? { keywords: kw.split(',') } : {};
+    window.atOptions = {
+      key: key,
+      format: 'iframe',
+      height: +s.get('h') || 250,
+      width: +s.get('w') || 300,
+      params: params
+    };
+  }
+  var el = document.createElement('script');
+  el.src = 'https://millionairelucidlytransmitted.com/' + key + '/invoke.js';
+  document.body.appendChild(el);
+})();
+</script>
+</body>
+</html>
