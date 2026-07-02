@@ -1,51 +1,30 @@
 import { useEffect } from 'react';
-import { POP_SCRIPT_URL, SOCIAL_BAR_SCRIPT_URL } from '../../config/ads';
+import { SOCIAL_BAR_SCRIPT_URL } from '../../config/ads';
 
 // Adsterra Smartlink — used as fallback / house-ad destination
 export const ADSTERRA_SMARTLINK = 'https://millionairelucidlytransmitted.com/g385gzr0?key=63a965f91d254672ac250654790b5b8c';
 
-const POP_SESSION_KEY = 'truegle_pop_fired';
 const SOCIAL_SESSION_KEY = 'truegle_social_fired';
 
-function loadScript(url) {
-  const s = document.createElement('script');
-  s.src = url;
-  s.async = true;
-  document.body.appendChild(s);
-}
-
-function loadPopunder() {
-  // Fire once per browser session only
-  if (sessionStorage.getItem(POP_SESSION_KEY)) return;
-  sessionStorage.setItem(POP_SESSION_KEY, '1');
-  loadScript(POP_SCRIPT_URL);
-}
-
-function loadSocialBar() {
-  if (!SOCIAL_BAR_SCRIPT_URL) return;
-  if (sessionStorage.getItem(SOCIAL_SESSION_KEY)) return;
-  sessionStorage.setItem(SOCIAL_SESSION_KEY, '1');
-  loadScript(SOCIAL_BAR_SCRIPT_URL);
-}
+// NOTE: The Adsterra popunder (millionairelucidlytransmitted.com script) is
+// intentionally NOT loaded here. Popunders fire on the first user click
+// anywhere on the page and open a new tab — Adsterra fills them with
+// whatever bids highest, including adult content, with no way to gate by
+// user consent or age. Removed to prevent adult content appearing on
+// unauthenticated / underage sessions. Revenue from popunders is traded
+// for safety. Revisit if Adsterra offers a content-category filter API.
 
 export default function AdScriptLoader() {
   useEffect(() => {
-    // Ads load by default (Truegle is ad-supported). `window.__truegle_ad_consent`
-    // is pre-set to true at app init; only an explicit opt-out flips it to false.
-    if (window.__truegle_ad_consent !== false) {
-      loadPopunder();
-      loadSocialBar();
-      return;
-    }
+    if (!SOCIAL_BAR_SCRIPT_URL) return;
+    if (sessionStorage.getItem(SOCIAL_SESSION_KEY)) return;
+    if (window.__truegle_ad_consent === false) return;
 
-    const onConsent = (e) => {
-      if (e.detail?.ads) {
-        loadPopunder();
-        loadSocialBar();
-      }
-    };
-    window.addEventListener('truegle:consent', onConsent);
-    return () => window.removeEventListener('truegle:consent', onConsent);
+    sessionStorage.setItem(SOCIAL_SESSION_KEY, '1');
+    const s = document.createElement('script');
+    s.src = SOCIAL_BAR_SCRIPT_URL;
+    s.async = true;
+    document.body.appendChild(s);
   }, []);
 
   return null;
