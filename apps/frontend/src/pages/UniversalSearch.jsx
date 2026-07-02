@@ -30,6 +30,7 @@ import AdSlot from '../components/AdSlot';
 import RewardAdSlot from '../components/RewardAdSlot';
 import AdsterraBanner from '../components/ads/AdsterraBanner';
 import AdColorWrapper from '../components/ads/AdColorWrapper';
+import AdultConsentGate from '../components/ui/AdultConsentGate';
 import { SkeletonSearchResult } from '../components/ui/Skeleton';
 import AsSeenOn from '../components/Content/AsSeenOn';
 import PerspectiveSelector from '../components/search/PerspectiveSelector';
@@ -1338,7 +1339,12 @@ export default function UniversalSearch({ lockedGreen = false }) {
             </div>
           )}
 
-          {/* Adult CPM banner — authenticated + safe search off + adult query only */}
+          {/* Adult CPM banner — requires all 5 gates (see AdsterraBanner + AdultConsentGate) */}
+          <AdultConsentGate
+            isAuthenticated={isAuthenticated}
+            safeSearch={settings.safeSearch}
+            query={query}
+          />
           <AdColorWrapper type="adult" className="my-4 flex justify-center">
             <AdsterraBanner
               format="banner300x250"

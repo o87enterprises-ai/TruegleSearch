@@ -1,48 +1,46 @@
 import { useEffect, useRef, useState } from 'react';
 import { isAdultQuery } from '../../utils/adultKeywords';
 import { ADSTERRA, adInvokeUrl } from '../../config/ads';
+import { adultAdsApproved } from '../ui/AdultConsentGate';
 
 /**
  * Maps Truegle search context to Adsterra campaign keyword categories.
- * Wire these strings to campaigns in the Adsterra dashboard to serve ads
- * matched to the user's active perspective/mode.
  */
 const CONTEXT_KEYWORDS = {
-  'blue':     ['mainstream', 'traditional', 'liberal', 'establishment', 'legacy-media'],
-  'red':      ['alternative', 'conspiracy', 'independent', 'free-thinker', 'counter-narrative'],
-  'purple':   ['conservative', 'skeptical', 'right-wing', 'traditional-values', 'anti-establishment'],
-  'ocean':    ['privacy', 'cybersecurity', 'osint', 'developer', 'tech', 'infosec'],
-  'green':    ['research', 'academic', 'science', 'factual'],
-  'neutral':  ['non-partisan', 'centrist', 'balanced', 'independent'],
-  'left':     ['progressive', 'liberal', 'social-justice', 'democrat'],
-  'right':    ['conservative', 'republican', 'traditional', 'right-wing'],
-  'red-pill': ['alternative', 'free-thinker', 'counter-narrative', 'independent'],
-  'blue-pill':['mainstream', 'traditional', 'establishment', 'liberal'],
-  'gen-z':    ['gen-z', 'youth', 'social-media', 'trending'],
-  'lgbtq':    ['lgbtq', 'pride', 'inclusion', 'diversity'],
-  'business': ['business', 'finance', 'investing', 'entrepreneur'],
+  'blue':      ['mainstream', 'traditional', 'liberal', 'establishment', 'legacy-media'],
+  'red':       ['alternative', 'conspiracy', 'independent', 'free-thinker', 'counter-narrative'],
+  'purple':    ['conservative', 'skeptical', 'right-wing', 'traditional-values', 'anti-establishment'],
+  'ocean':     ['privacy', 'cybersecurity', 'osint', 'developer', 'tech', 'infosec'],
+  'green':     ['research', 'academic', 'science', 'factual'],
+  'neutral':   ['non-partisan', 'centrist', 'balanced', 'independent'],
+  'left':      ['progressive', 'liberal', 'social-justice', 'democrat'],
+  'right':     ['conservative', 'republican', 'traditional', 'right-wing'],
+  'red-pill':  ['alternative', 'free-thinker', 'counter-narrative', 'independent'],
+  'blue-pill': ['mainstream', 'traditional', 'establishment', 'liberal'],
+  'gen-z':     ['gen-z', 'youth', 'social-media', 'trending'],
+  'lgbtq':     ['lgbtq', 'pride', 'inclusion', 'diversity'],
+  'business':  ['business', 'finance', 'investing', 'entrepreneur'],
 };
 
 /**
  * Renders ONE Adsterra placement inside its own isolated <iframe srcdoc>.
  *
- * Why an iframe per banner: Adsterra's invoke.js reads a single global
- * `window.atOptions`. With multiple banners on a page (which Truegle has),
- * injecting invoke.js into the shared page makes the last atOptions win and the
- * script's document.write can blow away the page. Giving each placement its own
- * iframe document means each gets its own `atOptions`/`window`, so any number of
- * slots coexist correctly.
+ * NON-ADULT banners (adultGated=false, the default):
+ *   Render for ALL users as long as ad consent is not explicitly revoked.
+ *   No authentication, no age check, no safe-search requirement.
  *
- * We set atOptions on the iframe's contentWindow and append invoke.js as an
- * EXTERNAL <script> (no inline script), so the page CSP is satisfied without
- * 'unsafe-inline'. invoke.js loads from the configurable AD_DOMAIN (see
- * config/ads.js) — point that at Adsterra's first-party anti-adblock domain to
- * bypass ad/tracking blockers.
+ * ADULT banners (adultGated=true):
+ *   Require ALL five gates:
+ *     1. Ad consent not revoked (window.__truegle_ad_consent !== false)
+ *     2. User is authenticated (isAuthenticated prop)
+ *     3. Safe search is explicitly 'off' (safeSearch prop)
+ *     4. Current query contains adult keywords (isAdultQuery(query))
+ *     5. User confirmed age this session via AdultConsentGate modal
  *
  * Props:
- *   format         — key from ADSTERRA (e.g. 'banner728x90')
+ *   format         — key from ADSTERRA config (e.g. 'banner728x90')
  *   searchContext  — active search mode / perspective for campaign targeting
- *   adultGated     — if true, only renders when authenticated + safeSearch=off + adult query
+ *   adultGated     — if true, apply 5-gate adult check before rendering
  *   isAuthenticated, safeSearch, query — required when adultGated=true
  *   className
  */
@@ -50,9 +48,9 @@ export default function AdsterraBanner({
   format = 'banner728x90',
   searchContext = null,
   adultGated = false,
-  isAuthenticated,
-  safeSearch,
-  query,
+  isAuthenticated = false,
+  safeSearch = 'safe',
+  query = '',
   className = '',
 }) {
   const iframeRef = useRef(null);
@@ -60,9 +58,14 @@ export default function AdsterraBanner({
 
   const placement = ADSTERRA[format];
 
-  // Ads load by default (Truegle is ad-supported). window.__truegle_ad_consent
-  // is pre-set to true at app init; only an explicit opt-out flips it to false.
-  const [adsAllowed, setAdsAllowed] = useState(() => window.__truegle_ad_consent !== false);
+  // Ad consent: true by default; flips to false on explicit opt-out only.
+  const [adsAllowed, setAdsAllowed] = useState(
+    () => window.__truegle_ad_consent !== false
+  );
+
+  // Gate 5: session-level adult consent (honor system age modal).
+  // Starts from sessionStorage so it survives React re-renders.
+  const [sessionAdultOk, setSessionAdultOk] = useState(() => adultAdsApproved());
 
   useEffect(() => {
     const onConsent = (e) => setAdsAllowed(!!e.detail?.ads);
@@ -70,15 +73,24 @@ export default function AdsterraBanner({
     return () => window.removeEventListener('truegle:consent', onConsent);
   }, []);
 
+  // Listen for the AdultConsentGate approval event so the banner renders
+  // immediately after the user clicks "I confirm" without a page reload.
+  useEffect(() => {
+    const onApprove = () => setSessionAdultOk(true);
+    window.addEventListener('truegle:adult-ads-approved', onApprove);
+    return () => window.removeEventListener('truegle:adult-ads-approved', onApprove);
+  }, []);
+
+  // Adult gate: all 5 conditions must be true.
   const adultOk = !adultGated || (
+    adsAllowed &&
     isAuthenticated &&
     safeSearch === 'off' &&
-    isAdultQuery(query)
+    isAdultQuery(query) &&
+    sessionAdultOk
   );
 
-  // Include `placement` so all hooks run before any early return and the effect
-  // never touches placement.key for an unknown format.
-  const shouldRender = !!placement && adultOk && adsAllowed;
+  const shouldRender = !!placement && adsAllowed && adultOk;
 
   useEffect(() => {
     if (!shouldRender) {
@@ -95,7 +107,6 @@ export default function AdsterraBanner({
         if (!doc || !win) return;
 
         const keywords = searchContext ? (CONTEXT_KEYWORDS[searchContext] ?? []) : [];
-        // Each iframe gets its OWN atOptions — no cross-banner collision.
         win.atOptions = {
           key: placement.key,
           format: 'iframe',
@@ -107,18 +118,16 @@ export default function AdsterraBanner({
         doc.body.style.margin = '0';
         doc.body.style.overflow = 'hidden';
 
-        // External script (not inline) → satisfies page CSP without unsafe-inline.
         const s = doc.createElement('script');
         s.src = adInvokeUrl(placement.key);
         s.async = true;
         doc.body.appendChild(s);
         injected.current = true;
       } catch {
-        /* cross-origin or torn down — ignore */
+        /* cross-origin or torn-down — ignore */
       }
     };
 
-    // srcdoc iframes are ready almost immediately, but guard with onload too.
     if (iframe.contentDocument?.body) writeAd();
     else iframe.addEventListener('load', writeAd, { once: true });
 
@@ -135,7 +144,6 @@ export default function AdsterraBanner({
       width={placement.w}
       height={placement.h}
       scrolling="no"
-      // allow popunder/click-through to open in a new tab
       sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-top-navigation-by-user-activation"
       className={className}
       style={{
