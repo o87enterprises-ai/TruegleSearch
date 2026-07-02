@@ -13,7 +13,7 @@
  * every slot is served first-party = unblockable.
  *
  *   VITE_AD_DOMAIN       host that serves Adsterra invoke.js
- *                        (default: www.highperformanceformat.com)
+ *                        (default: millionairelucidlytransmitted.com)
  *   VITE_POP_SCRIPT_URL  full URL of the popunder script
  *
  * Until the custom domain is live, these default to Adsterra's direct domains,
@@ -21,7 +21,7 @@
  */
 
 export const AD_DOMAIN =
-  import.meta.env.VITE_AD_DOMAIN || 'www.highperformanceformat.com';
+  import.meta.env.VITE_AD_DOMAIN || 'millionairelucidlytransmitted.com';
 
 export const POP_SCRIPT_URL =
   import.meta.env.VITE_POP_SCRIPT_URL ||
@@ -49,6 +49,8 @@ export const ADSTERRA = {
   banner728x90:  { key: 'd5f657ea7d55fc33ea532071957a2857', w: 728, h: 90  },
   banner160x300: { key: 'ffac08ed0f599aa8f389d387aa76001b', w: 160, h: 300 },
   banner160x600: { key: 'c16f5233d71714d3151e160ac5778be2', w: 160, h: 600 },
+  banner320x50:  { key: '5c0cc5f396ae48cbf68f63ec86024c3f', w: 320, h: 50  },
+  nativeBanner:  { key: 'a7a8599f485ec0638131d8f99bc29cb7', w: 320, h: 280, native: true },
 };
 
 /**

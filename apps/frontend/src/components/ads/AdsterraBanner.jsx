@@ -106,17 +106,24 @@ export default function AdsterraBanner({
         const win = iframe.contentWindow;
         if (!doc || !win) return;
 
-        const keywords = searchContext ? (CONTEXT_KEYWORDS[searchContext] ?? []) : [];
-        win.atOptions = {
-          key: placement.key,
-          format: 'iframe',
-          height: placement.h,
-          width: placement.w,
-          params: { ...(keywords.length > 0 && { keywords }) },
-        };
-
         doc.body.style.margin = '0';
         doc.body.style.overflow = 'hidden';
+
+        if (placement.native) {
+          // Native banner: container div as target, no atOptions
+          const container = doc.createElement('div');
+          container.id = `container-${placement.key}`;
+          doc.body.appendChild(container);
+        } else {
+          const keywords = searchContext ? (CONTEXT_KEYWORDS[searchContext] ?? []) : [];
+          win.atOptions = {
+            key: placement.key,
+            format: 'iframe',
+            height: placement.h,
+            width: placement.w,
+            params: { ...(keywords.length > 0 && { keywords }) },
+          };
+        }
 
         const s = doc.createElement('script');
         s.src = adInvokeUrl(placement.key);
