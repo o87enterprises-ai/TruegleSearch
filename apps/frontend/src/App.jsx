@@ -38,6 +38,7 @@ import About from './pages/About';
 import Advertise from './pages/Advertise';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
+import RevenueCalculator from './pages/RevenueCalculator';
 import NotFound from "./pages/NotFound";
 import RootErrorBoundary from './components/ui/RootErrorBoundary';
 import RouteBoundary from './components/ui/RouteBoundary';
@@ -299,6 +300,7 @@ const AppContent = () => {
         {/* Blog / editorial content (crawlable publisher content for SEO + ads) */}
         <Route path="/blog" element={<RouteBoundary><Blog /></RouteBoundary>} />
         <Route path="/blog/:slug" element={<RouteBoundary><BlogPost /></RouteBoundary>} />
+        <Route path="/revenue-calc" element={<RouteBoundary><RevenueCalculator /></RouteBoundary>} />
         {/* Onboarding Route */}
         <Route
           path="/onboarding"

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import AdsterraBanner from '../ads/AdsterraBanner';
 import {
   X,
   ExternalLink,
@@ -235,18 +236,32 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
   const mockSocialPosts = [];
 
   // Simple components for display
-  const ImageGrid = ({ images, onSelect }) => (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-      {images.map((img) => (
+  const ImageGrid = ({ images, onSelect }) => {
+    const adCtx = searchQuery ? { query: searchQuery } : {};
+    const items = images.flatMap((img, i) => {
+      const card = (
         <div key={img.id} className="aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform" onClick={() => onSelect(img)}>
           <img src={img.url} alt={img.title} className="w-full h-full object-cover" />
           <div className="p-2 bg-black/50">
             <p className="text-white text-sm truncate">{img.title}</p>
           </div>
         </div>
-      ))}
-    </div>
-  );
+      );
+      if ((i + 1) % 6 === 0) {
+        return [card, (
+          <div key={`img-ad-${i}`} className="col-span-full flex justify-center py-1">
+            <AdsterraBanner format="banner468x60" searchContext={adCtx} />
+          </div>
+        )];
+      }
+      return [card];
+    });
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {items}
+      </div>
+    );
+  };
 
   const formatViews = (n) => {
     if (n == null) return null;
@@ -256,9 +271,10 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
     return `${n} views`;
   };
 
-  const VideoGrid = ({ videos, onSelect }) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {videos.map((vid) => (
+  const VideoGrid = ({ videos, onSelect }) => {
+    const adCtx = searchQuery ? { query: searchQuery } : {};
+    const items = videos.flatMap((vid, i) => {
+      const card = (
         <div key={vid.id} className="bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform" onClick={() => onSelect(vid)}>
           <div className="relative">
             <img src={vid.thumbnail} alt={vid.title} className="w-full aspect-video object-cover" />
@@ -282,9 +298,22 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
             </div>
           </div>
         </div>
-      ))}
-    </div>
-  );
+      );
+      if ((i + 1) % 4 === 0) {
+        return [card, (
+          <div key={`vid-ad-${i}`} className="col-span-full flex justify-center py-1">
+            <AdsterraBanner format="banner320x50" searchContext={adCtx} />
+          </div>
+        )];
+      }
+      return [card];
+    });
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {items}
+      </div>
+    );
+  };
 
   const AudioGrid = ({ audio }) => (
     <div className="space-y-3">
@@ -690,34 +719,41 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
 }
 
 // Image Masonry Grid Component
-function ImageMasonryGrid({ images, onSelect }) {
+function ImageMasonryGrid({ images, onSelect, searchContext }) {
   return (
     <div className="columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
       {images.map((image, index) => (
-        <motion.div
-          key={image.id}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: index * 0.05 }}
-          className="break-inside-avoid group relative cursor-pointer"
-          onClick={() => onSelect(image)}
-        >
-          <div className="relative overflow-hidden rounded-2xl border-2 border-purple-500/50 hover:border-purple-400 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.5)]">
-            <img
-              src={image.url}
-              alt={image.title}
-              className="w-full h-auto transform group-hover:scale-110 transition-transform duration-500"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <p className="text-white text-sm font-semibold">
-                  {image.title}
-                </p>
-                <p className="text-white/70 text-xs">{image.source}</p>
+        <Fragment key={image.id}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: index * 0.05 }}
+            className="break-inside-avoid group relative cursor-pointer"
+            onClick={() => onSelect(image)}
+          >
+            <div className="relative overflow-hidden rounded-2xl border-2 border-purple-500/50 hover:border-purple-400 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.5)]">
+              <img
+                src={image.url}
+                alt={image.title}
+                className="w-full h-auto transform group-hover:scale-110 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <p className="text-white text-sm font-semibold">
+                    {image.title}
+                  </p>
+                  <p className="text-white/70 text-xs">{image.source}</p>
+                </div>
               </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
+          {/* 468x60 strip after every 6 images — spans all columns */}
+          {(index + 1) % 6 === 0 && index !== images.length - 1 && (
+            <div className="break-inside-avoid col-span-full flex justify-center py-1">
+              <AdsterraBanner format="banner468x60" searchContext={searchContext} />
+            </div>
+          )}
+        </Fragment>
       ))}
     </div>
   );
@@ -797,46 +833,47 @@ function SocialMasonryGrid({ posts, onSelect }) {
 }
 
 // Video Dome Gallery Component
-function VideoDomeGallery({ videos, onSelect }) {
+function VideoDomeGallery({ videos, onSelect, searchContext }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       {videos.map((video, index) => (
-        <motion.div
-          key={video.id}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.05 }}
-          className="group relative cursor-pointer"
-          onClick={() => onSelect(video)}
-        >
-          <div className="relative overflow-hidden rounded-2xl border-2 border-purple-500/50 hover:border-purple-400 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.5)]">
-            <img
-              src={video.thumbnail}
-              alt={video.title}
-              className="w-full h-48 object-cover transform group-hover:scale-110 transition-transform duration-500"
-            />
-
-            {/* Play Button Overlay */}
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/60 transition-all">
-              <div className="w-16 h-16 rounded-full bg-purple-500 flex items-center justify-center transform group-hover:scale-110 transition-transform shadow-lg shadow-purple-500/50">
-                <Play size={24} className="text-white ml-1" fill="white" />
+        <Fragment key={video.id}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05 }}
+            className="group relative cursor-pointer"
+            onClick={() => onSelect(video)}
+          >
+            <div className="relative overflow-hidden rounded-2xl border-2 border-purple-500/50 hover:border-purple-400 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.5)]">
+              <img
+                src={video.thumbnail}
+                alt={video.title}
+                className="w-full h-48 object-cover transform group-hover:scale-110 transition-transform duration-500"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/60 transition-all">
+                <div className="w-16 h-16 rounded-full bg-purple-500 flex items-center justify-center transform group-hover:scale-110 transition-transform shadow-lg shadow-purple-500/50">
+                  <Play size={24} className="text-white ml-1" fill="white" />
+                </div>
+              </div>
+              <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-1 rounded text-white text-xs font-semibold">
+                {video.duration}
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                <p className="text-white text-sm font-semibold line-clamp-2">
+                  {video.title}
+                </p>
+                <p className="text-white/70 text-xs">{video.source}</p>
               </div>
             </div>
-
-            {/* Duration Badge */}
-            <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-1 rounded text-white text-xs font-semibold">
-              {video.duration}
+          </motion.div>
+          {/* 320x50 strip after every 4 videos — full-width row */}
+          {(index + 1) % 4 === 0 && index !== videos.length - 1 && (
+            <div className="col-span-2 md:col-span-3 lg:col-span-4 flex justify-center py-1">
+              <AdsterraBanner format="banner320x50" searchContext={searchContext} />
             </div>
-
-            {/* Title on Hover */}
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-              <p className="text-white text-sm font-semibold line-clamp-2">
-                {video.title}
-              </p>
-              <p className="text-white/70 text-xs">{video.source}</p>
-            </div>
-          </div>
-        </motion.div>
+          )}
+        </Fragment>
       ))}
     </div>
   );

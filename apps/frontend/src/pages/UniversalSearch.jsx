@@ -973,9 +973,21 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   onClose={() => setActiveCategory('all')}
                   searchQuery={searchValue}
                 />
-                {/* Inline ad for media tabs */}
-                <div className="max-w-4xl mx-auto mt-4 mb-2 flex justify-center">
-                  <AdsterraBanner format="banner728x90" searchContext={adContext} />
+                {/* Non-adult strip + adult large banner for media tabs */}
+                <div className="max-w-4xl mx-auto mt-4 mb-2 space-y-2">
+                  <div className="flex justify-center">
+                    <AdsterraBanner format="banner320x50" searchContext={adContext} />
+                  </div>
+                  <AdColorWrapper type="adult" className="flex justify-center">
+                    <AdsterraBanner
+                      format="banner728x90"
+                      searchContext={adContext}
+                      adultGated
+                      isAuthenticated={isAuthenticated}
+                      safeSearch={settings.safeSearch}
+                      query={query}
+                    />
+                  </AdColorWrapper>
                 </div>
               </>
             )}
@@ -1003,9 +1015,21 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   }}
                   detectedLocation={detectedLocation}
                 />
-                {/* Leaderboard ad below map */}
-                <div className="mt-4 flex justify-center">
-                  <AdsterraBanner format="banner728x90" searchContext={adContext} />
+                {/* Non-adult strip + adult large banner below map */}
+                <div className="mt-4 space-y-2">
+                  <div className="flex justify-center">
+                    <AdsterraBanner format="banner320x50" searchContext={adContext} />
+                  </div>
+                  <AdColorWrapper type="adult" className="flex justify-center">
+                    <AdsterraBanner
+                      format="banner160x300"
+                      searchContext={adContext}
+                      adultGated
+                      isAuthenticated={isAuthenticated}
+                      safeSearch={settings.safeSearch}
+                      query={query}
+                    />
+                  </AdColorWrapper>
                 </div>
               </motion.div>
             )}
@@ -1227,6 +1251,13 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     </div>
                   </button>
 
+                  {/* Mini strip visible when summary is collapsed */}
+                  {summaryCollapsed && aiSummary && (
+                    <div className="mt-2 flex justify-center">
+                      <AdsterraBanner format="banner320x50" searchContext={adContext} />
+                    </div>
+                  )}
+
                   <AnimatePresence>
                     {!summaryCollapsed && (
                       <motion.div
@@ -1310,6 +1341,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
                                 {(FREE_ACCESS_MODE || isAuthenticated) ? 'Ask follow-up' : 'Sign in to chat'}
                               </span>
                             </div>
+                            {/* Two mini strips inside expanded summary */}
+                            <div className="mt-3 space-y-2 flex flex-col items-center">
+                              <AdsterraBanner format="banner320x50" searchContext={adContext} />
+                              <AdsterraBanner format="banner320x50" searchContext={adContext} />
+                            </div>
                           </>
                         ) : (
                           <p className="text-sm text-white/60 leading-relaxed">
@@ -1324,23 +1360,31 @@ export default function UniversalSearch({ lockedGreen = false }) {
             </div>
           )}
 
-          {/* Inline ad — shown after AI expanded summary */}
+          {/* Large adult banner after expanded summary — high-CPM, gated */}
           {mode !== 'green' && aiSummary && !summaryCollapsed && (
-            <div className="max-w-4xl mx-auto mb-4 flex justify-center">
-              <AdsterraBanner format="banner728x90" searchContext={adContext} />
-            </div>
+            <AdColorWrapper type="adult" className="max-w-4xl mx-auto mb-4 flex justify-center">
+              <AdsterraBanner
+                format="banner728x90"
+                searchContext={adContext}
+                adultGated
+                isAuthenticated={isAuthenticated}
+                safeSearch={settings.safeSearch}
+                query={query}
+              />
+            </AdColorWrapper>
           )}
 
-          {/* Standard CPM banner — all users, non-adult */}
+          {/* Small non-adult strip — all users */}
           {mode !== 'green' && (
-            <div className="flex justify-center my-4">
+            <div className="flex justify-center my-2">
               <AdColorWrapper type="cpm">
-                <AdsterraBanner format="banner728x90" searchContext={adContext} />
+                <AdsterraBanner format="banner320x50" searchContext={adContext} />
               </AdColorWrapper>
             </div>
           )}
 
           {/* Adult CPM banner — requires all 5 gates (see AdsterraBanner + AdultConsentGate) */}
+          {/* Large format (728x90) = highest CPM adult — only fires when all 5 gates pass */}
           <AdultConsentGate
             isAuthenticated={isAuthenticated}
             safeSearch={settings.safeSearch}
@@ -1348,7 +1392,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
           />
           <AdColorWrapper type="adult" className="my-4 flex justify-center">
             <AdsterraBanner
-              format="banner300x250"
+              format="banner728x90"
               searchContext={adContext}
               adultGated
               isAuthenticated={isAuthenticated}
@@ -1461,7 +1505,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
             }}
           />
 
-          {/* Ad Banner 2 - Under AI Summary */}
+          {/* Ad Banner 2 - Under AI Summary — small non-adult strip */}
           {mode !== 'green' && (
             <motion.div
               initial={{ opacity: 0 }}
@@ -1469,7 +1513,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
               className="max-w-4xl mx-auto mb-4 flex justify-center"
             >
               <AdColorWrapper type="cpm">
-                <AdsterraBanner format="banner728x90" searchContext={adContext} />
+                <AdsterraBanner format="banner320x50" searchContext={adContext} />
               </AdColorWrapper>
             </motion.div>
           )}
@@ -1534,9 +1578,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   {/* OSINT mode requires auth + token */}
                   {mode === 'ocean' && searchResults.length > 0 && (
                     <TokenGate featureName="osint-tools">
-                      {/* Inline ad — OSINT page */}
+                      {/* OSINT inline — small non-adult strip */}
                       <div className="mb-4 flex justify-center">
-                        <AdsterraBanner format="banner728x90" searchContext={adContext} />
+                        <AdsterraBanner format="banner320x50" searchContext={adContext} />
                       </div>
                       <div className="space-y-4">
                         {searchResults.map((result, index) => (
@@ -1570,10 +1614,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
                           currentMode={mode}
                         />
                       </div>
-                      {/* Adsterra banner between every 3 results */}
+                          {/* 320x50 strip between every 3 results — small/non-intrusive */}
                       {(index + 1) % 3 === 0 && index !== searchResults.length - 1 && (
-                        <div className="flex justify-center my-2">
-                          <AdsterraBanner format="banner300x250" searchContext={adContext} />
+                        <div className="flex justify-center my-1">
+                          <AdsterraBanner format="banner320x50" searchContext={adContext} />
                         </div>
                       )}
                     </Fragment>
@@ -1625,10 +1669,17 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     <AdsterraBanner format="banner300x250" searchContext={adContext} />
                   </AdColorWrapper>
                 )}
-                {/* Adsterra 160x600 skyscraper — fills remaining sidebar height */}
+                {/* 160x600 skyscraper — large adult format, gated */}
                 {mode !== 'green' && (
-                  <AdColorWrapper type="cpm">
-                    <AdsterraBanner format="banner160x600" searchContext={adContext} />
+                  <AdColorWrapper type="adult">
+                    <AdsterraBanner
+                      format="banner160x600"
+                      searchContext={adContext}
+                      adultGated
+                      isAuthenticated={isAuthenticated}
+                      safeSearch={settings.safeSearch}
+                      query={query}
+                    />
                   </AdColorWrapper>
                 )}
               </div>

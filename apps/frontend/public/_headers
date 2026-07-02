@@ -51,6 +51,8 @@
   Content-Type: text/html; charset=utf-8
 /rewards
   Content-Type: text/html; charset=utf-8
+/revenue-calc
+  Content-Type: text/html; charset=utf-8
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
