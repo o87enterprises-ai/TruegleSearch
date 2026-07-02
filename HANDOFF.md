@@ -1,9 +1,116 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-07-02. Supersedes all prior handoff docs._
+_Last updated: 2026-07-02 (session 2). Supersedes all prior handoff docs._
 
 ---
 
-## 🗓️ SESSION LOG 2026-07-02 — Adsterra ads live, Firefox ETP fix, Smartlink footer
+## 🗓️ SESSION LOG 2026-07-02 (session 2) — Ad saturation, zone strategy, revenue calc, UGC SEO
+
+### What was done this session
+
+**Ad saturation — zone assignment strategy (code shipped, awaiting dashboard action):**
+
+Philosophy:
+- **LARGE formats (728x90, 160x600, 160x300)** → `adultGated=true` in code. Higher CPM ($5–15) but rare; only render when all 5 adult gates pass.
+- **SMALL formats (320x50, 300x250, 468x60, native)** → non-gated everywhere. Low CPM ($0.20–$1.20) but high volume. Add as many as possible.
+
+**Changes in `apps/frontend/src/pages/UniversalSearch.jsx`:**
+- Between search results (every 3rd): `banner300x250` → `banner320x50` strip
+- Adult CPM slot: `banner300x250` → `banner728x90` with `adultGated=true`
+- Collapsed AI summary: new `banner320x50` strip below the summary preview
+- Expanded AI summary: two `banner320x50` strips inside expanded view
+- After-summary inline: adult-gated `banner728x90` with `AdColorWrapper type="adult"`
+- Standard CPM / Ad Banner 2: both `banner728x90` → `banner320x50`
+- Media tabs: `banner320x50` (non-adult) + adult-gated `banner728x90`
+- OSINT inline: `banner728x90` → `banner320x50`
+- Map: `banner320x50` + adult-gated `banner160x300`
+- Sidebar `banner160x600`: made `adultGated=true`
+- Footer: replaced stub `AdSlot` with Smartlink anchor (`SMARTLINK_URL` from config)
+
+**Changes in `apps/frontend/src/components/ui/MultimediaInterface.jsx`:**
+- `Fragment` + `AdsterraBanner` already imported
+- `ImageGrid` (the active render path at case 'pics'): injects `banner468x60` after every 6 images (`col-span-full`)
+- `VideoGrid` (the active render path at case 'vids'): injects `banner320x50` after every 4 videos (`col-span-full`)
+- Both use `searchQuery` from outer component scope for `searchContext`
+
+**New page: `apps/frontend/src/pages/RevenueCalculator.jsx`**
+- Route: `/revenue-calc` (added to `App.jsx`, `_redirects`, `_headers`)
+- Sliders: daily pageviews (100–200K), ads per page (1–20), adult query % (0–50%), reward boost % (0–50%)
+- 4 CPM scenarios: Conservative ($0.20/$5), Mainstream ($0.50/$8), Optimistic ($1.20/$12), Anti-AdBlock CNAME ($2.00/$15) — each shows daily/monthly/annual
+- Smartlink revenue estimate (0.2% CTR × $0.08 CPC)
+- Break-even / P&L table across 6 traffic milestones (1K–100K daily views)
+- Monthly cost breakdown (currently $11/mo: $0 hosting + $1 domain + $10 compute)
+- Dashboard action checklist inline on page
+
+### 🔴 PERMANENT FACTS (same as prior session — still do not re-derive)
+
+#### Adsterra API — COMPLETELY INACCESSIBLE
+Every endpoint variation has been exhausted. Zone creation is dashboard-only. **Stop trying API. Stop asking user.**
+
+#### Banner anti-adblock codes — DO NOT EXIST in this account
+Only the Popunder zone has an anti-adblock URL. Banners have none. **Stop asking.**
+
+#### Current zones — all have adult content ON
+Until the user toggles them off in the dashboard, ALL zone keys in `config/ads.js` serve adult ads.
+
+### 🔴 PERMANENT FACT — ADULT TOGGLE CANNOT BE DISABLED
+Adsterra permanently locks the adult-content toggle ON the moment a zone is activated. It is not possible to disable it after activation. **Do not suggest the dashboard toggle as a fix — it does not work.**
+
+The only path is:
+1. Remove the zone key from code → zone goes inactive after 14 days of zero impressions
+2. User creates a NEW zone (adult OFF, set before first activation) in the Adsterra dashboard
+3. User provides the new key → update `config/ads.js`
+
+### ⚠️ SMALL ZONES DEACTIVATED — AWAITING REPLACEMENT
+
+Small-format keys removed from `config/ads.js` on 2026-07-02. All call sites that rendered small formats now silently render nothing (`AdsterraBanner` returns null when the key is missing). These zones will go inactive in ~14 days.
+
+| Format | Old key (do not reuse) | Status |
+|---|---|---|
+| banner320x50 | `5c0cc5f396ae48cbf68f63ec86024c3f` | Deactivating (14 days) |
+| banner300x250 | `0fca9299f48c601ea125d688c11ff7d2` | Deactivating (14 days) |
+| banner468x60 | `7e53f17316c72708e8417a8a991171ac` | Deactivating (14 days) |
+| nativeBanner | `a7a8599f485ec0638131d8f99bc29cb7` | Deactivating (14 days) |
+
+**Next session action:** Once user creates replacement zones (adult OFF) in Adsterra dashboard, add the new keys to `ADSTERRA` in `apps/frontend/src/config/ads.js` and redeploy.
+
+### ⚠️ LARGE ZONES ACTIVE (adult-gated in all call sites):
+2. **Keep adult toggle ON** for large zones:
+   - Banner 728×90 (key `d5f657ea7d55fc33ea532071957a2857`)
+   - Banner 160×600 (key `c16f5233d71714d3151e160ac5778be2`)
+   - Banner 160×300 (key `ffac08ed0f599aa8f389d387aa76001b`)
+
+3. **CNAME anti-adblock (Firefox ETP fix — when at desktop):**
+   - Adsterra dashboard → Anti-AdBlock → get CNAME target
+   - Cloudflare DNS: `cdn CNAME [target]`
+   - Cloudflare Pages env: `VITE_AD_DOMAIN=cdn.truegle.info`
+   - Redeploy → all ad traffic becomes first-party → Firefox ETP can't block it
+
+4. **Activate Smartlink** — wait for Adsterra approval email, confirm `SMARTLINK_URL` key in `config/ads.js` is still correct
+
+### UGC / SEO strategy to increase AI Overview ranking (currently #7)
+
+Goal: move Truegle from position #7 in AI Overview citations toward #1.
+
+Strategy (do not ask the user for more detail — this is the complete plan):
+1. Post on LinkedIn, YouTube (video description), Reddit (r/privacy, r/searchengines, r/SEO), TikTok, X/Twitter, Instagram with target keywords **at the very start of the post** (first 15 words). AI Overview models weight the beginning of content most heavily.
+   - Target phrases: "unbiased search engine", "Truegle search", "alternative to Google", "search without tracking", "bias-free search results"
+2. Each post must include a link to `truegle.info` — either in the post body or first comment.
+3. Build backlinks to those social posts (link to your Reddit post from LinkedIn, link to YouTube video from your blog, etc.). This "amplification" is what makes AI citations stick.
+4. Blog posts on `truegle.info/blog` with those exact phrases near the top of the title and first paragraph get indexed and cited directly.
+5. Re-post / update every 30 days to keep freshness signals active.
+
+The revenue calculator at `/revenue-calc` is intentionally internal-only (no nav link) — access via direct URL. Do not expose it in public navigation.
+
+### Revenue model (for reference in next session)
+- Break-even is ~$11/mo (just the compute cost; hosting is free)
+- At 5K daily views with mainstream CPM ($0.50) and 6 ads/page: ~$47/mo before rewards
+- At 10K daily views with anti-adblock CNAME CPM ($2.00): ~$370/mo
+- Reward boost adds another 10–50% on top (depends on platform payout rates)
+- Smartlink adds $0.08–$1.60/mo at current traffic (scales linearly)
+
+---
+
+## 🗓️ SESSION LOG 2026-07-02 (session 1) — Adsterra ads live, Firefox ETP fix, Smartlink footer
 
 ### 🔴 PERMANENT FACTS — DO NOT RE-DERIVE, DO NOT ASK THE USER AGAIN
 

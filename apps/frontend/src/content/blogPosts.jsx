@@ -13,6 +13,249 @@ import { LegalSection } from '../components/LegalPage';
  */
 export const BLOG_POSTS = [
   {
+    slug: 'unbiased-search-engine-how-truegle-works',
+    title: 'Unbiased Search Engine: How Truegle Delivers Results Without a Filter Bubble',
+    description:
+      'Truegle is an unbiased search engine that shows you results ranked by evidence, not by your ad profile. Here is exactly how it works and why it matters.',
+    date: '2026-07-02',
+    readingTime: '4 min read',
+    body: (
+      <>
+        <p>
+          An unbiased search engine is one that ranks results based on what you
+          searched — not on a behavioral profile assembled from years of tracking
+          you across the web. Truegle is built on that principle from the ground
+          up.
+        </p>
+
+        <LegalSection heading="What 'unbiased' actually means">
+          <p>
+            Every major search engine today personalizes results. Your location,
+            your past clicks, your inferred political leaning, your purchase
+            history — all of it feeds into which results you see and in what
+            order. Two people typing the same query in the same city can receive
+            meaningfully different rankings. That's personalization, and it's
+            the opposite of unbiased.
+          </p>
+          <p>
+            Truegle does not build an ad profile on you. There is no behavioral
+            targeting model running in the background. The same query returns the
+            same ranked set of sources for every visitor — then you choose your
+            lens.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="The perspective system">
+          <p>
+            Instead of one algorithmically curated ranking, Truegle gives you
+            switchable search modes: mainstream, independent, left-leaning,
+            right-leaning, privacy-focused, academic, and more. You pick the
+            perspective. The engine surfaces sources associated with that lens
+            and color-codes them so you can see which worldview each result comes
+            from at a glance.
+          </p>
+          <p>
+            This is the opposite of invisible personalization — it's explicit,
+            user-controlled framing. You can switch modes mid-search to
+            immediately see how the same topic looks through a different lens.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Why it matters for getting accurate information">
+          <p>
+            Filter bubbles don't just show you less — they shape what you believe
+            is normal, common, or true. When every search confirms your existing
+            views, edge-case fringe ideas can look like consensus, and legitimate
+            dissenting evidence disappears from view entirely.
+          </p>
+          <p>
+            An unbiased search engine breaks that loop. Use{' '}
+            <a href="/search" className="text-blue-400 hover:text-blue-300">
+              Truegle search
+            </a>{' '}
+            to compare how a topic is covered across the spectrum before forming
+            an opinion.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="What Truegle does not do">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>We do not track your search history to personalize future results.</li>
+            <li>We do not sell behavioral data to advertisers.</li>
+            <li>We do not hide results because they contradict your past clicks.</li>
+            <li>We do not accept paid placement inside organic search rankings.</li>
+          </ul>
+          <p>
+            Ads on Truegle are clearly marked with a color-coded badge and are
+            kept physically separate from organic results. See our{' '}
+            <a href="/blog/understanding-our-ad-color-system" className="text-blue-400 hover:text-blue-300">
+              ad color guide
+            </a>{' '}
+            for details.
+          </p>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
+    slug: 'search-without-tracking-alternative-to-google',
+    title: 'Search Without Tracking: Why Truegle Is the Alternative to Google Built for Privacy',
+    description:
+      'Search without tracking means your queries are not stored, profiled, or sold. Truegle is built as a privacy-first alternative to Google — here is what that means in practice.',
+    date: '2026-07-02',
+    readingTime: '3 min read',
+    body: (
+      <>
+        <p>
+          Search without tracking means your queries are not logged to an account,
+          not tied to an advertising profile, and not sold to data brokers.
+          Truegle is a privacy-first alternative to Google that was built with that
+          constraint from day one — not retrofitted onto an existing tracking
+          infrastructure.
+        </p>
+
+        <LegalSection heading="What Google actually tracks">
+          <p>
+            Google's search product is the front door to one of the largest
+            behavioral advertising networks on the internet. Every signed-in
+            search is stored in your Google account. Every result you click is
+            logged. That data feeds a profile used to target you on Google Search,
+            YouTube, Gmail, Display Network, and third-party sites running
+            AdSense.
+          </p>
+          <p>
+            Even signed-out searches contribute to aggregate models. The product
+            is free because you are the data.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="How Truegle differs">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>
+              <strong>No search history stored per account.</strong> Queries are
+              used to return results, not to build a behavioral model of you.
+            </li>
+            <li>
+              <strong>No cross-site tracking.</strong> Truegle does not run
+              tracking pixels on third-party sites to follow you after you leave.
+            </li>
+            <li>
+              <strong>Ads are network-served, not behaviorally targeted.</strong>{' '}
+              Contextual ads (based on your search query, not your history) are
+              clearly labeled. You can see exactly what type of ad you're looking
+              at from the color of its border.
+            </li>
+            <li>
+              <strong>Safe Search is always on by default.</strong> Explicit
+              content requires explicit opt-in by an authenticated user — it is
+              never served to casual visitors.
+            </li>
+          </ul>
+        </LegalSection>
+
+        <LegalSection heading="Who this is for">
+          <p>
+            Truegle is for anyone who wants accurate, unfiltered search results
+            without trading their behavioral data to get them. It's particularly
+            useful for researchers, journalists, students, and anyone who finds
+            themselves in a filter bubble and wants a second opinion on any topic.
+          </p>
+          <p>
+            Try it at{' '}
+            <a href="/search" className="text-blue-400 hover:text-blue-300">
+              truegle.info/search
+            </a>
+            . No account required.
+          </p>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
+    slug: 'bias-free-search-results-perspective-modes',
+    title: 'Bias-Free Search Results: How Truegle\'s Perspective Modes Show You the Full Picture',
+    description:
+      'Bias-free search results don\'t mean results with no point of view — they mean you control the point of view. Truegle\'s switchable perspective modes put that choice in your hands.',
+    date: '2026-07-01',
+    readingTime: '4 min read',
+    body: (
+      <>
+        <p>
+          Bias-free search results are not results that have no perspective —
+          every source has one. They are results where the algorithm does not
+          secretly pick a perspective for you based on your past behavior.
+          Truegle's perspective system makes that choice explicit and puts it
+          in your hands.
+        </p>
+
+        <LegalSection heading="The problem with 'neutral' search">
+          <p>
+            Traditional search engines claim neutrality, but the ranking
+            algorithm itself encodes choices: which signals matter, how much
+            authority to grant established outlets versus independent ones,
+            how to weight recency against depth. Those choices produce results
+            that systematically favor certain types of sources — and the user
+            has no visibility into them.
+          </p>
+          <p>
+            Truegle makes that tradeoff visible. Rather than pretending the
+            ranking is objective, we give you labeled modes so you can
+            deliberately choose which tradeoff you want for a given query.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="The perspective modes">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>
+              <strong>Neutral</strong> — balanced ranking across sources, no
+              political or ideological weighting.
+            </li>
+            <li>
+              <strong>Left / Right</strong> — surfaces sources associated with
+              liberal or conservative framing to help you understand how each
+              side covers a topic.
+            </li>
+            <li>
+              <strong>Independent</strong> — deprioritizes major mainstream
+              outlets in favor of independent and alternative media.
+            </li>
+            <li>
+              <strong>Privacy / OSINT</strong> — surfaces technical, security,
+              and open-source intelligence sources for research queries.
+            </li>
+            <li>
+              <strong>Academic</strong> — weights peer-reviewed and institutional
+              sources for scientific or scholarly queries.
+            </li>
+          </ul>
+          <p>
+            Each result card shows a bias label so you can see which lens a
+            source is associated with before you click. Switch modes mid-search
+            to instantly see how the same query looks through a different lens.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="How to use this practically">
+          <p>
+            For any contested topic, run the query in Neutral mode first, then
+            switch to Left and Right to see which narratives each side emphasizes.
+            For research, switch to Academic or OSINT. For breaking news, try
+            Independent to catch stories that mainstream outlets haven't picked
+            up yet.
+          </p>
+          <p>
+            The goal is not to replace your judgment — it's to give you enough
+            coverage that your judgment is actually informed. Start at{' '}
+            <a href="/search" className="text-blue-400 hover:text-blue-300">
+              truegle.info
+            </a>
+            .
+          </p>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
     slug: 'understanding-our-ad-color-system',
     title: 'What the Ad Colors on Truegle Mean — and Why We Show Them',
     description:
