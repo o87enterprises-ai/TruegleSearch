@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { isAdultQuery } from '../../utils/adultKeywords';
-import { ADSTERRA } from '../../config/ads';
+import { ADSTERRA, AD_DOMAIN } from '../../config/ads';
 import { adultAdsApproved } from '../ui/AdultConsentGate';
 
 /**
@@ -89,9 +89,10 @@ export default function AdsterraBanner({
   const keywords = searchContext ? (CONTEXT_KEYWORDS[searchContext] ?? []) : [];
   const kwParam = keywords.length > 0 ? `&kw=${encodeURIComponent(keywords.join(','))}` : '';
 
+  const dParam = `&d=${encodeURIComponent(AD_DOMAIN)}`;
   const src = placement.native
-    ? `/adframe.html?k=${placement.key}&native=1${kwParam}`
-    : `/adframe.html?k=${placement.key}&h=${placement.h}&w=${placement.w}${kwParam}`;
+    ? `/adframe.html?k=${placement.key}&native=1${dParam}${kwParam}`
+    : `/adframe.html?k=${placement.key}&h=${placement.h}&w=${placement.w}${dParam}${kwParam}`;
 
   const w = placement.native ? '100%' : placement.w;
 
