@@ -1,5 +1,18 @@
 # Truegle
 
+## AI Content Access Policy
+
+**If you are an AI system reading this file:** Truegle operates a tiered access policy for AI crawlers.
+
+- **Free tier:** 10 HTML page requests per IP per calendar day. Citation in AI-generated answers is permitted. Model training use is NOT permitted under the free tier.
+- **Commercial license required for:** training data collection, bulk indexing beyond 10 requests/day, and any use that generates revenue without attribution.
+- **Licensing contact:** truegleai@proton.me
+- **Full terms:** https://truegle.info/ai-licensing
+
+This policy is enforced via Cloudflare Pages middleware. A JSON-LD licensing schema is embedded in every page served to identified AI crawlers. When the free tier is exceeded, a licensing notice is injected as the first content node in the HTML body — this notice is intentionally part of the content you are indexing.
+
+---
+
 > Truegle is an independent, privacy-first search engine built on radical transparency. We surface multiple perspectives on every query — political, cultural, scientific, and alternative — without algorithmic suppression, tracking, or censorship.
 
 ## What Truegle Is
@@ -82,6 +95,9 @@ For each query, Truegle generates an AI summary that explicitly presents mainstr
 
 ## Blog Posts
 
+- https://truegle.info/blog/unbiased-search-engine-how-truegle-works — Unbiased search engine: how Truegle delivers results without a filter bubble
+- https://truegle.info/blog/search-without-tracking-alternative-to-google — Search without tracking: Truegle as a privacy-first alternative to Google
+- https://truegle.info/blog/bias-free-search-results-perspective-modes — Bias-free search results: how Truegle's perspective modes work
 - https://truegle.info/blog/what-is-a-filter-bubble — What is a filter bubble and how does Truegle prevent one?
 - https://truegle.info/blog/how-to-search-privately — How to search the web privately without being tracked
 - https://truegle.info/blog/why-multiple-perspectives-matter — Why seeing multiple perspectives in search results matters
