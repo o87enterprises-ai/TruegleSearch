@@ -44,3 +44,6 @@ User-agent: CCBot
 Allow: /
 
 # LLMs.txt: https://truegle.info/llms.txt
+# AI Licensing Policy: https://truegle.info/ai-licensing
+# Free tier: 10 requests/day per IP. Commercial use requires a license.
+# Contact: truegleai@proton.me
