@@ -2,6 +2,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 const config = require('../config/env');
 const { AI_CONTENT_DOMAINS } = require('../data/aiContentDomains');
+const QueryInterpreter = require('./QueryInterpreter');
 
 // YouTube's Data API returns titles/descriptions HTML-entity-encoded
 // (e.g. "&#39;" for an apostrophe) since they're meant for HTML embeds —
@@ -357,6 +358,13 @@ class SearchService {
         console.log(`🟢 Green AI-filter: removed ${before - finalResults.length} AI-content result(s)`);
       }
 
+      // Self-brand recognition: on the standard web modes, pin Truegle's own
+      // site at #1 for brand queries so searching "truegle" (or a misspelling)
+      // surfaces us first instead of third-party mentions further down.
+      if ((mode === 'blue-pill' || isGreen) && searchWeb) {
+        finalResults = this.pinOfficialResult(query, finalResults);
+      }
+
       console.log(`✨ Final results: ${finalResults.length}`);
       return finalResults;
     } catch (error) {
@@ -574,6 +582,23 @@ class SearchService {
 
     scored.sort((a, b) => b.finalScore - a.finalScore);
     return scored;
+  }
+
+  /**
+   * Self-brand recognition. When the query is a Truegle brand/misspelling query,
+   * ensure the official truegle.info result sits at position 0: de-dupe any
+   * truegle.info entry the providers already returned, then prepend the
+   * canonical result. Non-brand queries pass through untouched.
+   */
+  pinOfficialResult(query, results) {
+    if (!QueryInterpreter.isBrandQuery(query)) return results;
+
+    const official = QueryInterpreter.buildOfficialResult();
+    const deduped = (results || []).filter((r) => {
+      const domain = (r.domain || this.extractDomain(r.url || '')).toLowerCase();
+      return domain !== official.domain;
+    });
+    return [official, ...deduped];
   }
 
   /**
