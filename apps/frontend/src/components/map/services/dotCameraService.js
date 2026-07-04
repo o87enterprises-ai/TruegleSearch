@@ -81,6 +81,9 @@ export async function fetchAllCameras(filters = {}) {
 
 /**
  * Fetch cameras near a specific location
+ * Uses the backend bounding-box endpoint so results are filtered server-side.
+ * (The flat /traffic-cameras list is sorted alphabetically by state, so a
+ * capped fetch only ever returned Alabama/Alaska cameras — never use it here.)
  * @param {Object} location - { lat, lng } coordinates
  * @param {number} maxDistance - Maximum distance in miles (default: 50)
  * @param {number} limit - Maximum number of cameras to return (default: 15)
@@ -94,25 +97,36 @@ export async function fetchCamerasNearLocation(location, maxDistance = 50, limit
   try {
     console.log(`📍 Fetching cameras near ${location.lat}, ${location.lng} (within ${maxDistance} mi)`);
 
-    // Fetch all cameras (or with regional filter if we know the region)
-    const cameras = await fetchAllCameras({ limit: 1000 });
+    // Bounding box: 1 degree latitude ≈ 69 miles; shrink longitude span by cos(lat)
+    const latDelta = maxDistance / 69;
+    const lngDelta = maxDistance / (69 * Math.max(0.15, Math.cos(location.lat * Math.PI / 180)));
+    const minLat = Math.max(-90, location.lat - latDelta);
+    const maxLat = Math.min(90, location.lat + latDelta);
+    const minLng = Math.max(-180, location.lng - lngDelta);
+    const maxLng = Math.min(180, location.lng + lngDelta);
+
+    const response = await fetch(
+      `${BACKEND_URL}/api/maps/traffic-cameras/bbox/${minLat}/${minLng}/${maxLat}/${maxLng}`,
+      { headers: { 'Accept': 'application/json' } }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    if (!result.success || !Array.isArray(result.data)) {
+      throw new Error('Invalid response format from camera bbox API');
+    }
+
+    const cameras = result.data;
+    console.log(`✅ Bbox query returned ${cameras.length} cameras`);
 
     if (cameras.length === 0) {
-      console.warn('⚠️ No cameras found');
       return [];
     }
 
-    // Debug: Check first few cameras
-    console.log(`🔍 DEBUG: First 5 cameras from API:`, cameras.slice(0, 5).map(cam => ({
-      id: cam.id,
-      name: cam.name,
-      location: cam.location,
-      hasLocation: !!(cam.location && cam.location.lat && cam.location.lng)
-    })));
-
-    // Calculate distances and filter by maxDistance
     const camerasWithLocation = cameras.filter(cam => cam.location && cam.location.lat && cam.location.lng);
-    console.log(`📍 Cameras with valid location: ${camerasWithLocation.length} out of ${cameras.length}`);
 
     const camerasWithDistance = camerasWithLocation
       .map(cam => {

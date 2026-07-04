@@ -1,0 +1,6 @@
+name = "truegle-search"
+pages_build_output_dir = "dist"
+
+[[kv_namespaces]]
+binding = "BOT_TRACKING"
+id = "323ab3133fd84eb582f7e2be98c0ec58"

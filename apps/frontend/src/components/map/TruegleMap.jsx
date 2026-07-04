@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Map as MapboxMap, Marker, Popup, NavigationControl, ScaleControl } from 'react-map-gl/mapbox';
+import { Map as MapboxMap, Marker, Popup, NavigationControl, ScaleControl, Source, Layer } from 'react-map-gl/mapbox';
 import mapboxgl from 'mapbox-gl';
 import { X, Minimize2, Layers, Navigation, Camera, MapPin, Navigation as NavigationIcon, Globe, Map as MapIcon, Target, Plus, Minus, Maximize2, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,6 +15,7 @@ import AzimuthalFlat from './AzimuthalFlat';
 import WebGLErrorBoundary from '../ui/WebGLErrorBoundary';
 import AdBanner from './AdBanner';
 import EnhancedCameraSearch from './EnhancedCameraSearch';
+import MapApiService from './services/mapApi';
 import backgroundImage from '../../assets/images/Azimuthal-satellite-view.png';
 import './styles/TruegleMap.css';
 
@@ -56,6 +57,14 @@ export default function TruegleMap({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [showGlobe, setShowGlobe] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Destination search (Google-Earth-style): lives INSIDE the fullscreen
+  // container so it stays visible when the map goes native-fullscreen (mobile
+  // always does). The wrapper-level search bar disappears in that mode.
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [placeResults, setPlaceResults] = useState([]);
+  const [isPlaceSearching, setIsPlaceSearching] = useState(false);
+  const [showPlaceResults, setShowPlaceResults] = useState(false);
 
   useEffect(() => {
     const styleMap = {
@@ -382,14 +391,86 @@ export default function TruegleMap({
     console.log('Location denied:', error);
   }, []);
 
+  // Draw the calculated route on the map and frame it Google-Earth-style.
   const handleRouteCalculated = useCallback((route) => {
-    console.log('Route calculated:', route);
-    // You could draw the route on the map here
-  }, []);
+    // Geometry arrives as GeoJSON ({type, coordinates}) from Mapbox/OSRM or a
+    // bare [[lng,lat],...] array from Radar — normalize to a coordinate array.
+    const geom = route?.geometry;
+    const coords = Array.isArray(geom) ? geom : geom?.coordinates;
+    if (!Array.isArray(coords) || coords.length < 2) return;
 
-  // Get user location for traffic cameras
+    actions.clearRoutes();
+    actions.addRoute({
+      id: 'active-route',
+      geometry: { type: 'LineString', coordinates: coords },
+      distance: route.distance,
+      duration: route.duration,
+    });
+
+    // Fit the viewport to the route bounds
+    let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+    for (const [lng, lat] of coords) {
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }
+    let map = mapRef.current;
+    if (map && typeof map.getMap === 'function') map = map.getMap();
+    if (map && typeof map.fitBounds === 'function') {
+      map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 80, duration: 1500 });
+    }
+  }, [actions]);
+
+  // Debounced place search for the in-map destination bar
   useEffect(() => {
-    if (isFullscreen && !userLocation && navigator.geolocation) {
+    if (!placeQuery || placeQuery.trim().length < 3) {
+      setPlaceResults([]);
+      return;
+    }
+    const timeoutId = setTimeout(async () => {
+      setIsPlaceSearching(true);
+      try {
+        const result = await MapApiService.geocode(placeQuery);
+        setPlaceResults(result?.data || []);
+      } catch (err) {
+        console.error('Map place search error:', err);
+        setPlaceResults([]);
+      } finally {
+        setIsPlaceSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [placeQuery]);
+
+  const handlePlaceResultClick = useCallback((result) => {
+    const lat = result.position?.lat;
+    const lng = result.position?.lng ?? result.position?.lon;
+    if (typeof lat !== 'number' || typeof lng !== 'number') return;
+
+    setViewState(prev => ({ ...prev, longitude: lng, latitude: lat, zoom: 15 }));
+    actions.flyTo({ lat, lng }, 15);
+
+    const marker = {
+      id: `search-result-${lat}-${lng}`,
+      lat,
+      lng,
+      name: result.address,
+      address: result.address,
+      category: 'SEARCH_RESULT',
+    };
+    actions.addMarker(marker);
+    actions.setSelectedMarker(marker);
+
+    setPlaceQuery('');
+    setPlaceResults([]);
+    setShowPlaceResults(false);
+  }, [actions]);
+
+  // Get user location for traffic cameras (whenever the map is mounted, not
+  // just fullscreen — the cameras/directions panels work in windowed mode too)
+  useEffect(() => {
+    if (!userLocation && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setUserLocation({
@@ -402,7 +483,7 @@ export default function TruegleMap({
         }
       );
     }
-  }, [isFullscreen, userLocation]);
+  }, [userLocation]);
 
   const MarkerElement = ({ marker }) => {
     // Special rendering for current location
@@ -534,6 +615,31 @@ export default function TruegleMap({
           unit="imperial"
         />
 
+        {/* Calculated route lines (from DirectionsPanel via MapContext) */}
+        {(state.routes || []).map(route => (
+          route?.geometry?.coordinates?.length >= 2 && (
+            <Source
+              key={route.id}
+              id={`route-${route.id}`}
+              type="geojson"
+              data={{ type: 'Feature', properties: {}, geometry: route.geometry }}
+            >
+              <Layer
+                id={`route-line-casing-${route.id}`}
+                type="line"
+                layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                paint={{ 'line-color': '#1d4ed8', 'line-width': 8, 'line-opacity': 0.4 }}
+              />
+              <Layer
+                id={`route-line-${route.id}`}
+                type="line"
+                layout={{ 'line-join': 'round', 'line-cap': 'round' }}
+                paint={{ 'line-color': '#38bdf8', 'line-width': 4 }}
+              />
+            </Source>
+          )
+        ))}
+
         {markers.map(marker => (
           <Marker
             key={marker.id}
@@ -624,6 +730,45 @@ export default function TruegleMap({
           />
         </WebGLErrorBoundary>
       ) : null}
+
+      {/* Destination search bar — inside the fullscreen container so it
+          survives native fullscreen (mobile forces fullscreen). */}
+      <div
+        className="absolute z-50 w-72 max-w-[calc(100%-88px)]"
+        style={isFullscreen ? { top: 72, left: 12 } : { top: 16, left: 64 }}
+      >
+        <div className="flex items-center gap-2 bg-white rounded-full shadow-lg px-4 py-2.5">
+          <Search size={16} className="text-gray-500 shrink-0" />
+          <input
+            type="text"
+            value={placeQuery}
+            onChange={(e) => {
+              setPlaceQuery(e.target.value);
+              setShowPlaceResults(true);
+            }}
+            onFocus={() => setShowPlaceResults(true)}
+            placeholder="Search Truegle Maps"
+            className="flex-1 text-sm text-gray-800 outline-none bg-transparent min-w-0"
+          />
+        </div>
+        {showPlaceResults && (placeResults.length > 0 || isPlaceSearching) && (
+          <div className="mt-1 bg-white rounded-xl shadow-lg overflow-hidden max-h-64 overflow-y-auto">
+            {isPlaceSearching && (
+              <div className="px-4 py-2 text-xs text-gray-500">Searching...</div>
+            )}
+            {placeResults.map((result, index) => (
+              <button
+                key={index}
+                type="button"
+                onClick={() => handlePlaceResultClick(result)}
+                className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 border-t border-gray-100 first:border-t-0"
+              >
+                {result.address}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Non-Fullscreen Controls */}
       {!isFullscreen && (
@@ -1003,9 +1148,9 @@ export default function TruegleMap({
         )}
       </AnimatePresence>
 
-      {/* Traffic Cameras Panel (Fullscreen) - Positioned below top bar */}
+      {/* Traffic Cameras Panel - works in windowed and fullscreen mode */}
       <AnimatePresence>
-        {isFullscreen && showCamerasFS && (
+        {showCamerasFS && (
           <div className="absolute top-16 left-0 right-0 bottom-0 z-30 pointer-events-none">
             <div className="pointer-events-auto">
               <TrafficCameras
@@ -1049,9 +1194,9 @@ export default function TruegleMap({
         )}
       </AnimatePresence>
 
-      {/* Directions Panel (Fullscreen) - Positioned below top bar */}
+      {/* Directions Panel - works in windowed and fullscreen mode */}
       <AnimatePresence>
-        {isFullscreen && showDirectionsFS && (
+        {showDirectionsFS && (
           <div className="absolute top-16 left-0 right-0 bottom-0 z-30 pointer-events-none">
             <div className="pointer-events-auto">
               <DirectionsPanel
