@@ -425,6 +425,7 @@ const PrivacyStep = ({ data, updateData, onNext, onPrevious }) => {
 
 const RewardsStep = ({ onNext, onPrevious }) => {
   const { optedIn, optIn, optOut, loading } = useRewards();
+  const navigate = useNavigate();
 
   const handleToggle = async () => {
     if (optedIn) {
@@ -472,6 +473,27 @@ const RewardsStep = ({ onNext, onPrevious }) => {
           />
         </div>
       </button>
+
+      {/* Fires right after opt-in: give the user a clear path to set up how
+          they get paid. The payout form (PayPal) lives on the /rewards dashboard. */}
+      {optedIn && (
+        <div className="mb-8 -mt-4 rounded-lg border border-green-200 bg-green-50 p-4">
+          <div className="text-sm font-medium text-gray-900 mb-1">
+            One more step — tell us where to send your money
+          </div>
+          <p className="text-sm text-gray-600 mb-3">
+            Add your payout details (PayPal) so your cash rewards have somewhere to go.
+            You can always do this later from your Rewards dashboard.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/rewards')}
+            className="inline-flex items-center text-sm font-semibold text-green-700 hover:text-green-800"
+          >
+            Set up payout <SafeIcon icon={FiArrowRight} className="ml-1" size={14} />
+          </button>
+        </div>
+      )}
 
       <div className="flex space-x-3">
         <button
