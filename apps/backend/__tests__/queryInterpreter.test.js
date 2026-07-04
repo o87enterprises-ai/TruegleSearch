@@ -45,6 +45,63 @@ describe('QueryInterpreter.buildOfficialResult', () => {
   });
 });
 
+describe('QueryInterpreter.detectSiteKeyword', () => {
+  it('detects a trailing keyword and strips it', () => {
+    expect(QueryInterpreter.detectSiteKeyword('darkwaters 9 yt')).toEqual({
+      domain: 'youtube.com', keyword: 'yt', cleanedQuery: 'darkwaters 9',
+    });
+    expect(QueryInterpreter.detectSiteKeyword('caveman git')).toEqual({
+      domain: 'github.com', keyword: 'git', cleanedQuery: 'caveman',
+    });
+  });
+
+  it('detects a leading keyword and strips it', () => {
+    expect(QueryInterpreter.detectSiteKeyword('yt lofi beats')).toEqual({
+      domain: 'youtube.com', keyword: 'yt', cleanedQuery: 'lofi beats',
+    });
+  });
+
+  it('ignores mid-sentence keywords and bare single tokens', () => {
+    expect(QueryInterpreter.detectSiteKeyword('the git repository workflow')).toBeNull();
+    expect(QueryInterpreter.detectSiteKeyword('youtube')).toBeNull(); // bare nav query, don't collapse to empty
+    expect(QueryInterpreter.detectSiteKeyword('yttrium properties')).toBeNull(); // substring, not a standalone token
+  });
+
+  it('returns null when no keyword is present', () => {
+    expect(QueryInterpreter.detectSiteKeyword('length of the great wall of china')).toBeNull();
+    expect(QueryInterpreter.detectSiteKeyword('')).toBeNull();
+  });
+});
+
+describe('SearchService.boostDomainToTop', () => {
+  let service;
+  beforeEach(() => { service = new SearchService(); });
+
+  it('moves target-site results (and subdomains) to the top, preserving order', () => {
+    const results = [
+      { title: 'A blog', url: 'https://blog.example.com/a', domain: 'blog.example.com' },
+      { title: 'YT vid 1', url: 'https://www.youtube.com/watch?v=1', domain: 'www.youtube.com' },
+      { title: 'A news piece', url: 'https://news.example.com/x', domain: 'news.example.com' },
+      { title: 'YT vid 2', url: 'https://youtube.com/watch?v=2', domain: 'youtube.com' },
+    ];
+    const boosted = service.boostDomainToTop(results, 'youtube.com');
+    expect(boosted[0].domain).toBe('www.youtube.com');
+    expect(boosted[1].domain).toBe('youtube.com');
+    expect(boosted[2].domain).toBe('blog.example.com'); // non-target order preserved
+    expect(boosted[3].domain).toBe('news.example.com');
+  });
+
+  it('does not match unrelated domains that merely contain the name', () => {
+    const results = [
+      { title: 'Fake', url: 'https://notyoutube.com/x', domain: 'notyoutube.com' },
+      { title: 'Real', url: 'https://youtube.com/x', domain: 'youtube.com' },
+    ];
+    const boosted = service.boostDomainToTop(results, 'youtube.com');
+    expect(boosted[0].domain).toBe('youtube.com');
+    expect(boosted[1].domain).toBe('notyoutube.com');
+  });
+});
+
 describe('SearchService.pinOfficialResult', () => {
   let service;
   beforeEach(() => { service = new SearchService(); });

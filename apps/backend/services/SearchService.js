@@ -116,6 +116,20 @@ class SearchService {
       // Green: same retrieval as blue-pill, but AI-generated-content domains are
       // filtered out of the final results (Green mode promises 0 AI results).
       const isGreen = mode === 'green';
+
+      // Site-keyword shortcuts: on the standard web modes, a leading/trailing
+      // keyword like "… yt" or "git …" is stripped from the query and its site
+      // is boosted to the top of the results (see boostDomain use below).
+      let boostDomain = null;
+      if (mode === 'blue-pill' || isGreen) {
+        const sk = QueryInterpreter.detectSiteKeyword(query);
+        if (sk) {
+          boostDomain = sk.domain;
+          query = sk.cleanedQuery;
+          console.log(`🔗 Site-keyword "${sk.keyword}" → boosting ${boostDomain}, query now "${query}"`);
+        }
+      }
+
       const searchPromises = [];
       // Results that are fetched + formatted synchronously (SearXNG-primary mode)
       // rather than via the searchPromises/Promise.allSettled batch below.
@@ -223,6 +237,18 @@ class SearchService {
               { ...filters, perPage: 5 }
             ));
           }
+        }
+      }
+
+      // Site-keyword shortcut: run one site-scoped query so target-site results
+      // are guaranteed present to boost to the top, even if the open web search
+      // wouldn't have surfaced them. Uses whichever web provider is configured.
+      if (searchWeb && boostDomain) {
+        const scoped = `${query} site:${boostDomain}`;
+        if (this.braveApiKey) {
+          searchPromises.push(this.performBraveSearch(scoped, { ...filters, perPage: 8 }));
+        } else if (this.googleApiKey && this.googleSearchEngineId) {
+          searchPromises.push(this.performGoogleSearch(scoped, { ...filters, perPage: 8 }));
         }
       }
 
@@ -356,6 +382,12 @@ class SearchService {
         const before = finalResults.length;
         finalResults = finalResults.filter((r) => !this.isAiContentDomain(r.url || r.domain));
         console.log(`🟢 Green AI-filter: removed ${before - finalResults.length} AI-content result(s)`);
+      }
+
+      // Site-keyword shortcut: pull results from the target site to the top,
+      // keeping everything else below (Google-style boost, not a full redirect).
+      if (boostDomain && searchWeb) {
+        finalResults = this.boostDomainToTop(finalResults, boostDomain);
       }
 
       // Self-brand recognition: on the standard web modes, pin Truegle's own
@@ -599,6 +631,24 @@ class SearchService {
       return domain !== official.domain;
     });
     return [official, ...deduped];
+  }
+
+  /**
+   * Stable-partition results so those on `domain` (or a subdomain of it) come
+   * first while preserving each group's existing relevance order. Powers the
+   * site-keyword shortcut's boost-to-top without discarding other results.
+   */
+  boostDomainToTop(results, domain) {
+    if (!domain || !Array.isArray(results)) return results;
+    const target = domain.toLowerCase();
+    const onSite = [];
+    const rest = [];
+    for (const r of results) {
+      const d = (r.domain || this.extractDomain(r.url || '')).toLowerCase();
+      if (d === target || d.endsWith(`.${target}`)) onSite.push(r);
+      else rest.push(r);
+    }
+    return [...onSite, ...rest];
   }
 
   /**

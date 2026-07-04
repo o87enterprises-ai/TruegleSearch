@@ -41,6 +41,60 @@ const BRAND_MISSPELLINGS = new Set([
   'truengle',
 ]);
 
+// Site-keyword shortcuts. When one of these appears as a standalone leading or
+// trailing token — "darkwaters 9 yt", "caveman git" — Truegle strips it and
+// boosts results from the mapped site to the top (Google-style), so a bare
+// keyword behaves like DuckDuckGo's !bangs without the punctuation.
+//
+// Deliberately conservative: only keywords that signal site-intent and are
+// rarely the actual search subject. Common English words ("so", "x", "on") and
+// ambiguous brand words ("amazon", "apple", "target") are intentionally left
+// out so we don't hijack an ordinary query.
+const SITE_KEYWORDS = {
+  yt: 'youtube.com',
+  youtube: 'youtube.com',
+  git: 'github.com',
+  github: 'github.com',
+  reddit: 'reddit.com',
+  wiki: 'wikipedia.org',
+  wikipedia: 'wikipedia.org',
+  imdb: 'imdb.com',
+  stackoverflow: 'stackoverflow.com',
+  npm: 'npmjs.com',
+  mdn: 'developer.mozilla.org',
+  quora: 'quora.com',
+  soundcloud: 'soundcloud.com',
+};
+
+/**
+ * Detect a site-keyword shortcut in a leading or trailing standalone token.
+ * Returns `{ domain, keyword, cleanedQuery }` with the keyword removed, or null.
+ *
+ * Requires at least two tokens so a bare "youtube" stays a normal navigational
+ * query instead of collapsing to an empty search. Trailing position wins over
+ * leading, since "<query> yt" is the more common intent. Mid-sentence matches
+ * (e.g. "the git repository") are ignored on purpose to avoid false positives.
+ */
+function detectSiteKeyword(query) {
+  const raw = (query || '').trim();
+  if (!raw) return null;
+
+  const tokens = raw.split(/\s+/);
+  if (tokens.length < 2) return null;
+
+  const clean = (t) => t.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const last = clean(tokens[tokens.length - 1]);
+  const first = clean(tokens[0]);
+
+  if (SITE_KEYWORDS[last]) {
+    return { domain: SITE_KEYWORDS[last], keyword: last, cleanedQuery: tokens.slice(0, -1).join(' ') };
+  }
+  if (SITE_KEYWORDS[first]) {
+    return { domain: SITE_KEYWORDS[first], keyword: first, cleanedQuery: tokens.slice(1).join(' ') };
+  }
+  return null;
+}
+
 /**
  * Levenshtein edit distance between two short strings. Iterative two-row
  * implementation — allocation-light and more than fast enough for a query token.
@@ -139,6 +193,8 @@ module.exports = {
   isBrandQuery,
   buildOfficialResult,
   normalizeForBrand,
+  detectSiteKeyword,
   levenshtein,
   OFFICIAL_SITE,
+  SITE_KEYWORDS,
 };
