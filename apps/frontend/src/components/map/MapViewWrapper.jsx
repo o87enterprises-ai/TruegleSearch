@@ -9,10 +9,8 @@ import DirectionsPanel from './DirectionsPanel';
 import LocationPermissionModal from './LocationPermissionModal';
 import AdBanner from './AdBanner';
 import { useMap } from './context/MapContext';
-import MapApiService from './services/mapApi';
 import truegleLogo from '../../assets/images/truegle.png';
 import LogoOverlay from './LogoOverlay';
-import { Search as SearchIcon } from 'lucide-react';
 
 const getBackendUrl = () => import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -38,12 +36,6 @@ export default function MapViewWrapper({
   const [mapZoom, setMapZoom] = useState(4);
   const hasFetchedPlacesRef = useRef(false);
   const lastLocationRef = useRef(null);
-
-  // Map search bar (Google-Maps-style place search)
-  const [mapSearchQuery, setMapSearchQuery] = useState('');
-  const [mapSearchResults, setMapSearchResults] = useState([]);
-  const [isMapSearching, setIsMapSearching] = useState(false);
-  const [showMapSearchResults, setShowMapSearchResults] = useState(false);
 
   // Update map center when location is detected
   useEffect(() => {
@@ -243,54 +235,6 @@ export default function MapViewWrapper({
     }
   };
 
-  // Debounced place search for the map's own search bar
-  useEffect(() => {
-    if (!mapSearchQuery || mapSearchQuery.trim().length < 3) {
-      setMapSearchResults([]);
-      return;
-    }
-
-    const timeoutId = setTimeout(async () => {
-      setIsMapSearching(true);
-      try {
-        const result = await MapApiService.geocode(mapSearchQuery);
-        setMapSearchResults(result?.data || []);
-      } catch (err) {
-        console.error('Map search error:', err);
-        setMapSearchResults([]);
-      } finally {
-        setIsMapSearching(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [mapSearchQuery]);
-
-  const handleMapSearchResultClick = (result) => {
-    const lat = result.position?.lat;
-    const lng = result.position?.lng ?? result.position?.lon;
-    if (typeof lat !== 'number' || typeof lng !== 'number') return;
-
-    setMapCenter([lng, lat]);
-    setMapZoom(15);
-    actions.flyTo({ lat, lng }, 15);
-
-    const marker = {
-      id: `search-result-${lat}-${lng}`,
-      lat,
-      lng,
-      name: result.address,
-      address: result.address,
-      category: 'SEARCH_RESULT',
-    };
-    actions.addMarker(marker);
-    actions.setSelectedMarker(marker);
-
-    setMapSearchQuery('');
-    setMapSearchResults([]);
-    setShowMapSearchResults(false);
-  };
-
   const getViewModeTitle = (mode) => {
     switch (mode) {
       case 'standard':
@@ -346,41 +290,8 @@ export default function MapViewWrapper({
 
         {/* Map Container - Removed redundant header controls */}
         <div style={{ flex: 1, position: 'relative' }}>
-          {/* Google-Maps-style place search bar */}
-          <div className="absolute top-3 left-3 right-3 z-[60] max-w-sm">
-            <div className="flex items-center gap-2 bg-white rounded-full shadow-lg px-4 py-2.5">
-              <SearchIcon size={16} className="text-gray-500 shrink-0" />
-              <input
-                type="text"
-                value={mapSearchQuery}
-                onChange={(e) => {
-                  setMapSearchQuery(e.target.value);
-                  setShowMapSearchResults(true);
-                }}
-                onFocus={() => setShowMapSearchResults(true)}
-                placeholder="Search Truegle Maps"
-                className="flex-1 text-sm text-gray-800 outline-none bg-transparent"
-              />
-            </div>
-            {showMapSearchResults && (mapSearchResults.length > 0 || isMapSearching) && (
-              <div className="mt-1 bg-white rounded-xl shadow-lg overflow-hidden">
-                {isMapSearching && (
-                  <div className="px-4 py-2 text-xs text-gray-500">Searching...</div>
-                )}
-                {mapSearchResults.map((result, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => handleMapSearchResultClick(result)}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 border-t border-gray-100 first:border-t-0"
-                  >
-                    {result.address}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
+          {/* Place search bar now lives inside TruegleMap so it stays visible
+              in native fullscreen (mobile always fullscreens the map). */}
           <TruegleMap
             provider="mapbox"
             style={mapStyle}

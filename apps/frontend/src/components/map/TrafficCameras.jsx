@@ -33,23 +33,14 @@ export default function TrafficCameras({ userLocation, isOpen, onClose }) {
         setCameras(nearbyCameras);
         console.log(`✅ Loaded ${nearbyCameras.length} cameras near location`);
       } else {
-        // No cameras found - show info message
+        // No cameras found — the OpenTrafficCamMap dataset only covers ~10 US
+        // states, so outside those this is genuine absence, not an error.
         console.log(`⚠️ No cameras available within 150 miles of this location`);
-        setCameras([{
-          id: 'info-1',
-          name: 'No Live Cameras Found Within 150 Miles',
-          location: { lat, lng },
-          distance: '0.0',
-          imageUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjM2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjQwIiBoZWlnaHQ9IjM2MCIgZmlsbD0iIzFhMWEyZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiMwMGJjZGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBDYW1lcmFzIEF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=',
-          streamUrl: null,
-          direction: 'N/A',
-          roadName: 'OpenTrafficCamMap coverage limited in this area',
-          city: 'Unknown',
-          state: 'N/A',
-          isLive: false,
-          lastUpdated: new Date().toISOString(),
-          source: 'OpenTrafficCamMap'
-        }]);
+        setCameras([]);
+        setError(
+          'No live cameras within 150 miles. Public camera coverage is currently ' +
+          'limited to parts of the US (AL, AK, AZ, CA, CO, DE, GA, IN, KY, OH).'
+        );
       }
 
     } catch (err) {
