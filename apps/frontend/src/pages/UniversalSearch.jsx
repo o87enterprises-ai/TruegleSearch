@@ -1378,7 +1378,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
           {mode !== 'green' && (
             <div className="flex justify-center my-2">
               <AdColorWrapper type="cpm">
-                <AdsterraBanner format="banner320x50" searchContext={adContext} />
+                {/* Non-adult primary ad — uses the working 728x90 zone (the
+                    320x50 zone was deactivated 2026-07-02), rendered responsively
+                    so it fits mobile. Swap back to a mobile format once new
+                    non-adult small zones are created after the Adsterra cooldown. */}
+                <AdsterraBanner format="banner728x90" searchContext={adContext} />
               </AdColorWrapper>
             </div>
           )}
@@ -1513,7 +1517,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
               className="max-w-4xl mx-auto mb-4 flex justify-center"
             >
               <AdColorWrapper type="cpm">
-                <AdsterraBanner format="banner320x50" searchContext={adContext} />
+                {/* Non-adult primary ad — uses the working 728x90 zone (the
+                    320x50 zone was deactivated 2026-07-02), rendered responsively
+                    so it fits mobile. Swap back to a mobile format once new
+                    non-adult small zones are created after the Adsterra cooldown. */}
+                <AdsterraBanner format="banner728x90" searchContext={adContext} />
               </AdColorWrapper>
             </motion.div>
           )}

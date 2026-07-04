@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { isAdultQuery } from '../../utils/adultKeywords';
 import { ADSTERRA, AD_DOMAIN } from '../../config/ads';
 import { adultAdsApproved } from '../ui/AdultConsentGate';
@@ -73,6 +73,28 @@ export default function AdsterraBanner({
     return () => window.removeEventListener('truegle:adult-ads-approved', onApprove);
   }, []);
 
+  // Responsive fit: scale a fixed-size banner down to its container so a wide
+  // format (e.g. 728x90) fits a narrow mobile column instead of overflowing.
+  // A callback ref attaches the observer exactly when the node mounts, so it
+  // works even for banners that start hidden and render later.
+  const roRef = useRef(null);
+  const [scale, setScale] = useState(1);
+  const setWrap = useCallback((el) => {
+    if (roRef.current) {
+      roRef.current.disconnect();
+      roRef.current = null;
+    }
+    if (!el || !placement || placement.native) return;
+    const update = () => {
+      const cw = el.clientWidth;
+      if (cw && placement.w) setScale(Math.min(1, cw / placement.w));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    roRef.current = ro;
+  }, [placement]);
+
   // Adult gate: all 5 conditions must be true.
   const adultOk = !adultGated || (
     adsAllowed &&
@@ -94,25 +116,48 @@ export default function AdsterraBanner({
     ? `/adframe.html?k=${placement.key}&native=1${dParam}${kwParam}`
     : `/adframe.html?k=${placement.key}&h=${placement.h}&w=${placement.w}${dParam}${kwParam}`;
 
-  const w = placement.native ? '100%' : placement.w;
+  // Native ads fill their container width directly.
+  if (placement.native) {
+    return (
+      <iframe
+        title="Advertisement"
+        src={src}
+        width="100%"
+        height={placement.h}
+        scrolling="no"
+        referrerPolicy="strict-origin-when-cross-origin"
+        className={className}
+        style={{ width: '100%', height: placement.h, border: 0, display: 'block', margin: '0 auto' }}
+      />
+    );
+  }
 
+  // Fixed-size banner: render at native size but scale to fit the container, so
+  // the whole creative shows (no clipping) and never overflows on mobile. The
+  // outer box reserves only the scaled height to avoid leaving whitespace.
   return (
-    <iframe
-      title="Advertisement"
-      src={src}
-      width={w}
-      height={placement.h}
-      scrolling="no"
-      referrerPolicy="strict-origin-when-cross-origin"
+    <div
+      ref={setWrap}
       className={className}
       style={{
-        width: w,
-        height: placement.h,
-        border: 0,
-        display: 'block',
+        width: '100%',
+        maxWidth: placement.w,
+        height: placement.h * scale,
         margin: '0 auto',
         overflow: 'hidden',
       }}
-    />
+    >
+      <div style={{ width: placement.w, height: placement.h, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+        <iframe
+          title="Advertisement"
+          src={src}
+          width={placement.w}
+          height={placement.h}
+          scrolling="no"
+          referrerPolicy="strict-origin-when-cross-origin"
+          style={{ border: 0, display: 'block' }}
+        />
+      </div>
+    </div>
   );
 }
