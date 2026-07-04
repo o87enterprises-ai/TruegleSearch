@@ -14,9 +14,6 @@ const envVarsSchema = Joi.object({
     .required()
     .description('Encryption key for sensitive data'),
 
-  // Database
-  MONGODB_URI: Joi.string().optional().description('MongoDB connection string'),
-
   // Search API Keys (These should NEVER be exposed to frontend)
   GOOGLE_API_KEY: Joi.string()
     .required()
@@ -188,15 +185,6 @@ const config = {
   // Security
   jwtSecret: envVars.JWT_SECRET,
   encryptionKey: envVars.ENCRYPTION_KEY,
-
-  // Database
-  mongoose: {
-    url: envVars.MONGODB_URI + (envVars.NODE_ENV === 'test' ? '-test' : ''),
-    options: {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    },
-  },
 
   // Search APIs
   searchApis: {
