@@ -5,6 +5,7 @@ const { rateLimitSearch } = require('../middleware/rateLimit');
 const AIService = require('../services/AIService');
 const TokenService = require('../services/TokenService');
 const UnifiedAIService = require('../services/UnifiedAIService');
+const QueryInterpreter = require('../services/QueryInterpreter');
 const logger = require('../utils/logger');
 
 // Initialize AI services
@@ -555,6 +556,114 @@ router.post('/deepseek', rateLimitSearch, async (req, res) => {
       ],
       timestamp: new Date().toISOString(),
     });
+  }
+});
+
+/**
+ * Extract a JSON object from an AI response that may be fenced or padded with
+ * prose. Returns the parsed object or null.
+ */
+function parseQuickAnswerJson(text) {
+  const fenced = text.match(/```json\s*([\s\S]*?)```/i);
+  const bare = text.match(/(\{[\s\S]*\})/);
+  const candidate = fenced ? fenced[1] : bare ? bare[1] : text;
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @route   POST /api/ai/quick-answer
+ * @desc    DuckDuckGo-style answer box: for a question / factual-lookup query,
+ *          return a short answer grounded strictly in the supplied search
+ *          results, with the specific sources it drew from. Answers only when
+ *          confident — otherwise `answer` is null and the frontend shows nothing.
+ * @access  Public (rate limited)
+ * @body    { query: string, results: Array }
+ */
+router.post('/quick-answer', rateLimitSearch, async (req, res) => {
+  const { query, results } = req.body;
+  const trimmedQuery = typeof query === 'string' ? query.trim() : '';
+
+  // Any failure below resolves to a null answer (HTTP 200) rather than an error,
+  // so a missing answer simply hides the card and never disrupts the results page.
+  const empty = (reason) => res.json({
+    success: true, query: trimmedQuery, answer: null, sources: [], reason,
+  });
+
+  try {
+    if (!trimmedQuery) {
+      return res.status(400).json({ error: 'Invalid request', message: 'Query is required' });
+    }
+    if (!Array.isArray(results)) return empty('no_results');
+
+    // Cheap gate: only spend an AI call on queries that plausibly have a
+    // short, definitive answer.
+    if (!QueryInterpreter.isAnswerableQuery(trimmedQuery)) return empty('not_answerable');
+
+    const top = results
+      .slice(0, 6)
+      .filter((r) => r && (r.title || r.snippet));
+    if (top.length === 0) return empty('no_results');
+
+    const sourceLines = top
+      .map((r, i) => `[${i}] ${r.title || ''} — ${(r.snippet || '').slice(0, 300)} (${r.domain || ''})`)
+      .join('\n');
+
+    const prompt =
+      `Question: "${trimmedQuery}"\n\nSources:\n${sourceLines}\n\n` +
+      `Answer the question in 1-2 short, factual sentences using ONLY the sources above. ` +
+      `Respond with ONLY valid JSON (no markdown):\n` +
+      `{"answer":"<your answer>","sources":[<indexes of the sources you used>]}\n` +
+      `If the sources do not contain a clear, factual answer, respond with exactly: NO_ANSWER`;
+
+    const systemOverride =
+      'You are a search engine answer box. Answer in 1-2 short, factual sentences using ONLY the ' +
+      'provided sources. Never invent facts or URLs, and never answer from your own knowledge if the ' +
+      'sources do not support it. Respond with strictly valid JSON, or the single token NO_ANSWER.';
+
+    const resp = await aiClient.chat(prompt, 'general', {
+      systemOverride,
+      maxTokens: 300,
+      temperature: 0.2,
+    });
+
+    const text = (resp.content || resp.response || '').trim();
+    if (!text || /^NO_ANSWER/i.test(text)) return empty('no_answer');
+
+    const parsed = parseQuickAnswerJson(text);
+    if (!parsed || typeof parsed.answer !== 'string' || !parsed.answer.trim()) {
+      return empty('unparseable');
+    }
+
+    // Map the AI's cited indexes back to the real results so we only ever show
+    // sources that actually exist (no hallucinated URLs). Fall back to the top
+    // couple of results if the model didn't return usable indexes.
+    const citedIdx = Array.isArray(parsed.sources) ? parsed.sources : [];
+    let sources = citedIdx
+      .map((i) => top[i])
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((r) => ({ title: r.title || r.domain || r.url, url: r.url, domain: r.domain || null }));
+    if (sources.length === 0) {
+      sources = top.slice(0, 2).map((r) => ({ title: r.title || r.domain || r.url, url: r.url, domain: r.domain || null }));
+    }
+
+    logger.info('Quick answer generated:', { query: trimmedQuery, sources: sources.length, provider: resp.provider });
+
+    return res.json({
+      success: true,
+      query: trimmedQuery,
+      answer: parsed.answer.trim(),
+      sources,
+      model: resp.provider || 'unified-ai',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.warn('Quick answer failed (non-fatal):', { error: error.message });
+    return empty('error');
   }
 });
 

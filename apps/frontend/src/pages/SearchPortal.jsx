@@ -99,6 +99,8 @@ export default function SearchPortal() {
   const [aiSummary, setAiSummary] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [instantAnswer, setInstantAnswer] = useState(null);
+  const [quickAnswer, setQuickAnswer] = useState(null);
+  const [quickAnswerLoading, setQuickAnswerLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
   const [isOSINTMode, setIsOSINTMode] = useState(false);
 
@@ -318,6 +320,7 @@ export default function SearchPortal() {
     setSearchLoading(true);
     setAiSummary(null);
     setInstantAnswer(null);
+    setQuickAnswer(null);
     try {
       // Use dedicated maps endpoint when Maps category is selected or for location-based queries
       const useMapsEndpoint = activeCategory === 'maps' || activeCategory === 'local' || isLocationQuery;
@@ -426,9 +429,11 @@ export default function SearchPortal() {
       setAiSearchPerspectives(results.perspectives || []);
       console.log('Search results:', results);
 
-      // Fetch AI summary in the background
+      // Fetch AI summary and the DuckDuckGo-style quick answer in parallel so
+      // the results render immediately and the answer card pops in on top.
       if (results.results && results.results.length > 0) {
         fetchAiSummary(searchValue, results.results);
+        fetchQuickAnswer(searchValue, results.results);
       }
 
       // NAVIGATE BASED ON PILL MODE AFTER SEARCH
@@ -445,6 +450,28 @@ export default function SearchPortal() {
       toast.error('Search Failed', 'Unable to perform search. Please try again.', { pageTheme: 'search-portal' });
     } finally {
       setSearchLoading(false);
+    }
+  };
+
+  // Fetch the DuckDuckGo-style quick answer: a short, cited answer for
+  // question / factual-lookup queries. Resolves to null (card hidden) whenever
+  // the query isn't answerable or the backend can't answer confidently.
+  const fetchQuickAnswer = async (query, results) => {
+    setQuickAnswerLoading(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/quick-answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, results: results.slice(0, 6) }),
+      });
+      if (!response.ok) throw new Error(`Quick answer error: ${response.status}`);
+      const data = await response.json();
+      setQuickAnswer(data.answer ? { answer: data.answer, sources: data.sources || [] } : null);
+    } catch (error) {
+      console.error('❌ Quick answer error:', error);
+      setQuickAnswer(null);
+    } finally {
+      setQuickAnswerLoading(false);
     }
   };
 
@@ -1868,6 +1895,55 @@ export default function SearchPortal() {
             {/* Instant answer card (weather, calculations, official site, etc.) */}
             {instantAnswer && !searchLoading && (
               <QuickResultCard instantAnswer={instantAnswer} />
+            )}
+
+            {/* DuckDuckGo-style quick answer: a short, cited answer for
+                question / factual queries. Hidden when a structured instant
+                answer already covers the query, or when there's no confident answer. */}
+            {!instantAnswer && !searchLoading && (quickAnswerLoading || quickAnswer) && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl bg-gradient-to-br from-cyan-500/[0.12] to-blue-500/[0.08] backdrop-blur-xl border border-cyan-400/30 p-5 shadow-lg shadow-cyan-500/10"
+              >
+                {quickAnswerLoading && !quickAnswer ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-cyan-300 text-sm">
+                      <Sparkles size={16} />
+                      <span>Finding a quick answer…</span>
+                    </div>
+                    <SkeletonCard className="h-16" />
+                  </div>
+                ) : quickAnswer ? (
+                  <>
+                    <div className="flex items-center gap-2 mb-2 text-cyan-300 text-xs font-semibold uppercase tracking-wide">
+                      <Sparkles size={14} />
+                      <span>Quick Answer</span>
+                    </div>
+                    <p className="text-lg text-white leading-relaxed mb-4">{quickAnswer.answer}</p>
+                    {quickAnswer.sources?.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-cyan-400/15">
+                        <span className="text-xs text-white/50 mr-1">Sources:</span>
+                        {quickAnswer.sources.map((s, i) => (
+                          <a
+                            key={s.url || i}
+                            href={s.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-cyan-200 transition-colors"
+                          >
+                            <ExternalLink size={11} />
+                            <span className="max-w-[180px] truncate">{s.domain || s.title}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-3 text-[10px] text-white/40">
+                      Generated from search results — verify with the sources above.
+                    </div>
+                  </>
+                ) : null}
+              </motion.div>
             )}
 
             {/* Skeleton loading placeholders */}

@@ -187,6 +187,52 @@ function buildExpandedQuery(query, { token, expansion }) {
   return (query || '').replace(new RegExp(`\\b${escaped}\\b`, 'i'), expansion).trim();
 }
 
+// Attribute nouns that, in the pattern "<attribute> of <thing>", signal a
+// factual lookup with a definitive answer ("length of the great wall of china")
+// even though the query isn't phrased as a question.
+const FACTUAL_ATTRIBUTES = [
+  'length', 'height', 'weight', 'width', 'depth', 'size', 'area', 'population',
+  'capital', 'distance', 'age', 'cost', 'price', 'temperature', 'speed',
+  'diameter', 'radius', 'mass', 'elevation', 'altitude', 'gdp', 'currency',
+  'timezone', 'founder', 'author', 'director', 'meaning', 'definition',
+  'number', 'amount', 'value', 'density', 'volume',
+];
+
+/**
+ * Heuristic gate for the quick-answer card: true when the query looks like it
+ * has a short, definitive answer — a question ("how many times has the president
+ * been impeached") or a factual lookup ("length of the great wall of china").
+ *
+ * Deliberately broad-but-cheap: it decides whether to *attempt* an answer, and
+ * the AI still returns NO_ANSWER when the sources don't actually contain one, so
+ * a false positive here costs at most one skipped answer, not a wrong card.
+ * Navigational/brand and open-ended queries return false so we don't burn an AI
+ * call trying to "answer" them.
+ */
+function isAnswerableQuery(query) {
+  const q = (query || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  if (!q) return false;
+
+  if (q.endsWith('?')) return true;
+
+  // Question openers (wh-words + auxiliaries).
+  if (/^(what|whats|what's|when|where|who|whom|whose|why|which|how|is|are|was|were|do|does|did|can|could|will|would|should|has|have|had|list)\b/.test(q))
+    return true;
+
+  // Quantity / measurement phrasings anywhere in the query.
+  if (/\b(how many|how much|how long|how tall|how old|how far|how big|how deep|how fast)\b/.test(q))
+    return true;
+
+  // "<attribute> of <thing>" factual lookups.
+  const attrPattern = new RegExp(`^(${FACTUAL_ATTRIBUTES.join('|')}) of\\b`);
+  if (attrPattern.test(q)) return true;
+
+  // Definitions.
+  if (/^(define|definition of|meaning of)\b/.test(q)) return true;
+
+  return false;
+}
+
 /**
  * Levenshtein edit distance between two short strings. Iterative two-row
  * implementation — allocation-light and more than fast enough for a query token.
@@ -289,6 +335,7 @@ module.exports = {
   detectAcronym,
   looksLikeUnknownAcronym,
   buildExpandedQuery,
+  isAnswerableQuery,
   levenshtein,
   OFFICIAL_SITE,
   SITE_KEYWORDS,

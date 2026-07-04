@@ -148,6 +148,24 @@ describe('QueryInterpreter.buildExpandedQuery', () => {
   });
 });
 
+describe('QueryInterpreter.isAnswerableQuery', () => {
+  it('accepts questions and factual lookups', () => {
+    expect(QueryInterpreter.isAnswerableQuery('how many times has the president been impeached')).toBe(true);
+    expect(QueryInterpreter.isAnswerableQuery('length of the great wall of china')).toBe(true);
+    expect(QueryInterpreter.isAnswerableQuery('what is the capital of France')).toBe(true);
+    expect(QueryInterpreter.isAnswerableQuery('who is the ceo of tesla')).toBe(true);
+    expect(QueryInterpreter.isAnswerableQuery('define serendipity')).toBe(true);
+    expect(QueryInterpreter.isAnswerableQuery('population of tokyo?')).toBe(true);
+  });
+
+  it('rejects navigational, brand, and open-ended queries', () => {
+    expect(QueryInterpreter.isAnswerableQuery('truegle')).toBe(false);
+    expect(QueryInterpreter.isAnswerableQuery('nike running shoes')).toBe(false);
+    expect(QueryInterpreter.isAnswerableQuery('best pizza near me')).toBe(false);
+    expect(QueryInterpreter.isAnswerableQuery('')).toBe(false);
+  });
+});
+
 describe('SearchService.aiExpandAcronym', () => {
   let service;
   beforeEach(() => { service = new SearchService(); });
