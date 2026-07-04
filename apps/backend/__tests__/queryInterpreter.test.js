@@ -3,6 +3,7 @@
  */
 const QueryInterpreter = require('../services/QueryInterpreter');
 const SearchService = require('../services/SearchService');
+const UnifiedAIService = require('../services/UnifiedAIService');
 
 describe('QueryInterpreter.isBrandQuery', () => {
   it('matches the exact brand name and branded phrases', () => {
@@ -99,6 +100,78 @@ describe('SearchService.boostDomainToTop', () => {
     const boosted = service.boostDomainToTop(results, 'youtube.com');
     expect(boosted[0].domain).toBe('youtube.com');
     expect(boosted[1].domain).toBe('notyoutube.com');
+  });
+});
+
+describe('QueryInterpreter.detectAcronym', () => {
+  it('expands unambiguous curated acronyms at any case', () => {
+    expect(QueryInterpreter.detectAcronym('dea')).toMatchObject({ key: 'dea', expansion: 'drug enforcement administration' });
+    expect(QueryInterpreter.detectAcronym('FBI raid')).toMatchObject({ key: 'fbi' });
+    expect(QueryInterpreter.detectAcronym('history of nasa')).toMatchObject({ key: 'nasa' });
+  });
+
+  it('only expands ambiguous acronyms (WHO/SEC/UN) when uppercase', () => {
+    expect(QueryInterpreter.detectAcronym('who is the president')).toBeNull();
+    expect(QueryInterpreter.detectAcronym('WHO guidelines')).toMatchObject({ key: 'who', expansion: 'world health organization' });
+    expect(QueryInterpreter.detectAcronym('the sec of the movie')).toBeNull();
+    expect(QueryInterpreter.detectAcronym('SEC filing')).toMatchObject({ key: 'sec' });
+  });
+
+  it('returns null when there is no curated acronym', () => {
+    expect(QueryInterpreter.detectAcronym('length of the great wall of china')).toBeNull();
+    expect(QueryInterpreter.detectAcronym('')).toBeNull();
+  });
+});
+
+describe('QueryInterpreter.looksLikeUnknownAcronym', () => {
+  it('flags a bare uppercase unknown acronym', () => {
+    expect(QueryInterpreter.looksLikeUnknownAcronym('NORAD')).toBe('NORAD');
+    expect(QueryInterpreter.looksLikeUnknownAcronym('DARPA')).toBe('DARPA');
+  });
+
+  it('ignores curated ones, stopwords, lowercase, multi-word, and wrong length', () => {
+    expect(QueryInterpreter.looksLikeUnknownAcronym('DEA')).toBeNull();      // curated
+    expect(QueryInterpreter.looksLikeUnknownAcronym('LOL')).toBeNull();      // stopword
+    expect(QueryInterpreter.looksLikeUnknownAcronym('norad')).toBeNull();    // not uppercase
+    expect(QueryInterpreter.looksLikeUnknownAcronym('NORAD base')).toBeNull(); // multi-word
+    expect(QueryInterpreter.looksLikeUnknownAcronym('A')).toBeNull();        // too short
+    expect(QueryInterpreter.looksLikeUnknownAcronym('ABCDEFG')).toBeNull();  // too long
+  });
+});
+
+describe('QueryInterpreter.buildExpandedQuery', () => {
+  it('replaces the acronym token in place, preserving surrounding words', () => {
+    expect(QueryInterpreter.buildExpandedQuery('dea', { token: 'dea', expansion: 'drug enforcement administration' }))
+      .toBe('drug enforcement administration');
+    expect(QueryInterpreter.buildExpandedQuery('DEA history', { token: 'DEA', expansion: 'drug enforcement administration' }))
+      .toBe('drug enforcement administration history');
+  });
+});
+
+describe('SearchService.aiExpandAcronym', () => {
+  let service;
+  beforeEach(() => { service = new SearchService(); });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('returns the AI expansion and caches it (one AI call for repeats)', async () => {
+    const spy = jest.spyOn(UnifiedAIService, 'chat').mockResolvedValue({ content: 'North American Aerospace Defense Command' });
+    const first = await service.aiExpandAcronym('NORAD');
+    const second = await service.aiExpandAcronym('NORAD');
+    expect(first).toBe('north american aerospace defense command');
+    expect(second).toBe(first);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('caches a negative result when the AI replies NONE', async () => {
+    const spy = jest.spyOn(UnifiedAIService, 'chat').mockResolvedValue({ content: 'NONE' });
+    expect(await service.aiExpandAcronym('ZZQX')).toBeNull();
+    await service.aiExpandAcronym('ZZQX');
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves to null (never throws) when the AI provider fails', async () => {
+    jest.spyOn(UnifiedAIService, 'chat').mockRejectedValue(new Error('provider down'));
+    await expect(service.aiExpandAcronym('QWXZ')).resolves.toBeNull();
   });
 });
 

@@ -95,6 +95,98 @@ function detectSiteKeyword(query) {
   return null;
 }
 
+// Curated acronym/initialism dictionary. Keys are lowercased; values are the
+// most common full form. Used to run a supplemental search for the expansion so
+// the authoritative entity surfaces (typing "dea" should find the DEA).
+const ACRONYMS = {
+  dea: 'drug enforcement administration',
+  fbi: 'federal bureau of investigation',
+  cia: 'central intelligence agency',
+  nsa: 'national security agency',
+  nasa: 'national aeronautics and space administration',
+  irs: 'internal revenue service',
+  fda: 'food and drug administration',
+  cdc: 'centers for disease control and prevention',
+  atf: 'bureau of alcohol tobacco firearms and explosives',
+  doj: 'department of justice',
+  dod: 'department of defense',
+  dhs: 'department of homeland security',
+  epa: 'environmental protection agency',
+  faa: 'federal aviation administration',
+  fcc: 'federal communications commission',
+  ftc: 'federal trade commission',
+  tsa: 'transportation security administration',
+  fema: 'federal emergency management agency',
+  usps: 'united states postal service',
+  nato: 'north atlantic treaty organization',
+  wto: 'world trade organization',
+  imf: 'international monetary fund',
+  // Ambiguous with an ordinary English word — only expanded when the user
+  // typed it in uppercase (see AMBIGUOUS_ACRONYMS guard in detectAcronym).
+  who: 'world health organization',
+  sec: 'securities and exchange commission',
+  un: 'united nations',
+};
+
+// Acronyms that collide with a common lowercase word, so we only expand them
+// when the raw token is uppercase (a deliberate "WHO", not the word "who").
+const AMBIGUOUS_ACRONYMS = new Set(['who', 'sec', 'un']);
+
+// Short tokens that look acronym-shaped but should never trigger the AI
+// fallback — common words, pronouns, and chat/text abbreviations.
+const ACRONYM_STOPWORDS = new Set([
+  'the', 'and', 'for', 'not', 'you', 'are', 'was', 'his', 'her', 'she', 'him',
+  'has', 'had', 'can', 'may', 'why', 'how', 'who', 'all', 'any', 'one', 'out',
+  'new', 'now', 'our', 'get', 'got', 'lol', 'omg', 'wtf', 'idk', 'imo', 'btw',
+  'fyi', 'diy', 'faq', 'ceo', 'cfo', 'usa', 'usb',
+]);
+
+/**
+ * Detect a curated acronym token in the query and return
+ * `{ token, key, expansion }`, or null. Ambiguous acronyms (WHO/SEC/UN) only
+ * match when the user typed them in uppercase, so "who is president" is left
+ * alone while "WHO guidelines" expands.
+ */
+function detectAcronym(query) {
+  const tokens = (query || '').trim().split(/\s+/).filter(Boolean);
+  for (const token of tokens) {
+    const key = token.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!ACRONYMS[key]) continue;
+    if (AMBIGUOUS_ACRONYMS.has(key) && token !== token.toUpperCase()) continue;
+    return { token, key, expansion: ACRONYMS[key] };
+  }
+  return null;
+}
+
+/**
+ * Return an uppercase, acronym-shaped single token eligible for AI expansion, or
+ * null. Deliberately narrow — a bare 2–6 letter ALL-CAPS token the curated list
+ * doesn't cover and that isn't a known stopword — so the AI fallback stays
+ * bounded and only fires when the user clearly typed an acronym.
+ */
+function looksLikeUnknownAcronym(query) {
+  const tokens = (query || '').trim().split(/\s+/).filter(Boolean);
+  if (tokens.length !== 1) return null;
+  const token = tokens[0];
+  const letters = token.replace(/[^A-Za-z]/g, '');
+  if (letters.length < 2 || letters.length > 6) return null;
+  if (token !== token.toUpperCase()) return null;
+  const key = letters.toLowerCase();
+  if (ACRONYMS[key] || ACRONYM_STOPWORDS.has(key)) return null;
+  return letters;
+}
+
+/**
+ * Replace the acronym token in `query` with its expansion, case-insensitively,
+ * to build the supplemental search string. "DEA history" with expansion "drug
+ * enforcement administration" → "drug enforcement administration history".
+ */
+function buildExpandedQuery(query, { token, expansion }) {
+  if (!token || !expansion) return query;
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return (query || '').replace(new RegExp(`\\b${escaped}\\b`, 'i'), expansion).trim();
+}
+
 /**
  * Levenshtein edit distance between two short strings. Iterative two-row
  * implementation — allocation-light and more than fast enough for a query token.
@@ -194,7 +286,11 @@ module.exports = {
   buildOfficialResult,
   normalizeForBrand,
   detectSiteKeyword,
+  detectAcronym,
+  looksLikeUnknownAcronym,
+  buildExpandedQuery,
   levenshtein,
   OFFICIAL_SITE,
   SITE_KEYWORDS,
+  ACRONYMS,
 };

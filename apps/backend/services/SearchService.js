@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const config = require('../config/env');
 const { AI_CONTENT_DOMAINS } = require('../data/aiContentDomains');
 const QueryInterpreter = require('./QueryInterpreter');
+const UnifiedAIService = require('./UnifiedAIService');
 
 // YouTube's Data API returns titles/descriptions HTML-entity-encoded
 // (e.g. "&#39;" for an apostrophe) since they're meant for HTML embeds —
@@ -96,6 +97,10 @@ class SearchService {
       news: [],
       youtube: [],
     };
+
+    // Memoize AI acronym expansions (and negative "no expansion" results) so a
+    // repeated unknown-acronym query never re-hits the AI provider.
+    this._acronymCache = new Map();
   }
 
   /**
@@ -249,6 +254,34 @@ class SearchService {
           searchPromises.push(this.performBraveSearch(scoped, { ...filters, perPage: 8 }));
         } else if (this.googleApiKey && this.googleSearchEngineId) {
           searchPromises.push(this.performGoogleSearch(scoped, { ...filters, perPage: 8 }));
+        }
+      }
+
+      // Acronym expansion: on the standard web modes, run a supplemental search
+      // for the expanded form so the authoritative entity surfaces (typing "dea"
+      // should find the DEA). Curated dictionary is synchronous; the AI fallback
+      // only fires for a bare uppercase unknown acronym and is timeout-bounded.
+      if (searchWeb && (mode === 'blue-pill' || isGreen)) {
+        let expanded = null;
+        const acr = QueryInterpreter.detectAcronym(query);
+        if (acr) {
+          expanded = QueryInterpreter.buildExpandedQuery(query, acr);
+        } else {
+          const unknown = QueryInterpreter.looksLikeUnknownAcronym(query);
+          if (unknown) {
+            const aiExpansion = await this.aiExpandAcronym(unknown);
+            if (aiExpansion) {
+              expanded = QueryInterpreter.buildExpandedQuery(query, { token: unknown, expansion: aiExpansion });
+            }
+          }
+        }
+        if (expanded && expanded.toLowerCase() !== query.toLowerCase()) {
+          console.log(`🔤 Acronym expansion: "${query}" → supplemental "${expanded}"`);
+          if (this.braveApiKey) {
+            searchPromises.push(this.performBraveSearch(expanded, { ...filters, perPage: 8 }));
+          } else if (this.googleApiKey && this.googleSearchEngineId) {
+            searchPromises.push(this.performGoogleSearch(expanded, { ...filters, perPage: 8 }));
+          }
         }
       }
 
@@ -649,6 +682,45 @@ class SearchService {
       else rest.push(r);
     }
     return [...onSite, ...rest];
+  }
+
+  /**
+   * AI fallback for an unknown acronym: ask for the single most common full
+   * form, memoized (including negative results). Bounded by a short timeout so a
+   * slow/unavailable AI provider never delays search — on any failure it resolves
+   * to null and search proceeds with the original query unchanged.
+   */
+  async aiExpandAcronym(token) {
+    const key = token.toLowerCase();
+    if (this._acronymCache.has(key)) return this._acronymCache.get(key);
+
+    let expansion = null;
+    let timer;
+    try {
+      const prompt =
+        `Expand the acronym "${token}" to its single most common full form ` +
+        `(for example "DEA" -> "Drug Enforcement Administration"). If it is not a ` +
+        `well-known acronym, reply exactly NONE. Reply with ONLY the expansion or NONE.`;
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('acronym-expand-timeout')), 2500);
+      });
+      const resp = await Promise.race([
+        UnifiedAIService.chat(prompt, 'general', { maxTokens: 30, temperature: 0 }),
+        timeout,
+      ]);
+      const text = (resp?.content || resp?.response || '').trim();
+      if (text && !/^none$/i.test(text) && text.length <= 80 && /[a-z]/i.test(text)) {
+        expansion = text.toLowerCase();
+      }
+    } catch (error) {
+      // Non-fatal: log and fall back to the original query.
+      console.warn('Acronym AI expansion failed (non-fatal):', error.message);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    this._acronymCache.set(key, expansion);
+    return expansion;
   }
 
   /**
