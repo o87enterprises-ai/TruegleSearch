@@ -1376,14 +1376,12 @@ export default function UniversalSearch({ lockedGreen = false }) {
 
           {/* Small non-adult strip — all users */}
           {mode !== 'green' && (
-            <div className="flex justify-center my-2">
-              <AdColorWrapper type="cpm">
-                {/* Non-adult primary ad — uses the working 728x90 zone (the
-                    320x50 zone was deactivated 2026-07-02), rendered responsively
-                    so it fits mobile. Swap back to a mobile format once new
-                    non-adult small zones are created after the Adsterra cooldown. */}
-                <AdsterraBanner format="banner728x90" searchContext={adContext} />
-              </AdColorWrapper>
+            <div className="my-2">
+              {/* First-party house ad. Do NOT put an Adsterra zone here ungated:
+                  every currently-active Adsterra zone is adult-enabled at the
+                  network level (see config/ads.js) and can serve adult creatives
+                  to anyone. Restore Adsterra only via new non-adult zones. */}
+              <AdSlot size="large" query={query} className="max-w-4xl mx-auto" />
             </div>
           )}
 
@@ -1509,20 +1507,16 @@ export default function UniversalSearch({ lockedGreen = false }) {
             }}
           />
 
-          {/* Ad Banner 2 - Under AI Summary — small non-adult strip */}
+          {/* Ad Banner 2 - Under AI Summary — first-party house ad (see note on
+              the strip above: active Adsterra zones are adult-enabled and must
+              never render ungated) */}
           {mode !== 'green' && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="max-w-4xl mx-auto mb-4 flex justify-center"
+              className="max-w-4xl mx-auto mb-4"
             >
-              <AdColorWrapper type="cpm">
-                {/* Non-adult primary ad — uses the working 728x90 zone (the
-                    320x50 zone was deactivated 2026-07-02), rendered responsively
-                    so it fits mobile. Swap back to a mobile format once new
-                    non-adult small zones are created after the Adsterra cooldown. */}
-                <AdsterraBanner format="banner728x90" searchContext={adContext} />
-              </AdColorWrapper>
+              <AdSlot size="large" query={query} />
             </motion.div>
           )}
 

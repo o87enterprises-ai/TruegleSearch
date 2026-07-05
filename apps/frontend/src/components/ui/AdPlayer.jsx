@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Volume2, VolumeX, Clock, CheckCircle, X } from 'lucide-react';
-import AdsterraBanner from '../ads/AdsterraBanner';
+import HouseAd from './HouseAd';
 
 const AD_DURATION = 30; // seconds
 
@@ -143,10 +143,12 @@ const AdPlayer = ({
                 <p className="text-green-300">+1 token added to your balance</p>
               </motion.div>
             ) : (
-              // Playing state — Adsterra creative
+              // Playing state — first-party house ad. The active Adsterra zones
+              // are adult-enabled at the network level and this player is not
+              // behind the 5-step adult gate, so no Adsterra creative here.
               <>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <AdsterraBanner format="banner728x90" />
+                <div className="absolute inset-0 flex items-center justify-center p-4">
+                  <HouseAd zone="results-leaderboard" className="w-full max-w-2xl" />
                 </div>
 
                 {/* Progress bar */}

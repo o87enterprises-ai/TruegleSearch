@@ -420,9 +420,10 @@ export default function ExtractPage() {
             </motion.div>
           )}
 
-          {/* ── Bottom ad ── */}
-          <div className="mb-8 flex justify-center">
-            <AdsterraBanner format="banner728x90" />
+          {/* ── Bottom ad — first-party house ad (active Adsterra zones are
+              adult-enabled at the network level; never render them ungated) ── */}
+          <div className="mb-8">
+            <AdSlot size="large" className="max-w-4xl mx-auto" />
           </div>
         </div>
       </div>

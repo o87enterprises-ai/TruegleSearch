@@ -1,5 +1,5 @@
 import { cssDebug } from '../utils/cssDebug';
-import AdsterraBanner from '../components/ads/AdsterraBanner';
+import AdSlot from '../components/AdSlot';
 // MAIN LANDING PAGE ROUTE COMPONENT
 // This file is now the canonical LandingPage for route "/".
 // Please update your project imports to use this file for the landing page.
@@ -740,9 +740,11 @@ export default function LandingPage() {
           </motion.div>
         </div>
 
-        {/* Inline ad — landing page footer */}
-        <div className="py-8 px-4 flex justify-center">
-          <AdsterraBanner format="banner728x90" />
+        {/* Inline ad — landing page footer. First-party house ad: the active
+            Adsterra zones are adult-enabled at the network level and must never
+            render ungated on a public page (see config/ads.js). */}
+        <div className="py-8 px-4">
+          <AdSlot size="large" className="max-w-4xl mx-auto" />
         </div>
 
         {/* Footer */}

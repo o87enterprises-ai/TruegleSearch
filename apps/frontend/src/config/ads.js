@@ -64,7 +64,14 @@ export const adInvokeUrl = (key) => `https://${AD_DOMAIN}/${key}/invoke.js`;
  *   banner468x60  — was 7e53f17316c72708e8417a8a991171ac
  *   nativeBanner  — was a7a8599f485ec0638131d8f99bc29cb7
  *
- * Active zones (all adult-gated at every call site):
+ * Active zones — ALL adult-enabled at the NETWORK level (Adsterra permanently
+ * locked the adult toggle ON for them). The adultGated prop only controls which
+ * page slots render; it CANNOT filter what creative Adsterra serves. Therefore
+ * these keys must ONLY ever be rendered behind the full 5-step adult gate
+ * (AdsterraBanner adultGated + AdultConsentGate). Never render them ungated —
+ * a mobile user was served an adult creative from an ungated 728x90 slot on
+ * 2026-07-05. Ungated slots use first-party house ads (AdSlot/HouseAd) until
+ * new non-adult zones are created after the 14-day deactivation cooldown.
  */
 export const ADSTERRA = {
   banner728x90:  { key: 'd5f657ea7d55fc33ea532071957a2857', w: 728, h: 90  },
