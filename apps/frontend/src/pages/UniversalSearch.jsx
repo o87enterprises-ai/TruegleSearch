@@ -34,6 +34,7 @@ import AdColorWrapper from '../components/ads/AdColorWrapper';
 import { SMARTLINK_URL } from '../config/ads';
 import AdultConsentGate from '../components/ui/AdultConsentGate';
 import { SkeletonSearchResult } from '../components/ui/Skeleton';
+import QuickAnswerCard from '../components/ui/QuickAnswerCard';
 import AsSeenOn from '../components/Content/AsSeenOn';
 import PerspectiveSelector from '../components/search/PerspectiveSelector';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
@@ -152,6 +153,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchResults, setSearchResults] = useState([]);
   const [instantAnswer, setInstantAnswer] = useState(null);
+  const [quickAnswer, setQuickAnswer] = useState(null);
+  const [quickAnswerLoading, setQuickAnswerLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [lastSearchedQuery, setLastSearchedQuery] = useState(null);
   // Distinguish "search failed" (provider/network error) from "0 genuine results"
@@ -332,6 +335,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
     setSearchLoading(true);
     setAiSummary(null);
     setInstantAnswer(null);
+    setQuickAnswer(null);
     setLastSearchedQuery(searchValue);
 
     try {
@@ -429,6 +433,12 @@ export default function UniversalSearch({ lockedGreen = false }) {
       if (mode !== 'green' && sessionSummaryChoice !== 'none' && data.results && data.results.length > 0) {
         fetchAiSummary(searchValue, data.results, backendMode);
       }
+      // Quick answer fires in parallel with the summary. Green mode is AI-free
+      // by definition; deliberately NOT gated on sessionSummaryChoice — that
+      // setting is about the summary banner, not the answer box.
+      if (mode !== 'green' && data.results && data.results.length > 0) {
+        fetchQuickAnswer(searchValue, data.results);
+      }
     } catch (error) {
       console.error('Search error:', error);
       setSearchResults([]);
@@ -443,6 +453,33 @@ export default function UniversalSearch({ lockedGreen = false }) {
       }
     } finally {
       setSearchLoading(false);
+    }
+  };
+
+  /**
+   * Fetch the DuckDuckGo-style quick answer: a short, cited answer for
+   * question / factual-lookup queries. Resolves to null (card hidden) whenever
+   * the query isn't answerable or the backend can't answer confidently.
+   */
+  const fetchQuickAnswer = async (query, results) => {
+    setQuickAnswerLoading(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/quick-answer`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, results: results.slice(0, 6) }),
+        }
+      );
+      if (!response.ok) throw new Error(`Quick answer error: ${response.status}`);
+      const data = await response.json();
+      setQuickAnswer(data.answer ? { answer: data.answer, sources: data.sources || [] } : null);
+    } catch (error) {
+      console.error('Quick answer error:', error);
+      setQuickAnswer(null);
+    } finally {
+      setQuickAnswerLoading(false);
     }
   };
 
@@ -1569,6 +1606,12 @@ export default function UniversalSearch({ lockedGreen = false }) {
                       {searchResults.length > 0 ? `About ${searchResults.length} results` : 'No results yet - try searching!'}
                     </span>
                   </div>
+
+                  {/* Quick answer — short cited answer for question queries;
+                      hidden when a structured instant answer already covers it */}
+                  {!instantAnswer && (
+                    <QuickAnswerCard quickAnswer={quickAnswer} loading={quickAnswerLoading} className="mb-4" />
+                  )}
 
                   {/* Search failed (provider/network/quota) — reassure + retry */}
                   {searchError && lastSearchedQuery && (
