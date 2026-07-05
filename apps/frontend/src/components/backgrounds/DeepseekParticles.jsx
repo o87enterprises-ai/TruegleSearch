@@ -799,7 +799,20 @@ const AnimatedBackground = ({ enableMouseMovement = false }) => {
     };
     window.addEventListener('resize', handleResize);
 
+    // Pause the render loop while the tab is hidden — 2600 particles of
+    // per-frame trig is pure waste on a backgrounded page.
+    const handleVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      } else if (!animationRef.current) {
+        animationRef.current = requestAnimationFrame(animate);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
       cancelAnimationFrame(animationRef.current);
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mousemove', handleMouseMove);

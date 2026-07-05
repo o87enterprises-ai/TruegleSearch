@@ -343,9 +343,22 @@ export const DeepSpaceBackground: React.FC = () => {
 
     requestRef.current = requestAnimationFrame(animate);
 
+    // Pause the draw loop while the tab is hidden so a backgrounded page does
+    // zero canvas work and resuming doesn't burst.
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (requestRef.current) cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
+      } else if (!requestRef.current) {
+        requestRef.current = requestAnimationFrame(animate);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       window.removeEventListener('resize', handleResize);
       canvas.removeEventListener('click', handleClick);
+      document.removeEventListener('visibilitychange', handleVisibility);
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
   }, []);

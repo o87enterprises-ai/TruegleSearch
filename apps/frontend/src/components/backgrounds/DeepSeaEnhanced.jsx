@@ -196,9 +196,24 @@ export default function DeepSeaEnhanced() {
 
     window.addEventListener('resize', handleResize);
 
+    // Pause the draw loop while the tab is hidden. Must reassign the same
+    // `animationId` the cleanup cancels, or the cleanup would cancel a stale id.
+    let pausedByVisibility = false;
+    const handleVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(animationId);
+        pausedByVisibility = true;
+      } else if (pausedByVisibility) {
+        pausedByVisibility = false;
+        animationId = requestAnimationFrame(animate);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
 

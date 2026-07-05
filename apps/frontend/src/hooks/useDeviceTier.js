@@ -12,7 +12,11 @@ import { useEffect, useState } from 'react';
  *   reducedMotion   boolean — user prefers reduced motion
  *   webglAvailable  boolean — WebGL context could be created
  *   isMobile        boolean — coarse pointer / small viewport
- *   allowHeavyAnimations  boolean — convenience flag (false on low/reduced-motion/no-webgl)
+ *   allowHeavyAnimations  boolean — convenience flag; false on low tier,
+ *                   reduced-motion, no-webgl, OR any mobile device. Phones
+ *                   never get the heavy WebGL/particle backgrounds — even a
+ *                   mid-tier phone burns battery and jank on 800+-particle
+ *                   rAF loops (real-user mobile lag report, 2026-07-05).
  */
 export function useDeviceTier() {
   const [state, setState] = useState({
@@ -58,7 +62,7 @@ export function useDeviceTier() {
     }
 
     const allowHeavyAnimations =
-      tier !== 'low' && webglAvailable && !reducedMotion;
+      tier !== 'low' && webglAvailable && !reducedMotion && !isMobile;
 
     setState({ tier, reducedMotion, webglAvailable, isMobile, allowHeavyAnimations });
   }, []);

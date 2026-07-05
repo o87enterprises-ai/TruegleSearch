@@ -469,10 +469,23 @@ export const WarpSpeedBackground: React.FC = () => {
     handleResize();
     requestRef.current = requestAnimationFrame(animate);
 
+    // Pause the draw loop while the tab is hidden — 3000 gradient-stroked
+    // stars per frame is the most expensive loop in the app.
+    const handleVisibility = () => {
+      if (document.hidden) {
+        if (requestRef.current) cancelAnimationFrame(requestRef.current);
+        requestRef.current = null;
+      } else if (!requestRef.current) {
+        requestRef.current = requestAnimationFrame(animate);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       window.removeEventListener('resize', handleResize);
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('click', handleClick);
+      document.removeEventListener('visibilitychange', handleVisibility);
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       if (indicatorTimeoutRef.current) clearTimeout(indicatorTimeoutRef.current);
     };

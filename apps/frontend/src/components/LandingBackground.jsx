@@ -34,10 +34,15 @@ function hasWebGL() {
  * the CSS layer instead of crash-looping or showing an error box.
  */
 export default function LandingBackground() {
-  const richEnabled = useMemo(
-    () => hasWebGL() && !prefersReducedMotion() && !isLowPerformanceDevice(),
-    []
-  );
+  const richEnabled = useMemo(() => {
+    // Phones never get the rich WebGL layer — even mid-tier mobile hardware
+    // pays for it in jank and battery; the CSS aurora layer keeps the page
+    // feeling alive. (matchMedia 'coarse' only matches when the PRIMARY
+    // pointer is coarse, so touchscreen laptops keep the rich layer.)
+    const isCoarsePointerMobile =
+      window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth < 768;
+    return hasWebGL() && !prefersReducedMotion() && !isLowPerformanceDevice() && !isCoarsePointerMobile;
+  }, []);
 
   return (
     <>

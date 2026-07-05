@@ -162,9 +162,24 @@ const LetterGlitch = ({
     };
 
     window.addEventListener('resize', handleResize);
+
+    // Pause the loop while the tab is hidden; reset the glitch timestamp on
+    // resume so it doesn't fire a burst of catch-up glitches.
+    const handleVisibility = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      } else if (!animationRef.current) {
+        lastGlitchTime.current = Date.now();
+        animate();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       cancelAnimationFrame(animationRef.current);
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [glitchSpeed, smooth]);

@@ -283,7 +283,21 @@ void main() {
       updatePlacement();
       animationIdRef.current = requestAnimationFrame(loop);
 
+      // Pause the shader loop while the tab is hidden.
+      const handleVisibility = () => {
+        if (document.hidden) {
+          if (animationIdRef.current) {
+            cancelAnimationFrame(animationIdRef.current);
+            animationIdRef.current = null;
+          }
+        } else if (!animationIdRef.current) {
+          animationIdRef.current = requestAnimationFrame(loop);
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibility);
+
       cleanupFunctionRef.current = () => {
+        document.removeEventListener('visibilitychange', handleVisibility);
         if (animationIdRef.current) {
           cancelAnimationFrame(animationIdRef.current);
           animationIdRef.current = null;
