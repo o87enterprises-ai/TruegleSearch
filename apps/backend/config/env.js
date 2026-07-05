@@ -70,8 +70,16 @@ const envVarsSchema = Joi.object({
   // SERP API (Google Search Scraping Fallback)
   SERP_API_KEY: Joi.string().optional().description('SerpApi API Key'),
 
-  // Deepgram API (Voice Search)
+  // Deepgram API (Voice Search — legacy)
   DEEPGRAM_API_KEY: Joi.string().optional().description('Deepgram API Key'),
+
+  // Speech-to-text (voice search). Defaults to Groq-hosted open-source Whisper
+  // (reuses the GROQ_API_KEY pool, free tier). Point STT_BASE_URL at a
+  // self-hosted OpenAI-compatible Whisper server (whisper.cpp / faster-whisper)
+  // to drop the external dependency — no code change needed.
+  STT_BASE_URL: Joi.string().optional().description('OpenAI-compatible STT base URL (default: Groq)'),
+  STT_MODEL: Joi.string().optional().description('STT model id (default: whisper-large-v3-turbo)'),
+  STT_API_KEY: Joi.string().optional().description('STT key for a non-Groq/self-hosted endpoint'),
 
   // Ensemble Social Media API
   ENSEMBLE_SOCIAL_API_KEY: Joi.string().optional().description('Ensemble Social Media API Key'),
@@ -256,6 +264,20 @@ const config = {
     deepseek: {
       apiKey: envVars.DEEPSEEK_API_KEY, // DEPRECATED - DO NOT USE
     },
+  },
+
+  // Speech-to-text for voice search (open-source Whisper, Groq-hosted by default)
+  stt: {
+    baseUrl: envVars.STT_BASE_URL || 'https://api.groq.com/openai/v1',
+    model: envVars.STT_MODEL || 'whisper-large-v3-turbo',
+    apiKey: envVars.STT_API_KEY || null,
+    groqKeys: [
+      envVars.GROQ_API_KEY,
+      envVars.GROQ_API_KEY_2,
+      envVars.GROQ_API_KEY_3,
+      envVars.GROQ_API_KEY_4,
+      envVars.GROQ_API_KEY_5,
+    ].filter(Boolean),
   },
 
   // Maps

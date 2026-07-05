@@ -5,12 +5,40 @@ const FormData = require('form-data');
 const router = express.Router();
 const config = require('../config/env');
 const logger = require('../utils/logger');
+const SpeechToText = require('../services/SpeechToTextService');
+const { rateLimitSearch } = require('../middleware/rateLimit');
 
 // Configure multer for file uploads
-const upload = multer({ 
+const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
+
+/**
+ * @route   POST /api/voice/stt
+ * @desc    Cross-browser voice search: transcribe a recorded audio clip via
+ *          open-source Whisper (Groq-hosted by default). Returns { text }.
+ * @access  Public (rate limited)
+ */
+router.post('/stt', rateLimitSearch, upload.single('audio'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Audio file is required' });
+    }
+    if (!SpeechToText.isConfigured()) {
+      return res.status(503).json({ error: 'Voice search is not configured' });
+    }
+    const text = await SpeechToText.transcribe(
+      req.file.buffer,
+      req.file.originalname || 'audio.webm',
+      req.file.mimetype || 'audio/webm'
+    );
+    return res.json({ success: true, text });
+  } catch (error) {
+    logger.error('Voice STT error:', error.response?.data || error.message);
+    return res.status(500).json({ error: 'Transcription failed' });
   }
 });
 
