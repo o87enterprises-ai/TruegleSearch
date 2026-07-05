@@ -102,7 +102,11 @@ const VoiceRecognition = ({
       transcriptRef.current = '';
 
       // Request microphone permission first
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Immediately release the tracks — we only needed the permission grant;
+      // SpeechRecognition opens its own capture. Leaving them live keeps the
+      // mic held (and the OS mic indicator on) for the page's lifetime.
+      stream.getTracks().forEach((t) => t.stop());
 
       recognitionRef.current.start();
       onStatusChange && onStatusChange('starting');
@@ -147,6 +151,10 @@ const VoiceRecognition = ({
 
   // Determine the button state
   const buttonState = isListening ? 'stop' : 'start';
+
+  // No Web Speech API (Firefox-family mobile, some WebViews) — render nothing
+  // rather than a mic that silently does nothing on tap.
+  if (!isSupported.current) return null;
 
   return (
     <div className={`relative ${className}`}>

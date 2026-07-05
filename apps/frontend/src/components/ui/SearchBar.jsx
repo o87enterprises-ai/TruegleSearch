@@ -867,6 +867,10 @@ export default function SearchBar({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const [isHoveringDropdown, setIsHoveringDropdown] = useState(false);
+  // Transient voice-search error shown under the input (mic denied, no speech,
+  // service blocked). Auto-dismisses; replaces the old console-only handling.
+  const [voiceError, setVoiceError] = useState(null);
+  const voiceErrorTimerRef = useRef(null);
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
   const typingTimerRef = useRef(null);
@@ -1072,6 +1076,11 @@ export default function SearchBar({
       }
     };
   }, [localValue, isFocused, isHoveringDropdown]);
+
+  // Clear the voice-error auto-dismiss timer on unmount.
+  useEffect(() => {
+    return () => clearTimeout(voiceErrorTimerRef.current);
+  }, []);
 
   // Handle suggestion click
   const handleSuggestionClick = useCallback((suggestion) => {
@@ -1588,6 +1597,18 @@ const handleChange = useCallback((e) => {
                 onStatusChange={(status, error) => {
                   if (status === 'error') {
                     console.error('Voice recognition error:', error);
+                    // Surface the failure to the user — silent mic taps were
+                    // indistinguishable from "voice search is broken".
+                    const messages = {
+                      'not-allowed': 'Microphone access denied — check browser permissions',
+                      'service-not-allowed': 'Voice search is blocked by this browser',
+                      'no-speech': "Didn't catch that — try again",
+                      'audio-capture': 'No microphone found',
+                      network: 'Voice service unavailable — check your connection',
+                    };
+                    setVoiceError(messages[error] || 'Voice search failed — try again');
+                    clearTimeout(voiceErrorTimerRef.current);
+                    voiceErrorTimerRef.current = setTimeout(() => setVoiceError(null), 4000);
                   } else if (status === 'stopped') {
                     // Automatically trigger search when voice input stops
                     if (localValue.trim()) {
@@ -1598,6 +1619,15 @@ const handleChange = useCallback((e) => {
                 }}
                 size={config.iconSize - 4}
               />
+
+              {/* Transient voice-error pill, anchored under the input row */}
+              {voiceError && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-20 text-center pointer-events-none">
+                  <span className="inline-block px-3 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-300 text-xs">
+                    {voiceError}
+                  </span>
+                </div>
+              )}
 
               {/* Camera Input */}
               <CameraInput
