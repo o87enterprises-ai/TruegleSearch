@@ -11,6 +11,7 @@ import {
   ThumbsDown,
   Eye,
   X,
+  MapPin,
 } from 'lucide-react';
 
 // Backgrounds - Import all backgrounds
@@ -105,6 +106,11 @@ const FILTER_CATEGORY_TYPE_MAP = {
   shopping: 'shopping',
 };
 
+// useLocationDetection queryTypes that mean the user explicitly wants a map.
+// 'location' (generic "in/at/near <place>" phrasing) and 'place' (fuzzy
+// geocode fallback) are deliberately excluded — they show a "View map" chip.
+const MAP_AUTO_OPEN_TYPES = ['geolocation', 'directions', 'zipcode'];
+
 export default function UniversalSearch({ lockedGreen = false }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -187,7 +193,12 @@ export default function UniversalSearch({ lockedGreen = false }) {
   // this off `searchValue` made the map auto-open on almost every keystroke (the
   // bare-query geocode fallback matches most short terms), so it now keys off the
   // last query the user actually searched for.
-  const { isLocationQuery, detectedLocation } = useLocationDetection(lastSearchedQuery);
+  const { isLocationQuery, detectedLocation, queryType } = useLocationDetection(lastSearchedQuery);
+  // Only EXPLICIT location intent auto-opens the map. Casual "in <place>"
+  // phrasing ('location') and fuzzy place geocodes ('place') get a "View map"
+  // chip instead — "where is the largest fireworks show in america" is a
+  // question, not a map request.
+  const autoOpenMap = isLocationQuery && MAP_AUTO_OPEN_TYPES.includes(queryType);
   const [filters, setFilters] = useState({
     sortBy: 'relevance',
     order: 'desc',
@@ -902,9 +913,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
               showCategories={true}
               activeCategory={activeCategory}
               onSelectCategory={setActiveCategory}
-              showMap={showMap || (isLocationQuery && !mapManuallyClosed)}
+              showMap={showMap || (autoOpenMap && !mapManuallyClosed)}
               onMapToggle={() => {
-                if (showMap || (isLocationQuery && !mapManuallyClosed)) {
+                if (showMap || (autoOpenMap && !mapManuallyClosed)) {
                   // If map is currently visible, hide it and mark as manually closed
                   setShowMap(false);
                   setMapManuallyClosed(true);
@@ -993,9 +1004,24 @@ export default function UniversalSearch({ lockedGreen = false }) {
             )}
           </AnimatePresence>
 
+          {/* "View map" chip — location detected but not an explicit map query.
+              Not gated on mapManuallyClosed so it reappears after closing. */}
+          {isLocationQuery && !autoOpenMap && !showMap && detectedLocation && (
+            <div className="max-w-4xl mx-auto mb-4">
+              <button
+                type="button"
+                onClick={() => { setShowMap(true); setMapManuallyClosed(false); }}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/15 text-xs text-white/70 transition-colors"
+              >
+                <MapPin size={13} />
+                View map{detectedLocation.locationName ? ` — ${detectedLocation.locationName}` : ''}
+              </button>
+            </div>
+          )}
+
           {/* Map View Overlay */}
           <AnimatePresence>
-            {((showMap || isLocationQuery) && !mapManuallyClosed) && (
+            {((showMap || autoOpenMap) && !mapManuallyClosed) && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1004,7 +1030,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                 className="max-w-4xl mx-auto mb-6"
               >
                 <MapViewWrapper
-                  isOpen={(showMap || isLocationQuery) && !mapManuallyClosed}
+                  isOpen={(showMap || autoOpenMap) && !mapManuallyClosed}
                   onToggle={() => {
                     setShowMap(false);
                     setMapManuallyClosed(true);

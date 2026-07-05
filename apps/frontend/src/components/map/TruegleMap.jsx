@@ -182,7 +182,11 @@ export default function TruegleMap({
     }
   }, [state.selectedMarker]);
 
-  // Detect mobile device and force fullscreen on phones only
+  // Detect mobile device (layout only — fullscreen is always user-initiated).
+  // The old version force-set isFullscreen(true) for phones here, and because
+  // this effect runs with [] deps its stale closure re-forced fullscreen on
+  // every resize/orientationchange — exiting or rotating the phone snapped the
+  // map back into fullscreen, making it nearly impossible to close.
   useEffect(() => {
     const checkMobile = () => {
       // Check if device is a phone (not tablet or desktop)
@@ -194,13 +198,7 @@ export default function TruegleMap({
       // Additional check for screen size
       const isSmallScreen = window.innerWidth <= 768 && window.innerHeight <= 1024;
 
-      const isPhoneDevice = isPhone || (isMobileDevice && isSmallScreen);
-      setIsMobile(isPhoneDevice);
-
-      // Force fullscreen on mobile phones
-      if (isPhoneDevice && !isFullscreen) {
-        setIsFullscreen(true);
-      }
+      setIsMobile(isPhone || (isMobileDevice && isSmallScreen));
     };
 
     checkMobile();

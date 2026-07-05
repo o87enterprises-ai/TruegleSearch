@@ -64,9 +64,17 @@ export default function MapViewWrapper({
     }
   }, [detectedLocation]); // actions.flyTo is stable, no need to include in deps
 
-  // Try to get user's current location
+  // Try to get user's current location — but only when the map actually needs
+  // it: manual open with no detected location (center on the user), "near me"
+  // queries (permission already granted in the hook), or directions (origin).
+  // Opening the map for a geocoded city/zip/place must NOT fire a browser
+  // permission prompt — the map already has a center.
   useEffect(() => {
-    if (isOpen && !userLocation && navigator.geolocation) {
+    const needsUserPosition =
+      !detectedLocation ||
+      detectedLocation.type === 'geolocation' ||
+      detectedLocation.type === 'directions';
+    if (isOpen && !userLocation && needsUserPosition && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const location = {
