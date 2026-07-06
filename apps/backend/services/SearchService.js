@@ -101,6 +101,38 @@ class SearchService {
     // Memoize AI acronym expansions (and negative "no expansion" results) so a
     // repeated unknown-acronym query never re-hits the AI provider.
     this._acronymCache = new Map();
+
+    // Memoize SerpAPI fallback responses (metered/paid quota) so repeated
+    // identical thin-result queries within the TTL don't re-spend a credit.
+    // Warm-instance-only (serverless), so this is a bonus, not a guarantee.
+    this._serpCache = new Map();
+    this._serpCacheTtlMs = 60 * 60 * 1000; // 1 hour
+  }
+
+  _serpCacheKey(query, filters) {
+    return JSON.stringify([
+      query.toLowerCase().trim(),
+      filters.page || 1,
+      filters.perPage || 10,
+      filters.safeSearch || 'safe',
+      filters.dateRange || 'any',
+    ]);
+  }
+
+  getCachedSerpResults(query, filters) {
+    const key = this._serpCacheKey(query, filters);
+    const entry = this._serpCache.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.timestamp > this._serpCacheTtlMs) {
+      this._serpCache.delete(key);
+      return null;
+    }
+    return entry.results;
+  }
+
+  setCachedSerpResults(query, filters, results) {
+    const key = this._serpCacheKey(query, filters);
+    this._serpCache.set(key, { results, timestamp: Date.now() });
   }
 
   /**
@@ -338,8 +370,14 @@ class SearchService {
       if (searchWeb && webResultCount < 5 && this.serpApiKey) {
         console.log(`⚡ SerpAPI fallback triggered (only ${webResultCount} web results)`);
         try {
-          const serpData = await this.performSerpSearch(query, filters);
-          const serpResults = this.formatSerpResults(serpData);
+          let serpResults = this.getCachedSerpResults(query, filters);
+          if (serpResults) {
+            console.log('⚡ SerpAPI cache hit — skipped API call');
+          } else {
+            const serpData = await this.performSerpSearch(query, filters);
+            serpResults = this.formatSerpResults(serpData);
+            this.setCachedSerpResults(query, filters, serpResults);
+          }
           const existingUrls = new Set(combinedResults.map(r => r.url));
           const newResults = serpResults.filter(r => !existingUrls.has(r.url));
           combinedResults = [...combinedResults, ...newResults];
