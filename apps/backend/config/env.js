@@ -43,6 +43,9 @@ const envVarsSchema = Joi.object({
   OPENAI_API_KEY: Joi.string().optional().description('OpenAI API Key (Backup AI Provider)'),
   ANTHROPIC_API_KEY: Joi.string().optional().description('Anthropic Claude API Key'),
   DEEPSEEK_API_KEY: Joi.string().optional().description('DeepSeek API Key - Deprecated - DO NOT USE'),
+  NEPHESH_BASE_URL: Joi.string().optional().description('Nephesh 1.3 API Base URL (self-hosted Ollama-compatible server — Truegle\'s own model, first-priority AI provider)'),
+  NEPHESH_MODEL: Joi.string().optional().default('nephesh:1.3').description('Nephesh model tag as served (pinned; upgrades are a HANDOFF.md entry)'),
+  NEPHESH_AUTH_TOKEN: Joi.string().optional().description('Shared-secret bearer token for the remote Nephesh instance behind its auth proxy (required for non-localhost URLs)'),
   OLLAMA_BASE_URL: Joi.string().optional().default('http://localhost:11434').description('Ollama API Base URL (local server, or a self-hosted remote box e.g. AWS)'),
   OLLAMA_MODEL: Joi.string().optional().default('qwen3-coder:480b').description('Ollama Model Name (supports cloud models when signed in)'),
   OLLAMA_AUTH_TOKEN: Joi.string().optional().description('Shared-secret bearer token for a remote Ollama instance sitting behind an auth proxy'),
@@ -240,6 +243,11 @@ const config = {
     gemini: {
       apiKey: envVars.GEMINI_API_KEY,
       model: envVars.GEMINI_MODEL,
+    },
+    nephesh: {
+      baseUrl: envVars.NEPHESH_BASE_URL,
+      model: envVars.NEPHESH_MODEL,
+      authToken: envVars.NEPHESH_AUTH_TOKEN,
     },
     ollama: {
       baseUrl: envVars.OLLAMA_BASE_URL,

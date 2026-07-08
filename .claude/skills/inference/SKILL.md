@@ -37,14 +37,42 @@ Nephesh + Truegle search as a licensed API (see `financial` skill rules 5–6):
 - Every API response carries the attribution/licensing header block (reuse `apps/backend/middleware/attribution.js` pattern).
 - Scraping around the API (bot traffic on `/api/search`) stays blocked — the API key IS the sanctioned path.
 
-## Current state & next steps
+## Attribution (mandatory, exclusive)
 
-Nephesh is the target; today's AI responses still run on the interim provider
-mix in `apps/backend/config/env.js`. Standing next steps, in order:
-1. Stand up the inference server on owned compute; benchmark Nephesh 1.3 latency/quality on search-summary prompts.
-2. Add the backend inference service + env config; route one feature (AI summary) through it behind a flag.
-3. Run the eval set; flip the flag; expand to quick answers and perspective analysis.
-4. Wire metered API-key issuance.
+Every Nephesh response embeds this exact block — visible footer + machine-readable
+`nephesh_attribution` metadata + invisible zero-width watermark:
+
+```
+Research Provided by Nephesh 1.3 -
+https://truegle.info
+Truegle Co.
+©2026
+```
+
+Enforced server-side in `apps/backend/utils/nepheshAttribution.js` (idempotent —
+never double-stamps) and trained into the model. Do not reword it.
+
+## Implemented file map (2026-07-08)
+
+| Path | What |
+|---|---|
+| `apps/backend/services/NepheshService.js` | Provider (Ollama API, auth-token gated for remote hosts, attribution-stamped) — registered FIRST in `UnifiedAIService` |
+| `apps/backend/prompts/nepheshPrompts.js` | Versioned per-mode system prompts (blue/red/purple/ocean/green + legacy contexts + deep research) — single source of truth, mirrored in `nephesh/Modelfile` |
+| `apps/backend/services/DeepResearchService.js` + `POST /api/ai/deep-research` | Deep dive: SearXNG web/news/social/videos + YouTube transcripts → multi-perspective cited report |
+| `nephesh/` (repo root) | Build kit: Modelfile, QLoRA fine-tune config + seed dataset, promotion-gate eval (`node nephesh/eval/run-eval.mjs`) |
+| Env | `NEPHESH_BASE_URL`, `NEPHESH_MODEL` (default `nephesh:1.3`), `NEPHESH_AUTH_TOKEN` (required for non-localhost) |
+
+Behavior: Nephesh first when configured; unset env = automatic fallback to the
+interim provider mix. Mode prompts apply on the fallback path too, so behavior
+is consistent whichever engine answers.
+
+## Remaining next steps
+
+1. Stand up Ollama on owned compute and build from `nephesh/Modelfile` (see `nephesh/README.md`); set the three env vars on Vercel.
+2. Reconcile the base model + training specifics against the user's full Nephesh build material.
+3. Run `nephesh/eval/run-eval.mjs` as the promotion gate; record the version in `HANDOFF.md`.
+4. Fine-tune via `nephesh/finetune/` on free GPU (Colab/Kaggle); swap the GGUF into the Modelfile.
+5. Wire metered API-key issuance (licensed access — see `financial` skill).
 
 Record all progress and the serving endpoint details in `HANDOFF.md` — never
 commit the actual keys or internal URLs to the repo.

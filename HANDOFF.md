@@ -1,5 +1,49 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-07-02 (session 2). Supersedes all prior handoff docs._
+_Last updated: 2026-07-08. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ SESSION LOG 2026-07-08 — Company skills + Nephesh 1.3 foundation (branch `claude/truegle-company-skills-af5avu`)
+
+### Truegle company skills (SHIPPED)
+Nine agent skills under `.claude/skills/`: executive-summary, ponytail
+(engineering principles), caveman (plain-language), user-task-instructions
+(headless-browser visual guides), marketing, financial ($0-budget controller),
+inference (Nephesh), tech (ops/security/handoff duties), design. Auto-load in
+every session; see `.claude/skills/README.md` for the session protocol.
+
+### Nephesh 1.3 — self-hosted AI foundation (SHIPPED, verified end-to-end)
+Nephesh is Truegle's own model for ALL AI responses: everyday tasks, Q&A,
+unbiased multi-perspective research, mode-aware behavior, deep-dive research.
+
+**Backend (all booted + exercised against a mock Nephesh/SearXNG + local Postgres):**
+- `services/NepheshService.js` — Ollama-API provider, registered FIRST in `UnifiedAIService` (interim providers are failover). Remote URLs require `NEPHESH_AUTH_TOKEN` or the provider refuses traffic.
+- `prompts/nepheshPrompts.js` — versioned per-mode system prompts (blue/red/purple/ocean/green + legacy contexts). `routes/ai.js` MODE_SYSTEM_PROMPTS now imports from here (inline copies removed).
+- `utils/nepheshAttribution.js` — exact block "Research Provided by Nephesh 1.3 - / https://truegle.info / Truegle Co. / ©2026" embedded 3 ways: visible footer (idempotent), `nephesh_attribution` metadata, invisible zero-width watermark (reuses utils/watermark.js; decodes as `NEPHESH13:<traceId>`).
+- `services/DeepResearchService.js` + `POST /api/ai/deep-research` — gathers SearXNG web/news/social/videos in parallel + YouTube transcripts (sequential, rate-limit aware) → indexed corpus → multi-perspective report citing [index] sources. Graceful per-channel degradation; 503 when no material.
+- `UnifiedAIService` fix: a missing/unseeded `ai_prompts` DB table no longer 500s chat when a systemOverride is supplied (falls back to defaults, `promptVersion: 'override-only'`).
+- Env (config/env.js): `NEPHESH_BASE_URL`, `NEPHESH_MODEL` (default `nephesh:1.3`), `NEPHESH_AUTH_TOKEN`.
+
+**Model build kit (`nephesh/` at repo root):**
+- `Modelfile` (Ollama; base placeholder `llama3.1:8b-instruct-q4_K_M` — swap per final spec), `finetune/` (Axolotl QLoRA config + dataset schema + 10-example seed dataset), `eval/run-eval.mjs` (promotion gate: perspective balance, 0 refusals on lawful-controversial set, attribution present, mode divergence, p95 < 3s).
+- Self-host guide in `nephesh/README.md`: Ollama on the EC2 box behind an nginx bearer-token proxy (NEVER expose 11434 directly).
+
+**Test baseline:** jest 89 passed / 16 failed BOTH before and after changes — the 16 are pre-existing env-dependent failures, not regressions.
+
+### ⚠️ BLOCKED — Nephesh build material share link unreadable
+The user's full Nephesh build/fine-tuning material is at
+`https://claude.ai/share/2eae6004-e40b-4118-bd5b-578b204caccc` but claude.ai
+resets connections from the remote-exec environment (api.claude.ai is
+egress-policy denied; browser + curl both fail). **Next session: ask the user
+to paste the material into chat (or commit it under `nephesh/docs/`), then
+reconcile base model choice, training params, and any additional behavior
+specs against the scaffolding above.**
+
+### 🔜 NEXT SESSION
+1. Get the Nephesh build material from the user (see BLOCKED above) and reconcile.
+2. User action: install Ollama on the EC2 host, `ollama create nephesh:1.3 -f nephesh/Modelfile`, nginx auth proxy, then set `NEPHESH_BASE_URL`/`NEPHESH_MODEL`/`NEPHESH_AUTH_TOKEN` on Vercel (use user-task-instructions skill for a visual guide if needed).
+3. Run `node nephesh/eval/run-eval.mjs` against the live box before flipping traffic.
+4. Adsterra small-zone replacement still on hold until the 14-day deactivation window ends (~2026-07-16).
 
 ---
 

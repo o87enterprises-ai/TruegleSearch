@@ -1,0 +1,52 @@
+# Nephesh 1.3 QLoRA fine-tune — Axolotl config
+#
+# Runs on a free Colab T4 / Kaggle GPU for 3B-8B bases ($0-budget rule).
+#   pip install axolotl
+#   axolotl train qlora-config.yaml
+#
+# After training, merge + convert for the Ollama Modelfile:
+#   axolotl merge-lora qlora-config.yaml
+#   python llama.cpp/convert_hf_to_gguf.py merged/ --outtype q4_k_m \
+#     --outfile nephesh-1.3-q4_k_m.gguf
+# then set `FROM ./nephesh-1.3-q4_k_m.gguf` in ../Modelfile and rebuild.
+
+base_model: meta-llama/Llama-3.1-8B-Instruct   # keep in sync with ../Modelfile FROM
+
+load_in_4bit: true
+adapter: qlora
+
+datasets:
+  - path: seed-dataset.jsonl
+    type: chat_template
+    field_messages: conversations
+    message_property_mappings:
+      role: from
+      content: value
+
+chat_template: llama3
+sequence_len: 4096
+sample_packing: true
+
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target_linear: true
+
+gradient_accumulation_steps: 4
+micro_batch_size: 2
+num_epochs: 3
+learning_rate: 0.0002
+lr_scheduler: cosine
+warmup_ratio: 0.05
+optimizer: paged_adamw_8bit
+
+bf16: auto
+gradient_checkpointing: true
+logging_steps: 5
+val_set_size: 0.05
+evals_per_epoch: 1
+saves_per_epoch: 1
+output_dir: ./nephesh-1.3-qlora
+
+special_tokens:
+  pad_token: <|end_of_text|>

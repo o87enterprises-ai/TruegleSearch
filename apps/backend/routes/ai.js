@@ -6,7 +6,10 @@ const AIService = require('../services/AIService');
 const TokenService = require('../services/TokenService');
 const UnifiedAIService = require('../services/UnifiedAIService');
 const QueryInterpreter = require('../services/QueryInterpreter');
+const DeepResearchService = require('../services/DeepResearchService');
 const logger = require('../utils/logger');
+
+const deepResearch = new DeepResearchService();
 
 // Initialize AI services
 const aiService = new AIService(); // Legacy service for /summary and /deepseek endpoints
@@ -50,13 +53,9 @@ logger.info('✅ Unified AI services initialized: OpenRouter + OpenAI + Anthropi
  * @access  Private (requires authentication)
  * @body    { message: string, context?: string, options?: object }
  */
-// Mode-specific system prompt overrides (injected before DB prompt lookup)
-const MODE_SYSTEM_PROMPTS = {
-  red_pill: `You are a deep-dive research assistant specializing in alternative, independent, and suppressed perspectives. When answering, prioritize: non-mainstream sources, censored narratives, whistleblower accounts, and views that challenge official consensus. Always surface what mainstream media downplays or ignores. Be direct, unfiltered, and help the user "go deeper" beyond surface-level reporting.`,
-  biased_results: `You are a perspective-analysis assistant. The user has selected specific ideological lenses to filter their search through. Stay strictly within those selected perspectives — conservative, liberal, conspiratorial, spiritual, economic, etc. — as chosen by the user. Do not introduce neutral or mainstream framing unless the user's selected perspectives include it. Analyze the topic exclusively through the user's chosen bias lenses.`,
-  osint: `You are an OSINT (Open Source Intelligence) investigation assistant. Your role is to guide the user through digital intelligence gathering. Suggest specific search queries, data sources (WHOIS, Shodan, HaveIBeenPwned, LinkedIn, pastebin, etc.), and investigative steps. Help the user correlate data points, identify patterns, and extract actionable intelligence from publicly available information. Always suggest next logical investigative steps.`,
-  search_results: `You are a helpful, neutral search assistant. Answer the user's questions based on the search results context provided. Be concise, factual, and balanced. Cite multiple perspectives where relevant.`,
-};
+// Mode-specific system prompts (versioned, shared with the self-hosted
+// Nephesh model) — see prompts/nepheshPrompts.js for the source of truth.
+const { MODE_PROMPTS: MODE_SYSTEM_PROMPTS } = require('../prompts/nepheshPrompts');
 
 router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
   try {
@@ -131,6 +130,77 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
     res.status(500).json({
       error: 'AI request failed',
       message: 'Unable to process AI request at this time. Please try again.',
+    });
+  }
+});
+
+/**
+ * @route   POST /api/ai/deep-research
+ * @desc    Nephesh deep-dive research: gathers web/news/social/video material
+ *          (including YouTube transcripts) via the self-hosted metasearch
+ *          layer and synthesizes a multi-perspective, source-cited report.
+ * @access  Public with optional auth (token-gated for signed-in users)
+ * @body    { query: string, mode?: string, maxTranscripts?: number }
+ */
+router.post('/deep-research', optionalAuth, rateLimitSearch, async (req, res) => {
+  try {
+    const { query: researchQuery, mode = 'blue', maxTranscripts } = req.body;
+
+    if (!researchQuery || typeof researchQuery !== 'string' || researchQuery.trim().length === 0) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'Research query is required and must be a non-empty string'
+      });
+    }
+
+    const user = req.user;
+    const isAuthed = user?.isAuthenticated && user?.userId;
+
+    // Deep research costs an ai-chat token for signed-in users (same gate as chat)
+    if (isAuthed) {
+      const canAccess = await TokenService.canAccessFeature(user.userId, 'ai-chat');
+      if (!canAccess) {
+        return res.status(402).json({
+          error: 'Insufficient tokens',
+          message: 'Not enough tokens for deep research. Please watch an ad or upgrade your account.'
+        });
+      }
+    }
+
+    const result = await deepResearch.research(researchQuery.trim(), { mode, maxTranscripts });
+
+    if (isAuthed) {
+      await TokenService.spendToken(user.userId, 'ai-chat');
+    }
+
+    logger.info('Deep research successful:', {
+      userId: isAuthed ? user.userId : 'guest',
+      mode,
+      provider: result.provider,
+      sources: result.sources.length,
+      transcripts: result.transcriptsUsed,
+    });
+
+    res.json({
+      success: true,
+      query: researchQuery.trim(),
+      mode,
+      ...result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    logger.error('Deep research error:', { error: error.message, userId: req.user?.userId });
+
+    if (error.message.includes('No research material')) {
+      return res.status(503).json({
+        error: 'Research sources unavailable',
+        message: 'The research providers are temporarily unreachable. Please try again shortly.',
+      });
+    }
+
+    res.status(500).json({
+      error: 'Deep research failed',
+      message: 'Unable to complete deep research at this time. Please try again.',
     });
   }
 });

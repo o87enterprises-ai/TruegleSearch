@@ -3,6 +3,7 @@
  * Manages multiple AI providers with automatic failover and context-aware prompt selection
  */
 
+const NepheshService = require('./NepheshService');
 const GroqService = require('./GroqService');
 const NvidiaService = require('./NvidiaService');
 const OpenAIService = require('./OpenAIService');
@@ -15,8 +16,10 @@ const logger = require('../utils/logger');
 
 class UnifiedAIService {
   constructor() {
-    // Initialize all AI providers
+    // Initialize all AI providers. Nephesh (Truegle's own self-hosted model)
+    // always ranks first when configured; the rest are interim fallbacks.
     this.providers = {
+      nephesh: new NepheshService(),
       groq: new GroqService(),
       gemini: new GeminiService(),
       nvidia: new NvidiaService(),
@@ -32,7 +35,7 @@ class UnifiedAIService {
     this.cacheTTL = 3600000; // 1 hour
     this.maxCacheSize = 1000;
 
-    logger.info('UnifiedAIService initialized with 6 providers (Groq first)');
+    logger.info(`UnifiedAIService initialized with ${Object.keys(this.providers).length} providers (Nephesh first when configured)`);
   }
 
   /**
@@ -52,8 +55,20 @@ class UnifiedAIService {
         return { ...cached.data, fromCache: true };
       }
 
-      // Get prompt for context
-      const prompt = await this.promptService.getPromptByContext(context);
+      // Get prompt for context. A missing/unseeded ai_prompts table must not
+      // take AI down when the caller supplies its own system prompt (the
+      // versioned Nephesh mode prompts) — fall back to sane defaults.
+      let prompt;
+      try {
+        prompt = await this.promptService.getPromptByContext(context);
+      } catch (promptError) {
+        if (!options.systemOverride) throw promptError;
+        logger.warn('No DB prompt for context, using systemOverride with defaults:', {
+          context,
+          error: promptError.message,
+        });
+        prompt = { id: null, prompt_text: '', temperature: 0.7, max_tokens: 2000, version: 'override-only' };
+      }
 
       // Interpolate variables in prompt
       const variables = {
@@ -291,7 +306,13 @@ class UnifiedAIService {
       const extra = Object.keys(this.providers).filter(
         (name) => this.providers[name]?.isAvailable?.() && !dbProviders.includes(name)
       );
-      const availableProviders = [...dbProviders, ...extra];
+      let availableProviders = [...dbProviders, ...extra];
+
+      // Nephesh is Truegle's own model — when configured it outranks every
+      // DB-tracked provider regardless of stored priorities.
+      if (availableProviders.includes('nephesh')) {
+        availableProviders = ['nephesh', ...availableProviders.filter((n) => n !== 'nephesh')];
+      }
 
       if (availableProviders.length === 0) {
         throw new Error('No AI providers available');
@@ -303,8 +324,8 @@ class UnifiedAIService {
     } catch (error) {
       logger.error('Error determining provider order:', { error: error.message });
 
-      // Fallback to hardcoded priority (Ollama first, then others)
-      return ['groq', 'gemini', 'nvidia', 'openai', 'anthropic', 'ollama'].filter(name => {
+      // Fallback to hardcoded priority (Nephesh first, then interim providers)
+      return ['nephesh', 'groq', 'gemini', 'nvidia', 'openai', 'anthropic', 'ollama'].filter(name => {
         const provider = this.providers[name];
         return provider && provider.isAvailable && provider.isAvailable();
       });
