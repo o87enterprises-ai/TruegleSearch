@@ -10,7 +10,7 @@
 #     --outfile nephesh-1.3-q4_k_m.gguf
 # then set `FROM ./nephesh-1.3-q4_k_m.gguf` in ../Modelfile and rebuild.
 
-base_model: meta-llama/Llama-3.1-8B-Instruct   # keep in sync with ../Modelfile FROM
+base_model: Qwen/Qwen3-8B   # keep in sync with ../Modelfile FROM (qwen3:8b)
 
 load_in_4bit: true
 adapter: qlora
@@ -23,7 +23,7 @@ datasets:
       role: from
       content: value
 
-chat_template: llama3
+chat_template: chatml   # qwen3 uses a ChatML-style template
 sequence_len: 4096
 sample_packing: true
 
@@ -49,4 +49,9 @@ saves_per_epoch: 1
 output_dir: ./nephesh-1.3-qlora
 
 special_tokens:
-  pad_token: <|end_of_text|>
+  pad_token: <|endoftext|>
+
+# Fine-tune acceptance test (from the Null-Prime battery, eval/bias-battery.md):
+# re-run the battery after training and confirm the treatment gap shrank toward
+# zero AND leans still track axiom counts rather than camp. Never train toward
+# a conclusion; train toward equal step completion.

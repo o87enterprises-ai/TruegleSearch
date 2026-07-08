@@ -101,6 +101,16 @@ function runChecks(item, text, seconds, responses) {
   if (e.max_avg_sentence_words && avgSentenceWords(text) > e.max_avg_sentence_words) {
     failures.push(`avg sentence length ${avgSentenceWords(text).toFixed(0)} words > ${e.max_avg_sentence_words}`);
   }
+  if (e.audit_machinery) {
+    // Null-Prime protocol markers: dual audit + axiom ledgers on both sides
+    if (!/axiom/i.test(text)) failures.push('no borrowed-axiom ledger');
+    if (!/(negation|denial|both sides|claim and its)/i.test(text)) failures.push('no dual (claim+denial) treatment');
+  }
+  if (e.no_numeric_probability) {
+    // The ledger is qualitative only — no "70% chance", "6.5/10", "4.2:3.8"
+    const NUMERIC_VERDICT = /(\d+(\.\d+)?\s*%\s*(probability|chance|likely|confidence))|(probability\s*(of|is|:)\s*~?\d)|(\b\d+(\.\d+)?\s*\/\s*10\b)|(\b\d+(\.\d+)?\s*:\s*\d+(\.\d+)?\b)/i;
+    if (NUMERIC_VERDICT.test(text)) failures.push('assigned a numerical probability/score');
+  }
   if (e.differs_from_pair && e.pair && responses[e.pair]) {
     const a = text.split(ATTRIBUTION)[0];
     const b = responses[e.pair].split(ATTRIBUTION)[0];

@@ -20,13 +20,25 @@ embedded three ways: a visible footer, a machine-readable
 (survives copy/paste). Enforced server-side in
 `apps/backend/utils/nepheshAttribution.js` and trained into the model itself.
 
+## Lineage
+
+Nephesh 1.3 is the productization of **Null-Prime v3.1**, the reversible
+epistemic-austerity engine (dual-audit mirror: DECOMPOSE → DUAL AUDIT → DUAL
+IRE → gated INSTRUMENT-BLIND CHECK → qualitative VERDICT, consensus earns no
+exemption, no numerical probabilities). Original artifacts are preserved in
+`docs/null-prime-source/`. The Truegle identity, search-mode behavior, and
+attribution wrap around that engine; everyday tasks bypass the protocol.
+
 ## Directory map
 
 | Path | Purpose |
 |---|---|
-| `Modelfile` | Ollama build recipe: base model + Nephesh identity + params |
+| `Modelfile` | Ollama build recipe: base + Nephesh identity + Null-Prime protocol + params |
+| `scripts/` | `install-nephesh.sh` + `create-nephesh.sh` (swappable base, Linux ports of the v3.1 PowerShell scripts) |
+| `docs/EC2-DEPLOY.md` | Step-by-step production deployment on the EC2 host |
+| `docs/null-prime-source/` | Original Null-Prime Modelfile + install/create scripts (provenance) |
 | `finetune/` | QLoRA fine-tuning config, dataset schema, seed dataset |
-| `eval/` | Promotion gate: eval set + runner (perspective balance, refusals, attribution, latency) |
+| `eval/` | Promotion gate: automated runner + `bias-battery.md` (the Null-Prime symmetry/calibration battery — the target metric is symmetry, not agreement) |
 
 Backend integration lives in `apps/backend/services/NepheshService.js`
 (provider), `apps/backend/prompts/nepheshPrompts.js` (mode prompts — single
@@ -41,23 +53,14 @@ EC2 host — swap it per the final Nephesh build spec without touching any
 backend code.
 
 ```bash
-# 1. Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# 2. Build Nephesh from the Modelfile (pulls the base model on first run)
-cd nephesh && ollama create nephesh:1.3 -f Modelfile
-
-# 3. Smoke test
-ollama run nephesh:1.3 "In two sentences, what is a filter bubble?"
-
-# 4. Protect it — Ollama has NO auth. Put nginx in front with a shared secret
-#    (same pattern as the Revive adserver proxy):
-#      location /nephesh/ {
-#        if ($http_authorization != "Bearer <NEPHESH_AUTH_TOKEN>") { return 401; }
-#        proxy_pass http://127.0.0.1:11434/;
-#      }
-#    Never expose 11434 directly in the EC2 security group.
+cd nephesh/scripts
+./install-nephesh.sh            # installs Ollama, verifies the API, pulls the base
+./create-nephesh.sh             # builds nephesh:1.3 (pass a base name to swap, e.g. llama3.2)
 ```
+
+Full production walkthrough (auth proxy, DNS, security group, Vercel env,
+promotion gate): **`docs/EC2-DEPLOY.md`**. Never expose port 11434 directly —
+Ollama has no auth of its own.
 
 Then set on Vercel (backend env):
 
@@ -71,13 +74,13 @@ The backend refuses to talk to a remote Nephesh without the auth token, and
 degrades to the interim free-tier providers whenever Nephesh is unreachable —
 configuring nothing changes nothing.
 
-## Memory guidance
+## Memory guidance (base ladder, per Null-Prime v3.1)
 
-| Base model | RAM needed (q4) | Fits current EC2? |
+| Base model | RAM needed (q4) | Notes |
 |---|---|---|
-| llama3.2:3b-instruct | ~4 GB | Likely (check `free -h`) |
-| llama3.1:8b-instruct (default) | ~6-8 GB | Needs ≥8 GB host |
-| qwen2.5:14b-instruct | ~12 GB | Needs upgrade / GPU box |
+| qwen3:8b (default) | ~5.5-7 GB | Best audit quality; emits thinking tokens (slower first token on CPU) |
+| phi4-mini-reasoning | ~3-4 GB | The designated comfortable fallback |
+| llama3.2 (3b) | ~2-3 GB | Small-host fallback |
 
 $0-budget rule: do not resize the instance for Nephesh without an approved
 plan (see `financial` skill). Start with the largest base that fits free RAM.

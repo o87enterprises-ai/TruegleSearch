@@ -30,20 +30,23 @@ unbiased multi-perspective research, mode-aware behavior, deep-dive research.
 
 **Test baseline:** jest 89 passed / 16 failed BOTH before and after changes — the 16 are pre-existing env-dependent failures, not regressions.
 
-### ⚠️ BLOCKED — Nephesh build material share link unreadable
-The user's full Nephesh build/fine-tuning material is at
-`https://claude.ai/share/2eae6004-e40b-4118-bd5b-578b204caccc` but claude.ai
-resets connections from the remote-exec environment (api.claude.ai is
-egress-policy denied; browser + curl both fail). **Next session: ask the user
-to paste the material into chat (or commit it under `nephesh/docs/`), then
-reconcile base model choice, training params, and any additional behavior
-specs against the scaffolding above.**
+### ✅ RESOLVED — Nephesh build material received and reconciled (same session)
+The claude.ai share link was unreadable from the remote-exec environment, but
+the user uploaded the material directly: **Nephesh 1.3 = Null-Prime v3.1**, a
+reversible epistemic-austerity engine (DECOMPOSE → DUAL AUDIT → DUAL IRE →
+gated INSTRUMENT-BLIND/convergence check → qualitative VERDICT; consensus
+earns no exemption; denial = strict logical negation; NEVER numerical
+probabilities; "∅ — Underdetermined" when ledgers tie). Reconciled:
+- `nephesh/Modelfile` + `prompts/nepheshPrompts.js` (v2026-07-08.2): full Null-Prime v3.1 protocol merged into the Nephesh identity; everyday tasks bypass the protocol. Base ladder per v3.1: **qwen3:8b default, phi4-mini-reasoning fallback, llama3.2 small-host** (params: temp 0.3, top_p 0.85).
+- `nephesh/scripts/install-nephesh.sh` + `create-nephesh.sh`: Linux ports of the user's PowerShell scripts (swappable base at build time).
+- `nephesh/eval/bias-battery.md`: the user's symmetry/calibration battery (matched pairs, borderline items, framing probes, 8-point rubric, treatment-gap indicators — target is SYMMETRY not agreement). Automated spot-checks added to `evalset.jsonl`/`run-eval.mjs`: audit machinery present, no numerical probabilities, matched audit pairs.
+- `nephesh/docs/null-prime-source/`: original artifacts preserved. `nephesh/docs/EC2-DEPLOY.md`: full step-by-step production deployment guide (also delivered to the user in chat).
+- `finetune/qlora-config.yaml` retargeted to Qwen3-8B/ChatML + battery-based acceptance test.
 
 ### 🔜 NEXT SESSION
-1. Get the Nephesh build material from the user (see BLOCKED above) and reconcile.
-2. User action: install Ollama on the EC2 host, `ollama create nephesh:1.3 -f nephesh/Modelfile`, nginx auth proxy, then set `NEPHESH_BASE_URL`/`NEPHESH_MODEL`/`NEPHESH_AUTH_TOKEN` on Vercel (use user-task-instructions skill for a visual guide if needed).
-3. Run `node nephesh/eval/run-eval.mjs` against the live box before flipping traffic.
-4. Adsterra small-zone replacement still on hold until the 14-day deactivation window ends (~2026-07-16).
+1. User action (guide: `nephesh/docs/EC2-DEPLOY.md`): deploy Nephesh on the EC2 host — size check, install/create scripts, nginx bearer-token proxy, `ai.truegle.info` DNS, then `NEPHESH_BASE_URL`/`NEPHESH_MODEL`/`NEPHESH_AUTH_TOKEN` on Vercel.
+2. Run `node nephesh/eval/run-eval.mjs` + the manual bias battery against the live box before flipping traffic; record p95 and treatment gap here.
+3. Adsterra small-zone replacement still on hold until the 14-day deactivation window ends (~2026-07-16).
 
 ---
 
