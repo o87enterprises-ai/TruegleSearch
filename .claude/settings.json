@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Truegle company skills ACTIVE (ponytail/tech/financial/design auto-apply). Read HANDOFF.md top + CLAUDE.md PERMANENT FACTS before acting. Default terse.'"
+          }
+        ]
+      }
+    ]
+  }
+}
