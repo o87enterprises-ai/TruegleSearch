@@ -106,6 +106,15 @@ function runChecks(item, text, seconds, responses) {
     if (!/axiom/i.test(text)) failures.push('no borrowed-axiom ledger');
     if (!/(negation|denial|both sides|claim and its)/i.test(text)) failures.push('no dual (claim+denial) treatment');
   }
+  if (e.audit_counts) {
+    // Step-3 rule: explicit per-side integer counts; a tie verdict requires equal counts
+    const counts = [...text.matchAll(/axioms:\s*(\d+)/gi)].map((m) => parseInt(m[1], 10));
+    if (counts.length < 2) {
+      failures.push('missing explicit per-side axiom counts ("Affirmative axioms: N — Negation axioms: M")');
+    } else if (/underdetermined/i.test(text) && counts[0] !== counts[1]) {
+      failures.push(`declared tie with unequal axiom counts (${counts[0]} vs ${counts[1]})`);
+    }
+  }
   if (e.no_numeric_probability) {
     // The ledger is qualitative only — no "70% chance", "6.5/10", "4.2:3.8"
     const NUMERIC_VERDICT = /(\d+(\.\d+)?\s*%\s*(probability|chance|likely|confidence))|(probability\s*(of|is|:)\s*~?\d)|(\b\d+(\.\d+)?\s*\/\s*10\b)|(\b\d+(\.\d+)?\s*:\s*\d+(\.\d+)?\b)/i;

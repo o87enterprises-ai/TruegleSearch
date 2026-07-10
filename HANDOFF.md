@@ -3,6 +3,54 @@ _Last updated: 2026-07-08. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ SESSION LOG 2026-07-10 — Verdict-logic fix, navigational ranking, ad declutter
+
+### Null-Prime forced-draw bug (FIXED — prompt layer)
+Live moon-landing audit listed 2 vs 3 axioms then declared "equal" → forced "∅".
+Verified NOT trained-in (no fine-tune exists) — small-substrate arithmetic failure.
+`prompts/nepheshPrompts.js` + `nephesh/Modelfile` (v2026-07-10.1, still byte-identical):
+step 3 now REQUIRES "Affirmative axioms: N — Negation axioms: M" line; step 5 permits
+"∅" ONLY when N=M, tie-on-unequal = protocol violation. Eval runner gained
+`audit_counts` check (5 audit items). **User action: set `GROQ_MODEL=llama-3.3-70b-versatile`
+on Vercel** — free tier, much better protocol adherence than 8b-instant.
+
+### Navigational ranking (FIXED — shared scorer, boot-verified)
+"google" surfaced blog.google as "Official site". Root causes: substring scoring
+(`bloggoogle`⊃`google`) + `www.` counted as the subdomain, so blog.google tied
+www.google.com and array order won; `dashcloudflare` never substring-matched
+`cloudflare.com`. New `QueryInterpreter.scoreNavigationalMatch(query, url)` —
+registrable-root-label comparison (google.com 1.0 > accounts.google.com 0.9 >
+blog.google 0.4), sub+root concat for multi-word (dash.cloudflare.com 0.97),
+social-profile penalty skipped when the platform IS the query. Replaces BOTH
+duplicate scorers: `routes/search.js buildInstantAnswer` (threshold 0.35, no card
+below it) and `SearchService.calculateNavigationalScore`. 6 new unit tests.
+Boot-verified with the real-world result set: instantAnswer now picks
+www.google.com; results order google.com → accounts → research.google.
+Known limit: product names w/o matching domain ("nano banana") aren't fixable by
+domain logic — that's substrate/relevance.
+
+### Latent prod-crash bug (FIXED)
+SearXNG category promises were pushed before an `await` gap (SearXNG-primary web
+call) → a rejection in that gap = unhandled rejection = Node kills the process
+(reproduced in test harness). `deferSettle()` in SearchService attaches a no-op
+catch branch; Promise.allSettled still records the failure.
+
+### Ad declutter (SHIPPED per user)
+ALL ad containers commented out (`TODO(ads): re-enable when new Adsterra zones land`)
+EXCEPT the yellow claim slot (`AdColorWrapper type="claim"` + `AdSlot adId="advertise-cta"`).
+Touched: `UniversalSearch.jsx` (Adsterra strips, adult-gated banners + AdultConsentGate,
+sidebar cpm/adult, house AdSlots, RewardAdSlot, footer Smartlink), `MultimediaInterface.jsx`
+(4 grid injections), `App.jsx` (AdScriptLoader mount). Configs untouched — reactivation
+= uncomment. Verified: build ✓, eslint ✓, only claim slot active in rendered JSX,
+jest 95 pass (+6 new) / same 16 pre-existing env failures.
+
+### 🔜 NEXT SESSION
+1. Truegle Chat interface — user has a full build plan to present (chat-first users).
+2. Adsterra zone replacement when 14-day window ends (~2026-07-16) → uncomment TODO(ads) sites.
+3. `GROQ_MODEL` bump on Vercel (above), then re-run a live audit pair to confirm leans follow counts.
+
+---
+
 ## 🗓️ SESSION LOG 2026-07-08 — Company skills + Nephesh 1.3 foundation (branch `claude/truegle-company-skills-af5avu`)
 
 ### Truegle company skills (SHIPPED)

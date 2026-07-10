@@ -4,6 +4,7 @@ const router = express.Router();
 const { authenticate, optionalAuth } = require('../middleware/auth');
 const { rateLimitSearch } = require('../middleware/rateLimit');
 const SearchService = require('../services/SearchService');
+const QueryInterpreter = require('../services/QueryInterpreter');
 // WeatherService exports a singleton instance (not a class)
 const weatherService = require('../services/WeatherService');
 const watermark = require('../utils/watermark');
@@ -484,30 +485,18 @@ async function buildInstantAnswer(query, results) {
   }
 
   if (type === 'navigational') {
-    // Find the best "official" result: prefer a result whose URL domain/subdomain
-    // contains the query term AND has a shallow URL path (homepage or one level deep).
-    const q = query.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const SOCIAL = ['instagram.com', 'linkedin.com', 'twitter.com', 'facebook.com', 'tiktok.com', 'youtube.com'];
-
-    const scored = (results || []).map((r) => {
-      try {
-        const parsed = new URL(r.url || '');
-        const hostname = parsed.hostname.toLowerCase();
-        const pathLen = parsed.pathname.split('/').filter(Boolean).length;
-        const hostNorm = hostname.replace(/[^a-z0-9]/g, '');
-        const subdomain = hostname.split('.')[0].replace(/[^a-z0-9]/g, '');
-        const isSocial = SOCIAL.some((s) => hostname.includes(s));
-        const isHomepage = pathLen === 0;
-        let score = 0;
-        if (subdomain === q || subdomain.includes(q)) score = isHomepage ? 10 : 7;
-        else if (hostNorm.startsWith(q) || hostNorm.includes(q)) score = isHomepage ? 9 : 5;
-        if (isSocial) score = 0;
-        return { r, score };
-      } catch { return { r, score: 0 }; }
-    });
+    // Find the best "official" result via the shared navigational scorer
+    // (QueryInterpreter.scoreNavigationalMatch) — exact registrable-root match
+    // beats substring hits, so google.com outranks blog.google for "google".
+    const scored = (results || []).map((r) => ({
+      r,
+      score: QueryInterpreter.scoreNavigationalMatch(query, r.url),
+    }));
 
     const best = scored.sort((a, b) => b.score - a.score)[0];
-    if (!best || best.score === 0) return null;
+    // Below 0.35 there is no credible official-site signal — show no card
+    // rather than crowning a random blog.
+    if (!best || best.score < 0.35) return null;
 
     const { r: official } = best;
     return {

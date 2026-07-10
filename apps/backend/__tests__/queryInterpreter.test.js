@@ -225,3 +225,52 @@ describe('SearchService.pinOfficialResult', () => {
     expect(pinned).toBe(results);
   });
 });
+
+describe('QueryInterpreter.scoreNavigationalMatch', () => {
+  const s = (q, url) => QueryInterpreter.scoreNavigationalMatch(q, url);
+
+  it('ranks the bare official domain above brand-TLD and subdomain variants ("google")', () => {
+    const google = s('google', 'https://www.google.com/');
+    const blog = s('google', 'https://blog.google/');
+    const accounts = s('google', 'https://accounts.google.com/');
+    const research = s('google', 'https://research.google/');
+    expect(google).toBeGreaterThan(blog);
+    expect(google).toBeGreaterThan(accounts);
+    expect(google).toBeGreaterThan(research);
+    expect(accounts).toBeGreaterThan(blog); // exact root beats substring
+  });
+
+  it('matches sub+root for multi-word navigational queries ("dash cloudflare")', () => {
+    const dash = s('dash cloudflare', 'https://dash.cloudflare.com/');
+    const root = s('dash cloudflare', 'https://cloudflare.com/');
+    const blogPost = s('dash cloudflare', 'https://someblog.net/cloudflare-dashboard-guide');
+    expect(dash).toBeGreaterThan(root);
+    expect(root).toBeGreaterThan(blogPost);
+    expect(dash).toBeGreaterThanOrEqual(0.9);
+  });
+
+  it('rewards known subdomain brands ("aws" -> aws.amazon.com)', () => {
+    expect(s('aws', 'https://aws.amazon.com/')).toBeGreaterThan(s('aws', 'https://amazon.com/'));
+  });
+
+  it('penalizes social profile pages, except when the platform IS the query', () => {
+    const profile = s('google', 'https://www.youtube.com/Google');
+    const homepage = s('google', 'https://www.google.com/');
+    expect(profile).toBeLessThan(0.2);
+    expect(homepage).toBeGreaterThan(profile);
+    // but "youtube" itself must still win youtube.com
+    expect(s('youtube', 'https://www.youtube.com/')).toBe(1.0);
+  });
+
+  it('prefers homepages over deep paths on the same domain', () => {
+    const home = s('cloudflare', 'https://cloudflare.com/');
+    const deep = s('cloudflare', 'https://cloudflare.com/learning/dns/what-is-dns/');
+    expect(home).toBeGreaterThan(deep);
+  });
+
+  it('returns 0 for junk input', () => {
+    expect(s('google', 'not a url')).toBe(0);
+    expect(s('', 'https://google.com/')).toBe(0);
+    expect(s(null, null)).toBe(0);
+  });
+});

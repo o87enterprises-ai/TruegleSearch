@@ -149,7 +149,9 @@ const App = () => {
                       <a href="#main-content" className="skip-to-content">
                         Skip to main content
                       </a>
+                      {/* TODO(ads): re-enable when new Adsterra zones land
                       <AdScriptLoader />
+                      */}
                       <FreemiumTokenBar />
                       <CookieConsent />
                       <AppContent />

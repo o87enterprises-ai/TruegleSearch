@@ -140,6 +140,14 @@ class SearchService {
       // rather than via the searchPromises/Promise.allSettled batch below.
       const preformattedResults = [];
 
+      // Promises pushed here are only consumed by Promise.allSettled further
+      // down — but there are `await`s between push and allSettled (the
+      // SearXNG-primary call). A rejection landing inside that gap has no
+      // handler attached yet, which Node treats as an unhandled rejection and
+      // kills the process. Attach a no-op catch BRANCH (not a replacement) so
+      // the rejection is always observed; allSettled still records 'rejected'.
+      const deferSettle = (p) => { p.catch(() => {}); return p; };
+
       const searchWeb = filters.category === 'all' || filters.category === 'web';
       const searchNews = filters.category === 'all' || filters.category === 'news' || isRedPill;
       const searchVideos = filters.category === 'all' || filters.category === 'videos';
@@ -150,7 +158,7 @@ class SearchService {
         // SearXNG images: free, self-hosted, aggregates Bing Images / Google Images /
         // Unsplash / Flickr / etc. — always try first, no API key needed.
         if (this.searxngUrl) {
-          searchPromises.push(this.performSearXNGCategorySearch(query, 'images', filters));
+          searchPromises.push(deferSettle(this.performSearXNGCategorySearch(query, 'images', filters)));
         }
         const hasGoogleImages = !!(this.googleApiKey && this.googleSearchEngineId);
         const hasBraveImages = !!this.braveApiKey;
@@ -169,7 +177,7 @@ class SearchService {
       if (searchSocial) {
         // SearXNG social media: aggregates Reddit, Twitter/X, HN, etc. — free, no key.
         if (this.searxngUrl) {
-          searchPromises.push(this.performSearXNGCategorySearch(query, 'social media', filters));
+          searchPromises.push(deferSettle(this.performSearXNGCategorySearch(query, 'social media', filters)));
         }
         if (this.googleApiKey && this.googleSearchEngineId) {
           searchPromises.push(this.performGoogleSearch(
@@ -181,7 +189,7 @@ class SearchService {
 
       // SearXNG videos: free alternative/supplement to the YouTube Data API
       if (searchVideos && this.searxngUrl) {
-        searchPromises.push(this.performSearXNGCategorySearch(query, 'videos', filters));
+        searchPromises.push(deferSettle(this.performSearXNGCategorySearch(query, 'videos', filters)));
       }
 
       if (searchWeb) {
@@ -572,40 +580,9 @@ class SearchService {
    * Social media profile pages and deeply nested paths score near zero.
    */
   calculateNavigationalScore(query, result) {
-    const q = (query || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    const url = (result.url || '').toLowerCase();
-
-    let hostname = '';
-    let pathParts = [];
-    try {
-      const parsed = new URL(url);
-      hostname = parsed.hostname.toLowerCase();
-      pathParts = parsed.pathname.split('/').filter(Boolean);
-    } catch { return 0; }
-
-    const subdomain = hostname.split('.')[0].replace(/[^a-z0-9]/g, '');
-    const hostNorm = hostname.replace(/[^a-z0-9]/g, '');
-    const isHomepage = pathParts.length === 0;
-    const isShallow = pathParts.length <= 1;
-
-    const SOCIAL = ['instagram.com', 'linkedin.com', 'twitter.com', 'facebook.com', 'tiktok.com'];
-    const isSocial = SOCIAL.some((s) => hostname.includes(s));
-
-    let score = 0;
-
-    if (subdomain === q || subdomain.includes(q)) {
-      // e.g. "aws.amazon.com" for query "aws"
-      score = isHomepage ? 1.0 : (isShallow ? 0.8 : 0.55);
-    } else if (hostNorm.startsWith(q) || hostNorm.includes(q)) {
-      // e.g. "cloudflare.com" for query "cloudflare"
-      score = isHomepage ? 0.9 : (isShallow ? 0.65 : 0.4);
-    } else if (isHomepage) {
-      score = 0.15; // small homepage bonus for any domain
-    }
-
-    if (isSocial) score *= 0.25; // heavy penalty — social profiles ≠ official site
-
-    return Math.min(score, 1.0);
+    // Shared scorer — same logic the instant-answer navigational card uses,
+    // so ranking and the "Official site" pick can never disagree.
+    return QueryInterpreter.scoreNavigationalMatch(query, result.url);
   }
 
   /**

@@ -327,6 +327,80 @@ function buildOfficialResult() {
   };
 }
 
+// Social platforms where a brand PROFILE page ranks, but is never the official
+// site — unless the query is for the platform itself (root === query).
+const SOCIAL_DOMAINS = ['instagram', 'linkedin', 'twitter', 'x', 'facebook', 'tiktok', 'youtube', 'reddit', 'pinterest'];
+
+/**
+ * Score how well a URL matches a navigational query's "official site" intent.
+ * Shared by the instant-answer navigational card (routes/search.js) and the
+ * result ranker (SearchService.calculateNavigationalScore) so both surfaces
+ * agree on what "official" means. Pure domain/string logic — no brand lists.
+ *
+ * Tiering (why substring matching alone fails): for "google",
+ * blog.google's flattened host "bloggoogle" CONTAINS "google", and
+ * www.google.com's naive subdomain is "www" — so both used to score alike and
+ * array order picked the winner. Here the registrable-root label is compared
+ * exactly: google.com → 1.0, accounts.google.com → 0.9, blog.google → 0.4.
+ * Multi-word queries match sub+root concatenation: "dash cloudflare" →
+ * dash.cloudflare.com (0.97) over cloudflare.com (0.75) over blog posts (~0).
+ *
+ * @param {string} query - raw user query (e.g. "dash cloudflare")
+ * @param {string} url   - candidate result URL
+ * @returns {number} 0..1 (0 = no navigational signal)
+ */
+function scoreNavigationalMatch(query, url) {
+  const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const q = norm(query);
+  if (!q) return 0;
+  const tokens = (query || '').trim().toLowerCase().split(/\s+/).map(norm).filter(Boolean);
+
+  let hostname;
+  let pathParts;
+  try {
+    const parsed = new URL(url || '');
+    hostname = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    pathParts = parsed.pathname.split('/').filter(Boolean);
+  } catch {
+    return 0;
+  }
+
+  const labels = hostname.split('.').filter(Boolean);
+  // Registrable-root label (naive eTLD+1: second-to-last label). Handles both
+  // classic TLDs (google.com → "google") and brand TLDs (blog.google → "blog").
+  const root = norm(labels.length >= 2 ? labels[labels.length - 2] : labels[0] || '');
+  const sub = norm(labels.slice(0, -2).join(''));
+  const hostNorm = norm(labels.join(''));
+  const isHomepage = pathParts.length === 0;
+  const isShallow = pathParts.length <= 1;
+
+  let base = 0;
+  if (root === q) {
+    base = sub ? 0.9 : 1.0; // exact brand root; bare domain beats subdomains
+  } else if (sub && sub + root === q) {
+    base = 0.97; // "dash cloudflare" → dash.cloudflare.com
+  } else if (tokens.length > 1 && tokens.includes(root)) {
+    base = 0.75; // "dash cloudflare" → cloudflare.com (brand root present)
+  } else if (sub && sub === q) {
+    base = 0.7; // "aws" → aws.amazon.com
+  } else if (hostNorm.startsWith(q)) {
+    base = 0.5;
+  } else if (hostNorm.includes(q)) {
+    base = 0.4; // blog.google for "google" lands here, below the exact root
+  } else if (isHomepage) {
+    base = 0.1; // tiny generic-homepage bonus
+  }
+
+  // Path depth: homepages are the navigational target
+  let score = base * (isHomepage ? 1.0 : isShallow ? 0.85 : 0.6);
+
+  // Social-profile penalty — unless the user is searching for the platform itself
+  const isSocial = SOCIAL_DOMAINS.includes(root);
+  if (isSocial && root !== q) score *= 0.2;
+
+  return Math.min(score, 1.0);
+}
+
 module.exports = {
   isBrandQuery,
   buildOfficialResult,
@@ -336,6 +410,7 @@ module.exports = {
   looksLikeUnknownAcronym,
   buildExpandedQuery,
   isAnswerableQuery,
+  scoreNavigationalMatch,
   levenshtein,
   OFFICIAL_SITE,
   SITE_KEYWORDS,
