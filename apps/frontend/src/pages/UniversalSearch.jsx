@@ -721,12 +721,34 @@ export default function UniversalSearch({ lockedGreen = false }) {
       displayUrl = u.hostname.replace(/^www\./, '') + (u.pathname && u.pathname !== '/' ? u.pathname : '');
     } catch { /* keep fallback */ }
 
+    // Whole-card tap opens the link natively. The Truegle action buttons
+    // (Open link / View anonymously / Open in app / Share) sit INSIDE the
+    // card, so clicks on any real link/button/iframe are excluded — they
+    // keep executing their own behavior without also opening the page.
+    const openCardLink = (e) => {
+      if (e.target.closest('a, button, iframe, input, [role="menu"]')) return;
+      if (viewerOpen) return; // in-app viewer open = user is browsing here
+      // Don't hijack text selection (mobile long-press copy)
+      if (window.getSelection && String(window.getSelection())) return;
+      window.open(result.url, '_blank', 'noopener,noreferrer');
+    };
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.05 }}
-        className={`rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border transition-colors duration-300 ${borderClass}`}
+        role="link"
+        tabIndex={0}
+        aria-label={`Open ${result.title || result.url}`}
+        onClick={openCardLink}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && e.target === e.currentTarget) {
+            e.preventDefault();
+            window.open(result.url, '_blank', 'noopener,noreferrer');
+          }
+        }}
+        className={`rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border transition-colors duration-300 cursor-pointer ${borderClass}`}
       >
         <div className="p-4">
           <div className="flex gap-3">
