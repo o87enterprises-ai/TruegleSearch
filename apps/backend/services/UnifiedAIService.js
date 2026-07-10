@@ -4,6 +4,7 @@
  */
 
 const NepheshService = require('./NepheshService');
+const attribution = require('../utils/nepheshAttribution');
 const GroqService = require('./GroqService');
 const NvidiaService = require('./NvidiaService');
 const OpenAIService = require('./OpenAIService');
@@ -112,8 +113,17 @@ class UnifiedAIService {
             }
           );
 
+          // Nephesh is the brand for ALL Truegle AI. When the answer came from
+          // a fallback substrate (Groq/Gemini/etc. — e.g. while no self-hosted
+          // box exists), stamp the Nephesh identity + attribution here so the
+          // response is branded regardless of engine. NepheshService already
+          // self-stamps, so skip it to avoid a double watermark.
+          const branded = providerName === 'nephesh'
+            ? response
+            : attribution.stampResponse(response);
+
           // Cache successful response
-          this.cacheResponse(cacheKey, response);
+          this.cacheResponse(cacheKey, branded);
 
           logger.info('AI request successful:', {
             provider: providerName,
@@ -122,7 +132,7 @@ class UnifiedAIService {
           });
 
           return {
-            ...response,
+            ...branded,
             fromCache: false,
             context,
             promptVersion: prompt.version
@@ -212,8 +222,12 @@ class UnifiedAIService {
             context
           });
 
+          const branded = providerName === 'nephesh'
+            ? response
+            : attribution.stampResponse(response);
+
           return {
-            ...response,
+            ...branded,
             context,
             promptVersion: prompt.version,
             provider: providerName
