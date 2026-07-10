@@ -137,6 +137,10 @@ const aiAPI = {
     api.post('/ai/chat', {
       message,
       context: options.context || 'general',
+      // Lifted to top-level like context — the backend route reads these
+      // directly off req.body, not off the nested options object.
+      nepheshMode: !!options.nepheshMode,
+      verbose: !!options.verbose,
       options
     }),
   analyzeContent: (content, queryContext, options = {}) =>

@@ -3,6 +3,55 @@ _Last updated: 2026-07-08. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ SESSION LOG 2026-07-10 (cont'd) — Nephesh Mode toggle, verbosity toggle, ad reposition
+
+### Claim ad moved below AI summary (SHIPPED, per user)
+`UniversalSearch.jsx`: relocated the yellow "claim this spot" slot from above
+the AI summary to directly below it. Mechanical cut/paste, same `!queryIsQuestion`
+guard preserved.
+
+### Nephesh Mode + "Feeling chat-e?" verbosity — opt-in toggles (SHIPPED, boot-verified)
+The Null-Prime dual-audit protocol was baked into EVERY mode's prompt by
+default (root cause of the moon-landing query auto-triggering a full audit in
+plain blue mode last session). Now opt-in via two persistent toggles next to
+the search bar (localStorage `truegle_nephesh_mode` / `truegle_verbose_mode`,
+both default OFF = plain unbiased multi-perspective + succinct answers).
+- `nepheshPrompts.js` (v2026-07-10.2): `CONTESTED_CLAIM_PROTOCOL` removed from
+  `BASE_IDENTITY`; `getModePrompt(mode, {nepheshMode, verbose})` layers it
+  back on request-by-request, plus new `SUCCINCT_STYLE`/`VERBOSE_STYLE`.
+  Applies uniformly across ALL modes including purple/ocean — their
+  specialness is their own dedicated framing, not the audit ledger.
+- `nephesh/Modelfile`: same protocol removed from the baked SYSTEM block —
+  otherwise a self-hosted Nephesh would ignore the toggle entirely (always-on
+  regardless of the flag). Backend now layers the protocol into the request
+  prompt at call time (`NepheshService.formatMessages`) when `nepheshMode:true`.
+- `routes/ai.js`: both `/chat` and `/summary` now build their system prompt via
+  `getModePrompt` (previously `/chat` read a static map bypassing the toggle
+  entirely, and `/summary` used the DB `ai_prompts` table, never nepheshPrompts
+  at all). Fixed a latent context-key mismatch: `/summary`'s purple mode mapped
+  to `'perspective_specific'`, a key that doesn't exist in nepheshPrompts —
+  corrected to `'purple'`.
+- `UnifiedAIService.analyzeContent`: gained the same `systemOverride` escape
+  hatch `chat()` already had (unseeded `ai_prompts` table no longer breaks it).
+- **Bug found + fixed during verification**: the response cache key only
+  hashed `message+context`, so toggling nepheshMode/verbose on an identical
+  message silently returned a STALE cached answer from before the toggle.
+  Fixed by folding `systemOverride` into the cache key.
+- **Bug found + fixed during verification**: `aiAPI.chat()` (frontend) nested
+  `nepheshMode`/`verbose` inside a `options` sub-object the backend never
+  read (backend expects them top-level, same as `context`) — silently no-op.
+  Fixed to lift them to the top level, consistent with existing `context` handling.
+- Verified end-to-end with a mock Nephesh that echoes which prompt layers it
+  received: OFF→plain/succinct, ON→protocol present, verbose→verbose style,
+  purple+nepheshMode→protocol layers correctly on top of purple's own framing,
+  repeat-identical-request→correct cache hit (caching still works, just scoped
+  right). `nephesh/eval/`: 6 existing audit items now pass `nepheshMode:true`
+  explicitly; added `audit-off-1` negative-case item + `no_audit_machinery`
+  check; `run-eval.mjs` now imports the real prompt fragments via
+  `createRequire` (no more duplicated/drifting protocol text in the eval script).
+- Jest baseline unchanged: 95 passed (+6 from earlier this session) / 16
+  pre-existing env-dependent failures, same before and after.
+
 ## 🗓️ SESSION LOG 2026-07-10 — Verdict-logic fix, navigational ranking, ad declutter
 
 ### Null-Prime forced-draw bug (FIXED — prompt layer)

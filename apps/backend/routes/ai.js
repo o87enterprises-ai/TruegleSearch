@@ -51,15 +51,17 @@ logger.info('✅ Unified AI services initialized: OpenRouter + OpenAI + Anthropi
  * @route   POST /api/ai/chat
  * @desc    Get AI response for a user query with context-aware prompts
  * @access  Private (requires authentication)
- * @body    { message: string, context?: string, options?: object }
+ * @body    { message: string, context?: string, nepheshMode?: boolean, verbose?: boolean, options?: object }
  */
 // Mode-specific system prompts (versioned, shared with the self-hosted
 // Nephesh model) — see prompts/nepheshPrompts.js for the source of truth.
-const { MODE_PROMPTS: MODE_SYSTEM_PROMPTS } = require('../prompts/nepheshPrompts');
+// nepheshMode/verbose are opt-in flags layered onto the mode prompt by
+// getModePrompt(), not baked into the mode text (see that file's doc comment).
+const { getModePrompt } = require('../prompts/nepheshPrompts');
 
 router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
   try {
-    const { message, context = 'general', options = {} } = req.body;
+    const { message, context = 'general', nepheshMode = false, verbose = false, options = {} } = req.body;
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return res.status(400).json({
@@ -82,12 +84,13 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
       }
     }
 
-    // Inject mode-specific system prompt override when available
-    const systemOverride = MODE_SYSTEM_PROMPTS[context];
+    // Mode-specific system prompt, with Nephesh mode (dual-audit protocol)
+    // and verbosity layered on per the caller's toggles.
+    const systemOverride = getModePrompt(context, { nepheshMode, verbose });
     const response = await aiClient.chat(message, context, {
       ...options,
       userName: isAuthed ? (user.name || 'User') : 'Guest',
-      ...(systemOverride ? { systemOverride } : {}),
+      systemOverride,
     });
 
     // Deduct token for authenticated users
@@ -317,7 +320,7 @@ const MODE_TO_AI_CONTEXT = {
   green: 'search_results',
   ocean: 'osint',
   'red-pill': 'biased_results',
-  purple: 'perspective_specific',
+  purple: 'purple',
 };
 
 // Mirrors SearchService.categorizeByBias's tiers/labels so the red-pill
@@ -465,7 +468,7 @@ function fallbackSummary(mode, query) {
  * @body    { query, results, mode?, perspectives? }
  */
 router.post('/summary', rateLimitSearch, async (req, res) => {
-  const { query, results, mode = 'blue-pill', perspectives = [], isQuestion = false } = req.body;
+  const { query, results, mode = 'blue-pill', perspectives = [], isQuestion = false, nepheshMode = false, verbose = false } = req.body;
 
   try {
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -519,11 +522,17 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
       ? `${query}\n\n(This is a direct question — answer it in the first sentence, plainly and concisely, then add supporting context.)`
       : query;
 
+    // Mode-specific system prompt, with Nephesh mode (dual-audit protocol)
+    // and verbosity layered on per the caller's toggles — same source of
+    // truth as /chat, so summaries and follow-up chat behave consistently.
+    const systemOverride = getModePrompt(aiContext, { nepheshMode, verbose });
+
     // Try unified AI service first (with multi-provider failover)
     try {
       const aiResponse = await aiClient.analyzeContent(searchContext, aiContext, queryForAi, {
         searchResults: searchContext,
         perspective: selectedPerspective,
+        systemOverride,
       });
 
       return res.json({

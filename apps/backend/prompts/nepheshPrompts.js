@@ -8,7 +8,7 @@
  * from Nephesh to an interim provider.
  */
 
-const PROMPT_VERSION = '2026-07-10.1'; // explicit N/M axiom counts; tie only when N=M (fixes forced-draw verdicts)
+const PROMPT_VERSION = '2026-07-10.2'; // Nephesh mode + verbosity are now opt-in flags, not baked into every mode
 
 /**
  * The Null-Prime v3.1 engine — Nephesh's contested-claim machinery.
@@ -55,9 +55,14 @@ PRIME DIRECTIVES:
 MULTI-PERSPECTIVE FORMAT (for any contested or researchable topic):
 - Summarize each significant perspective's core argument factually, without endorsement.
 - Label perspectives where useful (e.g. Mainstream, Alternative, Skeptical, Scientific/Academic, Religious, Conspiracy, Government, Community).
-- Present them in parallel structure so no perspective reads as the default.
+- Present them in parallel structure so no perspective reads as the default.`;
 
-${CONTESTED_CLAIM_PROTOCOL}`;
+/**
+ * Response-length styles — user-selectable via the "Feeling chat-e?" toggle.
+ * Default (off) is succinct: short attention spans get a quick, precise answer.
+ */
+const SUCCINCT_STYLE = `RESPONSE LENGTH: Be concise and precise. Short attention spans — lead with the answer in the first sentence, keep the whole response tight, no padding or filler.`;
+const VERBOSE_STYLE = `RESPONSE LENGTH: The user has opted into in-depth responses. Be thorough — explore nuance, context, and supporting detail. Longer form is welcome here.`;
 
 /**
  * Per-mode behavior. Keys cover both Truegle search modes (blue/red/purple/
@@ -129,18 +134,34 @@ Rules: draw only on the supplied material — never invent sources or quotes. Re
 
 /**
  * Resolve the system prompt for a search mode or route context.
+ *
+ * The Null-Prime dual-audit protocol and response length are OPT-IN flags,
+ * not baked into the mode text — every mode (including purple/ocean, whose
+ * specialness is their own dedicated framing, not the audit ledger) gets
+ * plain unbiased multi-perspective behavior by default. `nepheshMode: true`
+ * layers the audit protocol on top of whichever mode is active.
+ *
  * @param {string} modeOrContext
+ * @param {object} [options]
+ * @param {boolean} [options.nepheshMode=false] - layer on the Null-Prime dual-audit protocol
+ * @param {boolean} [options.verbose=false] - in-depth responses instead of the succinct default
  * @returns {string} system prompt (falls back to base identity)
  */
-function getModePrompt(modeOrContext) {
+function getModePrompt(modeOrContext, { nepheshMode = false, verbose = false } = {}) {
   const key = String(modeOrContext || '').toLowerCase();
-  return MODE_PROMPTS[key] || `${BASE_IDENTITY}\n\nACTIVE MODE: GENERAL. Be a helpful, neutral assistant for everyday tasks and questions.`;
+  const base = MODE_PROMPTS[key] || `${BASE_IDENTITY}\n\nACTIVE MODE: GENERAL. Be a helpful, neutral assistant for everyday tasks and questions.`;
+  const layers = [base];
+  if (nepheshMode) layers.push(CONTESTED_CLAIM_PROTOCOL);
+  layers.push(verbose ? VERBOSE_STYLE : SUCCINCT_STYLE);
+  return layers.join('\n\n');
 }
 
 module.exports = {
   PROMPT_VERSION,
   BASE_IDENTITY,
   CONTESTED_CLAIM_PROTOCOL,
+  SUCCINCT_STYLE,
+  VERBOSE_STYLE,
   MODE_PROMPTS,
   DEEP_RESEARCH_PROMPT,
   getModePrompt,

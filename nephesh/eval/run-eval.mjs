@@ -17,6 +17,16 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+// Single source of truth for the opt-in layers — the Modelfile's baked SYSTEM
+// no longer includes these (see Modelfile comment), so the eval runner must
+// add them itself, exactly like the backend's getModePrompt() does, to
+// actually exercise nepheshMode/verbose rather than relying on a baked default.
+const { CONTESTED_CLAIM_PROTOCOL, SUCCINCT_STYLE, VERBOSE_STYLE } = require(
+  '../../apps/backend/prompts/nepheshPrompts.js'
+);
 
 const BASE_URL = process.env.NEPHESH_BASE_URL || 'http://localhost:11434';
 const MODEL = process.env.NEPHESH_MODEL || 'nephesh:1.3';
@@ -42,8 +52,14 @@ const MODE_LINE = {
   green: 'ACTIVE MODE: GREEN (Simplified). Short sentences a twelve-year-old could follow.',
 };
 
-async function generate(prompt, mode) {
+async function generate(prompt, mode, { nepheshMode = false, verbose = false } = {}) {
   const started = Date.now();
+  // Mirrors getModePrompt()'s layering: mode line, then the opt-in audit
+  // protocol when requested, then the response-length style.
+  const layers = [MODE_LINE[mode] || ''];
+  if (nepheshMode) layers.push(CONTESTED_CLAIM_PROTOCOL);
+  layers.push(verbose ? VERBOSE_STYLE : SUCCINCT_STYLE);
+  const systemLayer = layers.filter(Boolean).join('\n\n');
   const res = await fetch(`${BASE_URL}/api/generate`, {
     method: 'POST',
     headers: {
@@ -52,7 +68,7 @@ async function generate(prompt, mode) {
     },
     body: JSON.stringify({
       model: MODEL,
-      prompt: `${MODE_LINE[mode] || ''}\n\nUser: ${prompt}\n\nAssistant: `,
+      prompt: `${systemLayer}\n\nUser: ${prompt}\n\nAssistant: `,
       stream: false,
       options: { temperature: 0.4, num_predict: 1200 },
     }),
@@ -115,6 +131,13 @@ function runChecks(item, text, seconds, responses) {
       failures.push(`declared tie with unequal axiom counts (${counts[0]} vs ${counts[1]})`);
     }
   }
+  if (e.no_audit_machinery) {
+    // Negative case: nepheshMode is OFF — the response must NOT run the
+    // Null-Prime protocol (proves the toggle actually gates it, not just
+    // that the ON case works).
+    if (/axioms:\s*\d+/i.test(text)) failures.push('ran the audit protocol with nepheshMode off');
+    if (/DUAL IRE|DECOMPOSE —/i.test(text)) failures.push('protocol step headers present with nepheshMode off');
+  }
   if (e.no_numeric_probability) {
     // The ledger is qualitative only — no "70% chance", "6.5/10", "4.2:3.8"
     const NUMERIC_VERDICT = /(\d+(\.\d+)?\s*%\s*(probability|chance|likely|confidence))|(probability\s*(of|is|:)\s*~?\d)|(\b\d+(\.\d+)?\s*\/\s*10\b)|(\b\d+(\.\d+)?\s*:\s*\d+(\.\d+)?\b)/i;
@@ -158,7 +181,10 @@ console.log(`Nephesh eval — ${BASE_URL} (${MODEL}), ${items.length} items\n`);
 
 for (const item of items) {
   try {
-    const { text, seconds } = await generate(item.prompt, item.mode);
+    const { text, seconds } = await generate(item.prompt, item.mode, {
+      nepheshMode: !!item.nepheshMode,
+      verbose: !!item.verbose,
+    });
     responses[item.id] = text;
     latencies.push(seconds);
     const failures = runChecks(item, text, seconds, responses);

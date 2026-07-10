@@ -37,7 +37,9 @@ export default function AIChatOverlay({
   initialSummary,
   mode = 'blue', // 'blue' | 'red' | 'purple' | 'ocean'
   context, // deprecated — use mode instead
-  themeColor = 'red'
+  themeColor = 'red',
+  nepheshMode = false, // opt-in Null-Prime dual-audit protocol
+  verbose = false, // "Feeling chat-e?" — in-depth vs the default succinct
 }) {
   const navigate = useNavigate();
   const resolvedMode = mode || 'blue';
@@ -173,7 +175,7 @@ export default function AIChatOverlay({
     setIsLoading(true);
 
     try {
-      const response = await aiAPI.chat(inputValue, { context: resolvedContext });
+      const response = await aiAPI.chat(inputValue, { context: resolvedContext, nepheshMode, verbose });
       const content = response.data.response?.choices?.[0]?.message?.content
         || response.data.response?.content
         || response.data.response

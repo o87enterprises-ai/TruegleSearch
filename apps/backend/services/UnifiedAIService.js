@@ -48,8 +48,11 @@ class UnifiedAIService {
    */
   async chat(userMessage, context = 'general', options = {}) {
     try {
-      // Check cache first
-      const cacheKey = this.getCacheKey(userMessage, context);
+      // Check cache first. Include systemOverride (which encodes nepheshMode/
+      // verbose) in the key — otherwise toggling those on an identical
+      // message+context would silently return a stale cached response from
+      // before the toggle.
+      const cacheKey = this.getCacheKey(userMessage, context, options.systemOverride);
       const cached = this.cache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
         logger.debug('Unified AI cache hit:', { context });
@@ -167,8 +170,20 @@ class UnifiedAIService {
    */
   async analyzeContent(content, context = 'general', queryContext = '', options = {}) {
     try {
-      // Get prompt for context
-      const prompt = await this.promptService.getPromptByContext(context);
+      // Get prompt for context. As with chat(), a missing/unseeded ai_prompts
+      // table must not break analysis when the caller supplies its own system
+      // prompt (the versioned Nephesh mode prompts) — fall back to defaults.
+      let prompt;
+      try {
+        prompt = await this.promptService.getPromptByContext(context);
+      } catch (promptError) {
+        if (!options.systemOverride) throw promptError;
+        logger.warn('No DB prompt for context, using systemOverride with defaults:', {
+          context,
+          error: promptError.message,
+        });
+        prompt = { id: null, prompt_text: '', temperature: 0.5, max_tokens: 1500, version: 'override-only' };
+      }
 
       // Interpolate variables
       const variables = {
@@ -180,7 +195,7 @@ class UnifiedAIService {
         timestamp: new Date().toISOString()
       };
 
-      const systemPrompt = this.promptService.interpolatePrompt(
+      const systemPrompt = options.systemOverride || this.promptService.interpolatePrompt(
         prompt.prompt_text,
         variables
       );
@@ -386,15 +401,18 @@ class UnifiedAIService {
   }
 
   /**
-   * Get cache key for a request
+   * Get cache key for a request. `variant` distinguishes otherwise-identical
+   * message+context requests that differ in system prompt (e.g. nepheshMode/
+   * verbose toggles) so they don't collide in the cache.
    * @param {string} message - User message
    * @param {string} context - Context
+   * @param {string} [variant] - system prompt or other cache-relevant variant
    * @returns {string} Cache key
    */
-  getCacheKey(message, context) {
+  getCacheKey(message, context, variant = '') {
     const hash = require('crypto')
       .createHash('md5')
-      .update(`${context}:${message}`)
+      .update(`${context}:${variant}:${message}`)
       .digest('hex');
     return `unified:${hash}`;
   }

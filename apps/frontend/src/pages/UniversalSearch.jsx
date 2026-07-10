@@ -134,6 +134,23 @@ export default function UniversalSearch({ lockedGreen = false }) {
     return localStorage.getItem('truegle_mode_pref') || 'blue';
   });
 
+  // Nephesh mode (opt-in Null-Prime dual-audit protocol) and verbosity
+  // (default succinct) — persistent, off by default. Purple/ocean keep their
+  // own dedicated framing regardless; this layers the audit protocol on top
+  // of whichever mode is active when turned on.
+  const [nepheshMode, setNepheshMode] = useState(
+    () => localStorage.getItem('truegle_nephesh_mode') === 'true'
+  );
+  const [verboseMode, setVerboseMode] = useState(
+    () => localStorage.getItem('truegle_verbose_mode') === 'true'
+  );
+  useEffect(() => {
+    localStorage.setItem('truegle_nephesh_mode', String(nepheshMode));
+  }, [nepheshMode]);
+  useEffect(() => {
+    localStorage.setItem('truegle_verbose_mode', String(verboseMode));
+  }, [verboseMode]);
+
   // Summary banner: null = not chosen, 'show' = show for session, 'none' = dismissed for session
   const [sessionSummaryChoice, setSessionSummaryChoice] = useState(
     () => sessionStorage.getItem('truegle_summary_choice') || null
@@ -500,6 +517,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
             mode: backendMode,
             perspectives: selectedPerspectives,
             isQuestion: isQuestionQuery(query),
+            nepheshMode,
+            verbose: verboseMode,
           }),
         }
       );
@@ -1019,7 +1038,38 @@ export default function UniversalSearch({ lockedGreen = false }) {
               }
             />
             {/* Language selector — synced to browser language by default */}
-            <div className="flex justify-end mt-2">
+            <div className="flex justify-end items-center gap-3 mt-2">
+              {/* Nephesh mode: opt-in Null-Prime dual-audit protocol for
+                  contested claims. "Feeling chat-e?": verbose vs succinct
+                  responses. Both persistent, off by default. */}
+              <button
+                type="button"
+                onClick={() => setNepheshMode((v) => !v)}
+                title="Nephesh Mode: layer the Null-Prime dual-audit protocol onto contested claims"
+                aria-pressed={nepheshMode}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  nepheshMode
+                    ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-200'
+                    : 'bg-white/5 border-white/10 text-white/40 hover:text-white/60'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${nepheshMode ? 'bg-cyan-300' : 'bg-white/20'}`} />
+                Nephesh Mode
+              </button>
+              <button
+                type="button"
+                onClick={() => setVerboseMode((v) => !v)}
+                title="Feeling chat-e? In-depth responses instead of the default succinct answers"
+                aria-pressed={verboseMode}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  verboseMode
+                    ? 'bg-purple-500/20 border-purple-400/50 text-purple-200'
+                    : 'bg-white/5 border-white/10 text-white/40 hover:text-white/60'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${verboseMode ? 'bg-purple-300' : 'bg-white/20'}`} />
+                Feeling chat-e?
+              </button>
               <LanguageSelector />
             </div>
           </div>
@@ -1175,21 +1225,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                 onCategoryChange={setActivePerspectiveCategory}
               />
             </div>
-          )}
-
-          {/* Ad Banner 1 - Under Search Bar, right above the AI summary — the
-              pinned "Claim this spot" CTA. Hidden on question-phrased queries
-              so the quick-answer card gets the space instead. */}
-          {!queryIsQuestion && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="max-w-4xl mx-auto mb-4"
-            >
-              <AdColorWrapper type="claim">
-                <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" featured />
-              </AdColorWrapper>
-            </motion.div>
           )}
 
           {/* Prominent Question Answer — auto-shown for direct questions, no click required */}
@@ -1447,6 +1482,21 @@ export default function UniversalSearch({ lockedGreen = false }) {
                 </motion.div>
               )}
             </div>
+          )}
+
+          {/* Ad Banner 1 - Below the AI summary — the pinned "Claim this
+              spot" CTA. Hidden on question-phrased queries so the
+              quick-answer card gets the space instead. */}
+          {!queryIsQuestion && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-4xl mx-auto mb-4"
+            >
+              <AdColorWrapper type="claim">
+                <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" featured />
+              </AdColorWrapper>
+            </motion.div>
           )}
 
           {/* TODO(ads): re-enable when new Adsterra zones land
@@ -1788,6 +1838,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
           onClose={() => setIsChatOpen(false)}
           initialSummary={aiSummary?.summary || null}
           mode={mode}
+          nepheshMode={nepheshMode}
+          verbose={verboseMode}
           themeColor={
             mode === 'red' ? 'red' :
             mode === 'purple' ? 'purple' :
