@@ -21,6 +21,8 @@
 /search/*
   Content-Type: text/html; charset=utf-8
   X-Robots-Tag: noindex, follow
+/chat
+  Content-Type: text/html; charset=utf-8
 /extract
   Content-Type: text/html; charset=utf-8
 /blog

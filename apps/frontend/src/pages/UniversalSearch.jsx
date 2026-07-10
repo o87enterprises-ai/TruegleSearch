@@ -53,39 +53,8 @@ import useDeviceTier from '../hooks/useDeviceTier';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { isQuestionQuery, getQuickAnswer } from '../utils/queryIntent';
-
-// Detect an embeddable video URL (YouTube/Vimeo) and return its iframe embed src.
-// Used so "Open in app" on a video result plays inline instead of loading the
-// watch page (which YouTube blocks via X-Frame-Options).
-function getVideoEmbed(url) {
-  if (!url) return null;
-  try {
-    const u = new URL(url);
-    const host = u.hostname.replace(/^www\./, '');
-    if (host === 'youtu.be') {
-      const id = u.pathname.slice(1);
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (host.endsWith('youtube.com')) {
-      if (u.pathname === '/watch') {
-        const id = u.searchParams.get('v');
-        return id ? `https://www.youtube.com/embed/${id}` : null;
-      }
-      if (u.pathname.startsWith('/shorts/')) {
-        const id = u.pathname.split('/')[2];
-        return id ? `https://www.youtube.com/embed/${id}` : null;
-      }
-      if (u.pathname.startsWith('/embed/')) return url;
-    }
-    if (host === 'vimeo.com') {
-      const id = u.pathname.split('/').filter(Boolean)[0];
-      return id && /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+import { LITE_BG, PERSPECTIVE_COLORS, getModeAccent } from '../config/modeTheme';
+import { getVideoEmbed } from '../utils/videoEmbed';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
 // (mainstream, conspiracy, democratic, republican, nonpartisan, music, videos,
@@ -625,13 +594,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const renderBackground = () => {
     // Low-end devices / reduced-motion: skip heavy WebGL+particle backgrounds
     if (!allowHeavyAnimations) {
-      const LITE_BG = {
-        blue: 'bg-gradient-to-b from-[#0a0e27] via-black to-[#0a0e27]',
-        red: 'bg-gradient-to-b from-[#2a0a0a] via-black to-black',
-        purple: 'bg-gradient-to-br from-[#1a0a2e] via-black to-[#16213e]',
-        ocean: 'bg-gradient-to-b from-[#001f3f] via-[#001020] to-black',
-        green: 'bg-gradient-to-br from-green-950 via-black to-emerald-950',
-      };
       return <div className={`fixed inset-0 ${LITE_BG[mode] || LITE_BG.blue}`} />;
     }
 
@@ -703,26 +665,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
     }
   };
 
-  // Perspective colors (same as SearchResults)
-  const perspectiveColors = {
-    left: 'bg-red-500/20 border border-red-500/50 text-red-400',
-    center: 'bg-yellow-500/20 border border-yellow-500/50 text-yellow-400',
-    right: 'bg-blue-500/20 border border-blue-500/50 text-blue-400',
-    unbiased: 'bg-green-500/20 border border-green-500/50 text-green-400',
-    neutral: 'bg-cyan-500/20 border border-cyan-500/50 text-cyan-400',
-    mainstream: 'bg-purple-500/20 border border-purple-500/50 text-purple-400',
-  };
-
-  // Per-mode container accent — each page takes its theme color.
-  // (green uses higher opacity / lighter text for contrast on the LetterGlitch bg)
-  const MODE_ACCENT = {
-    blue:   { border: 'border-cyan-500/40 hover:border-cyan-500/60',     title: 'text-cyan-400 group-hover:text-cyan-300',     link: 'text-cyan-400 hover:text-cyan-300',     iframeBorder: 'border-cyan-500/20',   count: 'text-cyan-300' },
-    ocean:  { border: 'border-cyan-500/40 hover:border-cyan-500/60',     title: 'text-cyan-400 group-hover:text-cyan-300',     link: 'text-cyan-400 hover:text-cyan-300',     iframeBorder: 'border-cyan-500/20',   count: 'text-cyan-300' },
-    red:    { border: 'border-red-500/40 hover:border-red-500/60',       title: 'text-red-400 group-hover:text-red-300',       link: 'text-red-400 hover:text-red-300',       iframeBorder: 'border-red-500/20',    count: 'text-red-300' },
-    purple: { border: 'border-purple-500/40 hover:border-purple-500/60', title: 'text-purple-300 group-hover:text-purple-200', link: 'text-purple-300 hover:text-purple-200', iframeBorder: 'border-purple-500/20', count: 'text-purple-300' },
-    green:  { border: 'border-green-500/50 hover:border-green-500/70',   title: 'text-green-300 group-hover:text-green-200',   link: 'text-green-300 hover:text-green-200',   iframeBorder: 'border-green-500/30',  count: 'text-green-300' },
-  };
-  const modeAccent = MODE_ACCENT[mode] || MODE_ACCENT.blue;
+  // Perspective colors + per-mode container accent — shared with other
+  // mode-aware pages via config/modeTheme.js.
+  const perspectiveColors = PERSPECTIVE_COLORS;
+  const modeAccent = getModeAccent(mode);
 
   // ── ResultCard ──────────────────────────────────────────────────────────
   function ResultCard({ result, index, perspectiveColors, accent, safeSearch, currentQuery, currentMode }) {

@@ -30,6 +30,7 @@ import SignInPage from './pages/SignInPage';
 import SignUpPage from './pages/SignUpPage';
 import AuthCallback from './pages/AuthCallback';
 import UniversalSearch from './pages/UniversalSearch';
+import TruegleChat from './pages/TruegleChat';
 import FeelingBiasedPage from './pages/FeelingBiasedPage';
 import ExtractPage from './pages/ExtractPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -276,6 +277,7 @@ const AppContent = () => {
 
         {/* Universal Search Route */}
         <Route path="/search" element={<RouteBoundary><UniversalSearch /></RouteBoundary>} />
+        <Route path="/chat" element={<RouteBoundary><TruegleChat /></RouteBoundary>} />
 
         {/* Locked Green Mode - AI-free, no navigation out */}
         <Route path="/green" element={<RouteBoundary><UniversalSearch lockedGreen /></RouteBoundary>} />

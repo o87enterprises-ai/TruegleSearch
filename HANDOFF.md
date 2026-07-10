@@ -1,7 +1,54 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-07-08. Supersedes all prior handoff docs._
+_Last updated: 2026-07-10. Supersedes all prior handoff docs._
 
 ---
+
+## 🗓️ SESSION LOG 2026-07-10 (cont'd 2) — Truegle Chat (/chat)
+
+### Truegle Chat — designated chat-first route (SHIPPED, boot-verified with Playwright)
+New `/chat` page for chat-first users: landing-page minimalism (logo, one
+large chat box), background + accents synced to pill mode, Nephesh answers
+with cited links/pics/vids rendered inline, same 3 Truegle link actions as
+search (Open link / View anonymously / Open in app) on every citation. No
+ad containers. User's original build-plan doc never arrived this session —
+built from their approved prose spec + one clarifying question (persistent
+toggle placement, unanswered directly but not objected to — used as default).
+
+- **`src/config/modeTheme.js`** (new, shared): `MODE_ACCENT`, `LITE_BG`,
+  `PERSPECTIVE_COLORS`, `MODE_COLORS` (hex), `MODE_LABELS`, `MODE_TO_CONTEXT`
+  — lifted out of inline copies in `UniversalSearch.jsx` and
+  `AIChatOverlay.jsx` (both now import from here; zero behavior change,
+  confirmed via lint+build+jest).
+- **`src/utils/videoEmbed.js`** (new, shared): `getVideoEmbed()` extracted
+  from `UniversalSearch.jsx` the same way, reused by chat's video citations.
+- **`src/pages/TruegleChat.jsx`** (new): `LandingBackground` (WebGL-safe,
+  self-probing — never a raw WebGL background here) + a mode-tinted
+  radial-gradient overlay that crossfades on mode change (pure CSS/opacity,
+  zero WebGL risk) + `CursorGlow` + `TruegleLogo`. 5-pill mode row + the same
+  Nephesh Mode / "Feeling chat-e?" toggles as the search pages (shared
+  localStorage keys — state carries over between `/search` and `/chat`).
+  On each send: parallel `aiAPI.chat` (answer) + two `/api/search` calls
+  (category `all` → links+videos, category `images` → pics), independently
+  graceful when either fails/empties. Citation chips reuse the exact
+  action-row semantics from `ResultCard` (Open link / View anonymously via
+  `proxyUrl` / Open in app inline iframe expand).
+- Routing: `App.jsx` route + `RouteBoundary`; `/chat` added to BOTH
+  `public/_redirects` (→ `/_index 200`) and `public/_headers`
+  (`Content-Type: text/html`) per the SPA-route rule. Deliberately left
+  indexable (no noindex) — unlike `/search`'s per-query result pages, `/chat`
+  is a single stable feature landing page, good for AEO/GEO discovery.
+- **Verified end-to-end, not just built**: booted the backend against a mock
+  Nephesh + mock SearXNG (general + images categories), ran the real Vite dev
+  server, and drove `/chat` with the pre-installed Playwright Chromium —
+  confirmed the assistant answer renders with the real attribution footer,
+  Sources/Pics/Vids sections populate from actual API responses, citation
+  action icons are clickable, switching pill mode live-changes the citation
+  accent color and background tint (screenshotted), and the Nephesh
+  Mode/verbose toggles flip both UI state and localStorage correctly. No
+  console/page errors other than expected sandbox-network CDN blocks
+  (Mapbox/Google Fonts/YouTube thumbnail — all external, all gracefully
+  `onError`-hidden, unrelated to app code).
+- Jest baseline unchanged: 95 passed / 16 pre-existing env-dependent failures.
 
 ## 🗓️ SESSION LOG 2026-07-10 (cont'd) — Nephesh Mode toggle, verbosity toggle, ad reposition
 

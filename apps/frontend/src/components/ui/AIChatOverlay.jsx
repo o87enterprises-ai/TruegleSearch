@@ -13,15 +13,7 @@ import {
 } from 'lucide-react';
 import { aiAPI } from '../../services/api';
 import { FREE_ACCESS_MODE } from '../../config/access';
-
-// Map frontend mode strings to backend context strings
-const MODE_TO_CONTEXT = {
-  blue: 'search_results',
-  green: 'search_results',
-  red: 'red_pill',
-  purple: 'biased_results',
-  ocean: 'osint',
-};
+import { MODE_TO_CONTEXT } from '../../config/modeTheme';
 
 const MODE_WELCOME = {
   blue: 'Ask me anything about your search results.',
