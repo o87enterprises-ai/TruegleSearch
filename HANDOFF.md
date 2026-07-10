@@ -44,6 +44,14 @@ sidebar cpm/adult, house AdSlots, RewardAdSlot, footer Smartlink), `MultimediaIn
 = uncomment. Verified: build ✓, eslint ✓, only claim slot active in rendered JSX,
 jest 95 pass (+6 new) / same 16 pre-existing env failures.
 
+### Tap-to-open result cards (SHIPPED, needs on-device thumb-test)
+Whole ResultCard is now a link (role=link, Enter key, pointer cursor) — tap
+anywhere opens the result in a new tab. Guards: clicks on inner
+a/button/iframe are excluded (Open link / View anonymously / Open in app /
+Share all keep their own behavior), text-selection doesn't navigate, taps
+ignored while the in-app viewer is open. Lint+build clean. NOT yet verified
+on a real phone — confirm a scroll-flick over a card doesn't count as a tap.
+
 ### 🔜 NEXT SESSION
 1. Truegle Chat interface — user has a full build plan to present (chat-first users).
 2. Adsterra zone replacement when 14-day window ends (~2026-07-16) → uncomment TODO(ads) sites.
