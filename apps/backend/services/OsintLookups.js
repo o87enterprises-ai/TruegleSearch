@@ -178,8 +178,80 @@ async function wayback(target) {
   }
 }
 
+// US state name → 2-letter code, for building people-search deep links.
+const US_STATES = {
+  alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA',
+  colorado: 'CO', connecticut: 'CT', delaware: 'DE', florida: 'FL', georgia: 'GA',
+  hawaii: 'HI', idaho: 'ID', illinois: 'IL', indiana: 'IN', iowa: 'IA',
+  kansas: 'KS', kentucky: 'KY', louisiana: 'LA', maine: 'ME', maryland: 'MD',
+  massachusetts: 'MA', michigan: 'MI', minnesota: 'MN', mississippi: 'MS',
+  missouri: 'MO', montana: 'MT', nebraska: 'NE', nevada: 'NV',
+  'new hampshire': 'NH', 'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY',
+  'north carolina': 'NC', 'north dakota': 'ND', ohio: 'OH', oklahoma: 'OK',
+  oregon: 'OR', pennsylvania: 'PA', 'rhode island': 'RI', 'south carolina': 'SC',
+  'south dakota': 'SD', tennessee: 'TN', texas: 'TX', utah: 'UT', vermont: 'VT',
+  virginia: 'VA', washington: 'WA', 'west virginia': 'WV', wisconsin: 'WI', wyoming: 'WY',
+};
+
+const digits = (s) => String(s || '').replace(/\D/g, '');
+
+/**
+ * Build deep links into PUBLIC people-search / public-records directories for a
+ * person. Pure URL construction — no scraping, no API key. These are the same
+ * public directories anyone can use (Whitepages, TruePeopleSearch, etc.); we
+ * just pre-fill the search so the user (or the report) has one-click access.
+ */
+function peopleSearchLinks({ name, city, state } = {}) {
+  const clean = String(name || '').trim().replace(/\s+/g, ' ');
+  if (!clean) return { ok: false, error: 'name required' };
+  const parts = clean.split(' ');
+  const first = parts[0] || '';
+  const last = parts.length > 1 ? parts[parts.length - 1] : '';
+  const slug = clean.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const stateCode = state ? (US_STATES[state.toLowerCase()] || (state.length === 2 ? state.toUpperCase() : '')) : '';
+  const citySlug = city ? city.toLowerCase().replace(/[^a-z0-9]+/g, '-') : '';
+  const cityState = [city, stateCode].filter(Boolean).join(', ');
+
+  const links = [
+    { name: 'TruePeopleSearch', url: `https://www.truepeoplesearch.com/results?name=${encodeURIComponent(clean)}${cityState ? `&citystatezip=${encodeURIComponent(cityState)}` : ''}` },
+    { name: 'FastPeopleSearch', url: `https://www.fastpeoplesearch.com/name/${slug}${citySlug && stateCode ? `_${citySlug}-${stateCode.toLowerCase()}` : ''}` },
+    { name: 'ThatsThem', url: `https://thatsthem.com/name/${[first, last].filter(Boolean).join('-')}${cityState ? `/${encodeURIComponent(cityState)}` : ''}` },
+    { name: 'Whitepages', url: `https://www.whitepages.com/name/${[first, last].filter(Boolean).join('-')}${citySlug && stateCode ? `/${citySlug}-${stateCode.toLowerCase()}` : ''}` },
+    { name: 'Google (exact name)', url: `https://www.google.com/search?q=${encodeURIComponent(`"${clean}"${cityState ? ` "${cityState}"` : ''}`)}` },
+    { name: 'VoterRecords', url: `https://voterrecords.com/voters/${slug}/1` },
+  ];
+  return { ok: true, name: clean, cityState: cityState || null, links };
+}
+
+/**
+ * Build deep links into PUBLIC reverse-phone directories for a phone number.
+ * Pure URL construction — no scraping, no API key.
+ */
+function phoneSearchLinks(phone) {
+  const d = digits(phone);
+  if (d.length < 10) return { ok: false, error: 'need a 10-digit number' };
+  const nanp = d.length === 11 && d.startsWith('1') ? d.slice(1) : d.slice(-10);
+  const pretty = `(${nanp.slice(0, 3)}) ${nanp.slice(3, 6)}-${nanp.slice(6)}`;
+  const area = nanp.slice(0, 3);
+  return {
+    ok: true,
+    number: nanp,
+    formatted: pretty,
+    links: [
+      { name: 'TruePeopleSearch (reverse phone)', url: `https://www.truepeoplesearch.com/resultphone?phoneno=${nanp}` },
+      { name: 'FastPeopleSearch (reverse phone)', url: `https://www.fastpeoplesearch.com/${nanp}` },
+      { name: 'ThatsThem (reverse phone)', url: `https://thatsthem.com/phone/${nanp.slice(0, 3)}-${nanp.slice(3, 6)}-${nanp.slice(6)}` },
+      { name: 'Google (exact number)', url: `https://www.google.com/search?q=${encodeURIComponent(`"${pretty}" OR "${nanp}"`)}` },
+    ],
+    areaCode: area,
+  };
+}
+
 module.exports = {
   RE,
+  US_STATES,
+  peopleSearchLinks,
+  phoneSearchLinks,
   whois,
   dns,
   ipGeo,

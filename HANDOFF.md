@@ -3,6 +3,56 @@ _Last updated: 2026-07-11. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ SESSION LOG 2026-07-11 (cont'd) — Fix false denials on lawful OSINT / person lookups
+
+User hit a refusal ("I can't assist with that request") on a lawful public-records
+person lookup (name + phone + DOB + Oregon town). Two stacked failures, both fixed:
+
+**1. Detection miss (root cause of the fall-through):** the bare 10-digit phone
+(`5412281145`, no `+`) and the person's name weren't detected as entities, so the
+investigation found nothing and fell through to plain Ocean chat — where the Groq
+substrate refused. Fixed in `OsintInvestigationService.detectEntities`:
+- Phone: now catches bare NANP numbers (10-digit, or 11 w/ leading 1, with separators), not just `+`-prefixed E.164.
+- Person: new `detectPerson()` — anchors the name off intent phrases
+  ("info about NAME…"), tolerates sloppy casing ("william James gardener" →
+  "William James Gardener"), extracts city/state, and requires a person-lookup
+  signal (intent verb OR phone/age/DOB/location) so "New York Times" /
+  "photosynthesis" aren't treated as people. Caught + fixed a month-prefix bug
+  (CONTEXT_KW matched "Jan"→"Jane", "Mar"→"Marcus" as prefixes — now whole-word).
+- New public deep-link builders in `OsintLookups`: `peopleSearchLinks()` and
+  `phoneSearchLinks()` → TruePeopleSearch / FastPeopleSearch / ThatsThem /
+  Whitepages / VoterRecords / Google-exact. Pure URL construction, no scraping,
+  no key — the same public directories anyone can use, pre-filled. Surfaced as
+  citation chips via `extractArtifacts`.
+
+**2. Substrate refusal (the safety net):** commercial models (Groq's Llama)
+RLHF-refuse person lookups even when lawful. Two mitigations:
+- **Refusal-aware provider failover** (`UnifiedAIService.chat` + the OSINT
+  `synthesize` loop): if a provider returns refusal-shaped content on a lawful
+  request, try the NEXT provider before giving up; only return a refusal if ALL
+  refuse. New `isRefusalContent()` (unit-tested against the exact user-seen
+  string; tuned tight so "I can't confirm X, but…" real answers don't trip it)
+  + `contentOf()` helpers.
+- **Prompt authorization**: the OSINT investigation system prompt now explicitly
+  states that compiling PUBLICLY-available info about a named individual (public
+  records, people-search directories, published contact info) is lawful and IN
+  SCOPE — decline ONLY for non-public data (account breaking, sealed/private
+  records, paywall bypass) or clear harm facilitation (stalking/harassment intent).
+
+**Honest limit:** the COMPLETE cure for substrate refusals is the self-hosted
+uncensored Nephesh model (blocked on hosting). Until then, failover + the
+authorized OSINT path + real people-search links mean lawful person lookups now
+return actionable public-records directories instead of a flat denial. On the
+current single-substrate deploy (Groq only, no Nephesh box), failover has no
+second provider to jump to unless GROQ has multiple keys — so the biggest lever
+for person-name *chat* answers is still the prompt authorization + routing the
+query through /osint/investigate (which it now does, since entities are detected).
+
+**Verified**: entity detection across the real query + false-positive guards;
+refusal detector against the exact refusal string + tricky true-answers; full
+investigate route returns entities + 10 people-search artifacts + a report on
+the user's exact query. Lint clean, jest 95/16 unchanged.
+
 ## 🗓️ SESSION LOG 2026-07-11 — Chat share + AI-directed OSINT investigation
 
 ### Chat answer sharing (SHIPPED, Playwright-verified)

@@ -101,7 +101,10 @@ class UnifiedAIService {
 
       // Try each provider in order with failover
       let lastError = null;
-      for (const providerName of providerOrder) {
+      let refusalResponse = null; // remembered so we can return it if ALL refuse
+      for (let i = 0; i < providerOrder.length; i++) {
+        const providerName = providerOrder[i];
+        const isLast = i === providerOrder.length - 1;
         try {
           logger.debug(`Attempting AI request with provider: ${providerName}`);
 
@@ -124,6 +127,18 @@ class UnifiedAIService {
           const branded = providerName === 'nephesh'
             ? response
             : attribution.stampResponse(response);
+
+          // Refusal-aware failover: substrate models (Groq's Llama etc.) carry
+          // their own RLHF guardrails that refuse lawful requests Nephesh's
+          // own prompt explicitly permits (e.g. compiling public records about
+          // a named person). When a provider refuses, try the NEXT provider
+          // before giving up — different substrates refuse different things.
+          // Only return a refusal if every provider refuses.
+          if (this.isRefusalContent(this.contentOf(response)) && !isLast) {
+            logger.info('Provider refused a lawful request, failing over:', { provider: providerName, context });
+            if (!refusalResponse) refusalResponse = branded; // keep first as fallback
+            continue;
+          }
 
           // Cache successful response
           this.cacheResponse(cacheKey, branded);
@@ -148,7 +163,11 @@ class UnifiedAIService {
         }
       }
 
-      // All providers failed
+      // Every provider either errored or refused. Prefer returning a refusal
+      // (a real answer the caller can show) over throwing, if we have one.
+      if (refusalResponse) {
+        return { ...refusalResponse, fromCache: false, context, promptVersion: prompt.version };
+      }
       throw new Error(`All AI providers failed. Last error: ${lastError?.message}`);
 
     } catch (error) {
@@ -415,6 +434,39 @@ class UnifiedAIService {
       .update(`${context}:${variant}:${message}`)
       .digest('hex');
     return `unified:${hash}`;
+  }
+
+  /**
+   * Pull the text content out of a provider response (shape varies by provider).
+   */
+  contentOf(response) {
+    if (!response) return '';
+    return (
+      response.content ||
+      response.response ||
+      response.choices?.[0]?.message?.content ||
+      ''
+    );
+  }
+
+  /**
+   * Heuristic: does this response read like a canned RLHF refusal rather than
+   * an actual answer? Used to fail over to another provider (see chat()).
+   * Kept tight — only the opening of the response, short, and clearly a
+   * refusal — so real answers that merely mention "I can't confirm X" don't
+   * trip it.
+   */
+  isRefusalContent(text) {
+    if (typeof text !== 'string') return false;
+    const head = text.trim().slice(0, 300);
+    if (head.length === 0) return true; // empty answer = treat as failure
+    return (
+      /\bI(?:'m| am)? ?(?:really |very |so )?sorry,? (?:but )?I ?(?:can(?:'|no)?t|cannot|won'?t|am (?:unable|not able))/i.test(head) ||
+      /\bI ?(?:can(?:'|no)?t|cannot|won'?t|am (?:unable|not able) to) (?:help|assist|provide|comply|do that|fulfill|create|generate|share)/i.test(head) ||
+      /\bI(?:'m| am) (?:unable|not able) to (?:help|assist|provide|comply)/i.test(head) ||
+      /\b(?:I must|I have to) (?:decline|refuse)/i.test(head) ||
+      /\bthat request (?:goes against|violates|isn'?t something I can)/i.test(head)
+    );
   }
 
   /**
