@@ -4,7 +4,10 @@ const crypto = require('crypto');
 const router = express.Router();
 const config = require('../config/env');
 const logger = require('../utils/logger');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuth } = require('../middleware/auth');
+const { rateLimitSearch } = require('../middleware/rateLimit');
+const OsintInvestigationService = require('../services/OsintInvestigationService');
+const TokenService = require('../services/TokenService');
 
 // Common disposable / throwaway email domains (small built-in list, no API).
 const DISPOSABLE_EMAIL_DOMAINS = new Set([
@@ -248,7 +251,7 @@ router.get('/whois', async (req, res) => {
 router.get('/username-platforms', async (req, res) => {
   try {
     const { username } = req.query;
-    if (!username || username.length < 2 || username.length > 64 || !/^[\w.\-]+$/.test(username)) {
+    if (!username || username.length < 2 || username.length > 64 || !/^[\w.-]+$/.test(username)) {
       return res.status(400).json({ error: 'Valid username required (2-64 chars, alphanumeric/_/./-)' });
     }
 
@@ -407,6 +410,62 @@ router.get('/phone-intel', async (req, res) => {
   } catch (error) {
     logger.error('phone-intel error:', error.message);
     res.status(500).json({ error: 'Phone lookup failed', details: 'Service unavailable' });
+  }
+});
+
+/**
+ * @route   POST /api/osint/investigate
+ * @desc    AI-directed OSINT investigation: detect entities in a free-text
+ *          query, run the relevant free lookups in parallel, and synthesize an
+ *          investigator's report via Nephesh (Ocean mode). One query, no manual
+ *          tool selection. Lawful public-source recon only.
+ * @access  Public with optional auth (token-gated for signed-in users)
+ * @body    { query: string }
+ */
+router.post('/investigate', optionalAuth, rateLimitSearch, async (req, res) => {
+  try {
+    const { query } = req.body;
+    if (!query || typeof query !== 'string' || query.trim().length === 0) {
+      return res.status(400).json({ error: 'Invalid request', message: 'Query is required' });
+    }
+
+    const user = req.user;
+    const isAuthed = user?.isAuthenticated && user?.userId;
+    if (isAuthed) {
+      const canAccess = await TokenService.canAccessFeature(user.userId, 'ai-chat');
+      if (!canAccess) {
+        return res.status(402).json({
+          error: 'Insufficient tokens',
+          message: 'Not enough tokens for an investigation. Please watch an ad or upgrade your account.',
+        });
+      }
+    }
+
+    const result = await OsintInvestigationService.investigate(query.trim());
+
+    if (result.noEntities) {
+      return res.json({
+        success: true,
+        query: query.trim(),
+        noEntities: true,
+        report: null,
+        message: 'No investigable entity (domain, IP, email, username, or phone) found in the query.',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    if (isAuthed) await TokenService.spendToken(user.userId, 'ai-chat');
+
+    logger.info('OSINT investigation complete:', {
+      userId: isAuthed ? user.userId : 'guest',
+      entities: result.entities.length,
+      provider: result.provider,
+    });
+
+    res.json({ success: true, query: query.trim(), ...result, timestamp: new Date().toISOString() });
+  } catch (error) {
+    logger.error('OSINT investigate error:', error.message);
+    res.status(500).json({ error: 'Investigation failed', message: 'Unable to complete the investigation right now.' });
   }
 });
 

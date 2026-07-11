@@ -195,15 +195,34 @@ export default function TruegleChat() {
     setInput('');
     setLoading(true);
 
-    const [chatRes, citeRes] = await Promise.allSettled([
-      aiAPI.chat(query, { context: MODE_TO_CONTEXT[mode], nepheshMode, verbose: verboseMode }),
-      fetchCitations(query, MODE_TO_BACKEND_SEARCH[mode]),
-    ]);
+    let content;
+    let citations = null;
 
-    const content = chatRes.status === 'fulfilled'
-      ? extractContent(chatRes.value)
-      : "Sorry, I couldn't reach the AI just now — try again in a moment.";
-    const citations = citeRes.status === 'fulfilled' ? citeRes.value : null;
+    // Ocean mode → auto-OSINT: if the query names an investigable entity
+    // (domain/IP/email/username/phone) the backend runs the lookups and
+    // synthesizes an investigator's report. If it names none, fall through to
+    // normal Ocean-mode chat so methodology questions still get answered.
+    if (mode === 'ocean') {
+      try {
+        const res = await api.post('/osint/investigate', { query });
+        const d = res.data;
+        if (d?.report) {
+          content = d.report;
+          citations = (d.artifacts && d.artifacts.length) ? { links: d.artifacts } : null;
+        }
+      } catch { /* fall through to chat below */ }
+    }
+
+    if (content === undefined) {
+      const [chatRes, citeRes] = await Promise.allSettled([
+        aiAPI.chat(query, { context: MODE_TO_CONTEXT[mode], nepheshMode, verbose: verboseMode }),
+        fetchCitations(query, MODE_TO_BACKEND_SEARCH[mode]),
+      ]);
+      content = chatRes.status === 'fulfilled'
+        ? extractContent(chatRes.value)
+        : "Sorry, I couldn't reach the AI just now — try again in a moment.";
+      citations = citeRes.status === 'fulfilled' ? citeRes.value : null;
+    }
 
     setMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', content, citations }]);
     setLoading(false);

@@ -1,7 +1,55 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-07-10. Supersedes all prior handoff docs._
+_Last updated: 2026-07-11. Supersedes all prior handoff docs._
 
 ---
+
+## 🗓️ SESSION LOG 2026-07-11 — Chat share + AI-directed OSINT investigation
+
+### Chat answer sharing (SHIPPED, Playwright-verified)
+Every assistant answer in `/chat` has a Share control (`ChatShareButton.jsx`):
+"Copy full answer + links" copies the whole response + every cited
+source/image/video URL; Twitter/Bluesky/LinkedIn/Reddit buttons open a share
+intent with a trimmed body pointing at `truegle.info/chat`. Platform config
+extracted from `TruegleShareButton` into shared `config/sharePlatforms.jsx`
+(compose signature is now `{title,text,url}`); both share buttons use it.
+NOTE: JSX-containing config files MUST be `.jsx` not `.js` (Vite/rollup won't
+parse JSX in `.js`) — hit this, renamed the file.
+
+### AI-directed OSINT investigation — Ocean mode (SHIPPED, pipeline-verified)
+One natural-language query in Ocean mode → auto-investigation, zero manual
+tool clicks. **Deliberately NOT "install GitHub CLI tools and exec them"** —
+that's an RCE/SSRF surface and won't run on Vercel serverless anyway. Instead:
+lookup-only over HTTP against FIXED upstreams with the user's entity as a
+regex-validated, URL-encoded PARAMETER (no SSRF, no shell).
+- `services/OsintLookups.js`: whois/RDAP, DNS-over-HTTPS, IP geolocation,
+  email intel (MX + Gravatar), phone intel (libphonenumber), **crt.sh**
+  certificate-transparency subdomain enum (new), **live username presence**
+  across GitHub/Reddit/GitLab/Dev.to via their JSON APIs (new, upgrades the
+  old URL-generation-only check), **Wayback** snapshot (new). Every fn is
+  best-effort — returns `{ok:false}` instead of throwing.
+- `services/OsintInvestigationService.js`: `detectEntities()` pulls
+  domain/IP/email/username/phone out of free text (strips emails before
+  domains so it doesn't double-match); `gather()` runs the right lookups per
+  entity in parallel; `synthesize()` feeds findings to Nephesh (ocean mode +
+  an investigation-report instruction) → report; `extractArtifacts()` maps
+  discovered subdomains/profiles/snapshots into citation chips.
+- `POST /api/osint/investigate` (routes/osint.js) — optionalAuth, token-gated
+  for signed-in users, `noEntities` guard message when nothing investigable.
+- `TruegleChat.jsx`: Ocean mode routes sends to `/osint/investigate`; if the
+  query names no entity it falls through to normal Ocean chat (so "how do I
+  research a domain" methodology questions still get answered).
+- **Verification**: entity detection + artifact extraction unit-tested (all
+  cases pass); Wayback parser confirmed against the live API; whois/dns/ip use
+  the SAME upstreams the existing production osint.js routes already use (so
+  proven from Vercel); full route pipeline booted + hit end-to-end (entities
+  detected → findings gathered w/ graceful degradation → Nephesh report
+  returned); browser E2E confirmed Ocean mode fires `/osint/investigate` (1x,
+  not the chat endpoint) and renders the report. Sandbox egress blocks most
+  live lookups so full data-richness only shows on Vercel — pipeline integrity
+  is proven. Also fixed a pre-existing lint error in osint.js (`\-` in a
+  char class). Jest baseline unchanged (95/16).
+- **User-facing note**: works with no API keys. Optional future upgrades
+  (HaveIBeenPwned breach check, Shodan) need free-tier keys — not wired yet.
 
 ## 🗓️ SESSION LOG 2026-07-10 (cont'd 2) — Truegle Chat (/chat)
 
