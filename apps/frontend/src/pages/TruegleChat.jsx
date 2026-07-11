@@ -10,6 +10,7 @@ import api, { aiAPI } from '../services/api';
 import { FREE_ACCESS_MODE } from '../config/access';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent } from '../config/modeTheme';
 import { getVideoEmbed } from '../utils/videoEmbed';
+import ChatShareButton from '../components/ui/ChatShareButton';
 
 // Truegle Chat is a designated route for chat-first users — the same brand
 // (logo, mode-synced background/accents) as the rest of Truegle, but reduced
@@ -306,6 +307,11 @@ export default function TruegleChat() {
                   <p className="text-sm">{m.content}</p>
                 )}
                 <Citations citations={m.citations} accent={accent} />
+                {m.role === 'assistant' && m.id !== 1 && (
+                  <div className="mt-2 pt-2 border-t border-white/5 flex justify-start">
+                    <ChatShareButton message={m} />
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}
