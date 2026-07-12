@@ -82,9 +82,32 @@ rate-limits. `TranscriptService.fetchTranscript` is now layered:
 silently overrode the Resend block, leaving `config.email.resend` undefined and
 Resend transactional email dead. Merged into one object; both survive now.
 
-**Still open (flagged to user, not yet built):** shareable *persistent* investigations;
-persistent memory / Graphipy write-up (need the GitHub repo to know the format);
-Nephesh security sub-agent; agent headless-browser OSINT. (needs a server store — $0 options
+**Batch 5 (shipped): Persistent shareable threads (chat + OSINT investigations).**
+A user shares a link; the recipient opens the LIVE thread (messages + cited
+links/images/videos), not pasted text. Built on the EXISTING Postgres DB — no
+new infra/credentials (chose this over Cloudflare KV for true $0/zero-ops).
+- Migration `008_add_shared_threads.sql`: `shared_threads(id TEXT pk, kind,
+  user_id→users(id) ON DELETE SET NULL, payload JSONB, views, created_at,
+  expires_at DEFAULT now()+180d)`.
+- `ShareService`: short unambiguous 10-char id (no 0/O/1/I/l), `sanitizePayload`
+  (whitelists fields, coerces roles, caps title 200 / messages 200 /
+  payload 256 KB), `createShare` (collision-retry), `getShare` (expiry-gated,
+  increments views).
+- `routes/share.js`: `POST /api/share` (optionalAuth+rateLimit) + `GET
+  /api/share/:id`; registered in server.js.
+- Frontend: `shareAPI` in api.js; TruegleChat "Share" button persists the whole
+  thread → copies a `/s/:id` link; new read-only `SharedThread` page at `/s/:id`
+  (reuses exported `Citations`). SPA routing added to `_redirects` (`/s/*`) +
+  `_headers` (text/html + noindex).
+- VERIFIED end-to-end against a REAL local Postgres: migration applies, create/
+  load round-trip, JSONB citation integrity, view increment, NOT_FOUND for
+  missing + malformed ids, and expiry→NOT_FOUND. Lint + frontend build clean.
+  Local PG: role `truegle`, db `truegle_dev`, /tmp/pgdata-truegle (started via
+  `sudo -u postgres /usr/lib/postgresql/16/bin/pg_ctl -D /tmp/pgdata-truegle start`).
+
+**Still open (flagged to user, not yet built):** persistent memory / Graphipy
+write-up (need the GitHub `owner/name` to know the format); Nephesh security
+sub-agent; agent headless-browser OSINT. (needs a server store — $0 options
 being weighed); agent-driven headless-browser research; installing OSINT toolkits
 in a sandbox; a persistent Nephesh security/anti-injection sub-agent. The
 "AI jailbreak / apply to Nephesh" ask was declined as framed (won't build safety

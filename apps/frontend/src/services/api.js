@@ -193,6 +193,12 @@ const shoppingAPI = {
   getHealth: () => api.get('/shopping/health'),
 };
 
+// Shareable persistent threads (chat / OSINT investigations)
+const shareAPI = {
+  create: (kind, payload) => api.post('/share', { kind, payload }),
+  get: (id) => api.get(`/share/${id}`),
+};
+
 // Export all API service modules
 export {
   authAPI,
@@ -204,6 +210,7 @@ export {
   affiliatePremiumAPI,
   aiAPI,
   shoppingAPI,
+  shareAPI,
 };
 
 export default api;

@@ -23,6 +23,9 @@
   X-Robots-Tag: noindex, follow
 /chat
   Content-Type: text/html; charset=utf-8
+/s/*
+  Content-Type: text/html; charset=utf-8
+  X-Robots-Tag: noindex, follow
 /extract
   Content-Type: text/html; charset=utf-8
 /blog

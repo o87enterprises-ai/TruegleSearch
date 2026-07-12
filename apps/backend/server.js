@@ -240,6 +240,7 @@ app.use('/api/unsplash', require('./routes/unsplash'));
 app.use('/api/osint-tools', require('./routes/osint-proxy'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/extract', require('./routes/extract'));
+app.use('/api/share', require('./routes/share'));
 
 // 404 handler
 app.use('*', (req, res) => {

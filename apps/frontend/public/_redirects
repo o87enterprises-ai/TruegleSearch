@@ -23,6 +23,7 @@
 /search           /_index  200
 /search/*         /_index  200
 /chat             /_index  200
+/s/*              /_index  200
 /extract          /_index  200
 # /blog and /blog/* are intentionally NOT here — all blog routes are
 # prerendered (dist/blog/index.html + dist/blog/<slug>/index.html).

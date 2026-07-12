@@ -2,11 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { Send, ExternalLink, Eye, Image as ImageIcon, Film } from 'lucide-react';
+import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2 } from 'lucide-react';
 import LandingBackground from '../components/LandingBackground';
 import CursorGlow from '../components/ui/CursorGlow';
 import TruegleLogo from '../components/ui/TruegleLogo';
-import api, { aiAPI } from '../services/api';
+import api, { aiAPI, shareAPI } from '../services/api';
 import { FREE_ACCESS_MODE } from '../config/access';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent } from '../config/modeTheme';
 import { getVideoEmbed } from '../utils/videoEmbed';
@@ -146,7 +146,7 @@ function CitationChip({ result, accent }) {
   );
 }
 
-function Citations({ citations, accent }) {
+export function Citations({ citations, accent }) {
   if (!citations) return null;
   // Defensive defaults: the OSINT path builds { links } only (no videos/pics),
   // so destructuring straight to .length used to crash the whole page with
@@ -253,6 +253,37 @@ export default function TruegleChat() {
 
   const resetThread = () => {
     setMessages([{ id: Date.now(), role: 'assistant', content: MODE_WELCOME[primaryMode], citations: null }]);
+    setShareUrl('');
+  };
+
+  const [sharing, setSharing] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [shareCopied, setShareCopied] = useState(false);
+
+  // Persist the whole thread server-side and produce a link that opens the LIVE
+  // conversation (messages + cited media/links) for anyone — not pasted text.
+  const handleShare = async () => {
+    if (sharing) return;
+    setSharing(true);
+    setShareCopied(false);
+    try {
+      const payload = {
+        modes,
+        title: messages.find((m) => m.role === 'user')?.content?.slice(0, 120) || 'Truegle conversation',
+        messages: messages
+          .filter((m) => m.id !== 1)
+          .map((m) => ({ role: m.role, content: m.content, citations: m.citations || null })),
+      };
+      const kind = modes.includes('ocean') ? 'investigation' : 'chat';
+      const res = await shareAPI.create(kind, payload);
+      const url = `${window.location.origin}${res.data.path}`;
+      setShareUrl(url);
+      try { await navigator.clipboard.writeText(url); setShareCopied(true); } catch { /* clipboard blocked — link still shown */ }
+    } catch {
+      setShareUrl('error');
+    } finally {
+      setSharing(false);
+    }
   };
 
   const handleSend = async () => {
@@ -439,16 +470,47 @@ export default function TruegleChat() {
             </AnimatePresence>
           </div>
           {messages.length > 1 && (
-            <button
-              type="button"
-              onClick={resetThread}
-              title="Start a new conversation"
-              className="px-2.5 py-1 rounded-full text-xs font-medium border bg-white/5 border-white/10 text-white/40 hover:text-white/70 transition-colors"
-            >
-              New chat
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={handleShare}
+                disabled={sharing}
+                title="Create a link that opens this whole conversation for anyone"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border bg-white/5 border-white/10 text-white/40 hover:text-white/70 transition-colors disabled:opacity-50"
+              >
+                <Share2 size={11} /> {sharing ? 'Sharing…' : 'Share'}
+              </button>
+              <button
+                type="button"
+                onClick={resetThread}
+                title="Start a new conversation"
+                className="px-2.5 py-1 rounded-full text-xs font-medium border bg-white/5 border-white/10 text-white/40 hover:text-white/70 transition-colors"
+              >
+                New chat
+              </button>
+            </>
           )}
         </div>
+
+        {/* Shareable-link result */}
+        {shareUrl && (
+          <div className="w-full max-w-2xl mb-2 flex-shrink-0">
+            {shareUrl === 'error' ? (
+              <div className="text-[11px] text-red-300/80 text-center">Couldn't create a share link — try again in a moment.</div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg border border-white/15 bg-black/50 px-2.5 py-1.5">
+                <span className="text-[11px] text-green-300 flex-shrink-0">{shareCopied ? '✓ Link copied' : 'Share link:'}</span>
+                <input
+                  readOnly
+                  value={shareUrl}
+                  onFocus={(e) => e.target.select()}
+                  className="flex-1 bg-transparent text-[11px] text-white/70 outline-none truncate"
+                />
+                <a href={shareUrl} target="_blank" rel="noopener noreferrer" className={`text-[11px] flex-shrink-0 ${accent.link}`}>Open</a>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Message thread — takes the majority of the page; input stays pinned
             below it and above the mobile keyboard (dvh container). */}
