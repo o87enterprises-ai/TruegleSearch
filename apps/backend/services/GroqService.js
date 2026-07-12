@@ -14,7 +14,7 @@ class GroqService {
     this.keys = config.ai.groq?.keys || (config.ai.groq?.apiKey ? [config.ai.groq.apiKey] : []);
     this.currentKeyIndex = 0;
     this.baseUrl = 'https://api.groq.com/openai/v1';
-    this.defaultModel = config.ai.groq?.model || 'llama-3.1-8b-instant';
+    this.defaultModel = config.ai.groq?.model || 'llama-3.3-70b-versatile';
 
     logger.info(`GroqService initialized with ${this.keys.length} key(s)`);
   }

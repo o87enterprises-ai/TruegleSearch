@@ -56,7 +56,11 @@ const envVarsSchema = Joi.object({
   GROQ_API_KEY_3: Joi.string().optional().description('Groq API Key 3 — rotated to when key 2 rate-limits'),
   GROQ_API_KEY_4: Joi.string().optional().description('Groq API Key 4 — rotated to when key 3 rate-limits'),
   GROQ_API_KEY_5: Joi.string().optional().description('Groq API Key 5 — rotated to when key 4 rate-limits'),
-  GROQ_MODEL: Joi.string().optional().default('llama-3.1-8b-instant').description('Groq model id'),
+  // Default to the 70B model: the 8b-instant default produced weak, shallow
+  // summaries (the "poor unbiased summaries" complaint). 70b-versatile is still
+  // free-tier; its lower TPM is covered by multi-key rotation (GROQ_API_KEY..._5).
+  // Override per-deploy with GROQ_MODEL if a different model is preferred.
+  GROQ_MODEL: Joi.string().optional().default('llama-3.3-70b-versatile').description('Groq model id'),
 
   // Radar API (Maps)
   RADAR_LIVE_SECRET_KEY: Joi.string().optional().description('Radar Live Secret Key'),
