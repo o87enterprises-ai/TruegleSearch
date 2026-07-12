@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Truegle company skills ACTIVE (ponytail/tech/financial/design auto-apply). Read HANDOFF.md top + CLAUDE.md PERMANENT FACTS before acting. Default terse.'"
+            "command": "echo 'Truegle company skills ACTIVE (ponytail/tech/financial/design auto-apply). Default terse.'; node .claude/memory/mem.mjs digest 2>/dev/null || echo '(agent memory unavailable — read HANDOFF.md top + CLAUDE.md PERMANENT FACTS before acting)'"
           }
         ]
       }

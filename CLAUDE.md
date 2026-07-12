@@ -1,6 +1,18 @@
 # Truegle Company Skills — Standing Policy (applies every session, no need to invoke)
 
 At the START of every session, before acting:
+0. **Agent memory auto-loads.** The SessionStart hook prints the persistent
+   memory digest (`node .claude/memory/mem.mjs digest`) into your context —
+   PERMANENT FACTS, settled decisions, key entities, open threads. **Trust it;
+   do NOT re-derive or re-ask anything it already states.** This exists so we
+   stop having the same conversations every session and stop burning tokens
+   re-reading the whole HANDOFF. Only open HANDOFF.md when you need detail the
+   digest doesn't carry.
+   **Keep it current** (this is the whole point — a stale memory is worse than none):
+   - Settled a fact / made a durable decision? `node .claude/memory/mem.mjs add <fact|decision|entity|thread> <id> "label" "body"`
+   - Finished an open thread? `node .claude/memory/mem.mjs done <id>`
+   - Search it: `… query <term>` · list: `… list [type]`
+   Commit `.claude/memory/graph.json` with your normal work so the next session inherits it.
 1. Read `HANDOFF.md` (top) for live state + 🔴 PERMANENT FACTS.
 2. These company skills in `.claude/skills/` are ALWAYS in force — apply them automatically, don't wait to be asked:
    - **ponytail** — engineering discipline (boot-don't-just-check, root cause, free-first).

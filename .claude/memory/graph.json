@@ -1,0 +1,229 @@
+{
+  "nodes": {
+    "fact": {
+      "nephesh-host": {
+        "Id": "nephesh-host",
+        "Type": "fact",
+        "Label": "Nephesh hosting reality",
+        "body": "NO free self-host box (AWS free=1GB OOMs, Oracle used up, no home hw). Nephesh runs on Groq free tier as substrate; Null-Prime prompts+attribution applied at UnifiedAIService layer so answers are Nephesh-branded regardless of engine. Self-host is a later upgrade (kit in nephesh/).",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "groq-native": {
+        "Id": "groq-native",
+        "Type": "fact",
+        "Label": "Groq is the live engine",
+        "body": "NEPHESH_BASE_URL unset => Groq is first available provider, serves ALL AI surfaces branded Nephesh. 3 GROQ keys rotate on 429 (same model, no help for refusals). Refusal-failover needs a DIFFERENT provider (add GEMINI_API_KEY).",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "ec2-access": {
+        "Id": "ec2-access",
+        "Type": "fact",
+        "Label": "EC2 access",
+        "body": "Key lost; use EC2 Instance Connect (browser), no .pem recoverable. IP 44.236.219.63, us-west-2 Oregon, instance i-0709a9d47e503384f. searxng t3.micro cannot host a model; give it 1GB swap.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "adsterra": {
+        "Id": "adsterra",
+        "Type": "fact",
+        "Label": "Adsterra dead-ends",
+        "body": "API dashboard-only; banner anti-adblock codes don't exist in account; adult toggle can't be disabled once on; Impact.com closed until 50K/mo traffic.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "budget": {
+        "Id": "budget",
+        "Type": "fact",
+        "Label": "Budget",
+        "body": "$0 budget, ad-revenue model. Flag any spend before incurring it.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "branch": {
+        "Id": "branch",
+        "Type": "fact",
+        "Label": "Session branch workflow",
+        "body": "Develop on branch claude/truegle-company-skills-af5avu; push to that branch AND fast-forward main.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "test-db": {
+        "Id": "test-db",
+        "Type": "fact",
+        "Label": "Local test Postgres",
+        "body": "role=truegle db=truegle_dev data=/tmp/pgdata-truegle. Start: sudo -u postgres /usr/lib/postgresql/16/bin/pg_ctl -D /tmp/pgdata-truegle start. sslmode=disable for local.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "spa-routing": {
+        "Id": "spa-routing",
+        "Type": "fact",
+        "Label": "SPA route rule (ponytail)",
+        "body": "New client route needs BOTH public/_redirects (->/_index 200) AND public/_headers (Content-Type text/html). JSX-containing config files must be .jsx not .js.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      }
+    },
+    "decision": {
+      "groq-70b": {
+        "Id": "groq-70b",
+        "Type": "decision",
+        "Label": "Default Groq model = 70B",
+        "body": "GROQ_MODEL default bumped 8b-instant -> llama-3.3-70b-versatile (8B gave shallow summaries). Free-tier; multi-key rotation covers TPM.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "transcripts-invidious": {
+        "Id": "transcripts-invidious",
+        "Type": "decision",
+        "Label": "Transcripts via Invidious",
+        "body": "Fetch captions from Invidious/Piped front-ends first (their IPs, not ours) to dodge YouTube rate-limit; direct scrape is fallback. Morty result-proxy can't scrape (strips <script>).",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "share-store": {
+        "Id": "share-store",
+        "Type": "decision",
+        "Label": "Share store = Postgres",
+        "body": "Shareable persistent threads use existing Postgres (shared_threads, migration 008), NOT Cloudflare KV — true $0/zero-ops.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "multiselect-primary": {
+        "Id": "multiselect-primary",
+        "Type": "decision",
+        "Label": "Multi-select design",
+        "body": "Modes multi-select blends AI framing. On /search the PRIMARY mode stays single (drives sources/perspectives/OSINT routing); extra lenses only affect AI summary + follow-up chat, to avoid destabilizing the results pipeline.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "osint-graph": {
+        "Id": "osint-graph",
+        "Type": "decision",
+        "Label": "OSINT graph (GraphiPy)",
+        "body": "OSINT investigations rendered as GraphiPy-model node/edge graph (OsintGraphService) with Gephi CSV + JSON export. User called it brilliant — keep.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "no-jailbreak": {
+        "Id": "no-jailbreak",
+        "Type": "decision",
+        "Label": "No jailbreaks",
+        "body": "Won't build safety-bypasses. Real goal (fewer false denials on lawful requests) handled via refusal-failover + prompt-authorization + eventual self-hosted uncensored Nephesh.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "purple-rename": {
+        "Id": "purple-rename",
+        "Type": "decision",
+        "Label": "Purple = Perspectives",
+        "body": "Purple MODE renamed Skeptical->Perspectives (labels/hook/landing). The skeptical bias LENS in PerspectiveSelector is a different concept, left as-is.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      }
+    },
+    "entity": {
+      "email-config": {
+        "Id": "email-config",
+        "Type": "entity",
+        "Label": "config.email",
+        "body": "Has resend + smtp. Previously TWO email keys collided (smtp overrode resend -> Resend email dead); fixed by merging. Keep merged.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "migrations": {
+        "Id": "migrations",
+        "Type": "entity",
+        "Label": "DB migrations",
+        "body": "Never wired to deploy. Apply with: cd apps/backend && DATABASE_URL=... npm run migrate (idempotent). Latest = 008_add_shared_threads.",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      }
+    },
+    "thread": {
+      "prod-migrate": {
+        "Id": "prod-migrate",
+        "Type": "thread",
+        "Label": "Run migration 008 on prod",
+        "body": "shared_threads table must exist in prod or /s share links + investigation graphs 500. Run npm run migrate against prod DB after deploy.",
+        "status": "open",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "security-subagent": {
+        "Id": "security-subagent",
+        "Type": "thread",
+        "Label": "Nephesh anti-injection security sub-agent",
+        "body": "Persistent guard screening chat/OSINT inputs for prompt-injection/abuse so Nephesh isn't an attack surface. NOT started.",
+        "status": "open",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "headless-osint": {
+        "Id": "headless-osint",
+        "Type": "thread",
+        "Label": "Agent headless-browser OSINT",
+        "body": "Let agent drive project Chromium for research needing browser actions + vetted OSS OSINT tools in a sandbox. Largest/most security-sensitive. NOT started.",
+        "status": "open",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "persistent-user-memory": {
+        "Id": "persistent-user-memory",
+        "Type": "thread",
+        "Label": "Cross-session per-user saved investigations",
+        "body": "Server-side saved-threads list so Nephesh recalls a user's prior investigations. shared_threads is the foundation. NOT started.",
+        "status": "open",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "adsterra-zones": {
+        "Id": "adsterra-zones",
+        "Type": "thread",
+        "Label": "Adsterra zone replacement",
+        "body": "Zone replacement targeted ~2026-07-16. Only the yellow 'claim this spot' ad slot is active; all others disabled.",
+        "status": "open",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      },
+      "graphipy-clarified": {
+        "Id": "graphipy-clarified",
+        "Type": "thread",
+        "Label": "Graphipy purpose clarified",
+        "body": "Graphipy was for AGENT memory between sessions + token costs (THIS memory system), not just OSINT. OSINT graph kept as a bonus.",
+        "status": "done",
+        "ts": "2026-07-12",
+        "created": "2026-07-12"
+      }
+    }
+  },
+  "edges": {
+    "relates_to": {
+      "nephesh-host|relates_to|groq-native": {
+        "Id": "nephesh-host|relates_to|groq-native",
+        "Source": "nephesh-host",
+        "Target": "groq-native",
+        "Label": "relates_to"
+      }
+    },
+    "part_of": {
+      "share-store|part_of|persistent-user-memory": {
+        "Id": "share-store|part_of|persistent-user-memory",
+        "Source": "share-store",
+        "Target": "persistent-user-memory",
+        "Label": "part_of"
+      }
+    },
+    "blocks": {
+      "migrations|blocks|prod-migrate": {
+        "Id": "migrations|blocks|prod-migrate",
+        "Source": "migrations",
+        "Target": "prod-migrate",
+        "Label": "blocks"
+      }
+    }
+  },
+  "updated": "2026-07-12"
+}
