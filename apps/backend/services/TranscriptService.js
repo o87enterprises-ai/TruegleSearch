@@ -1,17 +1,32 @@
 /**
- * TranscriptService — fetches YouTube captions without the `youtube-transcript`
- * package, which (a) returns generic errors and (b) can't be routed through a
- * proxy. YouTube blocks datacenter IPs (Vercel/AWS) with a captcha wall, so in
- * production this must go through an HTTP(S) proxy — see TRANSCRIPT_PROXY_URL.
+ * TranscriptService — fetches YouTube captions.
  *
- * Mirrors what the library does: load the watch page, read `captionTracks` out
- * of `ytInitialPlayerResponse`, then fetch + parse the timedtext XML. Throws a
- * `TranscriptError` with a stable `.code` so the route can return an accurate,
- * non-misleading message.
+ * Strategy order (first to yield a transcript wins):
+ *   1. INVIDIOUS/PIPED front-ends — these fetch YouTube from THEIR own IPs and
+ *      return captions as clean data (WebVTT), so YouTube can't rate-limit
+ *      Truegle's datacenter IP. This is the same decentralized YouTube pathway
+ *      SearXNG uses, and is the primary fix for the "YouTube is rate-limiting
+ *      Truegle's server" error.
+ *   2. DIRECT watch-page scrape — load the watch page, read `captionTracks`
+ *      from `ytInitialPlayerResponse`, fetch+parse the timedtext XML. Kept as a
+ *      last-resort fallback; can be routed through TRANSCRIPT_PROXY_URL.
+ *
+ * Throws a `TranscriptError` with a stable `.code` so the route returns an
+ * accurate, non-misleading message.
  */
 const axios = require('axios');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const config = require('../config/env');
+
+// Public Invidious instances (override with TRANSCRIPT_INVIDIOUS_INSTANCES).
+// Instances come and go, so we try several and fail over on any error.
+const DEFAULT_INVIDIOUS = [
+  'https://invidious.nerdvpn.de',
+  'https://inv.nadeko.net',
+  'https://invidious.jing.rocks',
+  'https://yewtu.be',
+  'https://invidious.privacyredirect.com',
+];
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -115,13 +130,110 @@ function parseTimedText(xml) {
   return segments;
 }
 
+// hh:mm:ss.mmm (or mm:ss.mmm) → seconds
+function vttTimeToSeconds(t) {
+  const parts = t.split(':').map(Number);
+  if (parts.some(Number.isNaN)) return NaN;
+  let s = 0;
+  for (const p of parts) s = s * 60 + p;
+  return s;
+}
+
 /**
+ * Parse WebVTT (what Invidious/Piped caption endpoints return) into the same
+ * {text, offset, duration} segment shape as parseTimedText. Tolerates cue
+ * settings on the timing line, cue identifiers, and inline tags.
+ */
+function parseVtt(vtt) {
+  const segments = [];
+  const timing = /(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{3}\s*-->\s*(\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{3}/;
+  const blocks = String(vtt).replace(/\r/g, '').split(/\n\n+/);
+  for (const block of blocks) {
+    const lines = block.split('\n');
+    const tIdx = lines.findIndex((l) => timing.test(l));
+    if (tIdx === -1) continue;
+    const arrow = lines[tIdx].split('-->');
+    const start = vttTimeToSeconds(arrow[0].trim().replace(',', '.'));
+    const end = vttTimeToSeconds((arrow[1] || '').trim().split(/\s+/)[0].replace(',', '.'));
+    if (Number.isNaN(start)) continue;
+    const text = decodeEntities(lines.slice(tIdx + 1).join(' ').replace(/<[^>]+>/g, ''))
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (text) {
+      segments.push({
+        text,
+        offset: start,
+        duration: Number.isNaN(end) ? 0 : Math.max(0, end - start),
+      });
+    }
+  }
+  return segments;
+}
+
+// Choose the best caption track: exact requested lang, then any English, then
+// the first available. Shared by the Invidious and watch-page paths.
+function pickTrack(tracks, lang, codeKey) {
+  return (
+    (lang && tracks.find((t) => t[codeKey] === lang)) ||
+    tracks.find((t) => t[codeKey] && String(t[codeKey]).startsWith('en')) ||
+    tracks[0]
+  );
+}
+
+/**
+ * Strategy 1 — Invidious/Piped front-ends. Fetched from the instance's IP, not
+ * ours, so YouTube's datacenter rate-limit never applies. Tries each configured
+ * instance until one returns captions.
+ * @returns {Promise<Array<{text:string, offset:number, duration:number}>>}
+ */
+async function fetchViaInvidious(videoId, opts = {}) {
+  const lang = opts.lang;
+  const instances = (config.transcript && config.transcript.invidiousInstances) || DEFAULT_INVIDIOUS;
+  let sawNoCaptions = false;
+  let lastErr = null;
+
+  for (const base of instances) {
+    try {
+      const listResp = await axios.get(
+        `${base}/api/v1/captions/${videoId}`,
+        requestOptions({ responseType: 'json' })
+      );
+      if (listResp.status === 429) { lastErr = new TranscriptError('RATE_LIMITED'); continue; }
+      if (listResp.status >= 400) { lastErr = new TranscriptError('FETCH_FAILED', `captions list HTTP ${listResp.status}`); continue; }
+
+      const caps = listResp.data && listResp.data.captions;
+      if (!Array.isArray(caps) || caps.length === 0) { sawNoCaptions = true; continue; }
+
+      const track = pickTrack(caps, lang, 'languageCode');
+      // Invidious returns `url` as an instance-relative path (e.g.
+      // /api/v1/captions/<id>?label=English); make it absolute.
+      const capUrl = /^https?:\/\//i.test(track.url) ? track.url : `${base}${track.url}`;
+
+      const vttResp = await axios.get(capUrl, requestOptions({ responseType: 'text' }));
+      if (vttResp.status >= 400) { lastErr = new TranscriptError('FETCH_FAILED', `caption HTTP ${vttResp.status}`); continue; }
+
+      const body = String(vttResp.data || '');
+      // Invidious usually returns WebVTT; some instances proxy raw timedtext XML.
+      const segments = /^\s*WEBVTT/.test(body) || body.includes('-->') ? parseVtt(body) : parseTimedText(body);
+      if (segments.length) return segments;
+      sawNoCaptions = true;
+    } catch (err) {
+      lastErr = new TranscriptError('FETCH_FAILED', err.message);
+    }
+  }
+
+  if (sawNoCaptions && !lastErr) throw new TranscriptError('NO_CAPTIONS');
+  throw lastErr || new TranscriptError('FETCH_FAILED', 'no invidious instance responded');
+}
+
+/**
+ * Strategy 2 — direct YouTube watch-page scrape (last resort).
  * @param {string} videoId  11-char YouTube ID
  * @param {object} [opts]
  * @param {string} [opts.lang]  Preferred caption language code (e.g. 'en')
  * @returns {Promise<Array<{text:string, offset:number, duration:number}>>}
  */
-async function fetchTranscript(videoId, opts = {}) {
+async function fetchViaWatchPage(videoId, opts = {}) {
   const lang = opts.lang;
   let watch;
   try {
@@ -160,10 +272,7 @@ async function fetchTranscript(videoId, opts = {}) {
     throw new TranscriptError('NO_CAPTIONS');
   }
 
-  const track =
-    (lang && tracks.find((t) => t.languageCode === lang)) ||
-    tracks.find((t) => t.languageCode && t.languageCode.startsWith('en')) ||
-    tracks[0];
+  const track = pickTrack(tracks, lang, 'languageCode');
 
   // Drop any &fmt= so we get the default XML timedtext format we parse below.
   const baseUrl = track.baseUrl.replace(/&fmt=[^&]*/g, '');
@@ -185,9 +294,42 @@ async function fetchTranscript(videoId, opts = {}) {
   return segments;
 }
 
+// Which error codes are authoritative — the video genuinely can't be
+// transcribed, so there's no point trying another strategy.
+const TERMINAL_CODES = new Set(['AGE_RESTRICTED', 'UNAVAILABLE']);
+// Preference when every strategy fails: NO_CAPTIONS (actionable) beats
+// transient RATE_LIMITED/FETCH_FAILED.
+const CODE_PRIORITY = { NO_CAPTIONS: 3, RATE_LIMITED: 2, FETCH_FAILED: 1 };
+
+/**
+ * Fetch a YouTube transcript, trying Invidious front-ends first (unblockable)
+ * then the direct watch-page scrape. Returns {text, offset, duration} segments.
+ *
+ * @param {string} videoId  11-char YouTube ID
+ * @param {object} [opts]
+ * @param {string} [opts.lang]  Preferred caption language code (e.g. 'en')
+ * @returns {Promise<Array<{text:string, offset:number, duration:number}>>}
+ */
+async function fetchTranscript(videoId, opts = {}) {
+  const strategies = [fetchViaInvidious, fetchViaWatchPage];
+  let best = null; // most informative error seen so far
+
+  for (const strategy of strategies) {
+    try {
+      const segments = await strategy(videoId, opts);
+      if (segments && segments.length) return segments;
+    } catch (err) {
+      const code = (err && err.code) || 'FETCH_FAILED';
+      if (TERMINAL_CODES.has(code)) throw err; // no other strategy can help
+      if (!best || (CODE_PRIORITY[code] || 0) > (CODE_PRIORITY[best.code] || 0)) best = err;
+    }
+  }
+  throw best || new TranscriptError('FETCH_FAILED');
+}
+
 module.exports = {
   fetchTranscript,
   TranscriptError,
   // exported for unit testing
-  _internals: { extractPlayerResponse, parseTimedText, decodeEntities, looksRateLimited },
+  _internals: { extractPlayerResponse, parseTimedText, parseVtt, decodeEntities, looksRateLimited, pickTrack, vttTimeToSeconds },
 };

@@ -163,6 +163,11 @@ const envVarsSchema = Joi.object({
   // (ideally residential/rotating) to route transcript fetches through it.
   // Format: http://user:pass@host:port  — unset → direct (works locally only).
   TRANSCRIPT_PROXY_URL: Joi.string().optional().description('HTTP(S) proxy for YouTube transcript fetches (bypasses datacenter-IP captcha)'),
+  // Comma-separated Invidious/Piped-compatible instances. Transcripts are pulled
+  // from these front-ends FIRST — they fetch YouTube from their own IPs, so
+  // YouTube can't rate-limit Truegle's server. The direct watch-page scrape is
+  // only a last-resort fallback. Same decentralized pathway SearXNG uses for YT.
+  TRANSCRIPT_INVIDIOUS_INSTANCES: Joi.string().optional().description('Comma-separated Invidious instance base URLs for transcript fetching'),
 
   // Google OAuth
   GOOGLE_CLIENT_ID: Joi.string().optional().description('Google OAuth Client ID'),
@@ -315,11 +320,22 @@ const config = {
     apiKey: envVars.SERP_API_KEY,
   },
 
-  // Email (Resend)
+  // Email — Resend (transactional, used by EmailService) + legacy SMTP.
+  // NOTE: these were previously two separate `email:` keys; the second silently
+  // overrode the first, leaving config.email.resend undefined and Resend email
+  // dead. Merged into one object so both survive.
   email: {
     resend: {
       apiKey: envVars.RESEND_API_KEY,
       fromEmail: envVars.RESEND_FROM_EMAIL,
+    },
+    smtp: {
+      host: envVars.SMTP_HOST,
+      port: envVars.SMTP_PORT,
+      auth: {
+        user: envVars.SMTP_USER,
+        pass: envVars.SMTP_PASS,
+      },
     },
   },
 
@@ -340,6 +356,9 @@ const config = {
   // Content extraction (YouTube transcripts)
   transcript: {
     proxyUrl: envVars.TRANSCRIPT_PROXY_URL,
+    invidiousInstances: envVars.TRANSCRIPT_INVIDIOUS_INSTANCES
+      ? envVars.TRANSCRIPT_INVIDIOUS_INSTANCES.split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean)
+      : null,
   },
 
   // Google OAuth
@@ -424,18 +443,6 @@ const config = {
   upload: {
     maxFileSize: envVars.MAX_FILE_SIZE,
     allowedFileTypes: envVars.ALLOWED_FILE_TYPES.split(','),
-  },
-
-  // Email
-  email: {
-    smtp: {
-      host: envVars.SMTP_HOST,
-      port: envVars.SMTP_PORT,
-      auth: {
-        user: envVars.SMTP_USER,
-        pass: envVars.SMTP_PASS,
-      },
-    },
   },
 
   // External Services

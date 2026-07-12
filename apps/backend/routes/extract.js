@@ -28,7 +28,7 @@ const TRANSCRIPT_ERRORS = {
   },
   FETCH_FAILED: {
     status: 502,
-    error: 'Could not reach YouTube to fetch the transcript. Please try again.',
+    error: 'Could not fetch this transcript from any source right now. Please try again.',
   },
 };
 

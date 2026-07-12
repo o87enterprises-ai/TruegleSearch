@@ -62,7 +62,29 @@ the AI summary + follow-up chat:
   re-search). `AIChatOverlay` now takes a `modes` prop → follow-up chat blends too.
 - Verified: eslint clean, frontend build clean, backend combine logic unit-tested.
 
-**Still open (flagged to user, not yet built):** shareable *persistent* investigations (needs a server store — $0 options
+**Batch 4 (shipped): Transcripts via Invidious front-ends (fixes the "YouTube is
+rate-limiting Truegle's server" error on /extract).** Root cause: the extractor
+scraped YouTube's watch page directly from Vercel's datacenter IP, which YouTube
+rate-limits. `TranscriptService.fetchTranscript` is now layered:
+  1. Invidious/Piped instances (`/api/v1/captions/{id}` → WebVTT) — fetched from
+     THEIR IPs, so YouTube can't rate-limit us. Multi-instance failover; override
+     with `TRANSCRIPT_INVIDIOUS_INSTANCES` (comma list). This is the "use SearXNG
+     for transcripts" ask — same decentralized YT pathway SearXNG uses.
+  2. Direct watch-page scrape — unchanged, now last-resort fallback.
+  New `parseVtt` + `pickTrack` helpers (unit-tested, 13/13 pass). Error priority:
+  terminal codes (AGE_RESTRICTED/UNAVAILABLE) short-circuit; else NO_CAPTIONS >
+  RATE_LIMITED > FETCH_FAILED. DeepResearchService inherits it (same function).
+  NOTE: live-verify on deploy — Invidious/YouTube unreachable from the sandbox.
+  Morty result-proxy is NOT usable for the scrape (it strips <script>, killing
+  ytInitialPlayerResponse) — that's why Invidious, not the result-proxy.
+
+**Bug fixed in passing:** `config/env.js` had TWO `email:` keys — the SMTP block
+silently overrode the Resend block, leaving `config.email.resend` undefined and
+Resend transactional email dead. Merged into one object; both survive now.
+
+**Still open (flagged to user, not yet built):** shareable *persistent* investigations;
+persistent memory / Graphipy write-up (need the GitHub repo to know the format);
+Nephesh security sub-agent; agent headless-browser OSINT. (needs a server store — $0 options
 being weighed); agent-driven headless-browser research; installing OSINT toolkits
 in a sandbox; a persistent Nephesh security/anti-injection sub-agent. The
 "AI jailbreak / apply to Nephesh" ask was declined as framed (won't build safety
