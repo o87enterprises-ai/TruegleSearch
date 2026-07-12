@@ -34,8 +34,8 @@ const MODES = [
   },
   {
     id: 'purple',
-    label: 'Purple Mode',
-    tagline: 'Skeptical · Conservative',
+    label: 'Perspectives Mode',
+    tagline: 'Multi-viewpoint · Skeptical',
     description: 'A conservative or skeptical filter. Counter-narratives, accountability journalism, and perspectives that are underrepresented in mainstream search — for those who don\'t trust the mainstream.',
     color: 'from-purple-600 to-violet-400',
     glow: 'shadow-purple-500/30',

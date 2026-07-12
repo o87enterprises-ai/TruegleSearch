@@ -61,7 +61,7 @@ const { getModePrompt } = require('../prompts/nepheshPrompts');
 
 router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
   try {
-    const { message, context = 'general', nepheshMode = false, verbose = false, options = {} } = req.body;
+    const { message, context = 'general', nepheshMode = false, verbose = false, history = [], options = {} } = req.body;
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return res.status(400).json({
@@ -91,6 +91,7 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
       ...options,
       userName: isAuthed ? (user.name || 'User') : 'Guest',
       systemOverride,
+      history, // prior turns → real back-and-forth memory
     });
 
     // Deduct token for authenticated users

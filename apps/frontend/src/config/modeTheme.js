@@ -31,7 +31,7 @@ export const MODE_COLORS = {
 export const MODE_LABELS = {
   blue: 'Mainstream',
   red: 'Alternative',
-  purple: 'Skeptical',
+  purple: 'Perspectives',
   ocean: 'Privacy / OSINT',
   green: 'Simplified',
 };

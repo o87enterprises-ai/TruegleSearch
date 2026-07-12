@@ -20,6 +20,30 @@ import ChatShareButton from '../components/ui/ChatShareButton';
 
 const MODES = ['blue', 'green', 'red', 'purple', 'ocean'];
 
+// Persisted thread — so navigating away and coming back continues the same
+// conversation instead of resetting to a cold welcome message.
+const THREAD_KEY = 'truegle_chat_thread_v1';
+
+// One-line explainer per mode for the "How do the modes work?" tutorial popover.
+const MODE_INFO = {
+  blue: 'Mainstream — establishment and widely-accepted sources. Balanced, cited answers.',
+  green: 'Simplified — plain-English answers with no jargon. Good for quick understanding.',
+  red: 'Alternative — independent and suppressed perspectives that question the official narrative.',
+  purple: 'Perspectives — lays out multiple viewpoints side by side with skeptical, accountability-first framing.',
+  ocean: 'Privacy / OSINT — digital-investigation assistant. Name an entity (domain, email, username, phone, or person) and it runs public-records lookups automatically.',
+};
+
+function loadThread() {
+  try {
+    const raw = localStorage.getItem(THREAD_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch { /* corrupt/oversized — fall back to a fresh welcome */ }
+  return null;
+}
+
 // Frontend pill mode -> backend /api/search `mode` field (SearchService uses
 // this for mode-specific source selection, e.g. red-pill's alt-media query).
 const MODE_TO_BACKEND_SEARCH = {
@@ -34,7 +58,7 @@ const MODE_WELCOME = {
   blue: 'Ask me anything. I search the web and answer with sources.',
   green: 'Ask me anything, plain and simple.',
   red: 'Alternative and suppressed perspectives — what do you want to dig into?',
-  purple: 'Skeptical, accountability-first framing. What would you like to explore?',
+  purple: 'Perspectives mode — I lay out multiple viewpoints with skeptical, accountability-first framing. What would you like to explore?',
   ocean: 'OSINT assistant ready — ask about digital investigation or research.',
 };
 
@@ -124,7 +148,13 @@ function CitationChip({ result, accent }) {
 
 function Citations({ citations, accent }) {
   if (!citations) return null;
-  const { links, videos, pics } = citations;
+  // Defensive defaults: the OSINT path builds { links } only (no videos/pics),
+  // so destructuring straight to .length used to crash the whole page with
+  // "can't access property length, n is undefined". Never trust the shape.
+  const links = Array.isArray(citations.links) ? citations.links : [];
+  const videos = Array.isArray(citations.videos) ? citations.videos : [];
+  const pics = Array.isArray(citations.pics) ? citations.pics : [];
+  if (links.length === 0 && videos.length === 0 && pics.length === 0) return null;
   return (
     <div className="mt-3 space-y-3">
       {links.length > 0 && (
@@ -169,11 +199,12 @@ export default function TruegleChat() {
   const [mode, setMode] = useState(() => localStorage.getItem('truegle_mode_pref') || 'blue');
   const [nepheshMode, setNepheshMode] = useState(() => localStorage.getItem('truegle_nephesh_mode') === 'true');
   const [verboseMode, setVerboseMode] = useState(() => localStorage.getItem('truegle_verbose_mode') === 'true');
-  const [messages, setMessages] = useState(() => [
+  const [messages, setMessages] = useState(() => loadThread() || [
     { id: 1, role: 'assistant', content: MODE_WELCOME[localStorage.getItem('truegle_mode_pref') || 'blue'], citations: null },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const endRef = useRef(null);
   const isAuthed = !!localStorage.getItem('truegle_token');
   const accent = getModeAccent(mode);
@@ -183,6 +214,17 @@ export default function TruegleChat() {
   useEffect(() => { localStorage.setItem('truegle_verbose_mode', String(verboseMode)); }, [verboseMode]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
+  // Persist the thread on every change so a page-away-and-back resumes it.
+  // Wrapped because localStorage can throw (quota / private mode); a failed
+  // save must never break the chat.
+  useEffect(() => {
+    try { localStorage.setItem(THREAD_KEY, JSON.stringify(messages)); } catch { /* over quota — skip */ }
+  }, [messages]);
+
+  const resetThread = () => {
+    setMessages([{ id: Date.now(), role: 'assistant', content: MODE_WELCOME[mode], citations: null }]);
+  };
+
   const handleSend = async () => {
     if (!input.trim() || loading) return;
     if (!FREE_ACCESS_MODE && !isAuthed) {
@@ -191,6 +233,11 @@ export default function TruegleChat() {
     }
 
     const query = input.trim();
+    // Prior turns → working memory for a real back-and-forth. Skip the id:1
+    // welcome (not a real exchange). Send only role/content, no media payloads.
+    const history = messages
+      .filter((m) => m.id !== 1)
+      .map((m) => ({ role: m.role, content: m.content }));
     setMessages((prev) => [...prev, { id: Date.now(), role: 'user', content: query, citations: null }]);
     setInput('');
     setLoading(true);
@@ -215,7 +262,7 @@ export default function TruegleChat() {
 
     if (content === undefined) {
       const [chatRes, citeRes] = await Promise.allSettled([
-        aiAPI.chat(query, { context: MODE_TO_CONTEXT[mode], nepheshMode, verbose: verboseMode }),
+        aiAPI.chat(query, { context: MODE_TO_CONTEXT[mode], nepheshMode, verbose: verboseMode, history }),
         fetchCitations(query, MODE_TO_BACKEND_SEARCH[mode]),
       ]);
       content = chatRes.status === 'fulfilled'
@@ -229,7 +276,10 @@ export default function TruegleChat() {
   };
 
   return (
-    <div className="min-h-screen relative bg-black overflow-hidden">
+    // h-[100dvh] (dynamic viewport height) instead of min-h-screen: when the
+    // mobile keyboard opens, dvh shrinks with the visible area so the input row
+    // stays on-screen. With min-h-screen the box was pushed under the keyboard.
+    <div className="h-[100dvh] relative bg-black overflow-hidden">
       <LandingBackground />
       {/* Mode-tinted ambient tint — crossfades on mode change, pure CSS/opacity
           (no WebGL) so it's safe everywhere the base LandingBackground is. */}
@@ -248,17 +298,17 @@ export default function TruegleChat() {
       </AnimatePresence>
       <CursorGlow />
 
-      <div className="relative z-10 min-h-screen flex flex-col items-center px-4 pt-14 pb-8">
+      <div className="relative z-10 h-[100dvh] flex flex-col items-center px-4 pt-5 pb-3">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="mb-4"
+          className="mb-3 flex-shrink-0"
         >
-          <TruegleLogo size="large" animated />
+          <TruegleLogo size="medium" animated />
         </motion.div>
 
         {/* Pill mode row */}
-        <div className="flex items-center gap-2 mb-3 flex-wrap justify-center">
+        <div className="flex items-center gap-2 mb-3 flex-wrap justify-center flex-shrink-0">
           {MODES.map((m) => (
             <button
               key={m}
@@ -277,7 +327,7 @@ export default function TruegleChat() {
         </div>
 
         {/* Nephesh mode + verbosity toggles — same semantics as the search pages */}
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-2 mb-3 flex-wrap justify-center flex-shrink-0">
           <button
             type="button"
             onClick={() => setNepheshMode((v) => !v)}
@@ -302,10 +352,62 @@ export default function TruegleChat() {
             <span className={`w-1.5 h-1.5 rounded-full ${verboseMode ? 'bg-purple-300' : 'bg-white/20'}`} />
             Feeling chat-e?
           </button>
+          {/* Tutorial: explains each mode and how they combine. Hover on desktop,
+              tap on touch — both toggle the same popover. */}
+          <div
+            className="relative"
+            onMouseEnter={() => setShowTutorial(true)}
+            onMouseLeave={() => setShowTutorial(false)}
+          >
+            <button
+              type="button"
+              onClick={() => setShowTutorial((v) => !v)}
+              aria-expanded={showTutorial}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-white/5 border-white/10 text-white/40 hover:text-white/70 transition-colors"
+            >
+              <span className="w-4 h-4 rounded-full border border-current flex items-center justify-center text-[10px] leading-none">?</span>
+              Modes
+            </button>
+            <AnimatePresence>
+              {showTutorial && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="absolute z-30 top-full mt-2 left-1/2 -translate-x-1/2 w-72 max-w-[85vw] rounded-xl border border-white/10 bg-black/90 backdrop-blur-xl p-3 text-left shadow-2xl"
+                >
+                  <div className="text-[11px] uppercase tracking-wide text-white/40 mb-2">How the modes work</div>
+                  <ul className="space-y-1.5">
+                    {MODES.map((m) => (
+                      <li key={m} className="text-xs text-white/70 leading-snug">
+                        <span className="font-semibold" style={{ color: MODE_COLORS[m] }}>{MODE_LABELS[m]}</span>
+                        {' — '}{MODE_INFO[m].split('—').slice(1).join('—').trim()}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-2 pt-2 border-t border-white/10 text-[11px] text-white/45 leading-snug">
+                    Pair any mode with <span className="text-cyan-300">Nephesh Mode</span> (dual-audit on contested claims) and
+                    {' '}<span className="text-purple-300">Feeling chat-e?</span> (longer answers). Toggles stick across pages.
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          {messages.length > 1 && (
+            <button
+              type="button"
+              onClick={resetThread}
+              title="Start a new conversation"
+              className="px-2.5 py-1 rounded-full text-xs font-medium border bg-white/5 border-white/10 text-white/40 hover:text-white/70 transition-colors"
+            >
+              New chat
+            </button>
+          )}
         </div>
 
-        {/* Message thread */}
-        <div className="w-full max-w-2xl flex-1 space-y-4 mb-4 overflow-y-auto">
+        {/* Message thread — takes the majority of the page; input stays pinned
+            below it and above the mobile keyboard (dvh container). */}
+        <div className="w-full max-w-2xl flex-1 min-h-0 space-y-4 mb-3 overflow-y-auto">
           {messages.map((m) => (
             <motion.div
               key={m.id}
@@ -346,8 +448,8 @@ export default function TruegleChat() {
           <div ref={endRef} />
         </div>
 
-        {/* One large chat box */}
-        <div className="w-full max-w-2xl">
+        {/* One large chat box — pinned below the thread, never shrinks */}
+        <div className="w-full max-w-2xl flex-shrink-0">
           <div className={`flex items-end gap-2 rounded-2xl border ${accent.iframeBorder} bg-white/5 backdrop-blur-xl p-2`}>
             <textarea
               value={input}

@@ -1,5 +1,44 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-07-11. Supersedes all prior handoff docs._
+_Last updated: 2026-07-12. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ SESSION LOG 2026-07-12 — Chat memory + /chat crash + chat UX
+
+Batch 1 (shipped): fixed the two live bugs the user reported + the well-scoped UX asks.
+
+**1. `/chat` crash ("can't access property length, n is undefined"):** the
+Ocean/OSINT path built `citations = { links: artifacts }` with no `videos`/`pics`,
+then `Citations` destructured straight to `.length`. Made `Citations` defensive
+(coerce each list to `[]`, bail if all empty). `TruegleChat.jsx`.
+
+**2. No conversation memory / "the fish forgets":** every chat send was a cold,
+contextless request — no history was threaded. Now full back-and-forth on ALL
+chat surfaces:
+- `UnifiedAIService.chat` accepts `options.history`, `sanitizeHistory()` cleans +
+  caps it (last 12 turns, 4000 chars/turn, drops system/empty/junk), inserts it
+  between the system prompt and the new user message. Multi-turn requests bypass
+  the response cache (a follow-up means different things in different threads).
+- Threaded through: `routes/ai.js` `/chat` → `api.js aiAPI.chat` (top-level
+  `history`) → `AIChatOverlay.jsx` (search-page modal) + `TruegleChat.jsx`.
+
+**3. TruegleChat UX:** thread now persists to `localStorage` (`truegle_chat_thread_v1`)
+so navigating away and back resumes it (+ "New chat" reset). Layout switched to
+`h-[100dvh]` so the mobile keyboard no longer hides the input; chat thread takes
+the majority of the page, input pinned below. Added a "Modes" tutorial popover
+(hover/tap) explaining each mode + how the Nephesh/verbose toggles combine.
+
+**4. Renamed purple mode "Skeptical" → "Perspectives"** (modeTheme labels,
+useSearchMode, landing ModesAndTrending, chat welcome). The "skeptical" *bias
+lens* inside PerspectiveSelector/BiasedResults is a different concept, left as-is.
+
+**Still open (flagged to user, not yet built):** multi-select modes (combine
+flows); shareable *persistent* investigations (needs a server store — $0 options
+being weighed); agent-driven headless-browser research; installing OSINT toolkits
+in a sandbox; a persistent Nephesh security/anti-injection sub-agent. The
+"AI jailbreak / apply to Nephesh" ask was declined as framed (won't build safety
+bypasses) — the legitimate goal, fewer false denials on lawful requests, is the
+prompt-authorization + refusal-failover work already shipped 2026-07-11.
 
 ---
 

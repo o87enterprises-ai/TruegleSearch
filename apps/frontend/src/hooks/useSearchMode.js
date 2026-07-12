@@ -62,8 +62,8 @@ export const useSearchMode = (query) => {
         color: '#ef4444',
       },
       purple: {
-        name: 'Skeptical',
-        description: 'Conservative · skeptical · counter-mainstream perspective',
+        name: 'Perspectives',
+        description: 'Compare multiple viewpoints · skeptical · accountability-first framing',
         color: '#a855f7',
       },
       ocean: {

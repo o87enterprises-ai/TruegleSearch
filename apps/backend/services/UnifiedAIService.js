@@ -48,15 +48,23 @@ class UnifiedAIService {
    */
   async chat(userMessage, context = 'general', options = {}) {
     try {
+      // Normalize prior-turn history into clean {role, content} pairs. This is
+      // what makes the chat an actual back-and-forth: without it every send is
+      // a cold, contextless request and "the fish" forgets what you just asked.
+      const history = this.sanitizeHistory(options.history);
+
       // Check cache first. Include systemOverride (which encodes nepheshMode/
       // verbose) in the key — otherwise toggling those on an identical
       // message+context would silently return a stale cached response from
-      // before the toggle.
+      // before the toggle. Multi-turn conversations bypass the cache entirely:
+      // the same follow-up ("why?") means different things in different threads.
       const cacheKey = this.getCacheKey(userMessage, context, options.systemOverride);
-      const cached = this.cache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
-        logger.debug('Unified AI cache hit:', { context });
-        return { ...cached.data, fromCache: true };
+      if (history.length === 0) {
+        const cached = this.cache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
+          logger.debug('Unified AI cache hit:', { context });
+          return { ...cached.data, fromCache: true };
+        }
       }
 
       // Get prompt for context. A missing/unseeded ai_prompts table must not
@@ -90,9 +98,12 @@ class UnifiedAIService {
         variables
       );
 
-      // Build messages array
+      // Build messages array: system prompt, prior conversation turns, then
+      // the new user message. History is capped in sanitizeHistory() so a long
+      // thread can't blow the context window.
       const messages = [
         { role: 'system', content: basePrompt },
+        ...history,
         { role: 'user', content: userMessage }
       ];
 
@@ -140,8 +151,11 @@ class UnifiedAIService {
             continue;
           }
 
-          // Cache successful response
-          this.cacheResponse(cacheKey, branded);
+          // Cache successful response — but only for single-turn requests.
+          // A multi-turn answer is specific to its thread and must never be
+          // served to a different conversation that happens to share the last
+          // message text.
+          if (history.length === 0) this.cacheResponse(cacheKey, branded);
 
           logger.info('AI request successful:', {
             provider: providerName,
@@ -428,6 +442,28 @@ class UnifiedAIService {
    * @param {string} [variant] - system prompt or other cache-relevant variant
    * @returns {string} Cache key
    */
+  /**
+   * Normalize caller-supplied conversation history into a clean, bounded array
+   * of {role:'user'|'assistant', content:string} turns. Guards against junk
+   * (missing roles, non-string content, the welcome/system message leaking in)
+   * and caps length so a long thread can't overflow the model context window.
+   */
+  sanitizeHistory(history) {
+    if (!Array.isArray(history)) return [];
+    const MAX_TURNS = 12; // last N turns is plenty of working memory
+    const MAX_CHARS = 4000; // per-turn clamp against pathological pastes
+    const cleaned = [];
+    for (const turn of history) {
+      if (!turn || typeof turn !== 'object') continue;
+      const role = turn.role === 'assistant' ? 'assistant' : turn.role === 'user' ? 'user' : null;
+      if (!role) continue;
+      const content = typeof turn.content === 'string' ? turn.content.trim() : '';
+      if (!content) continue;
+      cleaned.push({ role, content: content.slice(0, MAX_CHARS) });
+    }
+    return cleaned.slice(-MAX_TURNS);
+  }
+
   getCacheKey(message, context, variant = '') {
     const hash = require('crypto')
       .createHash('md5')

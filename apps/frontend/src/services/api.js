@@ -141,6 +141,7 @@ const aiAPI = {
       // directly off req.body, not off the nested options object.
       nepheshMode: !!options.nepheshMode,
       verbose: !!options.verbose,
+      history: Array.isArray(options.history) ? options.history : [],
       options
     }),
   analyzeContent: (content, queryContext, options = {}) =>

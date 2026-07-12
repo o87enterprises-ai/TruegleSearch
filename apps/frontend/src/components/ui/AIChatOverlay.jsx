@@ -162,12 +162,19 @@ export default function AIChatOverlay({
       timestamp: new Date(),
     };
 
+    // Prior turns become the model's working memory. Skip the very first
+    // message (the welcome / injected AI summary — not a real user exchange)
+    // so the thread the model sees is an actual back-and-forth.
+    const history = messages
+      .slice(1)
+      .map((m) => ({ role: m.role, content: m.content }));
+
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
 
     try {
-      const response = await aiAPI.chat(inputValue, { context: resolvedContext, nepheshMode, verbose });
+      const response = await aiAPI.chat(inputValue, { context: resolvedContext, nepheshMode, verbose, history });
       const content = response.data.response?.choices?.[0]?.message?.content
         || response.data.response?.content
         || response.data.response
