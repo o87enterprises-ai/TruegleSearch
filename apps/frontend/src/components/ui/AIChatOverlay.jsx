@@ -28,6 +28,7 @@ export default function AIChatOverlay({
   onClose,
   initialSummary,
   mode = 'blue', // 'blue' | 'red' | 'purple' | 'ocean'
+  modes, // optional multi-select: extra lenses to blend (pill keys)
   context, // deprecated — use mode instead
   themeColor = 'red',
   nepheshMode = false, // opt-in Null-Prime dual-audit protocol
@@ -174,7 +175,13 @@ export default function AIChatOverlay({
     setIsLoading(true);
 
     try {
-      const response = await aiAPI.chat(inputValue, { context: resolvedContext, nepheshMode, verbose, history });
+      const response = await aiAPI.chat(inputValue, {
+        context: resolvedContext,
+        modes: Array.isArray(modes) && modes.length > 1 ? modes : undefined,
+        nepheshMode,
+        verbose,
+        history,
+      });
       const content = response.data.response?.choices?.[0]?.message?.content
         || response.data.response?.content
         || response.data.response

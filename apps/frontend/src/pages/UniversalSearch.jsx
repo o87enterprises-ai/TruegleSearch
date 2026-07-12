@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from 'react';
+import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -53,7 +53,14 @@ import useDeviceTier from '../hooks/useDeviceTier';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { isQuestionQuery, getQuickAnswer } from '../utils/queryIntent';
-import { LITE_BG, PERSPECTIVE_COLORS, getModeAccent } from '../config/modeTheme';
+import { LITE_BG, PERSPECTIVE_COLORS, getModeAccent, MODE_LABELS, MODE_COLORS } from '../config/modeTheme';
+
+// The five selectable flows. The active `mode` (from URL/toggle) is the PRIMARY
+// — it drives which sources/results are fetched. Additional lenses selected
+// here only blend into the AI summary + follow-up chat, so the results grid and
+// its routing are never destabilized by multi-select.
+const LENS_MODES = ['blue', 'green', 'red', 'purple', 'ocean'];
+const MODE_TO_BACKEND = { blue: 'blue-pill', green: 'green', red: 'red-pill', purple: 'purple', ocean: 'ocean' };
 import { getVideoEmbed } from '../utils/videoEmbed';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
@@ -156,6 +163,40 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const [aiSummary, setAiSummary] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiExpanded, setAiExpanded] = useState(true);
+
+  // Multi-select: extra AI lenses layered on top of the primary `mode`. These
+  // only affect the AI summary + follow-up chat framing (not the results grid).
+  const [extraLenses, setExtraLenses] = useState(() => {
+    try {
+      const raw = localStorage.getItem('truegle_extra_lenses');
+      const arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr.filter((m) => LENS_MODES.includes(m)) : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('truegle_extra_lenses', JSON.stringify(extraLenses)); } catch { /* quota */ }
+  }, [extraLenses]);
+
+  // Primary mode first, then the extra lenses (deduped) — the full set the AI blends.
+  const activeModes = useMemo(
+    () => [mode, ...extraLenses.filter((m) => m !== mode)],
+    [mode, extraLenses]
+  );
+  // Tapping the primary is a no-op here (it's driven by the main mode toggle /
+  // URL, since switching primary re-runs the whole search). Others toggle on/off.
+  const toggleLens = (m) => {
+    if (m === mode) return;
+    setExtraLenses((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
+  };
+
+  // When the lens set changes and results are already on screen, re-run just
+  // the AI summary (not the whole search) so multi-select feels immediate.
+  const lensSig = extraLenses.join(',');
+  useEffect(() => {
+    if (mode !== 'green' && sessionSummaryChoice !== 'none' && searchResults.length > 0 && query) {
+      fetchAiSummary(query, searchResults, MODE_TO_BACKEND[mode]);
+    }
+  }, [lensSig]); // intentionally lens-only: re-summarize on lens change, not on every result update
 
   // Purple mode: Perspective state
   const [selectedPerspectives, setSelectedPerspectives] = useState(['neutral']);
@@ -484,6 +525,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
             query,
             results: results.slice(0, 10),
             mode: backendMode,
+            // Multi-select: extra lenses (mapped to backend mode strings) blend
+            // into the summary framing. Only sent when >1 flow is active.
+            modes: activeModes.length > 1 ? activeModes.map((m) => MODE_TO_BACKEND[m]) : undefined,
             perspectives: selectedPerspectives,
             isQuestion: isQuestionQuery(query),
             nepheshMode,
@@ -1213,6 +1257,36 @@ export default function UniversalSearch({ lockedGreen = false }) {
           {/* Search Summary — Banner + Expandable Card */}
           {mode !== 'green' && sessionSummaryChoice !== 'none' && (
             <div className="max-w-4xl mx-auto mb-4">
+              {/* Multi-select AI lenses — the active mode is primary (ring); tap
+                  others to blend their framing into the summary + follow-up chat. */}
+              {(aiSummary || aiLoading || searchResults.length > 0) && (
+                <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                  <span className="text-[11px] text-white/40 mr-0.5">AI lenses:</span>
+                  {LENS_MODES.map((m) => {
+                    const active = activeModes.includes(m);
+                    const isPrimary = m === mode;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => toggleLens(m)}
+                        aria-pressed={active}
+                        disabled={isPrimary}
+                        title={isPrimary ? `${MODE_LABELS[m]} (primary — set by the mode toggle)` : active ? `${MODE_LABELS[m]} lens active — tap to remove` : `Add ${MODE_LABELS[m]} lens`}
+                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition-colors ${
+                          active ? 'text-white' : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'
+                        } ${isPrimary ? 'ring-1 ring-white/40 cursor-default' : ''}`}
+                        style={active ? { backgroundColor: `${MODE_COLORS[m]}33`, borderColor: `${MODE_COLORS[m]}80` } : undefined}
+                      >
+                        {MODE_LABELS[m]}
+                      </button>
+                    );
+                  })}
+                  {activeModes.length > 1 && (
+                    <span className="text-[11px] text-white/40 ml-0.5">· blending {activeModes.length}</span>
+                  )}
+                </div>
+              )}
               {/* Banner: shown when choice not yet made */}
               {!sessionSummaryChoice && (aiSummary || aiLoading || searchResults.length > 0) && (
                 <motion.div
@@ -1784,6 +1858,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
           onClose={() => setIsChatOpen(false)}
           initialSummary={aiSummary?.summary || null}
           mode={mode}
+          modes={activeModes}
           nepheshMode={nepheshMode}
           verbose={verboseMode}
           themeColor={

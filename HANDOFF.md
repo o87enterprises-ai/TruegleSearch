@@ -48,13 +48,21 @@ search flow at once and get ONE blended answer.
   (subtle ring marks it). Shows "Blending N lenses — A + B" when >1. Pill keys
   (blue/green/red/purple/ocean) sent as `modes` so each lens survives (context
   keys would collapse blue+green→search_results).
-- NOTE: results-page (`UniversalSearch`) pills are still single-select — its
-  `mode` is deeply wired (sources/perspectives/OSINT routing/URL param), so
-  multi-select there is a separate, higher-risk change. The AI summary route
-  already accepts `modes[]`, so wiring its pills is the only remaining step.
+**Batch 3 (shipped): Results-page multi-select lens pills (`UniversalSearch`).**
+Rather than making the deeply-wired `mode` multi-valued (it drives sources,
+perspectives, OSINT routing, the URL param — high regression risk), the primary
+`mode` stays single and drives the results grid unchanged. A new "AI lenses" pill
+row (above the AI summary) lets the user layer EXTRA lenses that blend only into
+the AI summary + follow-up chat:
+- `extraLenses` state (persisted `truegle_extra_lenses`); `activeModes =
+  [mode, ...extraLenses]`. Primary pill is ring-marked + disabled (change it via
+  the existing mode toggle/URL); others toggle on/off.
+- `fetchAiSummary` sends `modes: activeModes.map(MODE_TO_BACKEND)` when >1.
+  A lens-only effect (`lensSig`) re-runs just the summary on lens change (no full
+  re-search). `AIChatOverlay` now takes a `modes` prop → follow-up chat blends too.
+- Verified: eslint clean, frontend build clean, backend combine logic unit-tested.
 
-**Still open (flagged to user, not yet built):** results-page multi-select pills
-(backend ready); shareable *persistent* investigations (needs a server store — $0 options
+**Still open (flagged to user, not yet built):** shareable *persistent* investigations (needs a server store — $0 options
 being weighed); agent-driven headless-browser research; installing OSINT toolkits
 in a sandbox; a persistent Nephesh security/anti-injection sub-agent. The
 "AI jailbreak / apply to Nephesh" ask was declined as framed (won't build safety
