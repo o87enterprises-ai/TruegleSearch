@@ -53,6 +53,9 @@ function sanitizePayload(raw) {
       // citations are plain result objects (links/pics/videos) — pass through
       // if present and object-shaped; the viewer renders them read-only.
       citations: m && m.citations && typeof m.citations === 'object' ? m.citations : null,
+      // investigation graph (GraphiPy {nodes, edges}) — pass through so a
+      // shared investigation carries its graph view too.
+      graph: m && m.graph && typeof m.graph === 'object' ? m.graph : null,
     })),
   };
 

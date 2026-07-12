@@ -105,9 +105,31 @@ new infra/credentials (chose this over Cloudflare KV for true $0/zero-ops).
   Local PG: role `truegle`, db `truegle_dev`, /tmp/pgdata-truegle (started via
   `sudo -u postgres /usr/lib/postgresql/16/bin/pg_ctl -D /tmp/pgdata-truegle start`).
 
-**Still open (flagged to user, not yet built):** persistent memory / Graphipy
-write-up (need the GitHub `owner/name` to know the format); Nephesh security
-sub-agent; agent headless-browser OSINT. (needs a server store — $0 options
+**Batch 6 (shipped): OSINT investigation graph (GraphiPy model).** User pointed
+to github.com/shobeir/GraphiPy (couldn't add_repo cross-owner; read it via web).
+GraphiPy models data as a graph of typed nodes (Id/Label/label_attribute, deduped
+by id) + edges (Source/Target/Label, Id = source+target+label), BaseGraph with
+create_node/create_edge/export_csv. Mirrored faithfully:
+- `OsintGraphService.js`: `Node`(Id,Label,Type,attributes), `Edge`(Source,Target,
+  Label,Id), `Graph`(createNode/createEdge/getNodes/getEdges/toJSON/exportCsv).
+  `buildFromInvestigation(query, entities, findings)` → query node → entity nodes
+  ("investigates") → artifact nodes (subdomains/org/registrar/dns/wayback/asn/geo/
+  gravatar/mx/social-profiles/people+phone directories) with typed edges
+  (has_subdomain/registered_to/resolves_to/profile_on/listed_in/…). Kept Id/Label/
+  Source/Target field names so `exportCsv()` drops straight into Gephi.
+- Wired into `investigate()` → response now carries `graph` (toJSON).
+- Frontend `InvestigationGraph.jsx`: 3-column SVG (query→entities→artifacts) with
+  curved edges, color-by-type, clickable artifact links, collapse toggle, and
+  export buttons (Gephi CSV nodes+edges, JSON). Rendered in TruegleChat ocean
+  replies AND persisted into shared threads (SharedThread renders it too).
+- ShareService.sanitizePayload now whitelists `graph`.
+- VERIFIED: graph-build unit tests (12 assertions: query/entity/artifact nodes,
+  edge labels, edge-id format, dedupe, Gephi CSV headers, CSV escaping) + graph
+  survives the share round-trip through the REAL local Postgres. Lint+build clean.
+
+**Still open (flagged to user, not yet built):** cross-session per-user persistent
+memory (server-side saved-threads list — shared_threads store is the foundation);
+Nephesh security sub-agent; agent headless-browser OSINT. (needs a server store — $0 options
 being weighed); agent-driven headless-browser research; installing OSINT toolkits
 in a sandbox; a persistent Nephesh security/anti-injection sub-agent. The
 "AI jailbreak / apply to Nephesh" ask was declined as framed (won't build safety

@@ -7,6 +7,7 @@ import TruegleLogo from '../components/ui/TruegleLogo';
 import { shareAPI } from '../services/api';
 import { MODE_COLORS, MODE_LABELS, getModeAccent } from '../config/modeTheme';
 import { Citations } from './TruegleChat';
+import InvestigationGraph from '../components/ui/InvestigationGraph';
 
 // Read-only view of a shared Truegle conversation / OSINT investigation. Opens
 // the LIVE thread (messages + cited links/images/videos) from a shared link —
@@ -90,6 +91,7 @@ export default function SharedThread() {
                       <p className="text-sm">{m.content}</p>
                     )}
                     <Citations citations={m.citations} accent={accent} />
+                    {m.graph && <InvestigationGraph graph={m.graph} accent={accent} />}
                   </div>
                 </motion.div>
               ))}

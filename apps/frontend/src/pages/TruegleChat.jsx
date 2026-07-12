@@ -11,6 +11,7 @@ import { FREE_ACCESS_MODE } from '../config/access';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent } from '../config/modeTheme';
 import { getVideoEmbed } from '../utils/videoEmbed';
 import ChatShareButton from '../components/ui/ChatShareButton';
+import InvestigationGraph from '../components/ui/InvestigationGraph';
 
 // Truegle Chat is a designated route for chat-first users — the same brand
 // (logo, mode-synced background/accents) as the rest of Truegle, but reduced
@@ -272,7 +273,7 @@ export default function TruegleChat() {
         title: messages.find((m) => m.role === 'user')?.content?.slice(0, 120) || 'Truegle conversation',
         messages: messages
           .filter((m) => m.id !== 1)
-          .map((m) => ({ role: m.role, content: m.content, citations: m.citations || null })),
+          .map((m) => ({ role: m.role, content: m.content, citations: m.citations || null, graph: m.graph || null })),
       };
       const kind = modes.includes('ocean') ? 'investigation' : 'chat';
       const res = await shareAPI.create(kind, payload);
@@ -305,6 +306,7 @@ export default function TruegleChat() {
 
     let content;
     let citations = null;
+    let graph = null;
 
     // Ocean selected → auto-OSINT: if the query names an investigable entity
     // (domain/IP/email/username/phone) the backend runs the lookups and
@@ -317,6 +319,7 @@ export default function TruegleChat() {
         if (d?.report) {
           content = d.report;
           citations = (d.artifacts && d.artifacts.length) ? { links: d.artifacts } : null;
+          graph = d.graph || null; // GraphiPy-style investigation graph
         }
       } catch { /* fall through to chat below */ }
     }
@@ -334,7 +337,7 @@ export default function TruegleChat() {
       citations = citeRes.status === 'fulfilled' ? citeRes.value : null;
     }
 
-    setMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', content, citations }]);
+    setMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', content, citations, graph }]);
     setLoading(false);
   };
 
@@ -535,6 +538,7 @@ export default function TruegleChat() {
                   <p className="text-sm">{m.content}</p>
                 )}
                 <Citations citations={m.citations} accent={accent} />
+                {m.graph && <InvestigationGraph graph={m.graph} accent={accent} />}
                 {m.role === 'assistant' && m.id !== 1 && (
                   <div className="mt-2 pt-2 border-t border-white/5 flex justify-start">
                     <ChatShareButton message={m} />

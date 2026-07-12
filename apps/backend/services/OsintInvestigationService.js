@@ -12,6 +12,7 @@
  */
 
 const L = require('./OsintLookups');
+const OsintGraph = require('./OsintGraphService');
 const UnifiedAIService = require('./UnifiedAIService');
 const attribution = require('../utils/nepheshAttribution');
 const { getModePrompt } = require('../prompts/nepheshPrompts');
@@ -265,6 +266,9 @@ async function investigate(query) {
     entities,
     findings,
     artifacts: extractArtifacts(findings),
+    // Investigation graph (GraphiPy model): entities + discovered artifacts as
+    // typed nodes/edges, for the in-app graph view and Gephi/JSON export.
+    graph: OsintGraph.buildFromInvestigation(query, entities, findings).toJSON(),
     report: response.content,
     provider: response.provider,
     nephesh_attribution: response.nephesh_attribution,
