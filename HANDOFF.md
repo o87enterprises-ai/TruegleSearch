@@ -32,8 +32,29 @@ the majority of the page, input pinned below. Added a "Modes" tutorial popover
 useSearchMode, landing ModesAndTrending, chat welcome). The "skeptical" *bias
 lens* inside PerspectiveSelector/BiasedResults is a different concept, left as-is.
 
-**Still open (flagged to user, not yet built):** multi-select modes (combine
-flows); shareable *persistent* investigations (needs a server store — $0 options
+**Batch 2 (shipped): Multi-select modes.** User can now activate more than one
+search flow at once and get ONE blended answer.
+- `getModePrompt(nepheshPrompts.js)` accepts a string OR array. For 2+ modes it
+  emits BASE_IDENTITY once + an "ACTIVE MODES (COMBINED)" header + each mode's
+  directive stacked as "LENS n" (identity de-duplicated via `directiveOf`).
+  Told to weight lenses equally and show divergent framings side by side.
+  Nephesh/verbose layers still apply on top. PROMPT_VERSION → 2026-07-12.
+  (Modelfile untouched — this is a runtime backend function, not baked in.)
+- `/api/ai/chat` accepts `modes[]` (pill keys) — used when 2+, else `context`.
+  `/api/ai/summary` accepts `modes[]`, maps each through MODE_TO_AI_CONTEXT.
+  `api.js aiAPI.chat` passes `modes`.
+- `TruegleChat`: pills are now multi-toggle (`truegle_modes_pref`, never empty).
+  `primaryMode` = modes[0] drives theme/tint/citations/OSINT-routing/welcome
+  (subtle ring marks it). Shows "Blending N lenses — A + B" when >1. Pill keys
+  (blue/green/red/purple/ocean) sent as `modes` so each lens survives (context
+  keys would collapse blue+green→search_results).
+- NOTE: results-page (`UniversalSearch`) pills are still single-select — its
+  `mode` is deeply wired (sources/perspectives/OSINT routing/URL param), so
+  multi-select there is a separate, higher-risk change. The AI summary route
+  already accepts `modes[]`, so wiring its pills is the only remaining step.
+
+**Still open (flagged to user, not yet built):** results-page multi-select pills
+(backend ready); shareable *persistent* investigations (needs a server store — $0 options
 being weighed); agent-driven headless-browser research; installing OSINT toolkits
 in a sandbox; a persistent Nephesh security/anti-injection sub-agent. The
 "AI jailbreak / apply to Nephesh" ask was declined as framed (won't build safety

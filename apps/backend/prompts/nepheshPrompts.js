@@ -8,7 +8,7 @@
  * from Nephesh to an interim provider.
  */
 
-const PROMPT_VERSION = '2026-07-10.2'; // Nephesh mode + verbosity are now opt-in flags, not baked into every mode
+const PROMPT_VERSION = '2026-07-12'; // + combined multi-select mode prompts (blend lenses)
 
 /**
  * The Null-Prime v3.1 engine — Nephesh's contested-claim machinery.
@@ -132,24 +132,72 @@ Concrete next steps: specific searches, source types, or communities from the ma
 
 Rules: draw only on the supplied material — never invent sources or quotes. Refer to sources by their bracketed index like [3] so citations can be verified. When social/podcast/video material disagrees with written articles, report the disagreement rather than resolving it.`;
 
+// Human-readable label per mode/context key — used in the combined-mode header.
+const MODE_LABEL = {
+  blue: 'Mainstream', search_results: 'Mainstream',
+  green: 'Simplified',
+  red: 'Alternative', red_pill: 'Alternative',
+  purple: 'Perspectives', biased_results: 'Perspectives',
+  ocean: 'Privacy / OSINT', osint: 'Privacy / OSINT',
+};
+
+const GENERAL_FALLBACK = `${BASE_IDENTITY}\n\nACTIVE MODE: GENERAL. Be a helpful, neutral assistant for everyday tasks and questions.`;
+
 /**
- * Resolve the system prompt for a search mode or route context.
+ * The mode-specific directive with the shared BASE_IDENTITY prefix stripped —
+ * so combined prompts state the identity once and then stack lenses.
+ */
+function directiveOf(key) {
+  const full = MODE_PROMPTS[key];
+  if (!full) return null;
+  return full.startsWith(BASE_IDENTITY) ? full.slice(BASE_IDENTITY.length).trim() : full;
+}
+
+/**
+ * Resolve the system prompt for a search mode / route context — or a COMBINED
+ * set of them when the user has multi-selected flows.
  *
  * The Null-Prime dual-audit protocol and response length are OPT-IN flags,
  * not baked into the mode text — every mode (including purple/ocean, whose
  * specialness is their own dedicated framing, not the audit ledger) gets
  * plain unbiased multi-perspective behavior by default. `nepheshMode: true`
- * layers the audit protocol on top of whichever mode is active.
+ * layers the audit protocol on top of whichever mode(s) are active.
  *
- * @param {string} modeOrContext
+ * @param {string|string[]} modeOrContext - a single mode key, or an array of
+ *   them to blend into one answer (multi-select).
  * @param {object} [options]
  * @param {boolean} [options.nepheshMode=false] - layer on the Null-Prime dual-audit protocol
  * @param {boolean} [options.verbose=false] - in-depth responses instead of the succinct default
  * @returns {string} system prompt (falls back to base identity)
  */
 function getModePrompt(modeOrContext, { nepheshMode = false, verbose = false } = {}) {
-  const key = String(modeOrContext || '').toLowerCase();
-  const base = MODE_PROMPTS[key] || `${BASE_IDENTITY}\n\nACTIVE MODE: GENERAL. Be a helpful, neutral assistant for everyday tasks and questions.`;
+  const keys = [...new Set(
+    (Array.isArray(modeOrContext) ? modeOrContext : [modeOrContext])
+      .map((m) => String(m || '').toLowerCase())
+      .filter(Boolean)
+  )];
+
+  let base;
+  if (keys.length <= 1) {
+    base = MODE_PROMPTS[keys[0]] || GENERAL_FALLBACK;
+  } else {
+    // Multi-select: one identity, then every selected lens stacked. The model
+    // is told to honor all of them with balanced weight and present divergent
+    // framings side by side rather than letting one dominate.
+    const directives = keys.map(directiveOf).filter(Boolean);
+    if (directives.length === 0) {
+      base = GENERAL_FALLBACK;
+    } else {
+      const labels = keys.map((k) => MODE_LABEL[k] || k).join(' + ');
+      const stacked = directives.map((d, i) => `LENS ${i + 1} —\n${d}`).join('\n\n');
+      base = `${BASE_IDENTITY}
+
+ACTIVE MODES (COMBINED): ${labels}. The user has selected MULTIPLE search flows at once and wants them blended into ONE cohesive answer. Honor every selected lens with balanced weight — do not let any single one dominate. Where the lenses would frame the topic differently, present those framings side by side (clearly attributed to each lens) rather than picking a winner. Where they agree, state it once.
+
+${stacked}`;
+    }
+  }
+
   const layers = [base];
   if (nepheshMode) layers.push(CONTESTED_CLAIM_PROTOCOL);
   layers.push(verbose ? VERBOSE_STYLE : SUCCINCT_STYLE);

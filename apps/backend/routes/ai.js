@@ -61,7 +61,7 @@ const { getModePrompt } = require('../prompts/nepheshPrompts');
 
 router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
   try {
-    const { message, context = 'general', nepheshMode = false, verbose = false, history = [], options = {} } = req.body;
+    const { message, context = 'general', modes, nepheshMode = false, verbose = false, history = [], options = {} } = req.body;
 
     if (!message || typeof message !== 'string' || message.trim().length === 0) {
       return res.status(400).json({
@@ -85,8 +85,10 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
     }
 
     // Mode-specific system prompt, with Nephesh mode (dual-audit protocol)
-    // and verbosity layered on per the caller's toggles.
-    const systemOverride = getModePrompt(context, { nepheshMode, verbose });
+    // and verbosity layered on per the caller's toggles. When the user
+    // multi-selected flows, blend them; otherwise use the single context.
+    const promptTarget = Array.isArray(modes) && modes.length > 1 ? modes : context;
+    const systemOverride = getModePrompt(promptTarget, { nepheshMode, verbose });
     const response = await aiClient.chat(message, context, {
       ...options,
       userName: isAuthed ? (user.name || 'User') : 'Guest',
@@ -469,7 +471,7 @@ function fallbackSummary(mode, query) {
  * @body    { query, results, mode?, perspectives? }
  */
 router.post('/summary', rateLimitSearch, async (req, res) => {
-  const { query, results, mode = 'blue-pill', perspectives = [], isQuestion = false, nepheshMode = false, verbose = false } = req.body;
+  const { query, results, mode = 'blue-pill', modes, perspectives = [], isQuestion = false, nepheshMode = false, verbose = false } = req.body;
 
   try {
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -507,6 +509,12 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
     }
 
     const aiContext = MODE_TO_AI_CONTEXT[mode] || 'search_results';
+    // Multi-select: map each selected frontend mode to its AI context so the
+    // summary blends every chosen lens (see getModePrompt). Falls back to the
+    // single aiContext when only one flow is active.
+    const aiContexts = Array.isArray(modes) && modes.length > 1
+      ? [...new Set(modes.map((m) => MODE_TO_AI_CONTEXT[m] || 'search_results'))]
+      : null;
     // Purple results are already strictly filtered to the selected
     // perspective(s), so use them as-is; everything else gets a diversified
     // sample so the summary can't just echo whichever tier ranked first.
@@ -526,7 +534,7 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
     // Mode-specific system prompt, with Nephesh mode (dual-audit protocol)
     // and verbosity layered on per the caller's toggles — same source of
     // truth as /chat, so summaries and follow-up chat behave consistently.
-    const systemOverride = getModePrompt(aiContext, { nepheshMode, verbose });
+    const systemOverride = getModePrompt(aiContexts && aiContexts.length > 1 ? aiContexts : aiContext, { nepheshMode, verbose });
 
     // Try unified AI service first (with multi-provider failover)
     try {

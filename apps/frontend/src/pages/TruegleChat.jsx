@@ -194,9 +194,28 @@ function Citations({ citations, accent }) {
   );
 }
 
+// Load the persisted mode selection as an array (multi-select). Falls back to
+// the legacy single `truegle_mode_pref` so existing users keep their choice.
+function loadModes() {
+  try {
+    const raw = localStorage.getItem('truegle_modes_pref');
+    if (raw) {
+      const arr = JSON.parse(raw);
+      const clean = Array.isArray(arr) ? arr.filter((m) => MODES.includes(m)) : [];
+      if (clean.length) return clean;
+    }
+  } catch { /* fall through to single-key */ }
+  const single = localStorage.getItem('truegle_mode_pref');
+  return [single && MODES.includes(single) ? single : 'blue'];
+}
+
 export default function TruegleChat() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState(() => localStorage.getItem('truegle_mode_pref') || 'blue');
+  // Multi-select: the user can activate more than one flow at once and get a
+  // single blended answer. `primaryMode` (first selected) drives theming,
+  // background tint, citation sourcing, and OSINT routing.
+  const [modes, setModes] = useState(loadModes);
+  const primaryMode = modes[0] || 'blue';
   const [nepheshMode, setNepheshMode] = useState(() => localStorage.getItem('truegle_nephesh_mode') === 'true');
   const [verboseMode, setVerboseMode] = useState(() => localStorage.getItem('truegle_verbose_mode') === 'true');
   const [messages, setMessages] = useState(() => loadThread() || [
@@ -207,9 +226,20 @@ export default function TruegleChat() {
   const [showTutorial, setShowTutorial] = useState(false);
   const endRef = useRef(null);
   const isAuthed = !!localStorage.getItem('truegle_token');
-  const accent = getModeAccent(mode);
+  const accent = getModeAccent(primaryMode);
 
-  useEffect(() => { localStorage.setItem('truegle_mode_pref', mode); }, [mode]);
+  // Toggle a mode on/off, but never let the selection go empty.
+  const toggleMode = (m) => {
+    setModes((prev) => {
+      if (prev.includes(m)) return prev.length === 1 ? prev : prev.filter((x) => x !== m);
+      return [...prev, m];
+    });
+  };
+
+  useEffect(() => {
+    localStorage.setItem('truegle_modes_pref', JSON.stringify(modes));
+    localStorage.setItem('truegle_mode_pref', primaryMode); // keep single-key in sync for the search pages
+  }, [modes, primaryMode]);
   useEffect(() => { localStorage.setItem('truegle_nephesh_mode', String(nepheshMode)); }, [nepheshMode]);
   useEffect(() => { localStorage.setItem('truegle_verbose_mode', String(verboseMode)); }, [verboseMode]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
@@ -222,7 +252,7 @@ export default function TruegleChat() {
   }, [messages]);
 
   const resetThread = () => {
-    setMessages([{ id: Date.now(), role: 'assistant', content: MODE_WELCOME[mode], citations: null }]);
+    setMessages([{ id: Date.now(), role: 'assistant', content: MODE_WELCOME[primaryMode], citations: null }]);
   };
 
   const handleSend = async () => {
@@ -245,11 +275,11 @@ export default function TruegleChat() {
     let content;
     let citations = null;
 
-    // Ocean mode → auto-OSINT: if the query names an investigable entity
+    // Ocean selected → auto-OSINT: if the query names an investigable entity
     // (domain/IP/email/username/phone) the backend runs the lookups and
     // synthesizes an investigator's report. If it names none, fall through to
-    // normal Ocean-mode chat so methodology questions still get answered.
-    if (mode === 'ocean') {
+    // normal chat so methodology questions still get answered.
+    if (modes.includes('ocean')) {
       try {
         const res = await api.post('/osint/investigate', { query });
         const d = res.data;
@@ -261,9 +291,11 @@ export default function TruegleChat() {
     }
 
     if (content === undefined) {
+      // Pass the pill keys (blue/green/red/purple/ocean) as `modes` so the
+      // backend blends each lens; `context` (primary) still keys cache/DB.
       const [chatRes, citeRes] = await Promise.allSettled([
-        aiAPI.chat(query, { context: MODE_TO_CONTEXT[mode], nepheshMode, verbose: verboseMode, history }),
-        fetchCitations(query, MODE_TO_BACKEND_SEARCH[mode]),
+        aiAPI.chat(query, { context: MODE_TO_CONTEXT[primaryMode], modes, nepheshMode, verbose: verboseMode, history }),
+        fetchCitations(query, MODE_TO_BACKEND_SEARCH[primaryMode]),
       ]);
       content = chatRes.status === 'fulfilled'
         ? extractContent(chatRes.value)
@@ -285,14 +317,14 @@ export default function TruegleChat() {
           (no WebGL) so it's safe everywhere the base LandingBackground is. */}
       <AnimatePresence>
         <motion.div
-          key={mode}
+          key={primaryMode}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.6 }}
           className="fixed inset-0 pointer-events-none"
           style={{
-            background: `radial-gradient(circle at 50% 20%, ${MODE_COLORS[mode]}26, transparent 60%)`,
+            background: `radial-gradient(circle at 50% 20%, ${MODE_COLORS[primaryMode]}26, transparent 60%)`,
           }}
         />
       </AnimatePresence>
@@ -307,24 +339,37 @@ export default function TruegleChat() {
           <TruegleLogo size="medium" animated />
         </motion.div>
 
-        {/* Pill mode row */}
-        <div className="flex items-center gap-2 mb-3 flex-wrap justify-center flex-shrink-0">
-          {MODES.map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                mode === m
-                  ? 'text-white'
-                  : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'
-              }`}
-              style={mode === m ? { backgroundColor: `${MODE_COLORS[m]}33`, borderColor: `${MODE_COLORS[m]}80` } : undefined}
-            >
-              {MODE_LABELS[m]}
-            </button>
-          ))}
+        {/* Pill mode row — multi-select: tap to toggle each flow on/off. With
+            2+ active, Nephesh blends the lenses into one answer. The first
+            selected (subtle ring) is "primary" and drives the theme. */}
+        <div className="flex items-center gap-2 mb-2 flex-wrap justify-center flex-shrink-0">
+          {MODES.map((m) => {
+            const active = modes.includes(m);
+            const isPrimary = active && primaryMode === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => toggleMode(m)}
+                aria-pressed={active}
+                title={active ? `${MODE_LABELS[m]} active — tap to remove` : `Add ${MODE_LABELS[m]} lens`}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  active
+                    ? 'text-white'
+                    : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'
+                } ${isPrimary ? 'ring-1 ring-white/40' : ''}`}
+                style={active ? { backgroundColor: `${MODE_COLORS[m]}33`, borderColor: `${MODE_COLORS[m]}80` } : undefined}
+              >
+                {MODE_LABELS[m]}
+              </button>
+            );
+          })}
         </div>
+        {modes.length > 1 && (
+          <div className="text-[11px] text-white/40 mb-2 flex-shrink-0">
+            Blending {modes.length} lenses — <span className="text-white/60">{modes.map((m) => MODE_LABELS[m]).join(' + ')}</span>
+          </div>
+        )}
 
         {/* Nephesh mode + verbosity toggles — same semantics as the search pages */}
         <div className="flex items-center gap-2 mb-3 flex-wrap justify-center flex-shrink-0">

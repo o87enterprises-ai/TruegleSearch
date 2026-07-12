@@ -141,6 +141,9 @@ const aiAPI = {
       // directly off req.body, not off the nested options object.
       nepheshMode: !!options.nepheshMode,
       verbose: !!options.verbose,
+      // Multi-select: array of context keys to blend into one answer. Backend
+      // uses it only when 2+ are present; single-mode still uses `context`.
+      modes: Array.isArray(options.modes) ? options.modes : undefined,
       history: Array.isArray(options.history) ? options.history : [],
       options
     }),
