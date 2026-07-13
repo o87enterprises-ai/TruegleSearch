@@ -12,7 +12,7 @@ re-deriving facts each session.
 | `user-task-instructions` | `/user-task-instructions` | Drive a headless browser through dashboards/forums, screenshot each step, produce visual step-by-step guides for the user |
 | `marketing` | `/marketing` | Full SEO/AEO/GEO + competitive-intel + campaign pipeline, executed weekly or per session |
 | `financial` | `/financial` | Enforce the $0 budget and the ad-revenue model; keep running P&L totals every session |
-| `inference` | `/inference` | Nephesh 1.3 — self-hosted model powering all Truegle AI responses, plus API-key access rules |
+| `inference` | `/inference` | TrueGLE 1.3 — self-hosted model powering all Truegle AI responses, plus API-key access rules |
 | `tech` | `/tech` | Branch/session workflow, privacy & security enforcement, app structure, third-party providers, handoff/memory maintenance |
 | `design` | `/design` | Framer / 21st.dev UI-UX workflow, animation rules, Truegle brand continuity |
 

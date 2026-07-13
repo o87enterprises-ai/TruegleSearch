@@ -56,7 +56,7 @@ results (galactic) → 404 (void).
 - Red Pill auth → results flow completion; freemium token counter with ad-refill
 - 404 easter-egg game (Apollo Studios); Co-Founder GPT assistant; phishing/link scanner
 - Social feed OAuth (v2); sitewide VPN layer (Cloudflare WARP on the SearXNG host)
-- Nephesh 1.3 self-hosted inference for all AI responses (see `inference` skill)
+- TrueGLE 1.3 self-hosted inference for all AI responses (see `inference` skill)
 
 ## Final goal / exit plan
 
