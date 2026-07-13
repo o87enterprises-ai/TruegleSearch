@@ -127,9 +127,35 @@ create_node/create_edge/export_csv. Mirrored faithfully:
   edge labels, edge-id format, dedupe, Gephi CSV headers, CSV escaping) + graph
   survives the share round-trip through the REAL local Postgres. Lint+build clean.
 
+**Batch 7 (shipped): AI rename + mandates + feedback training.**
+- **Rename Nephesh → TrueGLE (user-facing only).** Identity in BASE_IDENTITY +
+  Modelfile ("You are TrueGLE 1.3…"), attribution footer/metadata/servedBy
+  ("Research Provided by TrueGLE 1.3"), watermark canary TRUEGLE13, UI labels
+  ("TrueGLE Mode"), share text ("Answered by TrueGLE"). INTERNAL identifiers
+  intentionally KEPT as nephesh: env vars NEPHESH_BASE_URL/AUTH_TOKEN, provider
+  key 'nephesh', metadata key nephesh_attribution, filenames, localStorage
+  truegle_nephesh_mode, prop nepheshMode — renaming those would break live
+  config/contracts. PROMPT_VERSION 2026-07-12.2.
+- **Two absolute model mandates** baked into BASE_IDENTITY + Modelfile:
+  MANDATE A (unbiased indifference — no opinions of its own; keep any verdict to
+  itself; help the user form THEIR own view from unbiased research/media) and
+  MANDATE B (100% honesty/transparency — never deceive, mislead, manipulate,
+  spin, omit-to-steer, or fabricate). "No exceptions."
+- **Thumbs up/down feedback = training signal.** `ai_feedback` (migration 009);
+  thumbs-DOWN requires a brief explanation (DB CHECK constraint + API guard).
+  `FeedbackService` + `POST /api/ai/feedback`; `FeedbackButtons.jsx` wired into
+  TruegleChat messages + AIChatOverlay (replaced its old no-op thumbs). Stores
+  vote+reason+answer+query+mode for later fine-tuning/correction.
+- VERIFIED: prompt mandates + rename unit-checked; attribution rename verified;
+  feedback migration + service round-trip + both reject paths (empty-reason
+  down, bad vote) against REAL local Postgres; lint + frontend build clean.
+
+**⚠️ Prod migrations now: run 008 (shared_threads) AND 009 (ai_feedback):**
+`cd apps/backend && DATABASE_URL="<prod>" npm run migrate` after deploy.
+
 **Still open (flagged to user, not yet built):** cross-session per-user persistent
 memory (server-side saved-threads list — shared_threads store is the foundation);
-Nephesh security sub-agent; agent headless-browser OSINT. (needs a server store — $0 options
+TrueGLE security sub-agent; agent headless-browser OSINT. (needs a server store — $0 options
 being weighed); agent-driven headless-browser research; installing OSINT toolkits
 in a sandbox; a persistent Nephesh security/anti-injection sub-agent. The
 "AI jailbreak / apply to Nephesh" ask was declined as framed (won't build safety

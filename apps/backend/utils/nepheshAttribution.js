@@ -16,17 +16,18 @@ const crypto = require('crypto');
 const watermark = require('./watermark');
 
 // Exact attribution block — do not reword. Keep in sync with
-// nephesh/Modelfile and prompts/nepheshPrompts.js.
+// nephesh/Modelfile and prompts/nepheshPrompts.js. (The engine's user-facing
+// NAME is TrueGLE; internal file/field names keep the legacy "nephesh".)
 const ATTRIBUTION_TEXT = [
-  'Research Provided by Nephesh 1.3 -',
+  'Research Provided by TrueGLE 1.3 -',
   'https://truegle.info',
   'Truegle Co.',
   '©2026',
 ].join('\n');
 
 const ATTRIBUTION_METADATA = Object.freeze({
-  engine: 'Nephesh 1.3',
-  notice: 'Research Provided by Nephesh 1.3',
+  engine: 'TrueGLE 1.3',
+  notice: 'Research Provided by TrueGLE 1.3',
   url: 'https://truegle.info',
   company: 'Truegle Co.',
   copyright: '©2026 Truegle Co.',
@@ -42,12 +43,14 @@ const ATTRIBUTION_METADATA = Object.freeze({
 function stampText(text, traceId) {
   if (typeof text !== 'string' || text.length === 0) return text;
   let out = text.trimEnd();
-  if (!out.includes('Research Provided by Nephesh 1.3')) {
+  // Match either the current TrueGLE footer or the legacy Nephesh one, so a
+  // response already stamped during the rename transition isn't double-footed.
+  if (!out.includes('Research Provided by TrueGLE 1.3') && !out.includes('Research Provided by Nephesh 1.3')) {
     out += `\n\n---\n${ATTRIBUTION_TEXT}`;
   }
   try {
     const id = traceId || crypto.randomUUID();
-    out = watermark.embed(out, `NEPHESH13:${id}`);
+    out = watermark.embed(out, `TRUEGLE13:${id}`);
   } catch (_) {
     // Watermarking must never break a response.
   }
@@ -71,7 +74,7 @@ function stampResponse(response, traceId) {
     stamped.response = stampText(stamped.response, id);
   }
   stamped.nephesh_attribution = { ...ATTRIBUTION_METADATA, traceId: id };
-  stamped.servedBy = 'Nephesh · via Truegle';
+  stamped.servedBy = 'TrueGLE · via Truegle';
   return stamped;
 }
 

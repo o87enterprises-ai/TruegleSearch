@@ -12,6 +12,7 @@ import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent } from '../con
 import { getVideoEmbed } from '../utils/videoEmbed';
 import ChatShareButton from '../components/ui/ChatShareButton';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
+import FeedbackButtons from '../components/ui/FeedbackButtons';
 
 // Truegle Chat is a designated route for chat-first users — the same brand
 // (logo, mode-synced background/accents) as the rest of Truegle, but reduced
@@ -410,14 +411,14 @@ export default function TruegleChat() {
           <button
             type="button"
             onClick={() => setNepheshMode((v) => !v)}
-            title="Nephesh Mode: layer the Null-Prime dual-audit protocol onto contested claims"
+            title="TrueGLE Mode: layer the Null-Prime dual-audit protocol onto contested claims"
             aria-pressed={nepheshMode}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
               nepheshMode ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-200' : 'bg-white/5 border-white/10 text-white/40 hover:text-white/60'
             }`}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${nepheshMode ? 'bg-cyan-300' : 'bg-white/20'}`} />
-            Nephesh Mode
+            TrueGLE Mode
           </button>
           <button
             type="button"
@@ -465,7 +466,7 @@ export default function TruegleChat() {
                     ))}
                   </ul>
                   <div className="mt-2 pt-2 border-t border-white/10 text-[11px] text-white/45 leading-snug">
-                    Pair any mode with <span className="text-cyan-300">Nephesh Mode</span> (dual-audit on contested claims) and
+                    Pair any mode with <span className="text-cyan-300">TrueGLE Mode</span> (dual-audit on contested claims) and
                     {' '}<span className="text-purple-300">Feeling chat-e?</span> (longer answers). Toggles stick across pages.
                   </div>
                 </motion.div>
@@ -518,7 +519,12 @@ export default function TruegleChat() {
         {/* Message thread — takes the majority of the page; input stays pinned
             below it and above the mobile keyboard (dvh container). */}
         <div className="w-full max-w-2xl flex-1 min-h-0 space-y-4 mb-3 overflow-y-auto">
-          {messages.map((m) => (
+          {messages.map((m, i) => {
+            // The user turn this answer responded to — sent as feedback context.
+            const priorQuery = m.role === 'assistant'
+              ? [...messages.slice(0, i)].reverse().find((p) => p.role === 'user')?.content
+              : undefined;
+            return (
             <motion.div
               key={m.id}
               initial={{ opacity: 0, y: 10 }}
@@ -540,13 +546,15 @@ export default function TruegleChat() {
                 <Citations citations={m.citations} accent={accent} />
                 {m.graph && <InvestigationGraph graph={m.graph} accent={accent} />}
                 {m.role === 'assistant' && m.id !== 1 && (
-                  <div className="mt-2 pt-2 border-t border-white/5 flex justify-start">
+                  <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between gap-2">
                     <ChatShareButton message={m} />
+                    <FeedbackButtons answer={m.content} query={priorQuery} mode={modes.join('+')} />
                   </div>
                 )}
               </div>
             </motion.div>
-          ))}
+            );
+          })}
           {loading && (
             <div className="flex justify-start">
               <div className={`rounded-2xl px-4 py-3 bg-black/40 border ${accent.iframeBorder} flex items-center gap-2`}>

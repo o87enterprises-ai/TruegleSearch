@@ -7,6 +7,7 @@ const TokenService = require('../services/TokenService');
 const UnifiedAIService = require('../services/UnifiedAIService');
 const QueryInterpreter = require('../services/QueryInterpreter');
 const DeepResearchService = require('../services/DeepResearchService');
+const FeedbackService = require('../services/FeedbackService');
 const logger = require('../utils/logger');
 
 const deepResearch = new DeepResearchService();
@@ -137,6 +138,32 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
       error: 'AI request failed',
       message: 'Unable to process AI request at this time. Please try again.',
     });
+  }
+});
+
+/**
+ * @route   POST /api/ai/feedback
+ * @desc    Thumbs up/down on a TrueGLE answer (training signal). A thumbs-down
+ *          REQUIRES a brief explanation.
+ * @access  Public with optional auth
+ * @body    { vote:'up'|'down', reason?, answer?, query?, mode?, provider? }
+ */
+router.post('/feedback', optionalAuth, rateLimitSearch, async (req, res) => {
+  try {
+    const { vote, reason, answer, query: q, mode, provider } = req.body || {};
+    const user = req.user;
+    const userId = user && user.isAuthenticated && user.userId ? user.userId : null;
+    const { id } = await FeedbackService.record({ vote, reason, answer, query: q, mode, provider, userId });
+    return res.json({ success: true, id });
+  } catch (err) {
+    if (err.code === 'REASON_REQUIRED') {
+      return res.status(400).json({ error: 'reason_required', message: 'Please add a brief note about what went wrong.' });
+    }
+    if (err.code === 'INVALID') {
+      return res.status(400).json({ error: 'invalid', message: err.message });
+    }
+    logger.error('AI feedback error:', { error: err.message });
+    return res.status(500).json({ error: 'feedback_failed', message: 'Could not record feedback right now.' });
   }
 });
 

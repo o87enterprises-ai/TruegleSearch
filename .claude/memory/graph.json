@@ -64,6 +64,14 @@
         "body": "New client route needs BOTH public/_redirects (->/_index 200) AND public/_headers (Content-Type text/html). JSX-containing config files must be .jsx not .js.",
         "ts": "2026-07-12",
         "created": "2026-07-12"
+      },
+      "ai-name": {
+        "Id": "ai-name",
+        "Type": "fact",
+        "Label": "AI name = TrueGLE (was Nephesh)",
+        "body": "The AI engine's user-facing NAME is TrueGLE 1.3 (renamed from Nephesh). INTERNAL identifiers keep 'nephesh' to avoid breaking contracts: env vars NEPHESH_BASE_URL/AUTH_TOKEN, provider key 'nephesh', metadata key nephesh_attribution, filenames (NepheshService.js, nepheshPrompts.js, nepheshAttribution.js), localStorage truegle_nephesh_mode, prop nepheshMode. Only display strings changed.",
+        "ts": "2026-07-13",
+        "created": "2026-07-13"
       }
     },
     "decision": {
@@ -122,6 +130,22 @@
         "body": "Purple MODE renamed Skeptical->Perspectives (labels/hook/landing). The skeptical bias LENS in PerspectiveSelector is a different concept, left as-is.",
         "ts": "2026-07-12",
         "created": "2026-07-12"
+      },
+      "model-mandates": {
+        "Id": "model-mandates",
+        "Type": "decision",
+        "Label": "Two absolute model mandates",
+        "body": "BASE_IDENTITY + Modelfile carry: MANDATE A (no opinions of its own; help user form THEIR view from unbiased research; keep any verdict to itself) and MANDATE B (100% honesty/transparency; never deceive/mislead/manipulate/spin/omit/fabricate). No exceptions. PROMPT_VERSION 2026-07-12.2.",
+        "ts": "2026-07-13",
+        "created": "2026-07-13"
+      },
+      "feedback-training": {
+        "Id": "feedback-training",
+        "Type": "decision",
+        "Label": "Thumbs up/down feedback = training signal",
+        "body": "ai_feedback table (migration 009). Thumbs-down REQUIRES a brief reason (DB CHECK + API guard). FeedbackButtons component on TruegleChat + AIChatOverlay; POST /api/ai/feedback stores vote+reason+answer+query+mode for later fine-tuning.",
+        "ts": "2026-07-13",
+        "created": "2026-07-13"
       }
     },
     "entity": {
@@ -137,8 +161,8 @@
         "Id": "migrations",
         "Type": "entity",
         "Label": "DB migrations",
-        "body": "Never wired to deploy. Apply with: cd apps/backend && DATABASE_URL=... npm run migrate (idempotent). Latest = 008_add_shared_threads.",
-        "ts": "2026-07-12",
+        "body": "Never wired to deploy. Apply: cd apps/backend && DATABASE_URL=... npm run migrate (idempotent). Latest = 009_add_ai_feedback (008=shared_threads).",
+        "ts": "2026-07-13",
         "created": "2026-07-12"
       }
     },
@@ -146,10 +170,10 @@
       "prod-migrate": {
         "Id": "prod-migrate",
         "Type": "thread",
-        "Label": "Run migration 008 on prod",
-        "body": "shared_threads table must exist in prod or /s share links + investigation graphs 500. Run npm run migrate against prod DB after deploy.",
+        "Label": "Run migrations 008+009 on prod",
+        "body": "shared_threads (008) AND ai_feedback (009) must exist in prod or share links / feedback 500. Run npm run migrate against prod DB after deploy.",
         "status": "open",
-        "ts": "2026-07-12",
+        "ts": "2026-07-13",
         "created": "2026-07-12"
       },
       "security-subagent": {
@@ -225,5 +249,5 @@
       }
     }
   },
-  "updated": "2026-07-12"
+  "updated": "2026-07-13"
 }

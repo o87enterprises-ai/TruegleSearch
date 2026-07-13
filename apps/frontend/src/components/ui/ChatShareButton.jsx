@@ -22,7 +22,7 @@ function citationLines(citations) {
  */
 export function buildShareText(message, { full = true } = {}) {
   const { links, pics, vids } = citationLines(message.citations);
-  const parts = ['📌 Answered by Nephesh on Truegle\n', message.content.trim()];
+  const parts = ['📌 Answered by TrueGLE\n', message.content.trim()];
 
   if (full) {
     if (links.length) parts.push(`\nSources:\n${links.join('\n')}`);
@@ -63,7 +63,7 @@ export default function ChatShareButton({ message }) {
     const short = message.content.trim().slice(0, 240);
     const url = platform.compose({
       title: short.split('\n')[0].slice(0, 90) || 'Truegle Chat',
-      text: `📌 Answered by Nephesh on Truegle\n\n${short}${message.content.length > 240 ? '…' : ''}`,
+      text: `📌 Answered by TrueGLE\n\n${short}${message.content.length > 240 ? '…' : ''}`,
       url: CHAT_URL,
     });
     window.open(url, '_blank', 'width=580,height=460,noopener');

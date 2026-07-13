@@ -7,13 +7,12 @@ import {
   Send,
   Sparkles,
   RefreshCw,
-  ThumbsUp,
-  ThumbsDown,
   LogIn,
 } from 'lucide-react';
 import { aiAPI } from '../../services/api';
 import { FREE_ACCESS_MODE } from '../../config/access';
 import { MODE_TO_CONTEXT } from '../../config/modeTheme';
+import FeedbackButtons from './FeedbackButtons';
 
 const MODE_WELCOME = {
   blue: 'Ask me anything about your search results.',
@@ -266,7 +265,7 @@ export default function AIChatOverlay({
 
           {/* Messages Container */}
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
-            {messages.map((message) => (
+            {messages.map((message, i) => (
               <motion.div
                 key={message.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -301,15 +300,12 @@ export default function AIChatOverlay({
                             minute: '2-digit',
                           })}
                         </span>
-                        {message.role === 'assistant' && (
-                          <div className="flex items-center gap-2">
-                            <button className="text-white/40 hover:text-green-400 transition-colors">
-                              <ThumbsUp size={12} />
-                            </button>
-                            <button className="text-white/40 hover:text-red-400 transition-colors">
-                              <ThumbsDown size={12} />
-                            </button>
-                          </div>
+                        {message.role === 'assistant' && i !== 0 && (
+                          <FeedbackButtons
+                            answer={message.content}
+                            query={[...messages.slice(0, i)].reverse().find((p) => p.role === 'user')?.content}
+                            mode={resolvedMode}
+                          />
                         )}
                       </div>
                     </div>

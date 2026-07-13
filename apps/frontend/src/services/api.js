@@ -156,6 +156,9 @@ const aiAPI = {
     }),
   getHealth: () => api.get('/ai/health'),
 
+  // Thumbs up/down feedback on an answer (down requires a reason).
+  feedback: (payload) => api.post('/ai/feedback', payload),
+
   // Prompt Management (Admin only)
   prompts: {
     list: (filters = {}) => api.get('/prompts/prompts', { params: filters }),

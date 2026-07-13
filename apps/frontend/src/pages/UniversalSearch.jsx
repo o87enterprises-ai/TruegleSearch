@@ -1035,7 +1035,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
               <button
                 type="button"
                 onClick={() => setNepheshMode((v) => !v)}
-                title="Nephesh Mode: layer the Null-Prime dual-audit protocol onto contested claims"
+                title="TrueGLE Mode: layer the Null-Prime dual-audit protocol onto contested claims"
                 aria-pressed={nepheshMode}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                   nepheshMode
@@ -1044,7 +1044,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                 }`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${nepheshMode ? 'bg-cyan-300' : 'bg-white/20'}`} />
-                Nephesh Mode
+                TrueGLE Mode
               </button>
               <button
                 type="button"
