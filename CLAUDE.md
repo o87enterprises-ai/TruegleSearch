@@ -14,6 +14,10 @@ At the START of every session, before acting:
    - Search it: `… query <term>` · list: `… list [type]`
    Commit `.claude/memory/graph.json` with your normal work so the next session inherits it.
 1. Read `HANDOFF.md` (top) for live state + 🔴 PERMANENT FACTS.
+   **Auto-loaded skills:** the SessionStart hook (`.claude/session-start.sh`)
+   also injects `ponytail` + `executive-summary` in full every session, so their
+   rules are active without being invoked. Edit that script to change what
+   auto-loads (add/remove skills, trim for tokens).
 2. These company skills in `.claude/skills/` are ALWAYS in force — apply them automatically, don't wait to be asked:
    - **ponytail** — engineering discipline (boot-don't-just-check, root cause, free-first).
    - **tech** — branch-per-session, privacy/no-tracking, security, secrets map, handoff hygiene.
