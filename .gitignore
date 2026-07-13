@@ -10,3 +10,7 @@ dist-ssr/
 PROJECT_STATUS/
 dist
 .env*
+# ...but DO track the committed, secret-free env manifests (single source of truth).
+!.env.example
+!apps/backend/.env.example
+!apps/frontend/.env.example

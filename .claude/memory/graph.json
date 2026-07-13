@@ -72,6 +72,14 @@
         "body": "The AI engine's user-facing NAME is TrueGLE 1.3 (renamed from Nephesh). INTERNAL identifiers keep 'nephesh' to avoid breaking contracts: env vars NEPHESH_BASE_URL/AUTH_TOKEN, provider key 'nephesh', metadata key nephesh_attribution, filenames (NepheshService.js, nepheshPrompts.js, nepheshAttribution.js), localStorage truegle_nephesh_mode, prop nepheshMode. Only display strings changed.",
         "ts": "2026-07-13",
         "created": "2026-07-13"
+      },
+      "env-manifest": {
+        "Id": "env-manifest",
+        "Type": "fact",
+        "Label": "Env vars = committed manifest (no re-deriving)",
+        "body": "apps/backend/.env.example + apps/frontend/.env.example are the SINGLE SOURCE OF TRUTH for every env var (secret-free, force-tracked via .gitignore negation). Required-to-boot: DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, GOOGLE_API_KEY, GOOGLE_SEARCH_ENGINE_ID. Never re-enumerate env vars from scratch — read the manifest.",
+        "ts": "2026-07-13",
+        "created": "2026-07-13"
       }
     },
     "decision": {
@@ -146,6 +154,14 @@
         "body": "ai_feedback table (migration 009). Thumbs-down REQUIRES a brief reason (DB CHECK + API guard). FeedbackButtons component on TruegleChat + AIChatOverlay; POST /api/ai/feedback stores vote+reason+answer+query+mode for later fine-tuning.",
         "ts": "2026-07-13",
         "created": "2026-07-13"
+      },
+      "dev-env": {
+        "Id": "dev-env",
+        "Type": "decision",
+        "Label": "Secure dev env until launch",
+        "body": "Dev never touches prod. Use Neon 'dev' BRANCH (free, isolated, mirrors prod schema) OR local Postgres; fill .env once from .env.example. Soft launch F&F via Vercel/CF preview deploys pointed at the dev branch. Prod env vars set ONCE at launch. Full guide: DEV-SETUP.md. Official launch target ~2027.",
+        "ts": "2026-07-13",
+        "created": "2026-07-13"
       }
     },
     "entity": {
@@ -170,8 +186,8 @@
       "prod-migrate": {
         "Id": "prod-migrate",
         "Type": "thread",
-        "Label": "Run migrations 008+009 on prod",
-        "body": "shared_threads (008) AND ai_feedback (009) must exist in prod or share links / feedback 500. Run npm run migrate against prod DB after deploy.",
+        "Label": "Run migrations 008+009 + rotate DB pw at pre-ship",
+        "body": "Deferred to final testing/hardening (user's call). Neon SQL Editor path + password rotation documented in docs/NEON-TASKS.md. DB password was exposed in chat -> rotate before launch.",
         "status": "open",
         "ts": "2026-07-13",
         "created": "2026-07-12"
