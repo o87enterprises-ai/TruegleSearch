@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2 } from 'lucide-react';
@@ -261,6 +261,8 @@ export default function TruegleChat() {
   const [sharing, setSharing] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [shareCopied, setShareCopied] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoSentRef = useRef(false); // guard so ?q= silent-transport fires once
 
   // Persist the whole thread server-side and produce a link that opens the LIVE
   // conversation (messages + cited media/links) for anyone — not pasted text.
@@ -288,14 +290,17 @@ export default function TruegleChat() {
     }
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
+  const handleSend = async (explicitText) => {
+    // Accept an explicit query (e.g. the ?q= silent-transport from the landing
+    // page) or fall back to the input box.
+    const text = (typeof explicitText === 'string' ? explicitText : input).trim();
+    if (!text || loading) return;
     if (!FREE_ACCESS_MODE && !isAuthed) {
       navigate('/auth/login', { state: { redirectTo: '/chat' } });
       return;
     }
 
-    const query = input.trim();
+    const query = text;
     // Prior turns → working memory for a real back-and-forth. Skip the id:1
     // welcome (not a real exchange). Send only role/content, no media payloads.
     const history = messages
@@ -342,6 +347,17 @@ export default function TruegleChat() {
     setLoading(false);
   };
 
+  // Silent transport: the landing page routes a first query here as /chat?q=…
+  // Auto-send it once on arrival, then strip the param so a refresh won't resend.
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q && q.trim() && !autoSentRef.current) {
+      autoSentRef.current = true;
+      setSearchParams({}, { replace: true });
+      handleSend(q);
+    }
+  }, [searchParams]); // one-shot guarded by autoSentRef; deliberately params-only
+
   return (
     // h-[100dvh] (dynamic viewport height) instead of min-h-screen: when the
     // mobile keyboard opens, dvh shrinks with the visible area so the input row
@@ -371,7 +387,7 @@ export default function TruegleChat() {
           animate={{ opacity: 1, scale: 1 }}
           className="mb-3 flex-shrink-0"
         >
-          <TruegleLogo size="medium" animated />
+          <TruegleLogo variant="chat" size="medium" animated />
         </motion.div>
 
         {/* Pill mode row — multi-select: tap to toggle each flow on/off. With

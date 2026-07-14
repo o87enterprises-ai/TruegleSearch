@@ -1,14 +1,25 @@
 import { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logoImage from '../../assets/images/truegle.png';
+import logoChatImage from '../../assets/images/truegle-chat.png';
+
+// variant 'chat' shows the "TrueGLE chat" mark (used on /chat, where the user is
+// silently routed after their first landing-page query). Both are bright-on-dark
+// art; mixBlendMode:screen drops the dark backdrop against the dark page.
+const LOGO_VARIANTS = {
+  default: { src: logoImage, alt: 'Truegle — Unbiased Search' },
+  chat: { src: logoChatImage, alt: 'TrueGLE Chat' },
+};
 
 function TruegleLogo({
   size = 'large',
   animated = true,
   className = '',
+  variant = 'default',
   onClick,
 }) {
   const navigate = useNavigate();
+  const { src, alt } = LOGO_VARIANTS[variant] || LOGO_VARIANTS.default;
 
   const sizes = {
     small: 'h-12 w-auto',
@@ -20,8 +31,8 @@ function TruegleLogo({
 
   const logoElement = (
     <img
-      src={logoImage}
-      alt="Truegle - Unbiased Search"
+      src={src}
+      alt={alt}
       className={`${sizes[size]} ${className} object-contain cursor-pointer`}
       style={{
         mixBlendMode: 'screen',

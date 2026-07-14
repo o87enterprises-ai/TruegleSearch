@@ -178,6 +178,14 @@
         "body": "Full spec in docs/UI-REDESIGN-SPEC.md. Chat is DEFAULT (landing=chat entry, black pill); search is power-user. Uniform color-tinted search bar across all search pages; OSINT + rewards + extract are layout exceptions. Rename red mode Alternative->'Rabbit Hole'. New pills: black=chat/vs-TrueGLE, white=verbose, orange=rewards, yellow=transcripts. Build in phases; bugs first.",
         "ts": "2026-07-14",
         "created": "2026-07-14"
+      },
+      "silent-transport": {
+        "Id": "silent-transport",
+        "Type": "decision",
+        "Label": "Landing search -> /chat silent transport",
+        "body": "Landing query with no explicit search-mode pill navigates to /chat?q=... ; TruegleChat auto-sends the ?q= once on arrival (autoSentRef guard, strips param). Explicit pill mode still opens /search?mode=. Part of chat-as-default redesign.",
+        "ts": "2026-07-14",
+        "created": "2026-07-14"
       }
     },
     "entity": {
@@ -196,6 +204,14 @@
         "body": "Never wired to deploy. Apply: cd apps/backend && DATABASE_URL=... npm run migrate (idempotent). Latest = 009_add_ai_feedback (008=shared_threads).",
         "ts": "2026-07-13",
         "created": "2026-07-12"
+      },
+      "logos": {
+        "Id": "logos",
+        "Type": "entity",
+        "Label": "Brand logos",
+        "body": "Landing/app-wide logo = assets/images/truegle.png ('Truegle' script). /chat uses assets/images/truegle-chat.png ('TrueGLE chat') via TruegleLogo variant='chat'. Both bright-on-dark art rendered with mixBlendMode:screen. (Both ~1MB — optimize later.)",
+        "ts": "2026-07-14",
+        "created": "2026-07-14"
       }
     },
     "thread": {

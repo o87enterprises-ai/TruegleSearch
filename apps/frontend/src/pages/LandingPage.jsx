@@ -455,11 +455,17 @@ export default function LandingPage() {
                 biasedButtonGradient="from-red-600 to-red-800"
                 searchIconColor="text-green-500/80"
                 onSearch={() => {
-                  const modeParam = pillMode !== 'blue' ? `&mode=${pillMode}` : '';
+                  // Chat is the default: a query with no explicit search-mode pill
+                  // silently routes to /chat, where TrueGLE answers directly.
+                  // An explicit pill (red/green/purple/…) still opens that search page.
                   if (searchQuery.trim()) {
-                    navigate(`/search?q=${encodeURIComponent(searchQuery)}${modeParam}`);
+                    if (pillMode && pillMode !== 'blue') {
+                      navigate(`/search?q=${encodeURIComponent(searchQuery)}&mode=${pillMode}`);
+                    } else {
+                      navigate(`/chat?q=${encodeURIComponent(searchQuery)}`);
+                    }
                   } else {
-                    navigate(pillMode !== 'blue' ? `/search?mode=${pillMode}` : '/search');
+                    navigate(pillMode && pillMode !== 'blue' ? `/search?mode=${pillMode}` : '/search');
                   }
                 }}
                 placeholder={
