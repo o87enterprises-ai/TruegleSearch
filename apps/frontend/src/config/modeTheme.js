@@ -26,6 +26,9 @@ export const MODE_COLORS = {
   purple: '#a855f7',
   ocean: '#14b8a6',
   green: '#22c55e',
+  orange: '#f97316',
+  yellow: '#eab308',
+  black: '#e5e7eb',
 };
 
 export const MODE_LABELS = {
@@ -34,6 +37,9 @@ export const MODE_LABELS = {
   purple: 'Perspectives',
   ocean: 'Privacy / OSINT',
   green: 'Simplified',
+  orange: 'Rewards',
+  yellow: 'Transcripts',
+  black: 'Chat',
 };
 
 // Per-mode container accent — each page takes its theme color. (green uses

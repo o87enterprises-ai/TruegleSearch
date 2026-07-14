@@ -8,12 +8,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search,
-  Shield,
-  Zap,
-  Eye,
-  ChevronRight,
-  Sparkles,
-  Filter,
   Gift,
   Mic,
   Camera,
@@ -22,49 +16,18 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ModesAndTrending from '../components/landing/ModesAndTrending';
+import ChatModeRow from '../components/landing/ChatModeRow';
+import VsToggleRow from '../components/landing/VsToggleRow';
+import ThreeCards from '../components/landing/ThreeCards';
+import RewardsCTA from '../components/landing/RewardsCTA';
 import TruegleLogo from '../components/ui/TruegleLogo';
-import NeonButton from '../components/ui/NeonButton';
-import GlassCard from '../components/ui/GlassCard';
 import CursorGlow from '../components/ui/CursorGlow';
-import EnhancedFeatureCard from '../components/ui/EnhancedFeatureCard';
 import LandingBackground from '../components/LandingBackground';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import SearchBar from '../components/ui/SearchBar';
-import ShareForPremiumButton from '../components/ui/ShareForPremiumButton';
-import FuzzyText from '../components/ui/FuzzyText';
-import GlitchRotatingText from '../components/ui/GlitchRotatingText';
-import SpotlightButton from '../components/ui/SpotlightButton';
 import { LearnMoreButton } from '../components/ui/FallingText';
-import ErrorBoundary from '../components/ui/ErrorBoundary';
 import GlitchText from '../components/ui/GlitchText';
 import RotatingGlitchText from '../components/ui/RotatingGlitchText';
-
-/**
- * SafeButton - Fallback button when animations crash
- */
-const SafeButton = ({ onClick, variant, children, className = '' }) => {
-  const variantStyles = {
-    search: 'bg-emerald-600 hover:bg-emerald-500 border-emerald-400',
-    cta: 'bg-red-600 hover:bg-red-500 border-red-400',
-    feature: 'bg-purple-600 hover:bg-purple-500 border-purple-400',
-  };
-
-  return (
-    <button
-      onClick={onClick}
-      className={`
-        px-8 py-4 rounded-xl font-semibold text-white
-        border transition-all duration-200
-        hover:scale-102 active:scale-98
-        flex items-center justify-center gap-2
-        ${variantStyles[variant] || variantStyles.search}
-        ${className}
-      `}
-    >
-      {children}
-    </button>
-  );
-};
 
 /**
  * SafeLearnMore - Fallback Learn More button
@@ -95,30 +58,69 @@ const SafeLearnMore = ({ onClick, className = '' }) => (
 export default function LandingPage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [pillMode, setPillMode] = useState(() => {
-    return localStorage.getItem('truegle_pill_mode') || 'blue';
+
+  // Chat mode row (spec #4): black/blue/green/red stage a mode for the next
+  // Enter press (black = chat default, blue/green/red = a /search flavor);
+  // purple/ocean/orange/yellow jump straight to their page on click.
+  const [landingMode, setLandingMode] = useState(() => {
+    return localStorage.getItem('truegle_landing_mode') || 'black';
   });
   const [pillToast, setPillToast] = useState(null); // { label, sub, color }
 
-  const PILL_TOAST_CONFIG = {
-    blue:  { label: 'Default Mode',  sub: 'Unbiased, standard search',       color: 'from-blue-500 to-blue-700',   dot: 'bg-blue-400' },
-    green: { label: 'AI Free Mode',  sub: 'Raw results — no smart features',  color: 'from-green-500 to-emerald-700', dot: 'bg-green-400' },
-    red:   { label: 'Deep Dive Mode', sub: 'Full spectrum — all perspectives', color: 'from-red-600 to-red-800',     dot: 'bg-red-400' },
+  const MODE_TOAST_CONFIG = {
+    black:  { label: 'Chat',        sub: 'TrueGLE answers directly',        color: 'from-neutral-200 to-neutral-400', dot: 'bg-neutral-200' },
+    blue:   { label: 'Mainstream',  sub: 'Unbiased, standard search',       color: 'from-blue-500 to-blue-700',       dot: 'bg-blue-400' },
+    green:  { label: 'Simplified',  sub: 'Raw results — no smart features', color: 'from-green-500 to-emerald-700',   dot: 'bg-green-400' },
+    red:    { label: 'Rabbit Hole', sub: 'Full spectrum — all perspectives', color: 'from-red-600 to-red-800',        dot: 'bg-red-400' },
   };
 
-  const updatePillMode = (mode) => {
-    setPillMode(mode);
-    localStorage.setItem('truegle_pill_mode', mode);
-    // Show brief toast notification
-    const cfg = PILL_TOAST_CONFIG[mode];
+  const stageLandingMode = (mode) => {
+    setLandingMode(mode);
+    localStorage.setItem('truegle_landing_mode', mode);
+    const cfg = MODE_TOAST_CONFIG[mode];
     if (cfg) {
       setPillToast(cfg);
       setTimeout(() => setPillToast(null), 2200);
     }
   };
 
+  const shouldSkipRedWarning = () => {
+    try {
+      return localStorage.getItem('truegle_skip_redpill_warning') === 'true';
+    } catch {
+      return false;
+    }
+  };
+
+  // Chat mode row click handler — matches the pill → page map in the spec.
+  const handleModeRowSelect = (id) => {
+    if (id === 'orange') { navigate('/rewards'); return; }
+    if (id === 'yellow') { navigate('/extract'); return; }
+    if (id === 'purple') {
+      navigate(searchQuery.trim() ? `/search?mode=purple&q=${encodeURIComponent(searchQuery)}` : '/search?mode=purple');
+      return;
+    }
+    if (id === 'ocean') {
+      navigate(searchQuery.trim() ? `/search?mode=ocean&q=${encodeURIComponent(searchQuery)}` : '/search?mode=ocean');
+      return;
+    }
+    if (id === 'red' && !shouldSkipRedWarning()) {
+      setShowWarning(true);
+      return;
+    }
+    stageLandingMode(id);
+  };
+
+  // vs. TrueGLE (Null-Prime dual-audit) + Verbose — same localStorage keys
+  // TruegleChat.jsx reads on mount, so a preference set here carries silently
+  // into the first /chat visit.
+  const [nepheshMode, setNepheshMode] = useState(() => localStorage.getItem('truegle_nephesh_mode') === 'true');
+  const [verboseMode, setVerboseMode] = useState(() => localStorage.getItem('truegle_verbose_mode') === 'true');
+  useEffect(() => { localStorage.setItem('truegle_nephesh_mode', String(nepheshMode)); }, [nepheshMode]);
+  useEffect(() => { localStorage.setItem('truegle_verbose_mode', String(verboseMode)); }, [verboseMode]);
+
   // Backwards-compat derived value for JSX that used isRedPillMode
-  const isRedPillMode = pillMode === 'red';
+  const isRedPillMode = landingMode === 'red';
 
   const [showWarning, setShowWarning] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
@@ -135,27 +137,9 @@ export default function LandingPage() {
     dateRange: 'any',
     bias: 'all',
   });
-  const [isOSINTMode, setIsOSINTMode] = useState(() => {
-    const savedMode = localStorage.getItem('isOSINTMode');
-    return savedMode ? JSON.parse(savedMode) : false;
-  });
-
-  const updateOSINTMode = (mode) => {
-    setIsOSINTMode(mode);
-    localStorage.setItem('isOSINTMode', JSON.stringify(mode));
-  };
 
   // Constant arrays for GlitchRotatingText to avoid infinite loop
   const thoughtBubbleWords = ['Bias', 'Tracking', 'Censorship'];
-
-  // OSINT toggle handler
-  const toggleOSINT = () => {
-    const newMode = !isOSINTMode;
-    updateOSINTMode(newMode);
-    if (newMode) {
-      navigate('/osint/tools');
-    }
-  };
 
   // Simulate microphone transcription
   useEffect(() => {
@@ -224,65 +208,6 @@ export default function LandingPage() {
       clearTimeout(timeoutId);
     };
   }, [showWarning]);
-
-  const features = [
-    {
-      icon: Sparkles,
-      title: 'Self-Hosted Private SERP',
-      description:
-        'Results powered by our own SearXNG metasearch instance — no Google tracking, no API quotas, no corporate censorship. Real results, no middlemen.',
-      gradient: 'rgba(34, 197, 94, 1), rgba(0, 229, 255, 1)',
-    },
-    {
-      icon: Zap,
-      title: 'OSINT Intelligence Tools',
-      description:
-        'Ethical digital forensics built in. Look up usernames, emails, phone numbers, and domains without leaving the search page.',
-      gradient: 'rgba(255, 107, 0, 1), rgba(239, 68, 68, 1)',
-    },
-    {
-      icon: Eye,
-      title: 'Anonymous View',
-      description:
-        'Open any result through our privacy proxy — the destination site never sees your real IP. Browse links from search results without leaving a trail.',
-      gradient: 'rgba(139, 92, 246, 1), rgba(59, 130, 246, 1)',
-    },
-    {
-      icon: Filter,
-      title: 'Multi-Perspective AI Summary',
-      description:
-        'Every search gets an AI-generated briefing that surfaces mainstream, alternative, and opposing viewpoints side-by-side — not just the consensus.',
-      gradient: 'rgba(245, 158, 11, 1), rgba(239, 68, 68, 1)',
-    },
-    {
-      icon: Mic,
-      title: 'Content Transcriber',
-      description:
-        'Paste any YouTube URL and get the full transcript instantly — no account needed. Extract images from any public page. 3 free uses per day.',
-      gradient: 'rgba(234, 179, 8, 1), rgba(251, 146, 60, 1)',
-    },
-    {
-      icon: Gift,
-      title: 'Ad Rewards Program',
-      description:
-        'Opt in and earn real cash for ads you actually watch while results load. No extra tracking, no fake points — server-side measured, PayPal cashout.',
-      gradient: 'rgba(16, 185, 129, 1), rgba(6, 182, 212, 1)',
-    },
-    {
-      icon: Paperclip,
-      title: 'Social Feed Aggregator',
-      description:
-        'Reddit, Hacker News, GitHub, and YouTube feeds unified in a single tab — no login, no algorithm. Switch platforms without leaving Truegle.',
-      gradient: 'rgba(99, 102, 241, 1), rgba(168, 85, 247, 1)',
-    },
-    {
-      icon: Shield,
-      title: 'No Bias. No Tracking. No Agenda.',
-      description:
-        'History auto-deletes. Zero cookies. No profiling. Every query is treated the same whether you\'re a student, journalist, or researcher.',
-      gradient: 'rgba(20, 184, 166, 1), rgba(34, 197, 94, 1)',
-    },
-  ];
 
   return (
     <div
@@ -367,59 +292,13 @@ export default function LandingPage() {
             }}
             className="text-center w-full"
           >
-            <h1
-              className="text-[clamp(0.5rem, 5vw, 3.5rem)] md:text-[clamp(1.5rem, 5vw, 4rem)] lg:text-[clamp(2.5rem, 5vw, 5rem)] font-bold mb-8 transition-all duration-500 relative"
-              style={{
-                filter: 'drop-shadow(0 4px 20px rgba(139,92,246,0.4))',
-                letterSpacing: '0.05em',
-                opacity: 1,
-                textShadow: isRedPillMode
-                  ? '0 0 10px rgba(239, 68, 68, 0.3), 0 0 5px rgba(255, 255, 255, 0.5) inset'
-                  : '0 0 10px rgba(59, 130, 246, 0.3), 0 0 5px rgba(255, 255, 255, 0.5) inset',
-                fontFamily: 'var(--ds-font-family-sans)',
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.opacity = '1';
-                e.target.style.transform = 'scale(1.05)';
-                e.target.style.textShadow = isRedPillMode
-                  ? '0 0 20px rgba(239, 68, 68, 0.8), 0 0 30px rgba(239, 68, 68, 0.6), 0 0 10px rgba(255, 255, 255, 0.7) inset, 0 0 15px #fff, -10px 0 30px #ffaa00'
-                  : '0 0 20px rgba(59, 130, 246, 0.8), 0 0 30px rgba(59, 130, 246, 0.6), 0 0 10px rgba(255, 255, 255, 0.7) inset, 0 0 15px #fff, -10px 0 30px #00aaff';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.opacity = '1';
-                e.target.style.transform = 'scale(1)';
-                e.target.style.textShadow = isRedPillMode
-                  ? '0 0 10px rgba(239, 68, 68, 0.3), 0 0 5px rgba(255, 255, 255, 0.5) inset'
-                  : '0 0 10px rgba(59, 130, 246, 0.3), 0 0 5px rgba(255, 255, 255, 0.5) inset';
-              }}
-            >
-              <div
-                style={{
-                  opacity: 1,
-                  transition: 'all 0.3s ease',
-                }}
-              >
-                <span
-                  style={{
-                    position: 'absolute',
-                    width: '1px',
-                    height: '1px',
-                    padding: 0,
-                    margin: '-1px',
-                    overflow: 'hidden',
-                    clip: 'rect(0,0,0,0)',
-                    whiteSpace: 'nowrap',
-                    border: 0,
-                  }}
-                >
-                  Truegle — Unbiased, Transparent &amp; Secure Search
-                </span>
-              </div>
-            </h1>
+            {/* Visually-hidden h1 — a11y/SEO title only; the wordmark logo above
+                is the visible brand treatment. */}
+            <h1 className="sr-only">Truegle — Unbiased, Transparent &amp; Secure Search</h1>
 
-            {/* Search Bar with Integrated Pill Toggle */}
+            {/* Search Bar */}
             <div className="w-full max-w-2xl mx-auto px-4 mb-2 relative">
-              {/* Pill mode toast notification */}
+              {/* Mode toast notification */}
               {pillToast && (
                 <motion.div
                   initial={{ opacity: 0, y: -8, scale: 0.96 }}
@@ -439,56 +318,67 @@ export default function LandingPage() {
                 onChange={(e) =>
                   setSearchQuery(typeof e === 'string' ? e : e.target.value)
                 }
-                showPillToggle={true}
-                pillMode={pillMode}
-                onPillModeChange={updatePillMode}
                 showFilters={true}
                 filters={filters}
                 onFiltersChange={setFilters}
                 compactFilters={false}
                 showFilterToggle={true}
-                showOSINTToggle={true}
-                isOSINTMode={isOSINTMode}
-                onOSINTToggle={toggleOSINT}
                 themeColor="green"
                 searchButtonGradient="from-green-600 to-emerald-600"
                 biasedButtonGradient="from-red-600 to-red-800"
                 searchIconColor="text-green-500/80"
+                showSearchButton={false}
                 onSearch={() => {
-                  // Chat is the default: a query with no explicit search-mode pill
-                  // silently routes to /chat, where TrueGLE answers directly.
-                  // An explicit pill (red/green/purple/…) still opens that search page.
-                  if (searchQuery.trim()) {
-                    if (pillMode && pillMode !== 'blue') {
-                      navigate(`/search?q=${encodeURIComponent(searchQuery)}&mode=${pillMode}`);
-                    } else {
-                      navigate(`/chat?q=${encodeURIComponent(searchQuery)}`);
-                    }
+                  // Chat is the default: black mode (no explicit pill) silently
+                  // routes to /chat, where TrueGLE answers directly. Blue/green/red
+                  // stage a /search mode instead (purple/ocean/orange/yellow jump
+                  // straight to their page from the mode row, never staged here).
+                  const q = searchQuery.trim();
+                  if (landingMode === 'black') {
+                    navigate(q ? `/chat?q=${encodeURIComponent(q)}` : '/chat');
                   } else {
-                    navigate(pillMode && pillMode !== 'blue' ? `/search?mode=${pillMode}` : '/search');
+                    navigate(q ? `/search?q=${encodeURIComponent(q)}&mode=${landingMode}` : `/search?mode=${landingMode}`);
                   }
                 }}
                 placeholder={
-                  pillMode === 'red' ? 'Explore the Rabbit Hole...' :
-                  pillMode === 'green' ? 'Raw search — no smart features...' :
+                  landingMode === 'red' ? 'Explore the Rabbit Hole...' :
+                  landingMode === 'green' ? 'Raw search — no smart features...' :
                   'Search Truegle...'
                 }
                 size="large"
-                showBiasedButton={true}
-                onBiasedClick={() => {
-                  navigate('/search?mode=purple');
-                }}
-                customActionButtons={
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate('/extract'); }}
-                    className="inline-flex items-center justify-center gap-2 h-12 px-5 min-w-[150px] rounded-xl bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-semibold shadow-lg shadow-yellow-400/20 hover:shadow-yellow-300/30 transition-all duration-200 ease-out"
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    Transcribe URL
-                  </button>
-                }
               />
+            </div>
+
+            {/* Chat mode selection row — directly below the search bar */}
+            <ChatModeRow activeMode={landingMode} onSelect={handleModeRowSelect} />
+
+            {/* vs. TrueGLE / Verbose toggles */}
+            <VsToggleRow
+              nepheshMode={nepheshMode}
+              onToggleNephesh={() => setNepheshMode((v) => !v)}
+              verboseMode={verboseMode}
+              onToggleVerbose={() => setVerboseMode((v) => !v)}
+            />
+
+            <div
+              className="flex flex-col gap-4 items-center w-full max-w-2xl mx-auto px-4 mt-6"
+              style={{
+                filter: 'drop-shadow(0 10px 40px rgba(0,0,0,0.5))',
+              }}
+            >
+              {/* Get paid for the ads you see — teaser link down to the full
+                  Rewards CTA card near the footer (item 8 in the spec). */}
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById('rewards-cta');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+                className="w-full max-w-md flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/15 border border-yellow-500/30 hover:border-yellow-400/50 text-yellow-300 font-semibold text-sm transition-all duration-200"
+              >
+                <Gift size={18} />
+                Get paid for the ads you see! Click here for Truegle Rewards!
+              </button>
 
               {/* Learn More Button */}
               <button
@@ -498,51 +388,10 @@ export default function LandingPage() {
                     featuresEl.scrollIntoView({ behavior: 'smooth' });
                   }
                 }}
-                className="mt-4 py-4 px-8 bg-black/60 backdrop-blur-md border border-purple-500/50 rounded-xl text-purple-400 font-semibold transition-all duration-200 hover:scale-105 hover:bg-black/80 hover:border-purple-400/70 active:scale-95 shadow-lg shadow-purple-500/20"
+                className="py-4 px-8 bg-black/60 backdrop-blur-md border border-purple-500/50 rounded-xl text-purple-400 font-semibold transition-all duration-200 hover:scale-105 hover:bg-black/80 hover:border-purple-400/70 active:scale-95 shadow-lg shadow-purple-500/20"
               >
                 Learn More
               </button>
-            </div>
-
-            <div
-              className="flex flex-col gap-4 items-center w-full max-w-2xl mx-auto px-4"
-              style={{
-                filter: 'drop-shadow(0 10px 40px rgba(0,0,0,0.5))',
-              }}
-            >
-              {/* Share for Premium */}
-              <ErrorBoundary
-                fallback={
-                  <SafeButton
-                    variant="feature"
-                    onClick={() => {}}
-                    className="w-full max-w-md"
-                  >
-                    <Gift size={20} />
-                    <span>Share & Get Premium Free</span>
-                  </SafeButton>
-                }
-              >
-                <ShareForPremiumButton
-                  variant="custom"
-                  onPremiumGranted={() => {
-                    alert(
-                      'You now have 24 hours of Premium access! Try our OSINT tools at /osint'
-                    );
-                  }}
-                  customTrigger={(openModal) => (
-                    <SpotlightButton
-                      variant="feature"
-                      size="lg"
-                      onClick={openModal}
-                      className="w-full max-w-md"
-                    >
-                      <Gift size={20} />
-                      <span>Share & Get Premium Free</span>
-                    </SpotlightButton>
-                  )}
-                />
-              </ErrorBoundary>
             </div>
           </div>
 
@@ -565,10 +414,7 @@ export default function LandingPage() {
           </motion.div>
         </div>
 
-        {/* Mode showcase + Trending feed */}
-        <ModesAndTrending />
-
-        {/* Features Section */}
+        {/* Features Section (Learn More scrolls here: three principles + cards) */}
         <div id="features" className="py-20 px-4">
           <div className="max-w-7xl mx-auto">
             <motion.div
@@ -699,51 +545,19 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {features.map((feature, index) => (
-                <EnhancedFeatureCard
-                  key={index}
-                  icon={feature.icon}
-                  title={feature.title}
-                  description={feature.description}
-                  gradient={feature.gradient}
-                />
-              ))}
-            </div>
+            {/* Three cards (spec #7) */}
+            <ThreeCards />
           </div>
         </div>
 
-        {/* CTA Section */}
-        <div className="py-20 px-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            className="max-w-4xl mx-auto"
-          >
-            <GlassCard className="p-12 text-center border-2 border-purple-500/30">
-              <h2 className="text-headline-large mb-6">
-                <span className="gradient-cyan-purple">
-                  Ready to see the truth?
-                </span>
-              </h2>
-              <p className="text-body-large text-gray-200 mb-8">
-                Join thousands discovering unbiased search results
-              </p>
-              <NeonButton
-                variant="primary"
-                size="lg"
-                onClick={() => navigate('/signup')}
-                className="group"
-              >
-                Get Started Free
-                <ChevronRight
-                  className="inline ml-2 group-hover:translate-x-1 transition-transform"
-                  size={20}
-                />
-              </NeonButton>
-            </GlassCard>
-          </motion.div>
+        {/* Mode showcase + Trending feed — bonus content beneath the core
+            spec flow (not one of the 9 numbered landing sections, kept
+            because the live trending feed is real backend-integrated work). */}
+        <ModesAndTrending />
+
+        {/* Get paid for the ads you see (spec #8) */}
+        <div id="rewards-cta" className="py-16 px-4">
+          <RewardsCTA />
         </div>
 
         {/* Inline ad — landing page footer. First-party house ad: the active
@@ -1166,7 +980,7 @@ export default function LandingPage() {
             <div className="flex justify-center gap-6 relative z-10">
               <button
                 onClick={() => {
-                  updatePillMode('red');
+                  stageLandingMode('red');
                   setShowWarning(false);
                 }}
                 className="px-8 py-4 bg-gradient-to-r from-red-600 to-red-800 text-white font-bold rounded-xl hover:from-red-500 hover:to-red-700 transition-all shadow-lg shadow-red-500/30"

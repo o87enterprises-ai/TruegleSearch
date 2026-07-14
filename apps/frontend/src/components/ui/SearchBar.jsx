@@ -806,6 +806,7 @@ export default function SearchBar({
   placeholder = 'Search without bias...',
   size = 'medium',
   className = '',
+  showSearchButton = true,
   showBiasedButton = false,
   onBiasedClick,
   showUnbiasedButton = false,
@@ -1192,22 +1193,36 @@ export default function SearchBar({
     }
   }, [value]);
 
+  // Vertically-expanding search bar: grow the textarea line-by-line as the
+  // user types (page content below reflows naturally since this is normal
+  // document flow, not an absolutely-positioned box), capped so very long
+  // pastes scroll internally instead of growing forever.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 240)}px`;
+  }, [localValue]);
+
   // Design System: Input sizes aligned to 8px spacing grid
   const sizeConfig = {
     large: {
-      height: 'h-14',           // 56px = 7 × 8px (increased for better touch targets)
+      boxHeightPx: 56,          // 56px = 7 × 8px; single-line height, textarea grows taller from here
+      padY: 'py-4',
       text: 'text-body-large',  // MD3 Body Large: 16px
       iconSize: 22,
       padding: 'pl-14 pr-14',
     },
     medium: {
-      height: 'h-12',           // 48px = 6 × 8px
+      boxHeightPx: 48,          // 48px = 6 × 8px
+      padY: 'py-3.5',
       text: 'text-body-medium', // MD3 Body Medium: 14px
       iconSize: 20,
       padding: 'pl-12 pr-12',
     },
     small: {
-      height: 'h-10',           // 40px = 5 × 8px
+      boxHeightPx: 40,          // 40px = 5 × 8px
+      padY: 'py-2.5',
       text: 'text-body-small',  // MD3 Body Small: 12px
       iconSize: 18,
       padding: 'pl-10 pr-10',
@@ -1277,13 +1292,19 @@ const handleChange = useCallback((e) => {
     executeSearch();
   }, [activePillMode, shouldSkipWarning, executeSearch]);
 
-  // Handle form submit
-  const handleSubmit = useCallback((e) => {
-    e.preventDefault();
+  // Shared submit gate — used by both form submit and the Enter key, since
+  // the search box is now a textarea (Enter no longer submits a <form> for free).
+  const trySubmit = useCallback(() => {
     if (localValue.trim()) {
       gatedSearch();
     }
   }, [localValue, gatedSearch]);
+
+  // Handle form submit
+  const handleSubmit = useCallback((e) => {
+    e.preventDefault();
+    trySubmit();
+  }, [trySubmit]);
 
   // Handle keyboard shortcuts including suggestion navigation
   const handleKeyDown = useCallback((e) => {
@@ -1305,17 +1326,26 @@ const handleChange = useCallback((e) => {
         setSelectedSuggestionIndex(prev =>
           prev < suggestions.length - 1 ? prev + 1 : 0
         );
+        return;
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSelectedSuggestionIndex(prev =>
           prev > 0 ? prev - 1 : suggestions.length - 1
         );
+        return;
       } else if (e.key === 'Enter' && selectedSuggestionIndex >= 0) {
         e.preventDefault();
         handleSuggestionClick(suggestions[selectedSuggestionIndex]);
+        return;
       }
     }
-  }, [hasValue, handleClear, showSuggestions, suggestions, selectedSuggestionIndex, handleSuggestionClick]);
+
+    // Enter submits; Shift+Enter inserts a newline like a normal textarea.
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      trySubmit();
+    }
+  }, [hasValue, handleClear, showSuggestions, suggestions, selectedSuggestionIndex, handleSuggestionClick, trySubmit]);
 
   // Calculate dynamic right padding based on icons
   const getRightPadding = () => {
@@ -1462,9 +1492,12 @@ const handleChange = useCallback((e) => {
             <div className="w-full h-full bg-neutral-900/95 rounded-2xl" />
           </div>
 
-          {/* Search Icon - Animated on focus */}
+          {/* Search Icon - Animated on focus. Anchored to a fixed pixel line
+              (the single-line center) rather than 50% of the box, so it stays
+              pinned near the first line as the textarea grows taller. */}
           <motion.div
-            className="absolute left-4 top-1/2 z-10 pointer-events-none"
+            className="absolute left-4 z-10 pointer-events-none"
+            style={{ top: config.boxHeightPx / 2 }}
             initial={false}
             animate={{
               y: '-50%',
@@ -1490,10 +1523,12 @@ const handleChange = useCallback((e) => {
             />
           </motion.div>
 
-          {/* Main Input */}
-          <input
+          {/* Main Input — a textarea so the bar can grow vertically line-by-line
+              as the user types (auto-resize effect above), instead of a fixed-
+              height single-line input. Enter submits; Shift+Enter is a newline. */}
+          <textarea
             ref={inputRef}
-            type="text"
+            rows={1}
             value={localValue}
             onChange={handleChange}
             onFocus={() => setIsFocused(true)}
@@ -1508,11 +1543,12 @@ const handleChange = useCallback((e) => {
             aria-describedby={showCharCount ? 'char-count' : undefined}
             className={`
               relative z-[5]
-              w-full ${config.height}
-              pl-12
+              w-full
+              pl-12 ${config.padY}
               bg-neutral-900/90 backdrop-blur-xl
               border-0
               rounded-2xl
+              resize-none overflow-y-auto
               text-neutral-50 font-medium tracking-wide
               placeholder:text-neutral-400 placeholder:font-normal
               placeholder:transition-opacity placeholder:duration-200
@@ -1527,6 +1563,9 @@ const handleChange = useCallback((e) => {
             style={{
               paddingRight: getRightPadding(),
               letterSpacing: '0.025em',
+              minHeight: `${config.boxHeightPx}px`,
+              maxHeight: '240px',
+              lineHeight: '1.5',
               // Mode-themed glow. Values are stored in Tailwind underscore format
               // (shared with the className maps); convert to real CSS here so we
               // apply it as an inline style instead of a dynamic arbitrary shadow
@@ -1540,8 +1579,13 @@ const handleChange = useCallback((e) => {
             }}
           />
 
-          {/* Right Side Actions Container */}
-          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 z-10">
+          {/* Right Side Actions Container — anchored to the same fixed
+              single-line center as the search icon so it doesn't slide to the
+              middle of a taller box once the textarea grows. */}
+          <div
+            className="absolute right-4 flex items-center gap-2 z-10"
+            style={{ top: config.boxHeightPx / 2, transform: 'translateY(-50%)' }}
+          >
             {/* Loading Indicator */}
             <AnimatePresence>
               {isLoading && (
@@ -1810,9 +1854,13 @@ const handleChange = useCallback((e) => {
         />
       )}
 
-      {/* Action Buttons Below Search Bar */}
+      {/* Action Buttons Below Search Bar — hidden entirely when nothing is
+          configured to render here (e.g. the landing page, which relies on
+          Enter to submit and shows no buttons below the bar). */}
+      {(showSearchButton || customActionButtons || showBiasedButton || showUnbiasedButton) && (
       <div className="flex items-center justify-center gap-3 mt-6">
         {/* Primary Search Button */}
+        {showSearchButton && (
         <motion.button
           type="button"
           onClick={() => {
@@ -1853,6 +1901,7 @@ const handleChange = useCallback((e) => {
           )}
           <span>Search</span>
         </motion.button>
+        )}
 
         {/* Custom Action Buttons */}
         {customActionButtons}
@@ -1917,6 +1966,7 @@ const handleChange = useCallback((e) => {
           )}
         </AnimatePresence>
       </div>
+      )}
 
       {/* Red Pill Warning Modal */}
       <AnimatePresence>
