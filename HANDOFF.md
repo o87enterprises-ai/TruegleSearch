@@ -1,5 +1,46 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-07-12. Supersedes all prior handoff docs._
+_Last updated: 2026-07-13. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ SESSION LOG 2026-07-13 — Infra hygiene + brand + redesign kickoff
+
+**Shipped (all on branch + main):**
+- **Committed env manifests** `apps/backend/.env.example` + `apps/frontend/.env.example`
+  (secret-free, force-tracked via .gitignore negation) — the single source of
+  truth for every env var, so we stop re-deriving them. `DEV-SETUP.md` (Neon dev
+  branch / local PG, fill .env once, F&F soft-launch via preview deploys).
+  `docs/NEON-TASKS.md` = standalone checklist for the DEFERRED prod tasks.
+- **Session-start auto-load:** `.claude/session-start.sh` now injects the memory
+  digest + full `ponytail` + `executive-summary` (Mission & Values only) every
+  session. settings.json calls the script.
+- **Perspectives gate:** BASE_IDENTITY + Modelfile now answer simple/factual/
+  navigational queries DIRECTLY; multi-perspective format fires ONLY for
+  genuinely contested topics or when asked. PROMPT_VERSION 2026-07-13.
+- **Final UI/UX + brand direction captured** in `docs/UI-REDESIGN-SPEC.md`
+  (authoritative). Tagline: "TrueGLE. For the questions most search engines
+  won't answer." Chat is the DEFAULT; search is power-user. Red mode renaming to
+  "Rabbit Hole". Pills: black=chat/vs-TrueGLE, white=verbose, orange=rewards,
+  yellow=transcripts. Recommended AGAINST the forced full-screen rewards-ad
+  background (use opt-in "Watch an ad now" instead).
+- **Redesign phase 'Landing → default chat' — slice 1 shipped:** /chat shows the
+  new "TrueGLE chat" logo (TruegleLogo variant='chat', truegle-chat.png,
+  mixBlendMode:screen). Silent transport: landing query (no explicit search pill)
+  → /chat?q=… which auto-sends once on arrival; explicit pill → /search. Logos
+  are ~1-1.6MB each — optimize before launch (parked in memory).
+
+**Deferred / needs its own focused pass:**
+- Safesearch 500 (traceId 2b498ff7…) — needs reproduction against the harness,
+  not a blind patch. Mic/speech — real Web Speech API work, belongs in the
+  search-bar phase.
+- Prod migrations 008+009 + DB password rotation — deferred to pre-ship (user's
+  call). Steps in docs/NEON-TASKS.md. **Note: Neon DB password was exposed in
+  chat — rotate before launch.**
+
+**Next up (this phase, per UI-REDESIGN-SPEC.md build sequence):** landing visual
+reorg (chat-mode row below search bar, vs.TrueGLE/verbose row, 3 cards, CTA/
+cookies), vertically-expanding search bar, /chat flow rework (disappearing input
+→ loading → reappear, footer order: chat box → feedback → token meter).
 
 ---
 
