@@ -162,6 +162,22 @@
         "body": "Dev never touches prod. Use Neon 'dev' BRANCH (free, isolated, mirrors prod schema) OR local Postgres; fill .env once from .env.example. Soft launch F&F via Vercel/CF preview deploys pointed at the dev branch. Prod env vars set ONCE at launch. Full guide: DEV-SETUP.md. Official launch target ~2027.",
         "ts": "2026-07-13",
         "created": "2026-07-13"
+      },
+      "brand-tagline": {
+        "Id": "brand-tagline",
+        "Type": "decision",
+        "Label": "Brand tagline + principles",
+        "body": "Tagline: 'TrueGLE. For the questions most search engines won't answer.' Always show principles: No bias / No tracking / No censorship. Footer: Truegle Co. (TM) 2026.",
+        "ts": "2026-07-14",
+        "created": "2026-07-14"
+      },
+      "ui-redesign": {
+        "Id": "ui-redesign",
+        "Type": "decision",
+        "Label": "Final UI/UX redesign (chat-default)",
+        "body": "Full spec in docs/UI-REDESIGN-SPEC.md. Chat is DEFAULT (landing=chat entry, black pill); search is power-user. Uniform color-tinted search bar across all search pages; OSINT + rewards + extract are layout exceptions. Rename red mode Alternative->'Rabbit Hole'. New pills: black=chat/vs-TrueGLE, white=verbose, orange=rewards, yellow=transcripts. Build in phases; bugs first.",
+        "ts": "2026-07-14",
+        "created": "2026-07-14"
       }
     },
     "entity": {
@@ -236,6 +252,15 @@
         "status": "done",
         "ts": "2026-07-12",
         "created": "2026-07-12"
+      },
+      "redesign-build": {
+        "Id": "redesign-build",
+        "Type": "thread",
+        "Label": "Execute UI/UX redesign in phases",
+        "body": "Per docs/UI-REDESIGN-SPEC.md build sequence. Phase 1 = bugs (safesearch 500, perspectives-only-when-needed, remove stock-photo ads, sticky feedback footer). Then brand, shared search bar, landing->chat, chat flow, per-page, rewards, extract/learn-more/hamburger, mic+response-ads.",
+        "status": "open",
+        "ts": "2026-07-14",
+        "created": "2026-07-14"
       }
     }
   },
@@ -265,5 +290,5 @@
       }
     }
   },
-  "updated": "2026-07-13"
+  "updated": "2026-07-14"
 }
