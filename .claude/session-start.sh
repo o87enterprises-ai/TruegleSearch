@@ -14,13 +14,18 @@ echo
 node .claude/memory/mem.mjs digest 2>/dev/null \
   || echo '(agent memory unavailable — read HANDOFF.md top + CLAUDE.md PERMANENT FACTS before acting)'
 
-# 2. Always-in-force company skills, loaded in full so their rules are active
-#    without waiting to be invoked. Trim this list to save tokens if desired.
-for skill in ponytail executive-summary; do
-  f=".claude/skills/${skill}/SKILL.md"
-  if [ -f "$f" ]; then
-    echo
-    echo "===== /${skill} (auto-loaded, always in force) ====="
-    cat "$f"
-  fi
-done
+# 2. ponytail — engineering discipline, loaded IN FULL (actionable every session).
+if [ -f ".claude/skills/ponytail/SKILL.md" ]; then
+  echo
+  echo "===== /ponytail (auto-loaded, always in force) ====="
+  cat ".claude/skills/ponytail/SKILL.md"
+fi
+
+# 3. executive-summary — only the Mission + Values top (rarely changes; the rest
+#    is on-demand via /executive-summary). Prints up to the first '## ' section
+#    after Values, i.e. stops before '## Product blueprint'.
+if [ -f ".claude/skills/executive-summary/SKILL.md" ]; then
+  echo
+  echo "===== /executive-summary — Mission & Values (rest: run /executive-summary) ====="
+  awk '/^## Product blueprint/{exit} {print}' ".claude/skills/executive-summary/SKILL.md"
+fi
