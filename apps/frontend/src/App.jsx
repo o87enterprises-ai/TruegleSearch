@@ -155,7 +155,11 @@ const App = () => {
                       <AdScriptLoader />
                       */}
                       <FreemiumTokenBar />
-                      <CookieConsent />
+                      {/* TODO(landing-flow): re-enable once the pill/chat mode
+                          flow is finalized and we've decided where the ads
+                          opt-in prompt should live (was auto-popping over the
+                          landing controls mid-iteration). */}
+                      {/* <CookieConsent /> */}
                       <AppContent />
                     </ToastProvider>
                   </TutorialProvider>

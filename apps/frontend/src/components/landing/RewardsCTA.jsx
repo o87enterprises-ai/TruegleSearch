@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Gift } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-// Spec item #8: "Get paid for the ads you see" CTA. The cookie banner
-// (CookieConsent.jsx, mounted globally) already auto-surfaces on first visit
-// and covers the "explains procedure + options" requirement — this section is
-// the on-page conversion prompt that sends an interested visitor to sign up.
+// Spec item #8: "Get paid for the ads you see" CTA — the on-page conversion
+// prompt that sends an interested visitor to sign up. (CookieConsent.jsx,
+// which used to auto-surface the "explains procedure + options" cookie
+// banner, is temporarily disabled in App.jsx while the landing flow is
+// being finalized — re-wire the two once modal placement is decided.)
 export default function RewardsCTA() {
   const navigate = useNavigate();
   const [dismissed, setDismissed] = useState(false);

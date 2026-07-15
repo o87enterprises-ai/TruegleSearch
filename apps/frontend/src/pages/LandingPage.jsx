@@ -17,6 +17,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import ModesAndTrending from '../components/landing/ModesAndTrending';
 import ChatModeRow from '../components/landing/ChatModeRow';
+import PillModeRow from '../components/landing/PillModeRow';
 import VsToggleRow from '../components/landing/VsToggleRow';
 import ThreeCards from '../components/landing/ThreeCards';
 import RewardsCTA from '../components/landing/RewardsCTA';
@@ -59,57 +60,69 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Chat mode row (spec #4): black/blue/green/red stage a mode for the next
-  // Enter press (black = chat default, blue/green/red = a /search flavor);
-  // purple/ocean/orange/yellow jump straight to their page on click.
-  const [landingMode, setLandingMode] = useState(() => {
-    return localStorage.getItem('truegle_landing_mode') || 'black';
+  // Pill Mode (spec #2, ABOVE the search bar): the SEARCH mode selector.
+  // Single-select — one active at a time. Black = Chat, the default state,
+  // no navigation. Every other color navigates immediately when clicked.
+  const [pillMode, setPillMode] = useState(() => {
+    return localStorage.getItem('truegle_pill_mode_pref') || 'black';
   });
   const [pillToast, setPillToast] = useState(null); // { label, sub, color }
 
-  const MODE_TOAST_CONFIG = {
-    black:  { label: 'Chat',        sub: 'TrueGLE answers directly',        color: 'from-neutral-200 to-neutral-400', dot: 'bg-neutral-200' },
-    blue:   { label: 'Mainstream',  sub: 'Unbiased, standard search',       color: 'from-blue-500 to-blue-700',       dot: 'bg-blue-400' },
-    green:  { label: 'Simplified',  sub: 'Raw results — no smart features', color: 'from-green-500 to-emerald-700',   dot: 'bg-green-400' },
-    red:    { label: 'Rabbit Hole', sub: 'Full spectrum — all perspectives', color: 'from-red-600 to-red-800',        dot: 'bg-red-400' },
+  const PILL_TOAST_CONFIG = {
+    black:  { label: 'Chat',             sub: 'TrueGLE answers directly',               color: 'from-neutral-200 to-neutral-400', dot: 'bg-neutral-200' },
+    blue:   { label: 'Mainstream',        sub: 'Unbiased, standard search',              color: 'from-blue-500 to-blue-700',       dot: 'bg-blue-400' },
+    green:  { label: 'Simplified',        sub: 'Raw results — no smart features',        color: 'from-green-500 to-emerald-700',   dot: 'bg-green-400' },
+    red:    { label: 'Rabbit Hole',       sub: 'Full spectrum — all perspectives',       color: 'from-red-600 to-red-800',         dot: 'bg-red-400' },
+    purple: { label: 'Perspectives',      sub: 'Multiple viewpoints, skeptical framing', color: 'from-purple-500 to-violet-700',   dot: 'bg-purple-400' },
+    ocean:  { label: 'Privacy / OSINT',   sub: 'Digital investigation lens',             color: 'from-cyan-500 to-teal-700',       dot: 'bg-cyan-400' },
+    orange: { label: 'Rewards',           sub: 'Earn a share of ad revenue',             color: 'from-orange-500 to-amber-700',    dot: 'bg-orange-400' },
+    yellow: { label: 'Transcripts',       sub: 'Extract & transcribe',                   color: 'from-yellow-400 to-amber-600',    dot: 'bg-yellow-300' },
   };
 
-  const stageLandingMode = (mode) => {
-    setLandingMode(mode);
-    localStorage.setItem('truegle_landing_mode', mode);
-    const cfg = MODE_TOAST_CONFIG[mode];
+  const goSearch = (mode) => {
+    navigate(searchQuery.trim() ? `/search?mode=${mode}&q=${encodeURIComponent(searchQuery)}` : `/search?mode=${mode}`);
+  };
+
+  // Pill Mode row click handler. Black just sets state (stay on landing, in
+  // Chat). Orange/Yellow always jump straight to their page (no chat
+  // equivalent). Everything else navigates immediately to /search?mode=X —
+  // no warning gate on red for now, see HANDOFF for the modals-disabled note.
+  const handlePillModeSelect = (id) => {
+    setPillMode(id);
+    localStorage.setItem('truegle_pill_mode_pref', id);
+    const cfg = PILL_TOAST_CONFIG[id];
     if (cfg) {
       setPillToast(cfg);
       setTimeout(() => setPillToast(null), 2200);
     }
-  };
-
-  const shouldSkipRedWarning = () => {
-    try {
-      return localStorage.getItem('truegle_skip_redpill_warning') === 'true';
-    } catch {
-      return false;
-    }
-  };
-
-  // Chat mode row click handler — matches the pill → page map in the spec.
-  const handleModeRowSelect = (id) => {
+    if (id === 'black') return;
     if (id === 'orange') { navigate('/rewards'); return; }
     if (id === 'yellow') { navigate('/extract'); return; }
-    if (id === 'purple') {
-      navigate(searchQuery.trim() ? `/search?mode=purple&q=${encodeURIComponent(searchQuery)}` : '/search?mode=purple');
-      return;
-    }
-    if (id === 'ocean') {
-      navigate(searchQuery.trim() ? `/search?mode=ocean&q=${encodeURIComponent(searchQuery)}` : '/search?mode=ocean');
-      return;
-    }
-    if (id === 'red' && !shouldSkipRedWarning()) {
-      setShowWarning(true);
-      return;
-    }
-    stageLandingMode(id);
+    goSearch(id);
   };
+
+  // Chat Mode row (spec #4, below the search bar): the CHAT lens selector.
+  // Multi-select — mirrors TruegleChat.jsx's own toggleMode/modes exactly,
+  // and is persisted to the SAME localStorage keys TruegleChat reads on
+  // mount, so whatever's staged here carries silently into /chat.
+  const [chatModes, setChatModes] = useState(() => {
+    try {
+      const raw = localStorage.getItem('truegle_modes_pref');
+      const arr = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(arr) && arr.length) return arr;
+    } catch { /* fall through */ }
+    return ['blue'];
+  });
+  const toggleChatMode = (id) => {
+    setChatModes((prev) => {
+      if (prev.includes(id)) return prev.length === 1 ? prev : prev.filter((x) => x !== id);
+      return [...prev, id];
+    });
+  };
+  useEffect(() => {
+    localStorage.setItem('truegle_modes_pref', JSON.stringify(chatModes));
+    localStorage.setItem('truegle_mode_pref', chatModes[0]);
+  }, [chatModes]);
 
   // vs. TrueGLE (Null-Prime dual-audit) + Verbose — same localStorage keys
   // TruegleChat.jsx reads on mount, so a preference set here carries silently
@@ -120,9 +133,8 @@ export default function LandingPage() {
   useEffect(() => { localStorage.setItem('truegle_verbose_mode', String(verboseMode)); }, [verboseMode]);
 
   // Backwards-compat derived value for JSX that used isRedPillMode
-  const isRedPillMode = landingMode === 'red';
+  const isRedPillMode = pillMode === 'red';
 
-  const [showWarning, setShowWarning] = useState(false);
   const [showPermissions, setShowPermissions] = useState(false);
   const [permissionType, setPermissionType] = useState(null);
   const [showMicrophoneInterface, setShowMicrophoneInterface] = useState(false);
@@ -168,46 +180,6 @@ export default function LandingPage() {
 
     return () => clearInterval(interval);
   }, [showMicrophoneInterface]);
-
-  // Electric border animation for warning card
-  useEffect(() => {
-    if (!showWarning) return;
-
-    const timeoutId = setTimeout(() => {
-      const card = document.getElementById('warning-card');
-      if (!card) return;
-
-      // Continuous animation with JavaScript for more control
-      let frameCount = 0;
-      const animateBorder = () => {
-        frameCount++;
-        // Create more dynamic electric effect
-        const intensity = Math.sin(frameCount * 0.2) * 0.3 + 0.7;
-        const glowSize = 15 + Math.sin(frameCount * 0.3) * 5;
-        const hueShift = (frameCount * 2) % 360;
-
-        // Update the box shadow for electric border effect
-        card.style.boxShadow = `
-          0 0 ${glowSize}px hsl(${hueShift}, 100%, 65%, ${0.5 * intensity}),
-          inset 0 0 ${glowSize / 2}px hsl(${hueShift}, 100%, 65%, ${0.2 * intensity})
-        `;
-
-        if (showWarning) {
-          requestAnimationFrame(animateBorder);
-        }
-      };
-
-      const animationId = requestAnimationFrame(animateBorder);
-
-      return () => {
-        cancelAnimationFrame(animationId);
-      };
-    }, 10); // Small delay to ensure DOM is updated
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [showWarning]);
 
   return (
     <div
@@ -296,6 +268,11 @@ export default function LandingPage() {
                 is the visible brand treatment. */}
             <h1 className="sr-only">Truegle — Unbiased, Transparent &amp; Secure Search</h1>
 
+            {/* Pill Mode row (search mode selector) — ABOVE the search bar */}
+            <div className="mb-3">
+              <PillModeRow activeMode={pillMode} onSelect={handlePillModeSelect} />
+            </div>
+
             {/* Search Bar */}
             <div className="w-full max-w-2xl mx-auto px-4 mb-2 relative">
               {/* Mode toast notification */}
@@ -329,28 +306,28 @@ export default function LandingPage() {
                 searchIconColor="text-green-500/80"
                 showSearchButton={false}
                 onSearch={() => {
-                  // Chat is the default: black mode (no explicit pill) silently
-                  // routes to /chat, where TrueGLE answers directly. Blue/green/red
-                  // stage a /search mode instead (purple/ocean/orange/yellow jump
-                  // straight to their page from the mode row, never staged here).
+                  // Pill Mode Black = Chat: land on /chat (chatModes/nephesh/
+                  // verbose are already live in localStorage via their sync
+                  // effects — TruegleChat reads them fresh on mount). Any
+                  // other Pill Mode navigates straight to that /search page.
                   const q = searchQuery.trim();
-                  if (landingMode === 'black') {
+                  if (pillMode === 'black') {
                     navigate(q ? `/chat?q=${encodeURIComponent(q)}` : '/chat');
                   } else {
-                    navigate(q ? `/search?q=${encodeURIComponent(q)}&mode=${landingMode}` : `/search?mode=${landingMode}`);
+                    navigate(q ? `/search?q=${encodeURIComponent(q)}&mode=${pillMode}` : `/search?mode=${pillMode}`);
                   }
                 }}
                 placeholder={
-                  landingMode === 'red' ? 'Explore the Rabbit Hole...' :
-                  landingMode === 'green' ? 'Raw search — no smart features...' :
+                  pillMode === 'red' ? 'Explore the Rabbit Hole...' :
+                  pillMode === 'green' ? 'Raw search — no smart features...' :
                   'Search Truegle...'
                 }
                 size="large"
               />
             </div>
 
-            {/* Chat mode selection row — directly below the search bar */}
-            <ChatModeRow activeMode={landingMode} onSelect={handleModeRowSelect} />
+            {/* Chat Mode row (multi-select chat lenses) — directly below the search bar */}
+            <ChatModeRow activeModes={chatModes} onToggle={toggleChatMode} />
 
             {/* vs. TrueGLE / Verbose toggles */}
             <VsToggleRow
@@ -938,61 +915,6 @@ export default function LandingPage() {
                 className="px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-800 text-white font-bold rounded-xl hover:from-gray-500 hover:to-gray-700 transition-all"
               >
                 CLOSE
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Warning Card for Red Pill Mode */}
-      {showWarning && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div
-            id="warning-card"
-            className="relative w-full max-w-2xl bg-black p-8 rounded-2xl"
-            style={{
-              border: '2px solid',
-              borderImageSlice: 1,
-              borderImageSource:
-                'linear-gradient(45deg, #EF4444, #F87171, #FCA5A5)',
-            }}
-          >
-            {/* Electric border effect elements */}
-            <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-red-600 via-pink-500 to-red-600 blur opacity-75 animate-pulse"></div>
-            <div className="absolute inset-0 rounded-2xl bg-black"></div>
-
-            <h2 className="text-3xl font-bold text-red-500 mb-6 text-center relative z-10">
-              RED PILL WARNING!
-            </h2>
-
-            <p className="text-white text-lg mb-4 text-center relative z-10">
-              Here lies the infamous "Rabbit Hole." Where it ends, uncertain.
-              You will see the unseen, discover hidden secrets, and you may lose
-              contact with your identity in the process. Would you like to
-              proceed?*
-            </p>
-
-            <p className="text-white text-sm mb-8 text-center relative z-10 italic">
-              (Truegle Coprp. is not responsible for the state of your mental
-              health if you decide to continue.)
-            </p>
-
-            <div className="flex justify-center gap-6 relative z-10">
-              <button
-                onClick={() => {
-                  stageLandingMode('red');
-                  setShowWarning(false);
-                }}
-                className="px-8 py-4 bg-gradient-to-r from-red-600 to-red-800 text-white font-bold rounded-xl hover:from-red-500 hover:to-red-700 transition-all shadow-lg shadow-red-500/30"
-              >
-                YES
-              </button>
-
-              <button
-                onClick={() => setShowWarning(false)}
-                className="px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-bold rounded-xl hover:from-blue-500 hover:to-blue-700 transition-all shadow-lg shadow-blue-500/30"
-              >
-                NO
               </button>
             </div>
           </div>
