@@ -273,10 +273,19 @@
         "Id": "redesign-build",
         "Type": "thread",
         "Label": "Execute UI/UX redesign in phases",
-        "body": "Per docs/UI-REDESIGN-SPEC.md build sequence. Phase 1 = bugs (safesearch 500, perspectives-only-when-needed, remove stock-photo ads, sticky feedback footer). Then brand, shared search bar, landing->chat, chat flow, per-page, rewards, extract/learn-more/hamburger, mic+response-ads.",
+        "body": "Per docs/UI-REDESIGN-SPEC.md build sequence. Phase 1 (bugs) + phase 2 (brand) done previously. Phase 3/4/5 SHIPPED 2026-07-15 on branch claude/landing-chat-redesign-next-rbla1r (pushed, not merged): vertically-expanding search bar (textarea auto-grow, all pages via SearchBar.jsx), landing reorg (ChatModeRow 8-pill/VsToggleRow/ThreeCards/RewardsCTA per spec), /chat disappear-reappear input flow. Remaining: phase 6 per-page uniform search-bar rollout (search/red/purple/osint), OSINT multi-select investigation row, phase 7 rewards page (orange glassmorphism+live meters), phase 8 extract reskin+Learn More page+hamburger nav, phase 9 mic/speech+response-end banner ads.",
         "status": "open",
-        "ts": "2026-07-14",
+        "ts": "2026-07-15",
         "created": "2026-07-14"
+      },
+      "landing-redesign-slice3": {
+        "Id": "landing-redesign-slice3",
+        "Type": "thread",
+        "Label": "Landing/chat redesign slice 3 shipped",
+        "body": "Vertically-expanding search bar (textarea auto-grow), full landing reorg (ChatModeRow 8-pill, VsToggleRow, ThreeCards, RewardsCTA) per UI-REDESIGN-SPEC.md, and /chat disappear-reappear input flow. Branch claude/landing-chat-redesign-next-rbla1r, pushed not merged. Next: per-page uniform search-bar rollout (search/red/purple/osint), OSINT multi-select row, rewards page, extract reskin, Learn More page, hamburger nav, response-end ads.",
+        "status": "done",
+        "ts": "2026-07-15",
+        "created": "2026-07-15"
       }
     }
   },
@@ -306,5 +315,5 @@
       }
     }
   },
-  "updated": "2026-07-14"
+  "updated": "2026-07-15"
 }

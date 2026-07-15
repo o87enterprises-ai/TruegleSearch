@@ -1,5 +1,64 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-07-13. Supersedes all prior handoff docs._
+_Last updated: 2026-07-15. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ SESSION LOG 2026-07-15 — Redesign: expanding search bar + landing reorg + /chat flow
+
+**Shipped (branch `claude/landing-chat-redesign-next-rbla1r`, pushed, not merged):**
+- **Vertically-expanding search bar:** `SearchBar.jsx`'s `<input>` is now a
+  `<textarea>` that auto-grows line-by-line as you type (min 56/48/40px by
+  size, caps at 240px then scrolls internally). Search icon + right-side
+  icons (clear/mic/camera/file) anchored to a fixed top offset instead of
+  50%, so they stay pinned near the first line instead of drifting to the
+  box's vertical center as it grows. Enter submits, Shift+Enter newlines.
+  New `showSearchButton` prop (default `true`, back-compat) lets a caller
+  hide the button row below the bar — landing passes `false` since the spec
+  bans search buttons below the bar there. Same auto-grow technique applied
+  to TruegleChat's chat box.
+- **Landing page reorg** (`LandingPage.jsx` + new `components/landing/`:
+  `ChatModeRow.jsx`, `VsToggleRow.jsx`, `ThreeCards.jsx`, `RewardsCTA.jsx`):
+  8-pill mode row (black=Chat default/blue/green/red/purple/ocean/orange/
+  yellow) directly below the search bar; vs.TrueGLE + Feeling-chat-e? toggle
+  row (shares TruegleChat's `truegle_nephesh_mode`/`truegle_verbose_mode`
+  localStorage keys — no query params needed, preference carries silently
+  into the first /chat visit); compact "Get paid for the ads you see! Click
+  here for Truegle Rewards!" teaser that scrolls to a new `RewardsCTA` card
+  (Sign up/No thanks) near the footer; `ThreeCards` (TrueGLE Chat / vs.
+  Grand Logic Equation / Chat-Search) replaces the old 8-feature grid that
+  had drifted from spec. Red pill click reuses the page's own (previously
+  dead/unwired) Rabbit Hole warning modal. `ModesAndTrending` (mode showcase
+  + live trending feed) kept as bonus content beneath the core spec flow —
+  not deleted, just not one of the 9 numbered sections.
+  `modeTheme.js` gained `black`/`orange`/`yellow` entries in the shared
+  `MODE_COLORS`/`MODE_LABELS` maps for the new pills.
+- **`/chat` flow rework:** mode-selector pills + input are no longer pinned
+  top/bottom — on send they're replaced by the loading indicator, then
+  reappear directly below the finalized response (mode row above input, for
+  a quick lens switch), matching the spec's disappear→loading→reappear
+  sequence.
+
+**Deliberate scope decisions (asked mid-session, defaults used where the
+question tool failed to return):**
+- **`/chat` stays ad-free** — the spec describes ad slots around the chat
+  box, but the file has an explicit "deliberately no ads" comment predating
+  this session. Didn't override a prior deliberate call inside a layout
+  slice; ad placement on /chat is its own monetization decision for later.
+- **Skipped the spec's "footer order" token-meter/feedback-banner bullet** —
+  grepped the whole frontend, neither component exists anywhere in this
+  codebase iteration. Nothing to reorder; note is stale.
+
+**Verified:** `vite build` clean after each slice; Playwright/Chromium
+click-through on both pages (mode pill clicks route correctly per the pill→
+page map, red pill warning modal fires and stages the mode on confirm,
+Enter-to-search routes chat-default vs. staged /search?mode=, chat send
+cycle visually confirmed disappear/reappear). No console/page errors.
+
+**Next up (per UI-REDESIGN-SPEC.md build sequence):** per-page application
+of the uniform search-bar system (search/red/purple/osint), OSINT's
+multi-select investigation-class row, rewards page (orange, glassmorphism +
+live meters), extract page reskin, Learn More page, global hamburger nav,
+response-end banner ads.
 
 ---
 
