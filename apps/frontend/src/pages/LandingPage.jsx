@@ -79,14 +79,10 @@ export default function LandingPage() {
     yellow: { label: 'Transcripts',       sub: 'Extract & transcribe',                   color: 'from-yellow-400 to-amber-600',    dot: 'bg-yellow-300' },
   };
 
-  const goSearch = (mode) => {
-    navigate(searchQuery.trim() ? `/search?mode=${mode}&q=${encodeURIComponent(searchQuery)}` : `/search?mode=${mode}`);
-  };
-
-  // Pill Mode row click handler. Black just sets state (stay on landing, in
-  // Chat). Orange/Yellow always jump straight to their page (no chat
-  // equivalent). Everything else navigates immediately to /search?mode=X —
-  // no warning gate on red for now, see HANDOFF for the modals-disabled note.
+  // Pill Mode click handler — cycling the single pill only ever changes
+  // state, it never navigates. Navigation happens when the query is actually
+  // submitted (see the search bar's onSearch below), honoring whichever
+  // mode is active at that moment.
   const handlePillModeSelect = (id) => {
     setPillMode(id);
     localStorage.setItem('truegle_pill_mode_pref', id);
@@ -95,10 +91,6 @@ export default function LandingPage() {
       setPillToast(cfg);
       setTimeout(() => setPillToast(null), 2200);
     }
-    if (id === 'black') return;
-    if (id === 'orange') { navigate('/rewards'); return; }
-    if (id === 'yellow') { navigate('/extract'); return; }
-    goSearch(id);
   };
 
   // Chat Mode row (spec #4, below the search bar): the CHAT lens selector.
@@ -268,7 +260,7 @@ export default function LandingPage() {
                 is the visible brand treatment. */}
             <h1 className="sr-only">Truegle — Unbiased, Transparent &amp; Secure Search</h1>
 
-            {/* Pill Mode row (search mode selector) — ABOVE the search bar */}
+            {/* Pill Mode (single cycling pill, search mode selector) — ABOVE the search bar */}
             <div className="mb-3">
               <PillModeRow activeMode={pillMode} onSelect={handlePillModeSelect} />
             </div>
@@ -295,7 +287,7 @@ export default function LandingPage() {
                 onChange={(e) =>
                   setSearchQuery(typeof e === 'string' ? e : e.target.value)
                 }
-                showFilters={true}
+                showFilters={pillMode !== 'black'}
                 filters={filters}
                 onFiltersChange={setFilters}
                 compactFilters={false}
@@ -306,13 +298,19 @@ export default function LandingPage() {
                 searchIconColor="text-green-500/80"
                 showSearchButton={false}
                 onSearch={() => {
-                  // Pill Mode Black = Chat: land on /chat (chatModes/nephesh/
-                  // verbose are already live in localStorage via their sync
-                  // effects — TruegleChat reads them fresh on mount). Any
-                  // other Pill Mode navigates straight to that /search page.
+                  // Navigation happens here, on actual submit — honoring
+                  // whichever Pill Mode is active. Black = Chat (chatModes/
+                  // nephesh/verbose are already live in localStorage via their
+                  // sync effects — TruegleChat reads them fresh on mount).
+                  // Orange/Yellow have no query concept, so they just jump to
+                  // their page. Everything else -> /search?mode=X.
                   const q = searchQuery.trim();
                   if (pillMode === 'black') {
                     navigate(q ? `/chat?q=${encodeURIComponent(q)}` : '/chat');
+                  } else if (pillMode === 'orange') {
+                    navigate('/rewards');
+                  } else if (pillMode === 'yellow') {
+                    navigate('/extract');
                   } else {
                     navigate(q ? `/search?q=${encodeURIComponent(q)}&mode=${pillMode}` : `/search?mode=${pillMode}`);
                   }
