@@ -227,8 +227,18 @@ export default function TruegleChat() {
   const [loading, setLoading] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const endRef = useRef(null);
+  const inputRef = useRef(null);
   const isAuthed = !!localStorage.getItem('truegle_token');
   const accent = getModeAccent(primaryMode);
+
+  // Vertically-expanding chat box — same technique as the landing search bar:
+  // grow line-by-line as the query is typed, capped before it scrolls internally.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 240)}px`;
+  }, [input]);
 
   // Toggle a mode on/off, but never let the selection go empty.
   const toggleMode = (m) => {
@@ -358,6 +368,77 @@ export default function TruegleChat() {
     }
   }, [searchParams]); // one-shot guarded by autoSentRef; deliberately params-only
 
+  // Pill mode row — multi-select: tap to toggle each flow on/off. With 2+
+  // active, Nephesh blends the lenses into one answer. The first selected
+  // (subtle ring) is "primary" and drives the theme. Rendered inline, right
+  // above wherever the input currently sits (see the disappear/reappear flow
+  // below), rather than pinned to the top of the page.
+  const modesRow = (
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="flex items-center gap-2 flex-wrap justify-center">
+        {MODES.map((m) => {
+          const active = modes.includes(m);
+          const isPrimary = active && primaryMode === m;
+          return (
+            <button
+              key={m}
+              type="button"
+              onClick={() => toggleMode(m)}
+              aria-pressed={active}
+              title={active ? `${MODE_LABELS[m]} active — tap to remove` : `Add ${MODE_LABELS[m]} lens`}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                active
+                  ? 'text-white'
+                  : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'
+              } ${isPrimary ? 'ring-1 ring-white/40' : ''}`}
+              style={active ? { backgroundColor: `${MODE_COLORS[m]}33`, borderColor: `${MODE_COLORS[m]}80` } : undefined}
+            >
+              {MODE_LABELS[m]}
+            </button>
+          );
+        })}
+      </div>
+      {modes.length > 1 && (
+        <div className="text-[11px] text-white/40">
+          Blending {modes.length} lenses — <span className="text-white/60">{modes.map((m) => MODE_LABELS[m]).join(' + ')}</span>
+        </div>
+      )}
+    </div>
+  );
+
+  // The input box itself — extracted so it can render inline in the thread
+  // (appearing directly below the latest response) instead of pinned to the
+  // page bottom.
+  const chatInputBox = (
+    <div className={`flex items-end gap-2 rounded-2xl border ${accent.iframeBorder} bg-white/5 backdrop-blur-xl p-2`}>
+      <textarea
+        ref={inputRef}
+        rows={1}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+          }
+        }}
+        placeholder="Ask Truegle anything..."
+        style={{ minHeight: '40px', maxHeight: '240px' }}
+        className="flex-1 bg-transparent resize-none overflow-y-auto outline-none text-white placeholder-white/30 text-sm p-2"
+      />
+      <button
+        type="button"
+        onClick={handleSend}
+        disabled={!input.trim() || loading}
+        className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+          input.trim() && !loading ? `${accent.link} bg-white/10 hover:bg-white/20` : 'text-white/20 bg-white/5 cursor-not-allowed'
+        }`}
+      >
+        <Send size={16} />
+      </button>
+    </div>
+  );
+
   return (
     // h-[100dvh] (dynamic viewport height) instead of min-h-screen: when the
     // mobile keyboard opens, dvh shrinks with the visible area so the input row
@@ -389,38 +470,6 @@ export default function TruegleChat() {
         >
           <TruegleLogo variant="chat" size="medium" animated />
         </motion.div>
-
-        {/* Pill mode row — multi-select: tap to toggle each flow on/off. With
-            2+ active, Nephesh blends the lenses into one answer. The first
-            selected (subtle ring) is "primary" and drives the theme. */}
-        <div className="flex items-center gap-2 mb-2 flex-wrap justify-center flex-shrink-0">
-          {MODES.map((m) => {
-            const active = modes.includes(m);
-            const isPrimary = active && primaryMode === m;
-            return (
-              <button
-                key={m}
-                type="button"
-                onClick={() => toggleMode(m)}
-                aria-pressed={active}
-                title={active ? `${MODE_LABELS[m]} active — tap to remove` : `Add ${MODE_LABELS[m]} lens`}
-                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                  active
-                    ? 'text-white'
-                    : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'
-                } ${isPrimary ? 'ring-1 ring-white/40' : ''}`}
-                style={active ? { backgroundColor: `${MODE_COLORS[m]}33`, borderColor: `${MODE_COLORS[m]}80` } : undefined}
-              >
-                {MODE_LABELS[m]}
-              </button>
-            );
-          })}
-        </div>
-        {modes.length > 1 && (
-          <div className="text-[11px] text-white/40 mb-2 flex-shrink-0">
-            Blending {modes.length} lenses — <span className="text-white/60">{modes.map((m) => MODE_LABELS[m]).join(' + ')}</span>
-          </div>
-        )}
 
         {/* Nephesh mode + verbosity toggles — same semantics as the search pages */}
         <div className="flex items-center gap-2 mb-3 flex-wrap justify-center flex-shrink-0">
@@ -571,7 +620,11 @@ export default function TruegleChat() {
             </motion.div>
             );
           })}
-          {loading && (
+          {/* Disappear/reappear flow: while a reply is in flight, the input is
+              replaced by the loading indicator; once it lands, the mode row +
+              input reappear directly below the finalized response — never
+              pinned to the page bottom. */}
+          {loading ? (
             <div className="flex justify-start">
               <div className={`rounded-2xl px-4 py-3 bg-black/40 border ${accent.iframeBorder} flex items-center gap-2`}>
                 <span className={`w-2 h-2 rounded-full animate-bounce ${accent.count}`} style={{ backgroundColor: 'currentColor', animationDelay: '0ms' }} />
@@ -579,37 +632,18 @@ export default function TruegleChat() {
                 <span className={`w-2 h-2 rounded-full animate-bounce ${accent.count}`} style={{ backgroundColor: 'currentColor', animationDelay: '300ms' }} />
               </div>
             </div>
+          ) : (
+            <motion.div
+              key={messages[messages.length - 1]?.id ?? 'input'}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col items-center gap-2 pt-1"
+            >
+              {modesRow}
+              <div className="w-full">{chatInputBox}</div>
+            </motion.div>
           )}
           <div ref={endRef} />
-        </div>
-
-        {/* One large chat box — pinned below the thread, never shrinks */}
-        <div className="w-full max-w-2xl flex-shrink-0">
-          <div className={`flex items-end gap-2 rounded-2xl border ${accent.iframeBorder} bg-white/5 backdrop-blur-xl p-2`}>
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder="Ask Truegle anything..."
-              rows={2}
-              className="flex-1 bg-transparent resize-none outline-none text-white placeholder-white/30 text-sm p-2"
-            />
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={!input.trim() || loading}
-              className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                input.trim() && !loading ? `${accent.link} bg-white/10 hover:bg-white/20` : 'text-white/20 bg-white/5 cursor-not-allowed'
-              }`}
-            >
-              <Send size={16} />
-            </button>
-          </div>
         </div>
       </div>
     </div>
