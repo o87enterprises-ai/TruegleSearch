@@ -4,7 +4,7 @@ import {
   Image, Video, Users, DollarSign, Trophy, Music, ShoppingBag, Briefcase,
   BookOpen, Newspaper, Globe, Heart, Film, Mic, Code, Gamepad2, Utensils,
   Plane, Home, MapPin, Map, Star, Navigation, Phone, Clock, Mail, ExternalLink,
-  Camera, Paperclip, Shield, EyeOff, Eye
+  Camera, Paperclip, Shield, EyeOff, Eye, Play
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MapApiService from '../map/services/mapApi';
@@ -1355,6 +1355,7 @@ const handleChange = useCallback((e) => {
       : '16px';
     let padding = parseInt(cssValue, 10) || 16; // fallback to 16px if parsing fails
     if (hasValue) padding += 40; // clear button space
+    if (hasValue) padding += 40; // submit ("play") button space
 
     // Account for media input components (mic, camera, file) - always present
     padding += 120; // 3 icons * ~40px each
@@ -1626,6 +1627,40 @@ const handleChange = useCallback((e) => {
                   aria-label="Clear search"
                 >
                   <X size={config.iconSize - 4} strokeWidth={2.5} />
+                </motion.button>
+              )}
+            </AnimatePresence>
+
+            {/* Submit ("Play") Button — appears once there's text so mobile
+                users have a tap target to fire the search/chat, without
+                relying on a keyboard Enter key. Same submit path as Enter. */}
+            <AnimatePresence>
+              {hasValue && !isLoading && (
+                <motion.button
+                  type="button"
+                  onClick={trySubmit}
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.5 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  className={`
+                    flex items-center justify-center
+                    w-7 h-7 rounded-full
+                    bg-white/10 hover:bg-white/20
+                    transition-colors duration-150
+                    focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-neutral-900
+                    ${colors.focusRing}
+                  `}
+                  aria-label="Submit"
+                >
+                  <Play
+                    size={config.iconSize - 6}
+                    className={colors.iconFocused}
+                    fill="currentColor"
+                    strokeWidth={0}
+                  />
                 </motion.button>
               )}
             </AnimatePresence>
