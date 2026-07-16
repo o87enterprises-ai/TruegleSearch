@@ -186,6 +186,14 @@
         "body": "Landing query with no explicit search-mode pill navigates to /chat?q=... ; TruegleChat auto-sends the ?q= once on arrival (autoSentRef guard, strips param). Explicit pill mode still opens /search?mode=. Part of chat-as-default redesign.",
         "ts": "2026-07-14",
         "created": "2026-07-14"
+      },
+      "vs-mode-audit-scaffold": {
+        "Id": "vs-mode-audit-scaffold",
+        "Type": "decision",
+        "Label": "vs mode enforces a mandatory audit scaffold",
+        "body": "TrueGLE vs mode (nepheshMode=CONTESTED_CLAIM_PROTOCOL in apps/backend/prompts/nepheshPrompts.js, runtime-only, NOT in Modelfile) was leaning mainstream. Retuned 2026-07-16 (PROMPT_VERSION bumped): mandatory labeled output scaffold (Claim->Strict negation->Variables->Dual audit->Affirmative ledger->Negation ledger->Numeric reconciliation->Verdict); bans vague-compliment restatements + consensus exemptions ('for the era' must be itemized as an affirmative axiom); Numeric reconciliation section lifts the numeric ban to surface figure gaps and BUILD THE ALTERNATIVE (name circumstances that reconcile), verdict leans to shorter axiom ledger even if non-mainstream; Mandate-A note: the lean is the ledger's mechanical output not an opinion, so it stops retreating to false-neutral. Real ceiling is the free Groq model executing it; self-host is the durable unlock.",
+        "ts": "2026-07-16",
+        "created": "2026-07-16"
       }
     },
     "entity": {
@@ -315,5 +323,5 @@
       }
     }
   },
-  "updated": "2026-07-15"
+  "updated": "2026-07-16"
 }
