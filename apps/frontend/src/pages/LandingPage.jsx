@@ -72,7 +72,7 @@ export default function LandingPage() {
   const PILL_TOAST_CONFIG = {
     black:  { label: 'Chat',             sub: 'TrueGLE answers directly',               color: 'from-neutral-200 to-neutral-400', dot: 'bg-neutral-200' },
     blue:   { label: 'Mainstream',        sub: 'Unbiased, standard search',              color: 'from-blue-500 to-blue-700',       dot: 'bg-blue-400' },
-    green:  { label: 'Simplified',        sub: 'Raw results — no smart features',        color: 'from-green-500 to-emerald-700',   dot: 'bg-green-400' },
+    green:  { label: 'Summarize',          sub: 'Concise, plain-language answers',        color: 'from-green-500 to-emerald-700',   dot: 'bg-green-400' },
     red:    { label: 'Rabbit Hole',       sub: 'Full spectrum — all perspectives',       color: 'from-red-600 to-red-800',         dot: 'bg-red-400' },
     purple: { label: 'Perspectives',      sub: 'Multiple viewpoints, skeptical framing', color: 'from-purple-500 to-violet-700',   dot: 'bg-purple-400' },
     ocean:  { label: 'Privacy / OSINT',   sub: 'Digital investigation lens',             color: 'from-cyan-500 to-teal-700',       dot: 'bg-cyan-400' },
@@ -117,13 +117,12 @@ export default function LandingPage() {
     localStorage.setItem('truegle_mode_pref', chatModes[0]);
   }, [chatModes]);
 
-  // vs. TrueGLE (Null-Prime dual-audit) + Verbose — same localStorage keys
-  // TruegleChat.jsx reads on mount, so a preference set here carries silently
-  // into the first /chat visit.
+  // vs. TrueGLE (Null-Prime dual-audit) — same localStorage key TruegleChat.jsx
+  // reads on mount, so a preference set here carries silently into the first
+  // /chat visit. (Verbosity is no longer a toggle: chat is verbose by default,
+  // and the "Summarize" mode makes it concise.)
   const [nepheshMode, setNepheshMode] = useState(() => localStorage.getItem('truegle_nephesh_mode') === 'true');
-  const [verboseMode, setVerboseMode] = useState(() => localStorage.getItem('truegle_verbose_mode') === 'true');
   useEffect(() => { localStorage.setItem('truegle_nephesh_mode', String(nepheshMode)); }, [nepheshMode]);
-  useEffect(() => { localStorage.setItem('truegle_verbose_mode', String(verboseMode)); }, [verboseMode]);
 
   // Backwards-compat derived value for JSX that used isRedPillMode
   const isRedPillMode = pillMode === 'red';
@@ -322,7 +321,7 @@ export default function LandingPage() {
                 }}
                 placeholder={
                   pillMode === 'red' ? 'Explore the Rabbit Hole...' :
-                  pillMode === 'green' ? 'Raw search — no smart features...' :
+                  pillMode === 'green' ? 'Search — concise summaries...' :
                   'Search Truegle...'
                 }
                 size="large"
@@ -332,12 +331,10 @@ export default function LandingPage() {
             {/* Chat Mode row (multi-select chat lenses) — directly below the search bar */}
             <ChatModeRow activeModes={chatModes} onToggle={toggleChatMode} />
 
-            {/* vs. TrueGLE / Verbose toggles */}
+            {/* vs. TrueGLE toggle */}
             <VsToggleRow
               nepheshMode={nepheshMode}
               onToggleNephesh={() => setNepheshMode((v) => !v)}
-              verboseMode={verboseMode}
-              onToggleVerbose={() => setVerboseMode((v) => !v)}
             />
 
             <div

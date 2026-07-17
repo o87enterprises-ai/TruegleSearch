@@ -36,11 +36,16 @@ export const MODE_LABELS = {
   red: 'Alternative',
   purple: 'Perspectives',
   ocean: 'Privacy / OSINT',
-  green: 'Simplified',
+  green: 'Summarize',
   orange: 'Rewards',
   yellow: 'Transcripts',
   black: 'Chat',
 };
+
+// Mode colors that are light enough that a solid fill needs dark text for
+// readable contrast (used when a mode button is selected → solid mode color).
+export const LIGHT_MODES = new Set(['black', 'yellow']);
+export const solidTextClass = (mode) => (LIGHT_MODES.has(mode) ? 'text-neutral-900' : 'text-white');
 
 // Per-mode container accent — each page takes its theme color. (green uses
 // higher opacity / lighter text for contrast on the LetterGlitch background)

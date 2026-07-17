@@ -8,11 +8,12 @@ import CursorGlow from '../components/ui/CursorGlow';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import api, { aiAPI, shareAPI } from '../services/api';
 import { FREE_ACCESS_MODE } from '../config/access';
-import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent } from '../config/modeTheme';
+import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent, solidTextClass } from '../config/modeTheme';
 import { getVideoEmbed } from '../utils/videoEmbed';
 import ChatShareButton from '../components/ui/ChatShareButton';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
 import FeedbackButtons from '../components/ui/FeedbackButtons';
+import PillModeRow from '../components/landing/PillModeRow';
 
 // Truegle Chat is a designated route for chat-first users — the same brand
 // (logo, mode-synced background/accents) as the rest of Truegle, but reduced
@@ -29,7 +30,7 @@ const THREAD_KEY = 'truegle_chat_thread_v1';
 // One-line explainer per mode for the "How do the modes work?" tutorial popover.
 const MODE_INFO = {
   blue: 'Mainstream — establishment and widely-accepted sources. Balanced, cited answers.',
-  green: 'Simplified — plain-English answers with no jargon. Good for quick understanding.',
+  green: 'Summarize — concise, plain-English answers with no jargon. Short and to the point.',
   red: 'Alternative — independent and suppressed perspectives that question the official narrative.',
   purple: 'Perspectives — lays out multiple viewpoints side by side with skeptical, accountability-first framing.',
   ocean: 'Privacy / OSINT — digital-investigation assistant. Name an entity (domain, email, username, phone, or person) and it runs public-records lookups automatically.',
@@ -58,7 +59,7 @@ const MODE_TO_BACKEND_SEARCH = {
 
 const MODE_WELCOME = {
   blue: 'Ask me anything. I search the web and answer with sources.',
-  green: 'Ask me anything, plain and simple.',
+  green: 'Ask me anything — I answer in a short, plain-language summary.',
   red: 'Alternative and suppressed perspectives — what do you want to dig into?',
   purple: 'Perspectives mode — I lay out multiple viewpoints with skeptical, accountability-first framing. What would you like to explore?',
   ocean: 'OSINT assistant ready — ask about digital investigation or research.',
@@ -219,7 +220,16 @@ export default function TruegleChat() {
   const [modes, setModes] = useState(loadModes);
   const primaryMode = modes[0] || 'blue';
   const [nepheshMode, setNepheshMode] = useState(() => localStorage.getItem('truegle_nephesh_mode') === 'true');
-  const [verboseMode, setVerboseMode] = useState(() => localStorage.getItem('truegle_verbose_mode') === 'true');
+  // Pill mode (search selector) — sits at the top, below the logo, exactly like
+  // the landing page. Defaults to 'black' (Chat) on every /chat load: you're on
+  // the chat page, so you chat by default and only leave to a /search page by
+  // cycling the pill to a color and then sending. Not read from the shared
+  // landing pref, to avoid arriving here already pointed at a search mode.
+  // PillModeRow handles the cycle; onSelect just receives the next id.
+  const [pillMode, setPillMode] = useState('black');
+  // Response length: verbose (in-depth) by default; the "Summarize" mode (green)
+  // makes answers concise. Replaces the old "Feeling chat-e?" toggle.
+  const verbose = !modes.includes('green');
   const [messages, setMessages] = useState(() => loadThread() || [
     { id: 1, role: 'assistant', content: MODE_WELCOME[localStorage.getItem('truegle_mode_pref') || 'blue'], citations: null },
   ]);
@@ -253,7 +263,6 @@ export default function TruegleChat() {
     localStorage.setItem('truegle_mode_pref', primaryMode); // keep single-key in sync for the search pages
   }, [modes, primaryMode]);
   useEffect(() => { localStorage.setItem('truegle_nephesh_mode', String(nepheshMode)); }, [nepheshMode]);
-  useEffect(() => { localStorage.setItem('truegle_verbose_mode', String(verboseMode)); }, [verboseMode]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
   // Persist the thread on every change so a page-away-and-back resumes it.
@@ -305,6 +314,16 @@ export default function TruegleChat() {
     // page) or fall back to the input box.
     const text = (typeof explicitText === 'string' ? explicitText : input).trim();
     if (!text || loading) return;
+
+    // Pill mode is the search selector (same as landing): if it's on a non-Chat
+    // color, sending leaves chat and opens that /search page instead of chatting.
+    if (pillMode !== 'black') {
+      if (pillMode === 'orange') { navigate('/rewards'); return; }
+      if (pillMode === 'yellow') { navigate('/extract'); return; }
+      navigate(`/search?q=${encodeURIComponent(text)}&mode=${pillMode}`);
+      return;
+    }
+
     if (!FREE_ACCESS_MODE && !isAuthed) {
       navigate('/auth/login', { state: { redirectTo: '/chat' } });
       return;
@@ -344,7 +363,7 @@ export default function TruegleChat() {
       // Pass the pill keys (blue/green/red/purple/ocean) as `modes` so the
       // backend blends each lens; `context` (primary) still keys cache/DB.
       const [chatRes, citeRes] = await Promise.allSettled([
-        aiAPI.chat(query, { context: MODE_TO_CONTEXT[primaryMode], modes, nepheshMode, verbose: verboseMode, history }),
+        aiAPI.chat(query, { context: MODE_TO_CONTEXT[primaryMode], modes, nepheshMode, verbose, history }),
         fetchCitations(query, MODE_TO_BACKEND_SEARCH[primaryMode]),
       ]);
       content = chatRes.status === 'fulfilled'
@@ -368,11 +387,11 @@ export default function TruegleChat() {
     }
   }, [searchParams]); // one-shot guarded by autoSentRef; deliberately params-only
 
-  // Pill mode row — multi-select: tap to toggle each flow on/off. With 2+
-  // active, Nephesh blends the lenses into one answer. The first selected
-  // (subtle ring) is "primary" and drives the theme. Rendered inline, right
-  // above wherever the input currently sits (see the disappear/reappear flow
-  // below), rather than pinned to the top of the page.
+  // Chat-mode cluster — sits below the final AI output, above the input box.
+  // Multi-select lenses (tap to toggle; 2+ blend into one answer, first pick
+  // "primary" drives the theme), plus the TrueGLE vs (dual-audit) toggle and
+  // the Modes tutorial. Selected buttons get a SOLID fill in the mode's color
+  // so the active state is unmistakable.
   const modesRow = (
     <div className="flex flex-col items-center gap-1.5">
       <div className="flex items-center gap-2 flex-wrap justify-center">
@@ -386,17 +405,72 @@ export default function TruegleChat() {
               onClick={() => toggleMode(m)}
               aria-pressed={active}
               title={active ? `${MODE_LABELS[m]} active — tap to remove` : `Add ${MODE_LABELS[m]} lens`}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
                 active
-                  ? 'text-white'
+                  ? solidTextClass(m)
                   : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'
-              } ${isPrimary ? 'ring-1 ring-white/40' : ''}`}
-              style={active ? { backgroundColor: `${MODE_COLORS[m]}33`, borderColor: `${MODE_COLORS[m]}80` } : undefined}
+              } ${isPrimary ? 'ring-2 ring-white/60' : ''}`}
+              style={active ? { backgroundColor: MODE_COLORS[m], borderColor: MODE_COLORS[m] } : undefined}
             >
               {MODE_LABELS[m]}
             </button>
           );
         })}
+
+        {/* TrueGLE vs (Null-Prime dual-audit) — lives with the chat modes now. */}
+        <button
+          type="button"
+          onClick={() => setNepheshMode((v) => !v)}
+          title="TrueGLE vs: layer the Null-Prime dual-audit protocol onto contested claims"
+          aria-pressed={nepheshMode}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+            nepheshMode ? 'bg-cyan-400 border-cyan-400 text-neutral-900' : 'bg-white/5 border-white/10 text-white/40 hover:text-white/60'
+          }`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${nepheshMode ? 'bg-neutral-900' : 'bg-white/20'}`} />
+          vs. TrueGLE
+        </button>
+
+        {/* Modes tutorial — explains the lenses; lives with them at the bottom. */}
+        <div
+          className="relative"
+          onMouseEnter={() => setShowTutorial(true)}
+          onMouseLeave={() => setShowTutorial(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setShowTutorial((v) => !v)}
+            aria-expanded={showTutorial}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border bg-white/5 border-white/10 text-white/40 hover:text-white/70 transition-colors"
+          >
+            <span className="w-4 h-4 rounded-full border border-current flex items-center justify-center text-[10px] leading-none">?</span>
+            Modes
+          </button>
+          <AnimatePresence>
+            {showTutorial && (
+              <motion.div
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                className="absolute z-30 bottom-full mb-2 left-1/2 -translate-x-1/2 w-72 max-w-[85vw] rounded-xl border border-white/10 bg-black/90 backdrop-blur-xl p-3 text-left shadow-2xl"
+              >
+                <div className="text-[11px] uppercase tracking-wide text-white/40 mb-2">How the modes work</div>
+                <ul className="space-y-1.5">
+                  {MODES.map((m) => (
+                    <li key={m} className="text-xs text-white/70 leading-snug">
+                      <span className="font-semibold" style={{ color: MODE_COLORS[m] }}>{MODE_LABELS[m]}</span>
+                      {' — '}{MODE_INFO[m].split('—').slice(1).join('—').trim()}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-2 pt-2 border-t border-white/10 text-[11px] text-white/45 leading-snug">
+                  Answers are in-depth by default; pick <span className="font-semibold" style={{ color: MODE_COLORS.green }}>Summarize</span> for a concise version.
+                  Add <span className="text-cyan-300">vs. TrueGLE</span> to dual-audit contested claims. Selections stick across pages.
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
       {modes.length > 1 && (
         <div className="text-[11px] text-white/40">
@@ -497,95 +571,35 @@ export default function TruegleChat() {
           </div>
         </motion.div>
 
-        {/* Nephesh mode + verbosity toggles — same semantics as the search pages */}
-        <div className="flex items-center gap-2 mb-3 flex-wrap justify-center flex-shrink-0">
-          <button
-            type="button"
-            onClick={() => setNepheshMode((v) => !v)}
-            title="TrueGLE Mode: layer the Null-Prime dual-audit protocol onto contested claims"
-            aria-pressed={nepheshMode}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-              nepheshMode ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-200' : 'bg-white/5 border-white/10 text-white/40 hover:text-white/60'
-            }`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${nepheshMode ? 'bg-cyan-300' : 'bg-white/20'}`} />
-            TrueGLE Mode
-          </button>
-          <button
-            type="button"
-            onClick={() => setVerboseMode((v) => !v)}
-            title="Feeling chat-e? In-depth responses instead of the default succinct answers"
-            aria-pressed={verboseMode}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-              verboseMode ? 'bg-purple-500/20 border-purple-400/50 text-purple-200' : 'bg-white/5 border-white/10 text-white/40 hover:text-white/60'
-            }`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${verboseMode ? 'bg-purple-300' : 'bg-white/20'}`} />
-            Feeling chat-e?
-          </button>
-          {/* Tutorial: explains each mode and how they combine. Hover on desktop,
-              tap on touch — both toggle the same popover. */}
-          <div
-            className="relative"
-            onMouseEnter={() => setShowTutorial(true)}
-            onMouseLeave={() => setShowTutorial(false)}
-          >
+        {/* Pill mode (search selector) — top of the page, below the logo, just
+            like the landing page. Cycling is state-only; a non-Chat pill sends
+            the query to that /search page (see handleSend). */}
+        <div className="mb-3 flex-shrink-0">
+          <PillModeRow activeMode={pillMode} onSelect={setPillMode} />
+        </div>
+
+        {/* Session utilities — Share / New chat (only once a thread exists). */}
+        {messages.length > 1 && (
+          <div className="flex items-center gap-2 mb-3 flex-wrap justify-center flex-shrink-0">
             <button
               type="button"
-              onClick={() => setShowTutorial((v) => !v)}
-              aria-expanded={showTutorial}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-white/5 border-white/10 text-white/40 hover:text-white/70 transition-colors"
+              onClick={handleShare}
+              disabled={sharing}
+              title="Create a link that opens this whole conversation for anyone"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border bg-white/5 border-white/10 text-white/40 hover:text-white/70 transition-colors disabled:opacity-50"
             >
-              <span className="w-4 h-4 rounded-full border border-current flex items-center justify-center text-[10px] leading-none">?</span>
-              Modes
+              <Share2 size={11} /> {sharing ? 'Sharing…' : 'Share'}
             </button>
-            <AnimatePresence>
-              {showTutorial && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  className="absolute z-30 top-full mt-2 left-1/2 -translate-x-1/2 w-72 max-w-[85vw] rounded-xl border border-white/10 bg-black/90 backdrop-blur-xl p-3 text-left shadow-2xl"
-                >
-                  <div className="text-[11px] uppercase tracking-wide text-white/40 mb-2">How the modes work</div>
-                  <ul className="space-y-1.5">
-                    {MODES.map((m) => (
-                      <li key={m} className="text-xs text-white/70 leading-snug">
-                        <span className="font-semibold" style={{ color: MODE_COLORS[m] }}>{MODE_LABELS[m]}</span>
-                        {' — '}{MODE_INFO[m].split('—').slice(1).join('—').trim()}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-2 pt-2 border-t border-white/10 text-[11px] text-white/45 leading-snug">
-                    Pair any mode with <span className="text-cyan-300">TrueGLE Mode</span> (dual-audit on contested claims) and
-                    {' '}<span className="text-purple-300">Feeling chat-e?</span> (longer answers). Toggles stick across pages.
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <button
+              type="button"
+              onClick={resetThread}
+              title="Start a new conversation"
+              className="px-2.5 py-1 rounded-full text-xs font-medium border bg-white/5 border-white/10 text-white/40 hover:text-white/70 transition-colors"
+            >
+              New chat
+            </button>
           </div>
-          {messages.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={handleShare}
-                disabled={sharing}
-                title="Create a link that opens this whole conversation for anyone"
-                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border bg-white/5 border-white/10 text-white/40 hover:text-white/70 transition-colors disabled:opacity-50"
-              >
-                <Share2 size={11} /> {sharing ? 'Sharing…' : 'Share'}
-              </button>
-              <button
-                type="button"
-                onClick={resetThread}
-                title="Start a new conversation"
-                className="px-2.5 py-1 rounded-full text-xs font-medium border bg-white/5 border-white/10 text-white/40 hover:text-white/70 transition-colors"
-              >
-                New chat
-              </button>
-            </>
-          )}
-        </div>
+        )}
 
         {/* Shareable-link result */}
         {shareUrl && (

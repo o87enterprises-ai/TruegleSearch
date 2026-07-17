@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { MODE_COLORS, MODE_LABELS } from '../../config/modeTheme';
+import { MODE_COLORS, MODE_LABELS, solidTextClass } from '../../config/modeTheme';
 
 // Chat Mode row — lives directly below the landing search bar (spec #4).
 // This is the CHAT lens selector: multi-select — tap to toggle each one
@@ -30,12 +30,15 @@ export default function ChatModeRow({ activeModes, onToggle }) {
               whileTap={{ scale: 0.96 }}
               aria-pressed={active}
               title={active ? `${MODE_LABELS[id]} active — tap to remove` : `Add ${MODE_LABELS[id]} lens`}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 ${
-                active ? 'text-white' : 'bg-white/5 border-white/10 text-white/50 hover:text-white/80 hover:border-white/20'
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 ${
+                active ? solidTextClass(id) : 'bg-white/5 border-white/10 text-white/50 hover:text-white/80 hover:border-white/20'
               }`}
-              style={active ? { backgroundColor: `${color}26`, borderColor: `${color}80` } : undefined}
+              style={active ? { backgroundColor: color, borderColor: color } : undefined}
             >
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: active ? 'currentColor' : color }}
+              />
               {MODE_LABELS[id]}
             </motion.button>
           );

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { MODE_COLORS, MODE_LABELS } from '../../config/modeTheme';
+import { MODE_COLORS, MODE_LABELS, solidTextClass } from '../../config/modeTheme';
 
 // Pill Mode — lives ABOVE the search bar (spec #2). This is the SEARCH mode
 // selector: a single pill, not a row. Clicking it cycles to the next mode
@@ -28,10 +28,10 @@ export default function PillModeRow({ activeMode, onSelect }) {
         whileHover={{ scale: 1.04 }}
         whileTap={{ scale: 0.96 }}
         title="Click to switch mode"
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border text-white transition-all duration-150"
-        style={{ backgroundColor: `${color}26`, borderColor: `${color}80` }}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 ${solidTextClass(activeMode)}`}
+        style={{ backgroundColor: color, borderColor: color }}
       >
-        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+        <span className="w-2 h-2 rounded-full flex-shrink-0 bg-current" />
         {label}
       </motion.button>
     </div>
