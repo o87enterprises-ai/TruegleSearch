@@ -289,9 +289,9 @@
         "Id": "redesign-build",
         "Type": "thread",
         "Label": "Execute UI/UX redesign in phases",
-        "body": "Per docs/UI-REDESIGN-SPEC.md build sequence. Phase 1 (bugs) + phase 2 (brand) done previously. Phase 3/4/5 SHIPPED 2026-07-15 on branch claude/landing-chat-redesign-next-rbla1r (pushed, not merged): vertically-expanding search bar (textarea auto-grow, all pages via SearchBar.jsx), landing reorg (ChatModeRow 8-pill/VsToggleRow/ThreeCards/RewardsCTA per spec), /chat disappear-reappear input flow. Remaining: phase 6 per-page uniform search-bar rollout (search/red/purple/osint), OSINT multi-select investigation row, phase 7 rewards page (orange glassmorphism+live meters), phase 8 extract reskin+Learn More page+hamburger nav, phase 9 mic/speech+response-end banner ads.",
+        "body": "Per docs/UI-REDESIGN-SPEC.md build sequence. Phases 1-5 done. Phase 6 (per-page uniform search bar): uniform bar was ALREADY in place (all modes render via shared mode-tinted SearchBar in UniversalSearch); the NEW work — the OSINT exception — shipped 2026-07-17 (fb185ac): OsintClassRow (Domain/Email/Phone/Username/Person/IP, multi-select, solid teal selected) replaces content categories on mode=ocean, tags query with entity hint, re-searches on toggle. Also shipped this session: search pages always-concise AI (SEARCH_VERBOSE=false, verbose toggle removed) b54c30d. REMAINING phases: 6-optional (per-mode bg animations, swap old 3-way pill for new single PillModeRow on search — not done, optional), 7 rewards page (orange glassmorphism+live meters+opt-in modal->signup), 8 extract reskin+Learn More page+global hamburger nav, 9 response-end banner ads (mic/speech largely done). Deferred live-diagnosis: transcript, safesearch 500.",
         "status": "open",
-        "ts": "2026-07-15",
+        "ts": "2026-07-17",
         "created": "2026-07-14"
       },
       "landing-redesign-slice3": {
