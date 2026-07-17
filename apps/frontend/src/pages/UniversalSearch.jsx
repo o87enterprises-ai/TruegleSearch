@@ -45,6 +45,7 @@ import OSINTToolsPanel from '../components/ui/OSINTToolsPanel';
 import TokenGate from '../components/ui/TokenGate';
 import RepairsModal from '../components/ui/RepairsModal';
 import LanguageSelector from '../components/ui/LanguageSelector';
+import OsintClassRow, { osintHintPrefix } from '../components/search/OsintClassRow';
 
 // Hooks and Config
 import { useSearchMode } from '../hooks/useSearchMode';
@@ -143,6 +144,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
   // Search state
   const [searchValue, setSearchValue] = useState(query);
   const [activeCategory, setActiveCategory] = useState('all');
+  // OSINT (ocean) exception: multi-select investigation classes that replace
+  // the content categories on the ocean page and tag the query with entity types.
+  const [osintClasses, setOsintClasses] = useState([]);
+  const toggleOsintClass = (id) =>
+    setOsintClasses((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const [searchResults, setSearchResults] = useState([]);
   const [instantAnswer, setInstantAnswer] = useState(null);
   const [quickAnswer, setQuickAnswer] = useState(null);
@@ -310,7 +316,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
     if (lastSearchedQuery && searchValue && !searchLoading) {
       handleSearch();
     }
-  }, [mode, activeCategory, filters.bias, filters.dateRange, filters.sortBy, filters.order, filters.category, selectedPerspectives]);
+  }, [mode, activeCategory, osintClasses, filters.bias, filters.dateRange, filters.sortBy, filters.order, filters.category, selectedPerspectives]);
 
   // Auto-detect shopping category
   const isShoppingQuery = (query) => {
@@ -396,6 +402,14 @@ export default function UniversalSearch({ lockedGreen = false }) {
       if (categoryKeywords[activeCategory]) {
         effectiveQuery = `${searchValue} ${categoryKeywords[activeCategory]}`;
         searchCategory = activeCategory === 'world' ? 'news' : 'all';
+      }
+
+      // OSINT (ocean) exception: tag the query with the selected investigation
+      // classes so the backend entity detector + OSINT-framed AI summary treat
+      // the input as that entity type (domain/email/phone/username/person/ip).
+      if (mode === 'ocean') {
+        const hint = osintHintPrefix(osintClasses);
+        if (hint) effectiveQuery = `${hint} ${effectiveQuery}`.trim();
       }
 
       // The category pills (above) take priority; the filter dropdown only
@@ -977,7 +991,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
               showOSINTToggle={!lockedGreen}
               isOSINTMode={isOSINTMode}
               onOSINTToggle={toggleOSINT}
-              showCategories={true}
+              // OSINT exception: the ocean page swaps the content categories for
+              // the investigation-class row rendered below the bar.
+              showCategories={mode !== 'ocean'}
               activeCategory={activeCategory}
               onSelectCategory={setActiveCategory}
               showMap={showMap || (autoOpenMap && !mapManuallyClosed)}
@@ -1026,6 +1042,13 @@ export default function UniversalSearch({ lockedGreen = false }) {
                 </a>
               }
             />
+            {/* OSINT exception: investigation-class row (ocean page only),
+                replacing the content categories stripped from the bar above. */}
+            {mode === 'ocean' && (
+              <div className="mt-3">
+                <OsintClassRow selected={osintClasses} onToggle={toggleOsintClass} />
+              </div>
+            )}
             {/* Language selector — synced to browser language by default */}
             <div className="flex justify-end items-center gap-3 mt-2">
               {/* Nephesh mode: opt-in Null-Prime dual-audit protocol for
