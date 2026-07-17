@@ -117,15 +117,14 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const [nepheshMode, setNepheshMode] = useState(
     () => localStorage.getItem('truegle_nephesh_mode') === 'true'
   );
-  const [verboseMode, setVerboseMode] = useState(
-    () => localStorage.getItem('truegle_verbose_mode') === 'true'
-  );
   useEffect(() => {
     localStorage.setItem('truegle_nephesh_mode', String(nepheshMode));
   }, [nepheshMode]);
-  useEffect(() => {
-    localStorage.setItem('truegle_verbose_mode', String(verboseMode));
-  }, [verboseMode]);
+  // Search-page AI (summary + follow-up chat) is always CONCISE — "Summarize"
+  // is the fixed default here, so there's no verbosity toggle (the old
+  // "Feeling chat-e?" control was removed). Chat gets the opposite default
+  // (verbose) via TruegleChat's own derivation.
+  const SEARCH_VERBOSE = false;
 
   // Summary banner: null = not chosen, 'show' = show for session, 'none' = dismissed for session
   const [sessionSummaryChoice, setSessionSummaryChoice] = useState(
@@ -531,7 +530,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
             perspectives: selectedPerspectives,
             isQuestion: isQuestionQuery(query),
             nepheshMode,
-            verbose: verboseMode,
+            verbose: SEARCH_VERBOSE,
           }),
         }
       );
@@ -1030,8 +1029,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
             {/* Language selector — synced to browser language by default */}
             <div className="flex justify-end items-center gap-3 mt-2">
               {/* Nephesh mode: opt-in Null-Prime dual-audit protocol for
-                  contested claims. "Feeling chat-e?": verbose vs succinct
-                  responses. Both persistent, off by default. */}
+                  contested claims. Persistent, off by default. (Verbosity has
+                  no toggle on search pages — AI summaries are always concise;
+                  see SEARCH_VERBOSE.) */}
               <button
                 type="button"
                 onClick={() => setNepheshMode((v) => !v)}
@@ -1045,20 +1045,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${nepheshMode ? 'bg-cyan-300' : 'bg-white/20'}`} />
                 TrueGLE Mode
-              </button>
-              <button
-                type="button"
-                onClick={() => setVerboseMode((v) => !v)}
-                title="Feeling chat-e? In-depth responses instead of the default succinct answers"
-                aria-pressed={verboseMode}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                  verboseMode
-                    ? 'bg-purple-500/20 border-purple-400/50 text-purple-200'
-                    : 'bg-white/5 border-white/10 text-white/40 hover:text-white/60'
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${verboseMode ? 'bg-purple-300' : 'bg-white/20'}`} />
-                Feeling chat-e?
               </button>
               <LanguageSelector />
             </div>
@@ -1860,7 +1846,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
           mode={mode}
           modes={activeModes}
           nepheshMode={nepheshMode}
-          verbose={verboseMode}
+          verbose={SEARCH_VERBOSE}
           themeColor={
             mode === 'red' ? 'red' :
             mode === 'purple' ? 'purple' :
