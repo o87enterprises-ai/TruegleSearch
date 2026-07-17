@@ -5,6 +5,7 @@ import AdSlot from '../components/AdSlot';
 // Please update your project imports to use this file for the landing page.
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -267,20 +268,24 @@ export default function LandingPage() {
 
             {/* Search Bar */}
             <div className="w-full max-w-2xl mx-auto px-4 mb-2 relative">
-              {/* Mode toast notification */}
-              {pillToast && (
+              {/* Mode toast — portalled to <body> so it escapes the hero's
+                  transformed/filtered ancestors (which would otherwise capture
+                  position:fixed and pin it mid-page over the controls). Anchored
+                  to the top of the viewport, well clear of the pill + search bar. */}
+              {pillToast && createPortal(
                 <motion.div
                   initial={{ opacity: 0, y: -8, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                  className="absolute -top-12 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+                  className="fixed left-1/2 top-4 -translate-x-1/2 z-[9999] pointer-events-none"
                 >
                   <div className={`flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r ${pillToast.color} shadow-lg shadow-black/40`}>
                     <div className={`w-2 h-2 rounded-full ${pillToast.dot} shrink-0`} />
                     <span className="text-white text-sm font-semibold whitespace-nowrap">{pillToast.label}</span>
                     <span className="text-white/60 text-xs whitespace-nowrap hidden sm:inline">— {pillToast.sub}</span>
                   </div>
-                </motion.div>
+                </motion.div>,
+                document.body
               )}
               <SearchBar
                 value={searchQuery}

@@ -463,12 +463,38 @@ export default function TruegleChat() {
       <CursorGlow />
 
       <div className="relative z-10 h-[100dvh] flex flex-col items-center px-4 pt-5 pb-3">
+        {/* Hero logo — mirrors the landing page's treatment (glow + gentle
+            pulse + reflection) so /chat reads as the same brand, sized down to
+            fit the fixed-height chat shell rather than the scrollable landing. */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="mb-3 flex-shrink-0"
+          className="mb-2 inline-block flex-shrink-0"
         >
-          <TruegleLogo variant="chat" size="medium" animated />
+          <div
+            className="relative"
+            style={{ filter: 'drop-shadow(0 0 20px rgba(139,92,246,0.3)) drop-shadow(0 0 40px rgba(139,92,246,0.2))' }}
+          >
+            <motion.div
+              animate={{ scale: [1, 1.01, 1] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <TruegleLogo variant="chat" size="large" animated />
+            </motion.div>
+            {/* Reflection underneath the logo (same as landing) */}
+            <div
+              className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
+              style={{
+                top: '100%',
+                width: '100%',
+                height: '40px',
+                background: 'linear-gradient(to bottom, rgba(139,92,246,0.3) 0%, transparent 100%)',
+                filter: 'blur(20px)',
+                transform: 'scaleY(-0.3) translateY(-20px)',
+                opacity: 0.5,
+              }}
+            />
+          </div>
         </motion.div>
 
         {/* Nephesh mode + verbosity toggles — same semantics as the search pages */}

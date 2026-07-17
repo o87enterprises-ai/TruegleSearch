@@ -56,9 +56,21 @@ describe('QueryInterpreter.detectSiteKeyword', () => {
     });
   });
 
-  it('detects a leading keyword and strips it', () => {
+  it('detects a leading ABBREVIATION and strips it', () => {
     expect(QueryInterpreter.detectSiteKeyword('yt lofi beats')).toEqual({
       domain: 'youtube.com', keyword: 'yt', cleanedQuery: 'lofi beats',
+    });
+  });
+
+  it('does NOT fire on a leading full brand name (it is the subject, not a filter)', () => {
+    // "youtube downloader" is a search FOR a youtube downloader — must not
+    // collapse to youtube.com. Regression for the over-strict-bang report.
+    expect(QueryInterpreter.detectSiteKeyword('youtube downloader')).toBeNull();
+    expect(QueryInterpreter.detectSiteKeyword('reddit alternatives')).toBeNull();
+    expect(QueryInterpreter.detectSiteKeyword('github status')).toBeNull();
+    // ...but the full name still works as a trailing site filter.
+    expect(QueryInterpreter.detectSiteKeyword('lofi beats youtube')).toEqual({
+      domain: 'youtube.com', keyword: 'youtube', cleanedQuery: 'lofi beats',
     });
   });
 

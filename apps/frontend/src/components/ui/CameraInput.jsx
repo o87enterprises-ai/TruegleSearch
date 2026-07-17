@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Camera, Upload, X, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -18,55 +19,59 @@ const CameraInput = ({
   const [deviceId, setDeviceId] = useState(null);
   const [devices, setDevices] = useState([]);
 
-  // Get available camera devices
+  // Start the camera whenever the modal opens. We deliberately do NOT gate this
+  // on a known deviceId: before the user grants permission, enumerateDevices()
+  // returns devices with EMPTY deviceIds, so the old `isCameraOpen && deviceId`
+  // gate never fired and the feed never started (only "Upload Image" worked).
+  // getUserMedia itself triggers the permission prompt; we enumerate for the
+  // switch-camera list only AFTER a stream exists (labels/ids populate then).
   useEffect(() => {
-    const getCameraDevices = async () => {
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        setDevices(videoDevices);
-        
-        if (videoDevices.length > 0) {
-          setDeviceId(videoDevices[0].deviceId);
-        }
-      } catch (err) {
-        console.error('Error getting camera devices:', err);
-      }
-    };
-
-    getCameraDevices();
-  }, []);
-
-  // Initialize camera stream
-  useEffect(() => {
-    if (isCameraOpen && deviceId) {
-      startCamera();
-    }
+    if (isCameraOpen) startCamera();
 
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
       }
     };
+    // deviceId is included so an explicit camera switch re-opens the stream,
+    // but startCamera falls back to facingMode when it's empty/null.
   }, [isCameraOpen, deviceId]);
 
   const startCamera = async () => {
     try {
       setCameraError(null);
-      
-      const constraints = {
-        video: { deviceId: { exact: deviceId } }
-      };
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Prefer an explicitly-chosen device (camera switch); otherwise ask for
+      // the rear camera by preference and let the browser pick a default.
+      const constraints = deviceId
+        ? { video: { deviceId: { exact: deviceId } } }
+        : { video: { facingMode: 'environment' } };
+
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch {
+        // facingMode/deviceId not satisfiable on this device — fall back to any camera.
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
       streamRef.current = stream;
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
+
+      // Now that permission is granted, deviceIds/labels are populated — refresh
+      // the device list so the front/back switch button can appear. We do NOT
+      // adopt an id here (that would restart the stream and flash the feed);
+      // switchCamera() picks the next device on demand.
+      try {
+        const all = await navigator.mediaDevices.enumerateDevices();
+        setDevices(all.filter((d) => d.kind === 'videoinput'));
+      } catch { /* enumerate is best-effort; the live feed already works */ }
     } catch (err) {
       console.error('Error accessing camera:', err);
-      setCameraError(err.message);
+      setCameraError(err.message || 'Could not access the camera');
       setIsCameraOpen(false);
     }
   };
@@ -146,14 +151,19 @@ const CameraInput = ({
         <Camera size={size} />
       </motion.button>
 
-      {/* Camera Modal */}
-      <AnimatePresence>
-        {isCameraOpen && (
+      {/* Camera Modal — the whole AnimatePresence is portalled to <body> so
+          `fixed inset-0` covers the full viewport. Rendered inside the hero's
+          transformed/filtered ancestors it was contained to a cramped box (the
+          tiny "Camera" panel users saw). (Portal must wrap AnimatePresence, not
+          sit inside it, or the child won't render.) */}
+      {createPortal(
+        <AnimatePresence>
+          {isCameraOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
             onClick={() => {
               stopCamera();
               setCapturedImage(null);
@@ -265,8 +275,10 @@ const CameraInput = ({
               )}
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };

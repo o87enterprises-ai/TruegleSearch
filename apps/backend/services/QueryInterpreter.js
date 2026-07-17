@@ -66,6 +66,14 @@ const SITE_KEYWORDS = {
   soundcloud: 'soundcloud.com',
 };
 
+// Short abbreviations that read as a site-filter directive in EITHER position
+// ("yt lofi beats", "caveman git"). A full brand name as the LEADING token, by
+// contrast, is almost always the search SUBJECT ("youtube downloader", "reddit
+// alternatives", "github status") — so full names only fire the bang when they
+// TRAIL the query, never when they lead it. This keeps the bang from hijacking
+// ordinary queries about a platform.
+const SITE_KEYWORD_ABBREVIATIONS = new Set(['yt', 'git', 'npm', 'mdn', 'wiki']);
+
 /**
  * Detect a site-keyword shortcut in a leading or trailing standalone token.
  * Returns `{ domain, keyword, cleanedQuery }` with the keyword removed, or null.
@@ -89,7 +97,9 @@ function detectSiteKeyword(query) {
   if (SITE_KEYWORDS[last]) {
     return { domain: SITE_KEYWORDS[last], keyword: last, cleanedQuery: tokens.slice(0, -1).join(' ') };
   }
-  if (SITE_KEYWORDS[first]) {
+  // Leading position fires only for short abbreviations — a full brand name
+  // leading the query is the subject ("youtube downloader"), not a filter.
+  if (SITE_KEYWORDS[first] && SITE_KEYWORD_ABBREVIATIONS.has(first)) {
     return { domain: SITE_KEYWORDS[first], keyword: first, cleanedQuery: tokens.slice(1).join(' ') };
   }
   return null;
