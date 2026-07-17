@@ -202,6 +202,14 @@
         "body": "Shipped 2026-07-17 (108a41c). /chat: single Pill mode at top below logo (defaults black/Chat; cycling to a color + send navigates to /search?mode=X, like landing). Multi-select chat modes + 'TrueGLE vs' toggle + Modes tutorial live in one cluster below final AI output above input. Removed 'Feeling chat-e?' verbose toggle (chat+landing). Verbosity model: chat is VERBOSE by default, 'Summarize' (green) mode = concise (verbose = !modes.includes('green')). Renamed Simplified->Summarize GLOBALLY (MODE_LABELS in modeTheme.js). Selected mode buttons now SOLID fill in mode color with contrast-aware text (solidTextClass + LIGHT_MODES for black/yellow). Applied to ChatModeRow/PillModeRow/chat modesRow. NOTE: UniversalSearch still has its own verbose toggle (out of scope, unchanged); it does show 'Summarize' now via global rename.",
         "ts": "2026-07-17",
         "created": "2026-07-17"
+      },
+      "search-page-uniform-v2": {
+        "Id": "search-page-uniform-v2",
+        "Type": "decision",
+        "Label": "Search page uniform w/ landing + inline summary mini-chat",
+        "body": "Shipped 2026-07-17. Corrected the earlier 5-pill-row: search page now uses the SINGLE cycling PillModeRow (like landing), NO buttons below the bar (removed Search/Transcribe/Biased/Unbiased; submit via Enter/play button), filters+safesearch+scrollable content categories below the bar. Pill cycles/stages; submit navigates per landing model (submitSearch: black->/chat, orange->/rewards, yellow->/extract, other mode->/search?mode=, same mode re-runs). AI SUMMARY reworked: concise Summarize default; the chat lenses moved OFF the always-shown row INTO the expanded summary as an inline mini-chat (new InlineSummaryChat component = miniaturized /chat: lens mode-row default ['green'], /chat bubbles, auto-grow input, verbose=!green). Removed the AIChatOverlay modal + always-shown AI-lenses row. Files: PillModeRow reused, SearchModeRow deleted, InlineSummaryChat added, UniversalSearch rewired. Note: some now-unused vars remain in UniversalSearch (isChatOpen, toggleLens, handleBiasedClick, toggleOSINT) - harmless, vite passes.",
+        "ts": "2026-07-17",
+        "created": "2026-07-17"
       }
     },
     "entity": {
