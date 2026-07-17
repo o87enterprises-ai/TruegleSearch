@@ -194,6 +194,14 @@
         "body": "TrueGLE vs mode (nepheshMode=CONTESTED_CLAIM_PROTOCOL in apps/backend/prompts/nepheshPrompts.js, runtime-only, NOT in Modelfile) was leaning mainstream. Retuned 2026-07-16 (PROMPT_VERSION bumped): mandatory labeled output scaffold (Claim->Strict negation->Variables->Dual audit->Affirmative ledger->Negation ledger->Numeric reconciliation->Verdict); bans vague-compliment restatements + consensus exemptions ('for the era' must be itemized as an affirmative axiom); Numeric reconciliation section lifts the numeric ban to surface figure gaps and BUILD THE ALTERNATIVE (name circumstances that reconcile), verdict leans to shorter axiom ledger even if non-mainstream; Mandate-A note: the lean is the ledger's mechanical output not an opinion, so it stops retreating to false-neutral. Real ceiling is the free Groq model executing it; self-host is the durable unlock.",
         "ts": "2026-07-16",
         "created": "2026-07-16"
+      },
+      "chat-controls-layout": {
+        "Id": "chat-controls-layout",
+        "Type": "decision",
+        "Label": "/chat control layout + verbosity model",
+        "body": "Shipped 2026-07-17 (108a41c). /chat: single Pill mode at top below logo (defaults black/Chat; cycling to a color + send navigates to /search?mode=X, like landing). Multi-select chat modes + 'TrueGLE vs' toggle + Modes tutorial live in one cluster below final AI output above input. Removed 'Feeling chat-e?' verbose toggle (chat+landing). Verbosity model: chat is VERBOSE by default, 'Summarize' (green) mode = concise (verbose = !modes.includes('green')). Renamed Simplified->Summarize GLOBALLY (MODE_LABELS in modeTheme.js). Selected mode buttons now SOLID fill in mode color with contrast-aware text (solidTextClass + LIGHT_MODES for black/yellow). Applied to ChatModeRow/PillModeRow/chat modesRow. NOTE: UniversalSearch still has its own verbose toggle (out of scope, unchanged); it does show 'Summarize' now via global rename.",
+        "ts": "2026-07-17",
+        "created": "2026-07-17"
       }
     },
     "entity": {
