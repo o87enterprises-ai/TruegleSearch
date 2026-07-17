@@ -294,6 +294,15 @@
         "status": "done",
         "ts": "2026-07-15",
         "created": "2026-07-15"
+      },
+      "next-phase-bugs": {
+        "Id": "next-phase-bugs",
+        "Type": "thread",
+        "Label": "Next-phase bug/feature backlog (2026-07-16)",
+        "body": "Reported by user w/ screenshots. 1) MIC: add 5s delay before stop + live waveform overlay while recording so user knows it works (VoiceRecognition.jsx uses MediaRecorder->/api/voice/stt, MAX_RECORDING_MS=15000, currently only a red pulse ring). 2) CAMERA: not selectable even with cam perms (CameraInput.jsx; overlay shows 'Upload Image' but capture path broken). 3) TOAST OVERLAP: pill-mode toast (pillToast in LandingPage.jsx, absolute -top-12) overlaps the single pill row above the bar — reposition. 4) COMMON-SITES BANG TOO STRICT: searching 'youtube downloader' only returned youtube.com links — over-aggressive canonical-site collapse/dedup in SearchService ranking. 5) TRANSCRIPT still broken (TranscriptService Invidious path; live-verify pending per prior handoff). 6) CHAT LOGO: user has NEW transparent png for /chat (existing assets/images/truegle-chat.png) + chat page should visually MATCH landing (hero+search bar, minus below-hero content). NEED the new PNG file from user. 7) SAFESEARCH 500 still occurring, new traceId d294cff7c60fd4ab on backend-seven-khaki-60.vercel.app — needs live log diagnosis, not blind patch (per prior handoff). Triage: 3+6b are quick safe frontend; 1+2 medium frontend; 4 backend ranking; 5+7 need live/runtime diagnosis.",
+        "status": "open",
+        "ts": "2026-07-17",
+        "created": "2026-07-17"
       }
     }
   },
@@ -323,5 +332,5 @@
       }
     }
   },
-  "updated": "2026-07-16"
+  "updated": "2026-07-17"
 }
