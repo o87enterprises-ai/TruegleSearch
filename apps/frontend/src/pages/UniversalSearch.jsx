@@ -46,7 +46,7 @@ import TokenGate from '../components/ui/TokenGate';
 import RepairsModal from '../components/ui/RepairsModal';
 import LanguageSelector from '../components/ui/LanguageSelector';
 import OsintClassRow, { osintHintPrefix } from '../components/search/OsintClassRow';
-import SearchModeRow from '../components/search/SearchModeRow';
+import PillModeRow from '../components/landing/PillModeRow';
 
 // Hooks and Config
 import { useSearchMode } from '../hooks/useSearchMode';
@@ -111,6 +111,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
     if (modeParam) return modeParam;
     return localStorage.getItem('truegle_mode_pref') || 'blue';
   });
+  // Single cycling pill (same control as the landing page). Reflects the
+  // current search mode; cycling stages a new one and submitting navigates to
+  // it (black = Chat -> /chat, orange/yellow -> their page, else /search?mode=).
+  const [pillMode, setPillMode] = useState(mode);
+  useEffect(() => { setPillMode(mode); }, [mode]);
 
   // Nephesh mode (opt-in Null-Prime dual-audit protocol) and verbosity
   // (default succinct) — persistent, off by default. Purple/ocean keep their
@@ -350,6 +355,24 @@ export default function UniversalSearch({ lockedGreen = false }) {
       handleSearch();
     }
   }, [settings.language]);
+
+  // Submit handler for the search bar. The single cycling pill decides where a
+  // submit goes (same model as the landing page): black = Chat -> /chat,
+  // orange -> /rewards, yellow -> /extract, a different search mode -> that
+  // /search page; the current mode just re-runs the search in place.
+  const submitSearch = () => {
+    const q = searchValue.trim();
+    if (!q) return;
+    if (pillMode === 'black') { navigate(`/chat?q=${encodeURIComponent(q)}`); return; }
+    if (pillMode === 'orange') { navigate('/rewards'); return; }
+    if (pillMode === 'yellow') { navigate('/extract'); return; }
+    if (pillMode !== mode) {
+      setMode(pillMode);
+      navigate(`/search?mode=${pillMode}&q=${encodeURIComponent(q)}`);
+      return;
+    }
+    handleSearch();
+  };
 
   const handleSearch = async () => {
     if (!searchValue.trim()) return;
@@ -958,24 +981,13 @@ export default function UniversalSearch({ lockedGreen = false }) {
             <TruegleLogo className="scale-[1.5] sm:scale-[1.8]" onClick={lockedGreen ? undefined : () => navigate('/')} />
           </motion.div>
 
-          {/* Mode-pill row (uniform selector) — below the logo, like landing/chat.
-              Single-select: clicking a pill navigates to that colored /search
-              page, preserving the current query. Hidden in locked green mode.
-              relative z-20 so the pills sit above the scaled logo's overflow and
-              stay clickable. */}
+          {/* Single cycling pill — same control as the landing page. relative
+              z-20 so it sits above the scaled logo's overflow and stays
+              clickable. Cycling only stages the mode; navigation happens on
+              submit (see the search bar's onSearch below). */}
           {!lockedGreen && (
-            <div className="relative z-20">
-              <SearchModeRow
-                activeMode={mode}
-                onSelect={(id) => {
-                  // Set the mode state synchronously BEFORE navigating: the page's
-                  // re-search rebuilds the URL from `mode` state, so a stale value
-                  // would otherwise drop the new mode param during SPA nav.
-                  setMode(id);
-                  const q = searchValue.trim();
-                  navigate(`/search?mode=${id}${q ? `&q=${encodeURIComponent(q)}` : ''}`);
-                }}
-              />
+            <div className="relative z-20 mb-2">
+              <PillModeRow activeMode={pillMode} onSelect={setPillMode} />
             </div>
           )}
 
@@ -983,26 +995,18 @@ export default function UniversalSearch({ lockedGreen = false }) {
           <div className="max-w-4xl mx-auto mb-6">
             <SearchBar
               value={searchValue}
-              showBiasedButton={!lockedGreen && mode !== 'purple'}
-              onBiasedClick={handleBiasedClick}
-              showUnbiasedButton={mode === 'purple'}
-              onUnbiasedClick={() => {
-                setMode(isRedPillMode ? 'red' : 'blue');
-                const params = new URLSearchParams(searchParams);
-                if (isRedPillMode) {
-                  params.set('mode', 'red');
-                } else {
-                  params.delete('mode');
-                }
-                navigate(`/search?${params.toString()}`, { replace: true });
-              }}
+              // No buttons below the bar (uniform with landing/chat) — submit
+              // via Enter or the in-bar play button.
+              showSearchButton={false}
+              showBiasedButton={false}
+              showUnbiasedButton={false}
               onChange={(val) => setSearchValue(val)}
-              onSubmit={handleSearch}
-              onSearch={handleSearch}
+              onSubmit={() => submitSearch()}
+              onSearch={() => submitSearch()}
               placeholder={mode === 'purple' ? 'Explore perspectives...' : mode === 'ocean' ? 'OSINT search...' : 'Search for unbiased truth...'}
               size="medium"
-              // Legacy in-bar pill + OSINT toggles removed — the SearchModeRow
-              // above the bar now covers all five modes uniformly.
+              // Legacy in-bar pill + OSINT toggles removed — the single cycling
+              // pill above the bar now covers all modes uniformly.
               showPillToggle={false}
               safeSearch={settings.safeSearch}
               onSafeSearchChange={(v) => updateSetting('safeSearch', v)}
@@ -1037,31 +1041,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                 mode === 'green' ? 'green' :
                 'blue'
               }
-              searchButtonGradient={
-                mode === 'purple' ? 'from-purple-600 to-purple-500' :
-                mode === 'ocean' ? 'from-red-600 to-red-500' :
-                undefined
-              }
-              biasedButtonGradient={
-                mode === 'ocean' ? 'from-purple-600 to-purple-500' :
-                undefined
-              }
-              unbiasedButtonGradient={
-                mode === 'purple' ? (
-                  isRedPillMode ? 'from-red-600 to-red-500' : 'from-blue-600 to-cyan-600'
-                ) : undefined
-              }
               isLoading={searchLoading}
-              customActionButtons={
-                <a
-                  href="/extract"
-                  onClick={(e) => { e.preventDefault(); navigate('/extract'); }}
-                  className="inline-flex items-center justify-center gap-2 h-12 px-5 min-w-[150px] rounded-xl bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-semibold shadow-lg shadow-yellow-400/20 hover:shadow-yellow-300/30 transition-all duration-200 ease-out"
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                  Transcribe URL
-                </a>
-              }
             />
             {/* OSINT exception: investigation-class row (ocean page only),
                 replacing the content categories stripped from the bar above. */}
