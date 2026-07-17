@@ -46,6 +46,7 @@ import TokenGate from '../components/ui/TokenGate';
 import RepairsModal from '../components/ui/RepairsModal';
 import LanguageSelector from '../components/ui/LanguageSelector';
 import OsintClassRow, { osintHintPrefix } from '../components/search/OsintClassRow';
+import SearchModeRow from '../components/search/SearchModeRow';
 
 // Hooks and Config
 import { useSearchMode } from '../hooks/useSearchMode';
@@ -946,14 +947,37 @@ export default function UniversalSearch({ lockedGreen = false }) {
       {/* Content - EXACT structure from SearchResults.jsx */}
       <div className="relative z-10 min-h-screen p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
-          {/* Logo - CENTERED AND BIG (same as SearchResults) */}
+          {/* Logo - CENTERED AND BIG (same as SearchResults). The logo is scaled
+              1.5-1.8x, which visually overflows its layout box; the extra bottom
+              margin keeps that overflow from covering the mode-pill row below. */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex justify-center mb-6"
+            className="flex justify-center mb-12"
           >
             <TruegleLogo className="scale-[1.5] sm:scale-[1.8]" onClick={lockedGreen ? undefined : () => navigate('/')} />
           </motion.div>
+
+          {/* Mode-pill row (uniform selector) — below the logo, like landing/chat.
+              Single-select: clicking a pill navigates to that colored /search
+              page, preserving the current query. Hidden in locked green mode.
+              relative z-20 so the pills sit above the scaled logo's overflow and
+              stay clickable. */}
+          {!lockedGreen && (
+            <div className="relative z-20">
+              <SearchModeRow
+                activeMode={mode}
+                onSelect={(id) => {
+                  // Set the mode state synchronously BEFORE navigating: the page's
+                  // re-search rebuilds the URL from `mode` state, so a stale value
+                  // would otherwise drop the new mode param during SPA nav.
+                  setMode(id);
+                  const q = searchValue.trim();
+                  navigate(`/search?mode=${id}${q ? `&q=${encodeURIComponent(q)}` : ''}`);
+                }}
+              />
+            </div>
+          )}
 
           {/* Search Bar - Directly Below Logo (same as SearchResults) */}
           <div className="max-w-4xl mx-auto mb-6">
@@ -977,10 +1001,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
               onSearch={handleSearch}
               placeholder={mode === 'purple' ? 'Explore perspectives...' : mode === 'ocean' ? 'OSINT search...' : 'Search for unbiased truth...'}
               size="medium"
-              showPillToggle={!lockedGreen}
-              isRedPillMode={isRedPillMode}
-              pillMode={mode === 'green' ? 'green' : isRedPillMode ? 'red' : 'blue'}
-              onPillModeChange={handlePillModeChange}
+              // Legacy in-bar pill + OSINT toggles removed — the SearchModeRow
+              // above the bar now covers all five modes uniformly.
+              showPillToggle={false}
               safeSearch={settings.safeSearch}
               onSafeSearchChange={(v) => updateSetting('safeSearch', v)}
               showFilters={true}
@@ -988,9 +1011,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
               onFiltersChange={setFilters}
               compactFilters={false}
               showFilterToggle={true}
-              showOSINTToggle={!lockedGreen}
-              isOSINTMode={isOSINTMode}
-              onOSINTToggle={toggleOSINT}
+              showOSINTToggle={false}
               // OSINT exception: the ocean page swaps the content categories for
               // the investigation-class row rendered below the bar.
               showCategories={mode !== 'ocean'}
