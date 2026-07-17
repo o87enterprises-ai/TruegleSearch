@@ -26,7 +26,7 @@ import LetterGlitch from '../components/backgrounds/LetterGlitch';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import SearchBar from '../components/ui/SearchBar';
 import MultimediaInterface from '../components/ui/MultimediaInterface';
-import AIChatOverlay from '../components/ui/AIChatOverlay';
+import InlineSummaryChat from '../components/search/InlineSummaryChat';
 import AdSlot from '../components/AdSlot';
 import RewardAdSlot from '../components/RewardAdSlot';
 import AdsterraBanner from '../components/ads/AdsterraBanner';
@@ -1267,36 +1267,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
           {/* Search Summary — Banner + Expandable Card */}
           {mode !== 'green' && sessionSummaryChoice !== 'none' && (
             <div className="max-w-4xl mx-auto mb-4">
-              {/* Multi-select AI lenses — the active mode is primary (ring); tap
-                  others to blend their framing into the summary + follow-up chat. */}
-              {(aiSummary || aiLoading || searchResults.length > 0) && (
-                <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                  <span className="text-[11px] text-white/40 mr-0.5">AI lenses:</span>
-                  {LENS_MODES.map((m) => {
-                    const active = activeModes.includes(m);
-                    const isPrimary = m === mode;
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => toggleLens(m)}
-                        aria-pressed={active}
-                        disabled={isPrimary}
-                        title={isPrimary ? `${MODE_LABELS[m]} (primary — set by the mode toggle)` : active ? `${MODE_LABELS[m]} lens active — tap to remove` : `Add ${MODE_LABELS[m]} lens`}
-                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium border transition-colors ${
-                          active ? 'text-white' : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'
-                        } ${isPrimary ? 'ring-1 ring-white/40 cursor-default' : ''}`}
-                        style={active ? { backgroundColor: `${MODE_COLORS[m]}33`, borderColor: `${MODE_COLORS[m]}80` } : undefined}
-                      >
-                        {MODE_LABELS[m]}
-                      </button>
-                    );
-                  })}
-                  {activeModes.length > 1 && (
-                    <span className="text-[11px] text-white/40 ml-0.5">· blending {activeModes.length}</span>
-                  )}
-                </div>
-              )}
+              {/* (The AI lenses now live inside the expanded summary's inline
+                  mini-chat — see InlineSummaryChat — rather than an always-shown
+                  row here.) */}
               {/* Banner: shown when choice not yet made */}
               {!sessionSummaryChoice && (aiSummary || aiLoading || searchResults.length > 0) && (
                 <motion.div
@@ -1477,23 +1450,26 @@ export default function UniversalSearch({ lockedGreen = false }) {
                             )}
                             <div className="flex items-center gap-4 text-xs text-white/40">
                               <span>{aiSummary.sourcesAnalyzed || 0} sources analyzed</span>
-                              <span>•</span>
-                              <span
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => {
-                                  if (!FREE_ACCESS_MODE && !isAuthenticated) {
-                                    navigate('/auth/login', { state: { redirectTo: window.location.pathname + window.location.search } });
-                                  } else {
-                                    setIsChatOpen(true);
-                                  }
-                                }}
-                                onKeyDown={(e) => e.key === 'Enter' && ((FREE_ACCESS_MODE || isAuthenticated) ? setIsChatOpen(true) : navigate('/auth/login'))}
-                                className="underline hover:text-white/60 transition-colors cursor-pointer"
-                              >
-                                {(FREE_ACCESS_MODE || isAuthenticated) ? 'Ask follow-up' : 'Sign in to chat'}
-                              </span>
                             </div>
+                            {/* Inline mini-chat — a miniaturized /chat that
+                                continues from this summary. Chat lenses live in
+                                its mode row ("Summarize" default). */}
+                            {(FREE_ACCESS_MODE || isAuthenticated) ? (
+                              <InlineSummaryChat
+                                query={lastSearchedQuery}
+                                summary={aiSummary.summary}
+                                primaryMode={mode}
+                                nepheshMode={nepheshMode}
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => navigate('/auth/login', { state: { redirectTo: window.location.pathname + window.location.search } })}
+                                className="mt-3 text-xs text-white/40 underline hover:text-white/60"
+                              >
+                                Sign in to chat
+                              </button>
+                            )}
                             {/* TODO(ads): re-enable when new Adsterra zones land
                             <div className="mt-3 space-y-2 flex flex-col items-center">
                               <AdsterraBanner format="banner320x50" searchContext={adContext} />
@@ -1861,24 +1837,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
         </div>
       </div>
 
-      {/* Smart Search Assistant Overlay */}
-      {isChatOpen && (
-        <AIChatOverlay
-          isOpen={isChatOpen}
-          onClose={() => setIsChatOpen(false)}
-          initialSummary={aiSummary?.summary || null}
-          mode={mode}
-          modes={activeModes}
-          nepheshMode={nepheshMode}
-          verbose={SEARCH_VERBOSE}
-          themeColor={
-            mode === 'red' ? 'red' :
-            mode === 'purple' ? 'purple' :
-            mode === 'ocean' ? 'ocean' :
-            'blue'
-          }
-        />
-      )}
+      {/* The follow-up chat now lives inline in the expanded summary card
+          (InlineSummaryChat), not in a separate modal overlay. */}
     </div>
   );
 }
