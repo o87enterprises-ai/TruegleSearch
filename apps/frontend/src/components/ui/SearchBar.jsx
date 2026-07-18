@@ -867,6 +867,10 @@ export default function SearchBar({
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  // True only while the user is actively typing (set in handleChange, cleared
+  // on submit / suggestion pick). Gates the auto-open effect so a prefilled bar
+  // focused after navigation doesn't re-descend the dropdown.
+  const userTypedRef = useRef(false);
   const [isHoveringDropdown, setIsHoveringDropdown] = useState(false);
   // Transient voice-search error shown under the input (mic denied, no speech,
   // service blocked). Auto-dismisses; replaces the old console-only handling.
@@ -1049,12 +1053,17 @@ export default function SearchBar({
 
   // Update suggestions when input changes
   useEffect(() => {
-    if (isFocused) {
-      const newSuggestions = generateSuggestions(localValue);
-      setSuggestions(newSuggestions);
-      setShowSuggestions(newSuggestions.length > 0);
-      setSelectedSuggestionIndex(-1);
-    }
+    if (!isFocused) return;
+    // Don't auto-open the dropdown just because a *prefilled* value is focused
+    // after navigating to the results page — only when the bar is empty (show
+    // recent searches) or the user is actively typing. Fixes the bug where the
+    // suggestions stayed descended after navigation and Enter had to be pressed
+    // twice. (userTypedRef flips true only in handleChange.)
+    if (localValue.trim() && !userTypedRef.current) return;
+    const newSuggestions = generateSuggestions(localValue);
+    setSuggestions(newSuggestions);
+    setShowSuggestions(newSuggestions.length > 0);
+    setSelectedSuggestionIndex(-1);
   }, [localValue, isFocused, generateSuggestions]);
 
   // Auto-hide suggestions after 3 seconds of typing inactivity
@@ -1087,6 +1096,7 @@ export default function SearchBar({
   const handleSuggestionClick = useCallback((suggestion) => {
     setLocalValue(suggestion.text);
     onChange?.(suggestion.text);
+    userTypedRef.current = false; // picked, not typing → keep dropdown closed
     setShowSuggestions(false);
     saveToRecentSearches(suggestion.text);
     inputRef.current?.focus();
@@ -1239,6 +1249,7 @@ const handleChange = useCallback((e) => {
   if (maxLength && newValue.length > maxLength) return;
 
   setLocalValue(newValue);
+  userTypedRef.current = true; // real keystroke → suggestions may auto-open
   // Pass the string value, not the event object
   onChange?.(newValue);
 }, [onChange, maxLength]);
@@ -1296,6 +1307,11 @@ const handleChange = useCallback((e) => {
   // the search box is now a textarea (Enter no longer submits a <form> for free).
   const trySubmit = useCallback(() => {
     if (localValue.trim()) {
+      // Close the dropdown on submit so it doesn't stay descended after the
+      // page navigates (and so Enter never needs a second press).
+      userTypedRef.current = false;
+      setShowSuggestions(false);
+      setSelectedSuggestionIndex(-1);
       gatedSearch();
     }
   }, [localValue, gatedSearch]);

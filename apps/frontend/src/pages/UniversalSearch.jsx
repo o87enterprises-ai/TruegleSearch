@@ -45,7 +45,9 @@ import OSINTToolsPanel from '../components/ui/OSINTToolsPanel';
 import TokenGate from '../components/ui/TokenGate';
 import RepairsModal from '../components/ui/RepairsModal';
 import LanguageSelector from '../components/ui/LanguageSelector';
-import OsintClassRow, { osintHintPrefix } from '../components/search/OsintClassRow';
+// OsintClassRow is retired on the ocean page (the OSINT Tools module owns tool
+// selection); osintHintPrefix is still used to tag ocean web searches.
+import { osintHintPrefix } from '../components/search/OsintClassRow';
 import PillModeRow from '../components/landing/PillModeRow';
 
 // Hooks and Config
@@ -1043,33 +1045,30 @@ export default function UniversalSearch({ lockedGreen = false }) {
               }
               isLoading={searchLoading}
             />
-            {/* OSINT exception: investigation-class row (ocean page only),
-                replacing the content categories stripped from the bar above. */}
-            {mode === 'ocean' && (
-              <div className="mt-3">
-                <OsintClassRow selected={osintClasses} onToggle={toggleOsintClass} />
-              </div>
-            )}
+            {/* (Ocean/OSINT: the investigation-class row and the "TrueGLE vs"
+                toggle are removed — the interactive OSINT Tools module below the
+                bar now owns tool selection and the AI. Other modes keep them.) */}
             {/* Language selector — synced to browser language by default */}
             <div className="flex justify-end items-center gap-3 mt-2">
               {/* Nephesh mode: opt-in Null-Prime dual-audit protocol for
-                  contested claims. Persistent, off by default. (Verbosity has
-                  no toggle on search pages — AI summaries are always concise;
-                  see SEARCH_VERBOSE.) */}
-              <button
-                type="button"
-                onClick={() => setNepheshMode((v) => !v)}
-                title="TrueGLE Mode: layer the Null-Prime dual-audit protocol onto contested claims"
-                aria-pressed={nepheshMode}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                  nepheshMode
-                    ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-200'
-                    : 'bg-white/5 border-white/10 text-white/40 hover:text-white/60'
-                }`}
-              >
-                <span className={`w-1.5 h-1.5 rounded-full ${nepheshMode ? 'bg-cyan-300' : 'bg-white/20'}`} />
-                TrueGLE Mode
-              </button>
+                  contested claims. Persistent, off by default. Hidden on the
+                  OSINT page (no vs mode there). */}
+              {mode !== 'ocean' && (
+                <button
+                  type="button"
+                  onClick={() => setNepheshMode((v) => !v)}
+                  title="TrueGLE Mode: layer the Null-Prime dual-audit protocol onto contested claims"
+                  aria-pressed={nepheshMode}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    nepheshMode
+                      ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-200'
+                      : 'bg-white/5 border-white/10 text-white/40 hover:text-white/60'
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${nepheshMode ? 'bg-cyan-300' : 'bg-white/20'}`} />
+                  TrueGLE Mode
+                </button>
+              )}
               <LanguageSelector />
             </div>
           </div>
@@ -1210,8 +1209,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
             )}
           </AnimatePresence>
 
-          {/* OSINT Tools (Ocean mode only) — free recon endpoints + iframe verify */}
-          {mode === 'ocean' && <OSINTToolsPanel />}
+          {/* OSINT Tools (Ocean mode only) — the interactive investigation
+              module: the searched query is routed into its input, findings +
+              AI results-summary + debrief all live here (no separate summary). */}
+          {mode === 'ocean' && <OSINTToolsPanel initialQuery={lastSearchedQuery} />}
 
           {/* Perspective Selector (Purple mode only) */}
           {mode === 'purple' && (
@@ -1227,8 +1228,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
             </div>
           )}
 
-          {/* Prominent Question Answer — auto-shown for direct questions, no click required */}
-          {aiSummary?.isQuestion && mode !== 'green' && (
+          {/* Prominent Question Answer — auto-shown for direct questions, no click required.
+              (Ocean/OSINT has no AI summary surfaces — the tools module owns the AI.) */}
+          {aiSummary?.isQuestion && mode !== 'green' && mode !== 'ocean' && (
             <div className="max-w-4xl mx-auto mb-4">
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -1264,8 +1266,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
             </div>
           )}
 
-          {/* Search Summary — Banner + Expandable Card */}
-          {mode !== 'green' && sessionSummaryChoice !== 'none' && (
+          {/* Search Summary — Banner + Expandable Card.
+              Excluded on ocean: the OSINT Tools module above hosts its own AI
+              results-summary + debrief, so there's no separate summary here. */}
+          {mode !== 'green' && mode !== 'ocean' && sessionSummaryChoice !== 'none' && (
             <div className="max-w-4xl mx-auto mb-4">
               {/* (The AI lenses now live inside the expanded summary's inline
                   mini-chat — see InlineSummaryChat — rather than an always-shown

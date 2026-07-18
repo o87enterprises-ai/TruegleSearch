@@ -319,6 +319,15 @@
         "status": "open",
         "ts": "2026-07-17",
         "created": "2026-07-17"
+      },
+      "osint-module-rebuild": {
+        "Id": "osint-module-rebuild",
+        "Type": "thread",
+        "Label": "OSINT ocean page rebuilt into one interactive module",
+        "body": "Ocean page (UniversalSearch mode==='ocean') now uses a single OSINTToolsPanel: query routed into its input + auto tool-select + scroll; removed OsintClassRow, TrueGLE Mode toggle, and the InlineSummaryChat AI-summary card on ocean (kept on other modes). Multi-select tools -> Intel findings w/ honest CONFIRMED/NOT FOUND/CANDIDATE badges -> AI results-summary chat -> gather checkboxes -> confirm -> branded HTML Intel debrief (rainbow TrueGLE OSINT letterhead + watermark, download/share) -> follow-up input + secondary tool selector -> iframe split-view. Backend /api/osint/username-platforms: allows spaces/weird input (names), slugifies per-platform, ADDED Facebook (people-search for names, vanity for handles) + Google/Bing/DDG name fallbacks, best-effort existence probe (github/gitlab/reddit/keybase/hn/mastodon) fails closed to null=CANDIDATE. Also fixed SearchBar dropdown staying open after nav (userTypedRef gates auto-open; trySubmit closes).",
+        "status": "open",
+        "ts": "2026-07-18",
+        "created": "2026-07-18"
       }
     }
   },
@@ -348,5 +357,5 @@
       }
     }
   },
-  "updated": "2026-07-17"
+  "updated": "2026-07-18"
 }

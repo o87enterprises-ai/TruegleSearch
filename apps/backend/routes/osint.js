@@ -243,42 +243,119 @@ router.get('/whois', async (req, res) => {
   }
 });
 
+// Best-effort existence probe. Returns true (found), false (definitely not
+// found), or null (couldn't determine — login wall, bot block, timeout).
+// Only used for platforms that expose a clean public 404/JSON check.
+async function probeExists(kind, handle) {
+  const UA = { 'User-Agent': 'Mozilla/5.0 (compatible; TruegleOSINT/1.0)' };
+  try {
+    if (kind === 'github' || kind === 'gitlab') {
+      const base = kind === 'github' ? 'https://github.com' : 'https://gitlab.com';
+      const r = await axios.head(`${base}/${handle}`, { timeout: 6000, headers: UA, validateStatus: () => true, maxRedirects: 2 });
+      return r.status === 200 ? true : r.status === 404 ? false : null;
+    }
+    if (kind === 'reddit') {
+      const r = await axios.get(`https://www.reddit.com/user/${handle}/about.json`, { timeout: 6000, headers: UA, validateStatus: () => true });
+      if (r.status === 404) return false;
+      if (r.status === 200 && r.data?.data?.name) return true;
+      return null;
+    }
+    if (kind === 'keybase') {
+      const r = await axios.get(`https://keybase.io/_/api/1.0/user/lookup.json?username=${encodeURIComponent(handle)}`, { timeout: 6000, headers: UA, validateStatus: () => true });
+      if (r.status === 200 && r.data?.status?.code === 0 && r.data?.them) return true;
+      if (r.status === 200 && r.data?.status?.code === 205) return false; // not found
+      return null;
+    }
+    if (kind === 'hackernews') {
+      const r = await axios.get(`https://hacker-news.firebaseio.com/v0/user/${encodeURIComponent(handle)}.json`, { timeout: 6000, headers: UA, validateStatus: () => true });
+      if (r.status === 200) return r.data ? true : false; // null body => no such user
+      return null;
+    }
+    if (kind === 'mastodon') {
+      const r = await axios.head(`https://mastodon.social/@${handle}`, { timeout: 6000, headers: UA, validateStatus: () => true, maxRedirects: 2 });
+      return r.status === 200 ? true : r.status === 404 ? false : null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 /**
  * @route   GET /api/osint/username-platforms
- * @desc    Generate platform check URLs for a username (no external API needed)
+ * @desc    Turn a username OR a real name (spaces / apostrophes / weird input
+ *          allowed) into candidate profile links across platforms, probe the
+ *          ones that expose a clean public existence check, and label the rest
+ *          honestly as "candidate — verify manually". Includes Facebook (both
+ *          the public people-directory for names and the vanity-URL for
+ *          handles) plus name web-search fallbacks. No API key required.
  * @access  Public
  */
 router.get('/username-platforms', async (req, res) => {
   try {
-    const { username } = req.query;
-    if (!username || username.length < 2 || username.length > 64 || !/^[\w.-]+$/.test(username)) {
-      return res.status(400).json({ error: 'Valid username required (2-64 chars, alphanumeric/_/./-)' });
+    const raw = String(req.query.username || '').trim();
+    if (raw.length < 2 || raw.length > 80) {
+      return res.status(400).json({ error: 'Enter a username or name (2–80 characters).' });
     }
 
-    const platforms = [
-      { name: 'GitHub', url: `https://github.com/${username}`, category: 'dev' },
-      { name: 'Twitter / X', url: `https://twitter.com/${username}`, category: 'social' },
-      { name: 'Instagram', url: `https://instagram.com/${username}`, category: 'social' },
-      { name: 'Reddit', url: `https://reddit.com/user/${username}`, category: 'social' },
-      { name: 'LinkedIn', url: `https://linkedin.com/in/${username}`, category: 'professional' },
-      { name: 'TikTok', url: `https://tiktok.com/@${username}`, category: 'social' },
-      { name: 'YouTube', url: `https://youtube.com/@${username}`, category: 'video' },
-      { name: 'Twitch', url: `https://twitch.tv/${username}`, category: 'video' },
-      { name: 'Pinterest', url: `https://pinterest.com/${username}`, category: 'social' },
-      { name: 'Tumblr', url: `https://${username}.tumblr.com`, category: 'social' },
-      { name: 'Medium', url: `https://medium.com/@${username}`, category: 'blog' },
-      { name: 'Substack', url: `https://${username}.substack.com`, category: 'blog' },
-      { name: 'Mastodon', url: `https://mastodon.social/@${username}`, category: 'social' },
-      { name: 'Telegram', url: `https://t.me/${username}`, category: 'messaging' },
-      { name: 'Rumble', url: `https://rumble.com/user/${username}`, category: 'video' },
-      { name: 'Odysee', url: `https://odysee.com/@${username}`, category: 'video' },
-      { name: 'Bitchute', url: `https://bitchute.com/profile/${username}`, category: 'video' },
-      { name: 'Keybase', url: `https://keybase.io/${username}`, category: 'identity' },
-      { name: 'HackerNews', url: `https://news.ycombinator.com/user?id=${username}`, category: 'dev' },
-      { name: 'GitLab', url: `https://gitlab.com/${username}`, category: 'dev' },
+    // A "name" is anything with a space or a character that can't be a handle.
+    const looksLikeName = /\s/.test(raw) || /[^\w.-]/.test(raw);
+    // Slugified handle for handle-based platforms: strip everything but
+    // alphanumerics (so "Odin Idesae O'Shea" -> "odinidesaeoshea").
+    const handle = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+    // Facebook public directory uses dash-joined name parts.
+    const fbNameSlug = raw.trim().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+    const q = encodeURIComponent(raw);
+
+    // Handle-based platforms. `probe` names the existence check to run (if any).
+    const handlePlatforms = handle.length >= 2 ? [
+      { name: 'GitHub', url: `https://github.com/${handle}`, category: 'dev', probe: 'github' },
+      { name: 'GitLab', url: `https://gitlab.com/${handle}`, category: 'dev', probe: 'gitlab' },
+      { name: 'Reddit', url: `https://www.reddit.com/user/${handle}`, category: 'social', probe: 'reddit' },
+      { name: 'Keybase', url: `https://keybase.io/${handle}`, category: 'identity', probe: 'keybase' },
+      { name: 'HackerNews', url: `https://news.ycombinator.com/user?id=${handle}`, category: 'dev', probe: 'hackernews' },
+      { name: 'Mastodon', url: `https://mastodon.social/@${handle}`, category: 'social', probe: 'mastodon' },
+      { name: 'Twitter / X', url: `https://twitter.com/${handle}`, category: 'social' },
+      { name: 'Instagram', url: `https://instagram.com/${handle}`, category: 'social' },
+      { name: 'TikTok', url: `https://tiktok.com/@${handle}`, category: 'social' },
+      { name: 'YouTube', url: `https://youtube.com/@${handle}`, category: 'video' },
+      { name: 'Twitch', url: `https://twitch.tv/${handle}`, category: 'video' },
+      { name: 'Telegram', url: `https://t.me/${handle}`, category: 'messaging' },
+      { name: 'Medium', url: `https://medium.com/@${handle}`, category: 'blog' },
+      { name: 'LinkedIn', url: `https://linkedin.com/in/${handle}`, category: 'professional' },
+    ] : [];
+
+    // Facebook: vanity URL for a handle; public people-search for a name.
+    const facebook = looksLikeName
+      ? [
+          { name: 'Facebook (people search)', url: `https://www.facebook.com/public/${encodeURIComponent(fbNameSlug)}`, category: 'social' },
+          { name: 'Facebook (search)', url: `https://www.facebook.com/search/top?q=${q}`, category: 'social' },
+        ]
+      : [{ name: 'Facebook', url: `https://www.facebook.com/${handle}`, category: 'social' }];
+
+    // Name web-search fallbacks — always useful, especially for real names.
+    const webSearch = [
+      { name: 'Google', url: `https://www.google.com/search?q=${q}`, category: 'search' },
+      { name: 'Bing', url: `https://www.bing.com/search?q=${q}`, category: 'search' },
+      { name: 'DuckDuckGo', url: `https://duckduckgo.com/?q=${q}`, category: 'search' },
     ];
 
-    res.json({ success: true, username, platforms });
+    const platforms = [...facebook, ...handlePlatforms, ...webSearch].map((p) => ({
+      ...p,
+      // exists: true/false from a probe, null = candidate (verify manually).
+      exists: null,
+      checkable: !!p.probe,
+    }));
+
+    // Run the cheap existence probes in parallel (bounded set, short timeout).
+    await Promise.all(
+      platforms.map(async (p) => {
+        if (p.probe) p.exists = await probeExists(p.probe, handle);
+        delete p.probe;
+      })
+    );
+
+    res.json({ success: true, username: raw, handle, isName: looksLikeName, platforms });
   } catch (error) {
     logger.error('Username platforms error:', error.message);
     res.status(500).json({ error: 'Username lookup failed' });
