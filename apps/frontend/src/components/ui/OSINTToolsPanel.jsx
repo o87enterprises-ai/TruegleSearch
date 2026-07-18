@@ -20,16 +20,45 @@ const TOOLS = [
 
 const DNS_TYPES = ['A', 'AAAA', 'MX', 'TXT', 'NS', 'CNAME', 'SOA'];
 
-// Route a free-text query to the most likely tools so the query the user
-// searched lands in the tool box already pointed at the right recon.
+// Pull the distinct entities out of a free-text query so a blob like
+// "5416230460 Odin Idesae OShea therealduckyduck@gmail.com" gets split into a
+// phone, an email and a residual name — each routed to the right tool instead
+// of the whole string being crammed into every field.
+function parseEntities(raw) {
+  const s = (raw || '').trim();
+  let rest = ` ${s} `;
+  const take = (re) => {
+    const found = [];
+    rest = rest.replace(re, (m) => { found.push(m.trim()); return ' '; });
+    return found;
+  };
+  const emails = take(/[^\s@]+@[^\s@]+\.[^\s@]+/g);
+  const ips = take(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g);
+  const domains = take(/\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/gi);      // after emails/ips removed
+  const phones = take(/\+?\d[\d\s().-]{6,}\d/g);                  // 8+ digit runs, symbols ok
+  const name = rest.replace(/\s+/g, ' ').trim();                 // whatever's left = name/handle
+  return { emails, ips, domains, phones, name };
+}
+
+// The value a given tool should actually receive from the parsed entities.
+function valueForTool(toolId, ent, raw) {
+  if (toolId === 'email') return ent.emails[0] || '';
+  if (toolId === 'ip') return ent.ips[0] || '';
+  if (toolId === 'phone') return ent.phones[0] || '';
+  if (toolId === 'whois' || toolId === 'dns') return ent.domains[0] || '';
+  return ent.name || raw; // username / name
+}
+
+// Auto-select the tools that actually have something to work with.
 function defaultToolsFor(q) {
-  const s = (q || '').trim();
-  if (!s) return ['username'];
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) return ['email'];
-  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(s)) return ['ip'];
-  if (/^\+?[\d][\d\s().-]{6,}$/.test(s)) return ['phone'];
-  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(s) && !/\s/.test(s)) return ['whois', 'dns'];
-  return ['username']; // names, handles, "weird" input all go here
+  const ent = parseEntities(q);
+  const tools = [];
+  if (ent.emails.length) tools.push('email');
+  if (ent.phones.length) tools.push('phone');
+  if (ent.ips.length) tools.push('ip');
+  if (ent.domains.length) tools.push('whois');
+  if (ent.name) tools.push('username');
+  return tools.length ? tools : ['username'];
 }
 
 function pickUrl(toolId, q, dnsType) {
@@ -46,6 +75,7 @@ function pickUrl(toolId, q, dnsType) {
 // stable id so ticking a checkbox toggles it in/out of the debrief).
 function itemsFor(toolId, res, query) {
   if (!res || res.error) return [];
+  const val = res._value || query; // the value this tool was actually run on
   if (toolId === 'username') {
     return (res.platforms || []).map((p) => ({
       id: `u:${p.name}`,
@@ -60,11 +90,11 @@ function itemsFor(toolId, res, query) {
     }));
   }
   const d = res.data || {};
-  if (toolId === 'ip') return [{ id: 'ip', tool: 'ip', title: `IP ${d.ip || query}`, detail: [d.city, d.region, d.country, d.org].filter(Boolean).join(', '), url: d.loc ? `https://www.google.com/maps?q=${d.loc}` : null }];
-  if (toolId === 'phone') return [{ id: 'phone', tool: 'phone', title: `Phone ${d.formats?.international || d.input || query}`, detail: d.valid ? `${(d.type || 'unknown').replace(/_/g, ' ')} · ${d.countryName || d.country || ''}` : 'Not a valid number' }];
-  if (toolId === 'email') return [{ id: 'email', tool: 'email', title: d.email || query, detail: `${d.mxFound ? 'Domain accepts mail' : 'No MX'}${d.disposable ? ' · disposable' : ''}${d.role ? ' · role address' : ''}${d.gravatarExists ? ' · Gravatar found' : ''}`, url: d.gravatarUrl || null }];
-  if (toolId === 'whois') return [{ id: 'whois', tool: 'whois', title: `WHOIS ${d.domain || query}`, detail: [d.registrar, d.registeredOn && new Date(d.registeredOn).toLocaleDateString()].filter(Boolean).join(' · ') }];
-  if (toolId === 'dns') return [{ id: 'dns', tool: 'dns', title: `DNS ${query}`, detail: (d.Answer || []).map((a) => a.data).join(', ') || 'No records' }];
+  if (toolId === 'ip') return [{ id: 'ip', tool: 'ip', title: `IP ${d.ip || val}`, detail: [d.city, d.region, d.country, d.org].filter(Boolean).join(', '), url: d.loc ? `https://www.google.com/maps?q=${d.loc}` : null }];
+  if (toolId === 'phone') return [{ id: 'phone', tool: 'phone', title: `Phone ${d.formats?.international || d.input || val}`, detail: d.valid ? `${(d.type || 'unknown').replace(/_/g, ' ')} · ${d.countryName || d.country || ''}` : 'Not a valid number' }];
+  if (toolId === 'email') return [{ id: 'email', tool: 'email', title: d.email || val, detail: `${d.mxFound ? 'Domain accepts mail' : 'No MX'}${d.disposable ? ' · disposable' : ''}${d.role ? ' · role address' : ''}${d.gravatarExists ? ' · Gravatar found' : ''}`, url: d.gravatarUrl || null }];
+  if (toolId === 'whois') return [{ id: 'whois', tool: 'whois', title: `WHOIS ${d.domain || val}`, detail: [d.registrar, d.registeredOn && new Date(d.registeredOn).toLocaleDateString()].filter(Boolean).join(' · ') }];
+  if (toolId === 'dns') return [{ id: 'dns', tool: 'dns', title: `DNS ${val}`, detail: (d.Answer || []).map((a) => a.data).join(', ') || 'No records' }];
   return [];
 }
 
@@ -104,8 +134,9 @@ function badgeHtml(it) {
 // Branded, self-contained HTML debrief — the "Open Source Intel Debrief"
 // letterhead: rainbow TrueGLE OSINT™ wordmark, categorized findings, diagonal
 // watermark. Opens in any browser, prints to PDF, shares in full.
-function buildDebriefHtml(query, items) {
+function buildDebriefHtml(query, items, extra = {}) {
   const now = new Date();
+  const { summary = '', notes = '' } = extra;
   const sections = DEBRIEF_SECTIONS.map((sec) => {
     const rows = items.filter((it) => sec.tools.includes(it.tool)).map((it) => `
         <div class="entry">
@@ -144,6 +175,7 @@ function buildDebriefHtml(query, items) {
   .src { font-weight:600; color:#fff; font-size: 14px; }
   .detail { font-size: 13px; color:#cbd5e1; margin-top: 3px; }
   .ref { display:inline-block; margin-top: 3px; font-size: 12px; color:#38bdf8; word-break: break-all; }
+  .note { font-size: 13px; color:#e5e7eb; line-height:1.6; }
   a { color: #38bdf8; }
   .badge { font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px; }
   .badge.ok { background:rgba(16,185,129,0.2); color:#6ee7b7; }
@@ -166,7 +198,9 @@ function buildDebriefHtml(query, items) {
       <span>${now.toLocaleString()}</span>
     </div>
     <div class="subject">Subject of investigation: <strong style="color:#fff">${esc(query)}</strong> · ${items.length} finding${items.length === 1 ? '' : 's'} compiled</div>
+    ${summary ? `<section><h2>Analyst Summary</h2><div class="note">${esc(summary)}</div></section>` : ''}
     ${sections || '<p style="color:#94a3b8">No findings were selected for this debrief.</p>'}
+    ${notes ? `<section><h2>Notes</h2><div class="note">${esc(notes).replace(/\n/g, '<br>')}</div></section>` : ''}
     <div class="foot">
       Compiled by TrueGLE 1.3 from lawful, publicly-available open sources only. Findings marked
       <strong>CANDIDATE</strong> are unverified profile guesses and must be confirmed manually before being relied upon.
@@ -199,6 +233,10 @@ export default function OSINTToolsPanel({ initialQuery = '' }) {
   const [results, setResults] = useState({});       // toolId -> json | {error}
   const [gathered, setGathered] = useState({});      // itemId -> item
   const [confirming, setConfirming] = useState(false);
+  const [notesStep, setNotesStep] = useState(false); // final-notes step before download
+  const [debriefNotes, setDebriefNotes] = useState('');
+  const [debriefSummary, setDebriefSummary] = useState('');
+  const [summarizing, setSummarizing] = useState(false);
   const [messages, setMessages] = useState([]);      // AI results-summary chat
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
@@ -242,13 +280,18 @@ export default function OSINTToolsPanel({ initialQuery = '' }) {
     const q = input.trim();
     if (!q || selected.size === 0 || running) return;
     setRunning(true);
+    const ent = parseEntities(q);
     const entries = await Promise.all(
       [...selected].map(async (toolId) => {
+        const val = valueForTool(toolId, ent, q);
+        const label = TOOLS.find((t) => t.id === toolId)?.label || toolId;
+        if (!val) return [toolId, { error: `No ${label.toLowerCase()} value found in your query — add one or run this tool on its own.` }];
         try {
-          const resp = await fetch(pickUrl(toolId, q, dnsType));
+          const resp = await fetch(pickUrl(toolId, val, dnsType));
           const json = await resp.json();
           if (!resp.ok || json.error) return [toolId, { error: json.error || 'Lookup failed' }];
-          return [toolId, json];
+          return [toolId, { ...json, _value: val }]; // remember what this tool was run on
+
         } catch (err) {
           return [toolId, { error: err.message || 'Lookup failed' }];
         }
@@ -307,10 +350,33 @@ export default function OSINTToolsPanel({ initialQuery = '' }) {
 
   const gatheredCount = Object.keys(gathered).length;
 
-  const compile = () => {
+  // Confirm → go to the final-notes step (not straight to download): the
+  // analyst drafts a closing summary the user can edit and add notes to.
+  const startNotes = async () => {
     if (!gatheredCount) return;
-    setDebriefHtml(buildDebriefHtml(input.trim(), Object.values(gathered)));
     setConfirming(false);
+    setNotesStep(true);
+    setDebriefSummary('');
+    setSummarizing(true);
+    try {
+      const digest = intelDigest(input.trim(), results);
+      const r = await aiAPI.chat(
+        `Write a 2–4 sentence closing analyst summary for an OSINT debrief on "${input.trim()}", based only on these findings. State the overall picture, confidence, and any caveat. No preamble.\n\nFINDINGS:\n${digest}`,
+        { context: 'osint', verbose: false, history: [] }
+      );
+      setDebriefSummary(extractAi(r));
+    } catch {
+      setDebriefSummary('');
+    } finally {
+      setSummarizing(false);
+    }
+  };
+
+  // Build the final debrief (findings + analyst summary + user notes) and reveal
+  // the download/share panel.
+  const finalize = () => {
+    setDebriefHtml(buildDebriefHtml(input.trim(), Object.values(gathered), { summary: debriefSummary.trim(), notes: debriefNotes.trim() }));
+    setNotesStep(false);
     requestAnimationFrame(() => document.getElementById('osint-debrief')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
 
@@ -381,6 +447,10 @@ export default function OSINTToolsPanel({ initialQuery = '' }) {
           Run {selected.size > 1 ? `${selected.size} tools` : ''}
         </button>
       </form>
+
+      {/* Parsed-entity chips — shows how the query was identified & where each
+          part is routed, so a mixed blob doesn't get crammed into every tool. */}
+      <ParsedChips input={input} />
 
       {/* ── INTEL SECTION ──────────────────────────────────────────────── */}
       <AnimatePresence>
@@ -455,14 +525,51 @@ export default function OSINTToolsPanel({ initialQuery = '' }) {
             ) : (
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/40 border border-cyan-500/30">
                 <span className="text-sm text-white/80">Add {gatheredCount} finding{gatheredCount === 1 ? '' : 's'} to the debrief?</span>
-                <button type="button" onClick={compile} className="px-3 py-1 rounded-lg bg-cyan-500 text-[#001020] text-xs font-bold hover:bg-cyan-400">Confirm</button>
+                <button type="button" onClick={startNotes} className="px-3 py-1 rounded-lg bg-cyan-500 text-[#001020] text-xs font-bold hover:bg-cyan-400">Confirm</button>
                 <button type="button" onClick={() => setConfirming(false)} className="px-3 py-1 rounded-lg bg-white/5 text-white/60 text-xs hover:bg-white/10">Cancel</button>
               </div>
             )}
-            {gatheredCount === 0 && (
+            {gatheredCount === 0 && !notesStep && (
               <span className="text-xs text-white/30">Tick the checkbox on any finding above to include it.</span>
             )}
           </div>
+
+          {/* Final-notes step — analyst closing summary (editable) + user notes,
+              added to the debrief before it's finalized for download. */}
+          <AnimatePresence>
+            {notesStep && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-3 rounded-xl border border-cyan-500/30 bg-black/30 p-3"
+              >
+                <SectionLabel>Final notes · before download</SectionLabel>
+                <label className="text-[11px] text-white/40">Analyst summary {summarizing && <span className="text-cyan-300/60">(drafting…)</span>}</label>
+                <textarea
+                  rows={3}
+                  value={debriefSummary}
+                  onChange={(e) => setDebriefSummary(e.target.value)}
+                  placeholder={summarizing ? 'Drafting a closing summary…' : 'Closing analyst summary (editable)…'}
+                  className="mt-1 mb-3 w-full bg-black/40 border border-white/10 rounded-lg p-2 text-sm text-white/90 placeholder-white/25 outline-none focus:border-cyan-500/40 resize-y"
+                />
+                <label className="text-[11px] text-white/40">Your notes (optional)</label>
+                <textarea
+                  rows={2}
+                  value={debriefNotes}
+                  onChange={(e) => setDebriefNotes(e.target.value)}
+                  placeholder="Add any final notes, context, or caveats to include in the debrief…"
+                  className="mt-1 w-full bg-black/40 border border-white/10 rounded-lg p-2 text-sm text-white/90 placeholder-white/25 outline-none focus:border-cyan-500/40 resize-y"
+                />
+                <div className="mt-3 flex items-center gap-2">
+                  <button type="button" onClick={finalize} disabled={summarizing} className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-cyan-500 text-[#001020] text-sm font-bold hover:bg-cyan-400 disabled:opacity-40 transition-colors">
+                    <FileText size={14} /> Finalize debrief
+                  </button>
+                  <button type="button" onClick={() => setNotesStep(false)} className="px-3 py-2 rounded-xl bg-white/5 text-white/60 text-xs hover:bg-white/10">Cancel</button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Follow-up chat input (below the AI chat, above the debrief) */}
           <div className="mt-3 flex items-end gap-2 rounded-2xl border border-white/10 bg-white/5 p-2">
@@ -551,6 +658,30 @@ export default function OSINTToolsPanel({ initialQuery = '' }) {
 
 function SectionLabel({ children }) {
   return <div className="text-[11px] uppercase tracking-widest text-cyan-300/50 font-semibold mb-2">{children}</div>;
+}
+
+// Shows the entities detected in the query (email/phone/IP/domain/name) so the
+// user can see the parse before running — each routes to its matching tool.
+function ParsedChips({ input }) {
+  const ent = parseEntities(input);
+  const chips = [
+    ...ent.emails.map((v) => ['Email', v]),
+    ...ent.phones.map((v) => ['Phone', v]),
+    ...ent.ips.map((v) => ['IP', v]),
+    ...ent.domains.map((v) => ['Domain', v]),
+    ...(ent.name ? [['Name', ent.name]] : []),
+  ];
+  if (chips.length <= 1) return null; // nothing to disambiguate
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      <span className="text-[11px] text-white/30">Detected:</span>
+      {chips.map(([k, v], i) => (
+        <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-200/80">
+          <span className="text-cyan-300/60">{k}:</span> {v}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function ToolSelector({ selected, onToggle, compact }) {

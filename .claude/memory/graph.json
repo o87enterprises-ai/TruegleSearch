@@ -328,6 +328,15 @@
         "status": "open",
         "ts": "2026-07-18",
         "created": "2026-07-18"
+      },
+      "osint-parse-notes": {
+        "Id": "osint-parse-notes",
+        "Type": "thread",
+        "Label": "OSINT: entity parsing + final-notes debrief step",
+        "body": "OSINTToolsPanel now parses a mixed query blob (parseEntities) into email/phone/ip/domain/name and routes each to its OWN tool (valueForTool) instead of feeding the whole string to every field — fixes email 'valid address required' error on blobs. Shows a 'Detected:' chips row. Compile debrief now has a final-notes step: AI drafts an editable closing Analyst Summary + user Notes textarea -> Finalize -> debrief HTML gains Analyst Summary + Notes sections. Branding: letterhead uses self-contained CSS rainbow wordmark (repo logos are 1MB 1024px, too big to base64-inline; no image tooling). OPEN: user wants (a) real transparent PNG logo embedded, (b) an open-source OSINT toolkit (Sherlock/maigret/holehe) added to repo for AI-assisted collection — pending decision.",
+        "status": "open",
+        "ts": "2026-07-18",
+        "created": "2026-07-18"
       }
     }
   },
