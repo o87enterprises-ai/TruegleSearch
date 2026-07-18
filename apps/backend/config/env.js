@@ -61,6 +61,8 @@ const envVarsSchema = Joi.object({
   // free-tier; its lower TPM is covered by multi-key rotation (GROQ_API_KEY..._5).
   // Override per-deploy with GROQ_MODEL if a different model is preferred.
   GROQ_MODEL: Joi.string().optional().default('llama-3.3-70b-versatile').description('Groq model id'),
+  // Vision-capable model, used only for image-attached chat turns.
+  GROQ_VISION_MODEL: Joi.string().optional().default('qwen/qwen3.6-27b').description('Groq vision model id'),
 
   // Radar API (Maps)
   RADAR_LIVE_SECRET_KEY: Joi.string().optional().description('Radar Live Secret Key'),
@@ -270,6 +272,10 @@ const config = {
     groq: {
       apiKey: envVars.GROQ_API_KEY,
       model: envVars.GROQ_MODEL,
+      // Vision-capable model for image-attached chat turns (extract/describe
+      // an uploaded image). Only used when a request carries an image — the
+      // default text model doesn't understand image_url content parts.
+      visionModel: envVars.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b',
       keys: [
         envVars.GROQ_API_KEY,
         envVars.GROQ_API_KEY_2,

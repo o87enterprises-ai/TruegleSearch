@@ -7,6 +7,7 @@ import {
   Camera, Paperclip, Shield, EyeOff, Eye, Play
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import MapApiService from '../map/services/mapApi';
 import VoiceRecognition from './VoiceRecognition';
 import CameraInput from './CameraInput';
@@ -857,6 +858,11 @@ export default function SearchBar({
   // Custom Search Icon Color (for landing page only)
   searchIconColor = null,
 }) {
+  const navigate = useNavigate();
+  // True for the moment between picking an image file and its FileReader
+  // callback navigating to /chat — tells FileInput's onSearchSubmit not to
+  // also fire a normal text-search submit on this page.
+  const imageAttachedRef = useRef(false);
   const [isFocused, setIsFocused] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [localValue, setLocalValue] = useState(value || '');
@@ -1751,6 +1757,7 @@ const handleChange = useCallback((e) => {
                   const isText = file.type.startsWith('text/') || /\.(txt|md|csv|json)$/i.test(file.name);
                   const isAudio = file.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac)$/i.test(file.name);
                   const isImage = file.type.startsWith('image/');
+                  imageAttachedRef.current = isImage;
 
                   if (isText && file.file) {
                     const reader = new FileReader();
@@ -1767,12 +1774,24 @@ const handleChange = useCallback((e) => {
                     const query = `audio transcript: ${file.name.replace(/\.[^.]+$/, '')}`;
                     setLocalValue(query);
                     onChange?.(query);
-                  } else if (isImage) {
-                    const query = localValue.trim()
-                      ? `${localValue} image: ${file.name}`
-                      : `image search: ${file.name}`;
-                    setLocalValue(query);
-                    onChange?.(query);
+                  } else if (isImage && file.file) {
+                    // A search bar can't reason over pixels — hand the image off
+                    // to /chat (vision-capable) instead of turning it into a
+                    // meaningless "image: filename.jpg" text query. Read it as a
+                    // data URL, stash it for the chat page to pick up, and carry
+                    // whatever the user had already typed as the question.
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                      try {
+                        sessionStorage.setItem('truegle_pending_image', JSON.stringify({
+                          dataUrl: e.target.result,
+                          name: file.name,
+                        }));
+                      } catch { /* storage full/unavailable — image just won't carry over */ }
+                      const q = localValue.trim();
+                      navigate(q ? `/chat?q=${encodeURIComponent(q)}&hasImage=1` : '/chat?hasImage=1');
+                    };
+                    reader.readAsDataURL(file.file);
                   } else {
                     // Generic file — use filename as query hint
                     const query = file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
@@ -1780,6 +1799,9 @@ const handleChange = useCallback((e) => {
                   }
                 }}
                 onSearchSubmit={() => {
+                  // Images navigate to /chat themselves (above) — don't also
+                  // submit a text search on whatever page the bar lives on.
+                  if (imageAttachedRef.current) { imageAttachedRef.current = false; return; }
                   setTimeout(() => { onSubmit?.(); onSearch?.(); }, 100);
                 }}
                 size={config.iconSize - 4}

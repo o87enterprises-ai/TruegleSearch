@@ -5,6 +5,7 @@
 
 const NepheshService = require('./NepheshService');
 const attribution = require('../utils/nepheshAttribution');
+const config = require('../config/env');
 const GroqService = require('./GroqService');
 const NvidiaService = require('./NvidiaService');
 const OpenAIService = require('./OpenAIService');
@@ -59,7 +60,7 @@ class UnifiedAIService {
       // before the toggle. Multi-turn conversations bypass the cache entirely:
       // the same follow-up ("why?") means different things in different threads.
       const cacheKey = this.getCacheKey(userMessage, context, options.systemOverride);
-      if (history.length === 0) {
+      if (history.length === 0 && !options.imageDataUrl) {
         const cached = this.cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
           logger.debug('Unified AI cache hit:', { context });
@@ -98,17 +99,31 @@ class UnifiedAIService {
         variables
       );
 
+      // An attached image turns the user message into a multimodal content
+      // array (OpenAI/Groq vision shape) instead of a plain string. Only Groq
+      // is wired for vision right now, so an image-attached turn skips normal
+      // provider ordering and goes straight to Groq on its vision model —
+      // sending an image to a text-only model would just be ignored/error.
+      const hasImage = typeof options.imageDataUrl === 'string' && options.imageDataUrl.startsWith('data:image/');
+      const userContent = hasImage
+        ? [
+            { type: 'text', text: userMessage || 'Describe this image and extract any visible text or data from it.' },
+            { type: 'image_url', image_url: { url: options.imageDataUrl } },
+          ]
+        : userMessage;
+
       // Build messages array: system prompt, prior conversation turns, then
       // the new user message. History is capped in sanitizeHistory() so a long
       // thread can't blow the context window.
       const messages = [
         { role: 'system', content: basePrompt },
         ...history,
-        { role: 'user', content: userMessage }
+        { role: 'user', content: userContent }
       ];
 
       // Get provider order (with preferred provider for this context)
-      const providerOrder = await this.getProviderOrder(prompt.id);
+      const providerOrder = hasImage ? ['groq'] : await this.getProviderOrder(prompt.id);
+      const providerOptions = hasImage ? { model: config.ai.groq.visionModel } : {};
 
       // Try each provider in order with failover
       let lastError = null;
@@ -126,7 +141,8 @@ class UnifiedAIService {
               ...options,
               temperature: prompt.temperature,
               max_tokens: prompt.max_tokens,
-              system: basePrompt
+              system: basePrompt,
+              ...providerOptions,
             }
           );
 
@@ -151,11 +167,13 @@ class UnifiedAIService {
             continue;
           }
 
-          // Cache successful response — but only for single-turn requests.
-          // A multi-turn answer is specific to its thread and must never be
-          // served to a different conversation that happens to share the last
-          // message text.
-          if (history.length === 0) this.cacheResponse(cacheKey, branded);
+          // Cache successful response — but only for single-turn, text-only
+          // requests. A multi-turn answer is specific to its thread and must
+          // never be served to a different conversation that happens to share
+          // the last message text; an image-attached answer is specific to
+          // THAT image and must never be served for a different photo that
+          // happens to share the same typed caption.
+          if (history.length === 0 && !hasImage) this.cacheResponse(cacheKey, branded);
 
           logger.info('AI request successful:', {
             provider: providerName,

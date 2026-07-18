@@ -62,12 +62,21 @@ const { getModePrompt } = require('../prompts/nepheshPrompts');
 
 router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
   try {
-    const { message, context = 'general', modes, nepheshMode = false, verbose = false, history = [], options = {} } = req.body;
+    const { message, context = 'general', modes, nepheshMode = false, verbose = false, history = [], options = {}, image } = req.body;
 
-    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    // An attached image is a valid turn on its own ("what does this say?") —
+    // only require non-empty text when there's no image to fall back on.
+    const hasImage = typeof image === 'string' && image.startsWith('data:image/');
+    if (!hasImage && (!message || typeof message !== 'string' || message.trim().length === 0)) {
       return res.status(400).json({
         error: 'Invalid request',
         message: 'AI message is required and must be a non-empty string'
+      });
+    }
+    if (hasImage && Buffer.byteLength(image, 'utf8') > 8 * 1024 * 1024) {
+      return res.status(413).json({
+        error: 'Image too large',
+        message: 'Attached image must be under 8MB.',
       });
     }
 
@@ -90,11 +99,12 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
     // multi-selected flows, blend them; otherwise use the single context.
     const promptTarget = Array.isArray(modes) && modes.length > 1 ? modes : context;
     const systemOverride = getModePrompt(promptTarget, { nepheshMode, verbose });
-    const response = await aiClient.chat(message, context, {
+    const response = await aiClient.chat(message || '', context, {
       ...options,
       userName: isAuthed ? (user.name || 'User') : 'Guest',
       systemOverride,
       history, // prior turns → real back-and-forth memory
+      imageDataUrl: hasImage ? image : undefined,
     });
 
     // Deduct token for authenticated users

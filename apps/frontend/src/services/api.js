@@ -145,6 +145,9 @@ const aiAPI = {
       // uses it only when 2+ are present; single-mode still uses `context`.
       modes: Array.isArray(options.modes) ? options.modes : undefined,
       history: Array.isArray(options.history) ? options.history : [],
+      // Attached image, as a data: URL (see FileInput/TruegleChat) — routes
+      // the turn to a vision-capable model on the backend.
+      image: typeof options.image === 'string' ? options.image : undefined,
       options
     }),
   analyzeContent: (content, queryContext, options = {}) =>

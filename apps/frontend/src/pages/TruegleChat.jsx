@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2 } from 'lucide-react';
+import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2, X } from 'lucide-react';
 import LandingBackground from '../components/LandingBackground';
 import CursorGlow from '../components/ui/CursorGlow';
 import TruegleLogo from '../components/ui/TruegleLogo';
@@ -281,7 +281,11 @@ export default function TruegleChat() {
   const [shareUrl, setShareUrl] = useState('');
   const [shareCopied, setShareCopied] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const autoSentRef = useRef(false); // guard so ?q= silent-transport fires once
+  const autoSentRef = useRef(false); // guard so ?q= / ?hasImage= silent-transport fires once
+  // Image handed off from the search bar's attach button (see SearchBar.jsx —
+  // it can't reason over pixels, so it stashes the file and routes here).
+  // Attaches to the NEXT turn only, then clears.
+  const [attachedImage, setAttachedImage] = useState(null); // { dataUrl, name } | null
 
   // Persist the whole thread server-side and produce a link that opens the LIVE
   // conversation (messages + cited media/links) for anyone — not pasted text.
@@ -309,11 +313,16 @@ export default function TruegleChat() {
     }
   };
 
-  const handleSend = async (explicitText) => {
+  const handleSend = async (explicitText, explicitImage) => {
     // Accept an explicit query (e.g. the ?q= silent-transport from the landing
-    // page) or fall back to the input box.
+    // page) or fall back to the input box. Same for the image: the mount-time
+    // handoff effect passes it explicitly (avoids a same-tick state-read race
+    // with setAttachedImage); a manual send picks up whatever's attached.
     const text = (typeof explicitText === 'string' ? explicitText : input).trim();
-    if (!text || loading) return;
+    const image = explicitImage !== undefined ? explicitImage : attachedImage;
+    // An attached image is a valid turn on its own ("what does this say?");
+    // otherwise real text is required as before.
+    if ((!text && !image) || loading) return;
 
     // Pill mode is the search selector (same as landing): if it's on a non-Chat
     // color, sending leaves chat and opens that /search page instead of chatting.
@@ -331,12 +340,14 @@ export default function TruegleChat() {
 
     const query = text;
     // Prior turns → working memory for a real back-and-forth. Skip the id:1
-    // welcome (not a real exchange). Send only role/content, no media payloads.
+    // welcome (not a real exchange). Send only role/content, no media payloads
+    // (the image itself isn't replayed into history — see aiAPI.chat call below).
     const history = messages
       .filter((m) => m.id !== 1)
       .map((m) => ({ role: m.role, content: m.content }));
-    setMessages((prev) => [...prev, { id: Date.now(), role: 'user', content: query, citations: null }]);
+    setMessages((prev) => [...prev, { id: Date.now(), role: 'user', content: query, citations: null, image: image?.dataUrl || null }]);
     setInput('');
+    setAttachedImage(null); // one-shot — attaches to this turn only
     setLoading(true);
 
     let content;
@@ -362,9 +373,12 @@ export default function TruegleChat() {
     if (content === undefined) {
       // Pass the pill keys (blue/green/red/purple/ocean) as `modes` so the
       // backend blends each lens; `context` (primary) still keys cache/DB.
+      // An attached image is analyzed directly by the model — a web-search
+      // citation lookup doesn't apply (and an empty-text query would just
+      // waste a request when the turn is image-only).
       const [chatRes, citeRes] = await Promise.allSettled([
-        aiAPI.chat(query, { context: MODE_TO_CONTEXT[primaryMode], modes, nepheshMode, verbose, history }),
-        fetchCitations(query, MODE_TO_BACKEND_SEARCH[primaryMode]),
+        aiAPI.chat(query, { context: MODE_TO_CONTEXT[primaryMode], modes, nepheshMode, verbose, history, image: image?.dataUrl }),
+        query ? fetchCitations(query, MODE_TO_BACKEND_SEARCH[primaryMode]) : Promise.resolve(null),
       ]);
       content = chatRes.status === 'fulfilled'
         ? extractContent(chatRes.value)
@@ -376,14 +390,34 @@ export default function TruegleChat() {
     setLoading(false);
   };
 
-  // Silent transport: the landing page routes a first query here as /chat?q=…
-  // Auto-send it once on arrival, then strip the param so a refresh won't resend.
+  // Silent transport: the landing page routes a first query here as /chat?q=…,
+  // and the search bar's image-attach button routes here as ?hasImage=1 (with
+  // the actual image stashed in sessionStorage — see SearchBar.jsx). Handled
+  // together in one effect so a combined "typed a question, then attached an
+  // image" handoff sends both in the SAME turn: reading the image and calling
+  // handleSend must happen in one pass, not across two effects racing on the
+  // same setAttachedImage/searchParams update.
   useEffect(() => {
+    if (autoSentRef.current) return;
     const q = searchParams.get('q');
-    if (q && q.trim() && !autoSentRef.current) {
-      autoSentRef.current = true;
-      setSearchParams({}, { replace: true });
-      handleSend(q);
+    const hasImage = searchParams.get('hasImage') === '1';
+    if (!q?.trim() && !hasImage) return;
+    autoSentRef.current = true;
+
+    let image = null;
+    if (hasImage) {
+      try {
+        const raw = sessionStorage.getItem('truegle_pending_image');
+        sessionStorage.removeItem('truegle_pending_image');
+        if (raw) image = JSON.parse(raw);
+      } catch { /* corrupt/missing — just skip the attachment */ }
+    }
+    setSearchParams({}, { replace: true });
+
+    if (q?.trim()) {
+      handleSend(q, image); // text (+ optional image) → send immediately
+    } else if (image) {
+      setAttachedImage(image); // image only, no text yet — stage it, wait for the user to ask
     }
   }, [searchParams]); // one-shot guarded by autoSentRef; deliberately params-only
 
@@ -484,32 +518,48 @@ export default function TruegleChat() {
   // (appearing directly below the latest response) instead of pinned to the
   // page bottom.
   const chatInputBox = (
-    <div className={`flex items-end gap-2 rounded-2xl border ${accent.iframeBorder} bg-white/5 backdrop-blur-xl p-2`}>
-      <textarea
-        ref={inputRef}
-        rows={1}
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSend();
-          }
-        }}
-        placeholder="Ask Truegle anything..."
-        style={{ minHeight: '40px', maxHeight: '240px' }}
-        className="flex-1 bg-transparent resize-none overflow-y-auto outline-none text-white placeholder-white/30 text-sm p-2"
-      />
-      <button
-        type="button"
-        onClick={handleSend}
-        disabled={!input.trim() || loading}
-        className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-          input.trim() && !loading ? `${accent.link} bg-white/10 hover:bg-white/20` : 'text-white/20 bg-white/5 cursor-not-allowed'
-        }`}
-      >
-        <Send size={16} />
-      </button>
+    <div className="space-y-2">
+      {attachedImage && (
+        <div className={`flex items-center gap-2 px-2.5 py-2 rounded-xl border ${accent.iframeBorder} bg-white/5`}>
+          <img src={attachedImage.dataUrl} alt="" className="w-10 h-10 rounded-md object-cover flex-shrink-0" />
+          <span className="text-xs text-white/60 truncate flex-1">{attachedImage.name}</span>
+          <button
+            type="button"
+            onClick={() => setAttachedImage(null)}
+            aria-label="Remove attached image"
+            className="text-white/40 hover:text-white/80 flex-shrink-0"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+      <div className={`flex items-end gap-2 rounded-2xl border ${accent.iframeBorder} bg-white/5 backdrop-blur-xl p-2`}>
+        <textarea
+          ref={inputRef}
+          rows={1}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+          placeholder={attachedImage ? 'Ask about this image (or leave blank to describe it)…' : 'Ask Truegle anything...'}
+          style={{ minHeight: '40px', maxHeight: '240px' }}
+          className="flex-1 bg-transparent resize-none overflow-y-auto outline-none text-white placeholder-white/30 text-sm p-2"
+        />
+        <button
+          type="button"
+          onClick={handleSend}
+          disabled={(!input.trim() && !attachedImage) || loading}
+          className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+            (input.trim() || attachedImage) && !loading ? `${accent.link} bg-white/10 hover:bg-white/20` : 'text-white/20 bg-white/5 cursor-not-allowed'
+          }`}
+        >
+          <Send size={16} />
+        </button>
+      </div>
     </div>
   );
 
@@ -646,7 +696,12 @@ export default function TruegleChat() {
                     <ReactMarkdown>{m.content}</ReactMarkdown>
                   </div>
                 ) : (
-                  <p className="text-sm">{m.content}</p>
+                  <>
+                    {m.image && (
+                      <img src={m.image} alt="Attached" className="max-w-full max-h-64 rounded-lg mb-2 object-contain" />
+                    )}
+                    {m.content && <p className="text-sm">{m.content}</p>}
+                  </>
                 )}
                 <Citations citations={m.citations} accent={accent} />
                 {m.graph && <InvestigationGraph graph={m.graph} accent={accent} />}
