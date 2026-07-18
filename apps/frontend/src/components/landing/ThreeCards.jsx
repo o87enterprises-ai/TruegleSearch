@@ -23,7 +23,10 @@ const CARDS = [
     title: 'Search Modes',
     color: 'from-emerald-500 to-teal-500',
     border: 'border-emerald-500/30 hover:border-emerald-400/50',
-    description: `The same color-coded lenses — ${MODE_LIST} — applied to classic web results instead of chat. Cycle the pill above the search bar to switch between them.`,
+    description: [
+      `The same color-coded lenses — ${MODE_LIST} — applied to classic web results instead of chat. Cycle the pill above the search bar to switch between them.`,
+      'Two more stops on that same pill jump to their own pages instead of a lens: Rewards (earn a share of ad revenue) and Transcripts (extract & transcribe).',
+    ],
     path: '/search',
   },
   {
