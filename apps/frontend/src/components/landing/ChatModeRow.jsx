@@ -16,17 +16,16 @@ import { MODE_COLORS, MODE_LABELS, solidTextClass } from '../../config/modeTheme
 const PILLS = ['blue', 'green', 'red', 'purple', 'ocean'];
 
 export default function ChatModeRow({ activeModes, onToggle, open, onToggleOpen }) {
-  const summary = activeModes.length === 1 ? MODE_LABELS[activeModes[0]] : `${activeModes.length} lenses`;
-
   return (
     <div className="w-full max-w-2xl mx-auto px-4 mt-3">
       <button
         type="button"
         onClick={onToggleOpen}
         aria-expanded={open}
+        title={activeModes.length === 1 ? `Active: ${MODE_LABELS[activeModes[0]]}` : `Active: ${activeModes.length} lenses`}
         className="mx-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium text-white/40 hover:text-white/70 transition-colors"
       >
-        Chat modes <span className="text-white/25">·</span> {summary}
+        Chat modes
         <motion.span animate={{ rotate: open ? 180 : 0 }} className="inline-flex">
           <ChevronDown size={12} />
         </motion.span>

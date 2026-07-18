@@ -96,6 +96,22 @@
         "body": "LandingPage.jsx: VsToggleRow now gated the same way as ChatModeRow — {pillMode === 'black' && <VsToggleRow .../>} — since vs.TrueGLE (Null-Prime dual-audit) is a Chat-only feature. Also removed the 'Get paid for the ads you see' hero teaser button (dead Gift icon import cleaned up); the RewardsCTA section further down the page is untouched.",
         "ts": "2026-07-18",
         "created": "2026-07-18"
+      },
+      "chat-modes-collapsed-label": {
+        "Id": "chat-modes-collapsed-label",
+        "Type": "fact",
+        "Label": "Chat modes collapsed toggle shows no active-mode summary",
+        "body": "ChatModeRow.jsx collapsed toggle now reads just 'Chat modes ⌄' (dropped the '· Mainstream' active-summary text per user feedback — the active mode is still in a title tooltip on hover, just not shown inline).",
+        "ts": "2026-07-18",
+        "created": "2026-07-18"
+      },
+      "threecards-model-card": {
+        "Id": "threecards-model-card",
+        "Type": "fact",
+        "Label": "ThreeCards third card is now a TrueGLE 1.3 model card",
+        "body": "ThreeCards.jsx CARDS[2]: retitled from 'vs. TrueGLE — Grand Logic Equation' to 'TrueGLE 1.3' (Brain icon), description is now a 2-paragraph array (component supports array-or-string description, renders one <p> per item): para1 = model blurb (locally self-hosted LLM, privacy/transparency, 100% unbiased investigative agent), para2 = 'Introducing GLE (Grand Logic Equation)...' explaining the vs-mode process. Search Modes card description now explicitly lists all 5 modes (shared MODE_LIST const with Chat Modes card): Mainstream, Summarize, Rabbit Hole, Perspectives, Privacy/OSINT.",
+        "ts": "2026-07-18",
+        "created": "2026-07-18"
       }
     },
     "decision": {
