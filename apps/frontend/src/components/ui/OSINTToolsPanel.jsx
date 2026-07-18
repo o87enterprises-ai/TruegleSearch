@@ -6,6 +6,7 @@ import {
   Check, Minus, FileText, Download, Share2, Send, Sparkles, PanelBottom,
 } from 'lucide-react';
 import { aiAPI } from '../../services/api';
+import LETTERHEAD_LOGO from '../../assets/osintLetterheadLogo';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -159,12 +160,8 @@ function buildDebriefHtml(query, items, extra = {}) {
   .wm-row { font-size: 30px; font-weight: 800; letter-spacing: 2px; color: rgba(255,255,255,0.035); white-space: nowrap; line-height: 2.6; }
   .page { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 40px 44px 56px; color:#e5e7eb; }
   .letterhead { text-align:center; padding-bottom: 22px; border-bottom: 2px solid rgba(255,255,255,0.12); }
-  .kicker { font-size: 15px; letter-spacing: 1px; color:#cbd5e1; margin-bottom: 6px; }
-  .wordmark { font-size: 46px; font-weight: 900; line-height: 1; letter-spacing: 1px;
-    background: linear-gradient(90deg,#ff3b3b,#ff9f1c,#ffe600,#37d67a,#1fb6ff,#5b6bff,#b14bff,#ff3b3b);
-    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
-  .wordmark .sub { display:block; font-size: 30px; margin-top: 2px; }
-  .tm { font-size: 14px; -webkit-text-fill-color:#94a3b8; }
+  .kicker { font-size: 15px; letter-spacing: 1px; color:#cbd5e1; margin-bottom: 10px; }
+  .logo { display:block; margin: 0 auto; width: 320px; max-width: 80%; height: auto; }
   .meta { display:flex; justify-content:space-between; font-size: 12px; color:#94a3b8; margin: 18px 0 8px; }
   .conf { display:inline-block; padding:3px 10px; border:1.5px solid #ef4444; color:#ef4444; border-radius:4px; font-weight:700; letter-spacing:1px; }
   .subject { font-size: 14px; color:#cbd5e1; margin: 10px 0 24px; }
@@ -190,7 +187,7 @@ function buildDebriefHtml(query, items, extra = {}) {
   <div class="page">
     <div class="letterhead">
       <div class="kicker">Open Source Intel Debrief</div>
-      <div class="wordmark">TrueGLE<span class="sub">OSINT<span class="tm">™</span></span></div>
+      <img class="logo" src="${LETTERHEAD_LOGO}" alt="TrueGLE OSINT™" />
     </div>
     <div class="meta">
       <span>Ref: TG-${now.getTime().toString(36).toUpperCase()}</span>

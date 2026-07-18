@@ -80,6 +80,14 @@
         "body": "apps/backend/.env.example + apps/frontend/.env.example are the SINGLE SOURCE OF TRUTH for every env var (secret-free, force-tracked via .gitignore negation). Required-to-boot: DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, GOOGLE_API_KEY, GOOGLE_SEARCH_ENGINE_ID. Never re-enumerate env vars from scratch — read the manifest.",
         "ts": "2026-07-13",
         "created": "2026-07-13"
+      },
+      "osint-letterhead-logo": {
+        "Id": "osint-letterhead-logo",
+        "Type": "fact",
+        "Label": "Debrief letterhead uses embedded TrueGLE OSINT logo",
+        "body": "The debrief letterhead embeds the TrueGLE OSINT rainbow logo as a base64 PNG data URI at apps/frontend/src/assets/osintLetterheadLogo.js (imported by OSINTToolsPanel buildDebriefHtml). Source brand PNG at apps/frontend/src/assets/images/truegle-osint-logo.png. NOTE: the user's 'transparent' PNG was actually opaque (light-gray checkerboard baked in) — regenerated via scratchpad/downscale-logo.mjs which crops, downscales to 360px, chroma-keys out light/desaturated bg pixels, and outputs lossless PNG (~161KB). No image tooling (sharp/convert) on the box — used Chromium canvas via Playwright to resize/key. Rerun that script to regenerate if the logo changes.",
+        "ts": "2026-07-18",
+        "created": "2026-07-18"
       }
     },
     "decision": {
@@ -334,7 +342,7 @@
         "Type": "thread",
         "Label": "OSINT: entity parsing + final-notes debrief step",
         "body": "OSINTToolsPanel now parses a mixed query blob (parseEntities) into email/phone/ip/domain/name and routes each to its OWN tool (valueForTool) instead of feeding the whole string to every field — fixes email 'valid address required' error on blobs. Shows a 'Detected:' chips row. Compile debrief now has a final-notes step: AI drafts an editable closing Analyst Summary + user Notes textarea -> Finalize -> debrief HTML gains Analyst Summary + Notes sections. Branding: letterhead uses self-contained CSS rainbow wordmark (repo logos are 1MB 1024px, too big to base64-inline; no image tooling). OPEN: user wants (a) real transparent PNG logo embedded, (b) an open-source OSINT toolkit (Sherlock/maigret/holehe) added to repo for AI-assisted collection — pending decision.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-07-18",
         "created": "2026-07-18"
       }
