@@ -31,7 +31,7 @@ const THREAD_KEY = 'truegle_chat_thread_v1';
 const MODE_INFO = {
   blue: 'Mainstream — establishment and widely-accepted sources. Balanced, cited answers.',
   green: 'Summarize — concise, plain-English answers with no jargon. Short and to the point.',
-  red: 'Alternative — independent and suppressed perspectives that question the official narrative.',
+  red: 'Rabbit Hole — independent and suppressed perspectives that question the official narrative.',
   purple: 'Perspectives — lays out multiple viewpoints side by side with skeptical, accountability-first framing.',
   ocean: 'Privacy / OSINT — digital-investigation assistant. Name an entity (domain, email, username, phone, or person) and it runs public-records lookups automatically.',
 };
@@ -60,7 +60,7 @@ const MODE_TO_BACKEND_SEARCH = {
 const MODE_WELCOME = {
   blue: 'Ask me anything. I search the web and answer with sources.',
   green: 'Ask me anything — I answer in a short, plain-language summary.',
-  red: 'Alternative and suppressed perspectives — what do you want to dig into?',
+  red: 'Rabbit Hole — independent and suppressed perspectives. What do you want to dig into?',
   purple: 'Perspectives mode — I lay out multiple viewpoints with skeptical, accountability-first framing. What would you like to explore?',
   ocean: 'OSINT assistant ready — ask about digital investigation or research.',
 };

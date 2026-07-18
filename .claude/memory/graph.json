@@ -218,6 +218,14 @@
         "body": "Shipped 2026-07-17. Corrected the earlier 5-pill-row: search page now uses the SINGLE cycling PillModeRow (like landing), NO buttons below the bar (removed Search/Transcribe/Biased/Unbiased; submit via Enter/play button), filters+safesearch+scrollable content categories below the bar. Pill cycles/stages; submit navigates per landing model (submitSearch: black->/chat, orange->/rewards, yellow->/extract, other mode->/search?mode=, same mode re-runs). AI SUMMARY reworked: concise Summarize default; the chat lenses moved OFF the always-shown row INTO the expanded summary as an inline mini-chat (new InlineSummaryChat component = miniaturized /chat: lens mode-row default ['green'], /chat bubbles, auto-grow input, verbose=!green). Removed the AIChatOverlay modal + always-shown AI-lenses row. Files: PillModeRow reused, SearchModeRow deleted, InlineSummaryChat added, UniversalSearch rewired. Note: some now-unused vars remain in UniversalSearch (isChatOpen, toggleLens, handleBiasedClick, toggleOSINT) - harmless, vite passes.",
         "ts": "2026-07-17",
         "created": "2026-07-17"
+      },
+      "rabbit-hole-rename": {
+        "Id": "rabbit-hole-rename",
+        "Type": "decision",
+        "Label": "Red pill mode renamed Alternative -> Rabbit Hole",
+        "body": "MODE_LABELS.red = 'Rabbit Hole' (was 'Alternative') in modeTheme.js — global rename through the pill/chat/lens UIs. Also updated the consistent copy: TruegleChat MODE_INFO.red + MODE_WELCOME.red, and ModesAndTrending red card tagline. Unrelated 'Alternative' strings (search bias/perspective categories, mock data) left alone.",
+        "ts": "2026-07-18",
+        "created": "2026-07-18"
       }
     },
     "entity": {

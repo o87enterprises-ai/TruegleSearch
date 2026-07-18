@@ -405,10 +405,9 @@ export default function OSINTToolsPanel({ initialQuery = '' }) {
 
   return (
     <div ref={panelRef} className="max-w-4xl mx-auto mb-6 p-5 rounded-2xl bg-gradient-to-br from-[#0a1f33]/95 to-[#001020]/95 backdrop-blur-2xl border-2 border-cyan-500/40 shadow-lg shadow-cyan-500/10 scroll-mt-24">
-      <div className="flex items-center gap-2 mb-4">
-        <Shield size={16} className="text-cyan-400" />
-        <h3 className="text-base font-semibold text-white">OSINT Tools</h3>
-        <span className="text-xs text-cyan-300/50">free recon · no key required · pick one or more</span>
+      <div className="mb-4 text-center">
+        <img src={LETTERHEAD_LOGO} alt="TrueGLE OSINT" className="h-14 mx-auto" />
+        <p className="text-xs text-cyan-300/50 mt-1">free recon · no key required · pick one or more tools</p>
       </div>
 
       {/* Multi-select tool tabs */}

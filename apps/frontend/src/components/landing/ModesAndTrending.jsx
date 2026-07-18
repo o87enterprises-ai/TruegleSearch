@@ -22,7 +22,7 @@ const MODES = [
   {
     id: 'red',
     label: 'Red Mode',
-    tagline: 'Alternative · Free Thinker',
+    tagline: 'Rabbit Hole · Free Thinker',
     description: 'Independent voices, contrarian takes, and sources that challenge the official narrative. For curious, open-minded people who question consensus and think for themselves.',
     color: 'from-red-600 to-rose-400',
     glow: 'shadow-red-500/30',
