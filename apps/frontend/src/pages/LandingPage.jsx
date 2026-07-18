@@ -9,7 +9,6 @@ import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import {
   Search,
-  Gift,
   Mic,
   Camera,
   Paperclip,
@@ -323,34 +322,17 @@ export default function LandingPage() {
               />
             )}
 
-            {/* vs. TrueGLE toggle */}
-            <VsToggleRow
-              nepheshMode={nepheshMode}
-              onToggleNephesh={() => setNepheshMode((v) => !v)}
-            />
+            {/* vs. TrueGLE toggle — a Chat-only feature (the Null-Prime
+                dual-audit layers onto chat answers), so it disappears the
+                same way chat modes do the moment the pill switches to a
+                search color. */}
+            {pillMode === 'black' && (
+              <VsToggleRow
+                nepheshMode={nepheshMode}
+                onToggleNephesh={() => setNepheshMode((v) => !v)}
+              />
+            )}
 
-            <div
-              className="flex flex-col gap-4 items-center w-full max-w-2xl mx-auto px-4 mt-6"
-              style={{
-                filter: 'drop-shadow(0 10px 40px rgba(0,0,0,0.5))',
-              }}
-            >
-              {/* Get paid for the ads you see — teaser link down to the full
-                  Rewards CTA card near the footer (item 8 in the spec). */}
-              <button
-                type="button"
-                onClick={() => {
-                  const el = document.getElementById('rewards-cta');
-                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }}
-                className="w-full max-w-md flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-yellow-500/10 hover:bg-yellow-500/15 border border-yellow-500/30 hover:border-yellow-400/50 text-yellow-300 font-semibold text-sm transition-all duration-200"
-              >
-                <Gift size={18} />
-                Get paid for the ads you see! Click here for Truegle Rewards!
-              </button>
-              {/* Learn More now lives as a small fixed link above the feedback
-                  chip (bottom-right) instead of a big hero CTA — see below. */}
-            </div>
           </div>
 
           {/* Scroll Indicator - only shows after animation */}
