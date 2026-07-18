@@ -270,11 +270,18 @@ app.use((err, req, res, next) => {
 
 // Run any outstanding auto-migrations (idempotent — uses IF NOT EXISTS).
 // Keeps schema in sync on Vercel deploys without a manual migration step.
+//
+// Two migration directories exist for historical reasons — both are scanned:
+//   apps/backend/migrations/     — the main numbered schema (001-009: users,
+//                                  tokens, rewards, shared_threads, ...)
+//   apps/backend/db/migrations/  — the AI-prompt-management subsystem
+// (`shared_threads`, used by the chat/investigation Share feature, lives in
+// the first directory — it was silently never created because this function
+// used to only scan the second one.)
 const { query: dbQuery } = require('./db/connection');
 const fs = require('fs');
 const path = require('path');
-async function autoMigrate() {
-  const migrationsDir = path.join(__dirname, 'db', 'migrations');
+async function runMigrationsIn(migrationsDir) {
   const files = fs.readdirSync(migrationsDir)
     .filter(f => f.endsWith('.sql') && !f.includes('rollback'))
     .sort();
@@ -286,6 +293,10 @@ async function autoMigrate() {
       logger.warn(`Auto-migration ${file} skipped/failed: ${err.message}`);
     }
   }
+}
+async function autoMigrate() {
+  await runMigrationsIn(path.join(__dirname, 'migrations'));
+  await runMigrationsIn(path.join(__dirname, 'db', 'migrations'));
 }
 
 // Start server with database connection

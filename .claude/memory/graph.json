@@ -120,6 +120,14 @@
         "body": "ThreeCards.jsx Search Modes card description is now a 2-paragraph array: para1 = the 5 blend-able lenses (same as Chat Modes card), para2 = 'Two more stops on that same pill jump to their own pages instead of a lens: Rewards (earn a share of ad revenue) and Transcripts (extract & transcribe).' Chat Modes card intentionally still excludes orange/yellow (no chat equivalent, matches ChatModeRow's PILLS array).",
         "ts": "2026-07-18",
         "created": "2026-07-18"
+      },
+      "autoMigrate-fixed": {
+        "Id": "autoMigrate-fixed",
+        "Type": "fact",
+        "Label": "server.js autoMigrate() only scanned db/migrations/, never migrations/",
+        "body": "ROOT CAUSE of 'Couldn't create a share link' + the whole prod-migrate thread: server.js's autoMigrate() (runs on every boot/cold-start, both traditional and Vercel serverless paths) only ever scanned apps/backend/db/migrations/ (the AI-prompt-management subsystem, 2 files). It never scanned apps/backend/migrations/ (the MAIN numbered schema 001-009, including 008_add_shared_threads.sql and 009_add_ai_feedback.sql) — so those never got created in prod, even though auto-migrate looked like it was 'handling' schema sync. Fixed: autoMigrate() now runs BOTH directories (runMigrationsIn helper, called twice). Verified end-to-end against a fresh local Postgres: OLD scan -> shared_threads missing; FIXED scan -> all 9 migrations apply cleanly (all confirmed idempotent, IF NOT EXISTS/IF EXISTS throughout) and the exact INSERT/SELECT ShareService uses succeeds. Takes effect on the NEXT backend deploy — no manual migration step needed anymore, closes the recurring 'forgot to run migration N' failure mode for good.",
+        "ts": "2026-07-18",
+        "created": "2026-07-18"
       }
     },
     "decision": {
@@ -292,8 +300,8 @@
         "Type": "thread",
         "Label": "Run migrations 008+009 + rotate DB pw at pre-ship",
         "body": "Deferred to final testing/hardening (user's call). Neon SQL Editor path + password rotation documented in docs/NEON-TASKS.md. DB password was exposed in chat -> rotate before launch.",
-        "status": "open",
-        "ts": "2026-07-13",
+        "status": "done",
+        "ts": "2026-07-18",
         "created": "2026-07-12"
       },
       "security-subagent": {
@@ -391,6 +399,15 @@
         "Type": "thread",
         "Label": "Landing hero minimized + collapsible controls (2026-07-18)",
         "body": "Per user dictation: (1) ChatModeRow now collapsible (default collapsed), auto-opens ONLY when pillMode='black' + user hasn't touched a lens yet + they start typing (chatModeTouched/chatModesOpen state in LandingPage.jsx); entirely hidden/locked once pill cycles away from Chat (filters+safesearch take over — already gated via showFilters={pillMode!=='black'} in SearchBar, no change needed there). (2) PillModeRow: added press-and-hold-2.2s (pointer events, works mobile+desktop) -> jumps straight back to Chat/black, with an animated hold-progress fill; normal click still cycles. (3) PreProductionBanner (the early-access/Feedback banner): X no longer permanently dismisses -> collapses to small re-openable bottom-right chip (same localStorage key, semantics changed dismissed->collapsed). (4) Learn More moved from big hero CTA to small fixed pill bottom-right, stacked above the feedback chip/banner. (5) Removed 'Search Without Bias/Tracking/Censorship' RotatingGlitchText block; kept 'Why Truegle?' heading. (6) Three separate promise cards (Bias/Tracking/Censorship) merged into ONE horizontal card. (7) ThreeCards.jsx repurposed: now 'Chat Modes' / 'Search Modes' / 'vs. TrueGLE — Grand Logic Equation' brief explainer cards (was Chat/vs-GLE/Chat-or-Search). (8) Removed the 'Share & Try — Share to unlock 24hr premium' plan from SignUpPage.jsx PREMIUM_TIERS (the only live 'share for premium' UI found — ShareForPremiumButton.jsx itself is unused/orphaned in dead OSINTTools.jsx, left alone). Branding/logo/colors explicitly NOT changed (user was firm: minimal != boring). Verified end-to-end via Playwright (scratchpad/verify-landing.mjs): all checks pass. Dropped from scope this round (was earlier misread as the ask): new /learn-more route, hamburger nav, Extract page reskin — still open, Phase 8 remainder.",
+        "status": "open",
+        "ts": "2026-07-18",
+        "created": "2026-07-18"
+      },
+      "db-password-rotation": {
+        "Id": "db-password-rotation",
+        "Type": "thread",
+        "Label": "DB password rotation still pending (split from prod-migrate)",
+        "body": "The DB password was exposed in chat and still needs rotation before launch (Neon SQL Editor path documented in docs/NEON-TASKS.md). This is now the only remaining item from the old 'prod-migrate' thread — the migration-running half is fixed permanently (see autoMigrate-fixed fact).",
         "status": "open",
         "ts": "2026-07-18",
         "created": "2026-07-18"
