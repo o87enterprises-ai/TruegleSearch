@@ -353,6 +353,15 @@
         "status": "done",
         "ts": "2026-07-18",
         "created": "2026-07-18"
+      },
+      "landing-hero-reduction": {
+        "Id": "landing-hero-reduction",
+        "Type": "thread",
+        "Label": "Landing hero minimized + collapsible controls (2026-07-18)",
+        "body": "Per user dictation: (1) ChatModeRow now collapsible (default collapsed), auto-opens ONLY when pillMode='black' + user hasn't touched a lens yet + they start typing (chatModeTouched/chatModesOpen state in LandingPage.jsx); entirely hidden/locked once pill cycles away from Chat (filters+safesearch take over — already gated via showFilters={pillMode!=='black'} in SearchBar, no change needed there). (2) PillModeRow: added press-and-hold-2.2s (pointer events, works mobile+desktop) -> jumps straight back to Chat/black, with an animated hold-progress fill; normal click still cycles. (3) PreProductionBanner (the early-access/Feedback banner): X no longer permanently dismisses -> collapses to small re-openable bottom-right chip (same localStorage key, semantics changed dismissed->collapsed). (4) Learn More moved from big hero CTA to small fixed pill bottom-right, stacked above the feedback chip/banner. (5) Removed 'Search Without Bias/Tracking/Censorship' RotatingGlitchText block; kept 'Why Truegle?' heading. (6) Three separate promise cards (Bias/Tracking/Censorship) merged into ONE horizontal card. (7) ThreeCards.jsx repurposed: now 'Chat Modes' / 'Search Modes' / 'vs. TrueGLE — Grand Logic Equation' brief explainer cards (was Chat/vs-GLE/Chat-or-Search). (8) Removed the 'Share & Try — Share to unlock 24hr premium' plan from SignUpPage.jsx PREMIUM_TIERS (the only live 'share for premium' UI found — ShareForPremiumButton.jsx itself is unused/orphaned in dead OSINTTools.jsx, left alone). Branding/logo/colors explicitly NOT changed (user was firm: minimal != boring). Verified end-to-end via Playwright (scratchpad/verify-landing.mjs): all checks pass. Dropped from scope this round (was earlier misread as the ask): new /learn-more route, hamburger nav, Extract page reskin — still open, Phase 8 remainder.",
+        "status": "open",
+        "ts": "2026-07-18",
+        "created": "2026-07-18"
       }
     }
   },

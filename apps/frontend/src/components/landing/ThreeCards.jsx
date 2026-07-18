@@ -1,33 +1,34 @@
 import { motion } from 'framer-motion';
-import { MessageCircle, Scale, SplitSquareHorizontal } from 'lucide-react';
+import { MessageCircle, Compass, Scale } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-// The three spec-mandated landing cards (docs/UI-REDESIGN-SPEC.md, "Landing
-// page" #7) — replaces the old 8-feature grid, which drifted from spec.
+// Three brief explainer cards beneath the "Why Truegle?" promise card — what
+// the chat modes, search modes, and vs. TrueGLE / Grand Logic Equation
+// actually do, for anyone who wants the detail without it cluttering the hero.
 const CARDS = [
   {
     icon: MessageCircle,
-    title: 'TrueGLE Chat',
+    title: 'Chat Modes',
     color: 'from-cyan-500 to-blue-500',
     border: 'border-cyan-500/30 hover:border-cyan-400/50',
-    description: 'Unbiased, no preconceived opinions — a self-hosted local model built for privacy and transparency, not engagement.',
+    description: 'Blend lenses — Mainstream, Summarize, Rabbit Hole, Perspectives, Privacy/OSINT — to shape how TrueGLE frames its answer. Pick one or stack several.',
     path: '/chat',
   },
   {
+    icon: Compass,
+    title: 'Search Modes',
+    color: 'from-emerald-500 to-teal-500',
+    border: 'border-emerald-500/30 hover:border-emerald-400/50',
+    description: 'The same color-coded lenses, applied to classic web results instead of chat — cycle the pill above the search bar to switch.',
+    path: '/search',
+  },
+  {
     icon: Scale,
-    title: 'TrueGLE "vs." — Grand Logic Equation',
+    title: 'vs. TrueGLE — Grand Logic Equation',
     color: 'from-purple-500 to-fuchsia-500',
     border: 'border-purple-500/30 hover:border-purple-400/50',
     description: "Weighs a theory's claimed probability against its actual statistical odds. If they don't match the results, it finds the circumstances that would.",
     path: '/chat',
-  },
-  {
-    icon: SplitSquareHorizontal,
-    title: 'Chat / Search',
-    color: 'from-emerald-500 to-teal-500',
-    border: 'border-emerald-500/30 hover:border-emerald-400/50',
-    description: 'Chat for full investigations, or drop into classic search for straight web result links — same engine, your call.',
-    path: '/search',
   },
 ];
 

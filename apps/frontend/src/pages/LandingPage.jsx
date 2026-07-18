@@ -14,6 +14,7 @@ import {
   Camera,
   Paperclip,
   File as FileIcon,
+  BookOpen,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ModesAndTrending from '../components/landing/ModesAndTrending';
@@ -27,35 +28,6 @@ import CursorGlow from '../components/ui/CursorGlow';
 import LandingBackground from '../components/LandingBackground';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import SearchBar from '../components/ui/SearchBar';
-import { LearnMoreButton } from '../components/ui/FallingText';
-import GlitchText from '../components/ui/GlitchText';
-import RotatingGlitchText from '../components/ui/RotatingGlitchText';
-
-/**
- * SafeLearnMore - Fallback Learn More button
- */
-const SafeLearnMore = ({ onClick, className = '' }) => (
-  <button
-    onClick={onClick}
-    className={`
-      py-4 px-8
-      bg-black/60 backdrop-blur-md
-      border border-purple-500/50
-      rounded-xl
-      cursor-pointer
-      text-headline-medium hover:scale-105 active:scale-98
-      hover:bg-black/80 hover:border-purple-400/70
-      shadow-lg shadow-purple-500/20
-      transition-all duration-200
-      ${className}
-    `}
-    style={{ zIndex: 100 }}
-  >
-    <span className="text-purple-400 font-semibold drop-shadow-[0_0_10px_rgba(147,51,234,0.5)]">
-      Learn More
-    </span>
-  </button>
-);
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -106,7 +78,15 @@ export default function LandingPage() {
     } catch { /* fall through */ }
     return ['blue'];
   });
+  // Collapsible by default (like the AI-summary card) so the hero doesn't dump
+  // every option on a first-time visitor. Auto-opens the moment someone starts
+  // typing while still in Chat mode without having picked a lens yet — that's
+  // the one case where staying collapsed would silently hide a real decision.
+  // Once the user has touched it themselves, we stop auto-opening it for them.
+  const [chatModesOpen, setChatModesOpen] = useState(false);
+  const [chatModeTouched, setChatModeTouched] = useState(false);
   const toggleChatMode = (id) => {
+    setChatModeTouched(true);
     setChatModes((prev) => {
       if (prev.includes(id)) return prev.length === 1 ? prev : prev.filter((x) => x !== id);
       return [...prev, id];
@@ -116,6 +96,11 @@ export default function LandingPage() {
     localStorage.setItem('truegle_modes_pref', JSON.stringify(chatModes));
     localStorage.setItem('truegle_mode_pref', chatModes[0]);
   }, [chatModes]);
+  useEffect(() => {
+    if (pillMode === 'black' && !chatModeTouched && searchQuery.trim()) {
+      setChatModesOpen(true);
+    }
+  }, [searchQuery, pillMode, chatModeTouched]);
 
   // vs. TrueGLE (Null-Prime dual-audit) — same localStorage key TruegleChat.jsx
   // reads on mount, so a preference set here carries silently into the first
@@ -141,9 +126,6 @@ export default function LandingPage() {
     dateRange: 'any',
     bias: 'all',
   });
-
-  // Constant arrays for GlitchRotatingText to avoid infinite loop
-  const thoughtBubbleWords = ['Bias', 'Tracking', 'Censorship'];
 
   // Simulate microphone transcription
   useEffect(() => {
@@ -328,8 +310,18 @@ export default function LandingPage() {
               />
             </div>
 
-            {/* Chat Mode row (multi-select chat lenses) — directly below the search bar */}
-            <ChatModeRow activeModes={chatModes} onToggle={toggleChatMode} />
+            {/* Chat Mode row (multi-select chat lenses) — directly below the
+                search bar. Collapsed by default; only relevant in Chat mode
+                (retracts + locks the moment the pill switches to a search
+                color, since filters/safe-search take over down there). */}
+            {pillMode === 'black' && (
+              <ChatModeRow
+                activeModes={chatModes}
+                onToggle={toggleChatMode}
+                open={chatModesOpen}
+                onToggleOpen={() => setChatModesOpen((v) => !v)}
+              />
+            )}
 
             {/* vs. TrueGLE toggle */}
             <VsToggleRow
@@ -356,19 +348,8 @@ export default function LandingPage() {
                 <Gift size={18} />
                 Get paid for the ads you see! Click here for Truegle Rewards!
               </button>
-
-              {/* Learn More Button */}
-              <button
-                onClick={() => {
-                  const featuresEl = document.getElementById('features');
-                  if (featuresEl) {
-                    featuresEl.scrollIntoView({ behavior: 'smooth' });
-                  }
-                }}
-                className="py-4 px-8 bg-black/60 backdrop-blur-md border border-purple-500/50 rounded-xl text-purple-400 font-semibold transition-all duration-200 hover:scale-105 hover:bg-black/80 hover:border-purple-400/70 active:scale-95 shadow-lg shadow-purple-500/20"
-              >
-                Learn More
-              </button>
+              {/* Learn More now lives as a small fixed link above the feedback
+                  chip (bottom-right) instead of a big hero CTA — see below. */}
             </div>
           </div>
 
@@ -398,131 +379,38 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="text-center mb-16"
+              className="text-center mb-10"
             >
               <h2 className="text-headline-large mb-4">
                 <span className="gradient-orange-purple">Why Truegle?</span>
               </h2>
-              {/* Search without text - moved from hero section */}
-              <div className="mt-8">
-                <div className="inline-flex items-baseline justify-center gap-0.5 sm:gap-2.5 flex-nowrap w-full max-w-[90vw] px-2">
-                  <div
-                    className="text-white/90 font-[300] tracking-wide flex-shrink whitespace-nowrap text-2xl sm:text-3xl md:text-4xl"
-                  >
-                    Search Without
-                  </div>
-
-                  {/* Rotating glitch text animation without chat bubble */}
-                  <RotatingGlitchText
-                    rotatingWords={thoughtBubbleWords}
-                    rotationInterval={2000}
-                    speed={1}
-                    enableShadows={true}
-                    enableOnHover={false}
-                    className="font-semibold text-center"
-                    style={{ fontSize: '300%' }} // 300% larger text
-                    colorScheme={['#a855f7', '#22c55e', '#ef4444']} // bias / purple, tracking / green, censorship / red
-                  />
-                </div>
-              </div>
             </motion.div>
 
-            {/* Three Promises - Stacked cards on mobile, horizontal on desktop */}
-            <div className="mb-16">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 max-w-4xl mx-auto">
-                {/* Bias Card */}
-                <div className="bg-white/10 backdrop-blur-lg border border-purple-500/30 rounded-xl p-5 shadow-xl hover:bg-white/15 hover:border-purple-400/50 transition-all duration-300">
-                  <div className="flex flex-col items-center text-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center border-2 border-purple-300 shadow-lg shadow-purple-500/30">
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 14 14"
-                        fill="none"
-                      >
-                        <line
-                          x1="3"
-                          y1="7"
-                          x2="11"
-                          y2="7"
-                          stroke="white"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
+            {/* The three promises, simplified into one horizontal card
+                (was three separate stacked cards). */}
+            <div className="mb-16 max-w-3xl mx-auto">
+              <div className="bg-white/10 backdrop-blur-lg border border-white/15 rounded-2xl p-5 sm:p-6 shadow-xl">
+                <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
+                  {[
+                    { label: 'Bias', detail: 'All perspectives welcome', color: 'text-purple-400', dot: 'bg-purple-500 border-purple-300 shadow-purple-500/30' },
+                    { label: 'Tracking', detail: 'Auto history deletion', color: 'text-green-400', dot: 'bg-green-500 border-green-300 shadow-green-500/30' },
+                    { label: 'Censorship', detail: 'Freedom + Rights – Judgement', color: 'text-red-400', dot: 'bg-red-500 border-red-300 shadow-red-500/30' },
+                  ].map((p) => (
+                    <div key={p.label} className="flex flex-col items-center text-center gap-2 py-3 sm:py-0 sm:px-4">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-lg ${p.dot}`}>
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <line x1="3" y1="7" x2="11" y2="7" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                        </svg>
+                      </div>
+                      <span className={`font-bold text-base ${p.color}`}>{p.label}</span>
+                      <span className="text-white/80 text-sm">{p.detail}</span>
                     </div>
-                    <span className="text-purple-400 font-bold text-lg">
-                      Bias
-                    </span>
-                    <span className="text-white/90 text-base">
-                      All perspectives welcome
-                    </span>
-                  </div>
-                </div>
-
-                {/* Tracking Card */}
-                <div className="bg-white/10 backdrop-blur-lg border border-green-500/30 rounded-xl p-5 shadow-xl hover:bg-white/15 hover:border-green-400/50 transition-all duration-300">
-                  <div className="flex flex-col items-center text-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center border-2 border-green-300 shadow-lg shadow-green-500/30">
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 14 14"
-                        fill="none"
-                      >
-                        <line
-                          x1="3"
-                          y1="7"
-                          x2="11"
-                          y2="7"
-                          stroke="white"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </div>
-                    <span className="text-green-400 font-bold text-lg">
-                      Tracking
-                    </span>
-                    <span className="text-white/90 text-base">
-                      Auto history deletion
-                    </span>
-                  </div>
-                </div>
-
-                {/* Censorship Card */}
-                <div className="bg-white/10 backdrop-blur-lg border border-red-500/30 rounded-xl p-5 shadow-xl hover:bg-white/15 hover:border-red-400/50 transition-all duration-300">
-                  <div className="flex flex-col items-center text-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center border-2 border-red-300 shadow-lg shadow-red-500/30">
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 14 14"
-                        fill="none"
-                      >
-                        <line
-                          x1="3"
-                          y1="7"
-                          x2="11"
-                          y2="7"
-                          stroke="white"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </div>
-                    <span className="text-red-400 font-bold text-lg">
-                      Censorship
-                    </span>
-                    <span className="text-white/90 text-base">
-                      Freedom + Rights – Judgement
-                    </span>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Three cards (spec #7) */}
+            {/* Brief explanations: chat modes, search modes, vs. TrueGLE / GLE */}
             <ThreeCards />
           </div>
         </div>
@@ -664,6 +552,21 @@ export default function LandingPage() {
           </div>
         </footer>
       </div>
+
+      {/* Learn More — a small fixed link stacked directly above the
+          early-access feedback control (bottom-right, see PreProductionBanner),
+          rather than a big hero CTA competing with the search bar. */}
+      <button
+        type="button"
+        onClick={() => {
+          const featuresEl = document.getElementById('features');
+          if (featuresEl) featuresEl.scrollIntoView({ behavior: 'smooth' });
+        }}
+        className="fixed bottom-20 right-4 z-[55] flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full bg-[#13131f]/95 border border-purple-400/30 backdrop-blur shadow-2xl text-purple-300 text-[11px] font-semibold hover:border-purple-400/60 hover:text-purple-200 transition-colors"
+      >
+        <BookOpen size={13} />
+        Learn more
+      </button>
 
       {/* Permission Request Modal */}
       {showPermissions && (

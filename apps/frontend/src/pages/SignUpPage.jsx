@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 // import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js'; // premium pay flow — coming soon
 import {
   Mail, Phone, ArrowRight, Check, Sparkles, Zap, Eye,
-  Share2, Users, Clock, CreditCard, Lock,
+  Users, Clock, CreditCard, Lock,
 } from 'lucide-react';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import MolecularBackground from '../components/backgrounds/MolecularBackground';
@@ -70,20 +70,6 @@ const PREMIUM_TIERS = [
     description: 'Sign up through one of our partners and get 1 month premium free — no CC needed.',
     ctaLabel: 'Choose an affiliate partner',
     input: { placeholder: 'Select affiliate partner…', type: 'select' },
-  },
-  {
-    id: 'social',
-    icon: Share2,
-    label: 'Share & Try',
-    badge: '24hr Free',
-    badgeColor: 'cyan',
-    price: 'Free',
-    period: '24 hours',
-    strikethrough: null,
-    discount: 'Share to any social feed',
-    description: 'Post about Truegle to your social feed and verify completion to unlock 24 hours of premium access.',
-    ctaLabel: 'Share to unlock 24hr premium',
-    input: { placeholder: 'Paste your post link to verify…', type: 'text' },
   },
 ];
 

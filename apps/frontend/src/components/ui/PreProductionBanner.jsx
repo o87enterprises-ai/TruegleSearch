@@ -3,6 +3,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Sparkles, X, MessageSquarePlus, AlertTriangle } from 'lucide-react';
 import { PREPRODUCTION_MODE, FEEDBACK_EMAIL } from '../../config/access';
 
+// Same storage key as before "dismiss" meant "collapse to a small re-openable
+// chip" instead of gone-forever — anyone who'd already dismissed it stays
+// collapsed (no regression), and there's now always a way back in.
 const DISMISS_KEY = 'truegle_preprod_banner_dismissed_v1';
 
 function feedbackMailto(kind = 'feedback') {
@@ -86,41 +89,60 @@ const PreProductionBanner = () => {
         )}
       </AnimatePresence>
 
-      {/* Standing pre-production notice */}
-      <AnimatePresence>
-        {PREPRODUCTION_MODE && !dismissed && (
-          <motion.div
-            initial={{ y: -60, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -60, opacity: 0 }}
-            className="fixed bottom-0 inset-x-0 z-[60] px-3 py-2 sm:py-2.5"
-          >
-            <div className="mx-auto max-w-3xl flex items-center gap-3 rounded-xl border border-cyan-400/25 bg-[#13131f]/95 backdrop-blur px-3 sm:px-4 py-2 shadow-2xl">
-              <div className="hidden sm:flex w-8 h-8 rounded-lg bg-cyan-400/15 border border-cyan-400/30 items-center justify-center shrink-0">
-                <Sparkles size={16} className="text-cyan-300" />
+      {/* Standing pre-production notice — collapses to a small re-openable
+          chip instead of vanishing forever, so feedback is always reachable. */}
+      <AnimatePresence mode="wait">
+        {PREPRODUCTION_MODE && (
+          dismissed ? (
+            <motion.button
+              key="chip"
+              type="button"
+              onClick={() => { setDismissed(false); try { localStorage.setItem(DISMISS_KEY, 'false'); } catch { /* ignore */ } }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              title="Early access feedback"
+              aria-label="Open early-access feedback"
+              className="fixed bottom-4 right-4 z-[60] w-10 h-10 rounded-full bg-[#13131f]/95 border border-cyan-400/30 backdrop-blur shadow-2xl flex items-center justify-center hover:border-cyan-400/60 transition-colors"
+            >
+              <Sparkles size={16} className="text-cyan-300" />
+            </motion.button>
+          ) : (
+            <motion.div
+              key="banner"
+              initial={{ y: -60, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -60, opacity: 0 }}
+              className="fixed bottom-0 inset-x-0 z-[60] px-3 py-2 sm:py-2.5"
+            >
+              <div className="mx-auto max-w-3xl flex items-center gap-3 rounded-xl border border-cyan-400/25 bg-[#13131f]/95 backdrop-blur px-3 sm:px-4 py-2 shadow-2xl">
+                <div className="hidden sm:flex w-8 h-8 rounded-lg bg-cyan-400/15 border border-cyan-400/30 items-center justify-center shrink-0">
+                  <Sparkles size={16} className="text-cyan-300" />
+                </div>
+                <p className="text-[11px] sm:text-xs text-white/75 leading-snug flex-1">
+                  <span className="text-cyan-300 font-semibold">Early access:</span>{' '}
+                  You're using TruegleSearch before it's open to the world. Some things
+                  may break — your feedback shapes what we build next.
+                </p>
+                <a
+                  href={feedbackMailto('feedback')}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-cyan-400/15 hover:bg-cyan-400/25 border border-cyan-400/30 text-cyan-200 px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold transition-colors"
+                >
+                  <MessageSquarePlus size={14} />
+                  <span className="hidden sm:inline">Share feedback</span>
+                  <span className="sm:hidden">Feedback</span>
+                </a>
+                <button
+                  onClick={dismiss}
+                  aria-label="Collapse"
+                  title="Collapse"
+                  className="shrink-0 text-white/40 hover:text-white/80 transition-colors"
+                >
+                  <X size={16} />
+                </button>
               </div>
-              <p className="text-[11px] sm:text-xs text-white/75 leading-snug flex-1">
-                <span className="text-cyan-300 font-semibold">Early access:</span>{' '}
-                You're using TruegleSearch before it's open to the world. Some things
-                may break — your feedback shapes what we build next.
-              </p>
-              <a
-                href={feedbackMailto('feedback')}
-                className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-cyan-400/15 hover:bg-cyan-400/25 border border-cyan-400/30 text-cyan-200 px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold transition-colors"
-              >
-                <MessageSquarePlus size={14} />
-                <span className="hidden sm:inline">Share feedback</span>
-                <span className="sm:hidden">Feedback</span>
-              </a>
-              <button
-                onClick={dismiss}
-                aria-label="Dismiss"
-                className="shrink-0 text-white/40 hover:text-white/80 transition-colors"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          </motion.div>
+            </motion.div>
+          )
         )}
       </AnimatePresence>
     </>
