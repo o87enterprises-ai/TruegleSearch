@@ -152,6 +152,14 @@
         "body": "TruegleChat.jsx: added lastMessageRef (attached to the newest message bubble via i === messages.length-1). The scroll effect now branches on the last message's role: if it's 'assistant' (a fresh answer just landed), scrollIntoView({block:'start'}) on lastMessageRef so the user reads from the top; otherwise (user just sent, loading pending) scrollIntoView on endRef as before, showing the sent message + typing dots. Verified visually via Playwright screenshot: Paragraph 1 of a long mocked answer sits at the top of the viewport after it arrives.",
         "ts": "2026-07-19",
         "created": "2026-07-19"
+      },
+      "global-hamburger-nav": {
+        "Id": "global-hamburger-nav",
+        "Type": "fact",
+        "Label": "Global hamburger nav shipped (Phase 8 item)",
+        "body": "GlobalNav.jsx: fixed top-left hamburger button (all pages, rendered once in App.jsx alongside PreProductionBanner/etc, outside <Routes> so it survives route remounts), opens a portalled slide-in panel (left, backdrop, Escape/backdrop-click/nav-click to close) listing the 7 spec destinations: Search(blue)/Rabbit Hole(red)/Perspectives(purple)/OSINT(ocean) -> /search?mode=X, Chat -> /chat, Extract -> /extract, Rewards -> /rewards. Mode-colored dots (MODE_COLORS), active destination highlighted via aria-current (matches pathname + ?mode= for /search). Verified end-to-end via Playwright across landing/chat/search: opens, shows all items, active-state updates correctly after navigating, auto-closes on nav, Escape closes. Remaining Phase 8 items not yet done: Extract page reskin, Learn More page.",
+        "ts": "2026-07-19",
+        "created": "2026-07-19"
       }
     },
     "decision": {
