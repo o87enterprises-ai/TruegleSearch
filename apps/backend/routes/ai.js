@@ -62,7 +62,7 @@ const { getModePrompt } = require('../prompts/nepheshPrompts');
 
 router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
   try {
-    const { message, context = 'general', modes, nepheshMode = false, verbose = false, history = [], options = {}, image } = req.body;
+    const { message, context = 'general', modes, nepheshMode = false, verbose = false, history = [], options = {}, image, searchResults } = req.body;
 
     // An attached image is a valid turn on its own ("what does this say?") —
     // only require non-empty text when there's no image to fall back on.
@@ -89,7 +89,7 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
       if (!canAccess) {
         return res.status(402).json({
           error: 'Insufficient tokens',
-          message: 'Not enough tokens to access AI chat. Please watch an ad or upgrade your account.'
+          message: 'Not enough tokens to access AI chat. Please upgrade your account.'
         });
       }
     }
@@ -105,6 +105,7 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
       systemOverride,
       history, // prior turns → real back-and-forth memory
       imageDataUrl: hasImage ? image : undefined,
+      searchResults: typeof searchResults === 'string' && searchResults.trim() ? searchResults : undefined,
     });
 
     // Deduct token for authenticated users

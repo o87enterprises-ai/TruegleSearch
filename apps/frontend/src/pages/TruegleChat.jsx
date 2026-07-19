@@ -90,6 +90,24 @@ async function fetchCitations(query, backendMode) {
   return { links, videos, pics };
 }
 
+// Turn fetched citations into a compact text block the model can actually
+// ground its answer in — without this, the citations shown to the user are
+// pulled from a real search but never seen by the model, which can then
+// state something confidently that the sources don't say (or invent a
+// source of its own) with no connection between the two.
+function formatCitationsForPrompt(citations) {
+  if (!citations) return null;
+  const items = [...(citations.links || []), ...(citations.videos || [])];
+  if (items.length === 0) return null;
+  return items
+    .map((r, i) => {
+      const title = r.title || r.domain || r.url;
+      const snippet = r.snippet ? `\n   ${r.snippet}` : '';
+      return `${i + 1}. ${title}${snippet}\n   ${r.url}`;
+    })
+    .join('\n');
+}
+
 // Compact citation chip — the same three Truegle actions every result card
 // gets: Open link, View anonymously (proxy), Open in app (inline expand).
 function CitationChip({ result, accent }) {
@@ -383,19 +401,26 @@ export default function TruegleChat() {
     }
 
     if (content === undefined) {
+      // Search FIRST, then chat — the model needs the real results to ground
+      // its answer in, not just a citations panel bolted on afterward with no
+      // connection to what it actually says. An attached image is analyzed
+      // directly by the model — a web-search citation lookup doesn't apply
+      // (and an empty-text query would just waste a request when the turn is
+      // image-only).
+      citations = query ? await fetchCitations(query, MODE_TO_BACKEND_SEARCH[primaryMode]).catch(() => null) : null;
+      const searchResults = formatCitationsForPrompt(citations);
+
       // Pass the pill keys (blue/green/red/purple/ocean) as `modes` so the
       // backend blends each lens; `context` (primary) still keys cache/DB.
-      // An attached image is analyzed directly by the model — a web-search
-      // citation lookup doesn't apply (and an empty-text query would just
-      // waste a request when the turn is image-only).
-      const [chatRes, citeRes] = await Promise.allSettled([
-        aiAPI.chat(query, { context: MODE_TO_CONTEXT[primaryMode], modes, nepheshMode, verbose, history, image: image?.dataUrl }),
-        query ? fetchCitations(query, MODE_TO_BACKEND_SEARCH[primaryMode]) : Promise.resolve(null),
-      ]);
-      content = chatRes.status === 'fulfilled'
-        ? extractContent(chatRes.value)
-        : "Sorry, I couldn't reach the AI just now — try again in a moment.";
-      citations = citeRes.status === 'fulfilled' ? citeRes.value : null;
+      try {
+        const chatRes = await aiAPI.chat(query, {
+          context: MODE_TO_CONTEXT[primaryMode], modes, nepheshMode, verbose, history,
+          image: image?.dataUrl, searchResults,
+        });
+        content = extractContent(chatRes);
+      } catch {
+        content = "Sorry, I couldn't reach the AI just now — try again in a moment.";
+      }
     }
 
     setMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', content, citations, graph }]);

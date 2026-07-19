@@ -146,6 +146,10 @@ const aiAPI = {
       // Attached image, as a data: URL (see FileInput/TruegleChat) — routes
       // the turn to a vision-capable model on the backend.
       image: typeof options.image === 'string' ? options.image : undefined,
+      // Real search results to ground the answer in — without this the model
+      // answers from training knowledge alone while a genuinely-fetched but
+      // unrelated citations list shows underneath it (see TruegleChat.jsx).
+      searchResults: typeof options.searchResults === 'string' ? options.searchResults : undefined,
       options
     }),
   analyzeContent: (content, queryContext, options = {}) =>

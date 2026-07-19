@@ -60,7 +60,7 @@ class UnifiedAIService {
       // before the toggle. Multi-turn conversations bypass the cache entirely:
       // the same follow-up ("why?") means different things in different threads.
       const cacheKey = this.getCacheKey(userMessage, context, options.systemOverride);
-      if (history.length === 0 && !options.imageDataUrl) {
+      if (history.length === 0 && !options.imageDataUrl && !options.searchResults) {
         const cached = this.cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
           logger.debug('Unified AI cache hit:', { context });
@@ -112,11 +112,27 @@ class UnifiedAIService {
           ]
         : userMessage;
 
-      // Build messages array: system prompt, prior conversation turns, then
-      // the new user message. History is capped in sanitizeHistory() so a long
-      // thread can't blow the context window.
+      // Ground the answer in real search results when the caller has them.
+      // `variables.searchResults` above only reaches the model when the DB
+      // prompt path interpolates it — which never happens once systemOverride
+      // (the mode prompts every chat call uses) is set, so search results were
+      // silently discarded and the model answered from training knowledge
+      // alone while a genuinely-fetched, unrelated citations list got shown
+      // underneath it. Inject explicitly here so it applies regardless of
+      // which system prompt is active.
+      const groundingMessage = options.searchResults
+        ? [{
+            role: 'system',
+            content: `SEARCH RESULTS (use ONLY these for specific facts, citations, titles, or figures you're not certain of from your own knowledge; if they don't cover what's asked, say so plainly — never invent a source, study, article, or statistic):\n\n${options.searchResults}`,
+          }]
+        : [];
+
+      // Build messages array: system prompt, grounding (if any), prior
+      // conversation turns, then the new user message. History is capped in
+      // sanitizeHistory() so a long thread can't blow the context window.
       const messages = [
         { role: 'system', content: basePrompt },
+        ...groundingMessage,
         ...history,
         { role: 'user', content: userContent }
       ];
@@ -173,7 +189,7 @@ class UnifiedAIService {
           // the last message text; an image-attached answer is specific to
           // THAT image and must never be served for a different photo that
           // happens to share the same typed caption.
-          if (history.length === 0 && !hasImage) this.cacheResponse(cacheKey, branded);
+          if (history.length === 0 && !hasImage && !options.searchResults) this.cacheResponse(cacheKey, branded);
 
           logger.info('AI request successful:', {
             provider: providerName,
