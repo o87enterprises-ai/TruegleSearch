@@ -168,6 +168,14 @@
         "body": "Confirmed via Adsterra's own support chat: ad units cannot be deleted from the dashboard. An adult-locked zone can't be fixed either (toggle greys out once triggered) — abandon it and request a fresh zone. Unused units auto-go-inactive after 14 days; you can then request a new unit for the same site to replace the old code.",
         "ts": "2026-07-19",
         "created": "2026-07-19"
+      },
+      "rewards-adsterra-source-mismatch-found": {
+        "Id": "rewards-adsterra-source-mismatch-found",
+        "Type": "fact",
+        "Label": "Rewards was paying for the wrong ad (found 2026-07-19)",
+        "body": "Before the fix, RewardAdSlot.jsx rendered HouseAd (Truegle's own affiliate placements like ProtonVPN, tracked in localStorage) while the Rewards dashboard promised 'get paid for the ads you see' implying Adsterra. There was zero revenue backing the $0.01/impression payout. Always check what a reward-eligible ad slot ACTUALLY renders before trusting its economics.",
+        "ts": "2026-07-19",
+        "created": "2026-07-19"
       }
     },
     "decision": {
@@ -312,6 +320,14 @@
         "Type": "decision",
         "Label": "Adsterra small zones restored 2026-07-19",
         "body": "User obtained fresh non-adult zone keys directly from the Adsterra dashboard (banner320x50, banner300x250, banner468x60, nativeBanner, plus confirmed Social Bar/Smartlink/Popunder script URLs) and handed them off as raw embed codes. Wired into apps/frontend/src/config/ads.js and re-enabled all dependent TODO(ads)-commented JSX call sites in UniversalSearch.jsx and MultimediaInterface.jsx. Old banner728x90/160x300/160x600 remain permanently adult-locked — kept behind AdultConsentGate + adultGated, never render ungated.",
+        "ts": "2026-07-19",
+        "created": "2026-07-19"
+      },
+      "rewards-adsterra-revshare-2026-07-19": {
+        "Id": "rewards-adsterra-revshare-2026-07-19",
+        "Type": "decision",
+        "Label": "Rewards Program pays real Adsterra revenue-share (not a flat guess)",
+        "body": "RewardAdSlot rewired from HouseAd (affiliate, no per-view revenue) onto real AdsterraBanner. Rate calibrated from real Adsterra CSV (146 impr/15 clicks/$0.02 over 6 days, ~10.3% CTR): 50 micros/impression trickle, 800 micros/detected-click bonus (click replaces trickle, doesn't stack; click detected via window-blur-while-hovering-ad heuristic since the ad iframe is cross-origin). Expected payout ~127 micros/impression vs observed revenue ~137 micros/impression — 10% payout fee is the real margin. Money columns switched cents->micros (migration 010_rewards_micros_precision.sql) so sub-cent amounts don't round to $0.00. Daily rewarded-impression cap removed; min payout lowered $20->$1 (max stays $50) per user decision. Small sample (6 days) — revisit rate as real volume grows. IMPORTANT: migration 010 must be run against the PRODUCTION db on next deploy (only applied to local truegle_dev so far).",
         "ts": "2026-07-19",
         "created": "2026-07-19"
       }
