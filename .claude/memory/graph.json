@@ -160,6 +160,14 @@
         "body": "GlobalNav.jsx: fixed top-left hamburger button (all pages, rendered once in App.jsx alongside PreProductionBanner/etc, outside <Routes> so it survives route remounts), opens a portalled slide-in panel (left, backdrop, Escape/backdrop-click/nav-click to close) listing the 7 spec destinations: Search(blue)/Rabbit Hole(red)/Perspectives(purple)/OSINT(ocean) -> /search?mode=X, Chat -> /chat, Extract -> /extract, Rewards -> /rewards. Mode-colored dots (MODE_COLORS), active destination highlighted via aria-current (matches pathname + ?mode= for /search). Verified end-to-end via Playwright across landing/chat/search: opens, shows all items, active-state updates correctly after navigating, auto-closes on nav, Escape closes. Remaining Phase 8 items not yet done: Extract page reskin, Learn More page.",
         "ts": "2026-07-19",
         "created": "2026-07-19"
+      },
+      "adsterra-no-delete": {
+        "Id": "adsterra-no-delete",
+        "Type": "fact",
+        "Label": "Adsterra: no ad-unit delete, ever",
+        "body": "Confirmed via Adsterra's own support chat: ad units cannot be deleted from the dashboard. An adult-locked zone can't be fixed either (toggle greys out once triggered) — abandon it and request a fresh zone. Unused units auto-go-inactive after 14 days; you can then request a new unit for the same site to replace the old code.",
+        "ts": "2026-07-19",
+        "created": "2026-07-19"
       }
     },
     "decision": {
@@ -298,6 +306,14 @@
         "body": "MODE_LABELS.red = 'Rabbit Hole' (was 'Alternative') in modeTheme.js — global rename through the pill/chat/lens UIs. Also updated the consistent copy: TruegleChat MODE_INFO.red + MODE_WELCOME.red, and ModesAndTrending red card tagline. Unrelated 'Alternative' strings (search bias/perspective categories, mock data) left alone.",
         "ts": "2026-07-18",
         "created": "2026-07-18"
+      },
+      "adsterra-zones-restored-2026-07-19": {
+        "Id": "adsterra-zones-restored-2026-07-19",
+        "Type": "decision",
+        "Label": "Adsterra small zones restored 2026-07-19",
+        "body": "User obtained fresh non-adult zone keys directly from the Adsterra dashboard (banner320x50, banner300x250, banner468x60, nativeBanner, plus confirmed Social Bar/Smartlink/Popunder script URLs) and handed them off as raw embed codes. Wired into apps/frontend/src/config/ads.js and re-enabled all dependent TODO(ads)-commented JSX call sites in UniversalSearch.jsx and MultimediaInterface.jsx. Old banner728x90/160x300/160x600 remain permanently adult-locked — kept behind AdultConsentGate + adultGated, never render ungated.",
+        "ts": "2026-07-19",
+        "created": "2026-07-19"
       }
     },
     "entity": {
@@ -368,8 +384,8 @@
         "Type": "thread",
         "Label": "Adsterra zone replacement",
         "body": "Zone replacement targeted ~2026-07-16. Only the yellow 'claim this spot' ad slot is active; all others disabled.",
-        "status": "open",
-        "ts": "2026-07-12",
+        "status": "done",
+        "ts": "2026-07-19",
         "created": "2026-07-12"
       },
       "graphipy-clarified": {
@@ -404,8 +420,8 @@
         "Type": "thread",
         "Label": "Next-phase bug backlog — 5 fixed, 2 deferred (2026-07-16)",
         "body": "FIXED & shipped to main (123de56): mode-toast overlap (portalled to body), mic 5s window + live waveform overlay (VoiceRecognition), camera not-selectable (deviceId-empty gate + facingMode fallback + portal), search bang too strict (leading full-name no longer bangs; abbreviations only — QueryInterpreter, 31/31 tests), chat logo swapped to transparent PNG + /chat given landing hero treatment. ROOT CAUSE for mic/camera/toast being cramped: position:fixed trapped by hero's transformed/filtered ancestor -> must portal to document.body (portal wraps AnimatePresence, not inside it). STILL DEFERRED (need live diagnosis, sandbox can't reach backend/Groq/Invidious): (a) transcript function still broken (TranscriptService Invidious path), (b) safesearch 500 traceId d294cff7c60fd4ab on backend-seven-khaki-60.vercel.app. Also open: chat page 'perfectly match landing' — did logo+hero treatment; full search-control parity not done (chat keeps its own thread/controls).",
-        "status": "open",
-        "ts": "2026-07-17",
+        "status": "done",
+        "ts": "2026-07-19",
         "created": "2026-07-17"
       },
       "osint-module-rebuild": {
