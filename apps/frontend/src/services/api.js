@@ -118,7 +118,7 @@ const rewardsAPI = {
   optIn: () => api.post('/rewards/opt-in'),
   optOut: () => api.post('/rewards/opt-out'),
   startImpressionSession: (adId, zone) => api.post('/rewards/impression-session', { adId, zone }),
-  earn: (sessionId, visibleMs) => api.post('/rewards/earn', { sessionId, visibleMs }),
+  earn: (sessionId, visibleMs, clicked = false) => api.post('/rewards/earn', { sessionId, visibleMs, clicked }),
   getLedger: (limit = 20) => api.get('/rewards/ledger', { params: { limit } }),
   getPayouts: () => api.get('/rewards/payouts'),
   requestPayout: (method, destination) => api.post('/rewards/payout-request', { method, destination }),

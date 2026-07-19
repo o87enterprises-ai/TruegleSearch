@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { useRewards } from '../context/RewardsContext';
 import { rewardsAPI } from '../services/api';
 import HouseAd from '../components/ui/HouseAd';
-
-const formatCents = (cents) => `$${(Math.max(0, cents || 0) / 100).toFixed(2)}`;
+import { formatMicros } from '../utils/rewardsFormat';
 
 /*
  * /rewards — the Rewards Program dashboard.
@@ -15,7 +14,7 @@ const formatCents = (cents) => `$${(Math.max(0, cents || 0) / 100).toFixed(2)}`;
  * configured, rather than pretending a transfer happened.
  */
 const RewardsDashboard = () => {
-  const { optedIn, balanceCents, lifetimeEarnedCents, config, loading, fetchStatus, optIn, optOut } = useRewards();
+  const { optedIn, balanceMicros, lifetimeEarnedMicros, config, loading, fetchStatus, optIn, optOut } = useRewards();
   const [ledger, setLedger] = useState([]);
   const [payouts, setPayouts] = useState([]);
   const [payoutMethod, setPayoutMethod] = useState('paypal');
@@ -79,13 +78,13 @@ const RewardsDashboard = () => {
     }
   };
 
-  const minPayoutCents = config?.minPayoutCents ?? 2000;
-  const maxPayoutCents = config?.maxPayoutCents ?? 5000;
+  const minPayoutMicros = config?.minPayoutMicros ?? 1_000_000;
+  const maxPayoutMicros = config?.maxPayoutMicros ?? 50_000_000;
   const feePercent = config?.processingFeePercent ?? 0.10;
-  const grossCents = Math.min(balanceCents, maxPayoutCents);
-  const feeCents = Math.round(grossCents * feePercent);
-  const netCents = grossCents - feeCents;
-  const canRequestPayout = optedIn && balanceCents >= minPayoutCents;
+  const grossMicros = Math.min(balanceMicros, maxPayoutMicros);
+  const feeMicros = Math.round(grossMicros * feePercent);
+  const netMicros = grossMicros - feeMicros;
+  const canRequestPayout = optedIn && balanceMicros >= minPayoutMicros;
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -132,11 +131,11 @@ const RewardsDashboard = () => {
             <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/10">
               <div>
                 <div className="text-sm text-white/60 mb-1">Current balance</div>
-                <div className="text-2xl font-bold text-emerald-400">{formatCents(balanceCents)}</div>
+                <div className="text-2xl font-bold text-emerald-400">{formatMicros(balanceMicros)}</div>
               </div>
               <div>
                 <div className="text-sm text-white/60 mb-1">Lifetime earned</div>
-                <div className="text-2xl font-bold">{formatCents(lifetimeEarnedCents)}</div>
+                <div className="text-2xl font-bold">{formatMicros(lifetimeEarnedMicros)}</div>
               </div>
             </div>
           )}
@@ -169,20 +168,20 @@ const RewardsDashboard = () => {
               <div className="grid grid-cols-3 gap-3 mb-4 text-center">
                 <div className="bg-black/30 rounded-xl p-3 border border-white/10">
                   <div className="text-xs text-white/50 mb-1">Your balance</div>
-                  <div className="font-bold text-white">{formatCents(balanceCents)}</div>
+                  <div className="font-bold text-white">{formatMicros(balanceMicros)}</div>
                 </div>
                 <div className="bg-black/30 rounded-xl p-3 border border-white/10">
                   <div className="text-xs text-white/50 mb-1">10% fee</div>
-                  <div className="font-bold text-red-400">−{formatCents(feeCents)}</div>
+                  <div className="font-bold text-red-400">−{formatMicros(feeMicros)}</div>
                 </div>
                 <div className="bg-black/30 rounded-xl p-3 border border-emerald-500/30">
                   <div className="text-xs text-white/50 mb-1">You receive</div>
-                  <div className="font-bold text-emerald-400">{formatCents(netCents)}</div>
+                  <div className="font-bold text-emerald-400">{formatMicros(netMicros)}</div>
                 </div>
               </div>
 
               <p className="text-xs text-white/40 mb-4">
-                Min: {formatCents(minPayoutCents)} · Max per request: {formatCents(maxPayoutCents)} · Excess stays in your balance
+                Min: {formatMicros(minPayoutMicros)} · Max per request: {formatMicros(maxPayoutMicros)} · Excess stays in your balance
               </p>
 
               <form onSubmit={handlePayoutRequest} className="space-y-3">
@@ -227,7 +226,7 @@ const RewardsDashboard = () => {
                   disabled={!canRequestPayout || submitting || !destination.trim()}
                   className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 font-semibold hover:opacity-90 transition-all disabled:opacity-40 text-sm"
                 >
-                  {submitting ? 'Submitting…' : `Request ${formatCents(netCents)} via ${PAYOUT_METHODS[payoutMethod]?.label}`}
+                  {submitting ? 'Submitting…' : `Request ${formatMicros(netMicros)} via ${PAYOUT_METHODS[payoutMethod]?.label}`}
                 </button>
               </form>
 
@@ -246,7 +245,7 @@ const RewardsDashboard = () => {
                   {payouts.map((p) => (
                     <div key={p.id} className="flex items-center justify-between text-sm py-2 border-b border-white/5 last:border-0">
                       <span className="text-white/70">{new Date(p.requested_at).toLocaleDateString()}</span>
-                      <span className="font-medium">{formatCents(p.amount_cents)}</span>
+                      <span className="font-medium">{formatMicros(p.amount_micros)}</span>
                       <span
                         className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                           p.status === 'paid'
@@ -277,8 +276,8 @@ const RewardsDashboard = () => {
                     <div key={entry.id} className="flex items-center justify-between text-sm py-2 border-b border-white/5 last:border-0">
                       <span className="text-white/70">{new Date(entry.created_at).toLocaleString()}</span>
                       <span className="text-white/60 capitalize">{entry.entry_type.replace(/_/g, ' ')}</span>
-                      <span className={`font-medium ${entry.amount_cents >= 0 ? 'text-emerald-400' : 'text-white/80'}`}>
-                        {entry.amount_cents >= 0 ? '+' : ''}{formatCents(entry.amount_cents)}
+                      <span className={`font-medium ${entry.amount_micros >= 0 ? 'text-emerald-400' : 'text-white/80'}`}>
+                        {entry.amount_micros >= 0 ? '+' : ''}{formatMicros(entry.amount_micros)}
                       </span>
                     </div>
                   ))}

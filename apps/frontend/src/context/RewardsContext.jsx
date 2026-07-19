@@ -15,8 +15,8 @@ export const useRewards = () => {
 export const RewardsProvider = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
   const [optedIn, setOptedIn] = useState(false);
-  const [balanceCents, setBalanceCents] = useState(0);
-  const [lifetimeEarnedCents, setLifetimeEarnedCents] = useState(0);
+  const [balanceMicros, setBalanceMicros] = useState(0);
+  const [lifetimeEarnedMicros, setLifetimeEarnedMicros] = useState(0);
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -29,8 +29,8 @@ export const RewardsProvider = ({ children }) => {
       fetchStatus();
     } else {
       setOptedIn(false);
-      setBalanceCents(0);
-      setLifetimeEarnedCents(0);
+      setBalanceMicros(0);
+      setLifetimeEarnedMicros(0);
     }
   }, [isAuthenticated, user]);
 
@@ -50,8 +50,8 @@ export const RewardsProvider = ({ children }) => {
       const response = await rewardsAPI.getStatus();
       const data = response.data.data;
       setOptedIn(data.optedIn);
-      setBalanceCents(data.balanceCents);
-      setLifetimeEarnedCents(data.lifetimeEarnedCents);
+      setBalanceMicros(data.balanceMicros);
+      setLifetimeEarnedMicros(data.lifetimeEarnedMicros);
     } catch (error) {
       console.error('Failed to fetch rewards status:', error);
     } finally {
@@ -65,7 +65,7 @@ export const RewardsProvider = ({ children }) => {
       const response = await rewardsAPI.optIn();
       const data = response.data.data;
       setOptedIn(data.optedIn);
-      setBalanceCents(data.balanceCents);
+      setBalanceMicros(data.balanceMicros);
       return { success: true };
     } catch (error) {
       console.error('Failed to opt into rewards:', error);
@@ -100,15 +100,15 @@ export const RewardsProvider = ({ children }) => {
     }
   }, [isAuthenticated, optedIn]);
 
-  /** Claim the reward once the ad has been visible long enough. */
-  const earn = useCallback(async (sessionId, visibleMs) => {
+  /** Claim the reward once the ad has been visible long enough, or immediately on a detected click. */
+  const earn = useCallback(async (sessionId, visibleMs, clicked = false) => {
     if (!isAuthenticated) return { success: false };
     try {
-      const response = await rewardsAPI.earn(sessionId, visibleMs);
+      const response = await rewardsAPI.earn(sessionId, visibleMs, clicked);
       const result = response.data.data;
       if (result.success) {
-        setBalanceCents(result.balanceCents);
-        setLifetimeEarnedCents((prev) => prev + result.amountCents);
+        setBalanceMicros(result.balanceMicros);
+        setLifetimeEarnedMicros((prev) => prev + result.amountMicros);
       }
       return result;
     } catch (error) {
@@ -118,8 +118,8 @@ export const RewardsProvider = ({ children }) => {
 
   const value = {
     optedIn,
-    balanceCents,
-    lifetimeEarnedCents,
+    balanceMicros,
+    lifetimeEarnedMicros,
     config,
     loading,
     fetchStatus,

@@ -6,17 +6,16 @@ import AdSlot from './AdSlot';
 import { useSettings } from '../context/SettingsContext';
 import { useRewards } from '../context/RewardsContext';
 import { NuclearOptionButton } from './ui/SessionWipe';
+import { formatMicros } from '../utils/rewardsFormat';
 
 const { FiSettings, FiShield, FiEye, FiDollarSign, FiGlobe, FiLock, FiCookie, FiClock, FiTrash2 } =
   FiIcons;
-
-const formatCents = (cents) => `$${(Math.max(0, cents || 0) / 100).toFixed(2)}`;
 
 const SettingsPage = () => {
   const { settings, updateSetting, canDisableSafeSearch } = useSettings();
   const {
     optedIn: rewardsOptedIn,
-    balanceCents: rewardsBalanceCents,
+    balanceMicros: rewardsBalanceMicros,
     loading: rewardsLoading,
     optIn: rewardsOptIn,
     optOut: rewardsOptOut,
@@ -383,7 +382,7 @@ const SettingsPage = () => {
           {rewardsOptedIn && (
             <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center justify-between flex-wrap gap-2">
               <p className="text-sm text-emerald-800">
-                Current balance: <strong>{formatCents(rewardsBalanceCents)}</strong>
+                Current balance: <strong>{formatMicros(rewardsBalanceMicros)}</strong>
               </p>
               <Link
                 to="/rewards"

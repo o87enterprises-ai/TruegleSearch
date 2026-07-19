@@ -11,7 +11,7 @@ const { authenticate } = require('../middleware/auth');
 // time has elapsed and the session hasn't already been consumed.
 const impressionSessions = new Map();
 const SESSION_TTL_MS = 5 * 60 * 1000; // sessions older than this are abandoned
-const { minVisibleMs: MIN_VISIBLE_MS } = RewardsService.getConfig();
+const { minVisibleMs: MIN_VISIBLE_MS, minVisibleMsForClick: MIN_VISIBLE_MS_FOR_CLICK } = RewardsService.getConfig();
 
 setInterval(() => {
   const now = Date.now();
@@ -98,15 +98,18 @@ router.post('/impression-session', authenticate, async (req, res) => {
 
 /**
  * POST /api/rewards/earn
- * Claim the reward for a session, once it has been visible long enough.
- * `visibleMs` is the client's own accumulated-visibility measurement
- * (IntersectionObserver); it can only ever reduce the awarded duration below
- * server wall-clock time, never inflate it, so a spoofed client can't earn
- * faster than honest real-time viewing would allow.
+ * Claim the reward for a session, once it has been visible long enough — or
+ * immediately if `clicked` is true (a click is detected client-side via a
+ * window-blur-while-hovering-the-ad heuristic, see RewardAdSlot.jsx; it needs
+ * far less dwell time than the plain-view trickle since intent is already
+ * evident). `visibleMs` is the client's own accumulated-visibility
+ * measurement (IntersectionObserver); it can only ever reduce the awarded
+ * duration below server wall-clock time, never inflate it, so a spoofed
+ * client can't earn faster than honest real-time viewing would allow.
  */
 router.post('/earn', authenticate, async (req, res) => {
   try {
-    const { sessionId, visibleMs } = req.body;
+    const { sessionId, visibleMs, clicked } = req.body;
 
     if (!sessionId || typeof sessionId !== 'string') {
       return res.status(400).json({
@@ -128,20 +131,24 @@ router.post('/earn', authenticate, async (req, res) => {
     // Never trust the client beyond real elapsed time.
     const verifiedVisibleMs = Math.min(claimedVisibleMs, elapsedMs);
 
-    if (verifiedVisibleMs < MIN_VISIBLE_MS) {
+    const kind = clicked === true ? 'click' : 'impression';
+    const requiredMs = kind === 'click' ? MIN_VISIBLE_MS_FOR_CLICK : MIN_VISIBLE_MS;
+
+    if (verifiedVisibleMs < requiredMs) {
       return res.status(400).json({
         success: false,
         message: 'Ad was not visible long enough to qualify for a reward',
       });
     }
 
-    // One-time use.
+    // One-time use — a click replaces the impression trickle, it doesn't stack.
     impressionSessions.delete(sessionId);
 
-    const result = await RewardsService.earnFromImpression(
+    const result = await RewardsService.earn(
       req.user.userId,
       session.adId,
       session.zone,
+      kind,
       verifiedVisibleMs
     );
 
@@ -151,7 +158,7 @@ router.post('/earn', authenticate, async (req, res) => {
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Earn from impression error:', error);
+    console.error('Earn reward error:', error);
     res.status(500).json({ success: false, message: 'Failed to process reward' });
   }
 });

@@ -1,17 +1,33 @@
-// Rewards Program Service — opt-in cash rewards for honestly-viewed ads.
+// Rewards Program Service — opt-in cash rewards for honestly-viewed/clicked ads.
 //
-// This is strictly additive to the existing house-ad system (HouseAd.jsx /
-// AdSlot.jsx): users who never opt in are completely unaffected and generate
-// no rows here. Amounts are tracked in integer cents to avoid float drift.
+// The reward-eligible ad slot (RewardAdSlot.jsx) renders a real AdsterraBanner,
+// so a rewarded view/click is the exact same event that earns Truegle real ad
+// revenue — this is a genuine revenue-share, not a made-up number.
+//
+// Amounts are tracked in integer MICROS (millionths of a dollar; 1,000,000
+// micros = $1) to avoid float drift while still representing sub-cent
+// amounts — real Adsterra revenue here runs well under a cent per event.
 const { query } = require('../db/connection');
 
-// Ad rewards economics — tune these as program data comes in.
-const CENTS_PER_IMPRESSION = 1; // $0.01 per honestly-verified ad view
-const MIN_PAYOUT_CENTS = 2000; // $20.00 minimum cash-out
-const MAX_PAYOUT_CENTS = 5000; // $50.00 maximum single cash-out
+// Ad rewards economics, calibrated 2026-07-19 from a real Adsterra stats
+// export (146 impressions / 15 clicks / $0.02 revenue over 6 days):
+//   revenue/impression ≈ $0.000137 (137 micros)
+//   revenue/click      ≈ $0.00133  (1333 micros)
+//   CTR                ≈ 10.3%
+// A click replaces the impression trickle for that shown ad rather than
+// stacking (matches reality: nearly all observed revenue was click-driven,
+// not per-impression). Expected payout per shown ad ≈
+//   0.897 * 50 + 0.103 * 800 ≈ 127 micros ($0.000127)
+// against observed revenue/impression of 137 micros — roughly a 93% pass-
+// through, with the existing 10% payout fee as the actual margin mechanism.
+// Small sample (six days, $0.02 total) — revisit as real volume grows.
+const MICROS_PER_IMPRESSION = 50; // $0.00005 — paid when an ad is honestly viewed but not clicked
+const MICROS_PER_CLICK = 800; // $0.0008 — paid instead of the trickle when a click is detected
+const MIN_PAYOUT_MICROS = 1_000_000; // $1.00 minimum cash-out
+const MAX_PAYOUT_MICROS = 50_000_000; // $50.00 maximum single cash-out
 const PROCESSING_FEE_PERCENT = 0.10; // 10% processing fee deducted at payout
-const MAX_REWARDED_IMPRESSIONS_PER_DAY = 40; // anti-abuse ceiling (~$0.40/day)
-const MIN_VISIBLE_MS = 4000; // minimum real visible time to qualify
+const MIN_VISIBLE_MS = 4000; // minimum real visible time to qualify for the impression trickle
+const MIN_VISIBLE_MS_FOR_CLICK = 300; // a click can be credited much faster than a full dwell
 
 // Supported payout methods and what identifier each requires.
 const PAYOUT_METHODS = {
@@ -27,12 +43,13 @@ const PAYOUT_METHODS = {
 class RewardsService {
   static getConfig() {
     return {
-      centsPerImpression: CENTS_PER_IMPRESSION,
-      minPayoutCents: MIN_PAYOUT_CENTS,
-      maxPayoutCents: MAX_PAYOUT_CENTS,
+      microsPerImpression: MICROS_PER_IMPRESSION,
+      microsPerClick: MICROS_PER_CLICK,
+      minPayoutMicros: MIN_PAYOUT_MICROS,
+      maxPayoutMicros: MAX_PAYOUT_MICROS,
       processingFeePercent: PROCESSING_FEE_PERCENT,
-      maxRewardedImpressionsPerDay: MAX_REWARDED_IMPRESSIONS_PER_DAY,
       minVisibleMs: MIN_VISIBLE_MS,
+      minVisibleMsForClick: MIN_VISIBLE_MS_FOR_CLICK,
       payoutMethods: PAYOUT_METHODS,
       payoutsAutomated: false,
     };
@@ -40,7 +57,7 @@ class RewardsService {
 
   static async getStatus(userId) {
     const result = await query(
-      `SELECT rewards_opted_in, rewards_opted_in_at, rewards_balance_cents, rewards_lifetime_earned_cents
+      `SELECT rewards_opted_in, rewards_opted_in_at, rewards_balance_micros, rewards_lifetime_earned_micros
        FROM users WHERE id = $1`,
       [userId]
     );
@@ -53,8 +70,8 @@ class RewardsService {
     return {
       optedIn: row.rewards_opted_in || false,
       optedInAt: row.rewards_opted_in_at,
-      balanceCents: row.rewards_balance_cents || 0,
-      lifetimeEarnedCents: row.rewards_lifetime_earned_cents || 0,
+      balanceMicros: Number(row.rewards_balance_micros) || 0,
+      lifetimeEarnedMicros: Number(row.rewards_lifetime_earned_micros) || 0,
     };
   }
 
@@ -72,53 +89,38 @@ class RewardsService {
   }
 
   /**
-   * Count today's rewarded impressions for a user (for the daily cap).
+   * Award cash for an honestly-measured ad event. `visibleMs` is the real,
+   * server-verified elapsed time the caller tracked the ad as visible (the
+   * route layer is responsible for verifying this server-side, not trusting
+   * a client-reported number alone). `kind` is 'impression' or 'click'.
    */
-  static async getTodayImpressionCount(userId) {
-    const result = await query(
-      `SELECT COUNT(*) FROM reward_impressions
-       WHERE user_id = $1 AND created_at >= CURRENT_DATE`,
-      [userId]
-    );
-    return parseInt(result.rows[0].count, 10);
-  }
-
-  /**
-   * Award cash for an honestly-measured ad impression. `visibleMs` is the
-   * real, server-verified elapsed time the caller tracked the ad as visible
-   * (the route layer is responsible for verifying this server-side, not
-   * trusting a client-reported number alone).
-   */
-  static async earnFromImpression(userId, adId, zone, visibleMs) {
+  static async earn(userId, adId, zone, kind, visibleMs) {
     const status = await this.getStatus(userId);
     if (!status.optedIn) {
       return { success: false, message: 'Not opted into the Rewards Program' };
     }
 
-    const todayCount = await this.getTodayImpressionCount(userId);
-    if (todayCount >= MAX_REWARDED_IMPRESSIONS_PER_DAY) {
-      return { success: false, message: 'Daily rewarded-impression limit reached' };
-    }
+    const amountMicros = kind === 'click' ? MICROS_PER_CLICK : MICROS_PER_IMPRESSION;
 
     await query(
-      `INSERT INTO reward_impressions (user_id, ad_id, zone, visible_ms, amount_cents)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [userId, adId, zone, visibleMs, CENTS_PER_IMPRESSION]
+      `INSERT INTO reward_impressions (user_id, ad_id, zone, visible_ms, amount_micros, kind)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [userId, adId, zone, visibleMs, amountMicros, kind]
     );
 
     const result = await query(
       `UPDATE users SET
-         rewards_balance_cents = rewards_balance_cents + $1,
-         rewards_lifetime_earned_cents = rewards_lifetime_earned_cents + $1
+         rewards_balance_micros = rewards_balance_micros + $1,
+         rewards_lifetime_earned_micros = rewards_lifetime_earned_micros + $1
        WHERE id = $2
-       RETURNING rewards_balance_cents`,
-      [CENTS_PER_IMPRESSION, userId]
+       RETURNING rewards_balance_micros`,
+      [amountMicros, userId]
     );
 
-    const balanceAfterCents = result.rows[0].rewards_balance_cents;
-    await this.logLedger(userId, CENTS_PER_IMPRESSION, 'earn_impression', adId, balanceAfterCents);
+    const balanceAfterMicros = Number(result.rows[0].rewards_balance_micros);
+    await this.logLedger(userId, amountMicros, `earn_${kind}`, adId, balanceAfterMicros);
 
-    return { success: true, amountCents: CENTS_PER_IMPRESSION, balanceCents: balanceAfterCents };
+    return { success: true, amountMicros, balanceMicros: balanceAfterMicros, kind };
   }
 
   static async requestPayout(userId, method, destination) {
@@ -133,43 +135,43 @@ class RewardsService {
       };
     }
 
-    if (status.balanceCents < MIN_PAYOUT_CENTS) {
+    if (status.balanceMicros < MIN_PAYOUT_MICROS) {
       return {
         success: false,
-        message: `Minimum payout is $${(MIN_PAYOUT_CENTS / 100).toFixed(2)}. Your balance: $${(status.balanceCents / 100).toFixed(2)}`,
-        balanceCents: status.balanceCents,
+        message: `Minimum payout is $${(MIN_PAYOUT_MICROS / 1e6).toFixed(2)}. Your balance: $${(status.balanceMicros / 1e6).toFixed(2)}`,
+        balanceMicros: status.balanceMicros,
       };
     }
 
-    // Cap at MAX_PAYOUT_CENTS — excess stays in balance
-    const grossCents = Math.min(status.balanceCents, MAX_PAYOUT_CENTS);
-    const feeCents = Math.round(grossCents * PROCESSING_FEE_PERCENT);
-    const netCents = grossCents - feeCents;
+    // Cap at MAX_PAYOUT_MICROS — excess stays in balance
+    const grossMicros = Math.min(status.balanceMicros, MAX_PAYOUT_MICROS);
+    const feeMicros = Math.round(grossMicros * PROCESSING_FEE_PERCENT);
+    const netMicros = grossMicros - feeMicros;
 
     const result = await query(
-      `UPDATE users SET rewards_balance_cents = rewards_balance_cents - $1 WHERE id = $2 RETURNING rewards_balance_cents`,
-      [grossCents, userId]
+      `UPDATE users SET rewards_balance_micros = rewards_balance_micros - $1 WHERE id = $2 RETURNING rewards_balance_micros`,
+      [grossMicros, userId]
     );
-    const balanceAfterCents = result.rows[0].rewards_balance_cents;
+    const balanceAfterMicros = Number(result.rows[0].rewards_balance_micros);
 
     const payout = await query(
-      `INSERT INTO reward_payout_requests (user_id, amount_cents, method, destination, status)
+      `INSERT INTO reward_payout_requests (user_id, amount_micros, method, destination, status)
        VALUES ($1, $2, $3, $4, 'pending')
        RETURNING id, status, requested_at`,
-      [userId, netCents, validMethod, destination || null]
+      [userId, netMicros, validMethod, destination || null]
     );
 
-    await this.logLedger(userId, -grossCents, 'payout_request', `payout_${payout.rows[0].id}`, balanceAfterCents);
+    await this.logLedger(userId, -grossMicros, 'payout_request', `payout_${payout.rows[0].id}`, balanceAfterMicros);
 
     return {
       success: true,
       payoutRequestId: payout.rows[0].id,
-      grossCents,
-      feeCents,
-      netCents,
-      balanceCents: balanceAfterCents,
+      grossMicros,
+      feeMicros,
+      netMicros,
+      balanceMicros: balanceAfterMicros,
       status: payout.rows[0].status,
-      message: `Payout of $${(netCents / 100).toFixed(2)} requested via ${PAYOUT_METHODS[validMethod].label} (10% fee applied). Processed within 3–5 business days.`,
+      message: `Payout of $${(netMicros / 1e6).toFixed(2)} requested via ${PAYOUT_METHODS[validMethod].label} (10% fee applied). Processed within 3–5 business days.`,
     };
   }
 
@@ -189,11 +191,11 @@ class RewardsService {
     return result.rows;
   }
 
-  static async logLedger(userId, amountCents, entryType, description, balanceAfterCents) {
+  static async logLedger(userId, amountMicros, entryType, description, balanceAfterMicros) {
     await query(
-      `INSERT INTO reward_ledger (user_id, amount_cents, entry_type, description, balance_after_cents)
+      `INSERT INTO reward_ledger (user_id, amount_micros, entry_type, description, balance_after_micros)
        VALUES ($1, $2, $3, $4, $5)`,
-      [userId, amountCents, entryType, description, balanceAfterCents]
+      [userId, amountMicros, entryType, description, balanceAfterMicros]
     );
   }
 }
