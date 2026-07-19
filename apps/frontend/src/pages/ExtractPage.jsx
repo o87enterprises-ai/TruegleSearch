@@ -8,11 +8,9 @@ import {
 } from 'lucide-react';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import AdSlot from '../components/AdSlot';
-import AdsterraBanner from '../components/ads/AdsterraBanner';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 const FREE_SPINS = 3;
-const AD_BONUS_SPINS = 3;
 const SPIN_WINDOW_MS = 24 * 60 * 60 * 1000;
 const WATERMARK = '\n\n---\nExtracted via Truegle · truegle.info';
 
@@ -28,7 +26,7 @@ function saveSpins(state) { localStorage.setItem('truegle_extract_spins', JSON.s
 function getSpinState() {
   const saved = loadSpins();
   const now = Date.now();
-  if (!saved || now > saved.resetAt) return { remaining: FREE_SPINS, resetAt: now + SPIN_WINDOW_MS, adUsed: false };
+  if (!saved || now > saved.resetAt) return { remaining: FREE_SPINS, resetAt: now + SPIN_WINDOW_MS };
   return saved;
 }
 function msUntilReset(resetAt) {
@@ -131,12 +129,8 @@ export default function ExtractPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [spinState, setSpinState] = useState(() => getSpinState());
-  const [showAdModal, setShowAdModal] = useState(false);
-  const [adCountdown, setAdCountdown] = useState(5);
-  const [adDone, setAdDone] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showFull, setShowFull] = useState(false);
-  const adTimerRef = useRef(null);
 
   useEffect(() => { setSpinState(getSpinState()); }, []);
 
@@ -150,7 +144,7 @@ export default function ExtractPage() {
 
   const handleExtract = async () => {
     if (!url.trim()) return;
-    if (spinState.remaining <= 0) { setShowAdModal(true); return; }
+    if (spinState.remaining <= 0) return;
     setLoading(true); setError(''); setResult(null); setShowFull(false);
     try {
       const endpoint = extractMode === 'transcript' ? '/api/extract/transcript' : '/api/extract/images';
@@ -179,22 +173,6 @@ export default function ExtractPage() {
     const modeMap = { blue: '/search', green: '/search?mode=green', red: '/search?mode=red' };
     navigate(modeMap[mode] || '/search');
   };
-
-  // Ad flow
-  const startAd = () => {
-    setAdDone(false); setAdCountdown(5);
-    adTimerRef.current = setInterval(() => {
-      setAdCountdown((c) => {
-        if (c <= 1) { clearInterval(adTimerRef.current); setAdDone(true); return 0; }
-        return c - 1;
-      });
-    }, 1000);
-  };
-  const claimAdSpins = () => {
-    setSpinState((prev) => { const next = { ...prev, remaining: prev.remaining + AD_BONUS_SPINS, adUsed: true }; saveSpins(next); return next; });
-    setShowAdModal(false); setAdDone(false);
-  };
-  useEffect(() => () => clearInterval(adTimerRef.current), []);
 
   const getOutputText = () => (result?.transcript || '') + WATERMARK;
   const handleCopy = () => {
@@ -403,20 +381,14 @@ export default function ExtractPage() {
           </AnimatePresence>
 
           {/* ── No spins teaser ── */}
-          {spinState.remaining === 0 && !showAdModal && (
+          {spinState.remaining === 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="mt-2 p-5 rounded-2xl bg-amber-950/40 border border-amber-500/30 text-center mb-6">
               <p className="text-amber-300 text-sm font-medium mb-3">You've used all your free extractions for today.</p>
-              <div className="flex gap-3 justify-center">
-                <button onClick={() => setShowAdModal(true)}
-                  className="px-4 py-2 rounded-xl bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/40 text-amber-200 text-sm font-medium transition-all">
-                  Watch ad · get 3 more
-                </button>
-                <a href="/pricing"
-                  className="px-4 py-2 rounded-xl bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-400/30 text-yellow-300 text-sm font-medium transition-all">
-                  Go Premium · unlimited
-                </a>
-              </div>
+              <a href="/pricing"
+                className="inline-block px-4 py-2 rounded-xl bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-400/30 text-yellow-300 text-sm font-medium transition-all">
+                Go Premium · unlimited
+              </a>
             </motion.div>
           )}
 
@@ -427,52 +399,6 @@ export default function ExtractPage() {
           </div>
         </div>
       </div>
-
-      {/* ── Ad modal ── */}
-      <AnimatePresence>
-        {showAdModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center px-4"
-            onClick={(e) => { if (e.target === e.currentTarget && !adTimerRef.current) setShowAdModal(false); }}>
-            <motion.div initial={{ scale: 0.92, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.92, y: 20 }}
-              className="w-full max-w-sm bg-[#0d1117] border border-yellow-400/20 rounded-2xl p-6 text-center">
-              <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-4">
-                <Play size={22} className="text-amber-400" />
-              </div>
-              <h3 className="text-white font-semibold text-lg mb-1">Watch a short ad</h3>
-              <p className="text-white/50 text-sm mb-6">You'll get 3 more extractions valid for 24 hours.</p>
-              {!adDone && adCountdown === 5 && (
-                <button onClick={startAd}
-                  className="w-full py-3 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black text-sm font-bold transition-colors">
-                  Start watching
-                </button>
-              )}
-              {!adDone && adCountdown < 5 && (
-                <div className="py-3 flex flex-col items-center gap-3">
-                  <AdsterraBanner format="banner300x250" />
-                  <p className="text-yellow-300 text-sm">Ad playing… {adCountdown}s</p>
-                </div>
-              )}
-              {adDone && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                  <div className="flex items-center justify-center gap-2 text-green-400 mb-4">
-                    <CheckCircle size={20} />
-                    <span className="text-sm font-medium">Done! 3 extractions ready.</span>
-                  </div>
-                  <button onClick={claimAdSpins}
-                    className="w-full py-3 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-black text-sm font-bold transition-colors">
-                    Claim & continue
-                  </button>
-                </motion.div>
-              )}
-              {!adDone && adCountdown === 5 && (
-                <button onClick={() => setShowAdModal(false)}
-                  className="mt-3 text-xs text-white/30 hover:text-white/50 transition-colors">Cancel</button>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

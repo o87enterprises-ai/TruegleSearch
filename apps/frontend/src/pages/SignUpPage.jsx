@@ -150,7 +150,7 @@ export default function SignUpPage() {
                   <ul className="space-y-2 mb-6">
                     {[
                       'Core web, image & news search',
-                      '10 searches/day (watch ads to refill)',
+                      '10 searches/day',
                       'Quick Answer cards & AI snippets',
                       'Ad rewards program — earn cash from ads you see',
                       'Upgrade to premium anytime',
@@ -321,8 +321,7 @@ export default function SignUpPage() {
                 <h2 className="text-xl font-bold text-white mb-1">You're in.</h2>
                 <p className="text-white/55 text-sm mb-6">
                   You have <span className="text-white font-semibold">10 free searches</span> today.
-                  Watch ads anytime to refill your quota. Premium plans are coming soon — enter your
-                  email on the signup page to be first in line.
+                  Premium plans are coming soon — enter your email on the signup page to be first in line.
                 </p>
 
                 <button

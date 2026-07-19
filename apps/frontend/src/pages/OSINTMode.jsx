@@ -44,9 +44,7 @@ export default function OSINTMode() {
     const saved = localStorage.getItem('osint_usage_global');
     return saved ? parseInt(saved) : 0;
   });
-  const [showAdModal, setShowAdModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
-  const [adCountdown, setAdCountdown] = useState(30);
 
   // AI Assistant State
   const [aiQuery, setAiQuery] = useState('');
@@ -63,16 +61,6 @@ export default function OSINTMode() {
 
   // Bubble Animation State
   const [bubbles, setBubbles] = useState([]);
-
-  // Countdown timer for ad modal
-  useEffect(() => {
-    if (showAdModal && adCountdown > 0) {
-      const timer = setTimeout(() => {
-        setAdCountdown(adCountdown - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [showAdModal, adCountdown]);
 
   const tools = [
     // Top Tools - Most Used
@@ -468,7 +456,7 @@ export default function OSINTMode() {
     e.preventDefault();
 
     if (usageCount >= 3) {
-      setShowAdModal(true);
+      setShowPremiumModal(true);
       return;
     }
 
@@ -1121,72 +1109,6 @@ export default function OSINTMode() {
         </AnimatePresence>
       </div>
 
-      {/* Watch Ad Modal */}
-      <AnimatePresence>
-        {showAdModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowAdModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="max-w-md w-full p-6 rounded-2xl bg-gradient-to-br from-[#FFEB3B]/[0.3125] to-[#FFC107]/[0.3125] backdrop-blur-xl border-2 border-yellow-400/60 shadow-lg shadow-yellow-400/40"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="text-center mb-6">
-                <div className="text-yellow-200 text-sm mb-2">
-                  Free Uses Exhausted
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-2">
-                  Watch an Ad
-                </h3>
-                <p className="text-white/90">
-                  Get 3 more free uses by watching a 30-second ad
-                </p>
-              </div>
-
-              <div className="bg-black/30 rounded-xl p-8 mb-6 text-center">
-                <div className="text-6xl font-bold text-white mb-2">
-                  {adCountdown}
-                </div>
-                <div className="text-white/80">seconds remaining</div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowPremiumModal(true)}
-                  className="flex-1 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold transition-all"
-                >
-                  Skip - Go Premium
-                </button>
-                <button
-                  onClick={() => {
-                    setShowAdModal(false);
-                    // Reset usage count
-                    setUsageCount(0);
-                    localStorage.setItem('osint_usage_global', '0');
-                    setAdCountdown(30); // Reset for next time
-                  }}
-                  disabled={adCountdown > 0}
-                  className={`flex-1 px-4 py-3 rounded-xl font-semibold transition-all ${
-                    adCountdown > 0
-                      ? 'bg-gray-500/50 text-gray-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-400 hover:to-red-400'
-                  }`}
-                >
-                  Continue
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Premium Modal */}
       <AnimatePresence>
         {showPremiumModal && (
@@ -1246,14 +1168,10 @@ export default function OSINTMode() {
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => {
-                    setShowPremiumModal(false);
-                    setShowAdModal(true);
-                    setAdCountdown(30); // Reset countdown
-                  }}
+                  onClick={() => setShowPremiumModal(false)}
                   className="flex-1 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold transition-all"
                 >
-                  Watch Ad for 3 Uses
+                  Maybe Later
                 </button>
                 <button
                   onClick={async () => {

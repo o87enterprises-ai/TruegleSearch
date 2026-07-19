@@ -39,7 +39,6 @@ export function useCookieConsent() {
 const CPM_INTERACTIONS = [
   { label: 'Impressions', desc: 'Ad loads on screen — counted per 1,000 views (CPM)' },
   { label: 'Clicks', desc: 'Tapping or clicking an ad creative (CPC)' },
-  { label: 'Video completions', desc: 'Watching a video ad through to the end' },
   { label: 'Lead actions', desc: 'Completing an advertiser form, install, or survey (CPA)' },
 ];
 
@@ -166,7 +165,7 @@ export default function CookieConsent() {
                             </div>
                           </div>
                           <p className="text-white/40 text-[11px] mt-0.5">
-                            Accurately meters ad impressions, clicks, video completions, and lead actions so Adsterra can
+                            Accurately meters ad impressions, clicks, and lead actions so Adsterra can
                             pay Truegle — and Truegle can pay you. No search history or personal data is ever shared.
                             Remove ads by upgrading to{' '}
                             <Link to="/auth/signup" className="text-yellow-400 hover:text-yellow-300">Premium</Link>.

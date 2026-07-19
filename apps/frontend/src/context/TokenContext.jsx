@@ -73,14 +73,6 @@ export const TokenProvider = ({ children }) => {
     return { allowed: true, tokensRemaining: newTokens };
   }, []);
 
-  const refillFreemiumFromAd = useCallback((amount = 3) => {
-    const state = getFreemiumState();
-    const newTokens = Math.min(state.tokens + amount, FREEMIUM_DAILY_LIMIT);
-    lsSet(FREEMIUM_KEY_TOKENS, String(newTokens));
-    setFreemiumState({ ...state, tokens: newTokens });
-    return newTokens;
-  }, []);
-
   // Fetch balance when user authenticates
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -124,7 +116,7 @@ export const TokenProvider = ({ children }) => {
 
   /**
    * Check if user can access a feature
-   * Returns: { allowed, reason, freeUsesRemaining?, cost?, requiresAd? }
+   * Returns: { allowed, reason, freeUsesRemaining?, cost? }
    */
   const checkAccess = useCallback(async (featureName) => {
     if (!isAuthenticated) {
@@ -173,46 +165,6 @@ export const TokenProvider = ({ children }) => {
     } catch (error) {
       console.error('Failed to spend token:', error);
       return { success: false, message: error.response?.data?.message || 'Failed to spend token' };
-    }
-  }, [isAuthenticated]);
-
-  /**
-   * Start a server-side ad session (call before showing the ad)
-   * Returns { success, sessionId }
-   */
-  const startAdSession = useCallback(async () => {
-    if (!isAuthenticated) {
-      return { success: false, message: 'Not authenticated' };
-    }
-    try {
-      const response = await tokensAPI.startAdSession();
-      return { success: true, sessionId: response.data.sessionId };
-    } catch (error) {
-      console.error('Failed to start ad session:', error);
-      return { success: false, message: error.response?.data?.message || 'Failed to start ad session' };
-    }
-  }, [isAuthenticated]);
-
-  /**
-   * Earn token from watching ad — requires sessionId from startAdSession()
-   */
-  const earnFromAd = useCallback(async (sessionId) => {
-    if (!isAuthenticated) {
-      return { success: false, message: 'Not authenticated' };
-    }
-
-    try {
-      const response = await tokensAPI.earnFromAd(sessionId);
-      const result = response.data.data;
-
-      if (result.success) {
-        setBalance(result.newBalance);
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Failed to earn from ad:', error);
-      return { success: false, message: error.response?.data?.message || 'Failed to process ad reward' };
     }
   }, [isAuthenticated]);
 
@@ -284,13 +236,10 @@ export const TokenProvider = ({ children }) => {
     fetchBalance,
     checkAccess,
     spendToken,
-    startAdSession,
-    earnFromAd,
     earnFromGame,
 
     // Freemium actions
     consumeFreemiumSearch,
-    refillFreemiumFromAd,
     refreshFreemium,
 
     // Helpers

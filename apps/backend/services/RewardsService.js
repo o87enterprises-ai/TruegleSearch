@@ -23,6 +23,9 @@ const { query } = require('../db/connection');
 // Small sample (six days, $0.02 total) — revisit as real volume grows.
 const MICROS_PER_IMPRESSION = 50; // $0.00005 — paid when an ad is honestly viewed but not clicked
 const MICROS_PER_CLICK = 800; // $0.0008 — paid instead of the trickle when a click is detected
+// Anti-abuse ceiling, not a real constraint at these rates: hitting $5/day
+// honestly would take ~39,000 impressions or ~6,250 clicks in one day.
+const MAX_DAILY_EARNINGS_MICROS = 5_000_000; // $5.00/day
 const MIN_PAYOUT_MICROS = 1_000_000; // $1.00 minimum cash-out
 const MAX_PAYOUT_MICROS = 50_000_000; // $50.00 maximum single cash-out
 const PROCESSING_FEE_PERCENT = 0.10; // 10% processing fee deducted at payout
@@ -45,6 +48,7 @@ class RewardsService {
     return {
       microsPerImpression: MICROS_PER_IMPRESSION,
       microsPerClick: MICROS_PER_CLICK,
+      maxDailyEarningsMicros: MAX_DAILY_EARNINGS_MICROS,
       minPayoutMicros: MIN_PAYOUT_MICROS,
       maxPayoutMicros: MAX_PAYOUT_MICROS,
       processingFeePercent: PROCESSING_FEE_PERCENT,
@@ -89,6 +93,18 @@ class RewardsService {
   }
 
   /**
+   * Sum of today's earned micros for a user (anti-abuse daily ceiling).
+   */
+  static async getTodayEarningsMicros(userId) {
+    const result = await query(
+      `SELECT COALESCE(SUM(amount_micros), 0) AS total
+       FROM reward_impressions WHERE user_id = $1 AND created_at >= CURRENT_DATE`,
+      [userId]
+    );
+    return Number(result.rows[0].total) || 0;
+  }
+
+  /**
    * Award cash for an honestly-measured ad event. `visibleMs` is the real,
    * server-verified elapsed time the caller tracked the ad as visible (the
    * route layer is responsible for verifying this server-side, not trusting
@@ -101,6 +117,11 @@ class RewardsService {
     }
 
     const amountMicros = kind === 'click' ? MICROS_PER_CLICK : MICROS_PER_IMPRESSION;
+
+    const todayMicros = await this.getTodayEarningsMicros(userId);
+    if (todayMicros + amountMicros > MAX_DAILY_EARNINGS_MICROS) {
+      return { success: false, message: 'Daily rewards earning limit reached' };
+    }
 
     await query(
       `INSERT INTO reward_impressions (user_id, ad_id, zone, visible_ms, amount_micros, kind)

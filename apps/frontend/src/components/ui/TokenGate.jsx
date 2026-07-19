@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Coins, Play, Crown, Lock, Sparkles, AlertCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Coins, Crown, Lock, Sparkles, AlertCircle } from 'lucide-react';
 import { useTokens } from '../../context/TokenContext';
 import { useAuth } from '../../context/AuthContext';
-import AdPlayer from './AdPlayer';
 import { FREE_ACCESS_MODE } from '../../config/access';
 
 /**
@@ -27,8 +26,6 @@ const TokenGate = ({
     isPremium,
     checkAccess,
     spendToken,
-    startAdSession,
-    earnFromAd,
     getFreeUsesRemaining,
   } = useTokens();
 
@@ -38,10 +35,7 @@ const TokenGate = ({
     reason: null,
     freeUsesRemaining: null,
     cost: 1,
-    requiresAd: false,
   });
-  const [showAdPlayer, setShowAdPlayer] = useState(false);
-  const [adSessionId, setAdSessionId] = useState(null);
   const [showGate, setShowGate] = useState(true);
 
   // Check access on mount and when dependencies change
@@ -54,7 +48,6 @@ const TokenGate = ({
           reason: 'not_authenticated',
           freeUsesRemaining: null,
           cost: 1,
-          requiresAd: false,
         });
         return;
       }
@@ -84,26 +77,6 @@ const TokenGate = ({
     }
   }, [spendToken, featureName, onAccessGranted]);
 
-  // Open ad player: start server session first, then show player
-  const handleOpenAdPlayer = useCallback(async () => {
-    const sessionResult = await startAdSession();
-    if (sessionResult.success) {
-      setAdSessionId(sessionResult.sessionId);
-      setShowAdPlayer(true);
-    }
-  }, [startAdSession]);
-
-  // Handle ad completion — sessionId was set when ad started
-  const handleAdComplete = useCallback(async (sessionId) => {
-    setShowAdPlayer(false);
-    const result = await earnFromAd(sessionId);
-
-    if (result.success) {
-      // After earning, spend the token for access
-      await handleSpendToken();
-    }
-  }, [earnFromAd, handleSpendToken]);
-
   // Handle use free access
   const handleUseFreeAccess = useCallback(async () => {
     const result = await spendToken(featureName);
@@ -129,17 +102,6 @@ const TokenGate = ({
 
   return (
     <>
-      {/* Ad Player Modal */}
-      <AnimatePresence>
-        {showAdPlayer && (
-          <AdPlayer
-            onComplete={handleAdComplete}
-            onClose={() => setShowAdPlayer(false)}
-            sessionId={adSessionId}
-          />
-        )}
-      </AnimatePresence>
-
       {/* Gate UI */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -216,28 +178,13 @@ const TokenGate = ({
                     </span>
                   </div>
 
-                  {accessState.requiresAd ? (
-                    <div className="space-y-3">
-                      <p className="text-sm text-gray-400">
-                        This feature requires watching an ad + 1 token
-                      </p>
-                      <button
-                        onClick={handleOpenAdPlayer}
-                        className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-purple-500/30 transition-shadow"
-                      >
-                        <Play className="w-5 h-5" />
-                        Watch Ad & Use 1 Token
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={handleSpendToken}
-                      className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-purple-500/30 transition-shadow"
-                    >
-                      <Coins className="w-5 h-5" />
-                      Use 1 Token
-                    </button>
-                  )}
+                  <button
+                    onClick={handleSpendToken}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-purple-500/30 transition-shadow"
+                  >
+                    <Coins className="w-5 h-5" />
+                    Use 1 Token
+                  </button>
                 </div>
               )}
 
@@ -252,27 +199,6 @@ const TokenGate = ({
                   </div>
 
                   <div className="space-y-3">
-                    <p className="text-sm text-gray-400">
-                      Earn tokens to access this feature:
-                    </p>
-
-                    <button
-                      onClick={handleOpenAdPlayer}
-                      className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-blue-500 text-white font-semibold rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-purple-500/30 transition-shadow"
-                    >
-                      <Play className="w-5 h-5" />
-                      Watch Ad to Earn Token
-                    </button>
-
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-gray-700" />
-                      </div>
-                      <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-gray-900 text-gray-500">or</span>
-                      </div>
-                    </div>
-
                     <a
                       href="/pricing"
                       className="w-full py-3 px-4 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-semibold rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-yellow-500/30 transition-shadow"

@@ -200,7 +200,7 @@ export default function AIChatOverlay({
       }
       const status = error.response?.status;
       const errText = status === 402
-        ? 'You\'ve run out of tokens. Watch an ad or upgrade to Premium.'
+        ? 'You\'ve run out of tokens. Upgrade to Premium to continue.'
         : (status === 401 || status === 403)
         ? 'The AI assistant is still being tuned up in early access and isn\'t open to everyone yet. Search results work great in the meantime — thanks for your patience!'
         : error.response?.data?.message || 'Something went wrong on our end. We\'re on it — please try again in a moment.';

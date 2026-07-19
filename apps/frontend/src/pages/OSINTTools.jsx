@@ -34,8 +34,6 @@ import TruegleLogo from '../components/ui/TruegleLogo';
 import ToolCard from '../components/ui/ToolCard';
 import NeonButton from '../components/ui/NeonButton';
 import { useToast } from '../components/ui/ToastProvider';
-import AdPlayer from '../components/ui/AdPlayer';
-import { tokensAPI } from '../services/api';
 
 export default function OSINTTools() {
   const navigate = useNavigate();
@@ -43,8 +41,6 @@ export default function OSINTTools() {
   const [usesRemaining, setUsesRemaining] = useState(3);
   const [isPremium, setIsPremium] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [showAdPlayer, setShowAdPlayer] = useState(false);
-  const [adSessionId, setAdSessionId] = useState(null);
   const [aiQuery, setAiQuery] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -53,8 +49,6 @@ export default function OSINTTools() {
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState([]);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
-  const [isWatchingAd, setIsWatchingAd] = useState(false);
-  const [adProgress, setAdProgress] = useState(0);
 
   // Show welcome modal on first visit
   useEffect(() => {
@@ -63,26 +57,6 @@ export default function OSINTTools() {
       setShowWelcomeModal(true);
     }
   }, [isPremium]);
-
-  const handleWatchWelcomeAd = () => {
-    setIsWatchingAd(true);
-    setAdProgress(0);
-
-    // Simulate 30-second ad with progress
-    const interval = setInterval(() => {
-      setAdProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsWatchingAd(false);
-          setShowWelcomeModal(false);
-          setUsesRemaining(3);
-          localStorage.setItem('truegle_osint_welcome_seen', 'true');
-          return 100;
-        }
-        return prev + (100 / 30); // 30 seconds
-      });
-    }, 1000);
-  };
 
   const handleSkipWelcome = () => {
     setShowWelcomeModal(false);
@@ -340,31 +314,9 @@ export default function OSINTTools() {
       toast.success('Tool Used', `${toolName} completed. ${usesRemaining - 1} uses remaining.`, { pageTheme: 'osint' });
       console.log(`Using ${toolName}. ${usesRemaining - 1} uses remaining.`);
     } else {
-      toast.warning('No Uses Remaining', 'Watch an ad or upgrade to continue using tools', { pageTheme: 'osint' });
+      toast.warning('No Uses Remaining', 'Upgrade to continue using tools', { pageTheme: 'osint' });
       setShowUpgradeModal(true);
     }
-  };
-
-  const watchAd = async () => {
-    try {
-      const resp = await tokensAPI.startAdSession();
-      setAdSessionId(resp.data.sessionId);
-    } catch {
-      setAdSessionId(null);
-    }
-    setShowUpgradeModal(false);
-    setShowAdPlayer(true);
-  };
-
-  const handleAdComplete = async (sessionId) => {
-    setShowAdPlayer(false);
-    try {
-      if (sessionId) await tokensAPI.earnFromAd(sessionId);
-    } catch {
-      // best-effort
-    }
-    setUsesRemaining(3);
-    toast.success('Ad Watched!', 'You earned 3 more free tool uses', { pageTheme: 'osint' });
   };
 
   const tools = [
@@ -921,7 +873,7 @@ export default function OSINTTools() {
               {/* Description */}
               <p className="text-gray-300 text-center mb-6 leading-relaxed">
                 Access professional-grade intelligence gathering and SEO analysis tools.
-                This is a premium feature, but you can unlock <span className="text-cyan-400 font-semibold">3 free tool uses</span> by watching a short ad.
+                This is a premium feature, but you start with <span className="text-cyan-400 font-semibold">3 free tool uses</span>.
               </p>
 
               {/* All Tools List */}
@@ -938,60 +890,27 @@ export default function OSINTTools() {
                 </div>
               </div>
 
-              {/* Ad Watching State */}
-              {isWatchingAd ? (
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-400">Watching ad...</span>
-                    <span className="text-sm text-cyan-400 font-mono">
-                      {Math.ceil(30 - (adProgress * 30 / 100))}s
-                    </span>
-                  </div>
-                  <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full bg-gradient-to-r from-cyan-500 to-purple-500"
-                      initial={{ width: '0%' }}
-                      animate={{ width: `${adProgress}%` }}
-                      transition={{ duration: 0.3 }}
-                    />
-                  </div>
-                  <p className="text-xs text-gray-500 text-center mt-2">
-                    Please wait while the ad plays...
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {/* Action Buttons */}
-                  <div className="space-y-3">
-                    <button
-                      onClick={handleWatchWelcomeAd}
-                      className="w-full py-4 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-xl text-white font-bold text-lg hover:from-cyan-400 hover:to-purple-500 transition-all shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-3"
-                    >
-                      <Sparkles size={24} />
-                      Watch 30s Ad for 3 Free Uses
-                    </button>
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowWelcomeModal(false);
+                    setIsPremium(true);
+                    localStorage.setItem('truegle_osint_welcome_seen', 'true');
+                  }}
+                  className="w-full py-4 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl text-white font-bold text-lg hover:from-yellow-400 hover:to-orange-400 transition-all shadow-lg shadow-yellow-500/25"
+                >
+                  Upgrade to Premium - Unlimited Access
+                </button>
+              </div>
 
-                    <button
-                      onClick={() => {
-                        setShowWelcomeModal(false);
-                        setIsPremium(true);
-                        localStorage.setItem('truegle_osint_welcome_seen', 'true');
-                      }}
-                      className="w-full py-4 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl text-white font-bold text-lg hover:from-yellow-400 hover:to-orange-400 transition-all shadow-lg shadow-yellow-500/25"
-                    >
-                      Upgrade to Premium - Unlimited Access
-                    </button>
-                  </div>
-
-                  {/* Skip Option */}
-                  <button
-                    onClick={handleSkipWelcome}
-                    className="w-full mt-4 text-gray-500 hover:text-gray-300 text-sm transition-colors"
-                  >
-                    Maybe later - just browsing
-                  </button>
-                </>
-              )}
+              {/* Skip Option */}
+              <button
+                onClick={handleSkipWelcome}
+                className="w-full mt-4 text-gray-500 hover:text-gray-300 text-sm transition-colors"
+              >
+                Maybe later - just browsing
+              </button>
             </motion.div>
           </motion.div>
         )}
@@ -1031,24 +950,8 @@ export default function OSINTTools() {
                     />
                   </div>
 
-                  {/* Divider */}
-                  <div className="relative my-4">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-700"></div>
-                    </div>
-                    <div className="relative flex justify-center text-xs">
-                      <span className="px-2 bg-gray-900 text-gray-500">or</span>
-                    </div>
-                  </div>
-
                   {/* Buttons */}
                   <div className="space-y-3">
-                    <button
-                      onClick={watchAd}
-                      className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-semibold py-4 rounded-xl hover:shadow-lg transition-all"
-                    >
-                      Watch Ad (Get 3 More Uses)
-                    </button>
                     <button
                       onClick={() => {
                         setIsPremium(true);
@@ -1087,15 +990,6 @@ export default function OSINTTools() {
           </motion.div>
         )}
       </div>
-
-      {/* Ad Player Modal */}
-      {showAdPlayer && (
-        <AdPlayer
-          sessionId={adSessionId}
-          onComplete={handleAdComplete}
-          onClose={() => setShowAdPlayer(false)}
-        />
-      )}
     </div>
   );
 }

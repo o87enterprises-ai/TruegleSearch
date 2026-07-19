@@ -61,7 +61,7 @@ const STEPS = [
           Results are labeled with their bias so you can see who's saying what and why.
         </p>
         <p className="text-yellow-400/80 text-xs">
-          Free tier: 10 tokens per session (searches + chat). Watch a rewarded ad or subscribe to Premium for unlimited access.
+          Free tier: 10 tokens per session (searches + chat). Subscribe to Premium for unlimited access.
         </p>
       </div>
     ),

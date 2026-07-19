@@ -23,8 +23,6 @@ import DeepseekParticles from '../components/backgrounds/DeepseekParticles';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import AsSeenOn from '../components/Content/AsSeenOn';
 import AdSlot from '../components/AdSlot';
-import AdPlayer from '../components/ui/AdPlayer';
-import { tokensAPI } from '../services/api';
 import PermissionsTrigger from '../components/permissions/PermissionsTrigger';
 import { useToast } from '../components/ui/ToastProvider';
 import { MapViewWrapper } from '../components/map';
@@ -51,36 +49,6 @@ export default function BiasedResults() {
     return stored !== null ? parseInt(stored, 10) : 10;
   });
   const [showPaywall, setShowPaywall] = useState(false);
-  const [showAdPlayer, setShowAdPlayer] = useState(false);
-  const [adSessionId, setAdSessionId] = useState(null);
-
-  const handleWatchAd = async () => {
-    try {
-      const resp = await tokensAPI.startAdSession();
-      setAdSessionId(resp.data.sessionId);
-      setShowPaywall(false);
-      setShowAdPlayer(true);
-    } catch {
-      // If unauthenticated or request fails, open ad anyway — session won't verify server-side
-      setShowPaywall(false);
-      setShowAdPlayer(true);
-    }
-  };
-
-  const handleAdComplete = async (sessionId) => {
-    setShowAdPlayer(false);
-    try {
-      if (sessionId) {
-        await tokensAPI.earnFromAd(sessionId);
-      }
-    } catch {
-      // best-effort
-    }
-    // Always grant +5 local tokens so the user can continue
-    const next = tokens + 5;
-    setTokens(next);
-    sessionStorage.setItem('redPillTokens', next);
-  };
 
   const useToken = () => {
     const next = tokens - 1;
@@ -516,15 +484,9 @@ export default function BiasedResults() {
               <h3 className="text-white font-bold text-2xl mb-2">Out of Tokens</h3>
               <p className="text-white/60 text-sm mb-6">
                 You've used all <strong className="text-purple-300">10 free tokens</strong> for this session.
-                Watch a rewarded ad to earn more, or subscribe to Premium for unlimited access.
+                Subscribe to Premium for unlimited access.
               </p>
               <div className="flex flex-col gap-3">
-                <button
-                  onClick={handleWatchAd}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold hover:from-yellow-400 hover:to-orange-400 transition-all shadow-lg"
-                >
-                  Watch Ad for +5 Tokens
-                </button>
                 <button
                   onClick={() => window.location.href = '/pricing'}
                   className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold hover:from-purple-500 hover:to-pink-500 transition-all"
@@ -540,17 +502,6 @@ export default function BiasedResults() {
               </div>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Ad Player Modal */}
-      <AnimatePresence>
-        {showAdPlayer && (
-          <AdPlayer
-            sessionId={adSessionId}
-            onComplete={handleAdComplete}
-            onClose={() => setShowAdPlayer(false)}
-          />
         )}
       </AnimatePresence>
 

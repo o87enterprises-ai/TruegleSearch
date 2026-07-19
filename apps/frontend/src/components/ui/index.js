@@ -24,10 +24,8 @@ export {
 } from './Skeleton';
 
 // Token System components
-// TokenGate and AdPlayer are intentionally not exported to prevent AdBlock from breaking the entire module
-// Components that need these should import them directly:
-// import TokenGate from './TokenGate';
-// import AdPlayer from './AdPlayer';
+// TokenGate is intentionally not exported to prevent AdBlock from breaking the entire module
+// Components that need it should import it directly: import TokenGate from './TokenGate';
 export { default as TokenBalance, TokenEarnedNotification } from './TokenBalance';
 
 // Search Mode components

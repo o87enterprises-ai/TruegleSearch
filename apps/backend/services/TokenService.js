@@ -4,19 +4,18 @@ const AffiliatePremiumService = require('./AffiliatePremiumService');
 
 // Feature categories and their token costs
 const FEATURE_CONFIG = {
-  // High-value tools: 1 token + mandatory ad
-  'osint-tools': { cost: 1, requiresAd: true, freeUses: 0 },
-  'seo-tools': { cost: 1, requiresAd: true, freeUses: 0 },
+  // High-value tools
+  'osint-tools': { cost: 1, freeUses: 0 },
+  'seo-tools': { cost: 1, freeUses: 0 },
 
   // Standard premium: 9 free uses, then 1 token
-  'red-pill': { cost: 1, requiresAd: false, freeUses: 9 },
-  'ai-chat': { cost: 1, requiresAd: false, freeUses: 9 },
-  'biased-results': { cost: 1, requiresAd: false, freeUses: 9 },
+  'red-pill': { cost: 1, freeUses: 9 },
+  'ai-chat': { cost: 1, freeUses: 9 },
+  'biased-results': { cost: 1, freeUses: 9 },
 };
 
 const MAX_GAME_TOKENS = 10;
 const STARTING_TOKENS = 3;
-const AD_DURATION_SECONDS = 30;
 
 class TokenService {
   /**
@@ -82,7 +81,6 @@ class TokenService {
       return {
         allowed: true,
         reason: 'has_tokens',
-        requiresAd: config.requiresAd,
         cost: config.cost
       };
     }
@@ -92,8 +90,7 @@ class TokenService {
       allowed: false,
       reason: 'insufficient_tokens',
       required: config.cost,
-      current: balanceInfo.balance,
-      requiresAd: config.requiresAd
+      current: balanceInfo.balance
     };
   }
 
@@ -147,34 +144,6 @@ class TokenService {
       message: 'Token spent',
       newBalance
     };
-  }
-
-  /**
-   * Award token for watching ad
-   */
-  static async earnFromAd(userId, adId, durationSeconds) {
-    if (durationSeconds < AD_DURATION_SECONDS) {
-      return { success: false, message: 'Ad not completed' };
-    }
-
-    // Record ad watch
-    await query(
-      `INSERT INTO ad_watches (user_id, ad_id, duration_seconds, completed, tokens_awarded)
-       VALUES ($1, $2, $3, true, 1)`,
-      [userId, adId, durationSeconds]
-    );
-
-    // Update balance
-    const result = await query(
-      `UPDATE users SET token_balance = token_balance + 1, last_ad_watched = NOW()
-       WHERE id = $1 RETURNING token_balance`,
-      [userId]
-    );
-
-    const newBalance = result.rows[0].token_balance;
-    await this.logTransaction(userId, 1, 'earn_ad', null, newBalance);
-
-    return { success: true, newBalance, tokensEarned: 1 };
   }
 
   /**
@@ -249,8 +218,7 @@ class TokenService {
         used,
         freeRemaining: Math.max(0, config.freeUses - used),
         requiresToken: used >= config.freeUses,
-        cost: config.cost,
-        requiresAd: config.requiresAd
+        cost: config.cost
       };
     }
 

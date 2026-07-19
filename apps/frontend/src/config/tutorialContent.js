@@ -103,7 +103,7 @@ export const TUTORIALS = {
     usageLimits: {
       id: 'osint-limits',
       title: 'Usage Limits',
-      description: 'Some tools require tokens to use. You start with 3 free tokens and can earn more by watching ads or playing the 404 page game.',
+      description: 'Some tools require tokens to use. You start with 3 free tokens and can earn more by playing the 404 page game.',
       position: 'right',
     },
     premiumFeatures: {
