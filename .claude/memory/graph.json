@@ -330,6 +330,14 @@
         "body": "RewardAdSlot rewired from HouseAd (affiliate, no per-view revenue) onto real AdsterraBanner. Rate calibrated from real Adsterra CSV (146 impr/15 clicks/$0.02 over 6 days, ~10.3% CTR): 50 micros/impression trickle, 800 micros/detected-click bonus (click replaces trickle, doesn't stack; click detected via window-blur-while-hovering-ad heuristic since the ad iframe is cross-origin). Expected payout ~127 micros/impression vs observed revenue ~137 micros/impression — 10% payout fee is the real margin. Money columns switched cents->micros (migration 010_rewards_micros_precision.sql) so sub-cent amounts don't round to $0.00. Daily rewarded-impression cap removed; min payout lowered $20->$1 (max stays $50) per user decision. Small sample (6 days) — revisit rate as real volume grows. IMPORTANT: migration 010 must be run against the PRODUCTION db on next deploy (only applied to local truegle_dev so far).",
         "ts": "2026-07-19",
         "created": "2026-07-19"
+      },
+      "watch-ad-removal-2026-07-19": {
+        "Id": "watch-ad-removal-2026-07-19",
+        "Type": "decision",
+        "Label": "Removed fake watch-ad-for-tokens system",
+        "body": "No real rewarded-video ad inventory existed — AdPlayer.jsx was a 30s countdown timer over a static HouseAd image, not a real video. Deleted AdPlayer.jsx + AdBannerDemo.jsx (dead code); stripped watch-ad flows from TokenGate, TokenContext, BiasedResults, ExtractPage, OSINTMode, OSINTTools, FreemiumTokenBar; removed backend ad-session/earn-from-ad routes+TokenService methods; all gated features now fall back to Premium-only. ad_watches table + users.last_ad_watched column are now unreferenced dead schema (left in place, not dropped). /rewards page now renders ONLY real AdsterraBanner via RewardAdSlot, no house/affiliate ads. Added MAX_DAILY_EARNINGS_MICROS=5,000,000 ($5/day) anti-abuse ceiling to RewardsService.earn() — pure backstop, not a real constraint (~39k honest impressions to hit it).",
+        "ts": "2026-07-19",
+        "created": "2026-07-19"
       }
     },
     "entity": {
