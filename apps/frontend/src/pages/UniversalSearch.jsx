@@ -1092,7 +1092,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   onClose={() => setActiveCategory('all')}
                   searchQuery={searchValue}
                 />
-                {/* TODO(ads): re-enable when new Adsterra zones land
                 <div className="max-w-4xl mx-auto mt-4 mb-2 space-y-2">
                   <div className="flex justify-center">
                     <AdsterraBanner format="banner320x50" searchContext={adContext} />
@@ -1108,7 +1107,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     />
                   </AdColorWrapper>
                 </div>
-                */}
               </>
             )}
           </AnimatePresence>
@@ -1150,7 +1148,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   }}
                   detectedLocation={detectedLocation}
                 />
-                {/* TODO(ads): re-enable when new Adsterra zones land
                 <div className="mt-4 space-y-2">
                   <div className="flex justify-center">
                     <AdsterraBanner format="banner320x50" searchContext={adContext} />
@@ -1166,7 +1163,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     />
                   </AdColorWrapper>
                 </div>
-                */}
               </motion.div>
             )}
           </AnimatePresence>
@@ -1380,13 +1376,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     </div>
                   </button>
 
-                  {/* TODO(ads): re-enable when new Adsterra zones land
                   {summaryCollapsed && aiSummary && (
                     <div className="mt-2 flex justify-center">
                       <AdsterraBanner format="banner320x50" searchContext={adContext} />
                     </div>
                   )}
-                  */}
 
                   <AnimatePresence>
                     {!summaryCollapsed && (
@@ -1474,12 +1468,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
                                 Sign in to chat
                               </button>
                             )}
-                            {/* TODO(ads): re-enable when new Adsterra zones land
                             <div className="mt-3 space-y-2 flex flex-col items-center">
                               <AdsterraBanner format="banner320x50" searchContext={adContext} />
                               <AdsterraBanner format="banner320x50" searchContext={adContext} />
                             </div>
-                            */}
                           </>
                         ) : (
                           <p className="text-sm text-white/60 leading-relaxed">
@@ -1509,7 +1501,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
             </motion.div>
           )}
 
-          {/* TODO(ads): re-enable when new Adsterra zones land
           {mode !== 'green' && aiSummary && !summaryCollapsed && (
             <AdColorWrapper type="adult" className="max-w-4xl mx-auto mb-4 flex justify-center">
               <AdsterraBanner
@@ -1544,7 +1535,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
               query={query}
             />
           </AdColorWrapper>
-          */}
 
           {/* No Summary Confirmation Modal */}
           <AnimatePresence>
@@ -1650,7 +1640,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
             }}
           />
 
-          {/* TODO(ads): re-enable when new Adsterra zones land
           {mode !== 'green' && (
             <motion.div
               initial={{ opacity: 0 }}
@@ -1660,7 +1649,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
               <AdSlot size="large" query={query} />
             </motion.div>
           )}
-          */}
 
           {/* Results Grid (same as SearchResults) */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -1669,11 +1657,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
               {searchLoading ? (
                 <div className="space-y-4">
                   <div className="text-sm text-white/60 mb-4">Searching...</div>
-                  {/* TODO(ads): re-enable when new Adsterra zones land
                   <AdColorWrapper type="reward">
                     <RewardAdSlot position="search-loading" size="large" />
                   </AdColorWrapper>
-                  */}
                   {[1, 2, 3, 4, 5].map((i) => (
                     <SkeletonSearchResult key={i} />
                   ))}
@@ -1728,11 +1714,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   {/* OSINT mode requires auth + token */}
                   {mode === 'ocean' && searchResults.length > 0 && (
                     <TokenGate featureName="osint-tools">
-                      {/* TODO(ads): re-enable when new Adsterra zones land
                       <div className="mb-4 flex justify-center">
                         <AdsterraBanner format="banner320x50" searchContext={adContext} />
                       </div>
-                      */}
                       <div className="space-y-4">
                         {searchResults.map((result, index) => (
                           <ResultCard
@@ -1765,13 +1749,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
                           currentMode={mode}
                         />
                       </div>
-                      {/* TODO(ads): re-enable when new Adsterra zones land
                       {(index + 1) % 3 === 0 && index !== searchResults.length - 1 && (
                         <div className="flex justify-center my-1">
                           <AdsterraBanner format="banner320x50" searchContext={adContext} />
                         </div>
                       )}
-                      */}
                     </Fragment>
                   ))}
 
@@ -1793,7 +1775,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     </div>
                   )}
 
-                  {/* TODO(ads): re-enable when new Adsterra zones land
                   {searchResults.length > 0 && SMARTLINK_URL && (
                     <div className="mt-6 text-center">
                       <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Sponsored</p>
@@ -1807,7 +1788,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                       </a>
                     </div>
                   )}
-                  */}
                 </>
               )}
             </div>
@@ -1816,7 +1796,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
             <div className="lg:col-span-1 space-y-4">
               {/* Ad Sidebar */}
               <div className="sticky top-4 space-y-4 flex flex-col items-center">
-                {/* TODO(ads): re-enable when new Adsterra zones land
                 {mode !== 'green' && (
                   <AdColorWrapper type="cpm">
                     <AdsterraBanner format="banner300x250" searchContext={adContext} />
@@ -1834,7 +1813,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     />
                   </AdColorWrapper>
                 )}
-                */}
               </div>
             </div>
           </div>

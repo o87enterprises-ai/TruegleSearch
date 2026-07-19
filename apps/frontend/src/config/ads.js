@@ -38,12 +38,11 @@ export const SMARTLINK_URL =
 
 /**
  * Adsterra Social Bar (In-Page Push) — zone 30006382.
- * Get the script tag from Adsterra dashboard → copy the src URL → set
- * VITE_SOCIAL_BAR_SCRIPT_URL in Cloudflare Pages env vars → redeploy.
- * Leave unset to keep the slot disabled.
+ * Override with VITE_SOCIAL_BAR_SCRIPT_URL if the key changes.
  */
 export const SOCIAL_BAR_SCRIPT_URL =
-  import.meta.env.VITE_SOCIAL_BAR_SCRIPT_URL || null;
+  import.meta.env.VITE_SOCIAL_BAR_SCRIPT_URL ||
+  'https://millionairelucidlytransmitted.com/f3/a9/76/f3a976b8789fcc63ba068a860561783b.js';
 
 /** Build the invoke.js URL for an Adsterra placement key via the active domain. */
 export const adInvokeUrl = (key) => `https://${AD_DOMAIN}/${key}/invoke.js`;
@@ -51,44 +50,39 @@ export const adInvokeUrl = (key) => `https://${AD_DOMAIN}/${key}/invoke.js`;
 /**
  * Adsterra placement keys — truegle.info (site ID 5880564).
  *
- * SMALL ZONES DEACTIVATED 2026-07-02:
- * Adsterra permanently locks the adult-content toggle ON once a zone is
- * activated — there is no way to disable it. Keys for small formats have been
- * removed so Adsterra marks those zones inactive after 14 days of zero
- * impressions. Once the user creates new zones (adult OFF) in the dashboard,
- * add the new keys back here.
+ * SMALL ZONES RESTORED 2026-07-19: banner320x50/300x250/468x60 and the native
+ * banner were confirmed non-adult in the dashboard and are back in rotation.
+ * NOTE — Adsterra has no delete function for ad units, ever (confirmed via
+ * their own support chat): a zone that goes adult can't be fixed, only
+ * abandoned. If any of these four start serving adult creative again, pull
+ * the key here (don't bother hunting for a dashboard toggle — there isn't
+ * one) and request a fresh zone to replace it.
  *
- * Pending replacement (removed keys, zones going inactive):
- *   banner320x50  — was 5c0cc5f396ae48cbf68f63ec86024c3f
- *   banner300x250 — was 0fca9299f48c601ea125d688c11ff7d2
- *   banner468x60  — was 7e53f17316c72708e8417a8a991171ac
- *   nativeBanner  — was a7a8599f485ec0638131d8f99bc29cb7
- *
- * Active zones — ALL adult-enabled at the NETWORK level (Adsterra permanently
- * locked the adult toggle ON for them). The adultGated prop only controls which
- * page slots render; it CANNOT filter what creative Adsterra serves. Therefore
- * these keys must ONLY ever be rendered behind the full 5-step adult gate
- * (AdsterraBanner adultGated + AdultConsentGate). Never render them ungated —
- * a mobile user was served an adult creative from an ungated 728x90 slot on
- * 2026-07-05. Ungated slots use first-party house ads (AdSlot/HouseAd) until
- * new non-adult zones are created after the 14-day deactivation cooldown.
+ * banner728x90/160x300/160x600 remain the OLD adult-locked zones — keep them
+ * behind the full 5-step adult gate (AdsterraBanner adultGated +
+ * AdultConsentGate). Never render them ungated — a mobile user was served an
+ * adult creative from an ungated 728x90 slot on 2026-07-05.
  */
 export const ADSTERRA = {
   banner728x90:  { key: 'd5f657ea7d55fc33ea532071957a2857', w: 728, h: 90  },
   banner160x300: { key: 'ffac08ed0f599aa8f389d387aa76001b', w: 160, h: 300 },
   banner160x600: { key: 'c16f5233d71714d3151e160ac5778be2', w: 160, h: 600 },
+  banner468x60:  { key: '7e53f17316c72708e8417a8a991171ac', w: 468, h: 60  },
+  banner320x50:  { key: '5c0cc5f396ae48cbf68f63ec86024c3f', w: 320, h: 50  },
+  banner300x250: { key: '0fca9299f48c601ea125d688c11ff7d2', w: 300, h: 250 },
+  nativeBanner:  { key: 'a7a8599f485ec0638131d8f99bc29cb7', native: true, h: 300 },
 };
 
-/**
- * Maps a logical slot name to the closest active Adsterra format.
- * Small-format aliases removed pending zone replacement.
- */
+/** Maps a logical slot name to an Adsterra format. */
 export const SLOT_FORMAT = {
   leaderboard728x90: 'banner728x90',
   leaderboard:       'banner728x90',
   videoInline:       'banner728x90',
   sidebar:           'banner160x600',
   skyscraper:        'banner160x600',
+  mobileBanner:      'banner320x50',
+  rectangle:         'banner300x250',
+  native:            'nativeBanner',
 };
 
 export const pickFormat = (slot, fallback = 'banner728x90') =>

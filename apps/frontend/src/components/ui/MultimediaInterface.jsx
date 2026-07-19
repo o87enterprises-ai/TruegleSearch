@@ -247,7 +247,6 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
           </div>
         </div>
       );
-      /* TODO(ads): re-enable when new Adsterra zones land
       if ((i + 1) % 6 === 0) {
         return [card, (
           <div key={`img-ad-${i}`} className="col-span-full flex justify-center py-1">
@@ -255,7 +254,6 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
           </div>
         )];
       }
-      */
       return [card];
     });
     return (
@@ -301,7 +299,6 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
           </div>
         </div>
       );
-      /* TODO(ads): re-enable when new Adsterra zones land
       if ((i + 1) % 4 === 0) {
         return [card, (
           <div key={`vid-ad-${i}`} className="col-span-full flex justify-center py-1">
@@ -309,7 +306,6 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
           </div>
         )];
       }
-      */
       return [card];
     });
     return (
@@ -751,13 +747,11 @@ function ImageMasonryGrid({ images, onSelect, searchContext }) {
               </div>
             </div>
           </motion.div>
-          {/* TODO(ads): re-enable when new Adsterra zones land
           {(index + 1) % 6 === 0 && index !== images.length - 1 && (
             <div className="break-inside-avoid col-span-full flex justify-center py-1">
               <AdsterraBanner format="banner468x60" searchContext={searchContext} />
             </div>
           )}
-          */}
         </Fragment>
       ))}
     </div>
@@ -872,13 +866,11 @@ function VideoDomeGallery({ videos, onSelect, searchContext }) {
               </div>
             </div>
           </motion.div>
-          {/* TODO(ads): re-enable when new Adsterra zones land
           {(index + 1) % 4 === 0 && index !== videos.length - 1 && (
             <div className="col-span-2 md:col-span-3 lg:col-span-4 flex justify-center py-1">
               <AdsterraBanner format="banner320x50" searchContext={searchContext} />
             </div>
           )}
-          */}
         </Fragment>
       ))}
     </div>
