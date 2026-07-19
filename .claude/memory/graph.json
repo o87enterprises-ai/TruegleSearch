@@ -136,6 +136,22 @@
         "body": "ROOT CAUSE of 'can't extract data from uploaded image': FileInput.jsx (used by SearchBar.jsx paperclip) read a picked file but NEVER sent its bytes anywhere — the isImage branch just stuffed the FILENAME into the search query text box (e.g. 'image search: 9k=.jpg') and auto-submitted a garbage text search. The actual pixels were discarded. Separately verified the Pics/Vids CONTENT-CATEGORY TABS were NOT broken — live-tested the real backend (/api/search cat=images/videos returns real Brave Images + YouTube results) AND a full Playwright click-through of the tabs; both work. So 'video or image search' complaint = the SAME attach-flow bug, not the tabs.\n\nFIX (new capability, not just a patch): SearchBar's isImage branch now reads the file via FileReader.readAsDataURL, stashes {dataUrl,name} in sessionStorage under 'truegle_pending_image', and navigates to /chat?hasImage=1(&q=...). TruegleChat.jsx picks it up in a single merged mount effect (avoids a state-timing race between two separate effects), shows an attach chip (remove button) above the input, echoes the image in the user's own bubble, and threads it into aiAPI.chat as . Backend: routes/ai.js POST /chat accepts  (data: URL, 8MB cap), UnifiedAIService.chat builds an OpenAI/Groq-vision-shaped multimodal content array ([{type:'text'},{type:'image_url'}]) and forces provider=['groq'] + model=config.ai.groq.visionModel ('qwen/qwen3.6-27b', GROQ_VISION_MODEL env override) for image turns only — skips normal DB-driven provider order since only Groq is vision-wired. Image turns are excluded from the response cache (image+caption could collide with a different image sharing the same caption). Verified end-to-end via Playwright: real file upload -> /chat handoff -> attach chip -> send -> captured request body confirmed real base64 image data + typed question both reached /api/ai/chat -> response rendered -> user bubble shows the image. GroqService.js needed ZERO changes — it already spreads whatever messages array it's given, so multimodal content parts pass through untouched.",
         "ts": "2026-07-18",
         "created": "2026-07-18"
+      },
+      "camera-attach-fix": {
+        "Id": "camera-attach-fix",
+        "Type": "fact",
+        "Label": "Camera Upload-Image/capture had the same discard-real-data bug as FileInput",
+        "body": "CameraInput.jsx itself was fine — captureImage() and handleFileUpload() both correctly produced a real base64 data URL and passed it to onImageCapture/onSearchSubmit. The bug was in SearchBar.jsx's wiring: onImageCapture's imageDataUrl parameter was received but never used in the body, and onSearchSubmit ignored its argument too -- both just set localValue to generic placeholder text ('image search visual query') and submitted THAT. Fixed identically to the FileInput/paperclip fix: onSearchSubmit now takes the real imageDataUrl, stashes it in sessionStorage under truegle_pending_image, and navigates to /chat?hasImage=1(&q=...) for TruegleChat's existing pickup effect to consume. onImageCapture prop dropped entirely (redundant -- onSearchSubmit always fires right after it in CameraInput with the same data).",
+        "ts": "2026-07-19",
+        "created": "2026-07-19"
+      },
+      "chat-scroll-to-answer-start": {
+        "Id": "chat-scroll-to-answer-start",
+        "Type": "fact",
+        "Label": "Chat now scrolls to the START of a new answer, not the bottom",
+        "body": "TruegleChat.jsx: added lastMessageRef (attached to the newest message bubble via i === messages.length-1). The scroll effect now branches on the last message's role: if it's 'assistant' (a fresh answer just landed), scrollIntoView({block:'start'}) on lastMessageRef so the user reads from the top; otherwise (user just sent, loading pending) scrollIntoView on endRef as before, showing the sent message + typing dots. Verified visually via Playwright screenshot: Paragraph 1 of a long mocked answer sits at the top of the viewport after it arrives.",
+        "ts": "2026-07-19",
+        "created": "2026-07-19"
       }
     },
     "decision": {
@@ -448,5 +464,5 @@
       }
     }
   },
-  "updated": "2026-07-18"
+  "updated": "2026-07-19"
 }

@@ -237,6 +237,7 @@ export default function TruegleChat() {
   const [loading, setLoading] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const endRef = useRef(null);
+  const lastMessageRef = useRef(null); // the newest message bubble — see the scroll effect below
   const inputRef = useRef(null);
   const isAuthed = !!localStorage.getItem('truegle_token');
   const accent = getModeAccent(primaryMode);
@@ -263,7 +264,18 @@ export default function TruegleChat() {
     localStorage.setItem('truegle_mode_pref', primaryMode); // keep single-key in sync for the search pages
   }, [modes, primaryMode]);
   useEffect(() => { localStorage.setItem('truegle_nephesh_mode', String(nepheshMode)); }, [nepheshMode]);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
+  // While sending (user's turn just appended, reply pending) scroll to the
+  // bottom so the sent message + typing indicator are visible, same as any
+  // chat app. Once the ANSWER lands, though, land on its BEGINNING instead of
+  // scrolling past it to the bottom — the user reads top-down, not bottom-up.
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (last?.role === 'assistant') {
+      lastMessageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      endRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, loading]);
 
   // Persist the thread on every change so a page-away-and-back resumes it.
   // Wrapped because localStorage can throw (quota / private mode); a failed
@@ -682,6 +694,7 @@ export default function TruegleChat() {
             return (
             <motion.div
               key={m.id}
+              ref={i === messages.length - 1 ? lastMessageRef : undefined}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}

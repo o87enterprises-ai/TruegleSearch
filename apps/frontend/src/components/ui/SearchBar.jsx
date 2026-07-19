@@ -1730,21 +1730,22 @@ const handleChange = useCallback((e) => {
                 </div>
               )}
 
-              {/* Camera Input */}
+              {/* Camera Input — same reasoning as the FileInput attach above: a
+                  search bar can't reason over pixels, so a captured/uploaded
+                  photo hands off to /chat (vision-capable) instead of being
+                  replaced with meaningless placeholder text. CameraInput
+                  already hands back the real base64 data URL (for both the
+                  live-capture and upload-image paths), so no FileReader step
+                  is needed here — just stash it and navigate. */}
               <CameraInput
-                onImageCapture={(imageDataUrl) => {
-                  // Set a descriptive search query for the captured image
-                  const query = localValue.trim()
-                    ? `${localValue} image search`
-                    : 'image search visual query';
-                  setLocalValue(query);
-                  onChange?.(query);
-                }}
-                onSearchSubmit={() => {
-                  const q = localValue.trim() ? `${localValue} image search` : 'image search visual query';
-                  setLocalValue(q);
-                  onChange?.(q);
-                  setTimeout(() => { onSubmit?.(); onSearch?.(); }, 50);
+                onSearchSubmit={(imageDataUrl) => {
+                  if (imageDataUrl) {
+                    try {
+                      sessionStorage.setItem('truegle_pending_image', JSON.stringify({ dataUrl: imageDataUrl, name: 'Photo' }));
+                    } catch { /* storage full/unavailable — image just won't carry over */ }
+                  }
+                  const q = localValue.trim();
+                  navigate(q ? `/chat?q=${encodeURIComponent(q)}&hasImage=1` : '/chat?hasImage=1');
                 }}
                 size={config.iconSize - 4}
               />
