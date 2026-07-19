@@ -176,6 +176,14 @@
         "body": "Before the fix, RewardAdSlot.jsx rendered HouseAd (Truegle's own affiliate placements like ProtonVPN, tracked in localStorage) while the Rewards dashboard promised 'get paid for the ads you see' implying Adsterra. There was zero revenue backing the $0.01/impression payout. Always check what a reward-eligible ad slot ACTUALLY renders before trusting its economics.",
         "ts": "2026-07-19",
         "created": "2026-07-19"
+      },
+      "chat-hallucination-fix-2026-07-19": {
+        "Id": "chat-hallucination-fix-2026-07-19",
+        "Type": "fact",
+        "Label": "Fixed /chat hallucinating fake sources (citations were decorative, not grounding)",
+        "body": "User caught TrueGLE citing a fake 'Journal of Martial Arts Anthropology' with real unrelated sources shown underneath. Root cause: TruegleChat.jsx ran the chat completion and the citations search as independent parallel calls — model never saw real search results at all. AND UnifiedAIService.chat() silently dropped options.searchResults whenever systemOverride (mode prompt) was set, which every chat call uses — the DB-prompt {{searchResults}} interpolation path was dead for chat. Fixed: search now runs BEFORE chat, results are woven into the model's messages as an explicit grounding system message (works regardless of systemOverride), same results reused for the citations panel. Cache gates updated to skip caching when searchResults present (live data, must not be replayed). IMPORTANT: this same decoupled-citations pattern could exist in other chat-like surfaces — check before assuming any AI answer with a 'sources' panel is actually grounded.",
+        "ts": "2026-07-19",
+        "created": "2026-07-19"
       }
     },
     "decision": {
