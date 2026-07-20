@@ -184,6 +184,14 @@
         "body": "User caught TrueGLE citing a fake 'Journal of Martial Arts Anthropology' with real unrelated sources shown underneath. Root cause: TruegleChat.jsx ran the chat completion and the citations search as independent parallel calls — model never saw real search results at all. AND UnifiedAIService.chat() silently dropped options.searchResults whenever systemOverride (mode prompt) was set, which every chat call uses — the DB-prompt {{searchResults}} interpolation path was dead for chat. Fixed: search now runs BEFORE chat, results are woven into the model's messages as an explicit grounding system message (works regardless of systemOverride), same results reused for the citations panel. Cache gates updated to skip caching when searchResults present (live data, must not be replayed). IMPORTANT: this same decoupled-citations pattern could exist in other chat-like surfaces — check before assuming any AI answer with a 'sources' panel is actually grounded.",
         "ts": "2026-07-19",
         "created": "2026-07-19"
+      },
+      "settings-rewards-redesign-2026-07-19": {
+        "Id": "settings-rewards-redesign-2026-07-19",
+        "Type": "fact",
+        "Label": "Fixed silent Rewards opt-in failure + redesigned Settings/Footer to current branding",
+        "body": "RewardsContext.optIn/optOut always returned {success,message} but callers only branched on success, so ANY failure (expired session, backend error) was completely silent. Fixed in RewardsDashboard.jsx (added toggleError state + red error text, matches existing payoutMessage pattern). Root cause of the specific instance the user hit: migration 010_rewards_micros_precision.sql not yet run on production Neon DB (deployed code queries rewards_balance_micros which doesn't exist there yet) -- STILL PENDING, user was mid-identifying which of 2 Neon projects (neon-coquelicot-harbor = active/real traffic per RAM graph, neon-camel-notebook = idle/no data) is prod; likely coquelicot-harbor, confirm via connection string containing ep-spring-star-afnjwpg6 before running. Also fully redesigned SettingsPage.jsx (was still first-iteration light theme: bg-white cards, react-icons/fi, 4 differently-colored hand-rolled toggles) to match /rewards dark-glass branding -- new shared Toggle.jsx component (apps/frontend/src/components/ui/Toggle.jsx), Settings' duplicate Rewards toggle simplified to status+link to /rewards (removes duplicate bug surface). Footer.jsx (only used on /settings + /rewards, light gray 'Like G****e' tagline) restyled dark to match.",
+        "ts": "2026-07-20",
+        "created": "2026-07-20"
       }
     },
     "decision": {
@@ -491,6 +499,15 @@
         "status": "open",
         "ts": "2026-07-18",
         "created": "2026-07-18"
+      },
+      "neon-migration-010-pending": {
+        "Id": "neon-migration-010-pending",
+        "Type": "thread",
+        "Label": "Migration 010 still not run on production Neon",
+        "body": "User confirmed 2026-07-19 they have NOT yet run 010_rewards_micros_precision.sql on production. Two Neon projects exist: neon-coquelicot-harbor (shows real RAM usage activity -- likely prod) and neon-camel-notebook (idle, no monitoring data -- likely unused). User was about to check connection string for ep-spring-star-afnjwpg6 hostname match. Until this runs, every Rewards action (opt-in, earn, payout) will fail server-side with a 500 (now at least visible in the UI instead of silent).",
+        "status": "open",
+        "ts": "2026-07-20",
+        "created": "2026-07-20"
       }
     }
   },
@@ -520,5 +537,5 @@
       }
     }
   },
-  "updated": "2026-07-19"
+  "updated": "2026-07-20"
 }
