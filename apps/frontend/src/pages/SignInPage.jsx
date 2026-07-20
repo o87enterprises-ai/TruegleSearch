@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, ArrowRight, Chrome, Key, Phone, Zap } from 'lucide-react';
-import { FaApple } from 'react-icons/fa';
+import { Mail, ArrowRight, Key, Phone, Zap } from 'lucide-react';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import MolecularBackground from '../components/backgrounds/MolecularBackground';
 import CursorGlow from '../components/ui/CursorGlow';
@@ -11,9 +10,6 @@ import NeonButton from '../components/ui/NeonButton';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import authService from '../services/authService';
 import { useToast } from '../components/ui/ToastProvider';
-import { OAUTH_ENABLED } from '../config/access';
-
-const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 export default function SignInPage() {
   const navigate = useNavigate();
@@ -27,145 +23,85 @@ export default function SignInPage() {
   // Check if there's a redirect URL after successful login
   const redirectTo = location.state?.redirectTo || null;
 
-  const [signInMode, setSignInMode] = useState(
-    location.state?.showCodeEntry ? 'code' : 'email'
-  ); // 'email' | 'code'
-
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
-
-  // Access-code sign-in state
+  // Passwordless sign-in state: request a code, then verify it.
   const [codeContact, setCodeContact] = useState('');
   const [codeContactType, setCodeContactType] = useState('email');
+  const [codeSent, setCodeSent] = useState(false);
   const [accessCode, setAccessCode] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [sendingCode, setSendingCode] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
-
-  const [errors, setErrors] = useState({});
-  const [rememberMe, setRememberMe] = useState(false);
   const [rememberMeFreemium, setRememberMeFreemium] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [focusedField, setFocusedField] = useState(null);
-  const [showPassword, setShowPassword] = useState(false);
 
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleAnonymousNavigation = () => {
-    const fromOSINT = location.state?.fromOSINT;
-    const fromBiased = location.state?.fromBiased;
-
-    if (fromOSINT) {
-      navigate('/search?mode=ocean');
-    } else if (fromBiased) {
-      navigate('/search?mode=purple');
-    } else {
-      const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
-      navigate(isRedPillMode ? '/search?mode=red' : '/search');
-    }
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSendCode = async (e) => {
     e.preventDefault();
+    setCodeError('');
 
-    if (!validateForm()) return;
+    if (codeContactType === 'phone') {
+      setCodeError("SMS isn't wired up yet — please use email for now.");
+      return;
+    }
+    if (!codeContact.trim() || !/\S+@\S+\.\S+/.test(codeContact)) {
+      setCodeError('Enter a valid email address');
+      return;
+    }
 
-    setIsLoading(true);
-
+    setSendingCode(true);
     try {
-      // Call the actual authentication service to log in user
-      const result = await authService.login(formData.email, formData.password);
-
+      const result = await authService.requestCode(codeContact.trim());
       if (result.success) {
-        toast.success('Welcome Back!', `Successfully logged in as ${result.user.name}`, { pageTheme: 'landing' });
-
-        // Log user in by calling login function from AuthContext
-        // Pass rememberMe to persist session across browser restarts
-        login({
-          user: result.user,
-          token: result.token
-        }, rememberMe);
-
-        // Check for anonymous navigation state
-        const fromOSINT = location.state?.fromOSINT;
-        const fromBiased = location.state?.fromBiased;
-        const anonymous = location.state?.anonymous;
-
-        // Priority 1: honour explicit redirectTo (set by ProtectedRoute)
-        if (redirectTo) {
-          navigate(redirectTo);
-          return;
-        }
-
-        // Priority 2: anonymous navigation state flags
-        if (fromOSINT || location.state?.fromOSINT) {
-          navigate('/search?mode=ocean');
-          return;
-        }
-        if (fromBiased || location.state?.fromBiased) {
-          navigate('/search?mode=purple');
-          return;
-        }
-
-        // Priority 3: fall back to universal search, preserving pill mode
-        const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
-        navigate(isRedPillMode ? '/search?mode=red' : '/search');
+        setCodeSent(true);
+        toast.success('Code sent', 'Check your email for your sign-in code.', { pageTheme: 'landing' });
       } else {
-        toast.error('Login Failed', result.error || 'Invalid email or password', { pageTheme: 'landing' });
-        setErrors({ general: result.error || 'Invalid email or password' });
+        setCodeError(result.error);
       }
-    } catch (error) {
-      console.error('Sign in error:', error);
-      toast.error('Login Error', 'An unexpected error occurred. Please try again.', { pageTheme: 'landing' });
-      setErrors({ general: 'Invalid email or password' });
+    } catch {
+      setCodeError('Network error. Please try again.');
     } finally {
-      setIsLoading(false);
+      setSendingCode(false);
     }
   };
 
   const handleCodeSubmit = async (e) => {
     e.preventDefault();
     setCodeError('');
-    if (!codeContact.trim()) { setCodeError('Enter your email or phone number'); return; }
     if (!accessCode.trim() || accessCode.trim().length < 6) { setCodeError('Enter your access code'); return; }
 
     setCodeLoading(true);
     try {
-      const body = codeContactType === 'email'
-        ? { email: codeContact.trim().toLowerCase(), code: accessCode.trim().toUpperCase() }
-        : { phone: codeContact.trim(), code: accessCode.trim().toUpperCase() };
+      const result = await authService.verifyCode(
+        codeContactType === 'email'
+          ? { email: codeContact.trim(), code: accessCode.trim() }
+          : { phone: codeContact.trim(), code: accessCode.trim() }
+      );
 
-      const res = await fetch(`${BACKEND}/api/auth/verify-access-code`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setCodeError(data.error || 'Invalid or expired access code');
+      if (!result.success) {
+        setCodeError(result.error);
         return;
       }
 
-      toast.success('Welcome!', 'Premium access activated.', { pageTheme: 'landing' });
-      login({ user: data.user, token: data.token }, true);
-      navigate(redirectTo || '/search');
+      toast.success('Welcome!', 'Signed in.', { pageTheme: 'landing' });
+      login({ user: result.user, token: result.token }, true);
+
+      // Priority 1: honour explicit redirectTo (set by ProtectedRoute)
+      if (redirectTo) {
+        navigate(redirectTo);
+        return;
+      }
+
+      // Priority 2: anonymous navigation state flags
+      if (location.state?.fromOSINT) {
+        navigate('/search?mode=ocean');
+        return;
+      }
+      if (location.state?.fromBiased) {
+        navigate('/search?mode=purple');
+        return;
+      }
+
+      // Priority 3: fall back to universal search, preserving pill mode
+      const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
+      navigate(isRedPillMode ? '/search?mode=red' : '/search');
     } catch {
       setCodeError('Network error. Please try again.');
     } finally {
@@ -179,18 +115,6 @@ export default function SignInPage() {
     localStorage.setItem('truegle_freemium_tokens', '10');
     navigate('/search');
   };
-
-  const handleSocialAuth = (provider) => {
-    if (provider === 'Google') {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://backend-seven-khaki-60.vercel.app';
-      window.location.href = `${backendUrl}/api/auth/google`;
-    }
-  };
-
-  // Google OAuth is live (backend verified, consent screen published), so the
-  // social sign-in button follows the single OAUTH_ENABLED master switch.
-  // Email/password is unaffected either way.
-  const socialAuthEnabled = OAUTH_ENABLED;
 
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 overflow-y-auto">
@@ -264,144 +188,9 @@ export default function SignInPage() {
               </span>
             </h1>
             <p className="text-sm sm:text-base text-gray-400 font-body">
-              Sign in to continue searching
+              Sign in with a one-time code — no password needed
             </p>
           </div>
-
-          {/* Mode toggle: email/password vs access code */}
-          <div className="flex gap-2 mb-5">
-            {[
-              { key: 'email', label: 'Email', icon: Mail },
-              { key: 'code', label: 'Access Code', icon: Key },
-            ].map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setSignInMode(key)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-medium transition-all border ${
-                  signInMode === key
-                    ? 'bg-cyan-600/20 border-cyan-500/60 text-cyan-300'
-                    : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
-                }`}
-              >
-                <Icon size={13} />
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Access Code sign-in form */}
-          <AnimatePresence mode="wait">
-          {signInMode === 'code' && (
-            <motion.form
-              key="code-form"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              onSubmit={handleCodeSubmit}
-              className="space-y-3 mb-4"
-            >
-              {/* contact type toggle */}
-              <div className="flex gap-2">
-                {[{ key: 'email', label: 'Email', icon: Mail }, { key: 'phone', label: 'Phone', icon: Phone }].map(({ key, label, icon: Icon }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setCodeContactType(key)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs border transition-all ${
-                      codeContactType === key
-                        ? 'bg-cyan-600/20 border-cyan-500/50 text-cyan-300'
-                        : 'bg-white/5 border-white/10 text-gray-400'
-                    }`}
-                  >
-                    <Icon size={12} />{label}
-                  </button>
-                ))}
-              </div>
-
-              <input
-                type={codeContactType === 'email' ? 'email' : 'tel'}
-                value={codeContact}
-                onChange={(e) => setCodeContact(e.target.value)}
-                placeholder={codeContactType === 'email' ? 'your@email.com' : '+1 (555) 000-0000'}
-                className="w-full px-4 py-2.5 bg-black/30 border border-gray-700 text-white placeholder-gray-500 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all text-sm"
-              />
-
-              <input
-                type="text"
-                value={accessCode}
-                onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
-                placeholder="Access code (e.g. A1B2C3D4)"
-                maxLength={8}
-                className="w-full px-4 py-2.5 bg-black/30 border border-gray-700 text-white placeholder-gray-500 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all text-sm font-mono tracking-widest"
-              />
-
-              {codeError && <p className="text-red-400 text-xs">{codeError}</p>}
-
-              <NeonButton type="submit" variant="primary" size="lg" disabled={codeLoading} className="w-full">
-                {codeLoading ? 'Verifying…' : <>Activate Premium <ArrowRight className="inline ml-2" size={16} /></>}
-              </NeonButton>
-
-              <button
-                type="button"
-                onClick={continueFreemium}
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-sm rounded-xl transition-all"
-              >
-                <Zap size={14} />
-                Continue Free (10 searches/day)
-              </button>
-
-              <p className="text-center text-gray-500 text-xs">
-                No code?{' '}
-                <button type="button" onClick={() => navigate('/auth/signup')} className="text-cyan-400 hover:text-cyan-300">
-                  Get premium access
-                </button>
-              </p>
-            </motion.form>
-          )}
-          </AnimatePresence>
-
-          {/* Email/password form — only shown in email mode */}
-          {signInMode === 'email' && <>
-
-          {/* Social Auth — hidden until Google OAuth consent is published (VITE_SOCIAL_AUTH_ENABLED) */}
-          {socialAuthEnabled && (
-            <>
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleSocialAuth('Google')}
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/5 hover:bg-white/10 border border-gray-700 hover:border-cyan-500/50 rounded-xl transition-all font-medium"
-                >
-                  <Chrome size={20} />
-                  <span className="font-body">Google</span>
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleSocialAuth('Apple')}
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 bg-white/5 hover:bg-white/10 border border-gray-700 hover:border-cyan-500/50 rounded-xl transition-all font-medium"
-                >
-                  <FaApple size={20} />
-                  <span className="font-body">Apple</span>
-                </motion.button>
-              </div>
-
-              {/* Divider */}
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-700"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-gray-900/50 text-gray-500 font-body">
-                    or sign in with email
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
 
           {/* Freemium Message - Shown when coming from media interfaces */}
           {showFreemiumMessage && (
@@ -422,177 +211,129 @@ export default function SignInPage() {
             </motion.div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
-            {/* Email */}
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2 font-body">
-                Email
-              </label>
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Mail size={20} />
+          {/* Access Code sign-in form */}
+          <AnimatePresence mode="wait">
+            {!codeSent ? (
+              <motion.form
+                key="send-code-form"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                onSubmit={handleSendCode}
+                className="space-y-3 mb-4"
+              >
+                {/* contact type toggle */}
+                <div className="flex gap-2">
+                  {[{ key: 'email', label: 'Email', icon: Mail }, { key: 'phone', label: 'Phone', icon: Phone }].map(({ key, label, icon: Icon }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => { setCodeContactType(key); setCodeError(''); }}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs border transition-all ${
+                        codeContactType === key
+                          ? 'bg-cyan-600/20 border-cyan-500/50 text-cyan-300'
+                          : 'bg-white/5 border-white/10 text-gray-400'
+                      }`}
+                    >
+                      <Icon size={12} />{label}
+                    </button>
+                  ))}
                 </div>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  onFocus={() => setFocusedField('email')}
-                  onBlur={() => setFocusedField(null)}
-                  className={`w-full pl-12 pr-4 py-2.5 sm:py-3 bg-black/30 text-white placeholder-gray-500 border rounded-xl focus:outline-none focus:ring-2 transition-all font-body ${
-                    errors.email
-                      ? 'border-red-500 focus:ring-red-500/50'
-                      : focusedField === 'email'
-                        ? 'border-cyan-500 focus:ring-cyan-500/50'
-                        : 'border-gray-700 hover:border-gray-600'
-                  }`}
-                  placeholder="your@email.com"
-                  autoFocus
-                />
-              </div>
-              {errors.email && (
-                <motion.p
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-2 text-sm text-red-400 font-body"
-                >
-                  {errors.email}
-                </motion.p>
-              )}
-            </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-300 mb-2 font-body">
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                  <Lock size={20} />
-                </div>
+                {codeContactType === 'phone' && (
+                  <p className="text-amber-300/90 bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 text-xs">
+                    SMS sign-in isn't available yet — switch to email to get a code today.
+                  </p>
+                )}
+
                 <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
-                  className={`w-full pl-12 pr-12 py-2.5 sm:py-3 bg-black/30 text-white placeholder-gray-500 border rounded-xl focus:outline-none focus:ring-2 transition-all font-body ${
-                    errors.password
-                      ? 'border-red-500 focus:ring-red-500/50'
-                      : focusedField === 'password'
-                        ? 'border-cyan-500 focus:ring-cyan-500/50'
-                        : 'border-gray-700 hover:border-gray-600'
-                  }`}
-                  placeholder="Enter your password"
+                  type={codeContactType === 'email' ? 'email' : 'tel'}
+                  value={codeContact}
+                  onChange={(e) => setCodeContact(e.target.value)}
+                  placeholder={codeContactType === 'email' ? 'your@email.com' : '+1 (555) 000-0000'}
+                  className="w-full px-4 py-2.5 bg-black/30 border border-gray-700 text-white placeholder-gray-500 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all text-sm"
                 />
+
+                {codeError && <p className="text-red-400 text-xs">{codeError}</p>}
+
+                <NeonButton type="submit" variant="primary" size="lg" disabled={sendingCode} className="w-full">
+                  {sendingCode ? 'Sending…' : <>Send Code <ArrowRight className="inline ml-2" size={16} /></>}
+                </NeonButton>
+
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300"
+                  onClick={continueFreemium}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-sm rounded-xl transition-all"
                 >
-                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                  <Zap size={14} />
+                  Continue Free (10 searches/day)
                 </button>
-              </div>
-              {errors.password && (
-                <motion.p
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-2 text-sm text-red-400 font-body"
-                >
-                  {errors.password}
-                </motion.p>
-              )}
-            </div>
-
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-700 bg-black/30 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
-                />
-                <label
-                  htmlFor="remember"
-                  className="text-xs sm:text-sm text-gray-400 font-body"
-                >
-                  Remember me
-                </label>
-              </div>
-              <button
-                type="button"
-                onClick={() => alert('Password reset would happen here')}
-                className="text-xs sm:text-sm text-cyan-400 hover:text-cyan-300 transition-colors font-body"
-              >
-                Forgot password?
-              </button>
-            </div>
-
-            {/* General Error */}
-            {errors.general && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
+              </motion.form>
+            ) : (
+              <motion.form
+                key="verify-code-form"
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-red-500/10 border border-red-500/30 rounded-xl p-3"
+                exit={{ opacity: 0, y: -8 }}
+                onSubmit={handleCodeSubmit}
+                className="space-y-3 mb-4"
               >
-                <p className="text-sm text-red-400 font-body">
-                  {errors.general}
+                <p className="text-gray-400 text-xs">
+                  Code sent to <span className="text-white">{codeContact}</span>.
                 </p>
-              </motion.div>
+
+                <input
+                  type="text"
+                  value={accessCode}
+                  onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                  placeholder="Enter your code"
+                  maxLength={8}
+                  autoFocus
+                  className="w-full px-4 py-2.5 bg-black/30 border border-gray-700 text-white placeholder-gray-500 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all text-sm font-mono tracking-widest"
+                />
+
+                {codeError && <p className="text-red-400 text-xs">{codeError}</p>}
+
+                <NeonButton type="submit" variant="primary" size="lg" disabled={codeLoading} className="w-full">
+                  {codeLoading ? 'Verifying…' : <>Sign In <ArrowRight className="inline ml-2" size={16} /></>}
+                </NeonButton>
+
+                <div className="flex items-center justify-between text-xs">
+                  <button
+                    type="button"
+                    onClick={() => { setCodeSent(false); setAccessCode(''); setCodeError(''); }}
+                    className="text-gray-500 hover:text-gray-300"
+                  >
+                    Use a different email
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSendCode}
+                    disabled={sendingCode}
+                    className="text-cyan-400 hover:text-cyan-300"
+                  >
+                    {sendingCode ? 'Resending…' : 'Resend code'}
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={continueFreemium}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-sm rounded-xl transition-all"
+                >
+                  <Zap size={14} />
+                  Continue Free (10 searches/day)
+                </button>
+              </motion.form>
             )}
+          </AnimatePresence>
 
-            {/* Submit Button */}
-            <NeonButton
-              type="submit"
-              variant="primary"
-              size="lg"
-              disabled={isLoading}
-              className="w-full mt-6"
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block mr-2" />
-                  Signing In...
-                </>
-              ) : (
-                <>
-                  Enter
-                  <ArrowRight className="inline ml-2" size={20} />
-                </>
-              )}
-            </NeonButton>
-           </form>
-
-           {/* Sign Up Link */}
-           <div className="mt-6 text-center">
-            <p className="text-gray-400 text-sm font-body">
-              Don't have an account?{' '}
-              <button
-                onClick={() => navigate('/auth/signup', { state: { redirectTo, showFreemiumMessage } })}
-                className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
-              >
-                Sign up
-              </button>
-            </p>
-          </div>
-
-          {/* Freemium shortcut for email-mode users */}
-          <button
-            type="button"
-            onClick={continueFreemium}
-            className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-sm rounded-xl transition-all"
-          >
-            <Zap size={14} />
-            Continue Free (10 searches/day)
-          </button>
-
-          </>}
+          <p className="text-center text-gray-500 text-xs">
+            Already paid for premium?{' '}
+            <button type="button" onClick={() => navigate('/auth/signup')} className="text-cyan-400 hover:text-cyan-300">
+              Get premium access
+            </button>
+          </p>
         </motion.div>
 
         {/* Footer Links */}

@@ -1,8 +1,5 @@
 // PostgreSQL User Model for Truegle Backend
 const { query } = require('../db/connection');
-const bcrypt = require('bcryptjs');
-const config = require('../config/env');
-const jwt = require('jsonwebtoken');
 
 class User {
   constructor(userData = {}) {
@@ -12,7 +9,6 @@ class User {
     this.name = userData.name || '';
     this.role = userData.role || 'user';
     this.isVerified = userData.isVerified || false;
-    this.googleId = userData.googleId || null;
     this.isActive = userData.isActive !== undefined ? userData.isActive : true;
     this.lastLogin = userData.lastLogin || null;
     this.loginCount = userData.loginCount || 0;
@@ -37,14 +33,13 @@ class User {
       // Update existing user
       const result = await query(
         `UPDATE users SET email = $1, password_hash = $2, username = $3,
-         last_login = $4, google_id = $5, updated_at = NOW()
-         WHERE id = $6 RETURNING *`,
+         last_login = $4, updated_at = NOW()
+         WHERE id = $5 RETURNING *`,
         [
           this.email,
           this.password,
           this.name,
           this.lastLogin,
-          this.googleId || null,
           this.id
         ]
       );
@@ -56,22 +51,16 @@ class User {
     } else {
       // Create new user
       const result = await query(
-        `INSERT INTO users (email, password_hash, username, google_id, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, NOW(), NOW())
+        `INSERT INTO users (email, password_hash, username, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW())
          RETURNING *`,
         [
           this.email,
           this.password,
           this.name,
-          this.googleId || null,
         ]
       );
       const row = result.rows[0];
-      // Critical: assign the DB-generated id back onto the instance. The Google
-      // OAuth flow does `await user.save()` and then reads `user.id` (for token
-      // init + balance lookup) without reassigning the return value — without
-      // this, new OAuth users had a null id, getBalance() threw "User not found",
-      // and the flow redirected to /auth/login?error=oauth_failed.
       this.id = row.id;
       return this._mapRowToUser(row);
     }
@@ -86,7 +75,6 @@ class User {
       password: row.password_hash,
       role: row.subscription_tier || 'user',
       isVerified: true,
-      googleId: row.google_id || null,
       lastLogin: row.last_login,
       createdAt: row.created_at
     };
@@ -111,9 +99,6 @@ class User {
     } else if (queryObj.id) {
       whereClause = 'WHERE id = $1';
       params.push(queryObj.id);
-    } else if (queryObj.googleId) {
-      whereClause = 'WHERE google_id = $1';
-      params.push(queryObj.googleId);
     }
 
     const result = await query(`SELECT * FROM users ${whereClause}`, params);
@@ -132,7 +117,6 @@ class User {
       role: row.subscription_tier || 'user',
       isVerified: true,
       isActive: true,
-      googleId: row.google_id || null,
       lastLogin: row.last_login,
       createdAt: row.created_at,
       updatedAt: row.updated_at
@@ -152,11 +136,6 @@ class User {
 
     const result = await query(`SELECT * FROM users ${whereClause}`, params);
     return result.rows.map(row => new User(row));
-  }
-
-  // Compare password
-  async comparePassword(candidatePassword) {
-    return bcrypt.compare(candidatePassword, this.password);
   }
 
   // Update last login
@@ -235,10 +214,6 @@ class User {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    // Add google_id column if it doesn't exist (safe migration)
-    await query(`
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE
-    `).catch(() => {});
   }
 }
 

@@ -168,10 +168,6 @@ app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Passport (OAuth)
-const passport = require('passport');
-app.use(passport.initialize());
-
 // Serve static files from public directory (for test.html)
 app.use(express.static('public'));
 

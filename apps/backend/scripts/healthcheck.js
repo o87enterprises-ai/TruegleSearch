@@ -23,7 +23,8 @@ const endpoints = [
   { method: 'GET', path: '/api/tokens/config', auth: false, label: 'Tokens Config' },
 
   // Auth endpoints (expect 400/401, not 500)
-  { method: 'POST', path: '/api/auth/login', auth: false, label: 'Auth Login', body: {}, expectStatus: [400, 401] },
+  { method: 'POST', path: '/api/auth/request-code', auth: false, label: 'Auth Request Code', body: {}, expectStatus: [400] },
+  { method: 'POST', path: '/api/auth/verify-access-code', auth: false, label: 'Auth Verify Code', body: {}, expectStatus: [400] },
   { method: 'GET', path: '/api/auth/validate', auth: false, label: 'Auth Validate (no token)', expectStatus: [401] },
 
   // Authenticated endpoints (expect 401 without token)

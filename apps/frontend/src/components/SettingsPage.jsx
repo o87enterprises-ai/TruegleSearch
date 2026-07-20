@@ -123,7 +123,7 @@ const SettingsPage = () => {
                   {!canDisableSafeSearch && (
                     <p className="text-xs text-white/40 mt-1 flex items-center gap-1">
                       <SafeIcon icon={FiLock} size={11} />
-                      "Off" requires signing in with Google
+                      "Off" requires signing in
                     </p>
                   )}
                 </div>

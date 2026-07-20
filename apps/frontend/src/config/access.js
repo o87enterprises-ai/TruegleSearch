@@ -12,11 +12,6 @@
 // When true, all login walls and token/premium gates are bypassed app-wide.
 export const FREE_ACCESS_MODE = true;
 
-// OAuth disabled: social sign-in (Google/Apple) is preventing users from reaching
-// gated features. Direct email/phone + payment registration is being implemented
-// to replace it. Flip back to true once the OAuth callback flow is re-verified.
-export const OAUTH_ENABLED = false;
-
 // When true, show the dismissible "early access / pre-production" banner so
 // users understand the site isn't open to the world yet and are invited to
 // report bugs.

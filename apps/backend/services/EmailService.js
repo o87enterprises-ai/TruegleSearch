@@ -198,6 +198,53 @@ class EmailService {
   }
 
   /**
+   * Send a passwordless sign-in code
+   */
+  async sendLoginCode(email, code) {
+    const subject = `Your Truegle sign-in code: ${code}`;
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .code {
+            font-size: 32px;
+            font-weight: bold;
+            letter-spacing: 8px;
+            padding: 16px 24px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            display: inline-block;
+            margin: 20px 0;
+          }
+          .footer { margin-top: 30px; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h2>Your sign-in code</h2>
+          <p>Enter this code to sign in to Truegle:</p>
+          <div class="code">${code}</div>
+          <p>This code expires in 15 minutes. If you didn't request this, you can safely ignore this email.</p>
+          <div class="footer">
+            <p>Truegle - Unbiased Search Engine</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    return this.sendEmail({
+      to: email,
+      subject,
+      html,
+      text: `Your Truegle sign-in code is ${code}. It expires in 15 minutes.`,
+    });
+  }
+
+  /**
    * Send notification email
    */
   async sendNotification(email, title, message) {

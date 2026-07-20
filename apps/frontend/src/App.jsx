@@ -28,7 +28,6 @@ import OnboardingPage from './components/auth/OnboardingPage';
 import LandingPage from './pages/LandingPage';
 import SignInPage from './pages/SignInPage';
 import SignUpPage from './pages/SignUpPage';
-import AuthCallback from './pages/AuthCallback';
 import UniversalSearch from './pages/UniversalSearch';
 import TruegleChat from './pages/TruegleChat';
 import SharedThread from './pages/SharedThread';
@@ -278,7 +277,6 @@ const AppContent = () => {
         {/* Public Routes */}
         <Route path="/auth/login" element={<RouteBoundary><SignInPage /></RouteBoundary>} />
         <Route path="/auth/signup" element={<RouteBoundary><SignUpPage /></RouteBoundary>} />
-        <Route path="/auth/callback" element={<RouteBoundary><AuthCallback /></RouteBoundary>} />
 
         {/* Universal Search Route */}
         <Route path="/search" element={<RouteBoundary><UniversalSearch /></RouteBoundary>} />

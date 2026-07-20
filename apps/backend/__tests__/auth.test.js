@@ -4,10 +4,10 @@ const jwt = require('jsonwebtoken');
 
 // Mock the User model
 jest.mock('../models/User', () => ({
+  findById: jest.fn(),
   findOne: jest.fn(),
   prototype: {
     save: jest.fn(),
-    comparePassword: jest.fn(),
     updateLastLogin: jest.fn(),
   },
 }));
@@ -18,12 +18,19 @@ jest.mock('../services/TokenService', () => ({
   initializeNewUser: jest.fn().mockResolvedValue(true),
 }));
 
+// Mock EmailService so /request-code never tries a real Resend call
+jest.mock('../services/EmailService', () => ({
+  sendLoginCode: jest.fn().mockResolvedValue({ success: true }),
+}));
+
 // Mock the database connection
+const mockQuery = jest.fn().mockResolvedValue({ rows: [] });
 jest.mock('../db/connection', () => ({
-  query: jest.fn().mockResolvedValue({ rows: [] }),
+  query: (...args) => mockQuery(...args),
 }));
 
 const User = require('../models/User');
+const EmailService = require('../services/EmailService');
 
 // Create a minimal express app for testing
 const createTestApp = () => {
@@ -42,145 +49,81 @@ describe('Auth Routes', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockQuery.mockReset().mockResolvedValue({ rows: [] });
   });
 
-  describe('POST /api/auth/register', () => {
+  describe('POST /api/auth/request-code', () => {
     it('should return 400 for invalid email', async () => {
-      const response = await request(app).post('/api/auth/register').send({
+      const response = await request(app).post('/api/auth/request-code').send({
         email: 'invalid-email',
-        password: 'password123',
-        name: 'Test User',
       });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Validation failed');
     });
 
-    it('should return 400 for short password', async () => {
-      const response = await request(app).post('/api/auth/register').send({
-        email: 'test@example.com',
-        password: '123',
-        name: 'Test User',
-      });
+    it('should return 429 if a code was just sent', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] }); // recent login_codes row
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Validation failed');
-    });
-
-    it('should return 400 for short name', async () => {
-      const response = await request(app).post('/api/auth/register').send({
-        email: 'test@example.com',
-        password: 'password123',
-        name: 'T',
-      });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Validation failed');
-    });
-
-    it('should return 409 if user already exists', async () => {
-      User.findOne.mockResolvedValue({ email: 'existing@example.com' });
-
-      const response = await request(app).post('/api/auth/register').send({
-        email: 'existing@example.com',
-        password: 'password123456',
-        name: 'Test User',
-      });
-
-      expect(response.status).toBe(409);
-      expect(response.body.error).toBe('User already exists');
-    });
-
-    it('should create user successfully with valid data', async () => {
-      User.findOne.mockResolvedValue(null);
-
-      // Skip this test as it requires more complex mocking of Mongoose
-      // In a real project, you'd use mongodb-memory-server or similar
-      expect(true).toBe(true);
-    });
-  });
-
-  describe('POST /api/auth/login', () => {
-    it('should return 400 for invalid email format', async () => {
-      const response = await request(app).post('/api/auth/login').send({
-        email: 'invalid-email',
-        password: 'password123',
-      });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Validation failed');
-    });
-
-    it('should return 400 for missing password', async () => {
-      const response = await request(app).post('/api/auth/login').send({
+      const response = await request(app).post('/api/auth/request-code').send({
         email: 'test@example.com',
       });
 
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Validation failed');
+      expect(response.status).toBe(429);
     });
 
-    it('should return 401 for non-existent user', async () => {
-      // PostgreSQL-based User model returns user directly, not with .select() chain
-      User.findOne.mockResolvedValue(null);
+    it('should create a free account and email a code for a new address', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [] }) // no recent code
+        .mockResolvedValueOnce({ rows: [] }) // no existing user
+        .mockResolvedValueOnce({ rows: [{ id: 42 }] }) // insert user
+        .mockResolvedValueOnce({ rows: [] }); // insert login_codes
 
-      const response = await request(app).post('/api/auth/login').send({
-        email: 'nonexistent@example.com',
-        password: 'password123',
-      });
-
-      expect(response.status).toBe(401);
-      expect(response.body.error).toBe('Authentication failed');
-    });
-
-    it('should return 401 for wrong password', async () => {
-      const mockUser = {
-        id: 'mock-user-id',
-        email: 'test@example.com',
-        name: 'Test User',
-        role: 'user',
-        comparePassword: jest.fn().mockResolvedValue(false),
-      };
-
-      // PostgreSQL-based User model returns user directly
-      User.findOne.mockResolvedValue(mockUser);
-
-      const response = await request(app).post('/api/auth/login').send({
-        email: 'test@example.com',
-        password: 'wrongpassword',
-      });
-
-      expect(response.status).toBe(401);
-      expect(response.body.error).toBe('Authentication failed');
-    });
-
-    it('should login successfully with valid credentials', async () => {
-      const mockUser = {
-        id: 'mock-user-id',
-        email: 'test@example.com',
-        name: 'Test User',
-        role: 'user',
-        isVerified: true,
-        comparePassword: jest.fn().mockResolvedValue(true),
-        updateLastLogin: jest.fn().mockResolvedValue(true),
-      };
-
-      // PostgreSQL-based User model returns user directly
-      User.findOne.mockResolvedValue(mockUser);
-
-      const response = await request(app).post('/api/auth/login').send({
-        email: 'test@example.com',
-        password: 'correctpassword',
+      const response = await request(app).post('/api/auth/request-code').send({
+        email: 'newperson@example.com',
       });
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.token).toBeDefined();
-      expect(response.body.user.email).toBe('test@example.com');
+      expect(EmailService.sendLoginCode).toHaveBeenCalledWith(
+        'newperson@example.com',
+        expect.any(String)
+      );
+    });
+  });
 
-      // Verify token is valid
-      const decoded = jwt.verify(response.body.token, process.env.JWT_SECRET);
-      expect(decoded.email).toBe('test@example.com');
+  describe('POST /api/auth/verify-access-code', () => {
+    it('should return 400 when code or contact is missing', async () => {
+      const response = await request(app).post('/api/auth/verify-access-code').send({
+        email: 'test@example.com',
+      });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('should return 401 for an account that does not exist', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [] }); // no user found
+
+      const response = await request(app).post('/api/auth/verify-access-code').send({
+        email: 'nonexistent@example.com',
+        code: '123456',
+      });
+
+      expect(response.status).toBe(401);
+      expect(response.body.error).toMatch(/no active account/i);
+    });
+
+    it('should return 401 for an invalid or expired code', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 1, email: 'test@example.com', username: 'test', role: 'user' }] }) // user lookup
+        .mockResolvedValueOnce({ rows: [] }) // no premium codes
+        .mockResolvedValueOnce({ rows: [] }); // no login codes
+
+      const response = await request(app).post('/api/auth/verify-access-code').send({
+        email: 'test@example.com',
+        code: '000000',
+      });
+
+      expect(response.status).toBe(401);
     });
   });
 });

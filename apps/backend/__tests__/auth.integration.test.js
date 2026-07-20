@@ -1,9 +1,96 @@
 const request = require('supertest');
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
 
-// Create test app
+// In-memory fake of the two tables the passwordless flow touches, so this
+// test exercises the real route logic (bcrypt hash/compare, code matching,
+// rate limiting) end to end without needing a live Postgres instance.
+// Jest hoists jest.mock() factories above other module code and forbids them
+// from closing over ordinary out-of-scope variables — names prefixed with
+// "mock" are the documented exception, hence the naming here.
+let mockUsers;
+let mockLoginCodes;
+let mockNextUserId;
+let mockNextCodeId;
+const mockSentEmails = [];
+
+function mockResetFakeDb() {
+  mockUsers = [];
+  mockLoginCodes = [];
+  mockNextUserId = 1;
+  mockNextCodeId = 1;
+  mockSentEmails.length = 0;
+}
+
+function mockFakeQuery(sql, params) {
+  const s = sql.replace(/\s+/g, ' ').trim();
+
+  if (s.startsWith('SELECT id FROM login_codes WHERE email = $1 AND created_at >')) {
+    return { rows: [] }; // rate-limit check always passes in tests
+  }
+  if (s.startsWith('SELECT id, is_pending FROM users WHERE email = $1 LIMIT 1')) {
+    const u = mockUsers.find((u) => u.email === params[0]);
+    return { rows: u ? [{ id: u.id, is_pending: u.is_pending }] : [] };
+  }
+  if (s.startsWith('UPDATE users SET is_pending = false')) {
+    const u = mockUsers.find((u) => u.id === params[0]);
+    if (u) u.is_pending = false;
+    return { rows: [] };
+  }
+  if (s.startsWith('INSERT INTO users (email, username, registration_method, is_pending')) {
+    const u = { id: mockNextUserId++, email: params[0], username: params[1], is_pending: false };
+    mockUsers.push(u);
+    return { rows: [{ id: u.id }] };
+  }
+  if (s.startsWith('INSERT INTO login_codes (email, code_hash, expires_at)')) {
+    mockLoginCodes.push({
+      id: mockNextCodeId++,
+      email: params[0],
+      code_hash: params[1],
+      used: false,
+      expires_at: Date.now() + 15 * 60 * 1000,
+    });
+    return { rows: [] };
+  }
+  if (s.startsWith('SELECT id, email, username, role FROM users WHERE email = $1 AND is_pending = false')) {
+    const u = mockUsers.find((u) => u.email === params[0] && !u.is_pending);
+    return { rows: u ? [{ id: u.id, email: u.email, username: u.username, role: 'user' }] : [] };
+  }
+  if (s.startsWith('SELECT id, code_hash FROM premium_access_codes')) {
+    return { rows: [] }; // no premium codes in this test suite
+  }
+  if (s.startsWith('SELECT id, code_hash FROM login_codes WHERE email = $1 AND used = false')) {
+    return {
+      rows: mockLoginCodes
+        .filter((c) => c.email === params[0] && !c.used && c.expires_at > Date.now())
+        .map((c) => ({ id: c.id, code_hash: c.code_hash })),
+    };
+  }
+  if (s.startsWith('UPDATE login_codes SET used = true')) {
+    const c = mockLoginCodes.find((c) => c.id === params[0]);
+    if (c) c.used = true;
+    return { rows: [] };
+  }
+
+  throw new Error(`mockFakeQuery: unhandled SQL in test — ${s}`);
+}
+
+jest.mock('../db/connection', () => ({
+  query: jest.fn((sql, params = []) => mockFakeQuery(sql, params)),
+}));
+
+jest.mock('../services/TokenService', () => ({
+  getBalance: jest.fn().mockResolvedValue({ balance: 10, isPremium: false }),
+  initializeNewUser: jest.fn().mockResolvedValue(true),
+}));
+
+jest.mock('../services/EmailService', () => ({
+  sendLoginCode: jest.fn((email, code) => {
+    mockSentEmails.push({ email, code });
+    return Promise.resolve({ success: true });
+  }),
+}));
+
 const createTestApp = () => {
   const app = express();
   app.use(express.json());
@@ -11,260 +98,68 @@ const createTestApp = () => {
   return app;
 };
 
-describe('Auth Integration Tests', () => {
+describe('Passwordless auth integration (request-code -> verify-access-code)', () => {
   let app;
 
   beforeAll(() => {
     app = createTestApp();
   });
 
-  describe('User Registration Flow', () => {
-    it('should register a new user successfully', async () => {
-      const response = await request(app).post('/api/auth/register').send({
-        email: 'newuser@example.com',
-        password: 'securePassword123',
-        name: 'New User',
-      });
-
-      expect(response.status).toBe(201);
-      expect(response.body.success).toBe(true);
-      expect(response.body.token).toBeDefined();
-      expect(response.body.user.email).toBe('newuser@example.com');
-      expect(response.body.user.name).toBe('New User');
-      expect(response.body.user.role).toBe('user');
-
-      // Verify token is valid
-      const decoded = jwt.verify(response.body.token, process.env.JWT_SECRET);
-      expect(decoded.email).toBe('newuser@example.com');
-
-      // Verify user was saved to database
-      const savedUser = await User.findOne({ email: 'newuser@example.com' });
-      expect(savedUser).toBeDefined();
-      expect(savedUser.name).toBe('New User');
-    });
-
-    it('should hash password when saving user', async () => {
-      await request(app).post('/api/auth/register').send({
-        email: 'hashtest@example.com',
-        password: 'plainPassword123',
-        name: 'Hash Test User',
-      });
-
-      // Get user with password field
-      const savedUser = await User.findOne({
-        email: 'hashtest@example.com',
-      }).select('+password');
-      expect(savedUser.password).not.toBe('plainPassword123');
-      expect(savedUser.password).toMatch(/^\$2[aby]?\$/); // bcrypt hash pattern
-    });
-
-    it('should prevent duplicate email registration', async () => {
-      // Register first user
-      await request(app).post('/api/auth/register').send({
-        email: 'duplicate@example.com',
-        password: 'password123',
-        name: 'First User',
-      });
-
-      // Try to register with same email
-      const response = await request(app).post('/api/auth/register').send({
-        email: 'duplicate@example.com',
-        password: 'differentPassword',
-        name: 'Second User',
-      });
-
-      expect(response.status).toBe(409);
-      expect(response.body.error).toBe('User already exists');
-    });
-
-    it('should normalize email to lowercase', async () => {
-      const response = await request(app).post('/api/auth/register').send({
-        email: 'UPPERCASE@EXAMPLE.COM',
-        password: 'password123',
-        name: 'Uppercase Email User',
-      });
-
-      expect(response.status).toBe(201);
-      expect(response.body.user.email).toBe('uppercase@example.com');
-    });
+  beforeEach(() => {
+    mockResetFakeDb();
   });
 
-  describe('User Login Flow', () => {
-    beforeEach(async () => {
-      // Create a test user before each login test
-      await request(app).post('/api/auth/register').send({
-        email: 'logintest@example.com',
-        password: 'correctPassword123',
-        name: 'Login Test User',
-      });
-    });
+  it('creates a free account on first code request', async () => {
+    const response = await request(app)
+      .post('/api/auth/request-code')
+      .send({ email: 'newuser@example.com' });
 
-    it('should login with correct credentials', async () => {
-      const response = await request(app).post('/api/auth/login').send({
-        email: 'logintest@example.com',
-        password: 'correctPassword123',
-      });
-
-      expect(response.status).toBe(200);
-      expect(response.body.success).toBe(true);
-      expect(response.body.token).toBeDefined();
-      expect(response.body.user.email).toBe('logintest@example.com');
-    });
-
-    it('should reject login with wrong password', async () => {
-      const response = await request(app).post('/api/auth/login').send({
-        email: 'logintest@example.com',
-        password: 'wrongPassword',
-      });
-
-      expect(response.status).toBe(401);
-      expect(response.body.error).toBe('Authentication failed');
-    });
-
-    it('should reject login for non-existent user', async () => {
-      const response = await request(app).post('/api/auth/login').send({
-        email: 'nonexistent@example.com',
-        password: 'anyPassword',
-      });
-
-      expect(response.status).toBe(401);
-      expect(response.body.error).toBe('Authentication failed');
-    });
-
-    it('should update last login timestamp', async () => {
-      const beforeLogin = new Date();
-
-      await request(app).post('/api/auth/login').send({
-        email: 'logintest@example.com',
-        password: 'correctPassword123',
-      });
-
-      const user = await User.findOne({ email: 'logintest@example.com' });
-      expect(user.lastLogin).toBeDefined();
-      expect(new Date(user.lastLogin).getTime()).toBeGreaterThanOrEqual(
-        beforeLogin.getTime()
-      );
-      expect(user.loginCount).toBe(1);
-    });
-
-    it('should increment login count on multiple logins', async () => {
-      // Login three times
-      for (let i = 0; i < 3; i++) {
-        await request(app).post('/api/auth/login').send({
-          email: 'logintest@example.com',
-          password: 'correctPassword123',
-        });
-      }
-
-      const user = await User.findOne({ email: 'logintest@example.com' });
-      expect(user.loginCount).toBe(3);
-    });
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(mockUsers.some((u) => u.email === 'newuser@example.com')).toBe(true);
+    expect(mockSentEmails).toHaveLength(1);
+    expect(mockSentEmails[0].email).toBe('newuser@example.com');
+    expect(mockSentEmails[0].code).toMatch(/^\d{6}$/);
   });
 
-  describe('Token Validation', () => {
-    it('should return token with correct expiry', async () => {
-      const response = await request(app).post('/api/auth/register').send({
-        email: 'tokentest@example.com',
-        password: 'password123',
-        name: 'Token Test User',
-      });
+  it('signs the user in with the emailed code and issues a JWT', async () => {
+    await request(app).post('/api/auth/request-code').send({ email: 'roundtrip@example.com' });
+    const { code } = mockSentEmails[0];
 
-      const decoded = jwt.verify(response.body.token, process.env.JWT_SECRET);
+    const response = await request(app)
+      .post('/api/auth/verify-access-code')
+      .send({ email: 'roundtrip@example.com', code });
 
-      // Token should expire in ~24 hours
-      const expiresIn = decoded.exp - decoded.iat;
-      expect(expiresIn).toBe(86400); // 24 hours in seconds
-    });
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.user.email).toBe('roundtrip@example.com');
 
-    it('should include user role in token', async () => {
-      const response = await request(app).post('/api/auth/register').send({
-        email: 'roletest@example.com',
-        password: 'password123',
-        name: 'Role Test User',
-      });
-
-      const decoded = jwt.verify(response.body.token, process.env.JWT_SECRET);
-      expect(decoded.role).toBe('user');
-    });
-  });
-});
-
-describe('User Model Tests', () => {
-  describe('Password Comparison', () => {
-    it('should correctly compare passwords', async () => {
-      const user = new User({
-        email: 'compare@example.com',
-        password: 'testPassword123',
-        name: 'Compare Test',
-      });
-      await user.save();
-
-      const savedUser = await User.findOne({
-        email: 'compare@example.com',
-      }).select('+password');
-
-      const correctResult = await savedUser.comparePassword('testPassword123');
-      expect(correctResult).toBe(true);
-
-      const wrongResult = await savedUser.comparePassword('wrongPassword');
-      expect(wrongResult).toBe(false);
-    });
+    const decoded = jwt.verify(response.body.token, process.env.JWT_SECRET);
+    expect(decoded.email).toBe('roundtrip@example.com');
   });
 
-  describe('Search Quota', () => {
-    it('should have default search quota', async () => {
-      const user = new User({
-        email: 'quota@example.com',
-        password: 'password123',
-        name: 'Quota Test',
-      });
-      await user.save();
+  it('rejects a code that was already used once', async () => {
+    await request(app).post('/api/auth/request-code').send({ email: 'onceonly@example.com' });
+    const { code } = mockSentEmails[0];
 
-      expect(user.searchQuota.dailySearches).toBe(100);
-      expect(user.searchQuota.searchesUsed).toBe(0);
-    });
+    const first = await request(app)
+      .post('/api/auth/verify-access-code')
+      .send({ email: 'onceonly@example.com', code });
+    expect(first.status).toBe(200);
 
-    it('should check quota correctly', async () => {
-      const user = new User({
-        email: 'quotacheck@example.com',
-        password: 'password123',
-        name: 'Quota Check Test',
-      });
-      await user.save();
-
-      const hasQuota = user.hasSearchQuota();
-      expect(hasQuota).toBe(true);
-    });
-
-    it('should increment search usage', async () => {
-      const user = new User({
-        email: 'increment@example.com',
-        password: 'password123',
-        name: 'Increment Test',
-      });
-      await user.save();
-
-      await user.incrementSearchUsage();
-
-      const updatedUser = await User.findOne({
-        email: 'increment@example.com',
-      });
-      expect(updatedUser.searchQuota.searchesUsed).toBe(1);
-    });
+    const second = await request(app)
+      .post('/api/auth/verify-access-code')
+      .send({ email: 'onceonly@example.com', code });
+    expect(second.status).toBe(401);
   });
 
-  describe('Static Methods', () => {
-    it('should find user by email', async () => {
-      const user = new User({
-        email: 'findme@example.com',
-        password: 'password123',
-        name: 'Find Me',
-      });
-      await user.save();
+  it('rejects a wrong code', async () => {
+    await request(app).post('/api/auth/request-code').send({ email: 'wrongcode@example.com' });
 
-      const found = await User.findByEmail('FINDME@EXAMPLE.COM');
-      expect(found).toBeDefined();
-      expect(found.name).toBe('Find Me');
-    });
+    const response = await request(app)
+      .post('/api/auth/verify-access-code')
+      .send({ email: 'wrongcode@example.com', code: '000000' });
+
+    expect(response.status).toBe(401);
   });
 });

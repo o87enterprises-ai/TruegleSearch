@@ -44,10 +44,11 @@ router.post('/', rateLimitSearch, optionalAuth, async (req, res) => {
     // Validate filters
     const validFilters = validateFilters(filters);
 
-    // Safe Search "off" is gated behind Google sign-in (used as a lightweight
-    // age-verification signal) — downgrade to 'safe' server-side so the
-    // restriction can't be bypassed by calling the API directly.
-    if (validFilters.safeSearch === 'off' && !req.user?.googleVerified) {
+    // Safe Search "off" is gated behind a verified sign-in (every account now
+    // proves control of its email inbox via the passwordless code sign-in) —
+    // downgrade to 'safe' server-side so the restriction can't be bypassed by
+    // calling the API directly.
+    if (validFilters.safeSearch === 'off' && !req.user?.isAuthenticated) {
       validFilters.safeSearch = 'safe';
     }
 

@@ -1,257 +1,16 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { body, validationResult } = require('express-validator');
-const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const crypto = require('crypto');
+const axios = require('axios');
 const router = express.Router();
 const config = require('../config/env');
 const User = require('../models/User');
 const TokenService = require('../services/TokenService');
+const EmailService = require('../services/EmailService');
 const logger = require('../utils/logger');
 
-// ── Google OAuth Strategy ────────────────────────────────────────────────────
-// Prefer an explicit, STABLE backend URL for the OAuth callback. process.env
-// VERCEL_URL is the per-deployment hostname (changes every deploy), which would
-// never match Google's registered redirect URI — so it's only the last resort.
-// VERCEL_PROJECT_PRODUCTION_URL is Vercel's system env for the stable production
-// alias (e.g. backend-seven-khaki-60.vercel.app). Unlike VERCEL_URL it never
-// changes between deployments, so the callbackURL always matches Google's registered URI.
-const BACKEND_URL = process.env.BACKEND_URL
-  || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null)
-  || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3001');
-
 const FRONTEND_URL = config.frontendUrl || 'https://truegle.info';
-
-if (config.googleOAuth && config.googleOAuth.clientId) {
-  passport.use(new GoogleStrategy({
-    clientID: config.googleOAuth.clientId,
-    clientSecret: config.googleOAuth.clientSecret,
-    callbackURL: `${BACKEND_URL}/api/auth/google/callback`,
-    scope: ['profile', 'email'],
-  }, async (accessToken, refreshToken, profile, done) => {
-    try {
-      const email = profile.emails?.[0]?.value;
-      if (!email) return done(new Error('No email from Google'), null);
-
-      let user = await User.findOne({ email: email.toLowerCase() });
-
-      if (!user) {
-        user = new User({
-          email: email.toLowerCase(),
-          name: profile.displayName || email.split('@')[0],
-          password: await bcrypt.hash(Math.random().toString(36), 12),
-          role: 'user',
-          isVerified: true,
-          googleId: profile.id,
-        });
-        await user.save();
-        await TokenService.initializeNewUser(user.id);
-      } else if (!user.googleId) {
-        user.googleId = profile.id;
-        user.isVerified = true;
-        await user.save();
-      }
-
-      return done(null, user);
-    } catch (err) {
-      return done(err, null);
-    }
-  }));
-}
-
-// Helper to issue JWT + redirect to frontend
-function issueTokenAndRedirect(user, res) {
-  TokenService.getBalance(user.id).then(tokenBalance => {
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role, googleVerified: !!user.googleId },
-      config.jwtSecret,
-      { expiresIn: '24h' }
-    );
-    const params = new URLSearchParams({
-      token,
-      userId: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      tokenBalance: tokenBalance.balance,
-      isPremium: tokenBalance.isPremium,
-      googleVerified: !!user.googleId,
-    });
-    res.redirect(`${FRONTEND_URL}/auth/callback?${params.toString()}`);
-  }).catch(() => {
-    res.redirect(`${FRONTEND_URL}/auth/login?error=oauth_failed`);
-  });
-}
-
-/**
- * @route   POST /api/auth/register
- * @desc    Register a new user
- * @access  Public
- */
-router.post(
-  '/register',
-  [
-    body('email').isEmail().withMessage('Please enter a valid email address').normalizeEmail(),
-    body('password').isLength({ min: 12 }).withMessage('Password must be at least 12 characters'),
-    body('name').trim().isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          error: 'Validation failed',
-          message: errors.array()[0]?.msg || 'Invalid input',
-          details: errors.array(),
-        });
-      }
-
-      const { email, password, name } = req.body;
-
-      // Check if user already exists
-      const existingUser = await User.findOne({
-        email: email.toLowerCase().trim(),
-      });
-      if (existingUser) {
-        return res.status(409).json({
-          error: 'User already exists',
-          message: 'A user with this email already exists',
-        });
-      }
-
-      // Hash password before saving
-      const hashedPassword = await bcrypt.hash(password, 12);
-
-      // Create new user
-      const newUser = new User({
-        email: email.toLowerCase().trim(),
-        password: hashedPassword,
-        name: name.trim(),
-        role: 'user',
-        isVerified: false,
-      });
-
-      const savedUser = await newUser.save();
-
-      // Initialize tokens for new user
-      await TokenService.initializeNewUser(savedUser.id);
-      const tokenBalance = await TokenService.getBalance(savedUser.id);
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { userId: savedUser.id, email: savedUser.email, role: savedUser.role, googleVerified: false },
-        config.jwtSecret,
-        { expiresIn: '24h' }
-      );
-
-      res.status(201).json({
-        success: true,
-        message: 'User registered successfully',
-        user: {
-          id: savedUser.id,
-          email: savedUser.email,
-          name: savedUser.name,
-          role: savedUser.role,
-          tokenBalance: tokenBalance.balance,
-          isPremium: tokenBalance.isPremium,
-          googleVerified: false,
-        },
-        token,
-        expiresIn: 86400, // 24 hours in seconds
-      });
-    } catch (error) {
-      logger.logError(error, req, { action: 'registration' });
-      res.status(500).json({
-        error: 'Registration failed',
-        message: 'Unable to create user account',
-      });
-    }
-  }
-);
-
-/**
- * @route   POST /api/auth/login
- * @desc    Login user
- * @access  Public
- */
-router.post(
-  '/login',
-  [
-    body('email').isEmail().withMessage('Please enter a valid email address').normalizeEmail(),
-    body('password').exists().withMessage('Password is required'),
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          error: 'Validation failed',
-          message: errors.array()[0]?.msg || 'Invalid input',
-          details: errors.array(),
-        });
-      }
-
-      const { email, password } = req.body;
-
-      // Find user by email
-      const user = await User.findOne({
-        email: email.toLowerCase().trim(),
-      });
-      if (!user) {
-        return res.status(401).json({
-          error: 'Authentication failed',
-          message: 'Invalid email or password',
-        });
-      }
-
-      // Check password
-      const isPasswordValid = await user.comparePassword(password);
-      if (!isPasswordValid) {
-        return res.status(401).json({
-          error: 'Authentication failed',
-          message: 'Invalid email or password',
-        });
-      }
-
-      // Update last login
-      await user.updateLastLogin();
-
-      // Get token balance
-      const tokenBalance = await TokenService.getBalance(user.id);
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { userId: user.id, email: user.email, role: user.role, googleVerified: !!user.googleId },
-        config.jwtSecret,
-        { expiresIn: '24h' }
-      );
-
-      res.json({
-        success: true,
-        message: 'Login successful',
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          isVerified: user.isVerified,
-          tokenBalance: tokenBalance.balance,
-          isPremium: tokenBalance.isPremium,
-          googleVerified: !!user.googleId,
-        },
-        token,
-        expiresIn: 86400, // 24 hours in seconds
-      });
-    } catch (error) {
-      logger.logError(error, req, { action: 'login' });
-      res.status(500).json({
-        error: 'Login failed',
-        message: 'Unable to authenticate user',
-      });
-    }
-  }
-);
 
 /**
  * @route   GET /api/auth/validate
@@ -302,7 +61,6 @@ router.get('/validate', async (req, res) => {
         isVerified: user.isVerified,
         tokenBalance: tokenBalance.balance,
         isPremium: tokenBalance.isPremium,
-        googleVerified: !!user.googleId,
       },
     });
   } catch (error) {
@@ -338,27 +96,7 @@ router.post('/logout', (req, res) => {
   });
 });
 
-/**
- * @route   GET /api/auth/google
- * @desc    Initiate Google OAuth flow
- */
-router.get('/google',
-  passport.authenticate('google', { scope: ['profile', 'email'], session: false })
-);
-
-/**
- * @route   GET /api/auth/google/callback
- * @desc    Google OAuth callback — issues JWT and redirects to frontend
- */
-router.get('/google/callback',
-  passport.authenticate('google', { session: false, failureRedirect: `${FRONTEND_URL}/auth/login?error=google_failed` }),
-  (req, res) => issueTokenAndRedirect(req.user, res)
-);
-
 // ── Direct Registration (email/phone → PayPal → access code) ─────────────────
-
-const crypto = require('crypto');
-const axios = require('axios');
 
 const PREMIUM_PRICE_USD = '9.99'; // monthly premium access
 
@@ -375,6 +113,10 @@ async function getPayPalToken() {
 
 function generateAccessCode() {
   return crypto.randomBytes(5).toString('hex').toUpperCase().slice(0, 8);
+}
+
+function generateLoginCode() {
+  return String(crypto.randomInt(100000, 1000000)); // 6-digit numeric
 }
 
 /**
@@ -529,9 +271,76 @@ router.post('/confirm-premium', async (req, res) => {
   }
 });
 
+// ── Passwordless sign-in (free, self-serve "email me a code") ────────────────
+
+/**
+ * @route   POST /api/auth/request-code
+ * @desc    Email a one-time 6-digit sign-in code. Creates a free account for
+ *          this address on first use — no password, no OAuth. Phone/SMS
+ *          delivery is not wired up yet ($0 budget); email only for now.
+ * @access  Public
+ */
+router.post('/request-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      return res.status(400).json({ error: 'A valid email address is required' });
+    }
+    const contact = email.trim().toLowerCase();
+
+    const { query } = require('../db/connection');
+
+    // Basic rate limit — don't let one address spam Resend's free tier.
+    const recent = await query(
+      `SELECT id FROM login_codes WHERE email = $1 AND created_at > NOW() - INTERVAL '60 seconds' LIMIT 1`,
+      [contact]
+    );
+    if (recent.rows.length > 0) {
+      return res.status(429).json({ error: 'A code was just sent — please wait a minute before requesting another.' });
+    }
+
+    // Find or create (or reactivate an abandoned pending) free account.
+    const existing = await query(
+      `SELECT id, is_pending FROM users WHERE email = $1 LIMIT 1`,
+      [contact]
+    );
+    let userId;
+    if (existing.rows.length > 0) {
+      userId = existing.rows[0].id;
+      if (existing.rows[0].is_pending) {
+        await query(`UPDATE users SET is_pending = false, updated_at = NOW() WHERE id = $1`, [userId]);
+      }
+    } else {
+      const created = await query(
+        `INSERT INTO users (email, username, registration_method, is_pending, created_at, updated_at)
+         VALUES ($1, $2, 'email', false, NOW(), NOW()) RETURNING id`,
+        [contact, contact.split('@')[0] || contact]
+      );
+      userId = created.rows[0].id;
+      await TokenService.initializeNewUser(userId);
+    }
+
+    const code = generateLoginCode();
+    const codeHash = await bcrypt.hash(code, 10);
+    await query(
+      `INSERT INTO login_codes (email, code_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '15 minutes')`,
+      [contact, codeHash]
+    );
+
+    await EmailService.sendLoginCode(contact, code);
+
+    res.json({ success: true, message: 'Code sent — check your email.' });
+  } catch (error) {
+    logger.error('request-code error', { error: error.message });
+    res.status(500).json({ error: 'Could not send code. Please try again.' });
+  }
+});
+
 /**
  * @route   POST /api/auth/verify-access-code
- * @desc    Exchange a one-time access code for a JWT. Marks the code used.
+ * @desc    Exchange a one-time code for a JWT. Checks a paid premium code
+ *          (from a completed PayPal purchase) first, then falls back to a
+ *          free self-serve login code. Marks whichever one matched as used.
  * @access  Public
  */
 router.post('/verify-access-code', async (req, res) => {
@@ -544,6 +353,7 @@ router.post('/verify-access-code', async (req, res) => {
     const contact = email
       ? email.trim().toLowerCase()
       : phone.trim().replace(/\D/g, '');
+    const normalizedCode = code.trim().toUpperCase();
 
     const { query } = require('../db/connection');
 
@@ -556,29 +366,49 @@ router.post('/verify-access-code', async (req, res) => {
     }
     const user = userRow.rows[0];
 
-    // Find an unused, non-expired code for this user
-    const codeRows = await query(
+    // Premium codes (from a completed PayPal purchase) take priority.
+    const premiumRows = await query(
       `SELECT id, code_hash FROM premium_access_codes
        WHERE user_id = $1 AND used = false AND expires_at > NOW()
        ORDER BY created_at DESC LIMIT 5`,
       [user.id]
     );
-
-    let matched = null;
-    for (const row of codeRows.rows) {
-      const ok = await bcrypt.compare(code.trim().toUpperCase(), row.code_hash);
-      if (ok) { matched = row; break; }
+    let matchedTable = null;
+    let matchedId = null;
+    for (const row of premiumRows.rows) {
+      if (await bcrypt.compare(normalizedCode, row.code_hash)) {
+        matchedTable = 'premium_access_codes';
+        matchedId = row.id;
+        break;
+      }
     }
 
-    if (!matched) {
+    // Fall back to a free self-serve login code.
+    if (!matchedTable) {
+      const loginRows = await query(
+        `SELECT id, code_hash FROM login_codes
+         WHERE email = $1 AND used = false AND expires_at > NOW()
+         ORDER BY created_at DESC LIMIT 5`,
+        [contact]
+      );
+      for (const row of loginRows.rows) {
+        if (await bcrypt.compare(normalizedCode, row.code_hash)) {
+          matchedTable = 'login_codes';
+          matchedId = row.id;
+          break;
+        }
+      }
+    }
+
+    if (!matchedTable) {
       return res.status(401).json({ error: 'Invalid or expired access code' });
     }
 
-    // Mark code as used
-    await query(
-      `UPDATE premium_access_codes SET used = true, used_at = NOW() WHERE id = $1`,
-      [matched.id]
-    );
+    if (matchedTable === 'premium_access_codes') {
+      await query(`UPDATE premium_access_codes SET used = true, used_at = NOW() WHERE id = $1`, [matchedId]);
+    } else {
+      await query(`UPDATE login_codes SET used = true, used_at = NOW() WHERE id = $1`, [matchedId]);
+    }
 
     const tokenBalance = await TokenService.getBalance(user.id);
     const token = jwt.sign(
@@ -595,7 +425,7 @@ router.post('/verify-access-code', async (req, res) => {
         email: user.email,
         name: user.username,
         role: user.role,
-        isPremium: true,
+        isPremium: tokenBalance.isPremium,
         tokenBalance: tokenBalance.balance,
       },
     });

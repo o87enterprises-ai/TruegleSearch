@@ -8,77 +8,57 @@ class AuthService {
     this.mockMode = false; // Real API mode enabled
   }
 
-  // Register a new user
-  async register(email, password, name = '') {
+  // Email a one-time sign-in code. Creates a free account for this address
+  // on first use — no password, no OAuth.
+  async requestCode(email) {
     try {
-      const response = await api.post('/auth/register', {
+      const response = await api.post('/auth/request-code', {
         email: email.toLowerCase().trim(),
-        password,
-        name: name || email.split('@')[0],
       });
 
       if (response.data.success) {
-        return {
-          success: true,
-          user: response.data.user,
-          token: response.data.token,
-          newUser: true,
-        };
+        return { success: true, message: response.data.message };
       }
 
-      return {
-        success: false,
-        error: response.data.message || 'Registration failed',
-      };
+      return { success: false, error: response.data.error || 'Could not send code' };
     } catch (error) {
-      console.error('[Auth] Register error:', error);
+      console.error('[Auth] Request code error:', error);
 
-      // Handle specific error responses
-      if (error.response?.status === 409) {
-        return { success: false, error: 'Email already registered' };
-      }
-      if (error.response?.status === 400) {
-        return { success: false, error: error.response.data?.message || 'Invalid input' };
+      if (error.response?.status === 429) {
+        return { success: false, error: error.response.data?.error || 'Please wait before requesting another code' };
       }
 
       return {
         success: false,
-        error: error.response?.data?.message || 'Registration failed. Please try again.',
+        error: error.response?.data?.error || 'Could not send code. Please try again.',
       };
     }
   }
 
-  // Login existing user
-  async login(email, password) {
+  // Exchange an emailed (or SMS/phone, once wired) code for a session.
+  async verifyCode({ email, phone, code }) {
     try {
-      const response = await api.post('/auth/login', {
-        email: email.toLowerCase().trim(),
-        password,
-      });
+      const body = email
+        ? { email: email.toLowerCase().trim(), code: code.trim() }
+        : { phone: phone.trim(), code: code.trim() };
+
+      const response = await api.post('/auth/verify-access-code', body);
 
       if (response.data.success) {
         return {
           success: true,
           user: response.data.user,
           token: response.data.token,
-          newUser: false,
         };
       }
 
-      return {
-        success: false,
-        error: response.data.message || 'Login failed',
-      };
+      return { success: false, error: response.data.error || 'Invalid or expired code' };
     } catch (error) {
-      console.error('[Auth] Login error:', error);
-
-      if (error.response?.status === 401) {
-        return { success: false, error: 'Invalid email or password' };
-      }
+      console.error('[Auth] Verify code error:', error);
 
       return {
         success: false,
-        error: error.response?.data?.message || 'Login failed. Please try again.',
+        error: error.response?.data?.error || 'Invalid or expired code',
       };
     }
   }

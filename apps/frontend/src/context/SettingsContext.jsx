@@ -29,11 +29,13 @@ export const useSettings = () => {
 };
 
 export const SettingsProvider = ({ children }) => {
-  const { isAuthenticated, user, loading: authLoading } = useAuth();
-  // Disabling Safe Search is gated behind Google sign-in — used as a
-  // lightweight age-verification signal to keep the "off" mode out of
-  // children's reach. Plain email/password accounts don't qualify.
-  const canDisableSafeSearch = isAuthenticated && user?.googleVerified === true;
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  // Disabling Safe Search is gated behind a verified sign-in — used as a
+  // lightweight signal to keep the "off" mode out of an anonymous/throwaway
+  // session's reach. OAuth is gone; every account now proves control of its
+  // email inbox via the passwordless code sign-in, so isAuthenticated alone
+  // carries the same "real, verified person" signal googleVerified used to.
+  const canDisableSafeSearch = isAuthenticated;
 
   const [settings, setSettings] = useState({
     safeSearch: 'safe', // 'safe' | 'blur' | 'off'

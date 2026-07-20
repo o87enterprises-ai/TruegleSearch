@@ -172,8 +172,6 @@ const envVarsSchema = Joi.object({
   TRANSCRIPT_INVIDIOUS_INSTANCES: Joi.string().optional().description('Comma-separated Invidious instance base URLs for transcript fetching'),
 
   // Google OAuth
-  GOOGLE_CLIENT_ID: Joi.string().optional().description('Google OAuth Client ID'),
-  GOOGLE_CLIENT_SECRET: Joi.string().optional().description('Google OAuth Client Secret'),
 
   // Bright Data (web scraping proxy)
   BRIGHT_DATA_API_KEY: Joi.string().optional().description('Bright Data API key'),
@@ -365,12 +363,6 @@ const config = {
     invidiousInstances: envVars.TRANSCRIPT_INVIDIOUS_INSTANCES
       ? envVars.TRANSCRIPT_INVIDIOUS_INSTANCES.split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean)
       : null,
-  },
-
-  // Google OAuth
-  googleOAuth: {
-    clientId: envVars.GOOGLE_CLIENT_ID,
-    clientSecret: envVars.GOOGLE_CLIENT_SECRET,
   },
 
   // Bright Data
