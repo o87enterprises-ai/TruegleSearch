@@ -21,6 +21,7 @@ const RewardsDashboard = () => {
   const [destination, setDestination] = useState('');
   const [payoutMessage, setPayoutMessage] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [toggleError, setToggleError] = useState(null);
 
   const PAYOUT_METHODS = {
     paypal:  { label: 'PayPal',          field: 'PayPal email address' },
@@ -51,9 +52,12 @@ const RewardsDashboard = () => {
   }, [loadHistory]);
 
   const handleToggle = async () => {
+    setToggleError(null);
     const result = optedIn ? await optOut() : await optIn();
     if (result.success) {
       await fetchStatus();
+    } else {
+      setToggleError(result.message || 'Something went wrong — please try again.');
     }
   };
 
@@ -126,6 +130,10 @@ const RewardsDashboard = () => {
               {optedIn ? 'Opt out' : 'Opt in to Rewards'}
             </button>
           </div>
+
+          {toggleError && (
+            <p className="text-sm text-red-400 mt-3">{toggleError}</p>
+          )}
 
           {optedIn && (
             <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/10">
