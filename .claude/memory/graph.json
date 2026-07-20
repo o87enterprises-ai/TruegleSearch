@@ -554,6 +554,15 @@
         "Type": "thread",
         "Label": "Migration 011 not yet run on production Neon",
         "body": "011_passwordless_auth.sql (drop google_id, nullable password_hash, add login_codes) has only been run on local test Postgres + verified via jest/Playwright. Needs running on production Neon (same run-migrations.js flow used for migration 010) before the new sign-in flow works in prod. Also: production needs a real RESEND_API_KEY env var set on Vercel backend project — without it, /request-code 500s (EmailService throws 'Resend API key not configured'). Resend has a free tier, so this should stay $0.",
+        "status": "done",
+        "ts": "2026-07-20",
+        "created": "2026-07-20"
+      },
+      "resend-api-key": {
+        "Id": "resend-api-key",
+        "Type": "thread",
+        "Label": "Set RESEND_API_KEY on Vercel backend",
+        "body": "Migration 011 is applied on production Neon (password_hash nullable, google_id dropped, login_codes table created). Only remaining blocker for passwordless sign-in to work in prod is setting a real RESEND_API_KEY (and optionally RESEND_FROM_EMAIL) in the Vercel backend project's env vars -- user is getting this now. Once set, /api/auth/request-code will actually deliver sign-in codes.",
         "status": "open",
         "ts": "2026-07-20",
         "created": "2026-07-20"
