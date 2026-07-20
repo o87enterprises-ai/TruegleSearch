@@ -200,6 +200,22 @@
         "body": "The old HANDOFF.md note (ep-spring-star-afnjwpg6-pooler, us-west-2) is STALE/WRONG. Confirmed production hostname via user checking Vercel's backend DATABASE_URL env var: ep-solitary-meadow-atan7id0-pooler.c-9.us-east-1.aws.neon.tech (project display name 'polished-sea-4...' in Neon console, database=neondb, role=neondb_owner). Use THIS for any future prod DB reference; ignore ep-spring-star-afnjwpg6 entirely.",
         "ts": "2026-07-20",
         "created": "2026-07-20"
+      },
+      "neonbutton-was-broken-2026-07-20": {
+        "Id": "neonbutton-was-broken-2026-07-20",
+        "Type": "fact",
+        "Label": "NeonButton was invisible (dead design tokens)",
+        "body": "NeonButton.jsx referenced neon-red/neon-cyan/bg-tertiary/shadow-glow-rainbow/text-label-medium etc -- NONE defined in tailwind.config.js (leftover from an earlier design iteration, config only has the 'truegle' blue/red/yellow/green/purple namespace). Every NeonButton rendered background:none, just plain text -- broke BOTH sign-in page submit buttons (email/password 'Enter' AND Access Code 'Activate Premium') site-wide wherever used. Fixed at the component: repointed to bg-gradient-to-r from-emerald-500 to-cyan-500 (matching the app's real current CTA gradient) + real Tailwind size classes. If any other old-iteration component looks 'invisible'/unstyled, check for similarly-dead custom Tailwind tokens first.",
+        "ts": "2026-07-20",
+        "created": "2026-07-20"
+      },
+      "rewards-two-protectedroutes": {
+        "Id": "rewards-two-protectedroutes",
+        "Type": "fact",
+        "Label": "Two different ProtectedRoute components exist",
+        "body": "components/auth/ProtectedRoute.jsx (strict, no FREE_ACCESS_MODE bypass) is UNUSED for /rewards and /settings. The ACTUAL route guard for those routes is a separate ProtectedRoute defined LOCALLY inside App.jsx (~line 180) which DOES bypass auth when FREE_ACCESS_MODE=true: 'if (FREE_ACCESS_MODE) return children;'. This means guests can view /rewards and /settings freely, but real money actions (Rewards opt-in) correctly still require genuine auth at the RewardsContext/backend layer -- fixed by showing a 'Sign in to opt in' prompt instead of a doomed-to-fail button when !isAuthenticated.",
+        "ts": "2026-07-20",
+        "created": "2026-07-20"
       }
     },
     "decision": {
@@ -362,6 +378,14 @@
         "body": "No real rewarded-video ad inventory existed — AdPlayer.jsx was a 30s countdown timer over a static HouseAd image, not a real video. Deleted AdPlayer.jsx + AdBannerDemo.jsx (dead code); stripped watch-ad flows from TokenGate, TokenContext, BiasedResults, ExtractPage, OSINTMode, OSINTTools, FreemiumTokenBar; removed backend ad-session/earn-from-ad routes+TokenService methods; all gated features now fall back to Premium-only. ad_watches table + users.last_ad_watched column are now unreferenced dead schema (left in place, not dropped). /rewards page now renders ONLY real AdsterraBanner via RewardAdSlot, no house/affiliate ads. Added MAX_DAILY_EARNINGS_MICROS=5,000,000 ($5/day) anti-abuse ceiling to RewardsService.earn() — pure backstop, not a real constraint (~39k honest impressions to hit it).",
         "ts": "2026-07-19",
         "created": "2026-07-19"
+      },
+      "houseads-affiliate-removal-2026-07-20": {
+        "Id": "houseads-affiliate-removal-2026-07-20",
+        "Type": "decision",
+        "Label": "Removed HouseAd + affiliate-premium program entirely, Adsterra-only",
+        "body": "User's call: remove ALL house/affiliate ads AND the affiliate-premium program (sign-up-for-1-month-free), full stop, everywhere -- not just /rewards. AdSlot.jsx repointed to render AdsterraBanner (size->format: small=320x50, medium=300x250, large/leaderboard=468x60, sidebar=300x250 fallback -- never 728x90/160x300/160x600, those stay adult-gated). Deleted: HouseAd.jsx, config/houseAds.js, ClaimPremiumOffer.jsx, AdvertiseContactModal.jsx (its only trigger was HouseAd's advertise-cta), ui/AdBanner.jsx wrapper. Backend: deleted AffiliatePremiumService.js + routes/affiliate-premium.js + server.js mount; TokenService.getBalance no longer reads premium_until/isPremiumFromOffer (full stop per user, not the leave-inert option) -- users.premium_until column + affiliate_premium_claims table are now DEAD SCHEMA, left in place (same precedent as ad_watches/last_ad_watched). LegalPage/About.jsx ProtonVPN link is now the plain untracked URL (was aff-proton-vpn tracked link). Verified via Playwright: self-promo 'ADVERTISE HERE' card gone, real Adsterra iframe renders on /search, no stray affiliate copy.",
+        "ts": "2026-07-20",
+        "created": "2026-07-20"
       }
     },
     "entity": {
