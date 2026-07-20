@@ -657,7 +657,7 @@ export default function LandingPage() {
 
           <button
             onClick={() => {
-              navigate('/auth/signup', { state: { showFreemiumMessage: true } });
+              navigate('/auth/login', { state: { showFreemiumMessage: true } });
               setShowMicrophoneInterface(false);
               setTranscript('');
             }}
@@ -703,7 +703,7 @@ export default function LandingPage() {
 
           <button
             onClick={() => {
-              navigate('/auth/signup', { state: { showFreemiumMessage: true } });
+              navigate('/auth/login', { state: { showFreemiumMessage: true } });
               setShowCameraInterface(false);
             }}
             className="mt-6 px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-800 text-white font-bold rounded-xl hover:from-gray-500 hover:to-gray-700 transition-all"
@@ -794,7 +794,7 @@ export default function LandingPage() {
             <div className="text-center">
               <button
                 onClick={() => {
-                  navigate('/auth/signup', { state: { showFreemiumMessage: true } });
+                  navigate('/auth/login', { state: { showFreemiumMessage: true } });
                   setShowFilesInterface(false);
                 }}
                 className="px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-800 text-white font-bold rounded-xl hover:from-gray-500 hover:to-gray-700 transition-all"

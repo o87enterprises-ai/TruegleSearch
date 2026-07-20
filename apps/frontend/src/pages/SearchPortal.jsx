@@ -2429,8 +2429,8 @@ export default function SearchPortal() {
                   // Show the glitch effect first
                   setShowGlitch(true);
                   setTimeout(() => {
-                    // For media interfaces, navigate to molecular signup page with freemium message
-                    navigate('/auth/signup', { state: { showFreemiumMessage: true } });
+                    // For media interfaces, navigate to the passwordless sign-in flow with freemium message
+                    navigate('/auth/login', { state: { showFreemiumMessage: true } });
 
                     // Reset states
                     setShowFilesInterface(false);

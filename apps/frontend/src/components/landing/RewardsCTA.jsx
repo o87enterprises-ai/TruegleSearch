@@ -32,7 +32,7 @@ export default function RewardsCTA() {
             </p>
             <div className="flex gap-3 mt-1">
               <button
-                onClick={() => navigate('/auth/signup')}
+                onClick={() => navigate('/auth/login')}
                 className="px-5 py-2 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-black font-semibold text-sm transition-all"
               >
                 Sign up
