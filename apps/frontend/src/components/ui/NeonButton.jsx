@@ -15,18 +15,17 @@ const NeonButton = ({
 
   const variants = {
     primary:
-      'bg-gradient-to-r from-neon-red via-neon-orange via-neon-yellow via-neon-green via-neon-cyan to-neon-blue text-white shadow-glow-rainbow hover:shadow-glow-rainbow-lg',
+      'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-lg shadow-emerald-500/30 hover:opacity-90 hover:shadow-cyan-500/40',
     secondary:
-      'bg-bg-tertiary/50 border-2 border-neon-cyan/50 text-white hover:border-neon-cyan hover:shadow-glow-cyan',
+      'bg-white/10 border-2 border-cyan-500/50 text-white hover:border-cyan-400 hover:bg-white/20',
     ghost:
-      'bg-transparent border-2 border-neon-cyan/30 text-neon-cyan hover:border-neon-cyan hover:bg-neon-cyan/10',
+      'bg-transparent border-2 border-cyan-500/30 text-cyan-400 hover:border-cyan-400 hover:bg-cyan-500/10',
   };
 
-  // Size configurations using Material Design 3 typography scale
   const sizes = {
-    sm: 'px-4 py-2 text-label-medium',
-    md: 'px-6 py-3 text-label-large',
-    lg: 'px-8 py-4 text-title-medium',
+    sm: 'px-4 py-2 text-sm',
+    md: 'px-6 py-3 text-base',
+    lg: 'px-8 py-4 text-lg',
   };
 
   const disabledStyles = disabled ? 'opacity-50 cursor-not-allowed' : '';
@@ -49,7 +48,7 @@ const NeonButton = ({
     >
       {variant === 'primary' && (
         <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-neon-red via-neon-orange via-neon-yellow via-neon-green via-neon-cyan to-neon-blue opacity-0"
+          className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-cyan-400 opacity-0"
           animate={{
             opacity: [0, 0.3, 0],
           }}
