@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useRewards } from '../context/RewardsContext';
+import { useAuth } from '../context/AuthContext';
 import { rewardsAPI } from '../services/api';
 import RewardAdSlot from '../components/RewardAdSlot';
 import { formatMicros } from '../utils/rewardsFormat';
@@ -14,6 +15,8 @@ import { formatMicros } from '../utils/rewardsFormat';
  * configured, rather than pretending a transfer happened.
  */
 const RewardsDashboard = () => {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const { optedIn, balanceMicros, lifetimeEarnedMicros, config, loading, fetchStatus, optIn, optOut } = useRewards();
   const [ledger, setLedger] = useState([]);
   const [payouts, setPayouts] = useState([]);
@@ -118,18 +121,33 @@ const RewardsDashboard = () => {
                 )}
               </div>
             </div>
-            <button
-              onClick={handleToggle}
-              disabled={loading}
-              className={`px-5 py-2.5 rounded-xl font-semibold transition-all disabled:opacity-50 ${
-                optedIn
-                  ? 'bg-white/10 hover:bg-white/20 border border-white/20'
-                  : 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:opacity-90'
-              }`}
-            >
-              {optedIn ? 'Opt out' : 'Opt in to Rewards'}
-            </button>
+            {isAuthenticated ? (
+              <button
+                onClick={handleToggle}
+                disabled={loading}
+                className={`px-5 py-2.5 rounded-xl font-semibold transition-all disabled:opacity-50 ${
+                  optedIn
+                    ? 'bg-white/10 hover:bg-white/20 border border-white/20'
+                    : 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:opacity-90'
+                }`}
+              >
+                {optedIn ? 'Opt out' : 'Opt in to Rewards'}
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate('/auth/login', { state: { redirectTo: '/rewards' } })}
+                className="px-5 py-2.5 rounded-xl font-semibold transition-all bg-gradient-to-r from-emerald-500 to-cyan-500 hover:opacity-90"
+              >
+                Sign in to opt in
+              </button>
+            )}
           </div>
+
+          {!isAuthenticated && (
+            <p className="text-sm text-amber-300/90 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mt-3">
+              Rewards are a real cash payout, so opting in requires a signed-in account — you can browse this page without one, but you'll need to sign in to actually opt in.
+            </p>
+          )}
 
           {toggleError && (
             <p className="text-sm text-red-400 mt-3">{toggleError}</p>
