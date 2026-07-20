@@ -216,6 +216,14 @@
         "body": "components/auth/ProtectedRoute.jsx (strict, no FREE_ACCESS_MODE bypass) is UNUSED for /rewards and /settings. The ACTUAL route guard for those routes is a separate ProtectedRoute defined LOCALLY inside App.jsx (~line 180) which DOES bypass auth when FREE_ACCESS_MODE=true: 'if (FREE_ACCESS_MODE) return children;'. This means guests can view /rewards and /settings freely, but real money actions (Rewards opt-in) correctly still require genuine auth at the RewardsContext/backend layer -- fixed by showing a 'Sign in to opt in' prompt instead of a doomed-to-fail button when !isAuthenticated.",
         "ts": "2026-07-20",
         "created": "2026-07-20"
+      },
+      "legacy-schema-drift": {
+        "Id": "legacy-schema-drift",
+        "Type": "fact",
+        "Label": "Production users table = legacy User.js createTable schema, NOT migration 001",
+        "body": "CRITICAL: the production Neon users table was bootstrapped by models/User.js createTable() (runs on every serverless connect via utils/database.js), NOT by migration 001 — so it has a DIVERGENT schema. It has: role, password, name, is_verified, is_active, google_id(now dropped), token_balance, feature_usage, game_tokens_earned, rewards_*, premium_until, phone, registration_method, is_pending, paypal_order_id. It was MISSING vs what code assumes: password_hash, username, subscription_tier, subscription_status, stripe_customer_id, subscription/search_history-dependent bits. Migrations 011-014 patched the auth/sign-in path: 011 password_hash nullable + login_codes + drop google_id; 012 add username (backfill from name); 013 password/name nullable; 014 add subscription_tier/status (backfill premium from premium_until). Any FUTURE raw SQL against users must be checked against THIS real column set, not migration 001. Root fix (later): reconcile the two schemas or make User.js createTable match migration 001.",
+        "ts": "2026-07-20",
+        "created": "2026-07-20"
       }
     },
     "decision": {
