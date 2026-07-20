@@ -386,6 +386,14 @@
         "body": "User's call: remove ALL house/affiliate ads AND the affiliate-premium program (sign-up-for-1-month-free), full stop, everywhere -- not just /rewards. AdSlot.jsx repointed to render AdsterraBanner (size->format: small=320x50, medium=300x250, large/leaderboard=468x60, sidebar=300x250 fallback -- never 728x90/160x300/160x600, those stay adult-gated). Deleted: HouseAd.jsx, config/houseAds.js, ClaimPremiumOffer.jsx, AdvertiseContactModal.jsx (its only trigger was HouseAd's advertise-cta), ui/AdBanner.jsx wrapper. Backend: deleted AffiliatePremiumService.js + routes/affiliate-premium.js + server.js mount; TokenService.getBalance no longer reads premium_until/isPremiumFromOffer (full stop per user, not the leave-inert option) -- users.premium_until column + affiliate_premium_claims table are now DEAD SCHEMA, left in place (same precedent as ad_watches/last_ad_watched). LegalPage/About.jsx ProtonVPN link is now the plain untracked URL (was aff-proton-vpn tracked link). Verified via Playwright: self-promo 'ADVERTISE HERE' card gone, real Adsterra iframe renders on /search, no stray affiliate copy.",
         "ts": "2026-07-20",
         "created": "2026-07-20"
+      },
+      "auth-passwordless": {
+        "Id": "auth-passwordless",
+        "Type": "decision",
+        "Label": "Auth: OAuth+password removed, access-code-only",
+        "body": "Google/Apple OAuth and email+password login fully removed (routes/auth.js, User.js, middleware/auth.js, SignInPage.jsx, AuthCallback.jsx deleted). Sign-in is now request-code (email) -> verify-access-code (checks premium_access_codes then falls back to new login_codes table). Migration 011 adds login_codes, drops google_id, makes password_hash nullable. Uses existing Resend-backed EmailService (services/EmailService.js sendLoginCode). Safe Search 'off' gating changed from googleVerified to isAuthenticated (frontend SettingsContext.jsx + backend routes/search.js) since email-code verification carries the same signal OAuth used to. Phone entry kept in UI but explicitly inert (no SMS yet, $0 budget).",
+        "ts": "2026-07-20",
+        "created": "2026-07-20"
       }
     },
     "entity": {
@@ -538,6 +546,15 @@
         "Label": "Migration 010 still not run on production Neon (correction: not actually done yet)",
         "body": "CORRECTION: previously marked done by mistake -- the migration has NOT actually been run yet as of 2026-07-20, only the correct hostname was identified (ep-solitary-meadow-atan7id0-pooler / 'polished-sea-4' project, see prod-neon-hostname-corrected fact). User was given the full SQL migration + schema_migrations tracker insert to paste into Neon's web SQL Editor on their phone. Still waiting for confirmation it ran successfully.",
         "status": "done",
+        "ts": "2026-07-20",
+        "created": "2026-07-20"
+      },
+      "migration-011-neon": {
+        "Id": "migration-011-neon",
+        "Type": "thread",
+        "Label": "Migration 011 not yet run on production Neon",
+        "body": "011_passwordless_auth.sql (drop google_id, nullable password_hash, add login_codes) has only been run on local test Postgres + verified via jest/Playwright. Needs running on production Neon (same run-migrations.js flow used for migration 010) before the new sign-in flow works in prod. Also: production needs a real RESEND_API_KEY env var set on Vercel backend project — without it, /request-code 500s (EmailService throws 'Resend API key not configured'). Resend has a free tier, so this should stay $0.",
+        "status": "open",
         "ts": "2026-07-20",
         "created": "2026-07-20"
       }
