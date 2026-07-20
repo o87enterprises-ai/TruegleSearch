@@ -1,10 +1,8 @@
 import React from 'react';
 import LegalPage, { LegalSection } from '../components/LegalPage';
-import { getAdById } from '../config/houseAds';
 
 const About = () => {
-  const protonAd = getAdById('aff-proton-vpn');
-  const protonUrl = protonAd?.url || 'https://protonvpn.com/';
+  const protonUrl = 'https://protonvpn.com/';
 
   return (
     <LegalPage title="About Truegle" lastUpdated="June 28, 2026">

@@ -1,17 +1,20 @@
 import React from 'react';
 import { useSettings } from '../context/SettingsContext';
-import HouseAd from './ui/HouseAd';
+import AdsterraBanner from './ads/AdsterraBanner';
 
-// Map the legacy size prop to an ad zone (see config/houseAds.js AD_ZONES).
-const sizeToZone = {
-  small: 'search-inline',
-  medium: 'settings-medium',
-  large: 'results-leaderboard',
-  leaderboard: 'results-leaderboard',
-  sidebar: 'search-sidebar',
+// Map the legacy size prop to a confirmed non-adult Adsterra format. Never
+// map to banner728x90/160x300/160x600 here — those are the OLD adult-locked
+// zones and must stay behind the full adultGated + AdultConsentGate flow
+// (see RewardAdSlot.jsx / config/ads.js), not a plain filler slot.
+const sizeToFormat = {
+  small: 'banner320x50',
+  medium: 'banner300x250',
+  large: 'banner468x60',
+  leaderboard: 'banner468x60',
+  sidebar: 'banner300x250',
 };
 
-const AdSlot = ({ position, size = 'medium', category, query, adId, className = '', compact = false, featured = false }) => {
+const AdSlot = ({ position, size = 'medium', className = '' }) => {
   const { settings } = useSettings();
 
   // Don't show ads if ad personalization is off and user chose necessary cookies only
@@ -22,21 +25,9 @@ const AdSlot = ({ position, size = 'medium', category, query, adId, className = 
     return null;
   }
 
-  // Slots now serve first-party house ads (our own projects) instead of a
-  // static placeholder. Same API — `position`/`size`/`className` still work.
-  // `adId` pins a specific ad to this slot (otherwise weighted-random).
-  // `query` lets the slot match the ad to what the user actually searched for.
-  return (
-    <HouseAd
-      zone={sizeToZone[size] || position || 'unknown'}
-      category={category}
-      query={query}
-      adId={adId}
-      className={className}
-      compact={compact}
-      featured={featured}
-    />
-  );
+  const format = sizeToFormat[size] || sizeToFormat[position] || 'banner320x50';
+
+  return <AdsterraBanner format={format} className={className} />;
 };
 
 export default AdSlot;

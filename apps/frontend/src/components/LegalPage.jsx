@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getAdById } from '../config/houseAds';
 
 /**
  * Shared layout for static legal/info pages (Privacy, Terms, About).
@@ -12,8 +11,7 @@ const LegalPage = ({ title, lastUpdated, children }) => {
     window.scrollTo(0, 0);
   }, [title]);
 
-  const protonAd = getAdById('aff-proton-vpn');
-  const protonUrl = protonAd?.url || 'https://protonvpn.com/';
+  const protonUrl = 'https://protonvpn.com/';
 
   return (
     <div className="min-h-screen bg-black text-gray-200">

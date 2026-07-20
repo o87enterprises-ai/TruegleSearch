@@ -8,7 +8,6 @@ import {
   ThumbsUp,
   ThumbsDown,
 } from 'lucide-react';
-import AdBanner from '../ui/AdBanner';
 import { aiAPI } from '../../services/api';
 
 // TEMPORARY AI IMPLEMENTATION - Will be replaced with final AI provider

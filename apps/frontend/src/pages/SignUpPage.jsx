@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 // import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js'; // premium pay flow — coming soon
 import {
   Mail, Phone, ArrowRight, Check, Sparkles, Zap, Eye,
-  Users, Clock, CreditCard, Lock,
+  Clock, CreditCard, Lock,
 } from 'lucide-react';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import MolecularBackground from '../components/backgrounds/MolecularBackground';
@@ -56,20 +56,6 @@ const PREMIUM_TIERS = [
     description: 'Half price for your first 3 months, cancel anytime.',
     ctaLabel: 'Start at $2.50/mo',
     input: null,
-  },
-  {
-    id: 'affiliate',
-    icon: Users,
-    label: 'Affiliate Partner',
-    badge: '1 Month Free',
-    badgeColor: 'purple',
-    price: 'Free',
-    period: '1 month',
-    strikethrough: null,
-    discount: 'No credit card required',
-    description: 'Sign up through one of our partners and get 1 month premium free — no CC needed.',
-    ctaLabel: 'Choose an affiliate partner',
-    input: { placeholder: 'Select affiliate partner…', type: 'select' },
   },
 ];
 

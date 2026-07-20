@@ -46,7 +46,6 @@ import RootErrorBoundary from './components/ui/RootErrorBoundary';
 import RouteBoundary from './components/ui/RouteBoundary';
 import PreProductionBanner from './components/ui/PreProductionBanner';
 import GlobalNav from './components/ui/GlobalNav';
-import AdvertiseContactModal from './components/ui/AdvertiseContactModal';
 import SafeSearchLockModal from './components/ui/SafeSearchLockModal';
 import TutorialModal from './components/ui/TutorialModal';
 import { useTutorials } from './context/TutorialContext';
@@ -267,7 +266,6 @@ const AppContent = () => {
     <div id="main-content" className={containerClassNames}>
       <GlobalNav />
       <PreProductionBanner />
-      <AdvertiseContactModal />
       <SafeSearchLockModal />
       <TutorialModalRoot />
       {/* NOTE: Do NOT wrap <Routes> in <AnimatePresence mode="wait">. The route

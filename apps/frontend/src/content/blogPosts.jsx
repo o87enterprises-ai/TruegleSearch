@@ -285,12 +285,11 @@ export const BLOG_POSTS = [
           </p>
         </LegalSection>
 
-        <LegalSection heading="Neon Green — CPM and Affiliate Ads">
+        <LegalSection heading="Neon Green — CPM Ads">
           <p>
             A <strong>neon apple-green border</strong> marks a paid CPM (cost-per-thousand
-            impressions) or affiliate ad — things like display banners from our ad network
-            partner Adsterra, or affiliate product links. These ads are served to all users
-            regardless of query content.
+            impressions) ad — display banners from our ad network partner Adsterra. These
+            ads are served to all users regardless of query content.
           </p>
           <p>
             Green means: <em>a real advertiser paid to be here. Truegle earns revenue from

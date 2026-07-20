@@ -1486,17 +1486,16 @@ export default function UniversalSearch({ lockedGreen = false }) {
             </div>
           )}
 
-          {/* Ad Banner 1 - Below the AI summary — the pinned "Claim this
-              spot" CTA. Hidden on question-phrased queries so the
-              quick-answer card gets the space instead. */}
+          {/* Ad Banner 1 - Below the AI summary. Hidden on question-phrased
+              queries so the quick-answer card gets the space instead. */}
           {!queryIsQuestion && (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               className="max-w-4xl mx-auto mb-4"
             >
-              <AdColorWrapper type="claim">
-                <AdSlot className="rounded-2xl" size="large" adId="advertise-cta" featured />
+              <AdColorWrapper type="cpm">
+                <AdSlot className="rounded-2xl" size="large" />
               </AdColorWrapper>
             </motion.div>
           )}

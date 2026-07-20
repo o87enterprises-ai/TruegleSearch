@@ -1,6 +1,5 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { AD_ZONES } from '../config/houseAds';
 
 /*
  * /advertise — the media kit + sales page.
@@ -24,6 +23,7 @@ const PACKAGES = [
   {
     name: 'Native In-Results',
     zone: 'search-inline',
+    format: '300×250',
     price: '€199',
     period: '/ month',
     blurb: 'A clean sponsored card placed within search results.',
@@ -33,6 +33,7 @@ const PACKAGES = [
   {
     name: 'Sidebar Sponsor',
     zone: 'search-sidebar',
+    format: '300×600',
     price: '€349',
     period: '/ month',
     blurb: 'Persistent presence beside every search session.',
@@ -43,6 +44,7 @@ const PACKAGES = [
   {
     name: 'Leaderboard',
     zone: 'results-leaderboard',
+    format: '728×90',
     price: '€499',
     period: '/ month',
     blurb: 'Top-of-results banner — maximum visibility.',
@@ -139,7 +141,7 @@ const Advertise = () => {
                   </div>
                 )}
                 <div className="text-sm text-white/60 mb-1">
-                  {AD_ZONES[pkg.zone]?.format}
+                  {pkg.format}
                 </div>
                 <div className="text-lg font-bold mb-2">{pkg.name}</div>
                 <div className="mb-3">
