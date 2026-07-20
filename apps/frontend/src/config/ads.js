@@ -50,11 +50,17 @@ export const adInvokeUrl = (key) => `https://${AD_DOMAIN}/${key}/invoke.js`;
 /**
  * Adsterra placement keys — truegle.info (site ID 5880564).
  *
- * SMALL ZONES RESTORED 2026-07-19: banner320x50/300x250/468x60 and the native
- * banner were confirmed non-adult in the dashboard and are back in rotation.
+ * PULLED 2026-07-20: banner468x60/banner320x50/banner300x250/nativeBanner were
+ * restored 2026-07-19 as "confirmed non-adult" — but a user was served an
+ * explicit adult creative from one of them ungated, on a completely benign
+ * neutral-mode search, within 24 hours of restoring them. Per the standing
+ * policy below, they're pulled again immediately rather than guessing which
+ * one specifically went bad — do NOT restore any of the four without a fresh
+ * zone request from Adsterra AND a period of monitored, verified-clean serving.
+ *
  * NOTE — Adsterra has no delete function for ad units, ever (confirmed via
  * their own support chat): a zone that goes adult can't be fixed, only
- * abandoned. If any of these four start serving adult creative again, pull
+ * abandoned. If a restored zone starts serving adult creative again, pull
  * the key here (don't bother hunting for a dashboard toggle — there isn't
  * one) and request a fresh zone to replace it.
  *
@@ -67,10 +73,6 @@ export const ADSTERRA = {
   banner728x90:  { key: 'd5f657ea7d55fc33ea532071957a2857', w: 728, h: 90  },
   banner160x300: { key: 'ffac08ed0f599aa8f389d387aa76001b', w: 160, h: 300 },
   banner160x600: { key: 'c16f5233d71714d3151e160ac5778be2', w: 160, h: 600 },
-  banner468x60:  { key: '7e53f17316c72708e8417a8a991171ac', w: 468, h: 60  },
-  banner320x50:  { key: '5c0cc5f396ae48cbf68f63ec86024c3f', w: 320, h: 50  },
-  banner300x250: { key: '0fca9299f48c601ea125d688c11ff7d2', w: 300, h: 250 },
-  nativeBanner:  { key: 'a7a8599f485ec0638131d8f99bc29cb7', native: true, h: 300 },
 };
 
 /** Maps a logical slot name to an Adsterra format. */
