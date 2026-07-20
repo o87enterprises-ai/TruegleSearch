@@ -563,6 +563,15 @@
         "Type": "thread",
         "Label": "Set RESEND_API_KEY on Vercel backend",
         "body": "Migration 011 is applied on production Neon (password_hash nullable, google_id dropped, login_codes table created). Only remaining blocker for passwordless sign-in to work in prod is setting a real RESEND_API_KEY (and optionally RESEND_FROM_EMAIL) in the Vercel backend project's env vars -- user is getting this now. Once set, /api/auth/request-code will actually deliver sign-in codes.",
+        "status": "done",
+        "ts": "2026-07-20",
+        "created": "2026-07-20"
+      },
+      "resend-domain-verify": {
+        "Id": "resend-domain-verify",
+        "Type": "thread",
+        "Label": "Verify truegle.info in Resend for real user emails",
+        "body": "Passwordless sign-in confirmed working end to end in production (migrations 011-013 fixed schema drift: password_hash/password/name made nullable, username column added+backfilled, google_id dropped, login_codes table created). RESEND_API_KEY was already set; RESEND_FROM_EMAIL currently REMOVED (falls back to Resend sandbox onboarding@resend.dev), which only delivers to the Resend account's own registered email -- fine for testing (truegleai@proton.me), NOT fine for real users. Next step: verify truegle.info domain at resend.com/domains (add the DNS records Resend provides wherever truegle.info's DNS is hosted), then set RESEND_FROM_EMAIL=noreply@truegle.info and redeploy.",
         "status": "open",
         "ts": "2026-07-20",
         "created": "2026-07-20"
