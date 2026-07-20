@@ -3,6 +3,11 @@
 
 -- No password concept remains -- register-direct already stores a throwaway
 -- bcrypt hash here today; new code-only signups don't need one at all.
+-- Some DBs never got this column via migration 001 at all -- they were
+-- bootstrapped instead by models/User.js's legacy createTable(), which uses
+-- a `password` column and predates password_hash entirely. Add it if
+-- missing (nullable) before relaxing it, so this is safe either way.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
 ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
 
 -- is_verified is read/written by routes/auth.js (confirm-premium) but was
