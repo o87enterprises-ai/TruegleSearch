@@ -232,6 +232,14 @@
         "body": "Passwordless auth is fully working in production for ALL users as of 2026-07-21. truegle.info verified in Resend (o87enterprises account, us-east-1, Cloudflare auto-config). RESEND_FROM_EMAIL=noreply@truegle.info. GOTCHA fixed: the original 52-day-old RESEND_API_KEY belonged to a different/mismatched Resend account so it 403'd 'domain not verified' even after verification — regenerated a fresh Full-access key in the o87enterprises account (where the domain lives) and that fixed it. Lesson: the API key and the verified domain MUST be in the same Resend account. Onboarding also consolidated: landing rewards CTA + freemium media CTAs now route to /auth/login (passwordless), premium/upgrade links still go to /auth/signup (pricing page).",
         "ts": "2026-07-21",
         "created": "2026-07-21"
+      },
+      "ads-reactivated-0721": {
+        "Id": "ads-reactivated-0721",
+        "Type": "fact",
+        "Label": "Adsterra non-adult zones reactivated 2026-07-21 (risk accepted)",
+        "body": "Owner explicitly chose 'go live now anyway' after being shown the risk. Re-added 4 non-adult zones to config/ads.js ungated with FRESH keys: banner468x60=7e53f17316c72708e8417a8a991171ac, banner320x50=5c0cc5f396ae48cbf68f63ec86024c3f, banner300x250=0fca9299f48c601ea125d688c11ff7d2, nativeBanner=a7a8599f485ec0638131d8f99bc29cb7. Old adult-locked (still gated, unchanged): banner728x90=d5f657..., banner160x300=ffac08..., banner160x600=c16f5233.... These fill rewards page (RewardAdSlot: leaderboard/large=468x60, medium/sidebar=300x250, small=320x50) + AdSlot filler sitewide. RISK: owner asked Adsterra to disable account-level adult toggle but at reactivation it was still pending a human agent (AI agent only escalated). Both prior leaks (07-05, 07-20) were account-level, so adult creative could still appear until Adsterra confirms toggle OFF. ROLLBACK if it recurs: delete offending key line in config/ads.js + redeploy. Verified 5 ad iframes render on /rewards with correct keys.",
+        "ts": "2026-07-21",
+        "created": "2026-07-21"
       }
     },
     "decision": {
