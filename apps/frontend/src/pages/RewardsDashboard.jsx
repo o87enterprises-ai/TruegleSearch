@@ -6,6 +6,7 @@ import { rewardsAPI } from '../services/api';
 import RewardAdSlot from '../components/RewardAdSlot';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import LandingBackground from '../components/LandingBackground';
+import SearchBar from '../components/ui/SearchBar';
 import { formatMicros } from '../utils/rewardsFormat';
 
 /*
@@ -27,6 +28,14 @@ const RewardsDashboard = () => {
   const [payoutMessage, setPayoutMessage] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [toggleError, setToggleError] = useState(null);
+  const [searchValue, setSearchValue] = useState('');
+  const [searchFilters, setSearchFilters] = useState({ sortBy: 'relevance', order: 'desc', category: 'all', dateRange: 'any', bias: 'all' });
+  const [searchCategory, setSearchCategory] = useState('all');
+
+  const submitSearch = () => {
+    const q = searchValue.trim();
+    navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search');
+  };
 
   const PAYOUT_METHODS = {
     paypal:  { label: 'PayPal',          field: 'PayPal email address' },
@@ -109,10 +118,10 @@ const RewardsDashboard = () => {
             </div>
           </button>
 
-          {/* Opt-in message: below the logo, above the pill — shown only to
-              users who haven't opted in yet; hidden for returning members. */}
+          {/* Opt-in message: directly below the logo — shown only to users who
+              haven't opted in yet; hidden for returning members. */}
           {!optedIn && (
-            <div className="max-w-xl mt-3 mb-5">
+            <div className="max-w-xl mt-3">
               <h1 className="text-2xl md:text-3xl font-bold mb-2">Get paid for the ads you already see</h1>
               <p className="text-white/70 text-sm">
                 Opt in and Truegle pays you a small cash reward for ads you genuinely view — no extra
@@ -121,20 +130,6 @@ const RewardsDashboard = () => {
               </p>
             </div>
           )}
-
-          {/* Rewards pill (mode indicator, mirrors the search page's pill) */}
-          <div className="flex flex-col items-center gap-1.5">
-            <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold select-none">
-              Rewards
-            </span>
-            <div
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white"
-              style={{ backgroundColor: '#f97316' }}
-            >
-              <span className="w-2 h-2 rounded-full bg-white/90 flex-shrink-0" />
-              Rewards
-            </div>
-          </div>
         </div>
 
         {/* Status card */}
@@ -341,6 +336,44 @@ const RewardsDashboard = () => {
             </div>
           </>
         )}
+
+        {/* Rewards pill + the full search bar — this page searches too. */}
+        <div className="flex flex-col items-center gap-4 my-8">
+          <div className="flex flex-col items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold select-none">
+              Rewards
+            </span>
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white"
+              style={{ backgroundColor: '#f97316' }}
+            >
+              <span className="w-2 h-2 rounded-full bg-white/90 flex-shrink-0" />
+              Rewards
+            </div>
+          </div>
+          <div className="w-full">
+            <SearchBar
+              value={searchValue}
+              onChange={(val) => setSearchValue(val)}
+              onSubmit={submitSearch}
+              onSearch={submitSearch}
+              placeholder="Search Truegle…"
+              size="medium"
+              showSearchButton={false}
+              showBiasedButton={false}
+              showUnbiasedButton={false}
+              showPillToggle={false}
+              showFilters={true}
+              showFilterToggle={true}
+              filters={searchFilters}
+              onFiltersChange={setSearchFilters}
+              showCategories={true}
+              activeCategory={searchCategory}
+              onSelectCategory={setSearchCategory}
+              showOSINTToggle={false}
+            />
+          </div>
+        </div>
 
         {/* Real Adsterra inventory only on this page — no house/affiliate ads,
             so every ad shown here is one you can actually get paid for. Every

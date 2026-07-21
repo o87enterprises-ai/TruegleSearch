@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Search } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { MODE_COLORS } from '../../config/modeTheme';
-import TruegleLogo from './TruegleLogo';
 
-// The seven destinations — same set as the old GlobalNav drawer, now doubling
-// as the color-coded pill row so search + every mode is reachable from any
-// page (the user's "don't get stuck on a route" requirement).
+// Global navigation — ONLY a hamburger button that opens a slide-out drawer.
+// No logo, no search, no pill row: each page owns its own hero (logo + pill +
+// search live in the page body, matching the search-page layout). This is the
+// single always-reachable nav for the whole site.
 const ITEMS = [
   { label: 'Search',       mode: 'blue',   path: '/search?mode=blue' },
   { label: 'Rabbit Hole',  mode: 'red',    path: '/search?mode=red' },
@@ -19,25 +19,11 @@ const ITEMS = [
   { label: 'Rewards',      mode: 'orange', path: '/rewards' },
 ];
 
-// Pages that own their full-screen branding (or must stay chrome-free).
-// Pages that own their full-screen hero (logo + search live in the hero
-// itself, so the top bar would be a redundant second search field).
-const HIDDEN_PATHS = new Set(['/', '/auth/login', '/auth/signup', '/onboarding', '/rewards']);
-
-function currentMode(location) {
-  const p = location.pathname;
-  if (p === '/chat') return 'black';
-  if (p === '/extract') return 'yellow';
-  if (p === '/rewards') return 'orange';
-  if (p.startsWith('/osint')) return 'ocean';
-  if (p === '/green') return 'green';
-  if (p === '/search') return new URLSearchParams(location.search).get('mode') || 'blue';
-  return 'blue';
-}
+// Auth pages are focused flows with their own chrome — no menu there.
+const HIDDEN_PATHS = new Set(['/auth/login', '/auth/signup']);
 
 export default function BrandBar() {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -51,9 +37,6 @@ export default function BrandBar() {
 
   if (HIDDEN_PATHS.has(location.pathname)) return null;
 
-  const mode = currentMode(location);
-  const accent = MODE_COLORS[mode];
-
   const isActive = (item) => {
     if (item.path === '/chat') return location.pathname === '/chat';
     if (item.path === '/extract') return location.pathname === '/extract';
@@ -62,74 +45,19 @@ export default function BrandBar() {
     return location.pathname === '/search' && (params.get('mode') || 'blue') === item.mode;
   };
 
-  const submitSearch = (e) => {
-    e.preventDefault();
-    const q = query.trim();
-    if (!q) return;
-    if (mode === 'black') navigate(`/chat?q=${encodeURIComponent(q)}`);
-    else navigate(`/search?q=${encodeURIComponent(q)}&mode=${mode}`);
-  };
-
   return (
-    <header
-      className="sticky top-0 z-[60] w-full bg-[#0a0a12]/90 backdrop-blur-xl border-b"
-      style={{ borderColor: `${accent}55` }}
-    >
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center gap-2 sm:gap-3">
-        {/* Menu */}
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label="Open menu"
-          className="w-9 h-9 rounded-full border border-white/15 hover:border-white/30 flex items-center justify-center text-white/80 hover:text-white transition-colors flex-shrink-0"
-        >
-          <Menu size={17} />
-        </button>
+    <>
+      <motion.button
+        type="button"
+        onClick={() => setOpen(true)}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        aria-label="Open menu"
+        className="fixed top-4 left-4 z-[9998] w-10 h-10 rounded-full bg-[#13131f]/90 border border-white/15 backdrop-blur-xl shadow-xl flex items-center justify-center text-white/80 hover:text-white hover:border-white/30 transition-colors"
+      >
+        <Menu size={18} />
+      </motion.button>
 
-        {/* Logo → home */}
-        <button onClick={() => navigate('/')} className="flex-shrink-0" aria-label="Home">
-          <TruegleLogo size="small" animated={false} />
-        </button>
-
-        {/* Search */}
-        <form onSubmit={submitSearch} className="flex-1 min-w-0 relative">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search…"
-            className="w-full h-9 pl-9 pr-3 rounded-full bg-black/40 border text-sm text-white placeholder-white/40 focus:outline-none transition-all"
-            style={{ borderColor: `${accent}44` }}
-            onFocus={(e) => (e.target.style.borderColor = accent)}
-            onBlur={(e) => (e.target.style.borderColor = `${accent}44`)}
-          />
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-        </form>
-
-        {/* Pills (destinations) — scrollable, hidden on the smallest screens */}
-        <nav className="hidden md:flex items-center gap-1.5 overflow-x-auto flex-shrink min-w-0">
-          {ITEMS.map((item) => {
-            const active = isActive(item);
-            const color = MODE_COLORS[item.mode];
-            return (
-              <button
-                key={item.label}
-                type="button"
-                onClick={() => navigate(item.path)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border transition-all ${
-                  active ? 'text-white' : 'text-white/60 hover:text-white border-transparent'
-                }`}
-                style={active ? { backgroundColor: `${color}22`, borderColor: `${color}88` } : undefined}
-              >
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* Slide-out drawer (covers the pill set on mobile + gives every route the full menu) */}
       {createPortal(
         <AnimatePresence>
           {open && (
@@ -187,6 +115,6 @@ export default function BrandBar() {
         </AnimatePresence>,
         document.body
       )}
-    </header>
+    </>
   );
 }
