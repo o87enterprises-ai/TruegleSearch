@@ -410,6 +410,22 @@
         "body": "Google/Apple OAuth and email+password login fully removed (routes/auth.js, User.js, middleware/auth.js, SignInPage.jsx, AuthCallback.jsx deleted). Sign-in is now request-code (email) -> verify-access-code (checks premium_access_codes then falls back to new login_codes table). Migration 011 adds login_codes, drops google_id, makes password_hash nullable. Uses existing Resend-backed EmailService (services/EmailService.js sendLoginCode). Safe Search 'off' gating changed from googleVerified to isAuthenticated (frontend SettingsContext.jsx + backend routes/search.js) since email-code verification carries the same signal OAuth used to. Phone entry kept in UI but explicitly inert (no SMS yet, $0 budget).",
         "ts": "2026-07-20",
         "created": "2026-07-20"
+      },
+      "reusable-account-code": {
+        "Id": "reusable-account-code",
+        "Type": "decision",
+        "Label": "Reusable per-account access code for cross-device sign-in",
+        "body": "Migration 015 adds users.account_code_hash. First passwordless sign-in mints a durable bcrypt-hashed 10-char code (alphabet A-Z2-9, no 0O1I), returned once as response.accountCode and shown via AccountCodeModal. verify-access-code checks premium_access_codes -> account_code (reusable) -> login_codes (one-time). Solves private-browser users who wipe storage every session: type email + saved code on any device, no email wait. Regenerate via POST /auth/account-code/regenerate (authed) + a card in SettingsPage. Sliding session still TODO (approved, not yet built).",
+        "ts": "2026-07-21",
+        "created": "2026-07-21"
+      },
+      "universal-brandbar": {
+        "Id": "universal-brandbar",
+        "Type": "decision",
+        "Label": "Universal themed BrandBar replaces GlobalNav + old Header",
+        "body": "components/ui/BrandBar.jsx: sticky per-mode-color-themed top bar (animated logo + search box + 7 mode pills + slide-out drawer), mounted once in App.jsx. Hidden on '/', '/auth/login', '/auth/signup', '/onboarding' (HIDDEN_PATHS). Search submits to /search?q=&mode= (or /chat?q= when mode=black). Deleted components/Header.jsx (old light first-iteration header) and components/ui/GlobalNav.jsx. Rewards dashboard reskinned emerald/cyan -> orange to match ad containers. NOTE: rewards ad slots still blank (all non-adult Adsterra zones pulled after adult-creative leak — needs fresh zones).",
+        "ts": "2026-07-21",
+        "created": "2026-07-21"
       }
     },
     "entity": {
@@ -591,6 +607,15 @@
         "status": "done",
         "ts": "2026-07-21",
         "created": "2026-07-20"
+      },
+      "sliding-session": {
+        "Id": "sliding-session",
+        "Type": "thread",
+        "Label": "Build sliding 90-day session (approved, not yet done)",
+        "body": "User approved a sliding/rolling session: extend the JWT on each successful /validate so active (non-private-browser) users effectively never expire; also bump 30d->90d floor. Complements the reusable account code (which covers private-browser/cross-device). Not yet implemented.",
+        "status": "open",
+        "ts": "2026-07-21",
+        "created": "2026-07-21"
       }
     }
   },
