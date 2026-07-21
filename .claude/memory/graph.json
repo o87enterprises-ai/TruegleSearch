@@ -248,6 +248,22 @@
         "body": "Decision 2026-07-21: no Cloudflare token was ever persisted (not in memory/HANDOFF/.claude/env/Vercel). My Cloudflare MCP (Developer_Platform) covers Workers/KV/R2/D1/Hyperdrive + docs ONLY — NO DNS or Zone Settings tools, so DNS tasks (e.g. anti-adblock CNAME) can't go through MCP. PLAN: user creates ONE broad custom token (Zone>DNS>Edit, Zone>Zone Settings>Edit, Zone>Zone>Read, Account>Cloudflare Pages>Edit, Account>Workers Scripts>Edit, Account>Workers KV>Edit; Resources = All accounts + All zones) and stores it as Vercel env CLOUDFLARE_API_TOKEN on the backend project (all environments). Then I reach it via 'vercel env pull' + curl to api.cloudflare.com — no MCP needed, no re-asking. Added value pending: check Adsterra whether anti-adblock/CNAME exists for BANNER zones (per prior notes it was popunder-only in this account — if so, CNAME won't help banner revenue).",
         "ts": "2026-07-21",
         "created": "2026-07-21"
+      },
+      "adsterra-api-works": {
+        "Id": "adsterra-api-works",
+        "Type": "fact",
+        "Label": "Adsterra API WORKS via X-Api-Key header (read-only) — corrects old 'inaccessible' fact",
+        "body": "CONFIRMED 2026-07-21: Adsterra publisher API is reachable at https://api3.adsterratools.com/publisher/ using header 'X-Api-Key: <token>' (NOT query-param token, NOT Bearer — those 403). Working endpoints: domains.json (lists sites), placements.json?domain=<id> (lists zones), stats.json?start_date=&finish_date=&group_by=placement&domain=<id>. READ-ONLY: no settings/anti-adblock/adult-toggle/domain-detail endpoints exist (all 404). So API can pull stats + zone list but CANNOT change adult setting or provision anti-adblock (those stay dashboard/CS only). This corrects the old permanent fact 'Adsterra API completely inaccessible' — that was tested with wrong auth. Token must live in Vercel env (ADSTERRA_API_TOKEN), never committed. Domains: truegle.info=5880564, smartlink site=5888297.",
+        "ts": "2026-07-21",
+        "created": "2026-07-21"
+      },
+      "adsterra-zones-serving": {
+        "Id": "adsterra-zones-serving",
+        "Type": "fact",
+        "Label": "Adsterra ads ARE serving — placement IDs + 7d stats prove it",
+        "body": "truegle.info (domain 5880564) placements: Popunder_1=30006380, Smartlink_1=30006381, SocialBar_1=30006382, NativeBanner_1=30006383, 468x60_1=30006384, 300x250_1=30006385, 160x300_1=30006386, 728x90_1=30006387, 320x50_1=30006388, 160x600_1=30006389. 7-day stats (2026-07-14..21): 320x50 = 35 impressions/10 clicks/$0.01; 468x60 = 14 imp/1 click/$0; 300x250 = 7 imp/2 clicks/$0. So the 3 reactivated non-adult banner zones ARE serving real impressions to real visitors — the 'ads not showing' the owner saw is their OWN privacy browser blocking millionairelucidlytransmitted.com, NOT a broken pipeline. Revenue tiny only because traffic is ~56 imp/week (preproduction).",
+        "ts": "2026-07-21",
+        "created": "2026-07-21"
       }
     },
     "decision": {
