@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { useRewards } from '../context/RewardsContext';
 import AdsterraBanner from './ads/AdsterraBanner';
+import { ADSTERRA } from '../config/ads';
 import { formatMicros } from '../utils/rewardsFormat';
 
 // Non-adult Adsterra formats only — a reward-eligible slot must always be
@@ -55,9 +56,26 @@ const RewardAdSlot = ({ position, size = 'medium', searchContext = null, classNa
   const [earnedKind, setEarnedKind] = useState(null);
 
   const minVisibleMs = config?.minVisibleMs ?? 4000;
+
+  // Did the ad actually DRAW? The ad iframe (adframe.html) postMessages back
+  // whether the Adsterra creative rendered. On privacy browsers (Firefox ETP,
+  // uBlock, Brave) the ad script is blocked and the frame stays blank — we must
+  // NOT reward an ad the user never saw. Rewards stay gated until rendered.
+  const [rendered, setRendered] = useState(false);
+  const expectedKey = ADSTERRA[zone]?.key;
+  useEffect(() => {
+    setRendered(false); // reset when the slot/zone changes or the ad refreshes
+    const onMsg = (e) => {
+      if (e?.data?.truegleAd && e.data.key === expectedKey) setRendered(!!e.data.rendered);
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [expectedKey]);
+
   // Guards against opening a session for an ad that AdsterraBanner itself
-  // won't render (e.g. consent revoked) — no session means no reward.
-  const trackingEnabled = optedIn && !adHidden && window.__truegle_ad_consent !== false;
+  // won't render (e.g. consent revoked) OR that was blocked before drawing —
+  // no confirmed render means no session and no reward.
+  const trackingEnabled = optedIn && !adHidden && rendered && window.__truegle_ad_consent !== false;
 
   useEffect(() => {
     if (!trackingEnabled || !containerRef.current) return;

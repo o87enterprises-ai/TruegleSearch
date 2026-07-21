@@ -26,10 +26,33 @@
       params: params
     };
   }
+
+  // Tell the parent whether the ad actually RENDERED. On privacy browsers
+  // (Firefox ETP, uBlock, Brave) the Adsterra script is blocked, so this frame
+  // loads but stays empty — the parent must not reward an ad nobody saw.
+  var reported = false;
+  function report(ok){
+    if (reported) return; reported = true;
+    try { window.parent.postMessage({ truegleAd: true, key: key, rendered: !!ok }, '*'); } catch(e){}
+  }
+  // The ad "rendered" if the script injected a visible node (an iframe/ins/img,
+  // or something inside the native container) with real size.
+  function didRender(){
+    var el = document.body.querySelector('iframe, ins, img, [id^="container-"] *');
+    if (!el) return false;
+    var r = el.getBoundingClientRect ? el.getBoundingClientRect() : { width: 0, height: 0 };
+    return (r.width > 2 && r.height > 2);
+  }
+
   var domain = s.get('d') || 'millionairelucidlytransmitted.com';
   var el = document.createElement('script');
   el.src = 'https://' + domain + '/' + key + '/invoke.js';
+  el.onerror = function(){ report(false); };            // blocked / failed to load
+  el.onload  = function(){ setTimeout(function(){ report(didRender()); }, 1600); };
   document.body.appendChild(el);
+
+  // Silent-block fallback: if neither load nor error fired in time, treat as not rendered.
+  setTimeout(function(){ report(didRender()); }, 4000);
 })();
 </script>
 </body>

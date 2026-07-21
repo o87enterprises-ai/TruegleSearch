@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { RefreshCw } from 'lucide-react';
 import { useRewards } from '../context/RewardsContext';
 import { useAuth } from '../context/AuthContext';
 import { rewardsAPI } from '../services/api';
@@ -31,6 +32,7 @@ const RewardsDashboard = () => {
   const [searchValue, setSearchValue] = useState('');
   const [searchFilters, setSearchFilters] = useState({ sortBy: 'relevance', order: 'desc', category: 'all', dateRange: 'any', bias: 'all' });
   const [searchCategory, setSearchCategory] = useState('all');
+  const [adRefreshKey, setAdRefreshKey] = useState(0); // bump to remount/reload the ad slots
 
   const submitSearch = () => {
     const q = searchValue.trim();
@@ -381,17 +383,27 @@ const RewardsDashboard = () => {
             Adsterra key isn't currently live (e.g. zones pulled for safety)
             simply renders nothing — see config/ads.js. */}
         <div className="mt-8 pt-6 border-t border-white/10">
-          <div className="text-[10px] uppercase tracking-wider text-orange-400/80 mb-3 font-mono">
-            Advertisement
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-[10px] uppercase tracking-wider text-orange-400/80 font-mono">
+              Advertisement
+            </div>
+            <button
+              onClick={() => setAdRefreshKey((k) => k + 1)}
+              className="flex items-center gap-1.5 text-xs text-white/60 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 transition-all"
+            >
+              <RefreshCw size={13} />
+              Refresh ads
+            </button>
           </div>
           {/* One slot per UNIQUE non-adult zone — Adsterra only fills a given
               zone once per page, so rendering a format twice leaves the second
-              blank (and native's fixed container ID collides). */}
+              blank (and native's fixed container ID collides). The adRefreshKey
+              in each key remounts the slots (fresh ad requests) on demand. */}
           <div className="flex flex-col items-center gap-4">
-            <RewardAdSlot size="leaderboard" />{/* 468x60 */}
-            <RewardAdSlot size="medium" />{/* 300x250 */}
-            <RewardAdSlot size="small" />{/* 320x50 */}
-            <RewardAdSlot size="native" />{/* native */}
+            <RewardAdSlot key={`lb-${adRefreshKey}`} size="leaderboard" />{/* 468x60 */}
+            <RewardAdSlot key={`md-${adRefreshKey}`} size="medium" />{/* 300x250 */}
+            <RewardAdSlot key={`sm-${adRefreshKey}`} size="small" />{/* 320x50 */}
+            <RewardAdSlot key={`na-${adRefreshKey}`} size="native" />{/* native */}
           </div>
           <p className="text-white/30 text-xs text-center mt-4">
             Every live ad zone loads here automatically. The three legacy
