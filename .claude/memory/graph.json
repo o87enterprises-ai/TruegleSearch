@@ -224,6 +224,14 @@
         "body": "CRITICAL: the production Neon users table was bootstrapped by models/User.js createTable() (runs on every serverless connect via utils/database.js), NOT by migration 001 — so it has a DIVERGENT schema. It has: role, password, name, is_verified, is_active, google_id(now dropped), token_balance, feature_usage, game_tokens_earned, rewards_*, premium_until, phone, registration_method, is_pending, paypal_order_id. It was MISSING vs what code assumes: password_hash, username, subscription_tier, subscription_status, stripe_customer_id, subscription/search_history-dependent bits. Migrations 011-014 patched the auth/sign-in path: 011 password_hash nullable + login_codes + drop google_id; 012 add username (backfill from name); 013 password/name nullable; 014 add subscription_tier/status (backfill premium from premium_until). Any FUTURE raw SQL against users must be checked against THIS real column set, not migration 001. Root fix (later): reconcile the two schemas or make User.js createTable match migration 001.",
         "ts": "2026-07-20",
         "created": "2026-07-20"
+      },
+      "resend-live": {
+        "Id": "resend-live",
+        "Type": "fact",
+        "Label": "Resend fully live: truegle.info verified, prod key fixed, real-user codes send",
+        "body": "Passwordless auth is fully working in production for ALL users as of 2026-07-21. truegle.info verified in Resend (o87enterprises account, us-east-1, Cloudflare auto-config). RESEND_FROM_EMAIL=noreply@truegle.info. GOTCHA fixed: the original 52-day-old RESEND_API_KEY belonged to a different/mismatched Resend account so it 403'd 'domain not verified' even after verification — regenerated a fresh Full-access key in the o87enterprises account (where the domain lives) and that fixed it. Lesson: the API key and the verified domain MUST be in the same Resend account. Onboarding also consolidated: landing rewards CTA + freemium media CTAs now route to /auth/login (passwordless), premium/upgrade links still go to /auth/signup (pricing page).",
+        "ts": "2026-07-21",
+        "created": "2026-07-21"
       }
     },
     "decision": {
@@ -580,8 +588,8 @@
         "Type": "thread",
         "Label": "Verify truegle.info in Resend for real user emails",
         "body": "Passwordless sign-in confirmed working end to end in production (migrations 011-013 fixed schema drift: password_hash/password/name made nullable, username column added+backfilled, google_id dropped, login_codes table created). RESEND_API_KEY was already set; RESEND_FROM_EMAIL currently REMOVED (falls back to Resend sandbox onboarding@resend.dev), which only delivers to the Resend account's own registered email -- fine for testing (truegleai@proton.me), NOT fine for real users. Next step: verify truegle.info domain at resend.com/domains (add the DNS records Resend provides wherever truegle.info's DNS is hosted), then set RESEND_FROM_EMAIL=noreply@truegle.info and redeploy.",
-        "status": "open",
-        "ts": "2026-07-20",
+        "status": "done",
+        "ts": "2026-07-21",
         "created": "2026-07-20"
       }
     }
@@ -612,5 +620,5 @@
       }
     }
   },
-  "updated": "2026-07-20"
+  "updated": "2026-07-21"
 }
