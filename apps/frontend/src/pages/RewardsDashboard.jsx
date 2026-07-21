@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { rewardsAPI } from '../services/api';
 import RewardAdSlot from '../components/RewardAdSlot';
 import TruegleLogo from '../components/ui/TruegleLogo';
+import LandingBackground from '../components/LandingBackground';
 import { formatMicros } from '../utils/rewardsFormat';
 
 /*
@@ -95,8 +96,10 @@ const RewardsDashboard = () => {
   const canRequestPayout = optedIn && balanceMicros >= minPayoutMicros;
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="max-w-3xl mx-auto px-4 py-12">
+    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+      {/* Same cinematic hero background as the search pages */}
+      <LandingBackground />
+      <div className="relative z-10 max-w-3xl mx-auto px-4 py-12">
         {/* Hero — big logo, then the opt-in message (first-time / not-opted-in
             only), then the Rewards pill. Matches the search page's layout. */}
         <div className="flex flex-col items-center text-center mb-8">
@@ -350,11 +353,16 @@ const RewardsDashboard = () => {
           </div>
           <div className="flex flex-col items-center gap-4">
             <RewardAdSlot size="leaderboard" />
-            <RewardAdSlot size="large" />
             <RewardAdSlot size="medium" />
-            <RewardAdSlot size="sidebar" />
+            <RewardAdSlot size="native" />
+            <RewardAdSlot size="large" />
             <RewardAdSlot size="small" />
+            <RewardAdSlot size="sidebar" />
           </div>
+          <p className="text-white/30 text-xs text-center mt-4">
+            Every live ad zone loads here automatically. The three legacy
+            adult-locked zones stay hidden until Adsterra clears them.
+          </p>
         </div>
 
         <div className="mt-8 text-sm text-white/50">

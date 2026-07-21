@@ -13,6 +13,7 @@ const sizeToFormat = {
   large: 'banner468x60',
   leaderboard: 'banner468x60',
   sidebar: 'banner300x250',
+  native: 'nativeBanner',
 };
 
 const POLL_MS = 500;

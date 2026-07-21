@@ -20,7 +20,9 @@ const ITEMS = [
 ];
 
 // Pages that own their full-screen branding (or must stay chrome-free).
-const HIDDEN_PATHS = new Set(['/', '/auth/login', '/auth/signup', '/onboarding']);
+// Pages that own their full-screen hero (logo + search live in the hero
+// itself, so the top bar would be a redundant second search field).
+const HIDDEN_PATHS = new Set(['/', '/auth/login', '/auth/signup', '/onboarding', '/rewards']);
 
 function currentMode(location) {
   const p = location.pathname;
