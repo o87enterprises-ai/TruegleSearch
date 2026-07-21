@@ -4,6 +4,7 @@ import { useRewards } from '../context/RewardsContext';
 import { useAuth } from '../context/AuthContext';
 import { rewardsAPI } from '../services/api';
 import RewardAdSlot from '../components/RewardAdSlot';
+import TruegleLogo from '../components/ui/TruegleLogo';
 import { formatMicros } from '../utils/rewardsFormat';
 
 /*
@@ -96,16 +97,41 @@ const RewardsDashboard = () => {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-3xl mx-auto px-4 py-12">
-        <div className="mb-10">
-          <div className="inline-block text-xs uppercase tracking-widest text-orange-400/80 mb-3">
-            Rewards Program
+        {/* Hero — big logo, then the opt-in message (first-time / not-opted-in
+            only), then the Rewards pill. Matches the search page's layout. */}
+        <div className="flex flex-col items-center text-center mb-8">
+          <button onClick={() => navigate('/')} className="mb-3" aria-label="Home">
+            <div className="scale-90 sm:scale-100">
+              <TruegleLogo size="xlarge" animated />
+            </div>
+          </button>
+
+          {/* Opt-in message: below the logo, above the pill — shown only to
+              users who haven't opted in yet; hidden for returning members. */}
+          {!optedIn && (
+            <div className="max-w-xl mt-3 mb-5">
+              <h1 className="text-2xl md:text-3xl font-bold mb-2">Get paid for the ads you already see</h1>
+              <p className="text-white/70 text-sm">
+                Opt in and Truegle pays you a small cash reward for ads you genuinely view — no extra
+                ads, no extra tracking beyond what this program requires. Honestly measured
+                server-side; nothing is simulated.
+              </p>
+            </div>
+          )}
+
+          {/* Rewards pill (mode indicator, mirrors the search page's pill) */}
+          <div className="flex flex-col items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold select-none">
+              Rewards
+            </span>
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white"
+              style={{ backgroundColor: '#f97316' }}
+            >
+              <span className="w-2 h-2 rounded-full bg-white/90 flex-shrink-0" />
+              Rewards
+            </div>
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold mb-3">Get paid for the ads you already see</h1>
-          <p className="text-white/70 max-w-2xl">
-            Opt in and Truegle pays you a small cash reward for ads you genuinely view while
-            waiting on search results — no extra ads, no extra tracking beyond what this program
-            requires. Everything here is honestly measured server-side; nothing is simulated.
-          </p>
         </div>
 
         {/* Status card */}
@@ -314,14 +340,20 @@ const RewardsDashboard = () => {
         )}
 
         {/* Real Adsterra inventory only on this page — no house/affiliate ads,
-            so every ad shown here is one you can actually get paid for. */}
+            so every ad shown here is one you can actually get paid for. Every
+            zone renders by default (no search query needed). Any slot whose
+            Adsterra key isn't currently live (e.g. zones pulled for safety)
+            simply renders nothing — see config/ads.js. */}
         <div className="mt-8 pt-6 border-t border-white/10">
           <div className="text-[10px] uppercase tracking-wider text-orange-400/80 mb-3 font-mono">
             Advertisement
           </div>
           <div className="flex flex-col items-center gap-4">
+            <RewardAdSlot size="leaderboard" />
             <RewardAdSlot size="large" />
             <RewardAdSlot size="medium" />
+            <RewardAdSlot size="sidebar" />
+            <RewardAdSlot size="small" />
           </div>
         </div>
 
