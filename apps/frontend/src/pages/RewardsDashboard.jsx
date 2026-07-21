@@ -97,7 +97,7 @@ const RewardsDashboard = () => {
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-3xl mx-auto px-4 py-12">
         <div className="mb-10">
-          <div className="inline-block text-xs uppercase tracking-widest text-emerald-400/80 mb-3">
+          <div className="inline-block text-xs uppercase tracking-widest text-orange-400/80 mb-3">
             Rewards Program
           </div>
           <h1 className="text-3xl md:text-4xl font-bold mb-3">Get paid for the ads you already see</h1>
@@ -115,7 +115,7 @@ const RewardsDashboard = () => {
               <div className="text-sm text-white/60 mb-1">Program status</div>
               <div className="text-lg font-semibold">
                 {optedIn ? (
-                  <span className="text-emerald-400">Opted in</span>
+                  <span className="text-orange-400">Opted in</span>
                 ) : (
                   <span className="text-white/60">Not opted in</span>
                 )}
@@ -128,7 +128,7 @@ const RewardsDashboard = () => {
                 className={`px-5 py-2.5 rounded-xl font-semibold transition-all disabled:opacity-50 ${
                   optedIn
                     ? 'bg-white/10 hover:bg-white/20 border border-white/20'
-                    : 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:opacity-90'
+                    : 'bg-gradient-to-r from-orange-500 to-amber-500 hover:opacity-90'
                 }`}
               >
                 {optedIn ? 'Opt out' : 'Opt in to Rewards'}
@@ -136,7 +136,7 @@ const RewardsDashboard = () => {
             ) : (
               <button
                 onClick={() => navigate('/auth/login', { state: { redirectTo: '/rewards' } })}
-                className="px-5 py-2.5 rounded-xl font-semibold transition-all bg-gradient-to-r from-emerald-500 to-cyan-500 hover:opacity-90"
+                className="px-5 py-2.5 rounded-xl font-semibold transition-all bg-gradient-to-r from-orange-500 to-amber-500 hover:opacity-90"
               >
                 Sign in to opt in
               </button>
@@ -157,7 +157,7 @@ const RewardsDashboard = () => {
             <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/10">
               <div>
                 <div className="text-sm text-white/60 mb-1">Current balance</div>
-                <div className="text-2xl font-bold text-emerald-400">{formatMicros(balanceMicros)}</div>
+                <div className="text-2xl font-bold text-orange-400">{formatMicros(balanceMicros)}</div>
               </div>
               <div>
                 <div className="text-sm text-white/60 mb-1">Lifetime earned</div>
@@ -200,9 +200,9 @@ const RewardsDashboard = () => {
                   <div className="text-xs text-white/50 mb-1">10% fee</div>
                   <div className="font-bold text-red-400">−{formatMicros(feeMicros)}</div>
                 </div>
-                <div className="bg-black/30 rounded-xl p-3 border border-emerald-500/30">
+                <div className="bg-black/30 rounded-xl p-3 border border-orange-500/30">
                   <div className="text-xs text-white/50 mb-1">You receive</div>
-                  <div className="font-bold text-emerald-400">{formatMicros(netMicros)}</div>
+                  <div className="font-bold text-orange-400">{formatMicros(netMicros)}</div>
                 </div>
               </div>
 
@@ -222,7 +222,7 @@ const RewardsDashboard = () => {
                         onClick={() => { setPayoutMethod(key); setDestination(''); }}
                         className={`py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
                           payoutMethod === key
-                            ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
+                            ? 'bg-orange-500/20 border-orange-500/60 text-orange-300'
                             : 'bg-white/5 border-white/10 text-white/60 hover:border-white/20'
                         }`}
                       >
@@ -243,21 +243,21 @@ const RewardsDashboard = () => {
                     onChange={(e) => setDestination(e.target.value)}
                     placeholder={PAYOUT_METHODS[payoutMethod]?.field}
                     disabled={!canRequestPayout || submitting}
-                    className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-emerald-400 disabled:opacity-50 text-sm"
+                    className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-orange-400 disabled:opacity-50 text-sm"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={!canRequestPayout || submitting || !destination.trim()}
-                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 font-semibold hover:opacity-90 transition-all disabled:opacity-40 text-sm"
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 font-semibold hover:opacity-90 transition-all disabled:opacity-40 text-sm"
                 >
                   {submitting ? 'Submitting…' : `Request ${formatMicros(netMicros)} via ${PAYOUT_METHODS[payoutMethod]?.label}`}
                 </button>
               </form>
 
               {payoutMessage && (
-                <p className={`text-sm mt-3 ${payoutMessage.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+                <p className={`text-sm mt-3 ${payoutMessage.type === 'success' ? 'text-orange-400' : 'text-red-400'}`}>
                   {payoutMessage.text}
                 </p>
               )}
@@ -275,7 +275,7 @@ const RewardsDashboard = () => {
                       <span
                         className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
                           p.status === 'paid'
-                            ? 'bg-emerald-500/20 text-emerald-400'
+                            ? 'bg-orange-500/20 text-orange-400'
                             : p.status === 'rejected'
                               ? 'bg-red-500/20 text-red-400'
                               : 'bg-amber-500/20 text-amber-300'
@@ -302,7 +302,7 @@ const RewardsDashboard = () => {
                     <div key={entry.id} className="flex items-center justify-between text-sm py-2 border-b border-white/5 last:border-0">
                       <span className="text-white/70">{new Date(entry.created_at).toLocaleString()}</span>
                       <span className="text-white/60 capitalize">{entry.entry_type.replace(/_/g, ' ')}</span>
-                      <span className={`font-medium ${entry.amount_micros >= 0 ? 'text-emerald-400' : 'text-white/80'}`}>
+                      <span className={`font-medium ${entry.amount_micros >= 0 ? 'text-orange-400' : 'text-white/80'}`}>
                         {entry.amount_micros >= 0 ? '+' : ''}{formatMicros(entry.amount_micros)}
                       </span>
                     </div>
@@ -316,7 +316,7 @@ const RewardsDashboard = () => {
         {/* Real Adsterra inventory only on this page — no house/affiliate ads,
             so every ad shown here is one you can actually get paid for. */}
         <div className="mt-8 pt-6 border-t border-white/10">
-          <div className="text-[10px] uppercase tracking-wider text-cyan-400/80 mb-3 font-mono">
+          <div className="text-[10px] uppercase tracking-wider text-orange-400/80 mb-3 font-mono">
             Advertisement
           </div>
           <div className="flex flex-col items-center gap-4">

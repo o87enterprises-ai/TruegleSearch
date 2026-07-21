@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, ArrowRight, Key, Phone, Zap } from 'lucide-react';
+import { Mail, ArrowRight, Phone, Zap } from 'lucide-react';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import MolecularBackground from '../components/backgrounds/MolecularBackground';
 import CursorGlow from '../components/ui/CursorGlow';
 import NeonButton from '../components/ui/NeonButton';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
+import AccountCodeModal from '../components/ui/AccountCodeModal';
 import authService from '../services/authService';
 import { useToast } from '../components/ui/ToastProvider';
 
@@ -23,19 +24,32 @@ export default function SignInPage() {
   // Check if there's a redirect URL after successful login
   const redirectTo = location.state?.redirectTo || null;
 
-  // Passwordless sign-in state: request a code, then verify it.
+  // Passwordless sign-in state. Two ways in: type your saved account code, or
+  // email yourself a one-time code — both go in the same field.
   const [codeContact, setCodeContact] = useState('');
   const [codeContactType, setCodeContactType] = useState('email');
-  const [codeSent, setCodeSent] = useState(false);
   const [accessCode, setAccessCode] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [codeSentNote, setCodeSentNote] = useState('');
   const [sendingCode, setSendingCode] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
   const [rememberMeFreemium, setRememberMeFreemium] = useState(false);
+  const [revealedCode, setRevealedCode] = useState(null); // one-time account-code reveal
 
-  const handleSendCode = async (e) => {
-    e.preventDefault();
+  const goAfterSignIn = () => {
+    // Priority 1: honour explicit redirectTo (set by ProtectedRoute)
+    if (redirectTo) return navigate(redirectTo);
+    // Priority 2: anonymous navigation state flags
+    if (location.state?.fromOSINT) return navigate('/search?mode=ocean');
+    if (location.state?.fromBiased) return navigate('/search?mode=purple');
+    // Priority 3: fall back to universal search, preserving pill mode
+    const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
+    navigate(isRedPillMode ? '/search?mode=red' : '/search');
+  };
+
+  const handleSendCode = async () => {
     setCodeError('');
+    setCodeSentNote('');
 
     if (codeContactType === 'phone') {
       setCodeError("SMS isn't wired up yet — please use email for now.");
@@ -50,7 +64,7 @@ export default function SignInPage() {
     try {
       const result = await authService.requestCode(codeContact.trim());
       if (result.success) {
-        setCodeSent(true);
+        setCodeSentNote('Code sent — check your email, then enter it below.');
         toast.success('Code sent', 'Check your email for your sign-in code.', { pageTheme: 'landing' });
       } else {
         setCodeError(result.error);
@@ -65,7 +79,8 @@ export default function SignInPage() {
   const handleCodeSubmit = async (e) => {
     e.preventDefault();
     setCodeError('');
-    if (!accessCode.trim() || accessCode.trim().length < 6) { setCodeError('Enter your access code'); return; }
+    if (!codeContact.trim()) { setCodeError('Enter your email'); return; }
+    if (!accessCode.trim() || accessCode.trim().length < 6) { setCodeError('Enter your code'); return; }
 
     setCodeLoading(true);
     try {
@@ -83,25 +98,14 @@ export default function SignInPage() {
       toast.success('Welcome!', 'Signed in.', { pageTheme: 'landing' });
       login({ user: result.user, token: result.token }, true);
 
-      // Priority 1: honour explicit redirectTo (set by ProtectedRoute)
-      if (redirectTo) {
-        navigate(redirectTo);
+      // First-ever sign-in reveals a durable account code once — hold
+      // navigation until the user has seen and saved it.
+      if (result.accountCode) {
+        setRevealedCode(result.accountCode);
         return;
       }
 
-      // Priority 2: anonymous navigation state flags
-      if (location.state?.fromOSINT) {
-        navigate('/search?mode=ocean');
-        return;
-      }
-      if (location.state?.fromBiased) {
-        navigate('/search?mode=purple');
-        return;
-      }
-
-      // Priority 3: fall back to universal search, preserving pill mode
-      const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
-      navigate(isRedPillMode ? '/search?mode=red' : '/search');
+      goAfterSignIn();
     } catch {
       setCodeError('Network error. Please try again.');
     } finally {
@@ -211,122 +215,81 @@ export default function SignInPage() {
             </motion.div>
           )}
 
-          {/* Access Code sign-in form */}
-          <AnimatePresence mode="wait">
-            {!codeSent ? (
-              <motion.form
-                key="send-code-form"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                onSubmit={handleSendCode}
-                className="space-y-3 mb-4"
-              >
-                {/* contact type toggle */}
-                <div className="flex gap-2">
-                  {[{ key: 'email', label: 'Email', icon: Mail }, { key: 'phone', label: 'Phone', icon: Phone }].map(({ key, label, icon: Icon }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => { setCodeContactType(key); setCodeError(''); }}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs border transition-all ${
-                        codeContactType === key
-                          ? 'bg-cyan-600/20 border-cyan-500/50 text-cyan-300'
-                          : 'bg-white/5 border-white/10 text-gray-400'
-                      }`}
-                    >
-                      <Icon size={12} />{label}
-                    </button>
-                  ))}
-                </div>
-
-                {codeContactType === 'phone' && (
-                  <p className="text-amber-300/90 bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 text-xs">
-                    SMS sign-in isn't available yet — switch to email to get a code today.
-                  </p>
-                )}
-
-                <input
-                  type={codeContactType === 'email' ? 'email' : 'tel'}
-                  value={codeContact}
-                  onChange={(e) => setCodeContact(e.target.value)}
-                  placeholder={codeContactType === 'email' ? 'your@email.com' : '+1 (555) 000-0000'}
-                  className="w-full px-4 py-2.5 bg-black/30 border border-gray-700 text-white placeholder-gray-500 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all text-sm"
-                />
-
-                {codeError && <p className="text-red-400 text-xs">{codeError}</p>}
-
-                <NeonButton type="submit" variant="primary" size="lg" disabled={sendingCode} className="w-full">
-                  {sendingCode ? 'Sending…' : <>Send Code <ArrowRight className="inline ml-2" size={16} /></>}
-                </NeonButton>
-
+          {/* Access Code sign-in form — one field for both a saved account
+              code and an emailed one-time code. */}
+          <form onSubmit={handleCodeSubmit} className="space-y-3 mb-4">
+            {/* contact type toggle */}
+            <div className="flex gap-2">
+              {[{ key: 'email', label: 'Email', icon: Mail }, { key: 'phone', label: 'Phone', icon: Phone }].map(({ key, label, icon: Icon }) => (
                 <button
+                  key={key}
                   type="button"
-                  onClick={continueFreemium}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-sm rounded-xl transition-all"
+                  onClick={() => { setCodeContactType(key); setCodeError(''); }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs border transition-all ${
+                    codeContactType === key
+                      ? 'bg-cyan-600/20 border-cyan-500/50 text-cyan-300'
+                      : 'bg-white/5 border-white/10 text-gray-400'
+                  }`}
                 >
-                  <Zap size={14} />
-                  Continue Free (10 searches/day)
+                  <Icon size={12} />{label}
                 </button>
-              </motion.form>
-            ) : (
-              <motion.form
-                key="verify-code-form"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                onSubmit={handleCodeSubmit}
-                className="space-y-3 mb-4"
-              >
-                <p className="text-gray-400 text-xs">
-                  Code sent to <span className="text-white">{codeContact}</span>.
-                </p>
+              ))}
+            </div>
 
-                <input
-                  type="text"
-                  value={accessCode}
-                  onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
-                  placeholder="Enter your code"
-                  maxLength={8}
-                  autoFocus
-                  className="w-full px-4 py-2.5 bg-black/30 border border-gray-700 text-white placeholder-gray-500 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all text-sm font-mono tracking-widest"
-                />
-
-                {codeError && <p className="text-red-400 text-xs">{codeError}</p>}
-
-                <NeonButton type="submit" variant="primary" size="lg" disabled={codeLoading} className="w-full">
-                  {codeLoading ? 'Verifying…' : <>Sign In <ArrowRight className="inline ml-2" size={16} /></>}
-                </NeonButton>
-
-                <div className="flex items-center justify-between text-xs">
-                  <button
-                    type="button"
-                    onClick={() => { setCodeSent(false); setAccessCode(''); setCodeError(''); }}
-                    className="text-gray-500 hover:text-gray-300"
-                  >
-                    Use a different email
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSendCode}
-                    disabled={sendingCode}
-                    className="text-cyan-400 hover:text-cyan-300"
-                  >
-                    {sendingCode ? 'Resending…' : 'Resend code'}
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={continueFreemium}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-sm rounded-xl transition-all"
-                >
-                  <Zap size={14} />
-                  Continue Free (10 searches/day)
-                </button>
-              </motion.form>
+            {codeContactType === 'phone' && (
+              <p className="text-amber-300/90 bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 text-xs">
+                SMS sign-in isn't available yet — switch to email to get a code today.
+              </p>
             )}
-          </AnimatePresence>
+
+            <input
+              type={codeContactType === 'email' ? 'email' : 'tel'}
+              value={codeContact}
+              onChange={(e) => { setCodeContact(e.target.value); setCodeSentNote(''); }}
+              placeholder={codeContactType === 'email' ? 'your@email.com' : '+1 (555) 000-0000'}
+              className="w-full px-4 py-2.5 bg-black/30 border border-gray-700 text-white placeholder-gray-500 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all text-sm"
+            />
+
+            <div className="relative">
+              <input
+                type="text"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                placeholder="Your code"
+                maxLength={10}
+                className="w-full px-4 py-2.5 pr-28 bg-black/30 border border-gray-700 text-white placeholder-gray-500 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all text-sm font-mono tracking-widest"
+              />
+              <button
+                type="button"
+                onClick={handleSendCode}
+                disabled={sendingCode}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-cyan-300 text-xs font-medium transition-all disabled:opacity-50"
+              >
+                {sendingCode ? 'Sending…' : 'Email me one'}
+              </button>
+            </div>
+
+            <p className="text-white/40 text-[11px] leading-snug">
+              Have your account code? Enter it to sign in on any device. New here or lost it? Tap
+              <span className="text-cyan-400"> Email me one</span> for a fresh code.
+            </p>
+
+            {codeSentNote && <p className="text-emerald-400 text-xs">{codeSentNote}</p>}
+            {codeError && <p className="text-red-400 text-xs">{codeError}</p>}
+
+            <NeonButton type="submit" variant="primary" size="lg" disabled={codeLoading} className="w-full">
+              {codeLoading ? 'Signing in…' : <>Sign In <ArrowRight className="inline ml-2" size={16} /></>}
+            </NeonButton>
+
+            <button
+              type="button"
+              onClick={continueFreemium}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-sm rounded-xl transition-all"
+            >
+              <Zap size={14} />
+              Continue Free (10 searches/day)
+            </button>
+          </form>
 
           <p className="text-center text-gray-500 text-xs">
             Already paid for premium?{' '}
@@ -414,6 +377,14 @@ export default function SignInPage() {
             </div>
           </motion.div>
         </div>
+      )}
+
+      {/* One-time account-code reveal on first sign-in */}
+      {revealedCode && (
+        <AccountCodeModal
+          code={revealedCode}
+          onClose={() => { setRevealedCode(null); goAfterSignIn(); }}
+        />
       )}
     </div>
   );

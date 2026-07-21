@@ -146,7 +146,7 @@ const RewardAdSlot = ({ position, size = 'medium', searchContext = null, classNa
     >
       <AdsterraBanner format={zone} searchContext={searchContext} className={className} />
       {trackingEnabled && earnedKind && (
-        <span className="absolute -top-2 -right-2 z-10 text-[10px] font-semibold bg-emerald-500 text-white px-2 py-0.5 rounded-full shadow">
+        <span className="absolute -top-2 -right-2 z-10 text-[10px] font-semibold bg-orange-500 text-white px-2 py-0.5 rounded-full shadow">
           +{formatMicros(earnedMicros)} earned
         </span>
       )}

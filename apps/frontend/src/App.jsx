@@ -19,7 +19,6 @@ import AdScriptLoader from './components/ads/AdScriptLoader';
 import FreemiumTokenBar from './components/ui/FreemiumTokenBar';
 import CookieConsent from './components/ui/CookieConsent';
 import TruegleLogo from './components/ui/TruegleLogo';
-import Header from './components/Header';
 import Footer from './components/Footer';
 import ResultsPage from './components/ResultsPage';
 import SettingsPage from './components/SettingsPage';
@@ -44,7 +43,7 @@ import NotFound from "./pages/NotFound";
 import RootErrorBoundary from './components/ui/RootErrorBoundary';
 import RouteBoundary from './components/ui/RouteBoundary';
 import PreProductionBanner from './components/ui/PreProductionBanner';
-import GlobalNav from './components/ui/GlobalNav';
+import BrandBar from './components/ui/BrandBar';
 import SafeSearchLockModal from './components/ui/SafeSearchLockModal';
 import TutorialModal from './components/ui/TutorialModal';
 import { useTutorials } from './context/TutorialContext';
@@ -263,7 +262,7 @@ const AppContent = () => {
 
   return (
     <div id="main-content" className={containerClassNames}>
-      <GlobalNav />
+      <BrandBar />
       <PreProductionBanner />
       <SafeSearchLockModal />
       <TutorialModalRoot />
@@ -326,7 +325,6 @@ const AppContent = () => {
           element={
             <ProtectedRoute>
               <RouteBoundary>
-                <Header onSearch={handleSearch} searchQuery={searchQuery} />
                 <SettingsPage />
                 <Footer />
               </RouteBoundary>
@@ -339,7 +337,6 @@ const AppContent = () => {
           element={
             <ProtectedRoute>
               <RouteBoundary>
-                <Header onSearch={handleSearch} searchQuery={searchQuery} />
                 <RewardsDashboard />
                 <Footer />
               </RouteBoundary>

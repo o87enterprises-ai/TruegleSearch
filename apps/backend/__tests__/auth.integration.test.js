@@ -52,9 +52,14 @@ function mockFakeQuery(sql, params) {
     });
     return { rows: [] };
   }
-  if (s.startsWith('SELECT id, email, username, role FROM users WHERE email = $1 AND is_pending = false')) {
+  if (s.startsWith('SELECT id, email, username, role, account_code_hash FROM users WHERE email = $1 AND is_pending = false')) {
     const u = mockUsers.find((u) => u.email === params[0] && !u.is_pending);
-    return { rows: u ? [{ id: u.id, email: u.email, username: u.username, role: 'user' }] : [] };
+    return { rows: u ? [{ id: u.id, email: u.email, username: u.username, role: 'user', account_code_hash: u.account_code_hash || null }] : [] };
+  }
+  if (s.startsWith('UPDATE users SET account_code_hash = $1')) {
+    const u = mockUsers.find((u) => u.id === params[1]);
+    if (u) u.account_code_hash = params[0];
+    return { rows: [] };
   }
   if (s.startsWith('SELECT id, code_hash FROM premium_access_codes')) {
     return { rows: [] }; // no premium codes in this test suite
@@ -161,5 +166,31 @@ describe('Passwordless auth integration (request-code -> verify-access-code)', (
       .send({ email: 'wrongcode@example.com', code: '000000' });
 
     expect(response.status).toBe(401);
+  });
+
+  it('reveals a durable account code on first sign-in and reuses it', async () => {
+    await request(app).post('/api/auth/request-code').send({ email: 'durable@example.com' });
+    const { code } = mockSentEmails[0];
+
+    const first = await request(app)
+      .post('/api/auth/verify-access-code')
+      .send({ email: 'durable@example.com', code });
+    expect(first.status).toBe(200);
+    expect(first.body.accountCode).toMatch(/^[A-Z2-9]{10}$/); // shown once
+
+    const accountCode = first.body.accountCode;
+
+    // Reusable: the same account code signs in again with no emailed code.
+    const second = await request(app)
+      .post('/api/auth/verify-access-code')
+      .send({ email: 'durable@example.com', code: accountCode });
+    expect(second.status).toBe(200);
+    expect(second.body.accountCode).toBeNull(); // only revealed the first time
+
+    // And again — it's durable, not one-time.
+    const third = await request(app)
+      .post('/api/auth/verify-access-code')
+      .send({ email: 'durable@example.com', code: accountCode });
+    expect(third.status).toBe(200);
   });
 });

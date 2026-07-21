@@ -49,6 +49,7 @@ class AuthService {
           success: true,
           user: response.data.user,
           token: response.data.token,
+          accountCode: response.data.accountCode || null, // revealed once, first sign-in
         };
       }
 
@@ -60,6 +61,22 @@ class AuthService {
         success: false,
         error: error.response?.data?.error || 'Invalid or expired code',
       };
+    }
+  }
+
+  // Rotate the signed-in user's durable account code; returns the new one once.
+  async regenerateAccountCode(token) {
+    try {
+      const response = await api.post('/auth/account-code/regenerate', {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.data.success) {
+        return { success: true, accountCode: response.data.accountCode };
+      }
+      return { success: false, error: response.data.error || 'Could not regenerate code' };
+    } catch (error) {
+      console.error('[Auth] Regenerate account code error:', error);
+      return { success: false, error: error.response?.data?.error || 'Could not regenerate code' };
     }
   }
 

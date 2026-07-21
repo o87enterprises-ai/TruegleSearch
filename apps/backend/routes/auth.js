@@ -119,6 +119,14 @@ function generateLoginCode() {
   return String(crypto.randomInt(100000, 1000000)); // 6-digit numeric
 }
 
+// Durable, reusable per-account code (unambiguous alphabet — no 0/O/1/I).
+function generateAccountCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = '';
+  for (let i = 0; i < 10; i++) out += alphabet[crypto.randomInt(0, alphabet.length)];
+  return out;
+}
+
 /**
  * @route   POST /api/auth/register-direct
  * @desc    Create a pending account and return a PayPal order to complete
@@ -358,7 +366,7 @@ router.post('/verify-access-code', async (req, res) => {
     const { query } = require('../db/connection');
 
     const userRow = await query(
-      `SELECT id, email, username, role FROM users WHERE email = $1 AND is_pending = false LIMIT 1`,
+      `SELECT id, email, username, role, account_code_hash FROM users WHERE email = $1 AND is_pending = false LIMIT 1`,
       [contact]
     );
     if (userRow.rows.length === 0) {
@@ -383,7 +391,14 @@ router.post('/verify-access-code', async (req, res) => {
       }
     }
 
-    // Fall back to a free self-serve login code.
+    // Then the durable, reusable account code (works on any device, no email).
+    if (!matchedTable && user.account_code_hash) {
+      if (await bcrypt.compare(normalizedCode, user.account_code_hash)) {
+        matchedTable = 'account_code'; // nothing to mark used — it's reusable
+      }
+    }
+
+    // Fall back to a free self-serve one-time login code.
     if (!matchedTable) {
       const loginRows = await query(
         `SELECT id, code_hash FROM login_codes
@@ -406,8 +421,17 @@ router.post('/verify-access-code', async (req, res) => {
 
     if (matchedTable === 'premium_access_codes') {
       await query(`UPDATE premium_access_codes SET used = true, used_at = NOW() WHERE id = $1`, [matchedId]);
-    } else {
+    } else if (matchedTable === 'login_codes') {
       await query(`UPDATE login_codes SET used = true, used_at = NOW() WHERE id = $1`, [matchedId]);
+    }
+
+    // First sign-in with no durable code yet? Mint one and reveal it once so
+    // the user can save it and sign in on any device without emailing a code.
+    let accountCode = null;
+    if (!user.account_code_hash) {
+      accountCode = generateAccountCode();
+      const hash = await bcrypt.hash(accountCode, 10);
+      await query(`UPDATE users SET account_code_hash = $1, updated_at = NOW() WHERE id = $2`, [hash, user.id]);
     }
 
     const tokenBalance = await TokenService.getBalance(user.id);
@@ -420,6 +444,7 @@ router.post('/verify-access-code', async (req, res) => {
     res.json({
       success: true,
       token,
+      accountCode, // non-null only on the first-ever sign-in — show it once
       user: {
         id: user.id,
         email: user.email,
@@ -432,6 +457,26 @@ router.post('/verify-access-code', async (req, res) => {
   } catch (error) {
     logger.error('verify-access-code error', { error: error.message });
     res.status(500).json({ error: 'Verification failed. Please try again.' });
+  }
+});
+
+/**
+ * @route   POST /api/auth/account-code/regenerate
+ * @desc    Rotate the caller's durable account code and reveal the new one
+ *          once. Invalidates the old code immediately.
+ * @access  Private
+ */
+const { authenticate } = require('../middleware/auth');
+router.post('/account-code/regenerate', authenticate, async (req, res) => {
+  try {
+    const { query } = require('../db/connection');
+    const accountCode = generateAccountCode();
+    const hash = await bcrypt.hash(accountCode, 10);
+    await query(`UPDATE users SET account_code_hash = $1, updated_at = NOW() WHERE id = $2`, [hash, req.user.userId]);
+    res.json({ success: true, accountCode });
+  } catch (error) {
+    logger.error('account-code regenerate error', { error: error.message });
+    res.status(500).json({ error: 'Could not regenerate your code. Please try again.' });
   }
 });
 

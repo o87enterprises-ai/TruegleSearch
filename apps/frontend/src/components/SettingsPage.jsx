@@ -6,17 +6,30 @@ import AdSlot from './AdSlot';
 import Toggle from './ui/Toggle';
 import { useSettings } from '../context/SettingsContext';
 import { useRewards } from '../context/RewardsContext';
+import { useAuth } from '../context/AuthContext';
 import { NuclearOptionButton } from './ui/SessionWipe';
+import AccountCodeModal from './ui/AccountCodeModal';
+import authService from '../services/authService';
 import { formatMicros } from '../utils/rewardsFormat';
 
-const { FiSettings, FiShield, FiEye, FiDollarSign, FiGlobe, FiLock, FiCookie, FiClock, FiTrash2 } =
+const { FiSettings, FiShield, FiEye, FiDollarSign, FiGlobe, FiLock, FiCookie, FiClock, FiTrash2, FiKey } =
   FiIcons;
 
 const SettingsPage = () => {
   const { settings, updateSetting, canDisableSafeSearch } = useSettings();
   const { optedIn: rewardsOptedIn, balanceMicros: rewardsBalanceMicros } = useRewards();
+  const { isAuthenticated } = useAuth();
   const [showCookieDialog, setShowCookieDialog] = useState(false);
   const [historyCleared, setHistoryCleared] = useState(false);
+  const [acctCode, setAcctCode] = useState(null);
+  const [regenerating, setRegenerating] = useState(false);
+
+  const handleRegenerateCode = async () => {
+    setRegenerating(true);
+    const res = await authService.regenerateAccountCode(localStorage.getItem('truegle_token'));
+    setRegenerating(false);
+    if (res.success) setAcctCode(res.accountCode);
+  };
 
   const handleClearHistory = () => {
     try {
@@ -291,6 +304,27 @@ const SettingsPage = () => {
             </div>
           </div>
 
+          {/* Account code — durable sign-in credential */}
+          {isAuthenticated && (
+            <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
+              <div className="flex items-center mb-4">
+                <SafeIcon icon={FiKey} className="mr-2 text-emerald-400" />
+                <h2 className="text-lg font-semibold">Account code</h2>
+              </div>
+              <p className="text-sm text-white/60 mb-4">
+                Your account code signs you in on any device — no waiting for an email. If you've
+                lost it or want a new one, regenerate it here. The old code stops working immediately.
+              </p>
+              <button
+                onClick={handleRegenerateCode}
+                disabled={regenerating}
+                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-sm font-medium transition-all disabled:opacity-50"
+              >
+                {regenerating ? 'Generating…' : 'Regenerate account code'}
+              </button>
+            </div>
+          )}
+
           {/* Bottom Ad Slot */}
           <AdSlot position="settings-bottom" size="leaderboard" className="mx-auto" />
 
@@ -365,6 +399,10 @@ const SettingsPage = () => {
           </div>
         </div>
       </div>
+
+      {acctCode && (
+        <AccountCodeModal code={acctCode} onClose={() => setAcctCode(null)} />
+      )}
     </div>
   );
 };
