@@ -384,13 +384,14 @@ const RewardsDashboard = () => {
           <div className="text-[10px] uppercase tracking-wider text-orange-400/80 mb-3 font-mono">
             Advertisement
           </div>
+          {/* One slot per UNIQUE non-adult zone — Adsterra only fills a given
+              zone once per page, so rendering a format twice leaves the second
+              blank (and native's fixed container ID collides). */}
           <div className="flex flex-col items-center gap-4">
-            <RewardAdSlot size="leaderboard" />
-            <RewardAdSlot size="medium" />
-            <RewardAdSlot size="native" />
-            <RewardAdSlot size="large" />
-            <RewardAdSlot size="small" />
-            <RewardAdSlot size="sidebar" />
+            <RewardAdSlot size="leaderboard" />{/* 468x60 */}
+            <RewardAdSlot size="medium" />{/* 300x250 */}
+            <RewardAdSlot size="small" />{/* 320x50 */}
+            <RewardAdSlot size="native" />{/* native */}
           </div>
           <p className="text-white/30 text-xs text-center mt-4">
             Every live ad zone loads here automatically. The three legacy
