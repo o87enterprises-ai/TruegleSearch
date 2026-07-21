@@ -264,6 +264,14 @@
         "body": "truegle.info (domain 5880564) placements: Popunder_1=30006380, Smartlink_1=30006381, SocialBar_1=30006382, NativeBanner_1=30006383, 468x60_1=30006384, 300x250_1=30006385, 160x300_1=30006386, 728x90_1=30006387, 320x50_1=30006388, 160x600_1=30006389. 7-day stats (2026-07-14..21): 320x50 = 35 impressions/10 clicks/$0.01; 468x60 = 14 imp/1 click/$0; 300x250 = 7 imp/2 clicks/$0. So the 3 reactivated non-adult banner zones ARE serving real impressions to real visitors — the 'ads not showing' the owner saw is their OWN privacy browser blocking millionairelucidlytransmitted.com, NOT a broken pipeline. Revenue tiny only because traffic is ~56 imp/week (preproduction).",
         "ts": "2026-07-21",
         "created": "2026-07-21"
+      },
+      "adblock-resolved": {
+        "Id": "adblock-resolved",
+        "Type": "fact",
+        "Label": "Anti-adblock settled: already on Adsterra domain, customer CNAME NOT supported",
+        "body": "Adsterra support (Nicole/Bryan) 2026-07-21 confirmed: millionairelucidlytransmitted.com IS their anti-adblock serving domain and is ALREADY what our ad code uses (config/ads.js AD_DOMAIN default) — recovers ~82% of adblock users. Customer-owned CNAME (e.g. cdn.truegle.info first-party) is NOT possible on this account/network. So: NO Cloudflare CNAME task, VITE_AD_DOMAIN change NOT needed, Cloudflare token NOT needed for ads. Remaining ~18% hardcore blockers (Firefox ETP-strict, full uBlock) are unavoidably lost — the render-gate (adframe.html postMessage) makes this honest (blocked = no ad shown = no reward). Anti-adblock thread CLOSED. Still open: adult-content filtering (escalated at Adsterra, get written confirmation).",
+        "ts": "2026-07-21",
+        "created": "2026-07-21"
       }
     },
     "decision": {
@@ -653,6 +661,15 @@
         "Type": "thread",
         "Label": "Build sliding 90-day session (approved, not yet done)",
         "body": "User approved a sliding/rolling session: extend the JWT on each successful /validate so active (non-private-browser) users effectively never expire; also bump 30d->90d floor. Complements the reusable account code (which covers private-browser/cross-device). Not yet implemented.",
+        "status": "open",
+        "ts": "2026-07-21",
+        "created": "2026-07-21"
+      },
+      "adsterra-adult-confirm": {
+        "Id": "adsterra-adult-confirm",
+        "Type": "thread",
+        "Label": "Get Adsterra written confirmation adult categories disabled",
+        "body": "Owner is pressing Adsterra to disable adult/explicit ad categories account-wide (site 5880564). It was escalated/submitted per support chat. Until confirmed in writing, the reactivated non-adult zones (468x60/320x50/300x250/native, ungated) carry accepted risk of adult creative. If any adult creative appears, pull that zone's key from config/ads.js + redeploy.",
         "status": "open",
         "ts": "2026-07-21",
         "created": "2026-07-21"
