@@ -272,6 +272,14 @@
         "body": "Adsterra support (Nicole/Bryan) 2026-07-21 confirmed: millionairelucidlytransmitted.com IS their anti-adblock serving domain and is ALREADY what our ad code uses (config/ads.js AD_DOMAIN default) — recovers ~82% of adblock users. Customer-owned CNAME (e.g. cdn.truegle.info first-party) is NOT possible on this account/network. So: NO Cloudflare CNAME task, VITE_AD_DOMAIN change NOT needed, Cloudflare token NOT needed for ads. Remaining ~18% hardcore blockers (Firefox ETP-strict, full uBlock) are unavoidably lost — the render-gate (adframe.html postMessage) makes this honest (blocked = no ad shown = no reward). Anti-adblock thread CLOSED. Still open: adult-content filtering (escalated at Adsterra, get written confirmation).",
         "ts": "2026-07-21",
         "created": "2026-07-21"
+      },
+      "adsterra-adult-status-0721": {
+        "Id": "adsterra-adult-status-0721",
+        "Type": "fact",
+        "Label": "Adsterra adult filtering applied (support-confirmed verbally + user-verified clean); written confirmation pending",
+        "body": "Per full Adsterra support transcript 2026-07-21: Bryan states adult topics 'removed from your feed' AND explicitly extended removal to the reactivated units (468x60/320x50/300x250/native) too; escalated to relevant team for double-check. Owner tested on phone: NO visible adult ads even on refresh. So adult risk on the ungated reactivated zones is now LOW (was accepted-high). STILL PENDING: written confirmation that adult categories are disabled account-wide (owner is requesting it). STANDING CONTINGENCY unchanged: Adsterra adult filter has leaked twice before (07-05, 07-20), so if ANY explicit creative reappears, pull that zone's key from config/ads.js + redeploy. Anti-adblock CLOSED (no customer CNAME possible; already on millionairelucidlytransmitted.com = their anti-adblock domain, ~82% recovery, ~18% hardcore-blocker loss unavoidable + handled by render-gate).",
+        "ts": "2026-07-21",
+        "created": "2026-07-21"
       }
     },
     "decision": {
