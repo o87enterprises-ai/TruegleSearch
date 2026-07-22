@@ -742,6 +742,12 @@ export default function TruegleChat() {
                     {m.content && <p className="text-sm">{m.content}</p>}
                   </>
                 )}
+                {m.role === 'assistant' && m.id !== 1 && (
+                  <div className="my-3">
+                    <div className="text-[9px] uppercase tracking-widest text-orange-400/70 mb-1">Sponsored</div>
+                    <AdsterraBanner format="banner300x250" className="rounded-xl overflow-hidden" />
+                  </div>
+                )}
                 <Citations citations={m.citations} accent={accent} />
                 {m.graph && <InvestigationGraph graph={m.graph} accent={accent} />}
                 {m.role === 'assistant' && m.id !== 1 && (
@@ -750,18 +756,14 @@ export default function TruegleChat() {
                     <FeedbackButtons answer={m.content} query={priorQuery} mode={modes.join('+')} />
                   </div>
                 )}
+                {m.role === 'assistant' && m.id !== 1 && (
+                  <div className="mt-3 pt-3 border-t border-white/5">
+                    <div className="text-[9px] uppercase tracking-widest text-orange-400/70 mb-1">Sponsored</div>
+                    <AdsterraBanner format="banner468x60" className="rounded-xl overflow-hidden" />
+                  </div>
+                )}
               </div>
             </motion.div>
-            {/* Monetize each AI answer — inference costs real money per query,
-                so every generated answer carries one clearly-labeled ad. */}
-            {m.role === 'assistant' && m.id !== 1 && (
-              <div className="flex justify-start">
-                <div className="max-w-[85%] w-full">
-                  <div className="text-[9px] uppercase tracking-widest text-white/25 mb-1 px-1">Sponsored</div>
-                  <AdsterraBanner format="banner300x250" className="rounded-xl overflow-hidden" />
-                </div>
-              </div>
-            )}
             </Fragment>
             );
           })}
