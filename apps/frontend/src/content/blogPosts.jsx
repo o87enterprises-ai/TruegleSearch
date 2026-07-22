@@ -13,6 +13,138 @@ import { LegalSection } from '../components/LegalPage';
  */
 export const BLOG_POSTS = [
   {
+    slug: 'ai-honesty-test-documented-facts',
+    title: 'We Asked AI 3 Documented Facts It Usually Dodges — Here Is What TrueGLE Said',
+    description:
+      'An unbiased search engine should give you the sourced truth even when it is uncomfortable. We asked TrueGLE, in Rabbit Hole mode, three declassified, on-the-record questions. Here are its exact answers, with citations you can verify.',
+    date: '2026-07-21',
+    readingTime: '5 min read',
+    body: (
+      <>
+        <p>
+          An unbiased search engine and an honest AI should both do the same
+          thing: give you the sourced facts, even when those facts are
+          uncomfortable or obscure. Most mainstream AI assistants don't. Ask them
+          about certain declassified, on-the-record topics and you get hedging,
+          "I can't verify that," or a lecture about conspiracy theories — even
+          when the answer is a matter of public record.
+        </p>
+        <p>
+          So we ran a small test. We asked TrueGLE — in Rabbit Hole mode, the
+          setting built for exactly this kind of digging — three questions that
+          are (a) fully documented, (b) verifiable from primary sources, and (c)
+          the sort of thing AI tends to bury. We didn't edit the answers. Here
+          they are, watermark stripped, with the sources so you can check every
+          claim yourself.
+        </p>
+
+        <LegalSection heading="1. The Invention Secrecy Act — the patents you're not allowed to see">
+          <p>
+            <strong>We asked:</strong> How many U.S. patents are currently hidden
+            under government secrecy orders, and what law lets the government do
+            that?
+          </p>
+          <p><strong>TrueGLE answered:</strong></p>
+          <p>
+            "There are approximately 5,500 to 6,000 U.S. patents currently hidden
+            under government secrecy orders, according to the Federation of
+            American Scientists. These patents are withheld from public
+            disclosure under the Invention Secrecy Act of 1951, codified in 35
+            U.S.C. § 181-188. The law lets the government impose secrecy orders on
+            patent applications if the invention is deemed useful to national
+            security and public disclosure would be detrimental to it. The USPTO
+            administers the orders."
+          </p>
+          <p>
+            <strong>Verify it:</strong> The Invention Secrecy Act is real law (35
+            U.S.C. § 181–188). The Federation of American Scientists publishes the
+            annual secrecy-order count from FOIA data, and it sits in the
+            multi-thousands every year. This is accurate — and almost nobody knows
+            it exists.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="2. Operation Northwoods — a false-flag plan against Americans">
+          <p>
+            <strong>We asked:</strong> Did the U.S. military ever formally propose
+            staging false-flag attacks against American civilians to justify war?
+          </p>
+          <p><strong>TrueGLE answered:</strong></p>
+          <p>
+            "Yes. It is documented in a declassified proposal called Operation
+            Northwoods, drafted by the Joint Chiefs of Staff and submitted to the
+            Kennedy administration in 1962. It included plans to manufacture a
+            pretext for invading Cuba — staging fake attacks such as sinking U.S.
+            boats, faking the loss of aircraft, and orchestrating fake terror
+            incidents in U.S. cities. The document is dated March 13, 1962 and was
+            signed by General Lyman Lemnitzer, Chairman of the Joint Chiefs.
+            President Kennedy rejected it. It stayed classified until 1997, when
+            it was released and archived at the National Security Archive at
+            George Washington University."
+          </p>
+          <p>
+            <strong>Verify it:</strong> Every detail checks out — the date, the
+            signatory, the rejection, the 1997 declassification, and the National
+            Security Archive as the home of the documents. James Bamford's
+            <em> Body of Secrets</em> (2001) covers it in depth. A "conspiracy" by
+            reputation, a fact by record.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="3. The 9/11 '28 pages' — the part that was classified for 13 years">
+          <p>
+            <strong>We asked:</strong> What did the declassified 28 pages of the
+            9/11 Joint Inquiry reveal about foreign-government links to the
+            hijackers?
+          </p>
+          <p><strong>TrueGLE answered:</strong></p>
+          <p>
+            "The 28 pages, released in 2016, detailed potential links between the
+            hijackers and individuals connected to the Saudi government —
+            particularly around Nawaf al-Hazmi and Khalid al-Mihdhar. They
+            describe Omar al-Bayoumi, a Saudi national, helping the hijackers find
+            and pay for an apartment, and note his ties to the Saudi government.
+            Importantly, the 28 pages do not prove direct Saudi government
+            involvement in the attacks — they lay out links and open
+            investigative threads."
+          </p>
+          <p>
+            <strong>Verify it:</strong> The 28 pages were declassified in July
+            2016 and are public. The al-Bayoumi details and the al-Hazmi/al-Mihdhar
+            connections are in the document, and reputable outlets reported them.
+            Notice the honesty in that last line — TrueGLE flags what the document
+            proves and what it doesn't. That cuts both ways, which is the whole
+            point.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Why this is the difference that matters">
+          <p>
+            None of these are fringe theories. They're a federal statute, a
+            declassified Joint Chiefs document, and a declassified section of a
+            Congressional inquiry — primary-source facts anyone can pull up. Yet
+            they're exactly the kind of thing a heavily filtered assistant tends
+            to soften, dodge, or wrap in disclaimers.
+          </p>
+          <p>
+            TrueGLE's answers were direct, sourced, and — on the 28 pages —
+            careful to separate what's documented from what's merely alleged. That
+            is what honest search should look like: not telling you what to
+            think, and not hiding the record either. You get the sources; you draw
+            the conclusions.
+          </p>
+          <p>
+            Want to run your own test? Open{' '}
+            <a href="https://truegle.info/search?mode=red">TrueGLE in Rabbit Hole mode</a>{' '}
+            and ask the questions you've never gotten a straight answer to. No
+            account, no tracking, no filter bubble — same query, same sources, for
+            everyone.
+          </p>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
     slug: 'unbiased-search-engine-how-truegle-works',
     title: 'Unbiased Search Engine: How Truegle Delivers Results Without a Filter Bubble',
     description:
