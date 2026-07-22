@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
@@ -11,6 +11,7 @@ import { FREE_ACCESS_MODE } from '../config/access';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent, solidTextClass } from '../config/modeTheme';
 import { getVideoEmbed } from '../utils/videoEmbed';
 import ChatShareButton from '../components/ui/ChatShareButton';
+import AdsterraBanner from '../components/ads/AdsterraBanner';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
 import FeedbackButtons from '../components/ui/FeedbackButtons';
 import PillModeRow from '../components/landing/PillModeRow';
@@ -717,8 +718,8 @@ export default function TruegleChat() {
               ? [...messages.slice(0, i)].reverse().find((p) => p.role === 'user')?.content
               : undefined;
             return (
+            <Fragment key={m.id}>
             <motion.div
-              key={m.id}
               ref={i === messages.length - 1 ? lastMessageRef : undefined}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -751,6 +752,17 @@ export default function TruegleChat() {
                 )}
               </div>
             </motion.div>
+            {/* Monetize each AI answer — inference costs real money per query,
+                so every generated answer carries one clearly-labeled ad. */}
+            {m.role === 'assistant' && m.id !== 1 && (
+              <div className="flex justify-start">
+                <div className="max-w-[85%] w-full">
+                  <div className="text-[9px] uppercase tracking-widest text-white/25 mb-1 px-1">Sponsored</div>
+                  <AdsterraBanner format="banner300x250" className="rounded-xl overflow-hidden" />
+                </div>
+              </div>
+            )}
+            </Fragment>
             );
           })}
           {/* Disappear/reappear flow: while a reply is in flight, the input is
