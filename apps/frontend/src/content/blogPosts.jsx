@@ -13,6 +13,125 @@ import { LegalSection } from '../components/LegalPage';
  */
 export const BLOG_POSTS = [
   {
+    slug: 'ai-honesty-test-declassified-part-2',
+    title: 'Unbiased AI, Part 2: 3 More Declassified Facts Mainstream AI Won’t Say Plainly',
+    description:
+      'A truly unbiased search engine gives you the record, not a sanitized version of it. We asked TrueGLE, in Rabbit Hole mode, about three more declassified government programs. Here are its answers, fact-checked, with sources.',
+    date: '2026-07-21',
+    readingTime: '5 min read',
+    body: (
+      <>
+        <p>
+          An unbiased search engine should hand you the primary-source record and
+          let you judge it — not pre-chew it into a reassuring non-answer. In{' '}
+          <a href="/blog/ai-honesty-test-documented-facts">Part 1</a> we asked
+          TrueGLE three documented questions mainstream AI tends to dodge. It
+          answered straight, with citations. So we did it again — three more
+          declassified U.S. government programs, all a matter of public record.
+        </p>
+        <p>
+          As before: TrueGLE answered in Rabbit Hole mode, we stripped the
+          watermark, and we fact-checked every claim against the primary sources
+          before publishing. Where its raw answer had a shaky citation, we say so
+          — because honesty has to cut both ways.
+        </p>
+
+        <LegalSection heading="1. MKUltra — the CIA dosed people with LSD without consent">
+          <p>
+            <strong>We asked:</strong> Did the CIA run illegal experiments on
+            unwitting American citizens, including drugging people without
+            consent? What was it called, and how do we know?
+          </p>
+          <p><strong>TrueGLE answered:</strong></p>
+          <p>
+            "The CIA conducted illegal experiments on unwitting American
+            citizens, including drugging people without consent, under a program
+            called MKULTRA. It ran from the early 1950s into the 1970s and used
+            LSD, hypnosis, and other methods to try to manipulate human behavior.
+            It was brought to light in 1975 by the Church Committee, and detailed
+            in the Senate's 1977 hearings, 'Project MKUltra, the CIA's Program of
+            Research in Behavioral Modification.'"
+          </p>
+          <p>
+            <strong>Verify it:</strong> MKUltra ran roughly 1953–1973. Most of its
+            records were destroyed on CIA Director Richard Helms's order in 1973 —
+            but surviving financial files were obtained via FOIA and drove the 1977
+            Senate hearings of that exact title. A 1963 CIA Inspector General
+            report documented it internally. All public record. (TrueGLE's raw
+            answer misdated that IG report and mislabeled one Church Committee
+            title; the underlying facts are correct, which is why we sourced them
+            precisely here.)
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="2. The Gulf of Tonkin — the attack that started a war didn't happen as reported">
+          <p>
+            <strong>We asked:</strong> Did the 1964 Gulf of Tonkin incident that
+            escalated the Vietnam War actually happen as originally reported? What
+            do declassified NSA documents say?
+          </p>
+          <p><strong>TrueGLE answered:</strong></p>
+          <p>
+            "Declassified NSA documents indicate the original report was
+            inaccurate. The second attack on the USS Maddox on August 4, 1964 — the
+            one used to justify escalation — appears not to have occurred as
+            reported; the signals intelligence was misinterpreted or overstated
+            (NSA declassified Gulf of Tonkin documents, 2005)."
+          </p>
+          <p>
+            <strong>Verify it:</strong> In 2005 the NSA declassified a study by its
+            own historian, Robert Hanyok, concluding the August 4 attack did not
+            happen and that intelligence had been skewed to support the official
+            account. The Gulf of Tonkin Resolution — which authorized the war —
+            rested on it. Confirmed by the NSA's own release and the National
+            Security Archive.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="3. COINTELPRO — the FBI's secret war on activists">
+          <p>
+            <strong>We asked:</strong> Did the FBI run a secret program to
+            surveil, infiltrate, and disrupt civil rights and activist groups?
+          </p>
+          <p><strong>TrueGLE answered:</strong></p>
+          <p>
+            "Yes — a program called COINTELPRO (Counter Intelligence Program),
+            which ran from 1956 to 1971. It was exposed in 1971 when activists
+            broke into an FBI office in Media, Pennsylvania and released documents
+            detailing it. The Church Committee (1976) confirmed it targeted groups
+            including the Southern Christian Leadership Conference, SNCC, and the
+            Black Panther Party, using wiretapping, infiltration, and sabotage to
+            discredit and disrupt them."
+          </p>
+          <p>
+            <strong>Verify it:</strong> Every detail holds. The 1971 break-in was
+            by the Citizens' Commission to Investigate the FBI; the Church
+            Committee's 1976 report "Intelligence Activities and the Rights of
+            Americans" laid COINTELPRO out in full; the FBI's own online "Vault"
+            hosts the files today.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="The pattern">
+          <p>
+            Three declassified programs. A Senate hearing, an NSA report, and an
+            FBI file — all public, all verifiable. None of it is fringe; it's the
+            documented record. And it's exactly the kind of thing a filtered
+            assistant will soften into "some historians argue" or steer you away
+            from entirely.
+          </p>
+          <p>
+            TrueGLE gave the facts, named the sources, and — where we checked — was
+            right on the substance every time. That's the whole idea: an engine
+            that doesn't decide what you're allowed to know.{' '}
+            <a href="https://truegle.info/search?mode=red">Try Rabbit Hole mode</a>{' '}
+            and test it on the questions you care about.
+          </p>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
     slug: 'ai-honesty-test-documented-facts',
     title: 'We Asked AI 3 Documented Facts It Usually Dodges — Here Is What TrueGLE Said',
     description:
