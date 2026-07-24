@@ -156,7 +156,10 @@ class UnifiedAIService {
             {
               ...options,
               temperature: prompt.temperature,
-              max_tokens: prompt.max_tokens,
+              // Honor a caller-supplied cap (e.g. vs/Null-Prime mode needs a
+              // larger budget so the dual-audit scaffold isn't truncated
+              // mid-answer); fall back to the prompt/default cap otherwise.
+              max_tokens: options.maxTokens || prompt.max_tokens,
               system: basePrompt,
               ...providerOptions,
             }
@@ -295,7 +298,9 @@ class UnifiedAIService {
               ...options,
               system: systemPrompt,
               temperature: prompt.temperature,
-              max_tokens: prompt.max_tokens
+              // Honor a caller-supplied cap (vs/Null-Prime summaries need room
+              // for the full audit scaffold); default otherwise.
+              max_tokens: options.maxTokens || prompt.max_tokens
             }
           );
 

@@ -106,6 +106,10 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
       history, // prior turns → real back-and-forth memory
       imageDataUrl: hasImage ? image : undefined,
       searchResults: typeof searchResults === 'string' && searchResults.trim() ? searchResults : undefined,
+      // vs/Null-Prime mode emits a long labeled dual-audit scaffold; give it a
+      // bigger token budget so the Verdict section isn't cut off (ordinary
+      // chat keeps the default cap, so normal-traffic cost is unchanged).
+      ...(nepheshMode ? { maxTokens: 4000 } : {}),
     });
 
     // Deduct token for authenticated users
@@ -580,6 +584,9 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
         searchResults: searchContext,
         perspective: selectedPerspective,
         systemOverride,
+        // Match /chat: vs/Null-Prime summaries need room for the full audit
+        // scaffold so the Verdict isn't truncated.
+        ...(nepheshMode ? { maxTokens: 4000 } : {}),
       });
 
       return res.json({
