@@ -296,6 +296,14 @@
         "body": "REVERSES prior permanent fact 'adult toggle cant be disabled once on'. Adult zones 728x90/160x300/160x600 re-enabled UNGATED as general-use (728x90 = top CPM). adultGated removed from 5 sites in UniversalSearch.jsx; AdSlot.jsx sizeToFormat now uses 728x90/native/160x600. MONITOR for adult creative (leaks 07-05, 07-20); rollback = re-add adultGated + pull key in config/ads.js.",
         "ts": "2026-07-24",
         "created": "2026-07-24"
+      },
+      "yt-rss-throttled": {
+        "Id": "yt-rss-throttled",
+        "Type": "fact",
+        "Label": "YouTube RSS unreliable from datacenter IPs; use Data API",
+        "body": "youtube.com/feeds/videos.xml gets hard rate-limited from Vercel + agent-proxy IPs (worked on cold call, blocks on repeats). Creator pages showed 'Videos unavailable'. FIX: backend routes/creators.js prefers YouTube Data API v3 (playlistItems on uploads playlist UU+channelId.slice(2)) when YOUTUBE_API_KEY env set on Vercel backend — reliable from datacenter, 1 unit/call, 10k/day free. RSS fallback now uses browser UA. Frontend creatorVideosFallback.js = build-time snapshot fallback (regen: node apps/frontend/scripts/seed-creator-videos.mjs, but throttled — only 2/10 seed at a time). PENDING USER: create free YOUTUBE_API_KEY (Google Cloud -> enable YouTube Data API v3 -> API key) + add to Vercel backend env -> all 10 creator pages reliable.",
+        "ts": "2026-07-24",
+        "created": "2026-07-24"
       }
     },
     "decision": {
@@ -520,6 +528,14 @@
         "Type": "decision",
         "Label": "Creator hub built + 10 partners wired",
         "body": "Shipped /creator/:slug (CreatorPage.jsx) + backend RSS proxy routes/creators.js (free youtube RSS, no key) + content/creators.js roster of 10 resolved UC channel IDs: dark-waters-9, true-story, bass-forge, wright-7x, bryce-is-right, jon-levi, mind-unveiled, xevi, stolen-timelines, adam-mockler. Official YT embed (creators keep views+revenue). nativeBanner ad slot. Featured=dark-waters-9. TODO: taglines (blank), landing featured slot, ?ref traffic tracking + weekly rotation, avatars. Outreach templates drafted (DM+email, honest metrics).",
+        "ts": "2026-07-24",
+        "created": "2026-07-24"
+      },
+      "rewards-ui-removed": {
+        "Id": "rewards-ui-removed",
+        "Type": "decision",
+        "Label": "Rewards UI removed from frontend",
+        "body": "RewardsCTA off landing, 'Rewards' off BrandBar nav, orange pill off PillModeRow CYCLE. Program paused (Adsterra pays CPM not clicks). /rewards route + RewardsDashboard still exist under the hood but unlinked. Backend /api/rewards already commented out in server.js.",
         "ts": "2026-07-24",
         "created": "2026-07-24"
       }
