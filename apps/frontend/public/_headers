@@ -32,6 +32,8 @@
   Content-Type: text/html; charset=utf-8
 /blog/*
   Content-Type: text/html; charset=utf-8
+/creator/*
+  Content-Type: text/html; charset=utf-8
 /green
   Content-Type: text/html; charset=utf-8
 /feeling-biased

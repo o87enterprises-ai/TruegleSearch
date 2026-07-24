@@ -223,6 +223,7 @@ app.use('/api/tokens', require('./routes/tokens'));
 // Frontend degrades gracefully (RewardAdSlot renders a plain AdsterraBanner when
 // the status call fails / user isn't opted in). Re-enable by uncommenting.
 // app.use('/api/rewards', require('./routes/rewards'));
+app.use('/api/creators', require('./routes/creators'));
 app.use('/api/session', require('./routes/session'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/prompts', require('./routes/prompts'));

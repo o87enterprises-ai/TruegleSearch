@@ -28,6 +28,7 @@
 # /blog and /blog/* are intentionally NOT here — all blog routes are
 # prerendered (dist/blog/index.html + dist/blog/<slug>/index.html).
 # Adding them here would cause the 200 rewrite to override the static files.
+/creator/*        /_index  200
 /green            /_index  200
 /feeling-biased   /_index  200
 /biased           /_index  200

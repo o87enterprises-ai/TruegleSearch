@@ -32,6 +32,7 @@ import TruegleChat from './pages/TruegleChat';
 import SharedThread from './pages/SharedThread';
 import FeelingBiasedPage from './pages/FeelingBiasedPage';
 import ExtractPage from './pages/ExtractPage';
+import CreatorPage from './pages/CreatorPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import About from './pages/About';
@@ -307,6 +308,7 @@ const AppContent = () => {
         {/* Blog / editorial content (crawlable publisher content for SEO + ads) */}
         <Route path="/blog" element={<RouteBoundary><Blog /></RouteBoundary>} />
         <Route path="/blog/:slug" element={<RouteBoundary><BlogPost /></RouteBoundary>} />
+        <Route path="/creator/:slug" element={<RouteBoundary><CreatorPage /></RouteBoundary>} />
         <Route path="/revenue-calc" element={<RouteBoundary><RevenueCalculator /></RouteBoundary>} />
         {/* Onboarding Route */}
         <Route
