@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import logoImage from '../../assets/images/truegle.png';
-import logoChatImage from '../../assets/images/truegle-chat-transparent.png';
+import logoImage from '../../assets/images/truegle.webp';
+import logoChatImage from '../../assets/images/truegle-chat-transparent.webp';
 
 // variant 'chat' shows the "TrueGLE chat" mark (used on /chat, where the user is
 // silently routed after their first landing-page query). The default mark is

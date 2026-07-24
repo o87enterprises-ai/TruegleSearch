@@ -9,7 +9,7 @@ import DirectionsPanel from './DirectionsPanel';
 import LocationPermissionModal from './LocationPermissionModal';
 import AdBanner from './AdBanner';
 import { useMap } from './context/MapContext';
-import truegleLogo from '../../assets/images/truegle.png';
+import truegleLogo from '../../assets/images/truegle.webp';
 import LogoOverlay from './LogoOverlay';
 
 const getBackendUrl = () => import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';

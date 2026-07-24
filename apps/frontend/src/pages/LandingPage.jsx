@@ -25,6 +25,7 @@ import RewardsCTA from '../components/landing/RewardsCTA';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import CursorGlow from '../components/ui/CursorGlow';
 import LandingBackground from '../components/LandingBackground';
+import FeaturedCreator from '../components/FeaturedCreator';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import SearchBar from '../components/ui/SearchBar';
 
@@ -401,6 +402,10 @@ export default function LandingPage() {
             spec flow (not one of the 9 numbered landing sections, kept
             because the live trending feed is real backend-integrated work). */}
         <ModesAndTrending />
+
+        {/* Featured Creator slot — surfaces the weekly featured YouTuber's
+            latest upload, links to their on-site /creator page. */}
+        <FeaturedCreator />
 
         {/* Get paid for the ads you see (spec #8) */}
         <div id="rewards-cta" className="py-16 px-4">

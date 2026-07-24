@@ -2,7 +2,7 @@ import React from 'react';
 import './LogoOverlay.css';
 
 // Import the image using Vite's asset handling
-import logo from '../../assets/images/truegle.png';
+import logo from '../../assets/images/truegle.webp';
 
 const LogoOverlay = () => {
   return (
