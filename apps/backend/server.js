@@ -217,7 +217,12 @@ app.use('/api/search', [blockBadBots, suspiciousBotLimiter, searchPrivacyMiddlew
 app.use('/api/auth', [authLimiter, require('./routes/auth')]);
 app.use('/api/analytics', require('./routes/analytics').router);
 app.use('/api/tokens', require('./routes/tokens'));
-app.use('/api/rewards', require('./routes/rewards'));
+// Rewards paused 2026-07-24: Adsterra pays on CPM (impressions), not the clicks
+// this loop rewarded — the inflated CTR earned $0 and risked invalid-traffic
+// flags. Disabled while we zero in on what drives paying organic impressions.
+// Frontend degrades gracefully (RewardAdSlot renders a plain AdsterraBanner when
+// the status call fails / user isn't opted in). Re-enable by uncommenting.
+// app.use('/api/rewards', require('./routes/rewards'));
 app.use('/api/session', require('./routes/session'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/prompts', require('./routes/prompts'));

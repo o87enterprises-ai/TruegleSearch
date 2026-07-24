@@ -92,9 +92,15 @@ export const SLOT_FORMAT = {
   sidebar:           'banner160x600',
   skyscraper:        'banner160x600',
   mobileBanner:      'banner320x50',
-  rectangle:         'banner300x250',
+  // Rebalanced 2026-07-24 from Adsterra per-zone data (30d): 300x250 earned
+  // ~$0 on 203 impressions (the highest-volume dead zone) while nativeBanner
+  // returned the best non-adult CPM ($0.151) — and native is more on-brand.
+  rectangle:         'nativeBanner',
   native:            'nativeBanner',
 };
 
-export const pickFormat = (slot, fallback = 'banner728x90') =>
+// Default fallback is a NON-ADULT payer (was banner728x90 — an adult-gated,
+// CPM-zeroed zone that should never be a silent default). nativeBanner is the
+// top-earning non-adult format in the account per 30d stats.
+export const pickFormat = (slot, fallback = 'nativeBanner') =>
   SLOT_FORMAT[slot] || fallback;
