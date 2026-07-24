@@ -730,6 +730,15 @@
         "status": "open",
         "ts": "2026-07-24",
         "created": "2026-07-24"
+      },
+      "creator-ref-rotation": {
+        "Id": "creator-ref-rotation",
+        "Type": "thread",
+        "Label": "Creator ?ref attribution + weekly rotation shipped",
+        "body": "migration 016 creator_ref_daily MUST be run on Neon (node scripts/run-migrations.js) — until then backend fails soft + FeaturedCreator uses static pick (dark-waters-9). Flow: recordRef() (utils/creatorRef.js) session-deduped -> POST /api/creators/ref/:code UPSERT; RefCapture.jsx catches ?ref on any page; CreatorPage attributes visit to its creator; GET /api/creators/featured = top ref_code by 7d SUM; FeaturedCreator overrides static with leader. Outreach links can append ?ref=<refCode> to attribute homepage traffic; visiting /creator/<slug> already attributes. Stolen Timeline fixed -> UCB9LqQNtyPPdW1prv0h8_5Q.",
+        "status": "open",
+        "ts": "2026-07-24",
+        "created": "2026-07-24"
       }
     }
   },
