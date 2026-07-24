@@ -482,6 +482,14 @@
         "body": "Fixed 2026-07-21: privacy browsers (Firefox ETP/uBlock/Brave) block Adsterra script -> ad iframe blank but reward still fired (users credited for unseen ads). adframe.html now postMessages parent {truegleAd, key, rendered} via script onload/onerror + a getBoundingClientRect size check on injected iframe/ins/img/container child, with a 4s silent-block fallback. RewardAdSlot listens for the message matching ADSTERRA[zone].key, sets , and gates trackingEnabled (session open + impression + click earning) on rendered===true. Fails closed (no render confirmation = no reward). Also added a 'Refresh ads' button on /rewards (adRefreshKey bumps the RewardAdSlot keys to remount/reload). Also deduped rewards ad slots to one per unique non-adult zone (468x60/300x250/320x50/native) since Adsterra fills a zone once per page.",
         "ts": "2026-07-21",
         "created": "2026-07-21"
+      },
+      "vs-mode-tiers": {
+        "Id": "vs-mode-tiers",
+        "Type": "decision",
+        "Label": "vs-mode audit enhanced + shipped",
+        "body": "CONTESTED_CLAIM_PROTOCOL (nepheshPrompts.js) gained evidence-tier tags [FIRSTHAND/INSTRUMENT/TESTIMONIAL/CONTESTED], qualitative Confidence word (Robust/Probable/Open/Weak, no numeric scores), split-verdict rule (a true grievance can't launder a bundled extraordinary claim), and a Sources-to-check step. Truncation fixed: routes/ai.js passes maxTokens:4000 when nepheshMode; UnifiedAIService honors options.maxTokens. Ledger/lean logic deliberately UNCHANGED per user directive 'do not change the model'. PROMPT_VERSION 2026-07-24. Shipped to main 5c0c33e.",
+        "ts": "2026-07-24",
+        "created": "2026-07-24"
       }
     },
     "entity": {
@@ -710,5 +718,5 @@
       }
     }
   },
-  "updated": "2026-07-21"
+  "updated": "2026-07-24"
 }
