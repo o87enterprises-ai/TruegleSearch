@@ -16,6 +16,7 @@ import { MapProvider } from './components/map';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { SettingsProvider } from './context/SettingsContext';
 import AdScriptLoader from './components/ads/AdScriptLoader';
+import RefCapture from './components/RefCapture';
 import FreemiumTokenBar from './components/ui/FreemiumTokenBar';
 import CookieConsent from './components/ui/CookieConsent';
 import TruegleLogo from './components/ui/TruegleLogo';
@@ -153,6 +154,7 @@ const App = () => {
                       {/* TODO(ads): re-enable when new Adsterra zones land
                       <AdScriptLoader />
                       */}
+                      <RefCapture />
                       <FreemiumTokenBar />
                       {/* TODO(landing-flow): re-enable once the pill/chat mode
                           flow is finalized and we've decided where the ads

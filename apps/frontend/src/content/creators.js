@@ -70,10 +70,10 @@ export const CREATORS = [
   },
   {
     slug: 'stolen-timelines', name: 'Stolen Timelines', tagline: '',
-    channelId: 'UCCik2hboGOeLdM7sQgW6Gtg',
-    channelUrl: 'https://www.youtube.com/@stolentimelines',
+    channelId: 'UCB9LqQNtyPPdW1prv0h8_5Q',
+    channelUrl: 'https://www.youtube.com/@stolentimeline',
     avatar: null, refCode: 'stolen-timelines', featured: false,
-    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@stolentimelines' }],
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@stolentimeline' }],
   },
   {
     slug: 'adam-mockler', name: 'Adam Mockler', tagline: '',

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const logger = require('../utils/logger');
+const { query } = require('../db/connection');
 
 /*
  * Creator hub — YouTube channel feed proxy.
@@ -41,6 +42,48 @@ router.get('/:channelId/videos', async (req, res) => {
     logger.warn('Creator RSS fetch failed:', { channelId, error: err.message });
     if (hit) return res.json({ videos: hit.videos, stale: true }); // serve stale on error
     return res.status(502).json({ error: 'rss_unavailable', videos: [] });
+  }
+});
+
+/*
+ * Referral attribution for the featured-creator rotation. A visit tagged to a
+ * creator (either ?ref=<code> on any page, or a visit to their /creator page)
+ * increments that code's daily counter. Fails soft — if the table isn't there
+ * yet (migration 016 not run) or the DB is down, the frontend just falls back
+ * to the static featured pick.
+ */
+router.post('/ref/:code', async (req, res) => {
+  const { code } = req.params;
+  if (!/^[a-z0-9-]{2,40}$/.test(code)) return res.status(400).json({ ok: false });
+  try {
+    await query(
+      `INSERT INTO creator_ref_daily (ref_code, day, hits)
+       VALUES ($1, CURRENT_DATE, 1)
+       ON CONFLICT (ref_code, day)
+       DO UPDATE SET hits = creator_ref_daily.hits + 1`,
+      [code]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    logger.warn('creator ref record failed:', { code, error: err.message });
+    res.json({ ok: false }); // non-fatal
+  }
+});
+
+// The current featured creator = most attributed traffic over the last 7 days.
+router.get('/featured', async (_req, res) => {
+  try {
+    const { rows } = await query(
+      `SELECT ref_code FROM creator_ref_daily
+       WHERE day >= CURRENT_DATE - INTERVAL '6 days'
+       GROUP BY ref_code
+       ORDER BY SUM(hits) DESC
+       LIMIT 1`
+    );
+    res.json({ refCode: rows[0]?.ref_code || null });
+  } catch (err) {
+    logger.warn('creator featured lookup failed:', { error: err.message });
+    res.json({ refCode: null }); // frontend falls back to static featured
   }
 });
 

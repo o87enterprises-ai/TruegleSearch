@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
-import { getFeaturedCreator } from '../content/creators';
+import { CREATORS, getFeaturedCreator } from '../content/creators';
 
 /*
  * Landing "Featured Creator" slot. Surfaces the current featured creator (see
@@ -11,8 +11,22 @@ import { getFeaturedCreator } from '../content/creators';
  * creator's on-site page. Weekly rotation-by-traffic comes with ?ref tracking.
  */
 export default function FeaturedCreator() {
-  const creator = getFeaturedCreator();
+  // Default to the static featured pick; override with the 7-day traffic leader
+  // once the rotation endpoint answers (falls back silently if it can't).
+  const [creator, setCreator] = useState(getFeaturedCreator());
   const [video, setVideo] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    api.get('/creators/featured')
+      .then((r) => {
+        const code = r.data?.refCode;
+        const winner = code && CREATORS.find((c) => c.refCode === code);
+        if (live && winner) setCreator(winner);
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
 
   useEffect(() => {
     if (!creator) return;

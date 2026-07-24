@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import { getCreator } from '../content/creators';
 import { getVideoEmbed } from '../utils/videoEmbed';
+import { recordRef } from '../utils/creatorRef';
 import AdsterraBanner from '../components/ads/AdsterraBanner';
 
 /*
@@ -22,6 +23,7 @@ export default function CreatorPage() {
 
   useEffect(() => {
     if (!creator) return;
+    recordRef(creator.refCode); // visiting a creator's page attributes traffic to them
     let live = true;
     setLoading(true);
     setErr(false);
