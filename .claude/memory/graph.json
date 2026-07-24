@@ -280,6 +280,22 @@
         "body": "Per full Adsterra support transcript 2026-07-21: Bryan states adult topics 'removed from your feed' AND explicitly extended removal to the reactivated units (468x60/320x50/300x250/native) too; escalated to relevant team for double-check. Owner tested on phone: NO visible adult ads even on refresh. So adult risk on the ungated reactivated zones is now LOW (was accepted-high). STILL PENDING: written confirmation that adult categories are disabled account-wide (owner is requesting it). STANDING CONTINGENCY unchanged: Adsterra adult filter has leaked twice before (07-05, 07-20), so if ANY explicit creative reappears, pull that zone's key from config/ads.js + redeploy. Anti-adblock CLOSED (no customer CNAME possible; already on millionairelucidlytransmitted.com = their anti-adblock domain, ~82% recovery, ~18% hardcore-blocker loss unavoidable + handled by render-gate).",
         "ts": "2026-07-21",
         "created": "2026-07-21"
+      },
+      "adsterra-pays-cpm": {
+        "Id": "adsterra-pays-cpm",
+        "Type": "fact",
+        "Label": "Adsterra pays CPM (impressions), NOT clicks",
+        "body": "Confirmed from stats CSV + publisher API: revenue = CPM x impressions / 1000; clicks earn nothing. Inflated CTR (5-42% from the old rewards click-heuristic) got CPM ZEROED as invalid traffic. Per-zone 30d CPM: 728x90 $0.441 (top), Popunder $0.335, NativeBanner $0.151, 320x50 $0.10; DEAD: 300x250 $0.003, 468x60 $0. Geo: US=90% of traffic but low CPM $0.056 (quality-discounted); DE spiked $2.34 (noise). Lever = real tier-1 human VOLUME + clean traffic. API: X-Api-Key 7e2cf50f506eda5d86ef4659a246ef58, domain 5880564, api3.adsterratools.com/publisher stats.json?group_by[]=placement|country.",
+        "ts": "2026-07-24",
+        "created": "2026-07-24"
+      },
+      "adult-toggle-off": {
+        "Id": "adult-toggle-off",
+        "Type": "fact",
+        "Label": "Adsterra adult toggle now OFF (owner-confirmed 2026-07-24)",
+        "body": "REVERSES prior permanent fact 'adult toggle cant be disabled once on'. Adult zones 728x90/160x300/160x600 re-enabled UNGATED as general-use (728x90 = top CPM). adultGated removed from 5 sites in UniversalSearch.jsx; AdSlot.jsx sizeToFormat now uses 728x90/native/160x600. MONITOR for adult creative (leaks 07-05, 07-20); rollback = re-add adultGated + pull key in config/ads.js.",
+        "ts": "2026-07-24",
+        "created": "2026-07-24"
       }
     },
     "decision": {
@@ -490,6 +506,14 @@
         "body": "CONTESTED_CLAIM_PROTOCOL (nepheshPrompts.js) gained evidence-tier tags [FIRSTHAND/INSTRUMENT/TESTIMONIAL/CONTESTED], qualitative Confidence word (Robust/Probable/Open/Weak, no numeric scores), split-verdict rule (a true grievance can't launder a bundled extraordinary claim), and a Sources-to-check step. Truncation fixed: routes/ai.js passes maxTokens:4000 when nepheshMode; UnifiedAIService honors options.maxTokens. Ledger/lean logic deliberately UNCHANGED per user directive 'do not change the model'. PROMPT_VERSION 2026-07-24. Shipped to main 5c0c33e.",
         "ts": "2026-07-24",
         "created": "2026-07-24"
+      },
+      "rewards-paused": {
+        "Id": "rewards-paused",
+        "Type": "decision",
+        "Label": "Rewards routes paused + ad zones rebalanced to payers",
+        "body": "server.js /api/rewards mount commented out (paid for clicks Adsterra doesnt pay for + inflated CTR zeroed CPM). Chat (highest-traffic surface) swapped from dead 300x250/468x60 to nativeBanner (above citations) + 728x90 (below answer). ads.js: rectangle->native, default fallback->native. 72h revenue test trigger set (fires 2026-07-27, trig_015ycNcbVdrAi3jQ2mGaiGRn).",
+        "ts": "2026-07-24",
+        "created": "2026-07-24"
       }
     },
     "entity": {
@@ -689,6 +713,15 @@
         "status": "open",
         "ts": "2026-07-21",
         "created": "2026-07-21"
+      },
+      "creator-hub": {
+        "Id": "creator-hub",
+        "Type": "thread",
+        "Label": "Creator hub / YouTuber ambassador program (in design)",
+        "body": "Per-creator /creator/:slug pages: RSS-fed recent uploads (youtube.com/feeds/videos.xml?channel_id=, free no-key, proxy via backend for CORS) + existing getVideoEmbed() official YT player (views/revenue stay with creator; not ad-stripping) + socials + our payer ad slots. Landing featured-creator slot cycled weekly by ?ref traffic. Revenue-share affiliate via ?ref. BLOCKED on owner: creator list (names+channel IDs), viewer perk, rev-share %. Do NOT market 'ad-free' (official embed shows YT ads when served; over-promise risk).",
+        "status": "open",
+        "ts": "2026-07-24",
+        "created": "2026-07-24"
       }
     }
   },

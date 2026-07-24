@@ -745,7 +745,7 @@ export default function TruegleChat() {
                 {m.role === 'assistant' && m.id !== 1 && (
                   <div className="my-3">
                     <div className="text-[9px] uppercase tracking-widest text-orange-400/70 mb-1">Sponsored</div>
-                    <AdsterraBanner format="banner300x250" className="rounded-xl overflow-hidden" />
+                    <AdsterraBanner format="nativeBanner" className="rounded-xl overflow-hidden" />
                   </div>
                 )}
                 <Citations citations={m.citations} accent={accent} />
@@ -759,7 +759,7 @@ export default function TruegleChat() {
                 {m.role === 'assistant' && m.id !== 1 && (
                   <div className="mt-3 pt-3 border-t border-white/5">
                     <div className="text-[9px] uppercase tracking-widest text-orange-400/70 mb-1">Sponsored</div>
-                    <AdsterraBanner format="banner468x60" className="rounded-xl overflow-hidden" />
+                    <AdsterraBanner format="banner728x90" className="rounded-xl overflow-hidden" />
                   </div>
                 )}
               </div>

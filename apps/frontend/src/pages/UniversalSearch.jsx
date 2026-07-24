@@ -1100,7 +1100,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     <AdsterraBanner
                       format="banner728x90"
                       searchContext={adContext}
-                      adultGated
                       isAuthenticated={isAuthenticated}
                       safeSearch={settings.safeSearch}
                       query={query}
@@ -1156,7 +1155,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     <AdsterraBanner
                       format="banner160x300"
                       searchContext={adContext}
-                      adultGated
                       isAuthenticated={isAuthenticated}
                       safeSearch={settings.safeSearch}
                       query={query}
@@ -1505,7 +1503,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
               <AdsterraBanner
                 format="banner728x90"
                 searchContext={adContext}
-                adultGated
                 isAuthenticated={isAuthenticated}
                 safeSearch={settings.safeSearch}
                 query={query}
@@ -1528,7 +1525,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
             <AdsterraBanner
               format="banner728x90"
               searchContext={adContext}
-              adultGated
               isAuthenticated={isAuthenticated}
               safeSearch={settings.safeSearch}
               query={query}
@@ -1805,7 +1801,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     <AdsterraBanner
                       format="banner160x600"
                       searchContext={adContext}
-                      adultGated
                       isAuthenticated={isAuthenticated}
                       safeSearch={settings.safeSearch}
                       query={query}

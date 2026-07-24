@@ -69,10 +69,13 @@ export const adInvokeUrl = (key) => `https://${AD_DOMAIN}/${key}/invoke.js`;
  * abandoned. If a zone starts serving adult creative again, pull its key here
  * and request a fresh zone to replace it.
  *
- * banner728x90/160x300/160x600 are the OLD adult-locked zones — they stay
- * behind the full 5-step adult gate (AdsterraBanner adultGated +
- * AdultConsentGate) on the search page. Never render them ungated — a mobile
- * user was served adult creative from an ungated 728x90 slot on 2026-07-05.
+ * banner728x90/160x300/160x600 were the OLD adult-locked zones. The
+ * account-level adult toggle is now OFF (owner-confirmed 2026-07-24), so these
+ * are wired back in as general-use zones (728x90 is the top-CPM format). This
+ * reverses the earlier gate — MONITOR for adult creative, since ungated 728x90
+ * served adult on 2026-07-05 and 2026-07-20 when the toggle was still on.
+ * FASTEST ROLLBACK if it recurs: re-add `adultGated` at the AdsterraBanner call
+ * sites in UniversalSearch.jsx and pull the offending key here.
  */
 export const ADSTERRA = {
   banner728x90:  { key: 'd5f657ea7d55fc33ea532071957a2857', w: 728, h: 90  },
