@@ -29,21 +29,63 @@ router.get('/:channelId/videos', async (req, res) => {
   }
 
   try {
-    const r = await fetch(
-      `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`,
-      { headers: { 'User-Agent': 'TruegleCreatorHub/1.0' } }
-    );
-    if (!r.ok) throw new Error(`RSS ${r.status}`);
-    const xml = await r.text();
-    const videos = parseFeed(xml).slice(0, 12);
+    // Prefer the YouTube Data API when a key is configured — it's reliable from
+    // datacenter IPs (Vercel), unlike the RSS feed which YouTube rate-limits
+    // hard from cloud hosts. Falls back to RSS (with a browser UA) otherwise.
+    let videos = null;
+    try { videos = await fetchViaDataApi(channelId); } catch (e) {
+      logger.warn('Creator Data API failed, trying RSS:', { channelId, error: e.message });
+    }
+    if (!videos || videos.length === 0) videos = await fetchViaRss(channelId);
     cache.set(channelId, { at: Date.now(), videos });
     return res.json({ videos });
   } catch (err) {
-    logger.warn('Creator RSS fetch failed:', { channelId, error: err.message });
+    logger.warn('Creator video fetch failed:', { channelId, error: err.message });
     if (hit) return res.json({ videos: hit.videos, stale: true }); // serve stale on error
     return res.status(502).json({ error: 'rss_unavailable', videos: [] });
   }
 });
+
+const YT_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
+// Reliable path: YouTube Data API v3 playlistItems on the channel's uploads
+// playlist (uploads id = channel id with the "UC" prefix swapped to "UU").
+// 1 quota unit/call — negligible against the 10k/day free quota. Returns null
+// when no key is set so the caller falls back to RSS.
+async function fetchViaDataApi(channelId) {
+  const key = process.env.YOUTUBE_API_KEY;
+  if (!key) return null;
+  const uploads = `UU${channelId.slice(2)}`;
+  const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=12&playlistId=${uploads}&key=${key}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`DataAPI ${r.status}`);
+  const j = await r.json();
+  return (j.items || []).map((it) => {
+    const s = it.snippet || {};
+    const videoId = s.resourceId?.videoId;
+    if (!videoId) return null;
+    const thumb =
+      s.thumbnails?.high?.url || s.thumbnails?.medium?.url ||
+      `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    return {
+      videoId,
+      title: s.title || '',
+      published: s.publishedAt || null,
+      thumbnail: thumb,
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+    };
+  }).filter(Boolean);
+}
+
+async function fetchViaRss(channelId) {
+  const r = await fetch(
+    `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`,
+    { headers: { 'User-Agent': YT_UA, 'Accept-Language': 'en-US,en;q=0.9' } }
+  );
+  if (!r.ok) throw new Error(`RSS ${r.status}`);
+  return parseFeed(await r.text()).slice(0, 12);
+}
 
 /*
  * Referral attribution for the featured-creator rotation. A visit tagged to a

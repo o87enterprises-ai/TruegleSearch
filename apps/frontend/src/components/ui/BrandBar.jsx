@@ -16,7 +16,7 @@ const ITEMS = [
   { label: 'OSINT',        mode: 'ocean',  path: '/search?mode=ocean' },
   { label: 'Chat',         mode: 'black',  path: '/chat' },
   { label: 'Extract',      mode: 'yellow', path: '/extract' },
-  { label: 'Rewards',      mode: 'orange', path: '/rewards' },
+  // 'Rewards' removed 2026-07-24 — ad-pay/rewards program paused.
 ];
 
 // Auth pages are focused flows with their own chrome — no menu there.

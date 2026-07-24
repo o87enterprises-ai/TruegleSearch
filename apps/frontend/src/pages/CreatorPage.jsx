@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import { getCreator } from '../content/creators';
+import { fallbackVideos } from '../content/creatorVideosFallback';
 import { getVideoEmbed } from '../utils/videoEmbed';
 import { recordRef } from '../utils/creatorRef';
 import AdsterraBanner from '../components/ads/AdsterraBanner';
@@ -30,11 +31,19 @@ export default function CreatorPage() {
     api.get(`/creators/${creator.channelId}/videos`)
       .then((r) => {
         if (!live) return;
-        const v = r.data?.videos || [];
-        setVideos(v);
-        setActive(v[0] || null);
+        const v = (r.data?.videos || []);
+        const list = v.length ? v : fallbackVideos(creator.channelId); // snapshot when live is empty
+        setVideos(list);
+        setActive(list[0] || null);
+        if (!list.length) setErr(true);
       })
-      .catch(() => { if (live) setErr(true); })
+      .catch(() => {
+        if (!live) return;
+        const fb = fallbackVideos(creator.channelId);
+        setVideos(fb);
+        setActive(fb[0] || null);
+        if (!fb.length) setErr(true);
+      })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [creator]);

@@ -8,7 +8,8 @@ import { MODE_COLORS, MODE_LABELS, solidTextClass } from '../../config/modeTheme
 // submitted, via the search bar's Enter/play button). Black = Chat, the
 // default state. A small non-clickable "Chat"/"Search" label sits directly
 // above it as a passive status indicator.
-const CYCLE = ['black', 'blue', 'green', 'red', 'purple', 'ocean', 'orange', 'yellow'];
+// 'orange' (Rewards) removed 2026-07-24 — ad-pay/rewards program paused.
+const CYCLE = ['black', 'blue', 'green', 'red', 'purple', 'ocean', 'yellow'];
 const HOLD_MS = 2200; // press-and-hold this long (mobile long-press or desktop click-hold) to jump straight back to Chat
 
 export default function PillModeRow({ activeMode, onSelect }) {

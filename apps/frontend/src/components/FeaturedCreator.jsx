@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 import { CREATORS, getFeaturedCreator } from '../content/creators';
+import { fallbackVideos } from '../content/creatorVideosFallback';
 
 /*
  * Landing "Featured Creator" slot. Surfaces the current featured creator (see
@@ -32,8 +33,12 @@ export default function FeaturedCreator() {
     if (!creator) return;
     let live = true;
     api.get(`/creators/${creator.channelId}/videos`)
-      .then((r) => { if (live) setVideo((r.data?.videos || [])[0] || null); })
-      .catch(() => {});
+      .then((r) => {
+        if (!live) return;
+        const v = (r.data?.videos || [])[0] || fallbackVideos(creator.channelId)[0] || null;
+        setVideo(v);
+      })
+      .catch(() => { if (live) setVideo(fallbackVideos(creator.channelId)[0] || null); });
     return () => { live = false; };
   }, [creator]);
 

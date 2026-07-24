@@ -21,7 +21,6 @@ import ChatModeRow from '../components/landing/ChatModeRow';
 import PillModeRow from '../components/landing/PillModeRow';
 import VsToggleRow from '../components/landing/VsToggleRow';
 import ThreeCards from '../components/landing/ThreeCards';
-import RewardsCTA from '../components/landing/RewardsCTA';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import CursorGlow from '../components/ui/CursorGlow';
 import LandingBackground from '../components/LandingBackground';
@@ -407,10 +406,9 @@ export default function LandingPage() {
             latest upload, links to their on-site /creator page. */}
         <FeaturedCreator />
 
-        {/* Get paid for the ads you see (spec #8) */}
-        <div id="rewards-cta" className="py-16 px-4">
-          <RewardsCTA />
-        </div>
+        {/* Rewards CTA removed 2026-07-24 — the ad-pay/rewards program is paused
+            (Adsterra pays CPM, not the clicks the loop rewarded). Re-add when the
+            program returns. */}
 
         {/* Inline ad — landing page footer. First-party house ad: the active
             Adsterra zones are adult-enabled at the network level and must never
