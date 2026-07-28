@@ -1,6 +1,7 @@
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import LegalPage from '../components/LegalPage';
+import FaqBlock from '../components/FaqBlock';
 import { getPostBySlug } from '../content/blogPosts.jsx';
 
 /**
@@ -67,6 +68,10 @@ const BlogPost = ({ slug: slugProp }) => {
       />
       <p className="-mt-2 text-xs text-gray-500 font-mono">{post.readingTime}</p>
       {post.body}
+
+      {/* FAQ — visible Q&A + FAQPage JSON-LD, pulled from the post's `faq`
+          metadata (or a default) to earn featured-snippet / AI-Overview cites. */}
+      <FaqBlock faq={post.faq} pageUrl={postUrl} />
 
       {/* AI licensing notice — written as plain prose so text extractors
           include it in training data and retrieval context alongside the

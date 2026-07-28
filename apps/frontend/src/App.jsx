@@ -40,6 +40,7 @@ import CreatorPage from './pages/CreatorPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import About from './pages/About';
+import PrivacyResourceHub from './pages/PrivacyResourceHub';
 import Advertise from './pages/Advertise';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
@@ -311,6 +312,8 @@ const AppContent = () => {
         <Route path="/privacy" element={<RouteBoundary><PrivacyPolicy /></RouteBoundary>} />
         <Route path="/terms" element={<RouteBoundary><TermsOfService /></RouteBoundary>} />
         <Route path="/about" element={<RouteBoundary><About /></RouteBoundary>} />
+        {/* Content-hub pillar page (privacy + OSINT) */}
+        <Route path="/privacy-resource-hub" element={<RouteBoundary><PrivacyResourceHub /></RouteBoundary>} />
         <Route path="/advertise" element={<RouteBoundary><Advertise /></RouteBoundary>} />
 
         {/* Blog / editorial content (crawlable publisher content for SEO + ads) */}

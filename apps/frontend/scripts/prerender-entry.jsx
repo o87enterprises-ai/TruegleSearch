@@ -5,6 +5,7 @@ import About from '../src/pages/About.jsx';
 import PrivacyPolicy from '../src/pages/PrivacyPolicy.jsx';
 import TermsOfService from '../src/pages/TermsOfService.jsx';
 import Advertise from '../src/pages/Advertise.jsx';
+import PrivacyResourceHub from '../src/pages/PrivacyResourceHub.jsx';
 import Blog from '../src/pages/Blog.jsx';
 import BlogPost from '../src/pages/BlogPost.jsx';
 import HomeStaticContent from './seo/HomeStaticContent.jsx';
@@ -23,6 +24,7 @@ const PAGES = {
   '/privacy': { Component: PrivacyPolicy, useRouter: true },
   '/terms': { Component: TermsOfService, useRouter: true },
   '/advertise': { Component: Advertise, useRouter: true },
+  '/privacy-resource-hub': { Component: PrivacyResourceHub, useRouter: true },
   '/blog': { Component: Blog, useRouter: true },
 };
 

@@ -586,6 +586,14 @@
         "body": "Added apps/frontend/src/config/adNetworks.js: env-driven registry for HilltopAds, Ghost, PropellerAds, Media.net, EthicalAds + Adsterra control. Disabled by default; each serves only when VITE_<NET>_ENABLED=true AND zone value set. Helpers: isNetworkReady, readyNetworks, pickNetworkForSlot (stable A/B bucket). NOT wired to rendering, NOT deployed. Accounts NOT created (owner action: signup needs identity/KYC/terms; codes issued post-approval). Env-var map + steps in docs/AD-NETWORK-SIGNUP.md. All free to join ($0 budget ok).",
         "ts": "2026-07-28",
         "created": "2026-07-28"
+      },
+      "content-hub-pillar-faq": {
+        "Id": "content-hub-pillar-faq",
+        "Type": "decision",
+        "Label": "Pillar page + FAQ schema + email signup",
+        "body": "Added /privacy-resource-hub pillar (3163 words, 5 H2s, Article+FAQPage JSON-LD, prerendered, in sitemap+App route+prerender-entry). Reusable FaqBlock component renders visible Q&A + FAQPage JSON-LD from a post.faq metadata field, DEFAULT_FAQ fallback ('What makes Truegle different from Google?'); wired into BlogPost template + pillar. Added faq to 4 cluster posts. EmailSignup component (UI only, action=#, TODO wire to provider) in global Footer + pillar sidebar. Content audit: docs/marketing/BLOG-CONTENT-AUDIT.md (7/9 posts <500 words, flagged for expansion, no edits).",
+        "ts": "2026-07-28",
+        "created": "2026-07-28"
       }
     },
     "entity": {

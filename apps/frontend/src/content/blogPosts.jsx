@@ -270,6 +270,20 @@ export const BLOG_POSTS = [
       'Truegle is an unbiased search engine that shows you results ranked by evidence, not by your ad profile. Here is exactly how it works and why it matters.',
     date: '2026-07-02',
     readingTime: '4 min read',
+    faq: [
+      {
+        q: 'Is Truegle really unbiased?',
+        a: 'Truegle ranks results by evidence and relevance rather than by an advertising profile of you. It aggregates multiple engines and labels each source so you can judge them yourself.',
+      },
+      {
+        q: 'Which search engines does Truegle pull from?',
+        a: 'Truegle aggregates results from several providers through a self-hosted metasearch layer, so no single company’s ranking decides what you see.',
+      },
+      {
+        q: 'Does Truegle track my searches?',
+        a: 'No. Truegle does not store, profile, or sell your queries.',
+      },
+    ],
     body: (
       <>
         <p>
@@ -355,6 +369,20 @@ export const BLOG_POSTS = [
       'Search without tracking means your queries are not stored, profiled, or sold. Truegle is built as a privacy-first alternative to Google — here is what that means in practice.',
     date: '2026-07-02',
     readingTime: '3 min read',
+    faq: [
+      {
+        q: 'What does "search without tracking" mean?',
+        a: 'It means your queries are not logged to a personal profile, tied to an advertising ID, or sold. Truegle does not build a history of what you search.',
+      },
+      {
+        q: 'Is Truegle a good alternative to Google?',
+        a: 'If your priority is privacy and unbiased, multi-engine results, yes — Truegle is built as a privacy-first alternative that does not track users.',
+      },
+      {
+        q: 'Do I need an account to search privately?',
+        a: 'No. You can search on Truegle without an account, and searching never requires personal data.',
+      },
+    ],
     body: (
       <>
         <p>
@@ -605,6 +633,16 @@ export const BLOG_POSTS = [
       'A filter bubble quietly narrows what you see online. Here is how personalization shapes your search results, why it matters, and practical ways to see the full picture.',
     date: '2026-06-26',
     readingTime: '4 min read',
+    faq: [
+      {
+        q: 'What is a filter bubble?',
+        a: 'A filter bubble is the narrowed view you get when algorithms personalize results to your past behavior, quietly hiding information that does not fit your profile.',
+      },
+      {
+        q: 'How do I escape a filter bubble?',
+        a: 'Use a search engine that does not personalize by tracking you, compare multiple sources, and view results from more than one perspective — which is what Truegle’s perspective modes are for.',
+      },
+    ],
     body: (
       <>
         <p>
@@ -655,6 +693,16 @@ export const BLOG_POSTS = [
       'Private search is more than incognito mode. A practical, no-nonsense guide to reducing tracking, profiling, and data collection every time you search the web.',
     date: '2026-06-26',
     readingTime: '5 min read',
+    faq: [
+      {
+        q: 'Is incognito mode enough for private search?',
+        a: 'No. Incognito stops your browser from saving history locally, but the search engine, your network, and websites you visit can still track and profile your queries.',
+      },
+      {
+        q: 'How can I search the web privately?',
+        a: 'Use a no-log, non-tracking search engine, avoid signing into an account while you search, and consider a VPN or Tor for network-level privacy.',
+      },
+    ],
     body: (
       <>
         <p>

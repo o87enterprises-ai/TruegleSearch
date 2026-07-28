@@ -188,6 +188,7 @@ app.get('/sitemap.xml', (req, res) => {
     generator.addURL('/', null, 'daily', 1.0, alternates);
     generator.addURL('/search', null, 'daily', 0.9);
     generator.addURL('/green', null, 'weekly', 0.6);
+    generator.addURL('/privacy-resource-hub', null, 'monthly', 0.9);
     // Localized landing pages for the top non-English, high-CPM/high-reach markets.
     generator.addURL('/de', null, 'weekly', 0.8, alternates);
     generator.addURL('/es', null, 'weekly', 0.8, alternates);

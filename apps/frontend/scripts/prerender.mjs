@@ -50,6 +50,11 @@ const META = {
     description:
       'Flat-rate, tracking-free ad placements on Truegle Search. Reach a privacy-conscious, tech-savvy audience without the creep factor.',
   },
+  '/privacy-resource-hub': {
+    title: 'The Ultimate Digital Privacy & OSINT Resource Hub — Truegle',
+    description:
+      'A comprehensive 2026 guide to digital privacy and OSINT: why privacy matters, the top privacy-first search engines, essential OSINT tools, how to bypass censorship safely, and a surveillance reading list.',
+  },
 };
 
 function escapeAttr(str) {

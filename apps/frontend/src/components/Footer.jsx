@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTutorials } from '../context/TutorialContext';
+import EmailSignup from './EmailSignup';
 
 const Footer = () => {
   const { openTutorial } = useTutorials();
@@ -8,6 +9,11 @@ const Footer = () => {
     <footer className="bg-black border-t border-white/10 mt-auto">
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="text-center">
+          {/* Newsletter signup (UI only — TODO: wire to email provider) */}
+          <div className="mb-5 pb-5 border-b border-white/5">
+            <EmailSignup variant="footer" />
+          </div>
+
           {/* Slogan */}
           <p className="text-sm text-white/50 mb-2">
             Truegle. Like G****e but, you know... Better.
