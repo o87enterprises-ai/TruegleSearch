@@ -269,7 +269,7 @@ export const BLOG_POSTS = [
     description:
       'Truegle is an unbiased search engine that shows you results ranked by evidence, not by your ad profile. Here is exactly how it works and why it matters.',
     date: '2026-07-02',
-    readingTime: '4 min read',
+    readingTime: '7 min read',
     faq: [
       {
         q: 'Is Truegle really unbiased?',
@@ -310,6 +310,17 @@ export const BLOG_POSTS = [
           </p>
         </LegalSection>
 
+        <LegalSection heading="How a Truegle search actually flows">
+          <p>Understanding the pipeline makes the "unbiased" claim concrete:</p>
+          <ol className="list-decimal pl-6 space-y-2">
+            <li><strong>You search.</strong> Your query goes to Truegle's self-hosted metasearch layer — not to a single company's index that also sells your attention.</li>
+            <li><strong>Multiple engines are queried.</strong> Truegle aggregates results from several providers, so no one company's ranking decides what you see.</li>
+            <li><strong>Sources are labeled.</strong> Each result is tagged with the perspective it's associated with, so you can see where it's coming from before you click.</li>
+            <li><strong>You pick a lens.</strong> Switchable modes let you rank the same results by mainstream relevance, independent sourcing, academic weight, and more.</li>
+            <li><strong>Nothing is written to a profile.</strong> Your query returns results and is done — no per-account history quietly shaping your next search.</li>
+          </ol>
+        </LegalSection>
+
         <LegalSection heading="The perspective system">
           <p>
             Instead of one algorithmically curated ranking, Truegle gives you
@@ -323,7 +334,44 @@ export const BLOG_POSTS = [
             This is the opposite of invisible personalization — it's explicit,
             user-controlled framing. You can switch modes mid-search to
             immediately see how the same topic looks through a different lens.
+            (More on that in{' '}
+            <a href="/blog/bias-free-search-results-perspective-modes" className="text-blue-400 hover:text-blue-300">how our perspective modes work</a>.)
           </p>
+        </LegalSection>
+
+        <LegalSection heading="Myth vs. Fact">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="py-2 pr-4 font-semibold text-white">Myth</th>
+                  <th className="py-2 font-semibold text-white">Fact</th>
+                </tr>
+              </thead>
+              <tbody className="align-top">
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">"Unbiased search means results with no point of view."</td>
+                  <td className="py-2">Every source has a point of view. Unbiased means <em>you</em> control which perspectives surface — not a hidden algorithm.</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">"All search engines are basically the same."</td>
+                  <td className="py-2">Most personalize by profiling you; Truegle ranks by your query and lets you switch lenses, with no behavioral profile.</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">"A private search engine must have worse results."</td>
+                  <td className="py-2">Truegle aggregates multiple engines, so breadth doesn't depend on tracking you.</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">"If it's free, you're being tracked."</td>
+                  <td className="py-2">Tracking is a business-model choice, not a requirement. Truegle uses contextual, clearly labeled ads instead of behavioral profiling.</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-4">"You need an account to get good results."</td>
+                  <td className="py-2">No account is required, and searching never requires personal data.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </LegalSection>
 
         <LegalSection heading="Why it matters for getting accurate information">
@@ -331,7 +379,9 @@ export const BLOG_POSTS = [
             Filter bubbles don't just show you less — they shape what you believe
             is normal, common, or true. When every search confirms your existing
             views, edge-case fringe ideas can look like consensus, and legitimate
-            dissenting evidence disappears from view entirely.
+            dissenting evidence disappears from view entirely. (That's the
+            mechanism behind a{' '}
+            <a href="/blog/what-is-a-filter-bubble" className="text-blue-400 hover:text-blue-300">filter bubble</a>.)
           </p>
           <p>
             An unbiased search engine breaks that loop. Use{' '}
@@ -339,7 +389,20 @@ export const BLOG_POSTS = [
               Truegle search
             </a>{' '}
             to compare how a topic is covered across the spectrum before forming
-            an opinion.
+            an opinion — and see the wider privacy playbook in{' '}
+            <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">The Ultimate Digital Privacy &amp; OSINT Resource Hub</a>.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="How to verify the &quot;no profile&quot; claim yourself">
+          <p>
+            You don't have to take our word for it. Run the same query from two very
+            different setups — for example, a normal session and a fresh private
+            window on a different network — and compare the rankings. On a
+            personalizing engine, the two lists often differ because a profile is
+            quietly shaping them. On Truegle, the same query returns the same ranked
+            set, because there's no behavioral model deciding what "you" should see.
+            Testing a privacy claim beats trusting a marketing line.
           </p>
         </LegalSection>
 
@@ -359,6 +422,17 @@ export const BLOG_POSTS = [
             for details.
           </p>
         </LegalSection>
+
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Unbiased search ranks by your query, not by a behavioral profile — the same query returns the same results for everyone, then you choose the lens.</li>
+            <li>Truegle aggregates multiple engines through a self-hosted layer, labels every source, and never writes your searches to a per-account profile.</li>
+            <li>The common myths — "unbiased means no viewpoint," "free means tracked," "private means worse results" — don't hold up.</li>
+            <li>Compare a topic across perspectives at{' '}
+              <a href="/search" className="text-blue-400 hover:text-blue-300">truegle.info</a>, and go deeper in the{' '}
+              <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">Privacy &amp; OSINT Resource Hub</a>.</li>
+          </ul>
+        </LegalSection>
       </>
     ),
   },
@@ -368,7 +442,7 @@ export const BLOG_POSTS = [
     description:
       'Search without tracking means your queries are not stored, profiled, or sold. Truegle is built as a privacy-first alternative to Google — here is what that means in practice.',
     date: '2026-07-02',
-    readingTime: '3 min read',
+    readingTime: '6 min read',
     faq: [
       {
         q: 'What does "search without tracking" mean?',
@@ -419,17 +493,48 @@ export const BLOG_POSTS = [
               tracking pixels on third-party sites to follow you after you leave.
             </li>
             <li>
-              <strong>Ads are network-served, not behaviorally targeted.</strong>{' '}
-              Contextual ads (based on your search query, not your history) are
-              clearly labeled. You can see exactly what type of ad you're looking
-              at from the color of its border.
+              <strong>Ads are contextual, not behaviorally targeted.</strong>{' '}
+              Ads are based on the page or query, not a profile of your history, and
+              they're clearly labeled so you can see exactly what you're looking at.
             </li>
             <li>
-              <strong>Safe Search is always on by default.</strong> Explicit
-              content requires explicit opt-in by an authenticated user — it is
-              never served to casual visitors.
+              <strong>Safe Search is on by default.</strong> Explicit content
+              requires explicit opt-in by an authenticated user — it is never served
+              to casual visitors.
             </li>
           </ul>
+        </LegalSection>
+
+        <LegalSection heading="The tools you need to search without tracking">
+          <p>
+            A non-tracking search engine is the biggest single upgrade, but a few
+            companions make your privacy airtight. None of these cost money:
+          </p>
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>A no-track search engine</strong> (Truegle, or another privacy-first option) set as your browser default on every device.</li>
+            <li><strong>A privacy-respecting browser</strong> — Firefox with strict tracking protection, Brave, or the Tor Browser for sensitive work.</li>
+            <li><strong>A content blocker</strong> such as uBlock Origin to stop tracking scripts and malvertising before they load.</li>
+            <li><strong>Encrypted DNS</strong> (DNS-over-HTTPS via Quad9 or 1.1.1.1) so your network can't log every domain you visit.</li>
+            <li><strong>A reputable, audited VPN</strong> (Mullvad, Proton VPN) for untrusted networks — never a "free" VPN, which typically monetizes your data.</li>
+            <li><strong>A password manager</strong>, so you're not tempted to stay signed into one account everywhere for convenience.</li>
+          </ul>
+          <p>
+            We walk through configuring these in{' '}
+            <a href="/blog/how-to-search-privately" className="text-blue-400 hover:text-blue-300">how to search privately</a>,
+            and the full toolkit lives in{' '}
+            <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">The Ultimate Digital Privacy &amp; OSINT Resource Hub</a>.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Switch in five minutes">
+          <p>You don't have to overhaul your setup to stop being tracked. Do this once:</p>
+          <ol className="list-decimal pl-6 space-y-2">
+            <li><strong>Set Truegle (or another no-track engine) as your default</strong> in your browser's search settings.</li>
+            <li><strong>Turn on strict tracking protection</strong> and block third-party cookies.</li>
+            <li><strong>Install uBlock Origin</strong> and leave it running.</li>
+            <li><strong>Sign out</strong> before running sensitive searches, and avoid "sign in with Google" prompts.</li>
+            <li><strong>Enable encrypted DNS</strong> in your browser or OS.</li>
+          </ol>
         </LegalSection>
 
         <LegalSection heading="Who this is for">
@@ -437,15 +542,47 @@ export const BLOG_POSTS = [
             Truegle is for anyone who wants accurate, unfiltered search results
             without trading their behavioral data to get them. It's particularly
             useful for researchers, journalists, students, and anyone who finds
-            themselves in a filter bubble and wants a second opinion on any topic.
+            themselves in a{' '}
+            <a href="/blog/what-is-a-filter-bubble" className="text-blue-400 hover:text-blue-300">filter bubble</a>{' '}
+            and wants a second opinion on any topic.
           </p>
+        </LegalSection>
+
+        <LegalSection heading="Isn't &quot;free&quot; search always tracked?">
           <p>
-            Try it at{' '}
-            <a href="/search" className="text-blue-400 hover:text-blue-300">
-              truegle.info/search
-            </a>
-            . No account required.
+            Not necessarily. There are three honest ways a search engine can pay the
+            bills without profiling you: contextual ads (matched to the query or
+            page, not to a profile of you), subscriptions, and revenue-share or
+            affiliate arrangements that don't require behavioral tracking. Truegle
+            relies on contextual, clearly labeled ads — so the lights stay on without
+            turning your curiosity into a product. The tracking isn't a requirement
+            of "free"; it's a business-model choice, and it's one we opted out of.
           </p>
+        </LegalSection>
+
+        <LegalSection heading="How to read a search engine's privacy policy">
+          <p>
+            Marketing says "we respect your privacy"; the privacy policy says what
+            actually happens. Skim for four things: <strong>what is logged and for
+            how long</strong> (look for real retention limits, not vague "as long as
+            necessary"); <strong>whether data is tied to an identifier</strong> like
+            an account, device ID, or full IP; <strong>who it's shared with</strong>{' '}
+            ("trusted partners" and "third parties" are the words to watch); and{' '}
+            <strong>the business model</strong> — if the only revenue is behavioral
+            advertising, the incentives point at collecting more. A short, specific
+            policy usually beats a long, reassuring one.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>"Search without tracking" means your queries aren't logged to a profile, tied to an ad ID, or sold.</li>
+            <li>Google's search is the entry point to a behavioral ad network; Truegle was built privacy-first, with contextual ads and no per-account search history.</li>
+            <li>Pair a no-track search engine with a privacy browser, a content blocker, encrypted DNS, and an audited VPN — all free — to close the gaps.</li>
+            <li>You can switch in about five minutes. Start with the{' '}
+              <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">Privacy &amp; OSINT Resource Hub</a>{' '}
+              for the complete playbook.</li>
+          </ul>
         </LegalSection>
       </>
     ),
@@ -456,7 +593,17 @@ export const BLOG_POSTS = [
     description:
       'Bias-free search results don\'t mean results with no point of view — they mean you control the point of view. Truegle\'s switchable perspective modes put that choice in your hands.',
     date: '2026-07-01',
-    readingTime: '4 min read',
+    readingTime: '6 min read',
+    faq: [
+      {
+        q: 'Does switching perspective modes change the facts?',
+        a: 'No — it changes which sources are surfaced and in what order. Facts do not move; emphasis does. The point is to see the full range of framing so you can judge for yourself.',
+      },
+      {
+        q: 'Isn\'t a "Left" or "Right" mode just more bias?',
+        a: 'It is the opposite: the bias is made explicit and put under your control, instead of a hidden algorithm quietly choosing one for you. You can see all of them, side by side, labeled.',
+      },
+    ],
     body: (
       <>
         <p>
@@ -514,6 +661,42 @@ export const BLOG_POSTS = [
           </p>
         </LegalSection>
 
+        <LegalSection heading="How people actually use the modes">
+          <p>The modes aren't just a novelty — they map onto real research workflows. A few common ones:</p>
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>The contested-news workflow.</strong> Run a breaking story in Neutral first for the baseline, then flip to Left and Right to see which facts each side emphasizes or omits. The gap between them is usually where the real story lives.</li>
+            <li><strong>The fact-check workflow.</strong> Start in Academic or Independent to find the primary source or the outlet doing original reporting, rather than the dozen sites rewriting the same wire copy.</li>
+            <li><strong>The researcher's workflow.</strong> For a technical or security topic, OSINT mode surfaces documentation, advisories, and practitioner write-ups that a general ranking buries under listicles.</li>
+            <li><strong>The "am I in a bubble?" gut-check.</strong> Search something you feel strongly about in the mode opposite your own leaning. If the other side's best sources are more reasonable than you expected, that's useful information about your own filter bubble.</li>
+          </ul>
+        </LegalSection>
+
+        <LegalSection heading="Common questions">
+          <p>
+            <strong>Does switching modes change the facts?</strong> No — it changes
+            which sources are surfaced and in what order. Facts don't move; emphasis
+            does.
+          </p>
+          <p>
+            <strong>Isn't a "Right" or "Left" mode just more bias?</strong> It's the
+            opposite: the bias is made explicit and put under your control, instead of
+            a hidden algorithm quietly choosing one for you.
+          </p>
+          <p>
+            <strong>Which mode is the "true" one?</strong> There isn't one. That's the
+            whole idea. Truth-seeking is a triangulation exercise —{' '}
+            <a href="/blog/why-multiple-perspectives-matter" className="text-blue-400 hover:text-blue-300">seeing multiple perspectives is what makes you better informed</a>,
+            not picking a single "correct" feed.
+          </p>
+          <p>
+            <strong>Won't I just camp in the mode I already agree with?</strong> You
+            might — so the habit that pays off is deliberately searching in the mode
+            opposite your instinct at least once per contested topic. Made visible and
+            switchable, your own bias becomes something you can check against instead of
+            an invisible default you never notice.
+          </p>
+        </LegalSection>
+
         <LegalSection heading="How to use this practically">
           <p>
             For any contested topic, run the query in Neutral mode first, then
@@ -524,12 +707,36 @@ export const BLOG_POSTS = [
           </p>
           <p>
             The goal is not to replace your judgment — it's to give you enough
-            coverage that your judgment is actually informed. Start at{' '}
-            <a href="/search" className="text-blue-400 hover:text-blue-300">
-              truegle.info
-            </a>
-            .
+            coverage that your judgment is actually informed. This is the same
+            principle behind escaping a{' '}
+            <a href="/blog/what-is-a-filter-bubble" className="text-blue-400 hover:text-blue-300">filter bubble</a>,
+            and it's part of the broader toolkit in{' '}
+            <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">The Ultimate Digital Privacy &amp; OSINT Resource Hub</a>.
+            Start comparing at{' '}
+            <a href="/search" className="text-blue-400 hover:text-blue-300">truegle.info</a>.
           </p>
+        </LegalSection>
+
+        <LegalSection heading="Getting started in 60 seconds">
+          <p>
+            You don't need a research project to feel the difference. Pick any topic
+            you already have an opinion on, run it in Neutral mode, then switch once
+            to the mode opposite your instinct. Read the top three results in each.
+            That single comparison — same query, two lenses — usually surfaces at
+            least one credible point you hadn't considered, and it takes under a
+            minute. Do it a few times and comparing perspectives stops feeling like
+            work and starts feeling like the obvious way to search.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Bias-free doesn't mean no perspective — it means <em>you</em> choose the perspective instead of a hidden algorithm choosing for you.</li>
+            <li>Truegle's labeled modes (Neutral, Left/Right, Independent, OSINT, Academic) make the ranking tradeoff visible and switchable.</li>
+            <li>Real workflows — contested news, fact-checking, research, bubble gut-checks — all lean on comparing modes, not trusting one.</li>
+            <li>Switching modes changes emphasis, not facts. Go deeper in the{' '}
+              <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">Privacy &amp; OSINT Resource Hub</a>.</li>
+          </ul>
         </LegalSection>
       </>
     ),
@@ -540,7 +747,17 @@ export const BLOG_POSTS = [
     description:
       'Every ad on Truegle is color-coded so you can tell at a glance what kind of ad it is and whether it benefits you directly. Here is what each color means.',
     date: '2026-06-28',
-    readingTime: '3 min read',
+    readingTime: '6 min read',
+    faq: [
+      {
+        q: 'Why does Truegle color-code its ads?',
+        a: 'So you always know what you are looking at: yellow (available/house spot), neon green (contextual paid ad), red-blue pulse (gated adult ad), and red-with-white-border (Rewards Program slot). Ad revenue never influences organic rankings.',
+      },
+      {
+        q: 'How does the Truegle Rewards Program pay out?',
+        a: 'It moved from paying for ad views to paying a revenue-share when you complete a sponsored offer (the conversion the ad network actually pays on). The program is temporarily paused while a conversion-tracking setup is finalized.',
+      },
+    ],
     body: (
       <>
         <p>
@@ -549,6 +766,42 @@ export const BLOG_POSTS = [
           does the opposite: every ad slot on the platform carries a visible color-coded
           badge so you know exactly what you're looking at before you decide to engage.
         </p>
+
+        <LegalSection heading="Quick reference">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="py-2 pr-4 font-semibold text-white">Color</th>
+                  <th className="py-2 pr-4 font-semibold text-white">Ad type</th>
+                  <th className="py-2 font-semibold text-white">What it means for you</th>
+                </tr>
+              </thead>
+              <tbody className="align-top">
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4"><strong>Yellow</strong></td>
+                  <td className="py-2 pr-4">Available / house spot</td>
+                  <td className="py-2">Unsold inventory — no advertiser is paying to influence this slot right now.</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4"><strong>Neon green</strong></td>
+                  <td className="py-2 pr-4">Contextual CPM ad</td>
+                  <td className="py-2">A real advertiser paid to appear; Truegle earns from the impression. Never affects rankings.</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4"><strong>Red + blue pulse</strong></td>
+                  <td className="py-2 pr-4">Adult-content ad</td>
+                  <td className="py-2">Only ever shown behind a strict triple gate (see below). Most users never see one.</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-4"><strong>Red / white border</strong></td>
+                  <td className="py-2 pr-4">Rewards Program slot</td>
+                  <td className="py-2">Tied to the opt-in Rewards Program (currently being reworked — see below).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </LegalSection>
 
         <LegalSection heading="Yellow — Available Ad Spots">
           <p>
@@ -564,16 +817,17 @@ export const BLOG_POSTS = [
           </p>
         </LegalSection>
 
-        <LegalSection heading="Neon Green — CPM Ads">
+        <LegalSection heading="Neon Green — Contextual CPM Ads">
           <p>
-            A <strong>neon apple-green border</strong> marks a paid CPM (cost-per-thousand
-            impressions) ad — display banners from our ad network partner Adsterra. These
-            ads are served to all users regardless of query content.
+            A <strong>neon apple-green border</strong> marks a paid CPM (cost-per-thousand-
+            impressions) ad — a display unit from our ad-network partner. These ads are
+            contextual: matched to the page or query, not to a behavioral profile of you.
           </p>
           <p>
-            Green means: <em>a real advertiser paid to be here. Truegle earns revenue from
-            this impression or any resulting purchase.</em> We never use this revenue to
-            influence search rankings — it funds server costs and the Rewards Program.
+            Green means: <em>a real advertiser paid to be here, and Truegle earns revenue
+            from the impression.</em> We never use this revenue to influence search rankings —
+            it funds server costs and the platform. Ads stay physically separate from organic
+            results.
           </p>
         </LegalSection>
 
@@ -594,18 +848,19 @@ export const BLOG_POSTS = [
           </p>
         </LegalSection>
 
-        <LegalSection heading="Pulsing Red with White Border — Watch &amp; Earn Ads">
+        <LegalSection heading="Red with White Border — Rewards Program Slots">
           <p>
-            A <strong>pulsing red slot with a white border</strong> is a Rewards Program ad.
-            If you've opted in to the Truegle Rewards Program at{' '}
-            <a href="/rewards" className="text-blue-400 hover:text-blue-300">/rewards</a>,
-            watching this ad for its full duration earns you a small real-cash credit
-            toward a PayPal payout.
+            A <strong>red slot with a white border</strong> is a Rewards Program ad. The
+            Rewards Program lets opted-in users earn a share of real ad revenue.
           </p>
           <p>
-            Watch time is measured server-side using an IntersectionObserver + visibility
-            tracking — the client cannot spoof it. You earn only for genuine views. The red
-            pulse is the signal: <em>this one pays you.</em>
+            <strong>Important, and currently changing:</strong> the program originally paid a
+            small credit for <em>viewing</em> an ad. It has been reworked to be
+            offer/conversion-based — you earn a revenue-share when you complete a sponsored
+            offer (an install, sign-up, or purchase), because that's the event the ad network
+            actually pays out on. While we finalize a conversion-tracking setup, the Rewards
+            Program is temporarily paused, so you may not see this slot active. When it
+            returns, this badge is the signal that a slot is tied to earnings.
           </p>
         </LegalSection>
 
@@ -618,10 +873,31 @@ export const BLOG_POSTS = [
             this way.
           </p>
           <p>
-            If you have questions about our ad policies or want to advertise on Truegle,
-            visit{' '}
-            <a href="/advertise" className="text-blue-400 hover:text-blue-300">/advertise</a>.
+            Transparency about ads is really the same value as transparency about{' '}
+            <em>sources</em> — both are about never letting a hidden incentive quietly shape
+            what you see. That's the thread running through everything we build, from labeled
+            search results to labeled ads.
           </p>
+        </LegalSection>
+
+        <LegalSection heading="Further reading">
+          <ul className="list-disc pl-6 space-y-2">
+            <li><a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">The Ultimate Digital Privacy &amp; OSINT Resource Hub</a> — the full guide to privacy, non-tracking search, OSINT tools, and safe access to information.</li>
+            <li><a href="/blog/unbiased-search-engine-how-truegle-works" className="text-blue-400 hover:text-blue-300">How Truegle delivers unbiased results</a> — why we don't accept paid placement in organic rankings.</li>
+            <li><a href="/blog/search-without-tracking-alternative-to-google" className="text-blue-400 hover:text-blue-300">Search without tracking</a> — how contextual ads let us keep the lights on without profiling you.</li>
+            <li><a href="/advertise" className="text-blue-400 hover:text-blue-300">Advertise on Truegle</a> — if you want to reach this audience.</li>
+          </ul>
+        </LegalSection>
+
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Every Truegle ad carries a color-coded badge: yellow (available), neon green (contextual CPM), red-blue pulse (gated adult), red-with-white-border (Rewards).</li>
+            <li>Ad revenue never influences organic rankings, and ads stay physically separate from results.</li>
+            <li>The Rewards Program moved from pay-per-view to pay-per-completed-offer and is temporarily paused during that transition.</li>
+            <li>The color system is transparency applied to money — the same principle as labeling sources. See the{' '}
+              <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">Privacy &amp; OSINT Resource Hub</a>{' '}
+              for the bigger picture.</li>
+          </ul>
         </LegalSection>
       </>
     ),
@@ -632,7 +908,7 @@ export const BLOG_POSTS = [
     description:
       'A filter bubble quietly narrows what you see online. Here is how personalization shapes your search results, why it matters, and practical ways to see the full picture.',
     date: '2026-06-26',
-    readingTime: '4 min read',
+    readingTime: '6 min read',
     faq: [
       {
         q: 'What is a filter bubble?',
@@ -661,12 +937,59 @@ export const BLOG_POSTS = [
             great for engagement metrics and ad targeting — and quietly corrosive
             for an honest picture of a topic.
           </p>
+          <p>
+            The mechanism is a feedback loop. The algorithm shows you something, you
+            engage with it, and that engagement is treated as a signal to show you
+            more of the same. Repeat that thousands of times and the system
+            converges on a version of the web tuned to keep <em>you specifically</em>{' '}
+            clicking — which is not the same as the version that's most accurate,
+            most complete, or most useful.
+          </p>
+        </LegalSection>
+        <LegalSection heading="A real-world use case">
+          <p>
+            Picture two neighbors, each researching the same local ballot measure the
+            week before an election. They type nearly identical queries into the same
+            mainstream search engine.
+          </p>
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>Neighbor A</strong> has a click history full of one outlet's coverage. Their first page is dominated by that outlet and others like it — all framing the measure the same way. The opposing argument is buried on page three.</li>
+            <li><strong>Neighbor B</strong> has a different history, so their first page leans the other direction, with Neighbor A's sources now buried.</li>
+          </ul>
+          <p>
+            Each neighbor sees a first page that feels like "just the facts," and each
+            walks away convinced the other is ignoring reality. Neither was shown a
+            lie. They were shown different slices, personalized to their profile, with
+            no label telling them what was filtered out. That's a filter bubble doing
+            exactly what it's designed to do.
+          </p>
+        </LegalSection>
+        <LegalSection heading="How to tell you're in one">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Every result on page one shares roughly the same framing or comes from a similar cluster of sources.</li>
+            <li>Searching a contested topic never seems to surface a credible opposing view.</li>
+            <li>Results feel eerily aligned with what you already believe.</li>
+            <li>Your feed and your searches keep recommending more of what you just consumed.</li>
+          </ul>
+          <p>If searching feels like being agreed with, that's a warning sign — not a comfort.</p>
+        </LegalSection>
+        <LegalSection heading="AI answer engines are the new bubble">
+          <p>
+            Filter bubbles used to be a search-results problem. Now AI chatbots and
+            "answer engines" collapse ten links into a single, confident paragraph —
+            and that paragraph reflects whatever the model was trained on and tuned to
+            say, with the sources and disagreements stripped out. A single synthesized
+            answer can feel more authoritative than a list of links precisely because
+            it hides the fact that reasonable sources disagree. The fix is the same as
+            always: demand to see the underlying sources, and compare more than one.
+          </p>
         </LegalSection>
         <LegalSection heading="Why it matters">
           <ul className="list-disc pl-6 space-y-2">
             <li>You see fewer dissenting or independent sources on contested topics.</li>
-            <li>Personalization is invisible — you don't get told what was hidden.</li>
-            <li>The profile that powers it is built by tracking you across the web.</li>
+            <li>Personalization is invisible — you don't get told what was hidden from you.</li>
+            <li>The profile that powers it is built by tracking you across the web — a privacy problem as well as an information problem.</li>
+            <li>Over time, a narrowed information diet narrows your sense of what's normal, common, or true.</li>
           </ul>
         </LegalSection>
         <LegalSection heading="How to escape it">
@@ -674,14 +997,26 @@ export const BLOG_POSTS = [
             <li>Use search that doesn't build a profile of you in the first place.</li>
             <li>Deliberately read across the spectrum, not just the top result.</li>
             <li>Compare a mainstream view against independent and primary sources.</li>
+            <li>Change your inputs on purpose: search the same topic from a fresh, signed-out session and see how different the results look.</li>
           </ul>
           <p>
-            This is the whole reason Truegle exists. Our search modes let you
-            choose how results are ranked — including modes that surface
-            independent and alternative sources ahead of the usual top ten — and
-            we don't track you to do it. Read more{' '}
-            <a href="/about" className="text-blue-400 hover:text-blue-300">about how Truegle works</a>.
+            This is the whole reason Truegle exists. Our perspective modes let you
+            choose how results are ranked — including modes that surface independent
+            and alternative sources ahead of the usual top ten — and we don't track
+            you to do it. That habit of triangulating is exactly{' '}
+            <a href="/blog/why-multiple-perspectives-matter" className="text-blue-400 hover:text-blue-300">why seeing multiple perspectives makes you better informed</a>,
+            and it's the foundation of the broader playbook in{' '}
+            <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">The Ultimate Digital Privacy &amp; OSINT Resource Hub</a>.
           </p>
+        </LegalSection>
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>A filter bubble is the personalized, narrowed slice of the web an algorithm shows you based on your profile and past behavior.</li>
+            <li>It forms through an engagement feedback loop and is invisible — you're never told what was filtered out.</li>
+            <li>The tell is simple: if search keeps agreeing with you and never surfaces credible opposing views, you're likely in one.</li>
+            <li>Escape it with non-tracking search, reading across the spectrum, and comparing mainstream against primary and independent sources. Start with the{' '}
+              <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">Privacy &amp; OSINT Resource Hub</a>.</li>
+          </ul>
         </LegalSection>
       </>
     ),
@@ -692,7 +1027,7 @@ export const BLOG_POSTS = [
     description:
       'Private search is more than incognito mode. A practical, no-nonsense guide to reducing tracking, profiling, and data collection every time you search the web.',
     date: '2026-06-26',
-    readingTime: '5 min read',
+    readingTime: '7 min read',
     faq: [
       {
         q: 'Is incognito mode enough for private search?',
@@ -719,22 +1054,50 @@ export const BLOG_POSTS = [
             history local to your device, under your control — not on our servers.
           </p>
         </LegalSection>
+        <LegalSection heading="Why this matters">
+          <p>
+            Your search box sees your unfiltered curiosity — the questions you'd
+            never say out loud. Health worries, money problems, legal questions,
+            political views. Individually, each query looks harmless. Assembled into
+            a profile and tied to your identity, they become one of the most
+            revealing datasets about you in existence: enough to infer your medical
+            conditions, your income, your beliefs, and your vulnerabilities.
+          </p>
+          <p>
+            That profile doesn't just sit in one company's server. It's used to
+            target you, shared or sold through the ad-tech supply chain, and —
+            because every collected dataset eventually leaks — it can end up in a
+            breach. The only search data that can't be misused, sold, or stolen is
+            the data that was never collected. Private search is how you keep it
+            that way. (For the bigger picture, see{' '}
+            <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">The Ultimate Digital Privacy &amp; OSINT Resource Hub</a>.)
+          </p>
+        </LegalSection>
         <LegalSection heading="2. Cut down on cross-site tracking">
           <ul className="list-disc pl-6 space-y-2">
-            <li>Use a browser that blocks third-party cookies by default.</li>
-            <li>Add a reputable content blocker to stop tracking scripts.</li>
-            <li>Clear cookies periodically, or use containers to isolate sites.</li>
+            <li>Use a browser that blocks third-party cookies by default (Firefox, Brave, or Safari).</li>
+            <li>Add a reputable content blocker such as uBlock Origin to stop tracking scripts before they load.</li>
+            <li>Clear cookies periodically, or use container tabs to isolate sites from one another.</li>
           </ul>
         </LegalSection>
         <LegalSection heading="3. Mind the metadata">
           <p>
             Your IP address and User-Agent travel with every request. A VPN or
-            privacy-respecting DNS can reduce what your network and the sites you
-            visit can infer about you. The goal isn't paranoia — it's removing the
-            easy, passive data collection that happens by default.
+            privacy-respecting DNS (DNS-over-HTTPS) can reduce what your network and
+            the sites you visit can infer about you. The goal isn't paranoia — it's
+            removing the easy, passive data collection that happens by default.
           </p>
         </LegalSection>
-        <LegalSection heading="4. Know what you're trading">
+        <LegalSection heading="4. Don't sign in while you search">
+          <p>
+            This is the step people skip. Reaching a private search engine does
+            nothing if you then search while logged into an account that identifies
+            you. Keep your search sessions separate from your signed-in identity, and
+            be especially wary of "sign in with Google/Facebook" buttons, which
+            re-link you to a profile.
+          </p>
+        </LegalSection>
+        <LegalSection heading="5. Know what you're trading">
           <p>
             Some personalization is genuinely convenient. The point of private
             search isn't to give all of that up — it's to make the trade a choice
@@ -742,6 +1105,45 @@ export const BLOG_POSTS = [
             <a href="/privacy" className="text-blue-400 hover:text-blue-300">Privacy Policy</a>{' '}
             for exactly what Truegle does and doesn't collect.
           </p>
+        </LegalSection>
+        <LegalSection heading="The 10-minute private-search checklist">
+          <p>Do these once and privacy becomes your default, not a chore:</p>
+          <ol className="list-decimal pl-6 space-y-2">
+            <li><strong>Set a no-track search engine as your browser default</strong> on every device.</li>
+            <li><strong>Install a content blocker</strong> (uBlock Origin) and leave it on.</li>
+            <li><strong>Switch your browser to strict tracking protection</strong> and block third-party cookies.</li>
+            <li><strong>Turn on encrypted DNS</strong> (DNS-over-HTTPS) in your browser or operating system.</li>
+            <li><strong>Search signed out</strong> — don't run sensitive searches inside a logged-in account.</li>
+            <li><strong>Use a VPN</strong> on untrusted networks (and skip "free" VPNs, which often monetize your data).</li>
+            <li><strong>Clear cookies on a schedule</strong> or use container tabs to isolate sites.</li>
+            <li><strong>Review app and account permissions</strong> and revoke ad-personalization you don't want.</li>
+          </ol>
+        </LegalSection>
+        <LegalSection heading="Don't forget mobile">
+          <p>
+            Most privacy advice is written for desktops, but phones leak more, not
+            less. Set your mobile browser's default search engine to a no-track
+            option too, reset or disable your device's advertising ID (Android's
+            Advertising ID / Apple's IDFA), and review which apps have location and
+            tracking permission — an app quietly holding your location undoes a lot
+            of careful browser hardening.
+          </p>
+        </LegalSection>
+        <LegalSection heading="What incognito mode does and doesn't do">
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>What it does:</strong> stops your browser from saving history, cookies, and form data locally after you close the window.</li>
+            <li><strong>What it doesn't do:</strong> hide your searches from the search engine, hide your traffic from your ISP or network, stop device fingerprinting, or prevent an account you sign into from logging your activity.</li>
+          </ul>
+        </LegalSection>
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Incognito hides history from other people on your device — it doesn't stop the services on the other end from profiling you.</li>
+            <li>Start with a search engine that doesn't build a profile of you, then reduce cross-site tracking, protect metadata, and don't search while signed in.</li>
+            <li>Run the 10-minute checklist once and privacy becomes the default.</li>
+            <li>For the full playbook, see the{' '}
+              <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">Privacy &amp; OSINT Resource Hub</a>, and pair this with{' '}
+              <a href="/blog/search-without-tracking-alternative-to-google" className="text-blue-400 hover:text-blue-300">searching without tracking</a>.</li>
+          </ul>
         </LegalSection>
       </>
     ),
@@ -752,7 +1154,17 @@ export const BLOG_POSTS = [
     description:
       'One ranked list of "best" results hides as much as it reveals. Why surfacing multiple perspectives — mainstream, independent, and alternative — leads to better judgment.',
     date: '2026-06-26',
-    readingTime: '4 min read',
+    readingTime: '6 min read',
+    faq: [
+      {
+        q: 'Why does seeing multiple perspectives make me better informed?',
+        a: 'A single ranked list is an editorial choice presented as neutrality. Comparing mainstream, independent, and primary sources gives you calibration (where consensus really is), gets you closer to the facts, and makes coordinated or cherry-picked narratives fall apart.',
+      },
+      {
+        q: 'How do I actually triangulate a topic?',
+        a: 'Start with the primary source, read the mainstream take, then read at least one independent source. Note where sources with different incentives agree (a strong signal) and where they diverge (usually an assumption or open question).',
+      },
+    ],
     body: (
       <>
         <p>
@@ -769,23 +1181,89 @@ export const BLOG_POSTS = [
             You're not lied to; you're just shown a narrow slice and left to assume
             it's the whole.
           </p>
+          <p>
+            This matters because most people never leave the first page. If a
+            topic's first page is dominated by sources that share the same
+            incentives, the same framing, or the same blind spots, you can come
+            away confidently misinformed — not because anyone lied, but because you
+            never saw the parts of the picture that didn't rank.
+          </p>
         </LegalSection>
         <LegalSection heading="What multiple perspectives gives you">
           <ul className="list-disc pl-6 space-y-2">
-            <li><strong>Calibration</strong> — you see where the consensus is and where it's genuinely contested.</li>
-            <li><strong>Primary sources</strong> — closer to the facts than a summary of a summary.</li>
-            <li><strong>Independence</strong> — viewpoints that don't all share the same incentives.</li>
+            <li><strong>Calibration</strong> — you see where the consensus genuinely is and where it's actually contested, instead of mistaking one loud viewpoint for settled fact.</li>
+            <li><strong>Primary sources</strong> — closer to the facts than a summary of a summary. The original study, ruling, transcript, or dataset beats a headline about it.</li>
+            <li><strong>Independence</strong> — viewpoints that don't all share the same incentives, so a single sponsor, platform, or political lean can't quietly shape everything you read.</li>
+            <li><strong>Resistance to manipulation</strong> — when you habitually check more than one source, coordinated narratives and cherry-picked "evidence" fall apart quickly.</li>
           </ul>
+        </LegalSection>
+        <LegalSection heading="A worked example">
+          <p>
+            Say you're researching a contested health claim — for instance, whether
+            a popular supplement actually does what its marketing says. A single
+            ranked list might hand you five retailer pages, two content-marketing
+            "studies," and a couple of news write-ups that all trace back to the
+            same press release. Read only those and you'd conclude the claim is well
+            supported.
+          </p>
+          <p>
+            Now triangulate. Pull the primary source — the actual clinical trial or
+            meta-analysis, not an article about it. Read a mainstream medical
+            summary to see the established consensus. Then check an independent
+            source that scrutinizes industry claims. Suddenly the picture is richer:
+            maybe the effect is real but tiny, or real only at doses no product
+            contains, or based on a study the manufacturer funded. Same query,
+            radically better-informed conclusion — because you saw more than one
+            slice.
+          </p>
+        </LegalSection>
+        <LegalSection heading="How to do it in practice">
+          <p>You don't need special tools to think this way, just a repeatable habit:</p>
+          <ol className="list-decimal pl-6 space-y-2">
+            <li><strong>Start with the primary source.</strong> Before you read commentary, find the original document, dataset, ruling, or study.</li>
+            <li><strong>Read the mainstream take</strong> to understand the established position and why it's held.</li>
+            <li><strong>Read at least one independent or alternative source</strong> — not to agree with it, but to see what it emphasizes that the mainstream omits.</li>
+            <li><strong>Notice where they agree.</strong> Agreement across sources with different incentives is the strongest signal you'll get.</li>
+            <li><strong>Notice where they diverge, and ask why.</strong> Divergence usually reveals an assumption, an incentive, or a genuinely open question.</li>
+            <li><strong>Preserve what you find</strong> — bookmark or archive key sources so you can retrace your reasoning later.</li>
+          </ol>
+          <p>
+            This is exactly the verification discipline investigators use, and we
+            cover it in more depth in{' '}
+            <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">The Ultimate Digital Privacy &amp; OSINT Resource Hub</a>.
+            It takes a few extra minutes at first, but it quickly becomes automatic
+            — and it's the single most reliable defense against being confidently
+            wrong.
+          </p>
         </LegalSection>
         <LegalSection heading="How Truegle does it">
           <p>
-            Truegle's modes let you decide how results are ranked — from standard
-            relevance to modes that deliberately surface independent and
+            Truegle's perspective modes let you decide how results are ranked — from
+            standard relevance to modes that deliberately surface independent and
             alternative sources ahead of the mainstream — so you can triangulate
-            instead of trusting a single list. It's the same web; you just get to
-            see more of it. Try it on your next search, or read more{' '}
-            <a href="/about" className="text-blue-400 hover:text-blue-300">about Truegle</a>.
+            instead of trusting a single list. Each result is labeled so you can see
+            which lens it comes from before you click, and you can switch modes
+            mid-search to instantly see how the same topic looks through a different
+            one. It's the same web; you just get to see more of it.
           </p>
+          <p>
+            If you want the mechanics, see{' '}
+            <a href="/blog/unbiased-search-engine-how-truegle-works" className="text-blue-400 hover:text-blue-300">how Truegle delivers unbiased results</a>{' '}
+            and{' '}
+            <a href="/blog/bias-free-search-results-perspective-modes" className="text-blue-400 hover:text-blue-300">how our perspective modes work</a>.
+            And if you're wondering why a single list narrows your view in the first
+            place, that's a{' '}
+            <a href="/blog/what-is-a-filter-bubble" className="text-blue-400 hover:text-blue-300">filter bubble</a>.
+          </p>
+        </LegalSection>
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>A single ranked list is an editorial choice presented as neutrality; on contested topics, the ordering is an argument.</li>
+            <li>Seeing multiple perspectives gives you calibration, primary sources, independence, and resistance to manipulation.</li>
+            <li>The habit is simple: start with the primary source, read mainstream and independent takes, and watch where they agree and diverge.</li>
+            <li>Truegle's labeled, switchable modes make triangulation the default. Go deeper in the{' '}
+              <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">Privacy &amp; OSINT Resource Hub</a>.</li>
+          </ul>
         </LegalSection>
       </>
     ),

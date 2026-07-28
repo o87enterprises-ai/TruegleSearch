@@ -817,7 +817,7 @@
         "Type": "thread",
         "Label": "7 blog expansions drafted, awaiting approval",
         "body": "drafts/blog-expansions/ has 7 markdown drafts expanding the sub-500-word posts to 800+ words (review-before-live). blogPosts.jsx UNCHANGED. On approval, port each into blogPosts.jsx as JSX. NOTE: draft 07 (ad-color-system) corrects the outdated 'Watch & Earn' rewards section to offer-based + notes program currently paused; confirm wording before porting.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-07-28",
         "created": "2026-07-28"
       }
