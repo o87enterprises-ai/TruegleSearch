@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2, X } from 'lucide-react';
+import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2, X, Copy, Pencil, Check } from 'lucide-react';
 import LandingBackground from '../components/LandingBackground';
 import CursorGlow from '../components/ui/CursorGlow';
 import TruegleLogo from '../components/ui/TruegleLogo';
@@ -109,8 +109,73 @@ function formatCitationsForPrompt(citations) {
     .join('\n');
 }
 
+// Match http(s) URLs, stopping before trailing punctuation that's usually
+// prose (a period, comma, closing paren) rather than part of the link.
+const URL_RE = /https?:\/\/[^\s<>()[\]]+[^\s<>()[\].,;:!?'"]/g;
+
+// Pull every URL the model mentioned out of its answer, so bare links it
+// quoted still end up in the Sources list at the bottom (deduped).
+function extractUrls(text) {
+  if (!text) return [];
+  return [...new Set(text.match(URL_RE) || [])];
+}
+
+// react-markdown (no gfm plugin here) doesn't autolink bare URLs, so wrap any
+// bare URL in <…> autolink syntax — while leaving URLs already inside a
+// [label](url) markdown link or an existing <url> autolink untouched.
+function linkifyBareUrls(text) {
+  if (!text) return text;
+  return text.replace(
+    /(\[[^\]]*\]\([^)]*\)|<https?:\/\/[^>]+>)|(https?:\/\/[^\s<>()[\]]+[^\s<>()[\].,;:!?'"])/g,
+    (m, existing, bare) => (existing ? existing : `<${bare}>`),
+  );
+}
+
+// Fold the model-mentioned URLs into the fetched citations' Sources list so
+// every link named in the answer is clickable in the list below it, without
+// duplicating any the search already surfaced.
+function mergeUrlCitations(citations, urls) {
+  if (!urls || urls.length === 0) return citations;
+  const links = Array.isArray(citations?.links) ? citations.links : [];
+  const seen = new Set(links.map((l) => l.url));
+  const extra = urls.filter((u) => !seen.has(u)).map((u) => ({ url: u }));
+  if (extra.length === 0) return citations;
+  return { ...(citations || {}), links: [...links, ...extra] };
+}
+
+// All markdown links open in a new tab, safely.
+const MD_COMPONENTS = {
+  a: ({ href, children }) => (
+    <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+  ),
+};
+
+// Small copy-to-clipboard icon button with a brief ✓ confirmation.
+function CopyButton({ text, accent, title = 'Copy' }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text || '');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard blocked — no-op */ }
+  };
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title={title}
+      className={`p-1.5 rounded-lg hover:bg-white/10 transition-colors ${copied ? 'text-green-300' : `text-white/40 hover:${accent?.link || 'text-white/70'}`}`}
+    >
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+    </button>
+  );
+}
+
 // Compact citation chip — the same three Truegle actions every result card
-// gets: Open link, View anonymously (proxy), Open in app (inline expand).
+// gets: Open link, View anonymously (proxy), Open in app (inline expand). The
+// whole chip is a click target that opens the link; the icons on the second
+// row take over only when one is explicitly clicked.
 function CitationChip({ result, accent }) {
   const [expanded, setExpanded] = useState(false);
   const videoEmbed = getVideoEmbed(result.url);
@@ -119,35 +184,47 @@ function CitationChip({ result, accent }) {
     domain = new URL(result.url).hostname.replace(/^www\./, '');
   } catch { /* keep fallback */ }
 
+  const openMain = () => window.open(result.url, '_blank', 'noopener,noreferrer');
+
   return (
     <div className={`rounded-lg border ${accent.iframeBorder} bg-white/5 overflow-hidden`}>
-      <div className="flex items-center gap-2 px-2.5 py-1.5">
-        {result.image && (
-          <img src={result.image} alt="" className="w-6 h-6 rounded object-cover flex-shrink-0"
-            onError={(e) => { e.target.style.display = 'none'; }} />
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="text-xs text-white/80 truncate">{result.title || domain}</div>
-          <div className="text-[10px] text-white/40 truncate">{domain}</div>
+      <div
+        role="link"
+        tabIndex={0}
+        onClick={openMain}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMain(); } }}
+        className="px-2.5 py-2 cursor-pointer hover:bg-white/5 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          {result.image && (
+            <img src={result.image} alt="" className="w-6 h-6 rounded object-cover flex-shrink-0"
+              onError={(e) => { e.target.style.display = 'none'; }} />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="text-xs text-white/80 truncate">{result.title || domain}</div>
+            <div className="text-[10px] text-white/40 truncate">{domain}</div>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Icons on their own line — larger tap targets. Clicking one overrides
+            the whole-chip "open link" action above. */}
+        <div className="flex items-center gap-1 mt-1.5 -ml-1" onClick={(e) => e.stopPropagation()}>
           <a href={result.url} target="_blank" rel="noopener noreferrer"
-            title="Open link" className={`${accent.link} transition-colors`}>
-            <ExternalLink size={12} />
+            title="Open link" className={`p-1.5 rounded-lg hover:bg-white/10 ${accent.link} transition-colors`}>
+            <ExternalLink size={16} />
           </a>
           {result.proxyUrl && (
             <a href={result.proxyUrl} target="_blank" rel="noopener noreferrer"
-              title="View anonymously — the site never sees your IP" className={`${accent.link} transition-colors`}>
-              <Eye size={12} />
+              title="View anonymously — the site never sees your IP" className={`p-1.5 rounded-lg hover:bg-white/10 ${accent.link} transition-colors`}>
+              <Eye size={16} />
             </a>
           )}
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
             title={videoEmbed ? 'Play here' : 'Open in app'}
-            className={`text-[10px] font-medium ${accent.link} transition-colors`}
+            className={`px-2 py-1 rounded-lg hover:bg-white/10 text-xs font-medium ${accent.link} transition-colors`}
           >
-            {expanded ? 'Close' : videoEmbed ? '▶' : 'In app'}
+            {expanded ? 'Close' : videoEmbed ? '▶ Play' : 'In app'}
           </button>
         </div>
       </div>
@@ -306,6 +383,13 @@ export default function TruegleChat() {
   const resetThread = () => {
     setMessages([{ id: Date.now(), role: 'assistant', content: MODE_WELCOME[primaryMode], citations: null }]);
     setShareUrl('');
+  };
+
+  // "Edit" a prior prompt: drop its text back into the input box so it can be
+  // tweaked and re-sent (the original turn stays in the thread as history).
+  const editPrompt = (text) => {
+    setInput(text || '');
+    requestAnimationFrame(() => inputRef.current?.focus());
   };
 
   const [sharing, setSharing] = useState(false);
@@ -731,8 +815,8 @@ export default function TruegleChat() {
                   : `bg-black/40 border ${accent.iframeBorder} text-white/90`
               }`}>
                 {m.role === 'assistant' ? (
-                  <div className="prose prose-invert prose-sm max-w-none [&_a]:text-inherit [&_a]:underline">
-                    <ReactMarkdown>{m.content}</ReactMarkdown>
+                  <div className="prose prose-invert prose-sm max-w-none [&_a]:text-inherit [&_a]:underline [&_a]:break-words">
+                    <ReactMarkdown components={MD_COMPONENTS}>{linkifyBareUrls(m.content)}</ReactMarkdown>
                   </div>
                 ) : (
                   <>
@@ -740,6 +824,19 @@ export default function TruegleChat() {
                       <img src={m.image} alt="Attached" className="max-w-full max-h-64 rounded-lg mb-2 object-contain" />
                     )}
                     {m.content && <p className="text-sm">{m.content}</p>}
+                    {m.content && (
+                      <div className="mt-1.5 -mb-1 flex items-center justify-end gap-0.5">
+                        <CopyButton text={m.content} accent={accent} title="Copy prompt" />
+                        <button
+                          type="button"
+                          onClick={() => editPrompt(m.content)}
+                          title="Edit — reuse this prompt in the input box"
+                          className="p-1.5 rounded-lg text-white/40 hover:text-white/80 hover:bg-white/10 transition-colors"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
                 {m.role === 'assistant' && m.id !== 1 && (
@@ -748,11 +845,17 @@ export default function TruegleChat() {
                     <AdsterraBanner format="nativeBanner" className="rounded-xl overflow-hidden" />
                   </div>
                 )}
-                <Citations citations={m.citations} accent={accent} />
+                <Citations
+                  citations={m.role === 'assistant' ? mergeUrlCitations(m.citations, extractUrls(m.content)) : m.citations}
+                  accent={accent}
+                />
                 {m.graph && <InvestigationGraph graph={m.graph} accent={accent} />}
                 {m.role === 'assistant' && m.id !== 1 && (
                   <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between gap-2">
-                    <ChatShareButton message={m} />
+                    <div className="flex items-center gap-1">
+                      <ChatShareButton message={m} />
+                      <CopyButton text={m.content} accent={accent} title="Copy answer" />
+                    </div>
                     <FeedbackButtons answer={m.content} query={priorQuery} mode={modes.join('+')} />
                   </div>
                 )}
