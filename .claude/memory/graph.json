@@ -578,6 +578,14 @@
         "body": "Adsterra Publishers has NO S2S postback, so auto-crediting is impossible. Frontend rewards UI commented out (App.jsx /rewards route+import, SettingsPage Rewards section, OnboardingPage rewards step). POST /api/rewards/postback disabled (registrations commented, handler kept). GET /api/rewards/offer-link still active. Manual workflow: user forwards conversion email to support@truegle.info; admin credits via POST /api/admin/rewards/credit (routes/admin.js, x-admin-key=ADMIN_API_KEY; RewardsService.creditManual USD, ledger manual_credit). RewardsProvider left mounted. REWARDS_POSTBACK_SECRET now unused; ADMIN_API_KEY required.",
         "ts": "2026-07-28",
         "created": "2026-07-28"
+      },
+      "multi-network-ad-scaffold": {
+        "Id": "multi-network-ad-scaffold",
+        "Type": "decision",
+        "Label": "Multi-network ad config scaffold (pending signup)",
+        "body": "Added apps/frontend/src/config/adNetworks.js: env-driven registry for HilltopAds, Ghost, PropellerAds, Media.net, EthicalAds + Adsterra control. Disabled by default; each serves only when VITE_<NET>_ENABLED=true AND zone value set. Helpers: isNetworkReady, readyNetworks, pickNetworkForSlot (stable A/B bucket). NOT wired to rendering, NOT deployed. Accounts NOT created (owner action: signup needs identity/KYC/terms; codes issued post-approval). Env-var map + steps in docs/AD-NETWORK-SIGNUP.md. All free to join ($0 budget ok).",
+        "ts": "2026-07-28",
+        "created": "2026-07-28"
       }
     },
     "entity": {
