@@ -1,11 +1,18 @@
 // Rewards Program Service — opt-in cash rewards for OFFER CONVERSIONS.
 //
-// Adsterra (and every performance network) pays the publisher on CONVERSIONS —
-// a completed offer (install / sign-up / purchase), not on ad views or clicks.
-// So rewards are a genuine revenue-share of REAL, network-confirmed conversions
-// attributed to a user via a per-user opaque referral id (rewards_ref) that
-// rides the offer link as a SubID and comes back on Adsterra's server-to-server
-// postback. No conversion => no money exists => nothing is credited. This
+// REWARDS WORKFLOW (MANUAL for now — Adsterra Publishers has no S2S postback):
+//   1. User generates their offer link via GET /api/rewards/offer-link
+//   2. User clicks the link and converts on the advertiser's site
+//   3. User forwards the conversion-confirmation email to support@truegle.info
+//   4. Admin verifies the email and credits the user via
+//      POST /api/admin/rewards/credit (see RewardsService.creditManual + routes/admin.js)
+// The automatic path below (recordConversion, driven by a network postback) is
+// kept intact so we can flip back to fully-automatic crediting the moment we
+// move to a network that supports server-to-server postbacks.
+//
+// Rewards are a genuine revenue-share of REAL, confirmed conversions attributed
+// to a user via a per-user opaque referral id (rewards_ref) that rides the offer
+// link as a SubID. No conversion => no money exists => nothing is credited. This
 // replaces the old view/click crediting, which inflated CTR while earning ~$0.
 //
 // Amounts are tracked in integer MICROS (millionths of a dollar; 1,000,000
@@ -163,6 +170,39 @@ class RewardsService {
     }
 
     return { success: true, credited: true, userShareMicros };
+  }
+
+  /**
+   * Manually credit a user after an admin has verified a forwarded conversion-
+   * confirmation email (the manual workflow that replaces the S2S postback while
+   * we're on Adsterra Publishers). `amountUsd` is the credit in US dollars;
+   * `proofNote` is a free-text audit note (e.g. the offer + email reference).
+   * Recorded in the ledger as 'manual_credit' for a full audit trail.
+   */
+  static async creditManual(userId, amountUsd, proofNote) {
+    const amount = Number(amountUsd);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return { success: false, message: 'amount must be a positive number of US dollars' };
+    }
+    const amountMicros = Math.round(amount * 1e6);
+
+    const result = await query(
+      `UPDATE users SET
+         rewards_balance_micros = rewards_balance_micros + $1,
+         rewards_lifetime_earned_micros = rewards_lifetime_earned_micros + $1
+       WHERE id = $2
+       RETURNING rewards_balance_micros`,
+      [amountMicros, userId]
+    );
+    if (result.rows.length === 0) {
+      return { success: false, message: 'User not found' };
+    }
+
+    const balanceAfterMicros = Number(result.rows[0].rewards_balance_micros);
+    const note = proofNote ? `manual_credit: ${String(proofNote).slice(0, 500)}` : 'manual_credit';
+    await this.logLedger(userId, amountMicros, 'manual_credit', note, balanceAfterMicros);
+
+    return { success: true, amountMicros, balanceMicros: balanceAfterMicros };
   }
 
   static async requestPayout(userId, method, destination) {

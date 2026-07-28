@@ -234,6 +234,9 @@ app.use('/api/tokens', require('./routes/tokens'));
 // confirmed offer conversions attributed via a per-user ref and credited by a
 // secret-gated S2S postback (see routes/rewards.js + RewardsService.js).
 app.use('/api/rewards', require('./routes/rewards'));
+// Admin-only (ADMIN_API_KEY via x-admin-key header): manual reward crediting
+// after verifying a user's forwarded conversion-confirmation email.
+app.use('/api/admin', require('./routes/admin'));
 // Geo-targeted ad configuration (IP country-of-origin -> highest-CPM zones)
 app.use('/api/ads', require('./routes/ads'));
 app.use('/api/creators', require('./routes/creators'));

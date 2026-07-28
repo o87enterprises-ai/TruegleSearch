@@ -55,13 +55,16 @@ const OnboardingPage = () => {
       description: 'Configure your privacy and data preferences',
       component: PrivacyStep,
     },
-    {
-      id: 'rewards',
-      icon: FiDollarSign,
-      title: 'Earn Cash Rewards',
-      description: 'Get paid for ads you genuinely view',
-      component: RewardsStep,
-    },
+    // REWARDS FEATURE: Temporarily disabled until we finalize a network with
+    // S2S postback support (Adsterra Publishers has none) — moving to a manual
+    // email-verification workflow. Onboarding no longer shows the opt-in step.
+    // {
+    //   id: 'rewards',
+    //   icon: FiDollarSign,
+    //   title: 'Earn Cash Rewards',
+    //   description: 'Get paid for ads you genuinely view',
+    //   component: RewardsStep,
+    // },
     {
       id: 'complete',
       icon: FiCheck,
@@ -423,6 +426,9 @@ const PrivacyStep = ({ data, updateData, onNext, onPrevious }) => {
   );
 };
 
+// Kept defined (unused for now) so the rewards onboarding step is trivial to
+// re-enable once a conversion network with real tracking is in place.
+// eslint-disable-next-line no-unused-vars
 const RewardsStep = ({ onNext, onPrevious }) => {
   const { optedIn, optIn, optOut, loading } = useRewards();
   const navigate = useNavigate();

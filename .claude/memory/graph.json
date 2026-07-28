@@ -570,6 +570,14 @@
         "body": "hreflang cluster (en/de/es/fr/x-default) in index.html + prerendered localized landing pages /de /es /fr (LocalizedHomeContent, translated title/desc/content, html lang set) + sitemap alternates (static + backend). Live SPA routes /de /es /fr -> LandingPage. Targets German DE/AT/CH (Tier1 CPM), Spanish, French reach.",
         "ts": "2026-07-28",
         "created": "2026-07-28"
+      },
+      "rewards-ui-disabled": {
+        "Id": "rewards-ui-disabled",
+        "Type": "decision",
+        "Label": "Rewards UI hidden; manual email verification",
+        "body": "Adsterra Publishers has NO S2S postback, so auto-crediting is impossible. Frontend rewards UI commented out (App.jsx /rewards route+import, SettingsPage Rewards section, OnboardingPage rewards step). POST /api/rewards/postback disabled (registrations commented, handler kept). GET /api/rewards/offer-link still active. Manual workflow: user forwards conversion email to support@truegle.info; admin credits via POST /api/admin/rewards/credit (routes/admin.js, x-admin-key=ADMIN_API_KEY; RewardsService.creditManual USD, ledger manual_credit). RewardsProvider left mounted. REWARDS_POSTBACK_SECRET now unused; ADMIN_API_KEY required.",
+        "ts": "2026-07-28",
+        "created": "2026-07-28"
       }
     },
     "entity": {

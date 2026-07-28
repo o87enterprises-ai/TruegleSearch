@@ -24,7 +24,9 @@ import TruegleLogo from './components/ui/TruegleLogo';
 import Footer from './components/Footer';
 import ResultsPage from './components/ResultsPage';
 import SettingsPage from './components/SettingsPage';
-import RewardsDashboard from './pages/RewardsDashboard';
+// REWARDS FEATURE: Temporarily disabled (no S2S postback support) — see the
+// commented-out /rewards route below and the manual-verification workflow.
+// import RewardsDashboard from './pages/RewardsDashboard';
 import OnboardingPage from './components/auth/OnboardingPage';
 import LandingPage from './pages/LandingPage';
 import SignInPage from './pages/SignInPage';
@@ -346,7 +348,12 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
-        {/* Rewards Program dashboard */}
+        {/* REWARDS FEATURE: Temporarily disabled until we finalize a network with
+            S2S postback support. Adsterra Publishers does not support server-to-
+            server postbacks, so conversions can't be auto-credited. A manual
+            verification workflow (users forward confirmation emails, admin credits
+            via /api/admin/rewards/credit) will replace this. Route hidden so the
+            dashboard is neither visible nor reachable.
         <Route
           path="/rewards"
           element={
@@ -357,7 +364,7 @@ const AppContent = () => {
               </RouteBoundary>
             </ProtectedRoute>
           }
-        />
+        /> */}
         {/* Catch all */}
         <Route path="*" element={<RouteBoundary><NotFound /></RouteBoundary>} />
       </Routes>

@@ -277,7 +277,10 @@ const SettingsPage = () => {
             </div>
           </div>
 
-          {/* Rewards Program — status + link; the working opt-in control lives on /rewards */}
+          {/* REWARDS FEATURE: Temporarily disabled until we finalize a network with
+              S2S postback support (Adsterra Publishers has none) — moving to a
+              manual email-verification workflow. Rewards status + dashboard link
+              hidden from Settings.
           <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
             <div className="flex items-center mb-4">
               <SafeIcon icon={FiDollarSign} className="mr-2 text-emerald-400" />
@@ -303,6 +306,7 @@ const SettingsPage = () => {
               </Link>
             </div>
           </div>
+          */}
 
           {/* Account code — durable sign-in credential */}
           {isAuthenticated && (

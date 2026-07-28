@@ -72,18 +72,22 @@ router.get('/offer-link', authenticate, async (req, res) => {
 });
 
 /**
- * GET|POST /api/rewards/postback
- * Server-to-server conversion postback from Adsterra (configure this URL in the
- * Adsterra dashboard's postback settings). Secret-gated so only the network can
- * credit conversions. Expected params (query or body), with common aliases:
- *   secret        — shared secret (must equal REWARDS_POSTBACK_SECRET)
- *   sub1 | subid  — the user's attribution ref
- *   conversion_id | cid | txid — network-unique conversion id (idempotency)
- *   payout | sum | amount      — conversion payout in USD
- *   offer         — offer name (optional)
- *   country       — geo (optional)
- * Responds with a plain 200 "OK" as postback endpoints expect.
+ * GET|POST /api/rewards/postback  — DISABLED.
+ *
+ * Adsterra Publishers does not support server-to-server (S2S) postbacks, so this
+ * endpoint can never receive conversion data — it is intentionally NOT
+ * registered (see the commented-out router.get/post below). Conversions are now
+ * verified MANUALLY: a user forwards their conversion-confirmation email to
+ * support@truegle.info and an admin credits them via POST /api/admin/rewards/credit.
+ * The handler is kept defined so the automatic flow is trivial to re-enable once
+ * we move to a network that does support S2S postbacks.
+ *
+ * (When re-enabled, expected params — query or body, with common aliases:
+ *   secret / x-postback-secret — must equal REWARDS_POSTBACK_SECRET
+ *   sub1 | subid — user attribution ref; conversion_id | cid | txid — idempotency;
+ *   payout | sum | amount — USD; offer, country — optional.)
  */
+// eslint-disable-next-line no-unused-vars
 async function handlePostback(req, res) {
   try {
     const p = { ...req.query, ...req.body };
@@ -123,8 +127,12 @@ async function handlePostback(req, res) {
   }
 }
 
-router.get('/postback', handlePostback);
-router.post('/postback', handlePostback);
+// DISABLED — Adsterra has no S2S postback support. Manual verification replaces
+// it (user forwards confirmation email -> admin credits via /api/admin/rewards/credit).
+// Re-enable both lines to restore automatic conversion crediting on a network
+// that supports postbacks.
+// router.get('/postback', handlePostback);
+// router.post('/postback', handlePostback);
 
 /**
  * GET /api/rewards/ledger
