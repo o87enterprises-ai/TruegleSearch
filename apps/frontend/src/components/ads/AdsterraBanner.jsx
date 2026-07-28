@@ -2,6 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { isAdultQuery } from '../../utils/adultKeywords';
 import { ADSTERRA, AD_DOMAIN } from '../../config/ads';
 import { adultAdsApproved } from '../ui/AdultConsentGate';
+import { useAdGeo } from '../../context/AdGeoContext';
+
+// Highest-CPM banner format only. Per the revenue plan we stopped serving the
+// low-CPM display banners (300x250/468x60/728x90/160x600 all earned ~$0) and
+// serve the native banner exclusively — it was the top non-adult CPM format and
+// is on-brand. Any legacy format prop is coerced to it, so every call site
+// upgrades without a change.
+const HIGH_CPM_FORMATS = new Set(['nativeBanner']);
 
 /**
  * Maps Truegle search context to Adsterra campaign keyword categories.
@@ -49,7 +57,14 @@ export default function AdsterraBanner({
   query = '',
   className = '',
 }) {
-  const placement = ADSTERRA[format];
+  // Serve only the highest-CPM format; the country-of-origin native key comes
+  // from the geo config (GeoAdService), falling back to the static global key.
+  const { zones } = useAdGeo();
+  const fmt = HIGH_CPM_FORMATS.has(format) ? format : 'nativeBanner';
+  const base = ADSTERRA[fmt];
+  const placement = base
+    ? { ...base, key: (fmt === 'nativeBanner' && zones?.nativeBanner) || base.key }
+    : base;
 
   // Ad consent: true by default; flips to false on explicit opt-out only.
   const [adsAllowed, setAdsAllowed] = useState(

@@ -26,9 +26,9 @@ export default function RewardsCTA() {
             <div className="w-10 h-10 rounded-full bg-yellow-500/15 border border-yellow-500/30 flex items-center justify-center">
               <Gift size={18} className="text-yellow-400" />
             </div>
-            <h3 className="text-white font-semibold">Get paid for the ads you see</h3>
+            <h3 className="text-white font-semibold">Earn a share of real ad revenue</h3>
             <p className="text-white/50 text-sm max-w-md">
-              Opt in and earn a share of ad revenue while you search — no extra tracking, server-side measured.
+              Opt in and earn a share of every sponsored offer you complete — real conversions, confirmed server-side, no extra tracking.
             </p>
             <div className="flex gap-3 mt-1">
               <button

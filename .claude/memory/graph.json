@@ -538,6 +538,38 @@
         "body": "RewardsCTA off landing, 'Rewards' off BrandBar nav, orange pill off PillModeRow CYCLE. Program paused (Adsterra pays CPM not clicks). /rewards route + RewardsDashboard still exist under the hood but unlinked. Backend /api/rewards already commented out in server.js.",
         "ts": "2026-07-24",
         "created": "2026-07-24"
+      },
+      "rewards-offer-based": {
+        "Id": "rewards-offer-based",
+        "Type": "decision",
+        "Label": "Rewards = offer/conversion based",
+        "body": "Rewards Program reworked 2026-07-28 from view/click micro-crediting to OFFER/CONVERSION based (Adsterra pays on conversions, not views/clicks). Users earn a revenue-share (REWARDS_REVENUE_SHARE, default 0.70) of network-confirmed conversions, attributed via per-user users.rewards_ref (SubID on the offer link), credited by secret-gated S2S postback GET|POST /api/rewards/postback (needs REWARDS_POSTBACK_SECRET). Route re-enabled in server.js. Migration 011. Offer link: GET /api/rewards/offer-link.",
+        "ts": "2026-07-28",
+        "created": "2026-07-28"
+      },
+      "geo-ad-targeting": {
+        "Id": "geo-ad-targeting",
+        "Type": "decision",
+        "Label": "Server-side geo ad targeting",
+        "body": "Ads now resolved server-side by country of origin: GeoAdService (cf-ipcountry/x-vercel-ip-country header, ip-api.com cached fallback) + config/ad_zones.json (country->zone, DEFAULT global fallback, tier1/tier2 lists). GET /api/ads/config. Frontend AdGeoContext fetches once; AdsterraBanner uses geo native key; AdScriptLoader loads geo social bar (+popunder if VITE_ENABLE_POPUNDER=true, default OFF for adult-safety).",
+        "ts": "2026-07-28",
+        "created": "2026-07-28"
+      },
+      "highest-cpm-native-only": {
+        "Id": "highest-cpm-native-only",
+        "Type": "decision",
+        "Label": "Serve only highest-CPM native banner",
+        "body": "Retired the low-CPM fixed display banners (728x90/468x60/320x50/300x250/160x600 all ~$0). AdsterraBanner coerces every format to nativeBanner (top non-adult CPM, on-brand). Highest-CPM formats served: native banner + social bar + popunder(gated).",
+        "ts": "2026-07-28",
+        "created": "2026-07-28"
+      },
+      "localized-seo": {
+        "Id": "localized-seo",
+        "Type": "decision",
+        "Label": "Localized SEO for top-CPM regions",
+        "body": "hreflang cluster (en/de/es/fr/x-default) in index.html + prerendered localized landing pages /de /es /fr (LocalizedHomeContent, translated title/desc/content, html lang set) + sitemap alternates (static + backend). Live SPA routes /de /es /fr -> LandingPage. Targets German DE/AT/CH (Tier1 CPM), Spanish, French reach.",
+        "ts": "2026-07-28",
+        "created": "2026-07-28"
       }
     },
     "entity": {
@@ -784,5 +816,5 @@
       }
     }
   },
-  "updated": "2026-07-24"
+  "updated": "2026-07-28"
 }

@@ -859,12 +859,6 @@ export default function TruegleChat() {
                     <FeedbackButtons answer={m.content} query={priorQuery} mode={modes.join('+')} />
                   </div>
                 )}
-                {m.role === 'assistant' && m.id !== 1 && (
-                  <div className="mt-3 pt-3 border-t border-white/5">
-                    <div className="text-[9px] uppercase tracking-widest text-orange-400/70 mb-1">Sponsored</div>
-                    <AdsterraBanner format="banner728x90" className="rounded-xl overflow-hidden" />
-                  </div>
-                )}
               </div>
             </motion.div>
             </Fragment>

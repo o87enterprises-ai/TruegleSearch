@@ -87,34 +87,19 @@ export const RewardsProvider = ({ children }) => {
   }, [isAuthenticated]);
 
   /**
-   * Open a server-tracked session for a reward-eligible ad impression.
-   * Must be called before earn().
+   * Fetch the user's personalized offer link. Completing an offer credits their
+   * revenue-share server-side (via the network conversion postback); the
+   * balance then updates on the next fetchStatus().
    */
-  const startImpressionSession = useCallback(async (adId, zone) => {
+  const getOfferLink = useCallback(async () => {
     if (!isAuthenticated || !optedIn) return { success: false };
     try {
-      const response = await rewardsAPI.startImpressionSession(adId, zone);
-      return { success: true, sessionId: response.data.sessionId };
+      const response = await rewardsAPI.getOfferLink();
+      return { success: true, url: response.data.data.url };
     } catch (error) {
       return { success: false, message: error.response?.data?.message };
     }
   }, [isAuthenticated, optedIn]);
-
-  /** Claim the reward once the ad has been visible long enough, or immediately on a detected click. */
-  const earn = useCallback(async (sessionId, visibleMs, clicked = false) => {
-    if (!isAuthenticated) return { success: false };
-    try {
-      const response = await rewardsAPI.earn(sessionId, visibleMs, clicked);
-      const result = response.data.data;
-      if (result.success) {
-        setBalanceMicros(result.balanceMicros);
-        setLifetimeEarnedMicros((prev) => prev + result.amountMicros);
-      }
-      return result;
-    } catch (error) {
-      return { success: false, message: error.response?.data?.message };
-    }
-  }, [isAuthenticated]);
 
   const value = {
     optedIn,
@@ -125,8 +110,7 @@ export const RewardsProvider = ({ children }) => {
     fetchStatus,
     optIn,
     optOut,
-    startImpressionSession,
-    earn,
+    getOfferLink,
   };
 
   return <RewardsContext.Provider value={value}>{children}</RewardsContext.Provider>;

@@ -109,14 +109,14 @@ const tokensAPI = {
   getConfig: () => api.get('/tokens/config'),
 };
 
-// Rewards Program API (opt-in cash rewards for honestly-viewed ads)
+// Rewards Program API (opt-in cash rewards for completing sponsored offers —
+// a revenue-share of real, network-confirmed conversions).
 const rewardsAPI = {
   getConfig: () => api.get('/rewards/config'),
   getStatus: () => api.get('/rewards/status'),
   optIn: () => api.post('/rewards/opt-in'),
   optOut: () => api.post('/rewards/opt-out'),
-  startImpressionSession: (adId, zone) => api.post('/rewards/impression-session', { adId, zone }),
-  earn: (sessionId, visibleMs, clicked = false) => api.post('/rewards/earn', { sessionId, visibleMs, clicked }),
+  getOfferLink: () => api.get('/rewards/offer-link'),
   getLedger: (limit = 20) => api.get('/rewards/ledger', { params: { limit } }),
   getPayouts: () => api.get('/rewards/payouts'),
   requestPayout: (method, destination) => api.post('/rewards/payout-request', { method, destination }),

@@ -18,12 +18,14 @@ class SitemapGenerator {
    * @param {string} changefreq - How frequently the page changes (always/hourly/daily/weekly/monthly/yearly/never)
    * @param {number} priority - Priority of this URL relative to other URLs (0.0 to 1.0)
    */
-  addURL(loc, lastmod = null, changefreq = 'weekly', priority = 0.8) {
+  addURL(loc, lastmod = null, changefreq = 'weekly', priority = 0.8, alternates = null) {
     this.urls.push({
       loc: `${this.baseURL}${loc}`,
       lastmod,
       changefreq,
-      priority
+      priority,
+      // Optional [{ hreflang, href }] for localized alternates (hreflang cluster).
+      alternates: Array.isArray(alternates) ? alternates : null,
     });
   }
 
@@ -33,18 +35,24 @@ class SitemapGenerator {
    */
   generateSitemap() {
     let sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n';
-    sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
+    sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n';
+    sitemap += '        xmlns:xhtml="http://www.w3.org/1999/xhtml">\n';
 
     this.urls.forEach(url => {
       sitemap += '  <url>\n';
       sitemap += `    <loc>${this.escapeXml(url.loc)}</loc>\n`;
-      
+
       if (url.lastmod) {
         sitemap += `    <lastmod>${url.lastmod}</lastmod>\n`;
       }
-      
+
       sitemap += `    <changefreq>${url.changefreq}</changefreq>\n`;
       sitemap += `    <priority>${url.priority}</priority>\n`;
+      if (url.alternates) {
+        url.alternates.forEach(alt => {
+          sitemap += `    <xhtml:link rel="alternate" hreflang="${this.escapeXml(alt.hreflang)}" href="${this.escapeXml(alt.href)}" />\n`;
+        });
+      }
       sitemap += '  </url>\n';
     });
 

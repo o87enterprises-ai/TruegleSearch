@@ -1,26 +1,8 @@
-// Rewards Program Routes — opt-in cash rewards for honestly-viewed ads.
+// Rewards Program Routes — opt-in cash rewards for OFFER conversions.
 const express = require('express');
-const crypto = require('crypto');
 const router = express.Router();
 const RewardsService = require('../services/RewardsService');
 const { authenticate } = require('../middleware/auth');
-
-// Server-side impression session tracking, mirroring the anti-spoofing pattern
-// used for token-earning ad watches in routes/tokens.js: a session is opened
-// when the ad becomes visible, and /earn can only succeed once real wall-clock
-// time has elapsed and the session hasn't already been consumed.
-const impressionSessions = new Map();
-const SESSION_TTL_MS = 5 * 60 * 1000; // sessions older than this are abandoned
-const { minVisibleMs: MIN_VISIBLE_MS, minVisibleMsForClick: MIN_VISIBLE_MS_FOR_CLICK } = RewardsService.getConfig();
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [sessionId, session] of impressionSessions) {
-    if (now - session.createdAt > SESSION_TTL_MS) {
-      impressionSessions.delete(sessionId);
-    }
-  }
-}, 60000).unref();
 
 /**
  * GET /api/rewards/config
@@ -70,98 +52,79 @@ router.post('/opt-out', authenticate, async (req, res) => {
 });
 
 /**
- * POST /api/rewards/impression-session
- * Open a server-tracked session when a reward-eligible ad becomes visible.
+ * GET /api/rewards/offer-link
+ * The user's personalized offer link. Completing any offer fires a network
+ * conversion postback tagged with their attribution ref, which credits their
+ * revenue-share. Opting in is required (the ref only exists once opted in).
  */
-router.post('/impression-session', authenticate, async (req, res) => {
+router.get('/offer-link', authenticate, async (req, res) => {
   try {
     const status = await RewardsService.getStatus(req.user.userId);
     if (!status.optedIn) {
-      return res.status(403).json({ success: false, message: 'Not opted into the Rewards Program' });
+      return res.status(403).json({ success: false, message: 'Opt into the Rewards Program to get your offer link' });
     }
-
-    const { adId, zone } = req.body;
-    const sessionId = crypto.randomBytes(16).toString('hex');
-    impressionSessions.set(sessionId, {
-      userId: req.user.userId,
-      adId: adId || null,
-      zone: zone || 'unknown',
-      createdAt: Date.now(),
-    });
-
-    res.json({ success: true, sessionId });
+    const url = await RewardsService.getOfferLink(req.user.userId);
+    res.json({ success: true, data: { url } });
   } catch (error) {
-    console.error('Open impression session error:', error);
-    res.status(500).json({ success: false, message: 'Failed to open impression session' });
+    console.error('Offer link error:', error);
+    res.status(500).json({ success: false, message: 'Failed to build offer link' });
   }
 });
 
 /**
- * POST /api/rewards/earn
- * Claim the reward for a session, once it has been visible long enough — or
- * immediately if `clicked` is true (a click is detected client-side via a
- * window-blur-while-hovering-the-ad heuristic, see RewardAdSlot.jsx; it needs
- * far less dwell time than the plain-view trickle since intent is already
- * evident). `visibleMs` is the client's own accumulated-visibility
- * measurement (IntersectionObserver); it can only ever reduce the awarded
- * duration below server wall-clock time, never inflate it, so a spoofed
- * client can't earn faster than honest real-time viewing would allow.
+ * GET|POST /api/rewards/postback
+ * Server-to-server conversion postback from Adsterra (configure this URL in the
+ * Adsterra dashboard's postback settings). Secret-gated so only the network can
+ * credit conversions. Expected params (query or body), with common aliases:
+ *   secret        — shared secret (must equal REWARDS_POSTBACK_SECRET)
+ *   sub1 | subid  — the user's attribution ref
+ *   conversion_id | cid | txid — network-unique conversion id (idempotency)
+ *   payout | sum | amount      — conversion payout in USD
+ *   offer         — offer name (optional)
+ *   country       — geo (optional)
+ * Responds with a plain 200 "OK" as postback endpoints expect.
  */
-router.post('/earn', authenticate, async (req, res) => {
+async function handlePostback(req, res) {
   try {
-    const { sessionId, visibleMs, clicked } = req.body;
+    const p = { ...req.query, ...req.body };
+    const secret = p.secret || req.headers['x-postback-secret'];
+    const expected = process.env.REWARDS_POSTBACK_SECRET;
 
-    if (!sessionId || typeof sessionId !== 'string') {
-      return res.status(400).json({
-        success: false,
-        message: 'sessionId is required. Call /api/rewards/impression-session first.',
-      });
+    if (!expected) {
+      console.error('Rewards postback rejected: REWARDS_POSTBACK_SECRET is not configured');
+      return res.status(503).send('postback not configured');
+    }
+    if (secret !== expected) {
+      return res.status(403).send('forbidden');
     }
 
-    const session = impressionSessions.get(sessionId);
-    if (!session) {
-      return res.status(400).json({ success: false, message: 'Invalid or expired impression session' });
-    }
-    if (session.userId !== req.user.userId) {
-      return res.status(403).json({ success: false, message: 'Session does not belong to this user' });
-    }
+    const ref = p.sub1 || p.subid || p.sub_id || p.aff_sub;
+    const conversionId = p.conversion_id || p.cid || p.txid || p.click_id || p.clickid;
+    const payoutUsd = p.payout ?? p.sum ?? p.amount ?? p.revenue;
 
-    const elapsedMs = Date.now() - session.createdAt;
-    const claimedVisibleMs = Number.isFinite(visibleMs) ? Math.max(0, visibleMs) : 0;
-    // Never trust the client beyond real elapsed time.
-    const verifiedVisibleMs = Math.min(claimedVisibleMs, elapsedMs);
+    const result = await RewardsService.recordConversion({
+      ref,
+      conversionId,
+      payoutUsd,
+      offerName: p.offer || p.offer_name || p.campaign,
+      country: p.country || p.geo,
+    });
 
-    const kind = clicked === true ? 'click' : 'impression';
-    const requiredMs = kind === 'click' ? MIN_VISIBLE_MS_FOR_CLICK : MIN_VISIBLE_MS;
-
-    if (verifiedVisibleMs < requiredMs) {
-      return res.status(400).json({
-        success: false,
-        message: 'Ad was not visible long enough to qualify for a reward',
-      });
-    }
-
-    // One-time use — a click replaces the impression trickle, it doesn't stack.
-    impressionSessions.delete(sessionId);
-
-    const result = await RewardsService.earn(
-      req.user.userId,
-      session.adId,
-      session.zone,
-      kind,
-      verifiedVisibleMs
-    );
-
+    // Always 200 on a well-formed, authenticated call so the network doesn't
+    // retry a conversion we deliberately ignored (duplicate / unknown ref).
     if (!result.success) {
-      return res.status(400).json(result);
+      console.warn('Rewards postback not credited:', result.message);
+      return res.status(200).send('OK (not credited)');
     }
-
-    res.json({ success: true, data: result });
+    return res.status(200).send('OK');
   } catch (error) {
-    console.error('Earn reward error:', error);
-    res.status(500).json({ success: false, message: 'Failed to process reward' });
+    console.error('Rewards postback error:', error);
+    return res.status(500).send('error');
   }
-});
+}
+
+router.get('/postback', handlePostback);
+router.post('/postback', handlePostback);
 
 /**
  * GET /api/rewards/ledger

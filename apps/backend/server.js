@@ -177,9 +177,21 @@ app.get('/sitemap.xml', (req, res) => {
     const SitemapGenerator = require('./utils/sitemap');
     const baseURL = (config.frontendUrl || 'https://truegle.info').replace(/\/$/, '');
     const generator = new SitemapGenerator(baseURL);
-    generator.addURL('/', null, 'daily', 1.0);
+    // hreflang cluster shared by the home + localized landing pages.
+    const alternates = [
+      { hreflang: 'en', href: `${baseURL}/` },
+      { hreflang: 'de', href: `${baseURL}/de` },
+      { hreflang: 'es', href: `${baseURL}/es` },
+      { hreflang: 'fr', href: `${baseURL}/fr` },
+      { hreflang: 'x-default', href: `${baseURL}/` },
+    ];
+    generator.addURL('/', null, 'daily', 1.0, alternates);
     generator.addURL('/search', null, 'daily', 0.9);
     generator.addURL('/green', null, 'weekly', 0.6);
+    // Localized landing pages for the top non-English, high-CPM/high-reach markets.
+    generator.addURL('/de', null, 'weekly', 0.8, alternates);
+    generator.addURL('/es', null, 'weekly', 0.8, alternates);
+    generator.addURL('/fr', null, 'weekly', 0.8, alternates);
     res.header('Content-Type', 'application/xml');
     res.send(generator.generateSitemap());
   } catch (error) {
@@ -217,12 +229,13 @@ app.use('/api/search', [blockBadBots, suspiciousBotLimiter, searchPrivacyMiddlew
 app.use('/api/auth', [authLimiter, require('./routes/auth')]);
 app.use('/api/analytics', require('./routes/analytics').router);
 app.use('/api/tokens', require('./routes/tokens'));
-// Rewards paused 2026-07-24: Adsterra pays on CPM (impressions), not the clicks
-// this loop rewarded — the inflated CTR earned $0 and risked invalid-traffic
-// flags. Disabled while we zero in on what drives paying organic impressions.
-// Frontend degrades gracefully (RewardAdSlot renders a plain AdsterraBanner when
-// the status call fails / user isn't opted in). Re-enable by uncommenting.
-// app.use('/api/rewards', require('./routes/rewards'));
+// Rewards reworked 2026-07-28 to OFFER/CONVERSION-based (Adsterra pays on
+// conversions, not views/clicks): users earn a revenue-share of real, network-
+// confirmed offer conversions attributed via a per-user ref and credited by a
+// secret-gated S2S postback (see routes/rewards.js + RewardsService.js).
+app.use('/api/rewards', require('./routes/rewards'));
+// Geo-targeted ad configuration (IP country-of-origin -> highest-CPM zones)
+app.use('/api/ads', require('./routes/ads'));
 app.use('/api/creators', require('./routes/creators'));
 app.use('/api/session', require('./routes/session'));
 app.use('/api/ai', require('./routes/ai'));

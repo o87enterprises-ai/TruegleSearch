@@ -8,6 +8,7 @@ import Advertise from '../src/pages/Advertise.jsx';
 import Blog from '../src/pages/Blog.jsx';
 import BlogPost from '../src/pages/BlogPost.jsx';
 import HomeStaticContent from './seo/HomeStaticContent.jsx';
+import LocalizedHomeContent, { TRANSLATIONS, LOCALES } from './seo/LocalizedHomeContent.jsx';
 import { BLOG_POSTS } from '../src/content/blogPosts.jsx';
 
 // Real page components for About/Privacy/Terms/Advertise/Blog (so the
@@ -35,6 +36,20 @@ export const ROUTE_META = {
       'Notes on private search, filter bubbles, and seeing the web without a filter — from the team building Truegle, the unbiased and privacy-first search engine.',
   },
 };
+
+// Localized landing pages for the top non-English, high-CPM/high-reach markets.
+// Each ships its own <html lang> + translated <title>/description so it ranks
+// for native-language queries in those regions (hreflang cluster lives in
+// index.html and applies to every prerendered page).
+for (const lang of LOCALES) {
+  const route = `/${lang}`;
+  PAGES[route] = { Component: LocalizedHomeContent, useRouter: false, props: { lang } };
+  ROUTE_META[route] = {
+    title: TRANSLATIONS[lang].title,
+    description: TRANSLATIONS[lang].description,
+    lang,
+  };
+}
 
 // One prerendered route per blog post, each rendered with its slug prop so no
 // route matching is needed in Node.

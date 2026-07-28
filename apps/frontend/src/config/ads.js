@@ -87,23 +87,27 @@ export const ADSTERRA = {
   nativeBanner:  { key: 'a7a8599f485ec0638131d8f99bc29cb7', native: true, h: 250 },
 };
 
-/** Maps a logical slot name to an Adsterra format. */
+/**
+ * Maps a logical slot name to an Adsterra format.
+ *
+ * HIGHEST-CPM ONLY (per the revenue plan): every display-banner slot now
+ * resolves to `nativeBanner`. The fixed-size display zones (728x90, 468x60,
+ * 320x50, 300x250, 160x600) all earned ~$0 CPM in the 30-day Adsterra export,
+ * so they've been retired from serving — native banner (top non-adult CPM,
+ * on-brand) is served everywhere, alongside the script-loaded Social Bar and
+ * popunder (see AdScriptLoader). AdsterraBanner coerces any legacy format to
+ * native, so these mappings are advisory.
+ */
 export const SLOT_FORMAT = {
-  leaderboard728x90: 'banner728x90',
-  leaderboard:       'banner728x90',
-  videoInline:       'banner728x90',
-  sidebar:           'banner160x600',
-  skyscraper:        'banner160x600',
-  mobileBanner:      'banner320x50',
-  // Rebalanced 2026-07-24 from Adsterra per-zone data (30d): 300x250 earned
-  // ~$0 on 203 impressions (the highest-volume dead zone) while nativeBanner
-  // returned the best non-adult CPM ($0.151) — and native is more on-brand.
+  leaderboard728x90: 'nativeBanner',
+  leaderboard:       'nativeBanner',
+  videoInline:       'nativeBanner',
+  sidebar:           'nativeBanner',
+  skyscraper:        'nativeBanner',
+  mobileBanner:      'nativeBanner',
   rectangle:         'nativeBanner',
   native:            'nativeBanner',
 };
 
-// Default fallback is a NON-ADULT payer (was banner728x90 — an adult-gated,
-// CPM-zeroed zone that should never be a silent default). nativeBanner is the
-// top-earning non-adult format in the account per 30d stats.
 export const pickFormat = (slot, fallback = 'nativeBanner') =>
   SLOT_FORMAT[slot] || fallback;

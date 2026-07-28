@@ -10,6 +10,7 @@ import {
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TokenProvider } from './context/TokenContext';
 import { RewardsProvider } from './context/RewardsContext';
+import { AdGeoProvider } from './context/AdGeoContext';
 import { SearchModeProvider } from './context/SearchModeContext';
 import { TutorialProvider } from './context/TutorialContext';
 import { MapProvider } from './components/map';
@@ -142,6 +143,7 @@ const App = () => {
       <AuthProvider>
         <TokenProvider>
           <RewardsProvider>
+            <AdGeoProvider>
             <SearchModeProvider>
               <SettingsProvider>
                 <MapProvider>
@@ -151,9 +153,10 @@ const App = () => {
                       <a href="#main-content" className="skip-to-content">
                         Skip to main content
                       </a>
-                      {/* TODO(ads): re-enable when new Adsterra zones land
+                      {/* Loads the geo-targeted Social Bar (and popunder, if
+                          enabled) for the visitor's country — highest-CPM
+                          script formats. Native banner is rendered per-slot. */}
                       <AdScriptLoader />
-                      */}
                       <RefCapture />
                       <FreemiumTokenBar />
                       {/* TODO(landing-flow): re-enable once the pill/chat mode
@@ -167,6 +170,7 @@ const App = () => {
                 </MapProvider>
               </SettingsProvider>
             </SearchModeProvider>
+            </AdGeoProvider>
           </RewardsProvider>
         </TokenProvider>
       </AuthProvider>
@@ -323,6 +327,13 @@ const AppContent = () => {
         />
         {/* Landing Page */}
         <Route path="/" element={<RouteBoundary><LandingPage /></RouteBoundary>} />
+        {/* Localized landing routes (de/es/fr). The build prerenders a
+            translated, hreflang-tagged SEO snapshot at each of these paths for
+            crawlers; the live SPA renders the standard landing over it so the
+            route is never a 404. */}
+        <Route path="/de" element={<RouteBoundary><LandingPage /></RouteBoundary>} />
+        <Route path="/es" element={<RouteBoundary><LandingPage /></RouteBoundary>} />
+        <Route path="/fr" element={<RouteBoundary><LandingPage /></RouteBoundary>} />
         {/* Settings */}
         <Route
           path="/settings"

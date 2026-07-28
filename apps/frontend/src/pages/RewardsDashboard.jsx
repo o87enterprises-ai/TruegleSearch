@@ -21,7 +21,9 @@ import { formatMicros } from '../utils/rewardsFormat';
 const RewardsDashboard = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const { optedIn, balanceMicros, lifetimeEarnedMicros, config, loading, fetchStatus, optIn, optOut } = useRewards();
+  const { optedIn, balanceMicros, lifetimeEarnedMicros, config, loading, fetchStatus, optIn, optOut, getOfferLink } = useRewards();
+  const [offerLoading, setOfferLoading] = useState(false);
+  const [offerError, setOfferError] = useState(null);
   const [ledger, setLedger] = useState([]);
   const [payouts, setPayouts] = useState([]);
   const [payoutMethod, setPayoutMethod] = useState('paypal');
@@ -37,6 +39,24 @@ const RewardsDashboard = () => {
   const submitSearch = () => {
     const q = searchValue.trim();
     navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search');
+  };
+
+  // Open the user's personalized offer link in a new tab. Completing an offer
+  // credits their revenue-share server-side via the network conversion
+  // postback; the balance updates on the next status refresh.
+  const openOffers = async () => {
+    setOfferError(null);
+    setOfferLoading(true);
+    try {
+      const result = await getOfferLink();
+      if (result.success && result.url) {
+        window.open(result.url, '_blank', 'noopener,noreferrer');
+      } else {
+        setOfferError(result.message || 'Could not open offers — try again in a moment.');
+      }
+    } finally {
+      setOfferLoading(false);
+    }
   };
 
   const PAYOUT_METHODS = {
@@ -124,11 +144,12 @@ const RewardsDashboard = () => {
               haven't opted in yet; hidden for returning members. */}
           {!optedIn && (
             <div className="max-w-xl mt-3">
-              <h1 className="text-2xl md:text-3xl font-bold mb-2">Get paid for the ads you already see</h1>
+              <h1 className="text-2xl md:text-3xl font-bold mb-2">Earn a share of real ad revenue</h1>
               <p className="text-white/70 text-sm">
-                Opt in and Truegle pays you a small cash reward for ads you genuinely view — no extra
-                ads, no extra tracking beyond what this program requires. Honestly measured
-                server-side; nothing is simulated.
+                Opt in and Truegle pays you a share of every sponsored offer you complete — an
+                install, a sign-up, a sale. These are the conversions the ad network actually pays
+                for, so every reward is real money, confirmed server-side. No extra tracking beyond
+                attributing your own completed offers; nothing is simulated.
               </p>
             </div>
           )}
@@ -194,8 +215,8 @@ const RewardsDashboard = () => {
 
           {!optedIn && (
             <p className="text-sm text-white/50 mt-4">
-              Opting in lets us record which ads you actually viewed (duration only — never which
-              sites you searched) so we can pay you for them. See our{' '}
+              Opting in lets us attribute the sponsored offers you complete to your account (so we
+              can pay you your share) — never which sites you search. See our{' '}
               <Link to="/privacy" className="text-blue-400 hover:text-blue-300">Privacy Policy</Link>{' '}
               and{' '}
               <Link to="/terms" className="text-blue-400 hover:text-blue-300">Terms of Service</Link>{' '}
@@ -206,6 +227,31 @@ const RewardsDashboard = () => {
 
         {optedIn && (
           <>
+            {/* Earn — browse sponsored offers */}
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-orange-500/10 to-amber-500/5 border border-orange-500/25 mb-6">
+              <h2 className="text-lg font-semibold mb-1">Earn: complete a sponsored offer</h2>
+              <p className="text-sm text-white/60 mb-4">
+                Open your offer wall and complete any offer that interests you. When the network
+                confirms the conversion, {config?.revenueSharePercent ? `${Math.round(config.revenueSharePercent * 100)}%` : 'your share'} of
+                the payout lands in your balance automatically — usually within minutes, sometimes up
+                to a few hours while the network verifies it.
+              </p>
+              <button
+                onClick={openOffers}
+                disabled={offerLoading}
+                className="px-5 py-2.5 rounded-xl font-semibold bg-gradient-to-r from-orange-500 to-amber-500 hover:opacity-90 transition-all disabled:opacity-50"
+              >
+                {offerLoading ? 'Opening…' : 'Browse offers →'}
+              </button>
+              <button
+                onClick={() => { fetchStatus(); loadHistory(); }}
+                className="ml-3 px-4 py-2.5 rounded-xl text-sm text-white/60 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
+              >
+                Refresh balance
+              </button>
+              {offerError && <p className="text-sm text-red-400 mt-3">{offerError}</p>}
+            </div>
+
             {/* Payout request */}
             <div className="p-6 rounded-2xl bg-white/5 border border-white/10 mb-6">
               <h2 className="text-lg font-semibold mb-3">Request a payout</h2>
@@ -320,7 +366,8 @@ const RewardsDashboard = () => {
               <h2 className="text-lg font-semibold mb-3">Activity</h2>
               {ledger.length === 0 ? (
                 <p className="text-sm text-white/50">
-                  No activity yet — watch ads while a search is loading to start earning.
+                  No activity yet — complete a sponsored offer above to start earning. Confirmed
+                  conversions appear here once the network verifies them.
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -377,11 +424,10 @@ const RewardsDashboard = () => {
           </div>
         </div>
 
-        {/* Real Adsterra inventory only on this page — no house/affiliate ads,
-            so every ad shown here is one you can actually get paid for. Every
-            zone renders by default (no search query needed). Any slot whose
-            Adsterra key isn't currently live (e.g. zones pulled for safety)
-            simply renders nothing — see config/ads.js. */}
+        {/* Real, geo-targeted Adsterra native inventory — the highest-CPM
+            format, served for the visitor's country of origin. Adsterra fills a
+            native zone once per page, so a single slot is rendered; the
+            adRefreshKey remounts it for a fresh ad request on demand. */}
         <div className="mt-8 pt-6 border-t border-white/10">
           <div className="flex items-center justify-between mb-3">
             <div className="text-[10px] uppercase tracking-wider text-orange-400/80 font-mono">
@@ -392,22 +438,15 @@ const RewardsDashboard = () => {
               className="flex items-center gap-1.5 text-xs text-white/60 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 transition-all"
             >
               <RefreshCw size={13} />
-              Refresh ads
+              Refresh ad
             </button>
           </div>
-          {/* One slot per UNIQUE non-adult zone — Adsterra only fills a given
-              zone once per page, so rendering a format twice leaves the second
-              blank (and native's fixed container ID collides). The adRefreshKey
-              in each key remounts the slots (fresh ad requests) on demand. */}
           <div className="flex flex-col items-center gap-4">
-            <RewardAdSlot key={`lb-${adRefreshKey}`} size="leaderboard" />{/* 468x60 */}
-            <RewardAdSlot key={`md-${adRefreshKey}`} size="medium" />{/* 300x250 */}
-            <RewardAdSlot key={`sm-${adRefreshKey}`} size="small" />{/* 320x50 */}
-            <RewardAdSlot key={`na-${adRefreshKey}`} size="native" />{/* native */}
+            <RewardAdSlot key={`na-${adRefreshKey}`} />
           </div>
           <p className="text-white/30 text-xs text-center mt-4">
-            Every live ad zone loads here automatically. The three legacy
-            adult-locked zones stay hidden until Adsterra clears them.
+            Rewards are earned by completing offers, not by viewing this ad — it
+            funds the program and shows the inventory your region is served.
           </p>
         </div>
 

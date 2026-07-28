@@ -1,36 +1,24 @@
-// Rewards Program Service — opt-in cash rewards for honestly-viewed/clicked ads.
+// Rewards Program Service — opt-in cash rewards for OFFER CONVERSIONS.
 //
-// The reward-eligible ad slot (RewardAdSlot.jsx) renders a real AdsterraBanner,
-// so a rewarded view/click is the exact same event that earns Truegle real ad
-// revenue — this is a genuine revenue-share, not a made-up number.
+// Adsterra (and every performance network) pays the publisher on CONVERSIONS —
+// a completed offer (install / sign-up / purchase), not on ad views or clicks.
+// So rewards are a genuine revenue-share of REAL, network-confirmed conversions
+// attributed to a user via a per-user opaque referral id (rewards_ref) that
+// rides the offer link as a SubID and comes back on Adsterra's server-to-server
+// postback. No conversion => no money exists => nothing is credited. This
+// replaces the old view/click crediting, which inflated CTR while earning ~$0.
 //
 // Amounts are tracked in integer MICROS (millionths of a dollar; 1,000,000
-// micros = $1) to avoid float drift while still representing sub-cent
-// amounts — real Adsterra revenue here runs well under a cent per event.
+// micros = $1) to avoid float drift while representing sub-dollar payouts.
+const crypto = require('crypto');
 const { query } = require('../db/connection');
 
-// Ad rewards economics, calibrated 2026-07-19 from a real Adsterra stats
-// export (146 impressions / 15 clicks / $0.02 revenue over 6 days):
-//   revenue/impression ≈ $0.000137 (137 micros)
-//   revenue/click      ≈ $0.00133  (1333 micros)
-//   CTR                ≈ 10.3%
-// A click replaces the impression trickle for that shown ad rather than
-// stacking (matches reality: nearly all observed revenue was click-driven,
-// not per-impression). Expected payout per shown ad ≈
-//   0.897 * 50 + 0.103 * 800 ≈ 127 micros ($0.000127)
-// against observed revenue/impression of 137 micros — roughly a 93% pass-
-// through, with the existing 10% payout fee as the actual margin mechanism.
-// Small sample (six days, $0.02 total) — revisit as real volume grows.
-const MICROS_PER_IMPRESSION = 50; // $0.00005 — paid when an ad is honestly viewed but not clicked
-const MICROS_PER_CLICK = 800; // $0.0008 — paid instead of the trickle when a click is detected
-// Anti-abuse ceiling, not a real constraint at these rates: hitting $5/day
-// honestly would take ~39,000 impressions or ~6,250 clicks in one day.
-const MAX_DAILY_EARNINGS_MICROS = 5_000_000; // $5.00/day
+// Share of each confirmed conversion's network payout that goes to the user.
+// The remainder covers the 10% payout processing fee and Truegle's margin.
+const REVENUE_SHARE_PERCENT = Number(process.env.REWARDS_REVENUE_SHARE || 0.70);
 const MIN_PAYOUT_MICROS = 1_000_000; // $1.00 minimum cash-out
 const MAX_PAYOUT_MICROS = 50_000_000; // $50.00 maximum single cash-out
 const PROCESSING_FEE_PERCENT = 0.10; // 10% processing fee deducted at payout
-const MIN_VISIBLE_MS = 4000; // minimum real visible time to qualify for the impression trickle
-const MIN_VISIBLE_MS_FOR_CLICK = 300; // a click can be credited much faster than a full dwell
 
 // Supported payout methods and what identifier each requires.
 const PAYOUT_METHODS = {
@@ -46,14 +34,11 @@ const PAYOUT_METHODS = {
 class RewardsService {
   static getConfig() {
     return {
-      microsPerImpression: MICROS_PER_IMPRESSION,
-      microsPerClick: MICROS_PER_CLICK,
-      maxDailyEarningsMicros: MAX_DAILY_EARNINGS_MICROS,
+      model: 'offer', // rewards are earned by completing sponsored offers, not views
+      revenueSharePercent: REVENUE_SHARE_PERCENT,
       minPayoutMicros: MIN_PAYOUT_MICROS,
       maxPayoutMicros: MAX_PAYOUT_MICROS,
       processingFeePercent: PROCESSING_FEE_PERCENT,
-      minVisibleMs: MIN_VISIBLE_MS,
-      minVisibleMsForClick: MIN_VISIBLE_MS_FOR_CLICK,
       payoutMethods: PAYOUT_METHODS,
       payoutsAutomated: false,
     };
@@ -61,7 +46,7 @@ class RewardsService {
 
   static async getStatus(userId) {
     const result = await query(
-      `SELECT rewards_opted_in, rewards_opted_in_at, rewards_balance_micros, rewards_lifetime_earned_micros
+      `SELECT rewards_opted_in, rewards_opted_in_at, rewards_balance_micros, rewards_lifetime_earned_micros, rewards_ref
        FROM users WHERE id = $1`,
       [userId]
     );
@@ -76,6 +61,7 @@ class RewardsService {
       optedInAt: row.rewards_opted_in_at,
       balanceMicros: Number(row.rewards_balance_micros) || 0,
       lifetimeEarnedMicros: Number(row.rewards_lifetime_earned_micros) || 0,
+      ref: row.rewards_ref || null,
     };
   }
 
@@ -84,6 +70,7 @@ class RewardsService {
       `UPDATE users SET rewards_opted_in = true, rewards_opted_in_at = NOW() WHERE id = $1`,
       [userId]
     );
+    await this.ensureRef(userId); // mint the attribution id used by the offer link
     return this.getStatus(userId);
   }
 
@@ -93,55 +80,89 @@ class RewardsService {
   }
 
   /**
-   * Sum of today's earned micros for a user (anti-abuse daily ceiling).
+   * Ensure the user has an opaque attribution id (rewards_ref) and return it.
+   * This is the SubID carried through the offer link and echoed by the
+   * network's conversion postback — never the sequential user id.
    */
-  static async getTodayEarningsMicros(userId) {
-    const result = await query(
-      `SELECT COALESCE(SUM(amount_micros), 0) AS total
-       FROM reward_impressions WHERE user_id = $1 AND created_at >= CURRENT_DATE`,
-      [userId]
-    );
-    return Number(result.rows[0].total) || 0;
+  static async ensureRef(userId) {
+    const existing = await query(`SELECT rewards_ref FROM users WHERE id = $1`, [userId]);
+    if (existing.rows[0]?.rewards_ref) return existing.rows[0].rewards_ref;
+    // Retry on the rare unique-index collision.
+    for (let i = 0; i < 5; i++) {
+      const ref = crypto.randomBytes(12).toString('hex'); // 24 hex chars
+      try {
+        await query(`UPDATE users SET rewards_ref = $1 WHERE id = $2`, [ref, userId]);
+        return ref;
+      } catch { /* collision — try another */ }
+    }
+    throw new Error('Could not allocate a rewards attribution id');
   }
 
   /**
-   * Award cash for an honestly-measured ad event. `visibleMs` is the real,
-   * server-verified elapsed time the caller tracked the ad as visible (the
-   * route layer is responsible for verifying this server-side, not trusting
-   * a client-reported number alone). `kind` is 'impression' or 'click'.
+   * The personalized offer link a user opens to earn. Completing any offer on
+   * the Adsterra Smartlink fires a conversion postback tagged with this user's
+   * ref, which credits their revenue-share (see recordConversion).
    */
-  static async earn(userId, adId, zone, kind, visibleMs) {
-    const status = await this.getStatus(userId);
-    if (!status.optedIn) {
-      return { success: false, message: 'Not opted into the Rewards Program' };
+  static async getOfferLink(userId) {
+    const ref = await this.ensureRef(userId);
+    const base = process.env.REWARDS_OFFER_URL
+      || process.env.ADSTERRA_SMARTLINK_URL
+      || 'https://millionairelucidlytransmitted.com/g385gzr0?key=63a965f91d254672ac250654790b5b8c';
+    const sep = base.includes('?') ? '&' : '?';
+    // Adsterra Direct Link passes SubIDs through as sub1..sub4; send the ref on
+    // sub1 (and a couple of common aliases) so attribution survives whatever
+    // macro the offer wall expects.
+    return `${base}${sep}sub1=${encodeURIComponent(ref)}&subid=${encodeURIComponent(ref)}`;
+  }
+
+  /**
+   * Credit a user for a REAL, network-confirmed offer conversion. Called by the
+   * secret-gated postback route. Idempotent on conversionId, so a replayed or
+   * duplicated postback never double-credits. Returns { success, credited }.
+   */
+  static async recordConversion({ ref, conversionId, payoutUsd, offerName, country }) {
+    if (!ref || !conversionId) {
+      return { success: false, message: 'Missing ref or conversionId' };
+    }
+    const payout = Math.max(0, Number(payoutUsd) || 0);
+    const payoutMicros = Math.round(payout * 1e6);
+    const userShareMicros = Math.round(payoutMicros * REVENUE_SHARE_PERCENT);
+
+    const userRes = await query(
+      `SELECT id, rewards_opted_in FROM users WHERE rewards_ref = $1`,
+      [ref]
+    );
+    const user = userRes.rows[0];
+    if (!user) return { success: false, message: 'Unknown attribution ref' };
+    if (!user.rewards_opted_in) return { success: false, message: 'User not opted in' };
+
+    // Idempotency: unique conversion_id means a second insert throws — treat as
+    // already-processed rather than crediting twice.
+    try {
+      await query(
+        `INSERT INTO reward_conversions (user_id, conversion_id, offer_name, country, payout_micros, user_share_micros, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 'confirmed')`,
+        [user.id, String(conversionId), offerName || null, country || null, payoutMicros, userShareMicros]
+      );
+    } catch (err) {
+      if (err.code === '23505') return { success: true, credited: false, message: 'Duplicate conversion ignored' };
+      throw err;
     }
 
-    const amountMicros = kind === 'click' ? MICROS_PER_CLICK : MICROS_PER_IMPRESSION;
-
-    const todayMicros = await this.getTodayEarningsMicros(userId);
-    if (todayMicros + amountMicros > MAX_DAILY_EARNINGS_MICROS) {
-      return { success: false, message: 'Daily rewards earning limit reached' };
+    if (userShareMicros > 0) {
+      const result = await query(
+        `UPDATE users SET
+           rewards_balance_micros = rewards_balance_micros + $1,
+           rewards_lifetime_earned_micros = rewards_lifetime_earned_micros + $1
+         WHERE id = $2
+         RETURNING rewards_balance_micros`,
+        [userShareMicros, user.id]
+      );
+      const balanceAfterMicros = Number(result.rows[0].rewards_balance_micros);
+      await this.logLedger(user.id, userShareMicros, 'earn_conversion', `conv_${conversionId}`, balanceAfterMicros);
     }
 
-    await query(
-      `INSERT INTO reward_impressions (user_id, ad_id, zone, visible_ms, amount_micros, kind)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [userId, adId, zone, visibleMs, amountMicros, kind]
-    );
-
-    const result = await query(
-      `UPDATE users SET
-         rewards_balance_micros = rewards_balance_micros + $1,
-         rewards_lifetime_earned_micros = rewards_lifetime_earned_micros + $1
-       WHERE id = $2
-       RETURNING rewards_balance_micros`,
-      [amountMicros, userId]
-    );
-
-    const balanceAfterMicros = Number(result.rows[0].rewards_balance_micros);
-    await this.logLedger(userId, amountMicros, `earn_${kind}`, adId, balanceAfterMicros);
-
-    return { success: true, amountMicros, balanceMicros: balanceAfterMicros, kind };
+    return { success: true, credited: true, userShareMicros };
   }
 
   static async requestPayout(userId, method, destination) {

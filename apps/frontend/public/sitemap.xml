@@ -1,10 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
 
-  <!-- Core -->
+  <!-- Core (with hreflang alternates for the localized landing pages) -->
   <url>
     <loc>https://truegle.info/</loc>
-    <lastmod>2026-06-28</lastmod>
+    <lastmod>2026-07-28</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://truegle.info/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://truegle.info/de" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://truegle.info/es" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://truegle.info/fr" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://truegle.info/" />
+  </url>
+
+  <!-- Localized landing pages (top non-English, high-CPM/high-reach markets) -->
+  <url>
+    <loc>https://truegle.info/de</loc>
+    <lastmod>2026-07-28</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://truegle.info/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://truegle.info/de" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://truegle.info/es" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://truegle.info/fr" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://truegle.info/" />
+  </url>
+  <url>
+    <loc>https://truegle.info/es</loc>
+    <lastmod>2026-07-28</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://truegle.info/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://truegle.info/de" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://truegle.info/es" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://truegle.info/fr" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://truegle.info/" />
+  </url>
+  <url>
+    <loc>https://truegle.info/fr</loc>
+    <lastmod>2026-07-28</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://truegle.info/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://truegle.info/de" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://truegle.info/es" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://truegle.info/fr" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://truegle.info/" />
   </url>
 
   <!-- Search modes (landing pages, not dynamic results) -->

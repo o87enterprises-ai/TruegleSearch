@@ -62,10 +62,14 @@ function setMetaContent(html, selectorAttr, selectorValue, content) {
 }
 
 function buildPageHtml(baseHtml, route, renderedMarkup) {
-  const { title, description } = META[route];
+  const { title, description, lang } = META[route];
   const canonicalUrl = `https://truegle.info${route === '/' ? '/' : route}`;
 
   let html = baseHtml;
+  // Localized pages: set the document language so crawlers and hreflang agree.
+  if (lang) {
+    html = html.replace(/<html lang="[^"]*"/, `<html lang="${escapeAttr(lang)}"`);
+  }
   // Title
   html = html.replace(/<title>[^<]*<\/title>/, `<title>${escapeAttr(title)}</title>`);
   // Meta description / og / twitter
