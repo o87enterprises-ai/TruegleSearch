@@ -1,16 +1,17 @@
 import React from 'react';
 
-// Crawler-visible, localized landing content for the highest-CPM regions where
-// English isn't the first language. Prerendered at build time (see
-// prerender.mjs) to dist/{de,es,fr}/index.html with the right <html lang> and
-// hreflang alternates, so search/answer engines index real localized text and
-// serve Truegle to German- (DE/AT/CH — all Tier-1 CPM), Spanish- (ES/US-Hispanic/
-// LATAM reach) and French-speaking (FR/CA-Quebec/BE/CH) audiences. The live SPA
-// still repaints the full app over this on load. Parallel to HomeStaticContent.
+// Crawler-visible, localized landing content for the regions that actually send
+// us traffic. Prerendered at build time (see prerender.mjs) to
+// dist/{de,es,fr,nl,pt}/index.html with the right <html lang> and hreflang
+// alternates, so search/answer engines index real localized text and serve
+// Truegle to German- (DE/AT/CH — Tier-1 CPM), Spanish- (ES/LATAM), French-
+// (FR/CA/BE/CH), Dutch- (Netherlands, a top-5 traffic source) and Brazilian-
+// Portuguese-speaking (Brazil, top-3 traffic) audiences. The live SPA still
+// repaints the full app over this on load. Parallel to HomeStaticContent.
 
-// Top 3 non-English languages by combined CPM value + reach for our global
-// traffic. Copy mirrors the English meta/about text so it can't drift into
-// claims the live site doesn't make.
+// Copy mirrors the English meta/about text so it can't drift into claims the
+// live site doesn't make. An optional `htmlLang` overrides the route key for the
+// <html lang>/hreflang tag (e.g. route /pt → pt-BR, targeting Brazil).
 export const TRANSLATIONS = {
   de: {
     label: 'Deutsch',
@@ -78,6 +79,54 @@ export const TRANSLATIONS = {
       'Gagnez de l’argent : recevez une part des revenus publicitaires réels lorsque vous complétez des offres sponsorisées — confirmé côté serveur, sans pistage supplémentaire.',
     nav: { search: 'Commencer la recherche', about: 'À propos de Truegle', privacy: 'Confidentialité', terms: 'Conditions d’utilisation', advertise: 'Annoncer sur Truegle' },
   },
+  // Netherlands — a top-5 traffic source (Cloudflare 30d). Dutch (nl).
+  nl: {
+    label: 'Nederlands',
+    title: 'Truegle — Onbevooroordeeld, transparant en veilig zoeken',
+    description:
+      'De onbevooroordeelde, transparante en veilige zoekmachine. Krijg meerdere perspectieven op elk onderwerp — zonder algoritmische vertekening, zonder tracking en zonder censuur.',
+    intro:
+      'Zoeken zonder vooroordelen. Ontdek de waarheid vanuit meerdere perspectieven. Geen tracking, geen cookies, geen verborgen agenda.',
+    whyHeading: 'Waarom Truegle?',
+    whyBody:
+      'Truegle is een privacyvriendelijke zoekmachine met een eenvoudige overtuiging: je verdient het om het web te zien zonder een filterbubbel die bepaalt wat je mag vinden. Elke zoekopdracht bundelt resultaten van meerdere aanbieders — met bronvermelding, detectie van vertekening en volledige transparantie.',
+    modesHeading: 'Zoekmodi',
+    modes: [
+      { name: 'Blauw', description: 'Standaardrelevantie over grote aanbieders heen.' },
+      { name: 'Groen', description: 'Dezelfde resultaten, zonder door AI gegenereerde bronnen.' },
+      { name: 'Rood', description: 'Licht onafhankelijke en alternatieve bronnen uit.' },
+      { name: 'Paars', description: 'Filtert strikt op de perspectieven die je kiest.' },
+      { name: 'Oceaan', description: 'Een onderzoeks-/OSINT-toolkit voor legaal opzoekwerk.' },
+    ],
+    rewards:
+      'Verdien mee: ontvang een deel van echte advertentie-inkomsten wanneer je gesponsorde aanbiedingen voltooit — serverzijdig bevestigd, zonder extra tracking.',
+    nav: { search: 'Begin met zoeken', about: 'Over Truegle', privacy: 'Privacy', terms: 'Gebruiksvoorwaarden', advertise: 'Adverteren op Truegle' },
+  },
+  // Brazil — a top-3 traffic source. Brazilian Portuguese; route /pt, tagged
+  // hreflang/html-lang pt-BR so it targets Brazil specifically.
+  pt: {
+    label: 'Português (Brasil)',
+    htmlLang: 'pt-BR',
+    title: 'Truegle — Busca imparcial, transparente e segura',
+    description:
+      'O mecanismo de busca imparcial, transparente e seguro. Obtenha múltiplas perspectivas sobre qualquer assunto — sem viés algorítmico, sem rastreamento e sem censura.',
+    intro:
+      'Pesquise sem vieses. Descubra a verdade a partir de múltiplas perspectivas. Sem rastreamento, sem cookies, sem agendas ocultas.',
+    whyHeading: 'Por que o Truegle?',
+    whyBody:
+      'O Truegle é um mecanismo de busca focado em privacidade com uma convicção simples: você merece ver a web sem uma bolha de filtro decidindo o que você pode encontrar. Cada busca reúne resultados de vários provedores — com identificação de fontes, detecção de viés e total transparência.',
+    modesHeading: 'Modos de busca',
+    modes: [
+      { name: 'Azul', description: 'Relevância padrão entre os principais provedores.' },
+      { name: 'Verde', description: 'Os mesmos resultados, sem fontes geradas por IA.' },
+      { name: 'Vermelho', description: 'Destaca fontes independentes e alternativas.' },
+      { name: 'Roxo', description: 'Filtra estritamente pelas perspectivas que você escolher.' },
+      { name: 'Oceano', description: 'Um kit de ferramentas de pesquisa/OSINT para investigações legais.' },
+    ],
+    rewards:
+      'Ganhe dinheiro: receba uma parte da receita real de anúncios ao concluir ofertas patrocinadas — confirmado no servidor, sem rastreamento adicional.',
+    nav: { search: 'Começar a pesquisar', about: 'Sobre o Truegle', privacy: 'Privacidade', terms: 'Termos de serviço', advertise: 'Anuncie no Truegle' },
+  },
 };
 
 export const LOCALES = Object.keys(TRANSLATIONS);
@@ -86,7 +135,7 @@ const LocalizedHomeContent = ({ lang }) => {
   const t = TRANSLATIONS[lang];
   if (!t) throw new Error(`No translation for "${lang}"`);
   return (
-    <div id="seo-home" lang={lang}>
+    <div id="seo-home" lang={t.htmlLang || lang}>
       <div id="seo-stars" aria-hidden="true" />
       <img id="seo-logo" src="/truegle.png" alt="Truegle" />
       <h1>{t.title}</h1>

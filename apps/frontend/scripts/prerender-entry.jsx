@@ -49,7 +49,7 @@ for (const lang of LOCALES) {
   ROUTE_META[route] = {
     title: TRANSLATIONS[lang].title,
     description: TRANSLATIONS[lang].description,
-    lang,
+    lang: TRANSLATIONS[lang].htmlLang || lang, // e.g. /pt → pt-BR
   };
 }
 

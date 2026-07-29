@@ -610,6 +610,14 @@
         "body": "Bug: 'Please research magnetic moon electric universe...' (science query) was detected as person 'Please Research Magnetic Moon' -> people-search directory report. Cause in OsintInvestigationService.detectPerson: fallback name regex grabbed a capitalized sentence-start word + following LOWERCASE common nouns. Fix: fallback regex now requires a run of >=2 CAPITALIZED words /\\b([A-Z][a-z'.-]+(?:\\s+[A-Z][a-z'.-]+){1,3})\\b/, plus a guard rejecting purely-lowercase anchored phrases (hasCapital||hasContext). Real people-searches (find/research John Smith, William James in TX) still work; science/topic queries fall through to normal chat (noEntities).",
         "ts": "2026-07-29",
         "created": "2026-07-29"
+      },
+      "localized-seo-nl-pt": {
+        "Id": "localized-seo-nl-pt",
+        "Type": "decision",
+        "Label": "Added Dutch (/nl) + Brazilian-Portuguese (/pt) localized pages",
+        "body": "Cloudflare 30d top traffic: US, Netherlands(6.5k), Brazil(5.2k), Canada, France(2.3k). Added nl + pt to TRANSLATIONS in LocalizedHomeContent.jsx (LOCALES auto-derives -> prerender-entry builds /nl,/pt). pt uses htmlLang 'pt-BR' (targets Brazil); prerender-entry ROUTE_META.lang = htmlLang||key. hreflang cluster now en/de/es/fr/nl/pt-BR/x-default in index.html + static sitemap + backend sitemap route. Live SPA routes /nl,/pt -> LandingPage. France already covered by existing /fr. Localized landing set now 5 languages.",
+        "ts": "2026-07-29",
+        "created": "2026-07-29"
       }
     },
     "entity": {

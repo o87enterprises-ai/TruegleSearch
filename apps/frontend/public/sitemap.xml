@@ -10,6 +10,8 @@
     <xhtml:link rel="alternate" hreflang="de" href="https://truegle.info/de" />
     <xhtml:link rel="alternate" hreflang="es" href="https://truegle.info/es" />
     <xhtml:link rel="alternate" hreflang="fr" href="https://truegle.info/fr" />
+    <xhtml:link rel="alternate" hreflang="nl" href="https://truegle.info/nl" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://truegle.info/pt" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://truegle.info/" />
   </url>
 
@@ -21,6 +23,8 @@
     <xhtml:link rel="alternate" hreflang="de" href="https://truegle.info/de" />
     <xhtml:link rel="alternate" hreflang="es" href="https://truegle.info/es" />
     <xhtml:link rel="alternate" hreflang="fr" href="https://truegle.info/fr" />
+    <xhtml:link rel="alternate" hreflang="nl" href="https://truegle.info/nl" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://truegle.info/pt" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://truegle.info/" />
   </url>
   <url>
@@ -30,6 +34,8 @@
     <xhtml:link rel="alternate" hreflang="de" href="https://truegle.info/de" />
     <xhtml:link rel="alternate" hreflang="es" href="https://truegle.info/es" />
     <xhtml:link rel="alternate" hreflang="fr" href="https://truegle.info/fr" />
+    <xhtml:link rel="alternate" hreflang="nl" href="https://truegle.info/nl" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://truegle.info/pt" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://truegle.info/" />
   </url>
   <url>
@@ -39,6 +45,30 @@
     <xhtml:link rel="alternate" hreflang="de" href="https://truegle.info/de" />
     <xhtml:link rel="alternate" hreflang="es" href="https://truegle.info/es" />
     <xhtml:link rel="alternate" hreflang="fr" href="https://truegle.info/fr" />
+    <xhtml:link rel="alternate" hreflang="nl" href="https://truegle.info/nl" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://truegle.info/pt" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://truegle.info/" />
+  </url>
+  <url>
+    <loc>https://truegle.info/nl</loc>
+    <lastmod>2026-07-29</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://truegle.info/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://truegle.info/de" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://truegle.info/es" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://truegle.info/fr" />
+    <xhtml:link rel="alternate" hreflang="nl" href="https://truegle.info/nl" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://truegle.info/pt" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://truegle.info/" />
+  </url>
+  <url>
+    <loc>https://truegle.info/pt</loc>
+    <lastmod>2026-07-29</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://truegle.info/" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://truegle.info/de" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://truegle.info/es" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://truegle.info/fr" />
+    <xhtml:link rel="alternate" hreflang="nl" href="https://truegle.info/nl" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://truegle.info/pt" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://truegle.info/" />
   </url>
 

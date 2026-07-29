@@ -339,6 +339,8 @@ const AppContent = () => {
         <Route path="/de" element={<RouteBoundary><LandingPage /></RouteBoundary>} />
         <Route path="/es" element={<RouteBoundary><LandingPage /></RouteBoundary>} />
         <Route path="/fr" element={<RouteBoundary><LandingPage /></RouteBoundary>} />
+        <Route path="/nl" element={<RouteBoundary><LandingPage /></RouteBoundary>} />
+        <Route path="/pt" element={<RouteBoundary><LandingPage /></RouteBoundary>} />
         {/* Settings */}
         <Route
           path="/settings"

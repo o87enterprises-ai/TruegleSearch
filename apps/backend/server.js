@@ -183,16 +183,20 @@ app.get('/sitemap.xml', (req, res) => {
       { hreflang: 'de', href: `${baseURL}/de` },
       { hreflang: 'es', href: `${baseURL}/es` },
       { hreflang: 'fr', href: `${baseURL}/fr` },
+      { hreflang: 'nl', href: `${baseURL}/nl` },
+      { hreflang: 'pt-BR', href: `${baseURL}/pt` },
       { hreflang: 'x-default', href: `${baseURL}/` },
     ];
     generator.addURL('/', null, 'daily', 1.0, alternates);
     generator.addURL('/search', null, 'daily', 0.9);
     generator.addURL('/green', null, 'weekly', 0.6);
     generator.addURL('/privacy-resource-hub', null, 'monthly', 0.9);
-    // Localized landing pages for the top non-English, high-CPM/high-reach markets.
+    // Localized landing pages for the markets that send us traffic.
     generator.addURL('/de', null, 'weekly', 0.8, alternates);
     generator.addURL('/es', null, 'weekly', 0.8, alternates);
     generator.addURL('/fr', null, 'weekly', 0.8, alternates);
+    generator.addURL('/nl', null, 'weekly', 0.8, alternates);
+    generator.addURL('/pt', null, 'weekly', 0.8, alternates);
     res.header('Content-Type', 'application/xml');
     res.send(generator.generateSitemap());
   } catch (error) {
