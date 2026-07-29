@@ -13,6 +13,124 @@ import { LegalSection } from '../components/LegalPage';
  */
 export const BLOG_POSTS = [
   {
+    slug: 'is-duckduckgo-really-private',
+    title: 'Is DuckDuckGo Really Private? An Honest Look (2026)',
+    description:
+      'DuckDuckGo is far more private than Google, but it isn\'t a silver bullet. Here is what it does and doesn\'t protect — and how to actually search privately.',
+    date: '2026-07-29',
+    readingTime: '6 min read',
+    faq: [
+      {
+        q: 'Is DuckDuckGo actually private, or is that just marketing?',
+        a: 'It is genuinely private in the ways that matter most: no per-account search history and no behavioral advertising profile. But it cannot hide your IP address, so it is "no profiling," not "anonymous."',
+      },
+      {
+        q: 'Does DuckDuckGo track you at all?',
+        a: 'DuckDuckGo says it does not track your searches. In 2022 its browser was found to permit some Microsoft-owned trackers under a syndication deal; DuckDuckGo then expanded its tracker blocking in response.',
+      },
+      {
+        q: 'Is DuckDuckGo enough, or do I need a VPN too?',
+        a: 'For search profiling, DuckDuckGo is enough on its own. To also hide your IP and network activity, add a VPN or Tor — a search engine cannot do that part for you.',
+      },
+    ],
+    body: (
+      <>
+        <p>
+          DuckDuckGo is far more private than Google — but "private" isn't
+          all-or-nothing. Here's an honest look at what it actually protects,
+          where it falls short, and how to close the gaps.
+        </p>
+        <p>
+          <strong>Short answer:</strong> Yes, DuckDuckGo (DDG) is genuinely more
+          private than Google. It doesn't store your search history in a personal
+          profile, it doesn't build an advertising identity from your queries, and
+          its ads are contextual rather than behaviorally targeted. But "private
+          search engine" doesn't mean "anonymous" — DDG can't hide your IP address
+          from the wider internet, it's US-based, and it has had a notable tracker
+          exception in the past. It's a big upgrade, not a force field.
+        </p>
+
+        <LegalSection heading="What DuckDuckGo does protect">
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>No personal search history.</strong> DDG doesn't tie your searches to an account-level profile the way a signed-in Google search is stored in your Google account.</li>
+            <li><strong>No behavioral ad profile.</strong> Its ads are based on the current search term (contextual), not on a dossier of everything you've ever searched.</li>
+            <li><strong>Third-party tracker blocking.</strong> DDG's browser and extension block many third-party trackers on the sites you visit, and signal opt-outs on your behalf.</li>
+            <li><strong>Encrypted connections.</strong> It upgrades many sites to HTTPS automatically.</li>
+          </ul>
+          <p>
+            For the average person coming from Google, switching to DDG removes the
+            single biggest source of search-based profiling. That alone is worth
+            doing.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Where &quot;private&quot; gets fuzzy">
+          <p>Being honest about the limits is what separates real privacy advice from marketing:</p>
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>Your IP address still travels with every request.</strong> A search engine that doesn't profile you can still see the connection. Hiding your network identity needs a VPN or Tor — no search engine does that for you.</li>
+            <li><strong>Results are powered by Bing.</strong> DDG runs its own crawler for some things but leans on Microsoft's Bing index for core results — fine for privacy in itself, but it isn't a fully independent index.</li>
+            <li><strong>The 2022 tracker exception.</strong> Researchers found DuckDuckGo's mobile browser was permitting certain Microsoft-owned trackers due to a search-syndication agreement. DDG acknowledged it and expanded its tracker blocking — a reminder that "no tracking" claims deserve scrutiny, even from privacy brands.</li>
+            <li><strong>US jurisdiction.</strong> DDG is a US company, which matters for some threat models even though it says it stores no personal search data to hand over.</li>
+          </ul>
+          <p>None of these make DDG "not private." They just mean privacy is a stack, and a search engine is one layer of it.</p>
+        </LegalSection>
+
+        <LegalSection heading="A quick way to test the claim yourself">
+          <p>
+            You don't have to take anyone's word for it. Search the same term
+            signed out on Google and on DuckDuckGo, then compare: DDG won't ask you
+            to sign in, won't follow you with a recognizable ad for that product
+            across other sites, and won't quietly reshape your next search based on
+            what you just clicked. Watching what <em>doesn't</em> happen is the most
+            honest privacy test there is.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="How to actually search privately (close the gaps)">
+          <p>DDG (or any no-track engine) is step one. To get the rest of the way:</p>
+          <ol className="list-decimal pl-6 space-y-2">
+            <li><strong>Add a content blocker</strong> like uBlock Origin so trackers can't load regardless of which engine you use.</li>
+            <li><strong>Use a privacy browser</strong> — Firefox with strict tracking protection, Brave, or the Tor Browser for sensitive work.</li>
+            <li><strong>Turn on encrypted DNS</strong> (DNS-over-HTTPS) so your network can't log every domain.</li>
+            <li><strong>Use a reputable, audited VPN</strong> (or Tor) to hide your IP — the one thing search engines can't do for you.</li>
+            <li><strong>Don't search while signed into an identifying account</strong>, and skip "sign in with Google/Facebook" prompts.</li>
+          </ol>
+          <p>
+            We walk through these in detail in{' '}
+            <a href="/blog/how-to-search-privately" className="text-blue-400 hover:text-blue-300">How to Search Privately</a>,
+            and the complete toolkit lives in{' '}
+            <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">The Ultimate Digital Privacy &amp; OSINT Resource Hub</a>.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Where Truegle fits">
+          <p>
+            If your goals are privacy <em>and</em> breadth <em>and</em> seeing more
+            than one perspective, that's the gap Truegle is built for. Like
+            DuckDuckGo, Truegle doesn't track, profile, or sell your queries and uses
+            contextual (not behavioral) ads. Unlike a single-source engine, it
+            aggregates results from multiple providers through a self-hosted
+            metasearch layer, labels sources, and offers perspective modes so you can
+            compare framings on a contested topic — plus an anonymous "view" proxy so
+            you can open a result without the destination seeing your address. See{' '}
+            <a href="/blog/unbiased-search-engine-how-truegle-works" className="text-blue-400 hover:text-blue-300">how Truegle delivers unbiased results</a>.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>Yes, DuckDuckGo is genuinely more private than Google</strong> — no personal search history, no behavioral ad profile, contextual ads, tracker blocking.</li>
+            <li><strong>It isn't anonymity.</strong> Your IP still shows; it's US-based; it relies on Bing; and it had a Microsoft-tracker exception in 2022 that it later tightened.</li>
+            <li><strong>Privacy is a stack:</strong> pair a no-track engine with a content blocker, a privacy browser, encrypted DNS, and a VPN/Tor.</li>
+            <li>For privacy plus multi-engine breadth and perspective, try{' '}
+              <a href="/search" className="text-blue-400 hover:text-blue-300">Truegle</a>, and read the full playbook in the{' '}
+              <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">Privacy &amp; OSINT Resource Hub</a>.</li>
+          </ul>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
     slug: 'ai-honesty-test-declassified-part-2',
     title: 'Unbiased AI, Part 2: 3 More Declassified Facts Mainstream AI Won’t Say Plainly',
     description:
