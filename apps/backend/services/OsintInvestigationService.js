@@ -99,8 +99,12 @@ function detectPerson(query) {
     words = anchored[1].split(/\s+/).filter(Boolean);
   }
   if (!words) {
-    // Fallback: a run of capitalized words (classic "First Last").
-    const cap = q.match(/\b([A-Z][a-z]+(?:\s+[A-Za-z][a-z]+){1,3})\b/);
+    // Fallback: a run of at least two CAPITALIZED words (classic "First Last").
+    // Requiring each word to be capitalized is what separates a real name from
+    // an ordinary sentence — e.g. "Please research magnetic moon" starts with a
+    // capital ("Please") but the rest are lowercase common nouns, so it is NOT a
+    // name and must fall through to normal chat rather than a people-search.
+    const cap = q.match(/\b([A-Z][a-z'.-]+(?:\s+[A-Z][a-z'.-]+){1,3})\b/);
     if (cap) words = cap[1].split(/\s+/);
   }
   if (!words) return null;
@@ -115,6 +119,11 @@ function detectPerson(query) {
     if (nameWords.length >= 4) break;
   }
   if (nameWords.length < 2) return null; // need at least first + last
+  // Reject a purely lowercase phrase captured after an anchor word (e.g.
+  // "information about magnetic moon" → "magnetic moon"): a real person query
+  // has a capitalized name or explicit people-search context (phone/DOB/etc.).
+  const hasCapital = nameWords.some((w) => /^[A-Z]/.test(w));
+  if (!hasCapital && !hasContext) return null;
   if (!intent && !hasContext) return null; // require person-lookup signal
   const name = TITLE(nameWords.join(' '));
   if (Object.keys(L.US_STATES).some((s) => name.toLowerCase() === s)) return null;
