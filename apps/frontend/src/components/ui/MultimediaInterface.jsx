@@ -1,6 +1,7 @@
 import { useState, useEffect, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AdsterraBanner from '../ads/AdsterraBanner';
+import SponsoredAd from '../ads/SponsoredAd';
 import {
   X,
   ExternalLink,
@@ -249,8 +250,8 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
       );
       if ((i + 1) % 6 === 0) {
         return [card, (
-          <div key={`img-ad-${i}`} className="col-span-full flex justify-center py-1">
-            <AdsterraBanner format="banner468x60" searchContext={adCtx} />
+          <div key={`img-ad-${i}`} className="col-span-full py-1">
+            <SponsoredAd searchContext={adCtx} />
           </div>
         )];
       }
@@ -299,10 +300,11 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
           </div>
         </div>
       );
-      if ((i + 1) % 4 === 0) {
+      // One sponsored (native, high-value) ad between every third video result.
+      if ((i + 1) % 3 === 0) {
         return [card, (
-          <div key={`vid-ad-${i}`} className="col-span-full flex justify-center py-1">
-            <AdsterraBanner format="banner320x50" searchContext={adCtx} />
+          <div key={`vid-ad-${i}`} className="col-span-full py-1">
+            <SponsoredAd searchContext={adCtx} />
           </div>
         )];
       }

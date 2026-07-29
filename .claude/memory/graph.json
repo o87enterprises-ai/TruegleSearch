@@ -618,6 +618,14 @@
         "body": "Cloudflare 30d top traffic: US, Netherlands(6.5k), Brazil(5.2k), Canada, France(2.3k). Added nl + pt to TRANSLATIONS in LocalizedHomeContent.jsx (LOCALES auto-derives -> prerender-entry builds /nl,/pt). pt uses htmlLang 'pt-BR' (targets Brazil); prerender-entry ROUTE_META.lang = htmlLang||key. hreflang cluster now en/de/es/fr/nl/pt-BR/x-default in index.html + static sitemap + backend sitemap route. Live SPA routes /nl,/pt -> LandingPage. France already covered by existing /fr. Localized landing set now 5 languages.",
         "ts": "2026-07-29",
         "created": "2026-07-29"
+      },
+      "ad-frequency-sponsoredad": {
+        "Id": "ad-frequency-sponsoredad",
+        "Type": "decision",
+        "Label": "Reduced ad frequency; unified SponsoredAd (orange, self-collapsing)",
+        "body": "New components/ads/SponsoredAd.jsx = native Adsterra banner in orange outline + 'Sponsored' label, SELF-COLLAPSES if the slot doesn't fill (per-instance nonce echoed by adframe.html; AdsterraBanner gained onRendered prop + &n=nonce). Prevents empty 'placeholder' boxes. Search page: collapsed the 4-unit post-summary cluster + in-card ads + header AdSlot + 2-unit sidebar + 2-unit vids/map stacks down to single SponsoredAds; one every 3rd web result; OSINT results every 3rd too. MultimediaInterface: ad every 3rd video (was 4th), every 6th image, both SponsoredAd. Chat: SponsoredAd after response + after citations. Removed now-unused AdSlot/RewardAdSlot/AdColorWrapper/AdsterraBanner imports from UniversalSearch. Note: native fills per-iframe; unfilled slots hide.",
+        "ts": "2026-07-29",
+        "created": "2026-07-29"
       }
     },
     "entity": {

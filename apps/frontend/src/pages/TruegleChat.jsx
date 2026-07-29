@@ -11,7 +11,7 @@ import { FREE_ACCESS_MODE } from '../config/access';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent, solidTextClass } from '../config/modeTheme';
 import { getVideoEmbed } from '../utils/videoEmbed';
 import ChatShareButton from '../components/ui/ChatShareButton';
-import AdsterraBanner from '../components/ads/AdsterraBanner';
+import SponsoredAd from '../components/ads/SponsoredAd';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
 import FeedbackButtons from '../components/ui/FeedbackButtons';
 import PillModeRow from '../components/landing/PillModeRow';
@@ -847,10 +847,10 @@ export default function TruegleChat() {
                     )}
                   </>
                 )}
+                {/* One ad after the response — orange-outlined, "Sponsored". */}
                 {m.role === 'assistant' && m.id !== 1 && (
                   <div className="my-3">
-                    <div className="text-[9px] uppercase tracking-widest text-orange-400/70 mb-1">Sponsored</div>
-                    <AdsterraBanner format="nativeBanner" className="rounded-xl overflow-hidden" />
+                    <SponsoredAd />
                   </div>
                 )}
                 <Citations
@@ -858,6 +858,12 @@ export default function TruegleChat() {
                   accent={accent}
                 />
                 {m.graph && <InvestigationGraph graph={m.graph} accent={accent} />}
+                {/* One ad after the final results links (citations). */}
+                {m.role === 'assistant' && m.id !== 1 && (
+                  <div className="mt-3">
+                    <SponsoredAd />
+                  </div>
+                )}
                 {m.role === 'assistant' && m.id !== 1 && (
                   <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1">

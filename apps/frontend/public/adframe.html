@@ -10,6 +10,7 @@
   var s = new URLSearchParams(location.search);
   var key = s.get('k');
   if (!key) return;
+  var nonce = s.get('n') || '';
   var native = s.get('native') === '1';
   var kw = s.get('kw');
   if (native) {
@@ -33,7 +34,7 @@
   var reported = false;
   function report(ok){
     if (reported) return; reported = true;
-    try { window.parent.postMessage({ truegleAd: true, key: key, rendered: !!ok }, '*'); } catch(e){}
+    try { window.parent.postMessage({ truegleAd: true, key: key, n: nonce, rendered: !!ok }, '*'); } catch(e){}
   }
   // The ad "rendered" if the script injected a visible node (an iframe/ins/img,
   // or something inside the native container) with real size.

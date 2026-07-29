@@ -27,10 +27,7 @@ import TruegleLogo from '../components/ui/TruegleLogo';
 import SearchBar from '../components/ui/SearchBar';
 import MultimediaInterface from '../components/ui/MultimediaInterface';
 import InlineSummaryChat from '../components/search/InlineSummaryChat';
-import AdSlot from '../components/AdSlot';
-import RewardAdSlot from '../components/RewardAdSlot';
-import AdsterraBanner from '../components/ads/AdsterraBanner';
-import AdColorWrapper from '../components/ads/AdColorWrapper';
+import SponsoredAd from '../components/ads/SponsoredAd';
 import { SMARTLINK_URL } from '../config/ads';
 import AdultConsentGate from '../components/ui/AdultConsentGate';
 import { SkeletonSearchResult } from '../components/ui/Skeleton';
@@ -1099,19 +1096,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   onClose={() => setActiveCategory('all')}
                   searchQuery={searchValue}
                 />
-                <div className="max-w-4xl mx-auto mt-4 mb-2 space-y-2">
-                  <div className="flex justify-center">
-                    <AdsterraBanner format="banner320x50" searchContext={adContext} />
-                  </div>
-                  <AdColorWrapper type="adult" className="flex justify-center">
-                    <AdsterraBanner
-                      format="banner728x90"
-                      searchContext={adContext}
-                      isAuthenticated={isAuthenticated}
-                      safeSearch={settings.safeSearch}
-                      query={query}
-                    />
-                  </AdColorWrapper>
+                {/* One real (native, high-value) sponsored ad below the media
+                    grid — replaces the old stacked placeholder banners. */}
+                <div className="max-w-4xl mx-auto mt-4 mb-2">
+                  <SponsoredAd searchContext={adContext} />
                 </div>
               </>
             )}
@@ -1154,19 +1142,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   }}
                   detectedLocation={detectedLocation}
                 />
-                <div className="mt-4 space-y-2">
-                  <div className="flex justify-center">
-                    <AdsterraBanner format="banner320x50" searchContext={adContext} />
-                  </div>
-                  <AdColorWrapper type="adult" className="flex justify-center">
-                    <AdsterraBanner
-                      format="banner160x300"
-                      searchContext={adContext}
-                      isAuthenticated={isAuthenticated}
-                      safeSearch={settings.safeSearch}
-                      query={query}
-                    />
-                  </AdColorWrapper>
+                <div className="mt-4">
+                  <SponsoredAd searchContext={adContext} />
                 </div>
               </motion.div>
             )}
@@ -1381,12 +1358,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     </div>
                   </button>
 
-                  {summaryCollapsed && aiSummary && (
-                    <div className="mt-2 flex justify-center">
-                      <AdsterraBanner format="banner320x50" searchContext={adContext} />
-                    </div>
-                  )}
-
                   <AnimatePresence>
                     {!summaryCollapsed && (
                       <motion.div
@@ -1473,10 +1444,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                                 Sign in to chat
                               </button>
                             )}
-                            <div className="mt-3 space-y-2 flex flex-col items-center">
-                              <AdsterraBanner format="banner320x50" searchContext={adContext} />
-                              <AdsterraBanner format="banner320x50" searchContext={adContext} />
-                            </div>
                           </>
                         ) : (
                           <p className="text-sm text-white/60 leading-relaxed">
@@ -1491,36 +1458,17 @@ export default function UniversalSearch({ lockedGreen = false }) {
             </div>
           )}
 
-          {/* Ad Banner 1 - Below the AI summary. Hidden on question-phrased
-              queries so the quick-answer card gets the space instead. */}
-          {!queryIsQuestion && (
+          {/* One ad below the AI summary — orange-outlined, "Sponsored". Hidden
+              on question-phrased queries so the quick-answer card gets the space,
+              and in green (Summarize) mode. */}
+          {!queryIsQuestion && mode !== 'green' && (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               className="max-w-4xl mx-auto mb-4"
             >
-              <AdColorWrapper type="cpm">
-                <AdSlot className="rounded-2xl" size="large" />
-              </AdColorWrapper>
+              <SponsoredAd searchContext={adContext} />
             </motion.div>
-          )}
-
-          {mode !== 'green' && aiSummary && !summaryCollapsed && (
-            <AdColorWrapper type="adult" className="max-w-4xl mx-auto mb-4 flex justify-center">
-              <AdsterraBanner
-                format="banner728x90"
-                searchContext={adContext}
-                isAuthenticated={isAuthenticated}
-                safeSearch={settings.safeSearch}
-                query={query}
-              />
-            </AdColorWrapper>
-          )}
-
-          {mode !== 'green' && (
-            <div className="my-2">
-              <AdSlot size="large" query={query} className="max-w-4xl mx-auto" />
-            </div>
           )}
 
           <AdultConsentGate
@@ -1528,15 +1476,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
             safeSearch={settings.safeSearch}
             query={query}
           />
-          <AdColorWrapper type="adult" className="my-4 flex justify-center">
-            <AdsterraBanner
-              format="banner728x90"
-              searchContext={adContext}
-              isAuthenticated={isAuthenticated}
-              safeSearch={settings.safeSearch}
-              query={query}
-            />
-          </AdColorWrapper>
 
           {/* No Summary Confirmation Modal */}
           <AnimatePresence>
@@ -1642,16 +1581,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
             }}
           />
 
-          {mode !== 'green' && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="max-w-4xl mx-auto mb-4"
-            >
-              <AdSlot size="large" query={query} />
-            </motion.div>
-          )}
-
           {/* Results Grid (same as SearchResults) */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Main Results Column */}
@@ -1659,9 +1588,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
               {searchLoading ? (
                 <div className="space-y-4">
                   <div className="text-sm text-white/60 mb-4">Searching...</div>
-                  <AdColorWrapper type="reward">
-                    <RewardAdSlot position="search-loading" size="large" />
-                  </AdColorWrapper>
+                  <SponsoredAd searchContext={adContext} />
                   {[1, 2, 3, 4, 5].map((i) => (
                     <SkeletonSearchResult key={i} />
                   ))}
@@ -1716,22 +1643,23 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   {/* OSINT mode requires auth + token */}
                   {mode === 'ocean' && searchResults.length > 0 && (
                     <TokenGate featureName="osint-tools">
-                      <div className="mb-4 flex justify-center">
-                        <AdsterraBanner format="banner320x50" searchContext={adContext} />
-                      </div>
                       <div className="space-y-4">
                         {searchResults.map((result, index) => (
-                          <ResultCard
-                            key={result.url || index}
-                            result={result}
-                            index={index}
-                            mode={mode}
-                            perspectiveColors={perspectiveColors}
-                            accent={modeAccent}
-                            safeSearch={settings.safeSearch}
-                            currentQuery={lastSearchedQuery}
-                            currentMode={mode}
-                          />
+                          <Fragment key={result.url || index}>
+                            <ResultCard
+                              result={result}
+                              index={index}
+                              mode={mode}
+                              perspectiveColors={perspectiveColors}
+                              accent={modeAccent}
+                              safeSearch={settings.safeSearch}
+                              currentQuery={lastSearchedQuery}
+                              currentMode={mode}
+                            />
+                            {(index + 1) % 3 === 0 && index !== searchResults.length - 1 && (
+                              <SponsoredAd searchContext={adContext} />
+                            )}
+                          </Fragment>
                         ))}
                       </div>
                     </TokenGate>
@@ -1752,8 +1680,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
                         />
                       </div>
                       {(index + 1) % 3 === 0 && index !== searchResults.length - 1 && (
-                        <div className="flex justify-center my-1">
-                          <AdsterraBanner format="banner320x50" searchContext={adContext} />
+                        <div className="my-2">
+                          <SponsoredAd searchContext={adContext} />
                         </div>
                       )}
                     </Fragment>
@@ -1796,24 +1724,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
 
             {/* Sidebar Column (same as SearchResults) */}
             <div className="lg:col-span-1 space-y-4">
-              {/* Ad Sidebar */}
-              <div className="sticky top-4 space-y-4 flex flex-col items-center">
-                {mode !== 'green' && (
-                  <AdColorWrapper type="cpm">
-                    <AdsterraBanner format="banner300x250" searchContext={adContext} />
-                  </AdColorWrapper>
-                )}
-                {mode !== 'green' && (
-                  <AdColorWrapper type="adult">
-                    <AdsterraBanner
-                      format="banner160x600"
-                      searchContext={adContext}
-                      isAuthenticated={isAuthenticated}
-                      safeSearch={settings.safeSearch}
-                      query={query}
-                    />
-                  </AdColorWrapper>
-                )}
+              {/* Ad Sidebar — a single sponsored unit (was two stacked). */}
+              <div className="sticky top-4 flex flex-col items-center">
+                {mode !== 'green' && <SponsoredAd searchContext={adContext} />}
               </div>
             </div>
           </div>

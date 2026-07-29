@@ -56,7 +56,12 @@ export default function AdsterraBanner({
   safeSearch = 'safe',
   query = '',
   className = '',
+  onRendered = null,
 }) {
+  // Per-instance nonce so multiple banners of the same zone can each be told
+  // apart in the adframe's render-confirmation postMessage (used by SponsoredAd
+  // to self-collapse a slot Adsterra didn't actually fill).
+  const nonceRef = useRef(Math.random().toString(36).slice(2));
   // Serve only the highest-CPM format; the country-of-origin native key comes
   // from the geo config (GeoAdService), falling back to the static global key.
   const { zones } = useAdGeo();
@@ -87,6 +92,17 @@ export default function AdsterraBanner({
     window.addEventListener('truegle:adult-ads-approved', onApprove);
     return () => window.removeEventListener('truegle:adult-ads-approved', onApprove);
   }, []);
+
+  // Report whether this specific slot actually drew, matched by nonce so the
+  // same zone rendered twice on a page is disambiguated.
+  useEffect(() => {
+    if (!onRendered) return;
+    const onMsg = (e) => {
+      if (e?.data?.truegleAd && e.data.n === nonceRef.current) onRendered(!!e.data.rendered);
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [onRendered]);
 
   // Responsive fit: scale a fixed-size banner down to its container so a wide
   // format (e.g. 728x90) fits a narrow mobile column instead of overflowing.
@@ -127,9 +143,10 @@ export default function AdsterraBanner({
   const kwParam = keywords.length > 0 ? `&kw=${encodeURIComponent(keywords.join(','))}` : '';
 
   const dParam = `&d=${encodeURIComponent(AD_DOMAIN)}`;
+  const nParam = `&n=${nonceRef.current}`;
   const src = placement.native
-    ? `/adframe.html?k=${placement.key}&native=1${dParam}${kwParam}`
-    : `/adframe.html?k=${placement.key}&h=${placement.h}&w=${placement.w}${dParam}${kwParam}`;
+    ? `/adframe.html?k=${placement.key}&native=1${dParam}${kwParam}${nParam}`
+    : `/adframe.html?k=${placement.key}&h=${placement.h}&w=${placement.w}${dParam}${kwParam}${nParam}`;
 
   // Native ads fill their container width directly.
   if (placement.native) {
