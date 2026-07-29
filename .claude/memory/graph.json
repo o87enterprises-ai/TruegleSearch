@@ -626,6 +626,14 @@
         "body": "New components/ads/SponsoredAd.jsx = native Adsterra banner in orange outline + 'Sponsored' label, SELF-COLLAPSES if the slot doesn't fill (per-instance nonce echoed by adframe.html; AdsterraBanner gained onRendered prop + &n=nonce). Prevents empty 'placeholder' boxes. Search page: collapsed the 4-unit post-summary cluster + in-card ads + header AdSlot + 2-unit sidebar + 2-unit vids/map stacks down to single SponsoredAds; one every 3rd web result; OSINT results every 3rd too. MultimediaInterface: ad every 3rd video (was 4th), every 6th image, both SponsoredAd. Chat: SponsoredAd after response + after citations. Removed now-unused AdSlot/RewardAdSlot/AdColorWrapper/AdsterraBanner imports from UniversalSearch. Note: native fills per-iframe; unfilled slots hide.",
         "ts": "2026-07-29",
         "created": "2026-07-29"
+      },
+      "disable-socialbar-popunder": {
+        "Id": "disable-socialbar-popunder",
+        "Type": "decision",
+        "Label": "Social Bar + Popunder DISABLED by default (scareware creatives)",
+        "body": "URGENT brand-safety: Social Bar (in-page push) + Popunder were serving scam/scareware creatives (fake McAfee scan, TotalAV new-tab, glitch overlay) = malware-like full-screen takeover on landing+chat. Fix: AdScriptLoader now gates BOTH behind env flags VITE_ENABLE_SOCIAL_BAR / VITE_ENABLE_POPUNDER, both default OFF. Social bar previously loaded UNCONDITIONALLY. Default now injects nothing; only controlled in-content 'Sponsored' native banners remain. Owner must ALSO ensure those two VITE_ENABLE_* vars are NOT set true in the deploy env.",
+        "ts": "2026-07-29",
+        "created": "2026-07-29"
       }
     },
     "entity": {

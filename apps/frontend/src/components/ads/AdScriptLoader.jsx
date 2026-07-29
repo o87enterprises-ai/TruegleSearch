@@ -8,11 +8,19 @@ export const ADSTERRA_SMARTLINK = SMARTLINK_URL;
 const SOCIAL_SESSION_KEY = 'truegle_social_fired';
 const POP_SESSION_KEY = 'truegle_pop_fired';
 
-// Popunder is the highest-CPM Adsterra format but fires an untargeted new tab
-// on first click and historically served adult creative when the account-level
-// adult toggle was on (two documented leaks). It stays OFF unless explicitly
-// enabled via env, so the owner turns it on deliberately once per-GEO zones are
-// confirmed clean — flip VITE_ENABLE_POPUNDER=true to serve it.
+// BOTH the Social Bar (in-page push) and the Popunder are DISABLED by default.
+//
+// These two aggressive script formats were serving scareware / "your device has
+// a virus" scam creatives (fake McAfee scan, TotalAV new-tab redirect, a
+// full-screen glitch overlay) that read as a malware takeover — a complete
+// brand-safety failure on the landing and chat pages. They only load if the
+// owner *explicitly* opts in via env, after confirming the per-GEO zones serve
+// clean creative:
+//   VITE_ENABLE_SOCIAL_BAR=true   — in-page push / social bar
+//   VITE_ENABLE_POPUNDER=true     — popunder (untargeted new tab; also risky)
+// With both unset (the default) this component injects nothing and the site
+// serves only the controlled, clearly-labeled in-content "Sponsored" banners.
+const SOCIAL_BAR_ENABLED = import.meta.env.VITE_ENABLE_SOCIAL_BAR === 'true';
 const POPUNDER_ENABLED = import.meta.env.VITE_ENABLE_POPUNDER === 'true';
 
 function injectScript(url) {
@@ -23,17 +31,13 @@ function injectScript(url) {
   document.body.appendChild(s);
 }
 
-// Loads the geo-targeted, highest-CPM script formats (Social Bar / in-page
-// push, and optionally popunder) for the visitor's country of origin. Zones
-// come from GeoAdService via AdGeoContext; both are gated on ad consent and
-// fire at most once per session.
 export default function AdScriptLoader() {
   const { zones } = useAdGeo();
 
   useEffect(() => {
     if (window.__truegle_ad_consent === false) return;
 
-    if (zones?.socialBar && !sessionStorage.getItem(SOCIAL_SESSION_KEY)) {
+    if (SOCIAL_BAR_ENABLED && zones?.socialBar && !sessionStorage.getItem(SOCIAL_SESSION_KEY)) {
       sessionStorage.setItem(SOCIAL_SESSION_KEY, '1');
       injectScript(zones.socialBar);
     }
