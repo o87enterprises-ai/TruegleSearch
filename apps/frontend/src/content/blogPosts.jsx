@@ -13,6 +13,307 @@ import { LegalSection } from '../components/LegalPage';
  */
 export const BLOG_POSTS = [
   {
+    slug: 'how-to-get-unbiased-search-results',
+    title: 'How to Get Unbiased Search Results: A Practical Guide',
+    description:
+      'Unbiased search results aren\'t about finding one "neutral" engine — they\'re a method. Here is how to get a fuller, less filtered picture on any topic.',
+    date: '2026-07-29',
+    readingTime: '6 min read',
+    faq: [
+      {
+        q: 'How do I get unbiased search results?',
+        a: 'Use a search engine that does not personalize by tracking you, then deliberately compare multiple sources — start from the primary source, read a mainstream and an independent take, and note where they agree.',
+      },
+      {
+        q: 'Is any search engine truly unbiased?',
+        a: 'No engine is perfectly neutral — ranking always encodes choices. "Unbiased" in practice means the tool does not secretly pick a perspective for you based on your history, and lets you see multiple viewpoints.',
+      },
+      {
+        q: 'Does signing out make my search unbiased?',
+        a: 'It reduces personalization but does not remove it — location and aggregate signals still shape results. Pair signing out with a non-tracking engine and cross-checking sources.',
+      },
+    ],
+    body: (
+      <>
+        <p>
+          <strong>Short answer:</strong> "unbiased search" isn't a single engine you
+          switch to — it's a method. You get a fuller, less filtered picture by using
+          a search tool that doesn't personalize results to a profile of you, and then
+          deliberately comparing more than one source and perspective. Here's how to
+          do it in practice.
+        </p>
+        <LegalSection heading="Why a single ranked list is misleading">
+          <p>
+            Every search engine makes an editorial choice the moment it ranks one
+            result above another — and mainstream engines personalize that ranking
+            using your location, past clicks, and an advertising profile. Two people
+            searching the same words can get materially different results, and neither
+            is told what was filtered out. On a contested topic, the first page can
+            feel like "just the facts" while quietly omitting the strongest opposing
+            evidence. That's a{' '}
+            <a href="/blog/what-is-a-filter-bubble" className="text-blue-400 hover:text-blue-300">filter bubble</a>.
+          </p>
+        </LegalSection>
+        <LegalSection heading="The method: how to actually do it">
+          <ol className="list-decimal pl-6 space-y-2">
+            <li><strong>Use a non-personalizing search engine.</strong> If the engine doesn't build a behavioral profile of you, it can't secretly tailor the ranking to what you already believe.</li>
+            <li><strong>Start from the primary source.</strong> Before you read commentary, find the original study, ruling, dataset, or transcript — not a headline about it.</li>
+            <li><strong>Read a mainstream take and an independent take.</strong> Deliberately pull one of each so a single set of incentives isn't shaping everything you see.</li>
+            <li><strong>Note where they agree.</strong> Agreement across sources with different incentives is the strongest signal you'll get.</li>
+            <li><strong>Note where they diverge, and ask why.</strong> Divergence usually reveals an assumption, an incentive, or a genuinely open question.</li>
+            <li><strong>Search signed out.</strong> Being logged in re-attaches results to your profile; a signed-out session on a non-tracking engine is closer to neutral.</li>
+          </ol>
+        </LegalSection>
+        <LegalSection heading="A worked example">
+          <p>
+            Say you're researching a contested policy. A personalized first page might
+            hand you five outlets that all share one framing. Instead, pull the actual
+            bill or ruling (primary source), read how a mainstream outlet covers it,
+            then read an independent one — and watch where they agree on facts but
+            diverge on emphasis. Same query, a far more honest picture, because you saw
+            more than one slice. This is exactly{' '}
+            <a href="/blog/why-multiple-perspectives-matter" className="text-blue-400 hover:text-blue-300">why seeing multiple perspectives makes you better informed</a>.
+          </p>
+        </LegalSection>
+        <LegalSection heading="Where Truegle fits">
+          <p>
+            Truegle is built to make this the default instead of a chore. It doesn't
+            track or profile you, it aggregates results from multiple providers (so no
+            single company's ranking decides what you see), and its perspective modes
+            let you re-rank the same query — mainstream, independent, academic, and
+            more — with each source labeled so you can compare framings at a glance.
+            See{' '}
+            <a href="/blog/unbiased-search-engine-how-truegle-works" className="text-blue-400 hover:text-blue-300">how Truegle delivers unbiased results</a>{' '}
+            and the full playbook in{' '}
+            <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">The Ultimate Digital Privacy &amp; OSINT Resource Hub</a>.
+          </p>
+        </LegalSection>
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Unbiased search is a method, not a magic engine: don't get personalized, then compare sources.</li>
+            <li>Start from the primary source, read a mainstream and an independent take, and watch where they agree and diverge.</li>
+            <li>Search signed out on a non-tracking engine to get closer to neutral.</li>
+            <li>Truegle's labeled, switchable perspective modes make triangulation the default — start at{' '}
+              <a href="/search" className="text-blue-400 hover:text-blue-300">truegle.info</a>.</li>
+          </ul>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
+    slug: 'stop-google-tracking-searches',
+    title: 'How to Stop Google From Tracking Your Searches',
+    description:
+      'A step-by-step guide to stopping Google from logging and profiling your searches — from account settings to switching engines — and what each step actually does.',
+    date: '2026-07-29',
+    readingTime: '6 min read',
+    faq: [
+      {
+        q: 'Can you fully stop Google from tracking your searches?',
+        a: 'You can dramatically reduce it via Web & App Activity settings, ad settings, and signing out — but the only way to fully stop it is to stop using Google Search and switch to a non-tracking engine.',
+      },
+      {
+        q: 'Does turning off Web & App Activity delete my history?',
+        a: 'It stops new search and activity from being saved to your account going forward. You can separately delete past activity and turn on auto-delete; it does not affect aggregate/anonymous data.',
+      },
+      {
+        q: 'What is the easiest way to search without Google tracking?',
+        a: 'Switch your default search engine to a no-track option and search signed out — that removes the biggest source of per-account profiling in a single step.',
+      },
+    ],
+    body: (
+      <>
+        <p>
+          <strong>Short answer:</strong> you can dramatically reduce Google's tracking
+          by changing a few account and browser settings — but the only way to
+          <em> fully</em> stop it is to stop searching on Google. Here's the
+          step-by-step, easiest and highest-impact first, with what each step actually
+          does.
+        </p>
+        <LegalSection heading="1. Switch your default search engine (biggest win)">
+          <p>
+            The single highest-impact move: set your browser's default search engine to
+            a no-track option and do your searching there instead of on Google. No
+            account setting matters if the queries never reach Google in the first
+            place. This one change removes the largest source of per-account search
+            profiling.
+          </p>
+        </LegalSection>
+        <LegalSection heading="2. Turn off Web & App Activity">
+          <p>
+            In your Google Account, open <strong>Data &amp; privacy → Web &amp; App
+            Activity</strong> and turn it off. This stops Google from saving your
+            searches and activity to your account going forward. While you're there,
+            delete past activity and set <strong>auto-delete</strong> to the shortest
+            window. Do the same for <strong>Location History</strong> and
+            <strong> YouTube History</strong> if you use them.
+          </p>
+        </LegalSection>
+        <LegalSection heading="3. Turn off ad personalization">
+          <p>
+            In <strong>Data &amp; privacy → My Ad Center / Ad personalization</strong>,
+            turn personalization off. This won't remove ads, but it stops them from
+            being targeted using a behavioral profile built from your activity.
+          </p>
+        </LegalSection>
+        <LegalSection heading="4. Search signed out">
+          <p>
+            Even with the settings above, searching while logged into your Google
+            account re-attaches activity to you. Search signed out — or in a browser
+            profile that's never logged into Google — and be wary of "sign in with
+            Google" buttons that re-link your identity.
+          </p>
+        </LegalSection>
+        <LegalSection heading="5. Harden the browser">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Use a privacy browser (Firefox with strict tracking protection, or Brave) and block third-party cookies.</li>
+            <li>Add a content blocker like uBlock Origin to stop tracking scripts before they load.</li>
+            <li>Consider moving off Chrome, which is made by the same company you're trying to limit.</li>
+            <li>Turn on encrypted DNS (DNS-over-HTTPS) so your network can't log every domain.</li>
+          </ul>
+        </LegalSection>
+        <LegalSection heading="6. Hide your IP for network-level privacy">
+          <p>
+            Settings stop profiling; they don't hide your network identity. A reputable,
+            audited VPN (or Tor) hides your IP from the sites you visit — the one thing
+            no search setting can do for you.
+          </p>
+        </LegalSection>
+        <LegalSection heading="The honest limit">
+          <p>
+            Turning off these settings limits what's tied to <em>your account</em>, but
+            Google can still receive signals from signed-out and aggregate activity. The
+            only way to truly stop Google from tracking your searches is to not run them
+            through Google. That's the whole point of using a{' '}
+            <a href="/blog/search-without-tracking-alternative-to-google" className="text-blue-400 hover:text-blue-300">search engine that doesn't track you</a>{' '}
+            in the first place.
+          </p>
+        </LegalSection>
+        <LegalSection heading="Where Truegle fits">
+          <p>
+            Truegle was built privacy-first: it doesn't store your searches to a
+            per-account profile, doesn't run cross-site trackers, and uses contextual
+            (not behavioral) ads. Set it as your default and steps 2–4 above become far
+            less necessary. See the complete guide in{' '}
+            <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">The Ultimate Digital Privacy &amp; OSINT Resource Hub</a>{' '}
+            and our practical{' '}
+            <a href="/blog/how-to-search-privately" className="text-blue-400 hover:text-blue-300">guide to searching privately</a>.
+          </p>
+        </LegalSection>
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Biggest win: switch your default engine to a no-track option and search there.</li>
+            <li>Turn off Web &amp; App Activity + ad personalization, delete history, set auto-delete.</li>
+            <li>Search signed out, harden the browser, and use a VPN/Tor for your IP.</li>
+            <li>Full tracking stops only when the query never reaches Google — try{' '}
+              <a href="/search" className="text-blue-400 hover:text-blue-300">Truegle</a>.</li>
+          </ul>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
+    slug: 'best-free-osint-tools-for-beginners',
+    title: 'The Best Free OSINT Tools for Beginners (2026)',
+    description:
+      'A beginner-friendly, lawful starter kit of free OSINT tools — what each one does, how to start, and the ethics that keep your research on the right side.',
+    date: '2026-07-29',
+    readingTime: '7 min read',
+    faq: [
+      {
+        q: 'What are the best free OSINT tools for beginners?',
+        a: 'Start with the OSINT Framework (a directory), Sherlock (usernames), Have I Been Pwned (breaches), the Wayback Machine (archived pages), reverse image search, and WHOIS/DNS lookups — all free and lawful for public research.',
+      },
+      {
+        q: 'Is it legal to use OSINT tools?',
+        a: 'Collecting publicly available information is generally legal, but how you use it can cross legal lines (harassment, unauthorized access, breaching a site\'s terms). Only investigate what you are authorized to and follow your local laws.',
+      },
+      {
+        q: 'Do I need to know how to code to do OSINT?',
+        a: 'No. Many of the best starter tools are websites or one-click checks. Coding helps with automation later, but beginners can get far with browser-based tools.',
+      },
+    ],
+    body: (
+      <>
+        <p>
+          <strong>Short answer:</strong> the best free OSINT tools for beginners are the
+          OSINT Framework (a directory of everything else), Sherlock for usernames, Have
+          I Been Pwned for breaches, the Wayback Machine for deleted pages, reverse image
+          search for verifying photos, and WHOIS/DNS lookups for domains. All are free,
+          most are browser-based, and none require code. Here's what each does and how to
+          start — lawfully.
+        </p>
+        <LegalSection heading="What OSINT actually is">
+          <p>
+            OSINT (open-source intelligence) is collecting and analyzing information
+            that's already public — websites, social media, public records, archives,
+            and metadata. Journalists, researchers, and security teams use it to verify
+            claims and connect dots. Learning it has a bonus: seeing how easily open data
+            reveals a person is the fastest way to understand — and shrink — your own
+            exposure.
+          </p>
+        </LegalSection>
+        <LegalSection heading="The beginner starter kit">
+          <h3 className="text-lg font-semibold text-white">Start here</h3>
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>OSINT Framework</strong> — a categorized directory of hundreds of free tools; the best map of the landscape when you don't know where to begin.</li>
+            <li><strong>Have I Been Pwned</strong> — check whether an email or password has appeared in a known breach. Everyone should run their own first.</li>
+          </ul>
+          <h3 className="text-lg font-semibold text-white">People &amp; usernames</h3>
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>Sherlock</strong> — checks whether a username exists across hundreds of platforms in one pass.</li>
+          </ul>
+          <h3 className="text-lg font-semibold text-white">Media &amp; archives</h3>
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>Reverse image search</strong> (Google Images, TinEye, Yandex) — verify where an image really came from and debunk fakes.</li>
+            <li><strong>The Wayback Machine</strong> — see deleted or altered pages as they once were; essential for accountability work.</li>
+            <li><strong>ExifTool</strong> — read (and strip) hidden photo/document metadata like GPS and timestamps. Use it on your own files before sharing.</li>
+          </ul>
+          <h3 className="text-lg font-semibold text-white">Domains &amp; infrastructure</h3>
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>WHOIS &amp; DNS lookups</strong> — reveal domain registration, hosting, and record history.</li>
+            <li><strong>Google dorking</strong> — advanced operators (site:, filetype:, intitle:) to surface exposed documents and pages.</li>
+          </ul>
+        </LegalSection>
+        <LegalSection heading="How to start: your first exercise">
+          <p>
+            The best first investigation is <em>yourself</em>. Run your own email through
+            Have I Been Pwned, search your usernames with Sherlock, reverse-image-search
+            your profile photo, and check what a WHOIS or people-search turns up. You'll
+            learn the tools with zero ethical risk — and probably find a few things to
+            lock down. That's the fastest way to go from "what is OSINT" to actually
+            doing it.
+          </p>
+        </LegalSection>
+        <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
+          <strong>Ethics &amp; legality:</strong> public information isn't consequence-free.
+          Using these tools to stalk, harass, dox, or gain unauthorized access is illegal
+          and harmful. Only investigate what you're authorized to, follow the laws in your
+          jurisdiction and each service's terms, and treat the people behind the data as
+          people.
+        </p>
+        <LegalSection heading="Where Truegle fits">
+          <p>
+            Truegle's Ocean (OSINT) mode bundles lawful public-records lookups for
+            domains, emails, usernames, and phone numbers into the search experience, so
+            you can start an investigation without wiring up a dozen separate tools. For
+            the deeper toolkit and the ethics that go with it, see the OSINT section of{' '}
+            <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">The Ultimate Digital Privacy &amp; OSINT Resource Hub</a>.
+          </p>
+        </LegalSection>
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Beginner kit: OSINT Framework, Have I Been Pwned, Sherlock, reverse image search, Wayback Machine, ExifTool, WHOIS/DNS — all free, mostly browser-based, no code.</li>
+            <li>Start by investigating yourself: it teaches the tools and shrinks your own exposure.</li>
+            <li>Public doesn't mean consequence-free — stay lawful and ethical.</li>
+            <li>Truegle's Ocean mode gives you lawful lookups in one place; go deeper in the{' '}
+              <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">Privacy &amp; OSINT Resource Hub</a>.</li>
+          </ul>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
     slug: 'is-duckduckgo-really-private',
     title: 'Is DuckDuckGo Really Private? An Honest Look (2026)',
     description:

@@ -853,6 +853,15 @@
         "status": "open",
         "ts": "2026-07-29",
         "created": "2026-07-29"
+      },
+      "longtail-batch-1": {
+        "Id": "longtail-batch-1",
+        "Type": "thread",
+        "Label": "3 long-tail posts published",
+        "body": "Published 3 English long-tail posts (Cluster 1-3) into blogPosts.jsx + sitemap: how-to-get-unbiased-search-results, stop-google-tracking-searches, best-free-osint-tools-for-beginners. Each 800+ words, FAQ (visible+JSON-LD), links to pillar+siblings. From drafts/content-scaffold backlog. Remaining backlog ~36 keywords in long-tail-keywords.md.",
+        "status": "open",
+        "ts": "2026-07-29",
+        "created": "2026-07-29"
       }
     }
   },
