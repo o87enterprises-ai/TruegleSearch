@@ -828,6 +828,15 @@
         "status": "done",
         "ts": "2026-07-28",
         "created": "2026-07-28"
+      },
+      "content-scaffold-phase4-6": {
+        "Id": "content-scaffold-phase4-6",
+        "Type": "thread",
+        "Label": "Phase 4/6 content scaffold ready (backlog + templates)",
+        "body": "drafts/content-scaffold/: long-tail-keywords.md (40 question keywords, 5 clusters, w/ slugs+intent+links), post-template.md (reusable 800+ word Q&A structure + JSX skeleton mapping to blogPosts.jsx), repurposing-playbook.md (YouTube/X-thread/podcast/shorts templates, free tools, 1-week sprint). Execution = pick keyword -> fill template -> review -> port to blogPosts.jsx + sitemap. Prioritize clusters 1&2.",
+        "status": "open",
+        "ts": "2026-07-29",
+        "created": "2026-07-29"
       }
     }
   },
