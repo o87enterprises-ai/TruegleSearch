@@ -18,7 +18,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import ModesAndTrending from '../components/landing/ModesAndTrending';
 import ChatModeRow from '../components/landing/ChatModeRow';
+import CategoryModeRow from '../components/landing/CategoryModeRow';
 import PillModeRow from '../components/landing/PillModeRow';
+import { MODE_COLORS } from '../config/modeTheme';
 import VsToggleRow from '../components/landing/VsToggleRow';
 import ThreeCards from '../components/landing/ThreeCards';
 import TruegleLogo from '../components/ui/TruegleLogo';
@@ -100,6 +102,22 @@ export default function LandingPage() {
       setChatModesOpen(true);
     }
   }, [searchQuery, pillMode, chatModeTouched]);
+
+  // Search-category row (the counterpart to the chat modes): the moment the
+  // Pill Mode switches from Chat (black) to a search color, the chat lenses are
+  // replaced by the scrollable, collapsible search categories. Single-select;
+  // 'all' is the default and adds no URL param. Same minimized-by-default +
+  // auto-open-on-typing behavior as the chat modes.
+  const SEARCH_MODES = ['blue', 'green', 'red', 'purple', 'ocean'];
+  const [searchCategory, setSearchCategory] = useState('all');
+  const [searchCatOpen, setSearchCatOpen] = useState(false);
+  const [searchCatTouched, setSearchCatTouched] = useState(false);
+  const selectSearchCategory = (id) => { setSearchCatTouched(true); setSearchCategory(id); };
+  useEffect(() => {
+    if (SEARCH_MODES.includes(pillMode) && !searchCatTouched && searchQuery.trim()) {
+      setSearchCatOpen(true);
+    }
+  }, [searchQuery, pillMode, searchCatTouched]);
 
   // vs. TrueGLE (Null-Prime dual-audit) — same localStorage key TruegleChat.jsx
   // reads on mount, so a preference set here carries silently into the first
@@ -297,7 +315,12 @@ export default function LandingPage() {
                   } else if (pillMode === 'yellow') {
                     navigate('/extract');
                   } else {
-                    navigate(q ? `/search?q=${encodeURIComponent(q)}&mode=${pillMode}` : `/search?mode=${pillMode}`);
+                    // Search color mode: carry the chosen category (if any) through
+                    // to the results page as &category=.
+                    const catParam = searchCategory && searchCategory !== 'all' ? `&category=${searchCategory}` : '';
+                    navigate(q
+                      ? `/search?q=${encodeURIComponent(q)}&mode=${pillMode}${catParam}`
+                      : `/search?mode=${pillMode}${catParam}`);
                   }
                 }}
                 placeholder={
@@ -319,6 +342,19 @@ export default function LandingPage() {
                 onToggle={toggleChatMode}
                 open={chatModesOpen}
                 onToggleOpen={() => setChatModesOpen((v) => !v)}
+              />
+            )}
+
+            {/* Search categories — swapped in for the chat modes whenever a
+                search-color pill is active (Chat is black). Same collapsible,
+                scrollable treatment; the pick rides the /search URL. */}
+            {SEARCH_MODES.includes(pillMode) && (
+              <CategoryModeRow
+                activeCategory={searchCategory}
+                onSelect={selectSearchCategory}
+                open={searchCatOpen}
+                onToggleOpen={() => setSearchCatOpen((v) => !v)}
+                accentColor={MODE_COLORS[pillMode]}
               />
             )}
 

@@ -15,6 +15,7 @@ import AdsterraBanner from '../components/ads/AdsterraBanner';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
 import FeedbackButtons from '../components/ui/FeedbackButtons';
 import PillModeRow from '../components/landing/PillModeRow';
+import CategoryModeRow from '../components/landing/CategoryModeRow';
 
 // Truegle Chat is a designated route for chat-first users — the same brand
 // (logo, mode-synced background/accents) as the rest of Truegle, but reduced
@@ -323,6 +324,12 @@ export default function TruegleChat() {
   // landing pref, to avoid arriving here already pointed at a search mode.
   // PillModeRow handles the cycle; onSelect just receives the next id.
   const [pillMode, setPillMode] = useState('black');
+  // Search-category strip — shown in place of the chat modes whenever the pill
+  // is on a search color (blue/green/red/purple/ocean). The pick rides the
+  // /search URL as &category= when the query is submitted.
+  const SEARCH_MODES = ['blue', 'green', 'red', 'purple', 'ocean'];
+  const [searchCategory, setSearchCategory] = useState('all');
+  const [searchCatOpen, setSearchCatOpen] = useState(false);
   // Response length: verbose (in-depth) by default; the "Summarize" mode (green)
   // makes answers concise. Replaces the old "Feeling chat-e?" toggle.
   const verbose = !modes.includes('green');
@@ -444,7 +451,8 @@ export default function TruegleChat() {
     if (pillMode !== 'black') {
       if (pillMode === 'orange') { navigate('/rewards'); return; }
       if (pillMode === 'yellow') { navigate('/extract'); return; }
-      navigate(`/search?q=${encodeURIComponent(text)}&mode=${pillMode}`);
+      const catParam = searchCategory && searchCategory !== 'all' ? `&category=${searchCategory}` : '';
+      navigate(`/search?q=${encodeURIComponent(text)}&mode=${pillMode}${catParam}`);
       return;
     }
 
@@ -883,7 +891,19 @@ export default function TruegleChat() {
               animate={{ opacity: 1, y: 0 }}
               className="flex flex-col items-center gap-2 pt-1"
             >
-              {modesRow}
+              {/* Chat lenses when in Chat mode; when a search color is picked,
+                  the chat modes are replaced by the search-category strip. */}
+              {SEARCH_MODES.includes(pillMode) ? (
+                <CategoryModeRow
+                  activeCategory={searchCategory}
+                  onSelect={setSearchCategory}
+                  open={searchCatOpen}
+                  onToggleOpen={() => setSearchCatOpen((v) => !v)}
+                  accentColor={MODE_COLORS[pillMode]}
+                />
+              ) : (
+                modesRow
+              )}
               <div className="w-full">{chatInputBox}</div>
             </motion.div>
           )}

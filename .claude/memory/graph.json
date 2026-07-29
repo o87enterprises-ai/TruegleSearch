@@ -594,6 +594,14 @@
         "body": "Added /privacy-resource-hub pillar (3163 words, 5 H2s, Article+FAQPage JSON-LD, prerendered, in sitemap+App route+prerender-entry). Reusable FaqBlock component renders visible Q&A + FAQPage JSON-LD from a post.faq metadata field, DEFAULT_FAQ fallback ('What makes Truegle different from Google?'); wired into BlogPost template + pillar. Added faq to 4 cluster posts. EmailSignup component (UI only, action=#, TODO wire to provider) in global Footer + pillar sidebar. Content audit: docs/marketing/BLOG-CONTENT-AUDIT.md (7/9 posts <500 words, flagged for expansion, no edits).",
         "ts": "2026-07-28",
         "created": "2026-07-28"
+      },
+      "landing-chat-search-categories": {
+        "Id": "landing-chat-search-categories",
+        "Type": "decision",
+        "Label": "Search categories replace chat modes on search-mode pick",
+        "body": "New CategoryModeRow.jsx (landing/) mirrors ChatModeRow: collapsible+scrollable, single-select, reuses searchCategories from SearchBar. On landing + TruegleChat: when Pill Mode is a search color (blue/green/red/purple/ocean) the chat modes are replaced by this category strip; pick rides /search URL as &category=. UniversalSearch now seeds activeCategory from ?category=. yellow=extract/black=chat show no categories. searchCategories exported at SearchBar.jsx bottom (do NOT re-export at the const).",
+        "ts": "2026-07-29",
+        "created": "2026-07-29"
       }
     },
     "entity": {
@@ -849,5 +857,5 @@
       }
     }
   },
-  "updated": "2026-07-28"
+  "updated": "2026-07-29"
 }

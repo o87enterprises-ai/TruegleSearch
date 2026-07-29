@@ -267,6 +267,13 @@ export default function UniversalSearch({ lockedGreen = false }) {
     }
   }, [searchParams]);
 
+  // Seed the active result category from the URL (&category=), so the landing/
+  // chat search-category strip carries its selection into the results page.
+  useEffect(() => {
+    const cat = searchParams.get('category');
+    if (cat) setActiveCategory(cat);
+  }, [searchParams]);
+
   // Sync pill modes with current mode
   // Purple, Red, and Ocean pages: Red pill mode by default
   // Blue page: Blue pill mode by default

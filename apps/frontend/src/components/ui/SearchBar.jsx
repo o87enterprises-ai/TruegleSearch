@@ -15,6 +15,8 @@ import FileInput from './FileInput';
 
 /**
  * Search Categories Configuration
+ * (Exported at the bottom of this file — reused by the landing/chat category
+ * strips (CategoryModeRow) so there's one source of truth for the list.)
  */
 const searchCategories = [
   { id: 'all', label: 'All', icon: Search },
