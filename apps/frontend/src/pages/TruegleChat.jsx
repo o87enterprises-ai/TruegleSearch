@@ -834,6 +834,34 @@ export default function TruegleChat() {
           <PillModeRow activeMode={pillMode} onSelect={setPillMode} />
         </div>
 
+        {/* Hero chat-mode row — a compact, always-visible copy of the lens pills
+            directly below the Chat pill, so modes can be switched from the top of
+            the page too. Shares the same `modes` state as the row below the chat
+            box, so the two stay perfectly in sync. Chat pill only. */}
+        {pillMode === 'black' && (
+          <div className="mb-3 flex-shrink-0 flex items-center gap-1.5 flex-wrap justify-center max-w-2xl">
+            {MODES.map((m) => {
+              const active = modes.includes(m);
+              const isPrimary = active && primaryMode === m;
+              return (
+                <button
+                  key={`hero-${m}`}
+                  type="button"
+                  onClick={() => toggleMode(m)}
+                  aria-pressed={active}
+                  title={active ? `${MODE_LABELS[m]} active — tap to remove` : `Add ${MODE_LABELS[m]} lens`}
+                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${
+                    active ? solidTextClass(m) : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'
+                  } ${isPrimary ? 'ring-2 ring-white/60' : ''}`}
+                  style={active ? { backgroundColor: MODE_COLORS[m], borderColor: MODE_COLORS[m] } : undefined}
+                >
+                  {MODE_LABELS[m]}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Session utilities — Share / New chat (only once a thread exists). */}
         {messages.length > 1 && (
           <div className="flex items-center gap-2 mb-3 flex-wrap justify-center flex-shrink-0">
