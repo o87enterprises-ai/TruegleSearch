@@ -1054,10 +1054,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
                 bar now owns tool selection and the AI. Other modes keep them.) */}
             {/* Language selector — synced to browser language by default */}
             <div className="flex justify-end items-center gap-3 mt-2">
-              {/* Nephesh mode: opt-in Null-Prime dual-audit protocol for
-                  contested claims. Persistent, off by default. Hidden on the
-                  OSINT page (no vs mode there). */}
-              {mode !== 'ocean' && (
+              {/* TrueGLE Mode (opt-in Null-Prime dual-audit) only affects the AI
+                  summary, so it's shown ONLY once the summary is actually in use
+                  — never on a plain results page (where it's meaningless and
+                  misleading) or on OSINT/Summarize modes that have no summary. */}
+              {mode !== 'ocean' && mode !== 'green' && sessionSummaryChoice === 'show' && (
                 <button
                   type="button"
                   onClick={() => setNepheshMode((v) => !v)}

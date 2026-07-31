@@ -642,6 +642,14 @@
         "body": "Per owner (leaving Adsterra over scareware takeover): deleted AdScriptLoader.jsx + its App.jsx mount; removed POP_SCRIPT_URL/SOCIAL_BAR_SCRIPT_URL from config/ads.js; removed socialBar/popunder from AdGeoContext zones, adNetworks.js Adsterra control, backend GeoAdService DEFAULT_ZONE, ad_zones.json DEFAULT, routes/ads.js comment. Verified: script URLs f3a976.../03508109... gone from dist bundle. Smartlink (g385gzr0, rewards offer link) KEPT. Only in-content native 'Sponsored' banners remain. VITE_ENABLE_SOCIAL_BAR/VITE_ENABLE_POPUNDER now dead (unused) — owner rechecking Vercel env.",
         "ts": "2026-07-31",
         "created": "2026-07-31"
+      },
+      "chat-ux-fixes-batch1": {
+        "Id": "chat-ux-fixes-batch1",
+        "Type": "decision",
+        "Label": "Chat/voice UX fixes: stop button, vs-gating, audio VAD, text-select",
+        "body": "TruegleChat: Stop button during 'thinking' aborts in-flight send (AbortController threaded via aiAPI.chat 3rd config arg + api.post signal + fetchCitations signal) and ROLLS BACK the accidental turn (removes user msg, restores text to input). Message bubbles now select-text (WebkitUserSelect/TouchCallout) to fix mobile highlight/copy. UniversalSearch: 'TrueGLE Mode' (vs/nephesh) toggle now shown ONLY when sessionSummaryChoice==='show' (AI summary active) and mode!=ocean/green — was always visible/misleading on plain search. VoiceRecognition: replaced fixed 5s window with voice-activity detection — auto-stops 5s after speech ends (SILENCE_MS), 8s if never speaks, 30s hard cap; peak-amplitude VAD in the waveform loop. STILL OPEN (discuss): search-bar less-modular + all input modes in chat bar + question->chat auto-switch; and chat-modes refusal.",
+        "ts": "2026-07-31",
+        "created": "2026-07-31"
       }
     },
     "entity": {

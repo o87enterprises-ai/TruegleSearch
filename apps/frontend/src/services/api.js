@@ -124,7 +124,7 @@ const rewardsAPI = {
 
 // AI API
 const aiAPI = {
-  chat: (message, options = {}) =>
+  chat: (message, options = {}, config = {}) =>
     api.post('/ai/chat', {
       message,
       context: options.context || 'general',
@@ -144,7 +144,7 @@ const aiAPI = {
       // unrelated citations list shows underneath it (see TruegleChat.jsx).
       searchResults: typeof options.searchResults === 'string' ? options.searchResults : undefined,
       options
-    }),
+    }, config),
   analyzeContent: (content, queryContext, options = {}) =>
     api.post('/ai/analyze-content', {
       content,

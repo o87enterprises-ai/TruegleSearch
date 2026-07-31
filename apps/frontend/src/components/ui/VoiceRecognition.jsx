@@ -14,12 +14,17 @@ import { motion, AnimatePresence } from 'framer-motion';
  * we don't auto-submit a possible mis-hear).
  *
  * While recording we show a full-screen overlay with a LIVE waveform (drawn
- * from the actual mic stream via a Web Audio AnalyserNode) and a 5-second
- * countdown, so the user can see the service is listening and working. The
- * capture runs for a fixed 5s window (auto-stops), or the user can stop early.
+ * from the actual mic stream via a Web Audio AnalyserNode), so the user can see
+ * the service is listening. Capture is VOICE-ACTIVITY based: it keeps listening
+ * while you speak and auto-stops 5s after you finish (silence), instead of
+ * cutting off at a fixed window. Safety caps: stop if no speech is heard in the
+ * first 8s, and a hard 30s ceiling. The user can also stop early.
  */
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-const RECORD_WINDOW_MS = 5000; // fixed 5-second capture window
+const SILENCE_MS = 5000;        // stop this long after speech ends
+const INITIAL_SILENCE_MS = 8000; // stop if the user never starts speaking
+const MAX_WINDOW_MS = 30000;    // hard ceiling on a single capture
+const SPEECH_LEVEL = 0.06;      // peak amplitude (0..1) that counts as speech
 
 // First MediaRecorder mime the browser supports (Chrome/FF → webm, Safari → mp4).
 function pickMimeType() {
@@ -37,7 +42,13 @@ const VoiceRecognition = ({
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(RECORD_WINDOW_MS / 1000);
+  const [secondsLeft, setSecondsLeft] = useState(SILENCE_MS / 1000);
+  const [speaking, setSpeaking] = useState(false);
+
+  // Voice-activity tracking for silence-based auto-stop.
+  const startedAtRef = useRef(0);
+  const lastSpeechRef = useRef(0);
+  const speechStartedRef = useRef(false);
 
   const isSupported = useRef(
     typeof navigator !== 'undefined' &&
@@ -104,6 +115,18 @@ const VoiceRecognition = ({
       const bins = analyser.frequencyBinCount;
       const data = new Uint8Array(bins);
       analyser.getByteTimeDomainData(data);
+
+      // Voice-activity detection: peak deviation from the 128 midpoint. Above
+      // the threshold counts as speech and resets the silence timer.
+      let peak = 0;
+      for (let i = 0; i < bins; i++) {
+        const dev = Math.abs(data[i] - 128);
+        if (dev > peak) peak = dev;
+      }
+      if (peak / 128 > SPEECH_LEVEL) {
+        lastSpeechRef.current = Date.now();
+        speechStartedRef.current = true;
+      }
 
       ctx.clearRect(0, 0, w, h);
       ctx.lineWidth = 3;
@@ -203,18 +226,33 @@ const VoiceRecognition = ({
       } catch { /* waveform is cosmetic — recording still works without it */ }
 
       setIsRecording(true);
-      setSecondsLeft(RECORD_WINDOW_MS / 1000);
+      setSpeaking(false);
+      setSecondsLeft(SILENCE_MS / 1000);
       onStatusChangeRef.current?.('started');
 
-      // Countdown for the overlay ring/label.
+      // Voice-activity loop: auto-stop 5s after speech ends (or after 8s of
+      // never speaking); the waveform loop updates lastSpeechRef.
       const startedAt = Date.now();
+      startedAtRef.current = startedAt;
+      lastSpeechRef.current = startedAt;
+      speechStartedRef.current = false;
       countdownRef.current = setInterval(() => {
-        const left = Math.max(0, RECORD_WINDOW_MS - (Date.now() - startedAt));
-        setSecondsLeft(Math.ceil(left / 1000));
+        const now = Date.now();
+        if (now - startedAtRef.current >= MAX_WINDOW_MS) { stopRecording(); return; }
+        if (!speechStartedRef.current) {
+          setSpeaking(false);
+          if (now - startedAtRef.current >= INITIAL_SILENCE_MS) { stopRecording(); return; }
+          setSecondsLeft(Math.ceil((INITIAL_SILENCE_MS - (now - startedAtRef.current)) / 1000));
+          return;
+        }
+        const sinceSpeech = now - lastSpeechRef.current;
+        setSpeaking(sinceSpeech < 400); // "speaking" if a voice frame landed very recently
+        if (sinceSpeech >= SILENCE_MS) { stopRecording(); return; }
+        setSecondsLeft(Math.ceil((SILENCE_MS - sinceSpeech) / 1000));
       }, 200);
 
-      // Fixed 5-second capture window.
-      maxTimerRef.current = setTimeout(() => stopRecording(), RECORD_WINDOW_MS);
+      // Hard safety ceiling in case the interval is throttled (backgrounded tab).
+      maxTimerRef.current = setTimeout(() => stopRecording(), MAX_WINDOW_MS);
     } catch (error) {
       teardownAudioGraph();
       releaseStream();
@@ -295,7 +333,7 @@ const VoiceRecognition = ({
             >
               <div className="flex items-center gap-2 text-emerald-400">
                 <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-lg font-semibold tracking-wide">Listening…</span>
+                <span className="text-lg font-semibold tracking-wide">{speaking ? 'Listening…' : 'Waiting for speech…'}</span>
               </div>
 
               <canvas
@@ -306,7 +344,9 @@ const VoiceRecognition = ({
               />
 
               <div className="text-emerald-300/80 text-sm">
-                Auto-stops in <span className="font-bold text-emerald-300">{secondsLeft}s</span> — speak now
+                {speaking
+                  ? 'Keep talking — auto-stops 5s after you finish'
+                  : <>Auto-stops in <span className="font-bold text-emerald-300">{secondsLeft}s</span></>}
               </div>
 
               <button

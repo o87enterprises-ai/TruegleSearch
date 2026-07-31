@@ -75,10 +75,15 @@ function extractContent(chatResponse) {
 // Fetch citation material for a query: top links+videos from a general
 // search, plus a small image strip — in parallel, independently gradeful
 // when either call fails or comes back empty.
-async function fetchCitations(query, backendMode) {
+// True when a promise rejected because its AbortController was aborted (axios
+// cancel or a fetch AbortError) — i.e. the user hit Stop, not a real failure.
+const isAbortError = (e) =>
+  e?.code === 'ERR_CANCELED' || e?.name === 'CanceledError' || e?.name === 'AbortError';
+
+async function fetchCitations(query, backendMode, signal) {
   const [webRes, imgRes] = await Promise.allSettled([
-    api.post('/search', { query, mode: backendMode, filters: { category: 'all', perPage: 10 } }),
-    api.post('/search', { query, mode: backendMode, filters: { category: 'images', perPage: 6 } }),
+    api.post('/search', { query, mode: backendMode, filters: { category: 'all', perPage: 10 } }, { signal }),
+    api.post('/search', { query, mode: backendMode, filters: { category: 'images', perPage: 6 } }, { signal }),
   ]);
 
   const webResults = webRes.status === 'fulfilled' ? (webRes.value.data.results || []) : [];
@@ -342,6 +347,7 @@ export default function TruegleChat() {
   const endRef = useRef(null);
   const lastMessageRef = useRef(null); // the newest message bubble — see the scroll effect below
   const inputRef = useRef(null);
+  const abortRef = useRef(null); // in-flight send's AbortController (Stop button)
   const isAuthed = !!localStorage.getItem('truegle_token');
   const accent = getModeAccent(primaryMode);
 
@@ -468,7 +474,15 @@ export default function TruegleChat() {
     const history = messages
       .filter((m) => m.id !== 1)
       .map((m) => ({ role: m.role, content: m.content }));
-    setMessages((prev) => [...prev, { id: Date.now(), role: 'user', content: query, citations: null, image: image?.dataUrl || null }]);
+    // Abortable send: the Stop button (shown while thinking) cancels this and
+    // rolls the accidental turn back — the user message is removed and its text
+    // is restored to the input so it can be edited or discarded.
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const userMsgId = Date.now();
+    let aborted = false;
+
+    setMessages((prev) => [...prev, { id: userMsgId, role: 'user', content: query, citations: null, image: image?.dataUrl || null }]);
     setInput('');
     setAttachedImage(null); // one-shot — attaches to this turn only
     setLoading(true);
@@ -483,42 +497,59 @@ export default function TruegleChat() {
     // normal chat so methodology questions still get answered.
     if (modes.includes('ocean')) {
       try {
-        const res = await api.post('/osint/investigate', { query });
+        const res = await api.post('/osint/investigate', { query }, { signal: controller.signal });
         const d = res.data;
         if (d?.report) {
           content = d.report;
           citations = (d.artifacts && d.artifacts.length) ? { links: d.artifacts } : null;
           graph = d.graph || null; // GraphiPy-style investigation graph
         }
-      } catch { /* fall through to chat below */ }
+      } catch (e) { if (isAbortError(e)) aborted = true; /* else fall through to chat below */ }
     }
 
-    if (content === undefined) {
+    if (content === undefined && !aborted) {
       // Search FIRST, then chat — the model needs the real results to ground
       // its answer in, not just a citations panel bolted on afterward with no
       // connection to what it actually says. An attached image is analyzed
       // directly by the model — a web-search citation lookup doesn't apply
       // (and an empty-text query would just waste a request when the turn is
       // image-only).
-      citations = query ? await fetchCitations(query, MODE_TO_BACKEND_SEARCH[primaryMode]).catch(() => null) : null;
+      citations = query
+        ? await fetchCitations(query, MODE_TO_BACKEND_SEARCH[primaryMode], controller.signal)
+            .catch((e) => { if (isAbortError(e)) aborted = true; return null; })
+        : null;
       const searchResults = formatCitationsForPrompt(citations);
 
       // Pass the pill keys (blue/green/red/purple/ocean) as `modes` so the
       // backend blends each lens; `context` (primary) still keys cache/DB.
-      try {
-        const chatRes = await aiAPI.chat(query, {
-          context: MODE_TO_CONTEXT[primaryMode], modes, nepheshMode, verbose, history,
-          image: image?.dataUrl, searchResults,
-        });
-        content = extractContent(chatRes);
-      } catch {
-        content = "Sorry, I couldn't reach the AI just now — try again in a moment.";
+      if (!aborted) {
+        try {
+          const chatRes = await aiAPI.chat(query, {
+            context: MODE_TO_CONTEXT[primaryMode], modes, nepheshMode, verbose, history,
+            image: image?.dataUrl, searchResults,
+          }, { signal: controller.signal });
+          content = extractContent(chatRes);
+        } catch (e) {
+          if (isAbortError(e)) aborted = true;
+          else content = "Sorry, I couldn't reach the AI just now — try again in a moment.";
+        }
       }
     }
 
+    abortRef.current = null;
+    if (aborted) {
+      // Roll the cancelled turn back and hand its text back to the input.
+      setMessages((prev) => prev.filter((mm) => mm.id !== userMsgId));
+      setInput(query);
+      setLoading(false);
+      return;
+    }
     setMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', content, citations, graph }]);
     setLoading(false);
   };
+
+  // Stop button — abort the in-flight send (see handleSend's rollback).
+  const handleStop = () => { abortRef.current?.abort(); };
 
   // Silent transport: the landing page routes a first query here as /chat?q=…,
   // and the search bar's image-attach button routes here as ?hasImage=1 (with
@@ -817,11 +848,14 @@ export default function TruegleChat() {
               animate={{ opacity: 1, y: 0 }}
               className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}
             >
-              <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                m.role === 'user'
-                  ? 'bg-white/10 text-white'
-                  : `bg-black/40 border ${accent.iframeBorder} text-white/90`
-              }`}>
+              <div
+                className={`max-w-[85%] rounded-2xl px-4 py-3 select-text ${
+                  m.role === 'user'
+                    ? 'bg-white/10 text-white'
+                    : `bg-black/40 border ${accent.iframeBorder} text-white/90`
+                }`}
+                style={{ WebkitUserSelect: 'text', userSelect: 'text', WebkitTouchCallout: 'default' }}
+              >
                 {m.role === 'assistant' ? (
                   <div className="prose prose-invert prose-sm max-w-none [&_a]:text-inherit [&_a]:underline [&_a]:break-words">
                     <ReactMarkdown components={MD_COMPONENTS}>{linkifyBareUrls(m.content)}</ReactMarkdown>
@@ -883,12 +917,22 @@ export default function TruegleChat() {
               input reappear directly below the finalized response — never
               pinned to the page bottom. */}
           {loading ? (
-            <div className="flex justify-start">
-              <div className={`rounded-2xl px-4 py-3 bg-black/40 border ${accent.iframeBorder} flex items-center gap-2`}>
-                <span className={`w-2 h-2 rounded-full animate-bounce ${accent.count}`} style={{ backgroundColor: 'currentColor', animationDelay: '0ms' }} />
-                <span className={`w-2 h-2 rounded-full animate-bounce ${accent.count}`} style={{ backgroundColor: 'currentColor', animationDelay: '150ms' }} />
-                <span className={`w-2 h-2 rounded-full animate-bounce ${accent.count}`} style={{ backgroundColor: 'currentColor', animationDelay: '300ms' }} />
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex justify-start w-full">
+                <div className={`rounded-2xl px-4 py-3 bg-black/40 border ${accent.iframeBorder} flex items-center gap-2`}>
+                  <span className={`w-2 h-2 rounded-full animate-bounce ${accent.count}`} style={{ backgroundColor: 'currentColor', animationDelay: '0ms' }} />
+                  <span className={`w-2 h-2 rounded-full animate-bounce ${accent.count}`} style={{ backgroundColor: 'currentColor', animationDelay: '150ms' }} />
+                  <span className={`w-2 h-2 rounded-full animate-bounce ${accent.count}`} style={{ backgroundColor: 'currentColor', animationDelay: '300ms' }} />
+                </div>
               </div>
+              {/* Stop — cancels an accidental send and restores the prompt. */}
+              <button
+                type="button"
+                onClick={handleStop}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors"
+              >
+                <X size={13} /> Stop
+              </button>
             </div>
           ) : (
             <motion.div
