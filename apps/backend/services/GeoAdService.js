@@ -5,8 +5,8 @@
 // $0. So we detect the visitor's country server-side and hand the frontend the
 // Adsterra zone mapped to that country (falling back to a global DEFAULT zone),
 // plus the CPM tier so the rest of the stack can prioritise the highest-value
-// traffic. Only the three highest-CPM formats are ever served: native banner,
-// social bar (in-page push) and popunder.
+// traffic. Only the native banner is served — the Social Bar and Popunder
+// formats were removed from the project (scareware creatives).
 //
 // Country detection order (no paid GeoIP DB, no per-request lookups on the hot
 // path): trust the edge/CDN header first — Cloudflare's `cf-ipcountry` and
@@ -29,12 +29,12 @@ try {
   console.error('GeoAdService: failed to load ad_zones.json, using empty config:', err.message);
 }
 
-// Env overrides for the DEFAULT (global fallback) zone, so keys can rotate
-// without a code change — mirrors how the frontend reads them from Vite env.
+// Env override for the DEFAULT (global fallback) native zone, so the key can
+// rotate without a code change. (The Social Bar + Popunder script formats were
+// removed from the project — scareware creatives — so only the native banner
+// zone is served.)
 const DEFAULT_ZONE = {
   nativeBanner: process.env.ADSTERRA_NATIVE_KEY || adZones.zones?.DEFAULT?.nativeBanner || null,
-  socialBar: process.env.ADSTERRA_SOCIAL_BAR_URL || adZones.zones?.DEFAULT?.socialBar || null,
-  popunder: process.env.ADSTERRA_POPUNDER_URL || adZones.zones?.DEFAULT?.popunder || null,
 };
 
 // Small in-memory cache for the ip-api fallback so we stay well under the free

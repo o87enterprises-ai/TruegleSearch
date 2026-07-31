@@ -16,7 +16,6 @@ import { TutorialProvider } from './context/TutorialContext';
 import { MapProvider } from './components/map';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { SettingsProvider } from './context/SettingsContext';
-import AdScriptLoader from './components/ads/AdScriptLoader';
 import RefCapture from './components/RefCapture';
 import FreemiumTokenBar from './components/ui/FreemiumTokenBar';
 import CookieConsent from './components/ui/CookieConsent';
@@ -156,10 +155,6 @@ const App = () => {
                       <a href="#main-content" className="skip-to-content">
                         Skip to main content
                       </a>
-                      {/* Loads the geo-targeted Social Bar (and popunder, if
-                          enabled) for the visitor's country — highest-CPM
-                          script formats. Native banner is rendered per-slot. */}
-                      <AdScriptLoader />
                       <RefCapture />
                       <FreemiumTokenBar />
                       {/* TODO(landing-flow): re-enable once the pill/chat mode

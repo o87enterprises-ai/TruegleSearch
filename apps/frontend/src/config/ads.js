@@ -14,18 +14,17 @@
  *
  *   VITE_AD_DOMAIN       host that serves Adsterra invoke.js
  *                        (default: millionairelucidlytransmitted.com)
- *   VITE_POP_SCRIPT_URL  full URL of the popunder script
  *
  * Until the custom domain is live, these default to Adsterra's direct domains,
  * which work for users without blockers and register real impressions.
+ *
+ * NOTE: the Social Bar (in-page push) and Popunder formats were REMOVED from the
+ * project — they served scareware / scam creatives that read as a malware
+ * takeover. Only the in-content native banner + the Smartlink offer link remain.
  */
 
 export const AD_DOMAIN =
   import.meta.env.VITE_AD_DOMAIN || 'millionairelucidlytransmitted.com';
-
-export const POP_SCRIPT_URL =
-  import.meta.env.VITE_POP_SCRIPT_URL ||
-  'https://millionairelucidlytransmitted.com/03/50/81/03508109c0353dafe874e4f377262a99.js';
 
 /**
  * Adsterra Smartlink — performance link that auto-matches offers to the visitor.
@@ -35,14 +34,6 @@ export const POP_SCRIPT_URL =
 export const SMARTLINK_URL =
   import.meta.env.VITE_SMARTLINK_URL ||
   'https://millionairelucidlytransmitted.com/g385gzr0?key=63a965f91d254672ac250654790b5b8c';
-
-/**
- * Adsterra Social Bar (In-Page Push) — zone 30006382.
- * Override with VITE_SOCIAL_BAR_SCRIPT_URL if the key changes.
- */
-export const SOCIAL_BAR_SCRIPT_URL =
-  import.meta.env.VITE_SOCIAL_BAR_SCRIPT_URL ||
-  'https://millionairelucidlytransmitted.com/f3/a9/76/f3a976b8789fcc63ba068a860561783b.js';
 
 /** Build the invoke.js URL for an Adsterra placement key via the active domain. */
 export const adInvokeUrl = (key) => `https://${AD_DOMAIN}/${key}/invoke.js`;
@@ -93,10 +84,9 @@ export const ADSTERRA = {
  * HIGHEST-CPM ONLY (per the revenue plan): every display-banner slot now
  * resolves to `nativeBanner`. The fixed-size display zones (728x90, 468x60,
  * 320x50, 300x250, 160x600) all earned ~$0 CPM in the 30-day Adsterra export,
- * so they've been retired from serving — native banner (top non-adult CPM,
- * on-brand) is served everywhere, alongside the script-loaded Social Bar and
- * popunder (see AdScriptLoader). AdsterraBanner coerces any legacy format to
- * native, so these mappings are advisory.
+ * so they've been retired from serving — the native banner (top non-adult CPM,
+ * on-brand) is the only format served. AdsterraBanner coerces any legacy format
+ * to native, so these mappings are advisory.
  */
 export const SLOT_FORMAT = {
   leaderboard728x90: 'nativeBanner',

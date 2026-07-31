@@ -7,8 +7,8 @@ const GeoAdService = require('../services/GeoAdService');
 
 /**
  * GET /api/ads/config
- * Returns { country, tier, isTier1, usingFallback, zones: { nativeBanner,
- * socialBar, popunder } } resolved from the request's country of origin.
+ * Returns { country, tier, isTier1, usingFallback, zones: { nativeBanner } }
+ * resolved from the request's country of origin.
  */
 router.get('/config', async (req, res) => {
   try {

@@ -22,7 +22,7 @@
  * half-configured network can never render a blank or broken slot.
  */
 
-import { ADSTERRA, SOCIAL_BAR_SCRIPT_URL, POP_SCRIPT_URL } from './ads';
+import { ADSTERRA } from './ads';
 
 const env = import.meta.env;
 const on = (v) => v === 'true';
@@ -35,12 +35,11 @@ export const AD_NETWORKS = {
     label: 'Adsterra',
     status: 'live',
     enabled: true,
-    // 'script' zones are a full <script src> URL; 'key' zones are an Adsterra
-    // placement key rendered via /adframe.html (see AdsterraBanner).
+    // 'key' zones are an Adsterra placement key rendered via /adframe.html (see
+    // AdsterraBanner). The Social Bar + Popunder script formats were removed from
+    // the project (scareware creatives), so only the native banner remains.
     zones: {
       native: { type: 'key', value: ADSTERRA.nativeBanner?.key || '' },
-      socialBar: { type: 'script', value: SOCIAL_BAR_SCRIPT_URL || '' },
-      popunder: { type: 'script', value: POP_SCRIPT_URL || '' },
     },
   },
 

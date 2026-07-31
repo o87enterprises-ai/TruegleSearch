@@ -1,15 +1,16 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { ADSTERRA, SOCIAL_BAR_SCRIPT_URL, POP_SCRIPT_URL } from '../config/ads';
+import { ADSTERRA } from '../config/ads';
 import api from '../services/api';
 
 // Ad geo-targeting context. Fetches the server-resolved, country-of-origin ad
-// config once (GET /api/ads/config) and exposes the highest-CPM Adsterra zones
-// for the visitor's region: native banner key, social bar + popunder script
-// URLs, the CPM tier, and whether we're on the global fallback zone.
+// config once (GET /api/ads/config) and exposes the native banner zone key for
+// the visitor's region, the CPM tier, and whether we're on the global fallback.
 //
-// Everything defaults to the static global zones from config/ads.js, so ads
-// keep working before the fetch resolves (and in prerender/tests, where there
-// is no provider or network).
+// (The Social Bar and Popunder script formats were removed from the project —
+// scareware creatives — so only the native banner zone is exposed here.)
+//
+// Defaults to the static global zone from config/ads.js, so ads keep working
+// before the fetch resolves (and in prerender/tests, where there is no network).
 const STATIC_DEFAULT = {
   country: 'ZZ',
   tier: 'tier3',
@@ -17,8 +18,6 @@ const STATIC_DEFAULT = {
   usingFallback: true,
   zones: {
     nativeBanner: ADSTERRA.nativeBanner?.key || null,
-    socialBar: SOCIAL_BAR_SCRIPT_URL,
-    popunder: POP_SCRIPT_URL,
   },
 };
 
