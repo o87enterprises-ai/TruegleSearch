@@ -208,6 +208,21 @@ export default function UniversalSearch({ lockedGreen = false }) {
     }
   }, [lensSig]); // intentionally lens-only: re-summarize on lens change, not on every result update
 
+  // Question queries auto-open the AI answer (results stay put) — the user asked
+  // a question, so surface the answer instead of the Show/No-Summary prompt.
+  // Only when they haven't already made a choice this session (null), and never
+  // in Summarize/OSINT modes (which have no summary card).
+  useEffect(() => {
+    if (
+      queryIsQuestion &&
+      mode !== 'green' && mode !== 'ocean' &&
+      searchResults.length > 0 &&
+      sessionSummaryChoice === null
+    ) {
+      setSessionSummaryChoice('show');
+    }
+  }, [queryIsQuestion, searchResults.length, mode, sessionSummaryChoice]);
+
   // Purple mode: Perspective state
   const [selectedPerspectives, setSelectedPerspectives] = useState(['neutral']);
 
