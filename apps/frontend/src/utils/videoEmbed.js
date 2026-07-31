@@ -32,3 +32,31 @@ export function getVideoEmbed(url) {
     return null;
   }
 }
+
+// Direct-media file extensions the persistent mini-player can play natively.
+const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|wav|flac)(\?|#|$)/i;
+const VIDEO_EXT = /\.(mp4|webm|mov|m4v)(\?|#|$)/i;
+
+/**
+ * Classify a URL for the persistent pop-out mini-player.
+ * Returns { kind, src } or null if the URL isn't something we can keep playing.
+ *  - kind 'youtube' | 'vimeo' → an embeddable iframe src (youtube uses the
+ *    privacy-preserving youtube-nocookie host to match Truegle's no-tracking
+ *    stance).
+ *  - kind 'audio' | 'video' → a direct media file for a native <audio>/<video>.
+ */
+export function getPlayable(url) {
+  if (!url) return null;
+  const embed = getVideoEmbed(url);
+  if (embed) {
+    if (embed.includes('player.vimeo.com')) return { kind: 'vimeo', src: embed };
+    // Swap youtube.com/embed → youtube-nocookie.com/embed for the mini-player.
+    return { kind: 'youtube', src: embed.replace('www.youtube.com', 'www.youtube-nocookie.com') };
+  }
+  try {
+    const path = new URL(url).pathname;
+    if (AUDIO_EXT.test(path) || AUDIO_EXT.test(url)) return { kind: 'audio', src: url };
+    if (VIDEO_EXT.test(path) || VIDEO_EXT.test(url)) return { kind: 'video', src: url };
+  } catch { /* not a parseable URL */ }
+  return null;
+}

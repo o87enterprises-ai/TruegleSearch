@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2, X, Copy, Pencil, Check, Plus } from 'lucide-react';
+import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2, X, Copy, Pencil, Check, Plus, PictureInPicture2 } from 'lucide-react';
 import LandingBackground from '../components/LandingBackground';
 import VoiceRecognition from '../components/ui/VoiceRecognition';
 import CameraInput from '../components/ui/CameraInput';
@@ -12,8 +12,9 @@ import TruegleLogo from '../components/ui/TruegleLogo';
 import api, { aiAPI, shareAPI } from '../services/api';
 import { FREE_ACCESS_MODE } from '../config/access';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent, solidTextClass } from '../config/modeTheme';
-import { getVideoEmbed } from '../utils/videoEmbed';
+import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import { fmtStamp, fmtStampFull, msgTime } from '../utils/formatTime';
+import { usePlayer } from '../context/PlayerContext';
 import ChatShareButton from '../components/ui/ChatShareButton';
 import SponsoredAd from '../components/ads/SponsoredAd';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
@@ -189,6 +190,8 @@ function CopyButton({ text, accent, title = 'Copy' }) {
 function CitationChip({ result, accent }) {
   const [expanded, setExpanded] = useState(false);
   const videoEmbed = getVideoEmbed(result.url);
+  const playable = getPlayable(result.url);
+  const { play } = usePlayer();
   let domain = result.domain || '';
   try {
     domain = new URL(result.url).hostname.replace(/^www\./, '');
@@ -236,6 +239,16 @@ function CitationChip({ result, accent }) {
           >
             {expanded ? 'Close' : videoEmbed ? '▶ Play' : 'In app'}
           </button>
+          {playable && (
+            <button
+              type="button"
+              onClick={() => play({ ...playable, title: result.title || domain, pageUrl: result.url })}
+              title="Pop out — keep playing while you browse"
+              className={`p-1.5 rounded-lg hover:bg-white/10 ${accent.link} transition-colors`}
+            >
+              <PictureInPicture2 size={16} />
+            </button>
+          )}
         </div>
       </div>
       {expanded && (

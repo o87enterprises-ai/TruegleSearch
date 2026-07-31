@@ -12,6 +12,7 @@ import { TokenProvider } from './context/TokenContext';
 import { RewardsProvider } from './context/RewardsContext';
 import { AdGeoProvider } from './context/AdGeoContext';
 import { SearchModeProvider } from './context/SearchModeContext';
+import { PlayerProvider } from './context/PlayerContext';
 import { TutorialProvider } from './context/TutorialContext';
 import { MapProvider } from './components/map';
 import { ToastProvider } from './components/ui/ToastProvider';
@@ -50,6 +51,7 @@ import RouteBoundary from './components/ui/RouteBoundary';
 import PreProductionBanner from './components/ui/PreProductionBanner';
 import BrandBar from './components/ui/BrandBar';
 import PageClock from './components/ui/PageClock';
+import MiniPlayer from './components/ui/MiniPlayer';
 import SafeSearchLockModal from './components/ui/SafeSearchLockModal';
 import TutorialModal from './components/ui/TutorialModal';
 import { useTutorials } from './context/TutorialContext';
@@ -148,6 +150,7 @@ const App = () => {
           <RewardsProvider>
             <AdGeoProvider>
             <SearchModeProvider>
+              <PlayerProvider>
               <SettingsProvider>
                 <MapProvider>
                   <TutorialProvider>
@@ -168,6 +171,7 @@ const App = () => {
                   </TutorialProvider>
                 </MapProvider>
               </SettingsProvider>
+              </PlayerProvider>
             </SearchModeProvider>
             </AdGeoProvider>
           </RewardsProvider>
@@ -270,6 +274,7 @@ const AppContent = () => {
     <div id="main-content" className={containerClassNames}>
       <BrandBar />
       <PageClock />
+      <MiniPlayer />
       <PreProductionBanner />
       <SafeSearchLockModal />
       <TutorialModalRoot />
