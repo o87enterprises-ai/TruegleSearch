@@ -698,6 +698,14 @@
         "body": "Vids tab (MultimediaInterface Lightbox, shared by SearchResults/SearchPortal/BiasedResults/UniversalSearch) now has pop-out on YouTube embed + non-YT fallback via itemToSource() (videoId->youtube-nocookie). CreatorPage video + SearchBar (appears when player active, toggles expand/collapse, getRightPadding reserves 34px) also got it. ResultCard + CitationChip already had it. Fixes user report: played a song vid in Vids tab, no way to activate mini-player. Commit 1757fb7.",
         "ts": "2026-07-31",
         "created": "2026-07-31"
+      },
+      "no-propellerads-sw": {
+        "Id": "no-propellerads-sw",
+        "Type": "decision",
+        "Label": "Rejected PropellerAds service worker (sw1.js)",
+        "body": "PropellerAds sw1.js is a background service worker that importScripts remote code from 3nbf4.com (zoneId 11154100) and powers push-notification/popunder ads — same scareware genre as the removed Social Bar/Popunder. User chose NOT to add it (2026-07-31). Do not add PropellerAds SW; conflicts with privacy-first brand. Keep native banner + pursue cleaner networks (EthicalAds/Media.net/Ghost). If revisited, must stay gated/off by default.",
+        "ts": "2026-07-31",
+        "created": "2026-07-31"
       }
     },
     "entity": {
