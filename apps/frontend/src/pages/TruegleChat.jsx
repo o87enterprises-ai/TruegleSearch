@@ -191,7 +191,7 @@ function CitationChip({ result, accent }) {
   const [expanded, setExpanded] = useState(false);
   const videoEmbed = getVideoEmbed(result.url);
   const playable = getPlayable(result.url);
-  const { play } = usePlayer();
+  const { enqueue } = usePlayer();
   let domain = result.domain || '';
   try {
     domain = new URL(result.url).hostname.replace(/^www\./, '');
@@ -242,8 +242,8 @@ function CitationChip({ result, accent }) {
           {playable && (
             <button
               type="button"
-              onClick={() => play({ ...playable, title: result.title || domain, pageUrl: result.url })}
-              title="Pop out — keep playing while you browse"
+              onClick={() => enqueue({ ...playable, title: result.title || domain, pageUrl: result.url })}
+              title="Pop out — keep playing while you browse (adds to the queue if something's already playing)"
               className={`p-1.5 rounded-lg hover:bg-white/10 ${accent.link} transition-colors`}
             >
               <PictureInPicture2 size={16} />
