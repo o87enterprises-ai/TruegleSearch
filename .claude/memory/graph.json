@@ -666,6 +666,14 @@
         "body": "nepheshPrompts.js BASE_IDENTITY now carries MANDATE C (no rigid frameworks, stress-test anything, no circular validation, an equation is not its own proof, apply new premises honestly, engage alternatives on their own terms) + hardened MANDATE B against fabricating sources. Fixes user-reported circular-reasoning/fabrication/rigid-framework model failures. PROMPT_VERSION bumped to 2026-07-31. All modes inherit it.",
         "ts": "2026-07-31",
         "created": "2026-07-31"
+      },
+      "no-fabricated-calc-inputs": {
+        "Id": "no-fabricated-calc-inputs",
+        "Type": "decision",
+        "Label": "MANDATE C bans fabricated calculation inputs",
+        "body": "Real thread (solar-eclipse odds) showed model inventing per-variable probabilities, multiplying them, then revising the prior 100x 'because we observe it happened' and presenting as derived. Added MANDATE C bullet: never fabricate calc inputs, use only real measured/sourced values, if unknown say so + name what to measure, never reverse-engineer an input from the expected answer. PROMPT_VERSION 2026-07-31.2, commit 6f2acab. Backend on Vercel = redeploy to go live. Note: odds/fine-tuning Qs should use vs. TrueGLE mode (Null-Prime numeric-reconciliation ledger), not plain multi-lens blend.",
+        "ts": "2026-07-31",
+        "created": "2026-07-31"
       }
     },
     "entity": {
