@@ -690,6 +690,14 @@
         "body": "PlayerContext now reducer (current/queue/history/minimized); pop-out button = enqueue (idle plays now, busy appends). MiniPlayer.jsx: draggable header + overlay-during-gesture (stops iframe eating pointermove), resize grip (260-720px, 16:9), queue panel (prev/next/jump/remove + count badge), auto-advance native media onEnded. Media Session API wired for NATIVE audio/video only => background/screen-off playback + lock-screen controls; YouTube/Vimeo embeds CANNOT background-play (platform limit) - excluded by design. Default docked bottom-left raised 80px (BANNER_CLEARANCE) to clear pre-production banner. Commit a2bca07.",
         "ts": "2026-07-31",
         "created": "2026-07-31"
+      },
+      "popout-everywhere": {
+        "Id": "popout-everywhere",
+        "Type": "decision",
+        "Label": "Pop-out button on all inline players + search bar",
+        "body": "Vids tab (MultimediaInterface Lightbox, shared by SearchResults/SearchPortal/BiasedResults/UniversalSearch) now has pop-out on YouTube embed + non-YT fallback via itemToSource() (videoId->youtube-nocookie). CreatorPage video + SearchBar (appears when player active, toggles expand/collapse, getRightPadding reserves 34px) also got it. ResultCard + CitationChip already had it. Fixes user report: played a song vid in Vids tab, no way to activate mini-player. Commit 1757fb7.",
+        "ts": "2026-07-31",
+        "created": "2026-07-31"
       }
     },
     "entity": {
