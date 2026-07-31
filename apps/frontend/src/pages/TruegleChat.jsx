@@ -2,8 +2,11 @@ import { useState, useRef, useEffect, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2, X, Copy, Pencil, Check } from 'lucide-react';
+import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2, X, Copy, Pencil, Check, Plus } from 'lucide-react';
 import LandingBackground from '../components/LandingBackground';
+import VoiceRecognition from '../components/ui/VoiceRecognition';
+import CameraInput from '../components/ui/CameraInput';
+import FileInput from '../components/ui/FileInput';
 import CursorGlow from '../components/ui/CursorGlow';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import api, { aiAPI, shareAPI } from '../services/api';
@@ -348,6 +351,7 @@ export default function TruegleChat() {
   const lastMessageRef = useRef(null); // the newest message bubble — see the scroll effect below
   const inputRef = useRef(null);
   const abortRef = useRef(null); // in-flight send's AbortController (Stop button)
+  const [mediaOpen, setMediaOpen] = useState(false); // chat input: mic/camera/attach expander
   const isAuthed = !!localStorage.getItem('truegle_token');
   const accent = getModeAccent(primaryMode);
 
@@ -695,6 +699,47 @@ export default function TruegleChat() {
         </div>
       )}
       <div className={`flex items-end gap-2 rounded-2xl border ${accent.iframeBorder} bg-white/5 backdrop-blur-xl p-2`}>
+        {/* Input modes — mic / camera / attach, collapsed behind a "+" so the
+            chat box reads like a normal input. */}
+        <button
+          type="button"
+          onClick={() => setMediaOpen((v) => !v)}
+          aria-label={mediaOpen ? 'Hide input options' : 'More input options'}
+          aria-expanded={mediaOpen}
+          className="flex-shrink-0 w-8 h-8 mb-0.5 rounded-lg flex items-center justify-center text-white/40 hover:text-white/80 hover:bg-white/10 transition-colors"
+        >
+          <Plus size={18} className={`transition-transform ${mediaOpen ? 'rotate-45' : ''}`} />
+        </button>
+        {mediaOpen && (
+          <div className="flex items-center gap-0.5 mb-1 flex-shrink-0">
+            <VoiceRecognition
+              onTranscriptChange={(t) => setInput((prev) => (prev ? `${prev} ${t}` : t))}
+              size={16}
+            />
+            <CameraInput
+              onSearchSubmit={(dataUrl) => { if (dataUrl) { setAttachedImage({ dataUrl, name: 'Photo' }); setMediaOpen(false); } }}
+              size={16}
+            />
+            <FileInput
+              onFileSelect={(files) => {
+                const f = files?.[0];
+                if (!f?.file) return;
+                if (f.type?.startsWith('image/')) {
+                  const r = new FileReader();
+                  r.onload = (e) => { setAttachedImage({ dataUrl: e.target.result, name: f.name }); setMediaOpen(false); };
+                  r.readAsDataURL(f.file);
+                } else if (f.type?.startsWith('text/') || /\.(txt|md|csv|json)$/i.test(f.name)) {
+                  const r = new FileReader();
+                  r.onload = (e) => setInput((e.target.result || '').slice(0, 2000).trim());
+                  r.readAsText(f.file);
+                } else {
+                  setInput((prev) => (prev ? prev : f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ')));
+                }
+              }}
+              size={16}
+            />
+          </div>
+        )}
         <textarea
           ref={inputRef}
           rows={1}

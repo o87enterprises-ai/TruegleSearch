@@ -4,7 +4,7 @@ import {
   Image, Video, Users, DollarSign, Trophy, Music, ShoppingBag, Briefcase,
   BookOpen, Newspaper, Globe, Heart, Film, Mic, Code, Gamepad2, Utensils,
   Plane, Home, MapPin, Map, Star, Navigation, Phone, Clock, Mail, ExternalLink,
-  Camera, Paperclip, Shield, EyeOff, Eye, Play
+  Camera, Paperclip, Shield, EyeOff, Eye, Play, Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -801,6 +801,10 @@ const TRENDING_SUGGESTIONS = [
 ];
 
 export default function SearchBar({
+  // 'default' keeps the always-visible mic/camera/attach cluster; 'chat' reads
+  // like a normal search box — those inputs collapse behind a single "+" and
+  // the growing box is kept more compact.
+  variant = 'default',
   value,
   onChange,
   onSearch,
@@ -868,6 +872,8 @@ export default function SearchBar({
   const [isFocused, setIsFocused] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [localValue, setLocalValue] = useState(value || '');
+  // chat variant: whether the collapsed mic/camera/attach cluster is expanded.
+  const [mediaOpen, setMediaOpen] = useState(false);
   const [internalRedPillMode, setInternalRedPillMode] = useState(false);
   const [showPillWarning, setShowPillWarning] = useState(false);
   const [rememberRedPill, setRememberRedPill] = useState(false);
@@ -1218,9 +1224,10 @@ export default function SearchBar({
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
+    const cap = variant === 'chat' ? 132 : 240;
     el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 240)}px`;
-  }, [localValue]);
+    el.style.height = `${Math.min(el.scrollHeight, cap)}px`;
+  }, [localValue, variant]);
 
   // Design System: Input sizes aligned to 8px spacing grid
   const sizeConfig = {
@@ -1381,8 +1388,10 @@ const handleChange = useCallback((e) => {
     if (hasValue) padding += 40; // clear button space
     if (hasValue) padding += 40; // submit ("play") button space
 
-    // Account for media input components (mic, camera, file) - always present
-    padding += 120; // 3 icons * ~40px each
+    // Media input components (mic, camera, file). In the chat variant they're
+    // collapsed behind one "+" button, so reserve only that until expanded.
+    if (variant === 'chat') padding += mediaOpen ? 148 : 34;
+    else padding += 120; // 3 icons * ~40px each
 
     if (isLoading) padding += 32; // loader space
 
@@ -1589,7 +1598,9 @@ const handleChange = useCallback((e) => {
               paddingRight: getRightPadding(),
               letterSpacing: '0.025em',
               minHeight: `${config.boxHeightPx}px`,
-              maxHeight: '240px',
+              // chat variant stays closer to a single-line search box, scrolling
+              // internally sooner instead of growing into a tall block.
+              maxHeight: variant === 'chat' ? '132px' : '240px',
               lineHeight: '1.5',
               // Mode-themed glow. Values are stored in Tailwind underscore format
               // (shared with the className maps); convert to real CSS here so we
@@ -1689,8 +1700,22 @@ const handleChange = useCallback((e) => {
               )}
             </AnimatePresence>
 
+            {/* chat variant: collapse the media inputs behind a single "+" so the
+                bar reads like a normal search box (default variant shows them all). */}
+            {variant === 'chat' && (
+              <button
+                type="button"
+                onClick={() => setMediaOpen((v) => !v)}
+                aria-label={mediaOpen ? 'Hide input options' : 'More input options'}
+                aria-expanded={mediaOpen}
+                className="flex items-center justify-center w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-neutral-200 transition-colors"
+              >
+                <Plus size={config.iconSize - 4} className={`transition-transform ${mediaOpen ? 'rotate-45' : ''}`} />
+              </button>
+            )}
+
             {/* Media Input Components - Mic, Camera, File */}
-            <div className="flex items-center gap-1 ml-1 pl-2 border-l border-neutral-700/50">
+            <div className={`flex items-center gap-1 ml-1 pl-2 border-l border-neutral-700/50 ${variant === 'chat' && !mediaOpen ? 'hidden' : ''}`}>
               {/* Voice Recognition */}
               <VoiceRecognition
                 onTranscriptChange={(transcript) => {

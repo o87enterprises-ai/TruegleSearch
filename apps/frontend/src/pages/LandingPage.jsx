@@ -286,6 +286,9 @@ export default function LandingPage() {
                 document.body
               )}
               <SearchBar
+                // Chat pill = a chat box: declutter to a normal-search-box feel
+                // (mic/camera/attach behind a "+", more compact growth).
+                variant={pillMode === 'black' ? 'chat' : 'default'}
                 value={searchQuery}
                 onChange={(e) =>
                   setSearchQuery(typeof e === 'string' ? e : e.target.value)
