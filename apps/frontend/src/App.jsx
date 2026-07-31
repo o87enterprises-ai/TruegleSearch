@@ -49,6 +49,7 @@ import RootErrorBoundary from './components/ui/RootErrorBoundary';
 import RouteBoundary from './components/ui/RouteBoundary';
 import PreProductionBanner from './components/ui/PreProductionBanner';
 import BrandBar from './components/ui/BrandBar';
+import PageClock from './components/ui/PageClock';
 import SafeSearchLockModal from './components/ui/SafeSearchLockModal';
 import TutorialModal from './components/ui/TutorialModal';
 import { useTutorials } from './context/TutorialContext';
@@ -268,6 +269,7 @@ const AppContent = () => {
   return (
     <div id="main-content" className={containerClassNames}>
       <BrandBar />
+      <PageClock />
       <PreProductionBanner />
       <SafeSearchLockModal />
       <TutorialModalRoot />

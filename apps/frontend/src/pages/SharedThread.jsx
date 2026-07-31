@@ -8,6 +8,7 @@ import { shareAPI } from '../services/api';
 import { MODE_COLORS, MODE_LABELS, getModeAccent } from '../config/modeTheme';
 import { Citations } from './TruegleChat';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
+import { fmtStamp, fmtStampFull, msgTime } from '../utils/formatTime';
 
 // Read-only view of a shared Truegle conversation / OSINT investigation. Opens
 // the LIVE thread (messages + cited links/images/videos) from a shared link —
@@ -78,7 +79,7 @@ export default function SharedThread() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(i * 0.03, 0.3) }}
-                  className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}
+                  className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}
                 >
                   <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
                     m.role === 'user' ? 'bg-white/10 text-white' : `bg-black/40 border ${accent.iframeBorder} text-white/90`
@@ -93,6 +94,15 @@ export default function SharedThread() {
                     <Citations citations={m.citations} accent={accent} />
                     {m.graph && <InvestigationGraph graph={m.graph} accent={accent} />}
                   </div>
+                  {msgTime(m) && (
+                    <time
+                      dateTime={new Date(msgTime(m)).toISOString()}
+                      title={fmtStampFull(msgTime(m))}
+                      className="mt-1 px-1 text-[10px] text-white/30 tabular-nums select-none"
+                    >
+                      {fmtStamp(msgTime(m))}
+                    </time>
+                  )}
                 </motion.div>
               ))}
             </div>

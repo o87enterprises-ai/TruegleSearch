@@ -13,6 +13,7 @@ import api, { aiAPI, shareAPI } from '../services/api';
 import { FREE_ACCESS_MODE } from '../config/access';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent, solidTextClass } from '../config/modeTheme';
 import { getVideoEmbed } from '../utils/videoEmbed';
+import { fmtStamp, fmtStampFull, msgTime } from '../utils/formatTime';
 import ChatShareButton from '../components/ui/ChatShareButton';
 import SponsoredAd from '../components/ads/SponsoredAd';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
@@ -398,7 +399,7 @@ export default function TruegleChat() {
   }, [messages]);
 
   const resetThread = () => {
-    setMessages([{ id: Date.now(), role: 'assistant', content: MODE_WELCOME[primaryMode], citations: null }]);
+    setMessages([{ id: Date.now(), role: 'assistant', content: MODE_WELCOME[primaryMode], citations: null, createdAt: Date.now() }]);
     setShareUrl('');
   };
 
@@ -431,7 +432,7 @@ export default function TruegleChat() {
         title: messages.find((m) => m.role === 'user')?.content?.slice(0, 120) || 'Truegle conversation',
         messages: messages
           .filter((m) => m.id !== 1)
-          .map((m) => ({ role: m.role, content: m.content, citations: m.citations || null, graph: m.graph || null })),
+          .map((m) => ({ role: m.role, content: m.content, citations: m.citations || null, graph: m.graph || null, createdAt: msgTime(m) })),
       };
       const kind = modes.includes('ocean') ? 'investigation' : 'chat';
       const res = await shareAPI.create(kind, payload);
@@ -486,7 +487,7 @@ export default function TruegleChat() {
     const userMsgId = Date.now();
     let aborted = false;
 
-    setMessages((prev) => [...prev, { id: userMsgId, role: 'user', content: query, citations: null, image: image?.dataUrl || null }]);
+    setMessages((prev) => [...prev, { id: userMsgId, role: 'user', content: query, citations: null, image: image?.dataUrl || null, createdAt: userMsgId }]);
     setInput('');
     setAttachedImage(null); // one-shot — attaches to this turn only
     setLoading(true);
@@ -548,7 +549,7 @@ export default function TruegleChat() {
       setLoading(false);
       return;
     }
-    setMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', content, citations, graph }]);
+    setMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', content, citations, graph, createdAt: Date.now() }]);
     setLoading(false);
   };
 
@@ -919,7 +920,7 @@ export default function TruegleChat() {
               ref={i === messages.length - 1 ? lastMessageRef : undefined}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}
+              className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}
             >
               <div
                 className={`max-w-[85%] rounded-2xl px-4 py-3 select-text ${
@@ -981,6 +982,15 @@ export default function TruegleChat() {
                   </div>
                 )}
               </div>
+              {msgTime(m) && (
+                <time
+                  dateTime={new Date(msgTime(m)).toISOString()}
+                  title={fmtStampFull(msgTime(m))}
+                  className="mt-1 px-1 text-[10px] text-white/30 tabular-nums select-none"
+                >
+                  {fmtStamp(msgTime(m))}
+                </time>
+              )}
             </motion.div>
             </Fragment>
             );
