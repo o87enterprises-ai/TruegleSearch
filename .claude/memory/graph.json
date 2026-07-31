@@ -682,6 +682,14 @@
         "body": "PlayerContext (context/PlayerContext.jsx, usePlayer play/close/toggleMinimize) mounted ABOVE <Routes> + global MiniPlayer.jsx in AppContent (bottom-left, z-9996). Survives SPA nav because Routes remount (key=pathname) doesn't touch siblings. getPlayable(url) in utils/videoEmbed.js classifies youtube(nocookie)/vimeo/audio/video. Pop-out button (PictureInPicture2) in CitationChip (TruegleChat) + ResultCard (UniversalSearch). MVP: single source, no queue/drag. Also this session: per-message timestamps (createdAt + utils/formatTime.js msgTime/fmtStamp, shown in chat + shared threads) and PageClock.jsx persistent top-right clock. Commit 5ea3c70.",
         "ts": "2026-07-31",
         "created": "2026-07-31"
+      },
+      "mini-player-v2": {
+        "Id": "mini-player-v2",
+        "Type": "decision",
+        "Label": "Mini-player queue/drag/resize/media-session",
+        "body": "PlayerContext now reducer (current/queue/history/minimized); pop-out button = enqueue (idle plays now, busy appends). MiniPlayer.jsx: draggable header + overlay-during-gesture (stops iframe eating pointermove), resize grip (260-720px, 16:9), queue panel (prev/next/jump/remove + count badge), auto-advance native media onEnded. Media Session API wired for NATIVE audio/video only => background/screen-off playback + lock-screen controls; YouTube/Vimeo embeds CANNOT background-play (platform limit) - excluded by design. Default docked bottom-left raised 80px (BANNER_CLEARANCE) to clear pre-production banner. Commit a2bca07.",
+        "ts": "2026-07-31",
+        "created": "2026-07-31"
       }
     },
     "entity": {
