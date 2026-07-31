@@ -4,7 +4,7 @@ import {
   Image, Video, Users, DollarSign, Trophy, Music, ShoppingBag, Briefcase,
   BookOpen, Newspaper, Globe, Heart, Film, Mic, Code, Gamepad2, Utensils,
   Plane, Home, MapPin, Map, Star, Navigation, Phone, Clock, Mail, ExternalLink,
-  Camera, Paperclip, Shield, EyeOff, Eye, Play, Plus
+  Camera, Paperclip, Shield, EyeOff, Eye, Play, Plus, PictureInPicture2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +12,7 @@ import MapApiService from '../map/services/mapApi';
 import VoiceRecognition from './VoiceRecognition';
 import CameraInput from './CameraInput';
 import FileInput from './FileInput';
+import { usePlayer } from '../../context/PlayerContext';
 
 /**
  * Search Categories Configuration
@@ -874,6 +875,9 @@ export default function SearchBar({
   const [localValue, setLocalValue] = useState(value || '');
   // chat variant: whether the collapsed mic/camera/attach cluster is expanded.
   const [mediaOpen, setMediaOpen] = useState(false);
+  // Persistent pop-out player: show a quick access/expand button in the bar
+  // whenever something is loaded in the mini-player.
+  const { current: playerCurrent, minimized: playerMinimized, toggleMinimize: togglePlayer } = usePlayer();
   const [internalRedPillMode, setInternalRedPillMode] = useState(false);
   const [showPillWarning, setShowPillWarning] = useState(false);
   const [rememberRedPill, setRememberRedPill] = useState(false);
@@ -1393,6 +1397,7 @@ const handleChange = useCallback((e) => {
     if (variant === 'chat') padding += mediaOpen ? 148 : 34;
     else padding += 120; // 3 icons * ~40px each
 
+    if (playerCurrent) padding += 34; // pop-out player access button
     if (isLoading) padding += 32; // loader space
 
     // Account for any custom right icons if provided
@@ -1622,6 +1627,21 @@ const handleChange = useCallback((e) => {
             className="absolute right-4 flex items-center gap-2 z-10"
             style={{ top: config.boxHeightPx / 2, transform: 'translateY(-50%)' }}
           >
+            {/* Pop-out player quick-access — appears whenever the mini-player
+                has a source; taps to expand/collapse it so it's always
+                reachable from the search bar. */}
+            {playerCurrent && (
+              <button
+                type="button"
+                onClick={togglePlayer}
+                title={playerMinimized ? 'Show pop-out player' : 'Hide pop-out player'}
+                aria-label="Toggle pop-out player"
+                className={`p-1.5 rounded-lg transition-colors ${playerMinimized ? 'text-cyan-400 hover:text-cyan-300 hover:bg-white/10' : 'text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25'}`}
+              >
+                <PictureInPicture2 size={config.iconSize - 2} />
+              </button>
+            )}
+
             {/* Loading Indicator */}
             <AnimatePresence>
               {isLoading && (

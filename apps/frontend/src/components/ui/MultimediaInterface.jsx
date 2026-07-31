@@ -17,8 +17,20 @@ import {
   Star,
   GitFork,
   Code,
+  PictureInPicture2,
 } from 'lucide-react';
 import SocialEmbed from './SocialEmbed';
+import { getPlayable } from '../../utils/videoEmbed';
+import { usePlayer } from '../../context/PlayerContext';
+
+// Build a mini-player source from a multimedia item (YouTube videoId or a
+// direct/embeddable url). Returns null when the item can't be played.
+function itemToSource(item) {
+  const base = getPlayable(item.url)
+    || (item.videoId ? { kind: 'youtube', src: `https://www.youtube-nocookie.com/embed/${item.videoId}` } : null);
+  if (!base) return null;
+  return { ...base, title: item.title || item.author || 'Now playing', pageUrl: item.url, poster: item.thumbnail };
+}
 
 // Platforms with a stable, no-login, no-API-key embed widget. Facebook and
 // Instagram gate their oEmbed behind app-review tokens, so they stay as
@@ -935,6 +947,8 @@ function AudioList({ audio }) {
 
 // Lightbox Component
 function Lightbox({ item, onClose, category }) {
+  const { enqueue } = usePlayer();
+  const playerSource = itemToSource(item);
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1014,6 +1028,15 @@ function Lightbox({ item, onClose, category }) {
                   {item.snippet && <p className="text-white/60 text-xs mt-2 line-clamp-3">{item.snippet}</p>}
                 </div>
                 <div className="flex gap-2 shrink-0">
+                  {playerSource && (
+                    <button
+                      onClick={() => { enqueue(playerSource); onClose(); }}
+                      className="p-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white transition-all"
+                      title="Pop out — keep playing while you browse"
+                    >
+                      <PictureInPicture2 size={16} />
+                    </button>
+                  )}
                   <a
                     href={item.url}
                     target="_blank"
@@ -1046,14 +1069,25 @@ function Lightbox({ item, onClose, category }) {
               <img src={item.thumbnail} alt={item.title} className="w-full rounded-xl mb-4 object-cover max-h-64" />
             )}
             <p className="text-white/60 text-sm mb-4">{item.snippet}</p>
-            <a
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition-all"
-            >
-              <ExternalLink size={16} /> Watch Video
-            </a>
+            <div className="flex items-center gap-2 flex-wrap">
+              {playerSource && (
+                <button
+                  onClick={() => { enqueue(playerSource); onClose(); }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition-all"
+                  title="Pop out — keep playing while you browse"
+                >
+                  <PictureInPicture2 size={16} /> Pop out player
+                </button>
+              )}
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition-all"
+              >
+                <ExternalLink size={16} /> Watch Video
+              </a>
+            </div>
           </div>
         ) : (
           // Image Lightbox
