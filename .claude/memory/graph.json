@@ -658,6 +658,14 @@
         "body": "Additive variant='chat' on SearchBar (default unchanged): mic/camera/attach collapse behind a single '+' (mediaOpen state), growth capped 132px (vs 240) so it reads like a normal search box, getRightPadding adjusted. LandingPage passes variant='chat' when pillMode==='black'. /chat page (TruegleChat) has its OWN input (not SearchBar) — added VoiceRecognition/CameraInput/FileInput behind a '+' there too (image->attachedImage, text->input, voice->input). All existing SearchBar callers unaffected (default variant). STILL OPEN: chat-modes refusal (user gathering examples).",
         "ts": "2026-07-31",
         "created": "2026-07-31"
+      },
+      "mandate-c-indifference": {
+        "Id": "mandate-c-indifference",
+        "Type": "decision",
+        "Label": "MANDATE C added to BASE_IDENTITY",
+        "body": "nepheshPrompts.js BASE_IDENTITY now carries MANDATE C (no rigid frameworks, stress-test anything, no circular validation, an equation is not its own proof, apply new premises honestly, engage alternatives on their own terms) + hardened MANDATE B against fabricating sources. Fixes user-reported circular-reasoning/fabrication/rigid-framework model failures. PROMPT_VERSION bumped to 2026-07-31. All modes inherit it.",
+        "ts": "2026-07-31",
+        "created": "2026-07-31"
       }
     },
     "entity": {
