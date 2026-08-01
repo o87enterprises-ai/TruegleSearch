@@ -54,7 +54,16 @@ export function getPlayable(url) {
     return { kind: 'youtube', src: embed.replace('www.youtube.com', 'www.youtube-nocookie.com') };
   }
   try {
-    const path = new URL(url).pathname;
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, '');
+    // SoundCloud → official widget player (full tracks, artist-friendly, no
+    // OAuth). src is the fully-built widget URL so the player renders it as-is.
+    if (host === 'soundcloud.com' || host.endsWith('.soundcloud.com')) {
+      const widget = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}`
+        + '&auto_play=true&hide_related=true&show_comments=false&show_user=true&visual=false';
+      return { kind: 'soundcloud', src: widget };
+    }
+    const path = u.pathname;
     if (AUDIO_EXT.test(path) || AUDIO_EXT.test(url)) return { kind: 'audio', src: url };
     if (VIDEO_EXT.test(path) || VIDEO_EXT.test(url)) return { kind: 'video', src: url };
   } catch { /* not a parseable URL */ }

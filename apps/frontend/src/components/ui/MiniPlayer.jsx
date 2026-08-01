@@ -95,7 +95,9 @@ export default function MiniPlayer() {
   if (!current) return null;
 
   const { kind, src, title } = current;
-  const isIframe = kind === 'youtube' || kind === 'vimeo';
+  const isVideoIframe = kind === 'youtube' || kind === 'vimeo';
+  const isSoundcloud = kind === 'soundcloud';
+  const isIframe = isVideoIframe || isSoundcloud;
   const clipWhenMin = (isIframe || kind === 'video') && minimized;
 
   const style = pos
@@ -147,7 +149,17 @@ export default function MiniPlayer() {
         {/* Media — kept mounted even while minimized (clipped to 0 height) so
             playback never stops. `key={src}` remounts on a source change. */}
         <div className={clipWhenMin ? 'max-h-0 overflow-hidden' : ''}>
-          {isIframe ? (
+          {isSoundcloud ? (
+            // SoundCloud widget URL already carries auto_play; fixed height.
+            <iframe
+              key={src}
+              src={src}
+              className="w-full block"
+              style={{ height: 166 }}
+              title={title || 'SoundCloud player'}
+              allow="autoplay"
+            />
+          ) : isVideoIframe ? (
             <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
               <iframe
                 key={src}
