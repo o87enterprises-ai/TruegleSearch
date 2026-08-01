@@ -58,12 +58,12 @@ TruegleSearch/
 ├── CLAUDE.md · AGENTS.md    standing instructions / OpenSpec pointer
 ├── HANDOFF.md               live cross-session state + 🔴 permanent facts
 ├── DEPLOYMENT-INFRA.md · DEV-SETUP.md · SERVICE-ACTIVATION.md
-├── railway.json · vercel-build (root package.json)
+├── package.json           root — npm workspaces manifest + vercel-build script
 └── PROJECT-BLUEPRINT.md     ← this file
 ```
 
 > **Housekeeping:** the old `*.backup / *.old / *.broken / *.bak / *.original.jsx` copies
-> (38 files) and the stale root `railway.json` were pruned (commit follows). Live routes
+> (38 files) and the stale root `railway.json` were pruned (commit `2199cff`). Live routes
 > are wired in `App.jsx` (§3).
 
 ---
@@ -183,8 +183,8 @@ in `HANDOFF.md`/memory (role `truegle`, db `truegle_dev`).
 - **Frontend build:** `npm run build:frontend` = `vite build && node scripts/prerender.mjs`
   → static SPA in `dist/` with prerendered route HTML (SEO) + localized snapshots.
   SPA route rule: a new client route needs both `public/_redirects` and `public/_headers`.
-- **Backend:** `node server.js` (Express); `apps/backend/vercel.json` for serverless; root
-  `railway.json` also present.
+- **Backend:** `node server.js` (Express); `apps/backend/vercel.json` for serverless.
+  No root `railway.json` — Railway is not used (its config was pruned in `2199cff`).
 - **Deploy targets:** frontend → **Vercel** (triggered on `main`); backend → **Vercel**
   serverless (`backend-seven-khaki-60.vercel.app`, config `apps/backend/vercel.json`).
   Railway is not used (its root config was removed). Private search (SearXNG) on an AWS
