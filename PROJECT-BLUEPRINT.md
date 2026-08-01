@@ -20,7 +20,7 @@
 | Data | PostgreSQL (migrations + seeds), in-memory caches in services |
 | AI / LLM | Multi-provider behind `UnifiedAIService`; **Groq is the live substrate** (branded TrueGLE) |
 | Search | Brave / SerpApi / self-hosted SearXNG (private) behind `SearchService` |
-| Build/deploy | Monorepo (npm workspaces); frontend → Vercel (prerendered SPA); backend → Vercel serverless (Railway config also present) |
+| Build/deploy | Monorepo (npm workspaces); frontend → Vercel (prerendered SPA); backend → Vercel serverless (`backend-seven-khaki-60.vercel.app`) |
 
 ---
 
@@ -62,10 +62,9 @@ TruegleSearch/
 └── PROJECT-BLUEPRINT.md     ← this file
 ```
 
-> **Housekeeping note:** `apps/frontend/src/pages/` carries many `*.backup / *.old /
-> *.broken` copies (BiasedResults, LandingPage, SearchPortal, OSINTMode, …). These
-> are dead weight and safe to prune in a cleanup pass — the live routes are wired in
-> `App.jsx` (§3).
+> **Housekeeping:** the old `*.backup / *.old / *.broken / *.bak / *.original.jsx` copies
+> (38 files) and the stale root `railway.json` were pruned (commit follows). Live routes
+> are wired in `App.jsx` (§3).
 
 ---
 
@@ -187,7 +186,9 @@ in `HANDOFF.md`/memory (role `truegle`, db `truegle_dev`).
 - **Backend:** `node server.js` (Express); `apps/backend/vercel.json` for serverless; root
   `railway.json` also present.
 - **Deploy targets:** frontend → **Vercel** (triggered on `main`); backend → **Vercel**
-  serverless. Private search (SearXNG) on an AWS EC2 t3.micro (`44.236.219.63`, us-west-2).
+  serverless (`backend-seven-khaki-60.vercel.app`, config `apps/backend/vercel.json`).
+  Railway is not used (its root config was removed). Private search (SearXNG) on an AWS
+  EC2 t3.micro (`44.236.219.63`, us-west-2).
 - **Prompt changes** ship with the backend deploy (in-memory prompt cache clears on fresh
   serverless instances — no manual clear needed on Vercel).
 - **Secrets:** `.env.example` documents keys (LLM providers, search APIs, maps, payments,
@@ -217,4 +218,3 @@ in `HANDOFF.md`/memory (role `truegle`, db `truegle_dev`).
 - **Ad-network onboarding:** Ghost (private beta — signup flaky), Media.net, EthicalAds.
 - **Nephesh self-host:** kit ready in `nephesh/`; blocked on a free host (runs on Groq
   substrate meanwhile).
-- **Cleanup:** prune `*.backup/*.old` page copies.
