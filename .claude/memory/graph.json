@@ -714,6 +714,22 @@
         "body": "Player = unified media player for audio+video the user brings (result cards / pasted link), source-agnostic via client-side embed adapters. Lives in global chrome above Routes (existing MiniPlayer), NOT a /player route. NO backend AggregationService (embeds are client-side, $0). NO AI auto-optimizing player metadata (fabrication risk vs Mandate B; show source metadata verbatim). Phase 1 shipped: SoundCloud adapter in getPlayable + MiniPlayer (commit after). Bandcamp deferred (needs server-side oEmbed for numeric embed id). Also cleaned 38 dead backup files + removed stale railway.json (backend=Vercel confirmed). NOTE: backend is Express/Node, NOT FastAPI.",
         "ts": "2026-08-01",
         "created": "2026-08-01"
+      },
+      "citation-engine": {
+        "Id": "citation-engine",
+        "Type": "decision",
+        "Label": "Citation engine = GitHub Actions, not backend",
+        "body": "Automated SEO/AEO/GEO engine lives in apps/backend/services/optimization/ but RUNS in .github/workflows/citation-engine.yml (daily). Reason: prod is Vercel serverless (no persistent process) + every citable page is a static Cloudflare-build file, so autopilot=generate+commit+PR (git loop). Publishes 1 evergreen page/day: anon search_queries trending RANKS the vetted keywordUniverse (raw/personal queries never published), draft via free fallback router (Groq>Gemini>NVIDIA, Postgres quota), quality-gated, serialized to build-safe blogPosts.jsx+sitemap.xml+llms.txt. AI prompts untouched (engine has own prompts.js). Publish=PR+manual-merge for now; flip to gh pr merge --auto later. Migration 017 (ai_quota_usage+citation_log). Verified: esbuild-compiles.",
+        "ts": "2026-08-01",
+        "created": "2026-08-01"
+      },
+      "citation-engine-budget": {
+        "Id": "citation-engine-budget",
+        "Type": "decision",
+        "Label": "Citation engine is $0",
+        "body": "Citation engine cost = $0: free AI tiers (Groq/Gemini/NVIDIA), GitHub Actions free tier (~2min/day job), Cloudflare Pages free build. No new paid infra. No Redis (used Postgres). No self-host box.",
+        "ts": "2026-08-01",
+        "created": "2026-08-01"
       }
     },
     "entity": {
@@ -958,6 +974,15 @@
         "status": "open",
         "ts": "2026-07-29",
         "created": "2026-07-29"
+      },
+      "citation-engine-secrets": {
+        "Id": "citation-engine-secrets",
+        "Type": "thread",
+        "Label": "Citation engine needs GitHub secrets (one-time)",
+        "body": "Before the citation engine can publish, add repo secrets in GitHub Settings>Secrets>Actions: GROQ_API_KEY (required), GEMINI_API_KEY + DATABASE_URL (recommended). Workflow supplies dummy values for the unrelated config/env.js required vars. Scheduled workflow only runs once merged to default branch; use workflow_dispatch (dry_run input) to test. Until secrets added, engine fails soft (no providers -> publishes nothing). Follow-up: once a few PRs land clean, flip PR+manual-merge to auto-merge-on-green (add gh pr merge --auto + branch protection requiring the JSX-validation check).",
+        "status": "open",
+        "ts": "2026-08-01",
+        "created": "2026-08-01"
       }
     }
   },

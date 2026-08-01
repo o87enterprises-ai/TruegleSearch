@@ -1,5 +1,53 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-07-15. Supersedes all prior handoff docs._
+_Last updated: 2026-08-01. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ SESSION LOG 2026-08-01 — Citation Engine: automated SEO/AEO/GEO on autopilot
+
+**Shipped (branch `claude/truegle-seo-aeo-geo-engine-ilvamq`):** a new, additive
+subsystem that auto-publishes **1 evergreen answer page/day** to earn organic
+citations (search engines + AI answer engines). Users stay anonymous; the AI
+modes/prompts/attribution are untouched (the engine has its OWN prompts).
+
+- **Where it lives:** `apps/backend/services/optimization/` (orchestrator,
+  topicSource, fallbackRouter + quotaTracker, agents/{seo,aeo,geo}, prompts,
+  qualityGate, serializer, publisher, citationLog, pulse, run.js, README).
+  Read-only status route `GET /api/optimization/pulse` (`routes/optimization.js`,
+  mounted in server.js). Migration `017_optimization_engine.sql`
+  (ai_quota_usage + citation_log). Driven by
+  `.github/workflows/citation-engine.yml` (daily cron + workflow_dispatch).
+- **The loop:** anonymous `search_queries` trending (personal queries filtered
+  out, never echoed) *ranks* the vetted keyword universe → pick uncovered topic
+  → draft via free-tier fallback router (Groq→Gemini→NVIDIA, circuit-broken,
+  Postgres quota) → AEO/GEO shaping → **quality gate** (≥650 words, brand phrase
+  in first 15 words, real FAQ, no fabricated citations/stats, no PII, valid
+  slug) → serialize to build-safe JSX → write blogPosts.jsx + sitemap.xml +
+  llms.txt → GitHub Action commits + opens a **PR (manual merge for now)** →
+  Cloudflare rebuilds → GPTBot/Perplexity/Google (already allow-listed) crawl.
+- **Key corrections to the DeepSeek plan (infra reality):** Go→Node;
+  Redis→Postgres; the "self-hosted Ollama, always-on priority 3" does NOT exist
+  (no self-host box) → real floor is Groq key-rotation + gate-skips-the-run;
+  "backend orchestrator on a 5-min setInterval" impossible on Vercel serverless
+  → GitHub Actions is the engine's home; content cadence dialed from "every 5
+  min" to 1/day (5-min would trigger scaled-content-abuse penalties).
+- **Verified (ponytail: booted it):** full pipeline run with a mock provider —
+  thin draft rejected after 3 attempts, good draft passed at 726 words with the
+  target phrase opening the answer + auto internal-links; generated blogPosts.jsx
+  **compiles cleanly via esbuild** (build-safe). Jest tests added for
+  serializer/qualityGate/agents. Workflow self-checks JSX before opening a PR.
+- **Decisions (from the user):** publish = PR + manual merge first, flip to
+  auto-merge-on-green later (documented in the engine README); cadence = 1/day;
+  topics = anonymized user demand + keyword map.
+- **⚠️ Manual step required (one-time):** add repo secrets `GROQ_API_KEY`
+  (+ optional `GEMINI_API_KEY`, `DATABASE_URL`) in GitHub → Settings → Secrets →
+  Actions. Until then the workflow finds no providers and publishes nothing
+  (fails soft). The scheduled workflow only runs once merged to the default
+  branch. See `apps/backend/services/optimization/README.md`.
+- **Next up (requested):** a production-readiness + security action plan
+  (autonomous DEFENSE + forensic attacker-evidence + authorized pentesting;
+  NOT hack-back/autonomous offense — illegal under CFAA, makes Truegle the
+  defendant).
 
 ---
 
