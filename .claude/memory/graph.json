@@ -706,6 +706,14 @@
         "body": "PropellerAds sw1.js is a background service worker that importScripts remote code from 3nbf4.com (zoneId 11154100) and powers push-notification/popunder ads — same scareware genre as the removed Social Bar/Popunder. User chose NOT to add it (2026-07-31). Do not add PropellerAds SW; conflicts with privacy-first brand. Keep native banner + pursue cleaner networks (EthicalAds/Media.net/Ghost). If revisited, must stay gated/off by default.",
         "ts": "2026-07-31",
         "created": "2026-07-31"
+      },
+      "player-phase1-scope": {
+        "Id": "player-phase1-scope",
+        "Type": "decision",
+        "Label": "Multi-source player: scope + Q&A decisions",
+        "body": "Player = unified media player for audio+video the user brings (result cards / pasted link), source-agnostic via client-side embed adapters. Lives in global chrome above Routes (existing MiniPlayer), NOT a /player route. NO backend AggregationService (embeds are client-side, $0). NO AI auto-optimizing player metadata (fabrication risk vs Mandate B; show source metadata verbatim). Phase 1 shipped: SoundCloud adapter in getPlayable + MiniPlayer (commit after). Bandcamp deferred (needs server-side oEmbed for numeric embed id). Also cleaned 38 dead backup files + removed stale railway.json (backend=Vercel confirmed). NOTE: backend is Express/Node, NOT FastAPI.",
+        "ts": "2026-08-01",
+        "created": "2026-08-01"
       }
     },
     "entity": {
@@ -979,5 +987,5 @@
       }
     }
   },
-  "updated": "2026-07-31"
+  "updated": "2026-08-01"
 }
