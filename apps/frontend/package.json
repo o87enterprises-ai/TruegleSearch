@@ -11,8 +11,9 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "NODE_OPTIONS='--max-old-space-size=4096' vite build && node scripts/prerender.mjs",
-    "vercel-build": "NODE_OPTIONS='--max-old-space-size=4096' vite build && node scripts/prerender.mjs",
+    "check:ads": "node scripts/check-ads.mjs",
+    "build": "npm run check:ads && NODE_OPTIONS='--max-old-space-size=4096' vite build && node scripts/prerender.mjs",
+    "vercel-build": "npm run check:ads && NODE_OPTIONS='--max-old-space-size=4096' vite build && node scripts/prerender.mjs",
     "lint": "eslint .",
     "lint:error": "eslint . --quiet",
     "preview": "vite preview"

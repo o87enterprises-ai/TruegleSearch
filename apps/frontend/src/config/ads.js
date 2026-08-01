@@ -1,6 +1,13 @@
 /**
  * Central Adsterra ad configuration — single source of truth for every ad slot.
  *
+ * 🔴 READ docs/AD-POLICY.md BEFORE CHANGING ANYTHING HERE.
+ *    - No ads on the landing page, ever.
+ *    - No popunders / social bars / push / interstitials, from any network, ever.
+ *    - Ad iframes stay sandboxed (AdsterraBanner AD_SANDBOX).
+ *    Enforced by `npm run check:ads`, which runs on every build.
+ *    FASTEST ROLLBACK for a bad zone: delete its key below and redeploy.
+ *
  * ANTI-ADBLOCK: Adsterra's tags load from third-party domains
  * (highperformanceformat.com / millionairelucidlytransmitted.com) that are on
  * the public ad/tracker blocklists used by Firefox ETP, Brave, and uBlock — so

@@ -304,6 +304,14 @@
         "body": "youtube.com/feeds/videos.xml gets hard rate-limited from Vercel + agent-proxy IPs (worked on cold call, blocks on repeats). Creator pages showed 'Videos unavailable'. FIX: backend routes/creators.js prefers YouTube Data API v3 (playlistItems on uploads playlist UU+channelId.slice(2)) when YOUTUBE_API_KEY env set on Vercel backend — reliable from datacenter, 1 unit/call, 10k/day free. RSS fallback now uses browser UA. Frontend creatorVideosFallback.js = build-time snapshot fallback (regen: node apps/frontend/scripts/seed-creator-videos.mjs, but throttled — only 2/10 seed at a time). PENDING USER: create free YOUTUBE_API_KEY (Google Cloud -> enable YouTube Data API v3 -> API key) + add to Vercel backend env -> all 10 creator pages reliable.",
         "ts": "2026-07-24",
         "created": "2026-07-24"
+      },
+      "ad-policy-no-landing-ads-sandbox": {
+        "Id": "ad-policy-no-landing-ads-sandbox",
+        "Type": "fact",
+        "Label": "AD POLICY: no landing ads, no popunders/social bars, ad iframes sandboxed",
+        "body": "2026-08-01 incident: landing-page Adsterra tag hijacked window.top to bulsis.net/go/1740870 — site unusable. ROOT CAUSE: ad iframes loaded same-origin /adframe.html with NO sandbox attr, giving the ad script window.top.location + parent DOM + site-wide click listeners. CSP cannot stop this. PERMANENT RULES (docs/AD-POLICY.md, enforced by 'npm run check:ads' on every build): (1) zero ads on LandingPage / '/' '/de' '/es' '/fr' '/nl' '/pt' — guard walks the whole import tree; (2) no popunder/social bar/push/interstitial from any network ever — only in-content nativeBanner + Smartlink <a href>; (3) AdsterraBanner AD_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox', NEVER allow-same-origin or allow-top-navigation*; (4) rollback a bad zone by deleting its key in apps/frontend/src/config/ads.js (Adsterra can never delete an ad unit).",
+        "ts": "2026-08-01",
+        "created": "2026-08-01"
       }
     },
     "decision": {

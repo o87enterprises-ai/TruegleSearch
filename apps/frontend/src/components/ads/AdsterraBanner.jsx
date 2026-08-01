@@ -31,6 +31,28 @@ const CONTEXT_KEYWORDS = {
 };
 
 /**
+ * Sandbox applied to EVERY ad iframe. This is the containment that stops an
+ * ad tag from taking over the site — do not weaken it (see docs/AD-POLICY.md).
+ *
+ *   allow-scripts                — the tag has to run to draw an ad.
+ *   allow-popups                 — a real CLICK on the creative opens the
+ *                                  advertiser. Harmless here: the frame can
+ *                                  only see clicks inside its own ~250px box.
+ *   allow-popups-to-escape-sandbox — the opened advertiser page runs unsandboxed.
+ *
+ * Deliberately NOT granted:
+ *   allow-same-origin       → the tag cannot reach window.parent's DOM, so it
+ *                             cannot inject a Social Bar / sticky overlay into
+ *                             the page, and cannot listen for clicks anywhere
+ *                             on the site (which is how popunders fire).
+ *   allow-top-navigation(-by-user-activation)
+ *                           → the tag cannot set window.top.location, which is
+ *                             what redirected visitors to bulsis.net/go/... and
+ *                             made the site unusable (2026-08-01).
+ */
+const AD_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox';
+
+/**
  * Renders ONE Adsterra placement inside an <iframe src="/adframe.html?...">.
  *
  * Loading via a real same-origin URL (not srcdoc) ensures Adsterra sees
@@ -157,6 +179,7 @@ export default function AdsterraBanner({
         width="100%"
         height={placement.h}
         scrolling="no"
+        sandbox={AD_SANDBOX}
         referrerPolicy="strict-origin-when-cross-origin"
         className={className}
         style={{ width: '100%', height: placement.h, border: 0, display: 'block', margin: '0 auto' }}
@@ -186,6 +209,7 @@ export default function AdsterraBanner({
           width={placement.w}
           height={placement.h}
           scrolling="no"
+          sandbox={AD_SANDBOX}
           referrerPolicy="strict-origin-when-cross-origin"
           style={{ border: 0, display: 'block' }}
         />

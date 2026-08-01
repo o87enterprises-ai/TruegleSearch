@@ -29,6 +29,14 @@ At the START of every session, before acting:
 ## 🔴 PERMANENT FACTS (do not re-derive, do not re-ask)
 - **Nephesh host:** NO free self-host box available (AWS free tier = 1 GB, OOMs; Oracle always-free used up; no home hardware/power/internet). Nephesh therefore runs on the **Groq free tier as substrate** — the Null-Prime mode prompts + attribution are applied at the `UnifiedAIService` layer, so responses are Nephesh-branded regardless of engine. Self-hosting is a later privacy upgrade (deploy kit ready in `nephesh/`). The AWS `searxng` t3.micro still can't host a model; give it a 1 GB swapfile for stability.
 - **EC2 access:** key is lost; use **EC2 Instance Connect** (browser) — no `.pem` recoverable. Box IP `44.236.219.63`, region **us-west-2 (Oregon)**, instance `i-0709a9d47e503384f`.
+- **AD POLICY (`docs/AD-POLICY.md`) — non-negotiable, build-enforced via `npm run check:ads`:**
+  (1) NO ads on the landing page (`/`, `/de|es|fr|nl|pt`), ever — not even in the footer.
+  (2) NO popunders / social bars / push / interstitials from ANY network, ever — only the
+  in-content native banner + Smartlink `<a href>`. (3) Ad iframes MUST keep
+  `sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"`; never grant
+  `allow-same-origin` or `allow-top-navigation*`. The missing sandbox on same-origin
+  `/adframe.html` is what let an ad redirect the whole tab to bulsis.net and brick the
+  site on 2026-08-01. CSP does not prevent this — only the sandbox does.
 - Adsterra API is dashboard-only; banner anti-adblock codes don't exist in this account; the adult toggle can't be disabled once on; Impact.com is closed until 50K/mo traffic. (Full detail in HANDOFF.md.)
 
 <!-- OPENSPEC:START -->

@@ -1,5 +1,7 @@
 import { cssDebug } from '../utils/cssDebug';
-import AdSlot from '../components/AdSlot';
+// 🚫 NO ADS ON THE LANDING PAGE. Do not import AdSlot / AdsterraBanner /
+// SponsoredAd / RewardAdSlot into this file or any component it renders.
+// See docs/AD-POLICY.md — enforced by `npm run check:ads` (runs on build).
 // MAIN LANDING PAGE ROUTE COMPONENT
 // This file is now the canonical LandingPage for route "/".
 // Please update your project imports to use this file for the landing page.
@@ -449,12 +451,10 @@ export default function LandingPage() {
             (Adsterra pays CPM, not the clicks the loop rewarded). Re-add when the
             program returns. */}
 
-        {/* Inline ad — landing page footer. First-party house ad: the active
-            Adsterra zones are adult-enabled at the network level and must never
-            render ungated on a public page (see config/ads.js). */}
-        <div className="py-8 px-4">
-          <AdSlot size="large" className="max-w-4xl mx-auto" />
-        </div>
+        {/* Landing-page ad slot REMOVED 2026-08-01 — the Adsterra tag hijacked
+            the top window (redirect to bulsis.net/go/...) and made the site
+            unusable for first-time visitors. The landing page stays ad-free
+            permanently; see docs/AD-POLICY.md. */}
 
         {/* Footer */}
         <footer className="py-12 px-4 border-t border-purple-500/20">

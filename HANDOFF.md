@@ -1,5 +1,28 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-07-15. Supersedes all prior handoff docs._
+_Last updated: 2026-08-01. Supersedes all prior handoff docs._
+
+---
+
+## 🔴🔴 AD POLICY — READ `docs/AD-POLICY.md` BEFORE ANY AD WORK
+
+**2026-08-01 incident:** the landing-page Adsterra tag hijacked the top window
+(`https://bulsis.net/go/1740870?...`) on load — visitors could not use the site
+at all. **Root cause:** ad iframes pointed at same-origin `/adframe.html` with
+**no `sandbox` attribute**, so the ad script had full access to our page
+(`window.top.location`, parent DOM, site-wide click listeners). CSP did not stop
+it and cannot.
+
+**Permanent rules (build fails on violation — `npm run check:ads`):**
+1. **No ads on the landing page**, ever — `/`, `/de`, `/es`, `/fr`, `/nl`, `/pt`.
+   The guard walks LandingPage's whole import tree, so nesting one won't pass.
+2. **No popunders / social bars / push / interstitials**, any network, ever.
+   Permitted: in-content native banner + Smartlink `<a href>`. That's it.
+3. **Every ad iframe keeps `sandbox={AD_SANDBOX}`** =
+   `allow-scripts allow-popups allow-popups-to-escape-sandbox`. **Never** add
+   `allow-same-origin` or `allow-top-navigation*` — those are the hijack.
+4. Fastest rollback for a bad zone: delete its key from
+   `apps/frontend/src/config/ads.js` and redeploy. Adsterra can never delete an
+   ad unit, so a bad zone is abandoned, never repaired.
 
 ---
 

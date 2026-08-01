@@ -48,10 +48,9 @@ export const AD_NETWORKS = {
     label: 'HilltopAds',
     status: 'pending-signup',
     enabled: on(env.VITE_HILLTOPADS_ENABLED),
+    // No popunder/push zones — banned formats, see docs/AD-POLICY.md.
     zones: {
-      popunder: { type: 'script', value: env.VITE_HILLTOPADS_POPUNDER_URL || '' },
       native: { type: 'script', value: env.VITE_HILLTOPADS_NATIVE_URL || '' },
-      push: { type: 'script', value: env.VITE_HILLTOPADS_PUSH_URL || '' },
       banner: { type: 'script', value: env.VITE_HILLTOPADS_BANNER_URL || '' },
     },
   },
@@ -73,11 +72,9 @@ export const AD_NETWORKS = {
     label: 'PropellerAds',
     status: 'pending-signup',
     enabled: on(env.VITE_PROPELLERADS_ENABLED),
+    // No popunder/push/interstitial zones — banned formats, see docs/AD-POLICY.md.
     zones: {
-      popunder: { type: 'script', value: env.VITE_PROPELLERADS_POPUNDER_URL || '' },
-      push: { type: 'id', value: env.VITE_PROPELLERADS_PUSH_ZONE || '' },
       native: { type: 'script', value: env.VITE_PROPELLERADS_NATIVE_URL || '' },
-      interstitial: { type: 'id', value: env.VITE_PROPELLERADS_INTERSTITIAL_ZONE || '' },
     },
   },
 
