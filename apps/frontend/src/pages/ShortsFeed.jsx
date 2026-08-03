@@ -170,12 +170,18 @@ function ShortCard({ item, active }) {
   const [copied, setCopied] = useState(false);
   const playerLink = item.source ? buildPlayerLink({ url: item.url, title: item.title }) : null;
 
-  const copyLink = () => {
+  // Same share as the mini-player: a Truegle /w link that opens the clip in
+  // our own sandboxed player, with a real title + thumbnail preview in
+  // whatever app it's pasted into. Native share sheet on mobile, clipboard
+  // everywhere else.
+  const shareLink = async () => {
     if (!playerLink) return;
-    navigator.clipboard.writeText(playerLink).then(() => {
+    try {
+      if (navigator.share) await navigator.share({ title: item.title, url: playerLink });
+      else await navigator.clipboard.writeText(playerLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    } catch { /* user dismissed the sheet */ }
   };
 
   return (
@@ -221,9 +227,17 @@ function ShortCard({ item, active }) {
         <div className="flex items-center gap-1 mt-2">
           {item.source && <QueueButton source={item.source} className="text-cyan-300" showLabel />}
           {playerLink && (
-            <button type="button" onClick={copyLink} title="Copy a safe Truegle player link"
-              className={`flex items-center justify-center w-9 h-9 rounded-lg hover:bg-white/10 transition-colors ${copied ? 'text-green-400' : 'text-white/50'}`}>
-              {copied ? <Check size={15} /> : <ShieldCheck size={15} />}
+            /* Title is distinct from the mini-player's own share button,
+               which shares the whole queue — this one shares just this clip. */
+            <button type="button" onClick={shareLink}
+              title="Share this clip — opens in Truegle's sandboxed player"
+              className={`flex items-center gap-1 px-2 h-9 rounded-lg border text-[11px] transition-colors ${
+                copied
+                  ? 'border-green-400/50 bg-green-400/10 text-green-300'
+                  : 'border-white/15 text-white/60 hover:text-white hover:bg-white/10'
+              }`}>
+              {copied ? <Check size={14} /> : <ShieldCheck size={14} />}
+              {copied ? 'Shared' : 'Share'}
             </button>
           )}
           <a href={item.url} target="_blank" rel="noopener noreferrer" title="Open original"

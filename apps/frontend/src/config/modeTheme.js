@@ -31,6 +31,12 @@ export const MODE_COLORS = {
   black: '#e5e7eb',
 };
 
+// The Truegle rainbow, for surfaces that belong to no single mode (landing,
+// shared player links). Used as a gradient border so the player still reads
+// as "ours" on a page that hasn't picked a colour.
+export const BRAND_GRADIENT =
+  'linear-gradient(135deg, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #a855f7)';
+
 export const MODE_LABELS = {
   blue: 'Mainstream',
   red: 'Rabbit Hole',

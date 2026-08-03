@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
+import { createContext, useContext, useReducer, useCallback, useMemo, useEffect } from 'react';
 
 // Global media-player state for the persistent pop-out mini-player. Lives ABOVE
 // <Routes> so the media node it drives (MiniPlayer) survives SPA navigation —
@@ -66,8 +66,41 @@ function reducer(s, a) {
   }
 }
 
+// The queue used to live only in memory, so anything that left the SPA — an
+// external link, a hard navigation — silently wiped a playlist the user had
+// just built. It's restored per-tab from sessionStorage instead.
+//
+// `blob:` sources (files added from the device) are dropped on save: an object
+// URL is only valid for the document that created it, so persisting one would
+// restore a queue entry that can never play.
+const QUEUE_KEY = 'truegle_player_queue';
+const persistable = (s) => !!s && typeof s.src === 'string' && !s.src.startsWith('blob:');
+
+function loadState() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(QUEUE_KEY) || 'null');
+    if (!saved) return INITIAL;
+    return {
+      ...INITIAL,
+      current: persistable(saved.current) ? saved.current : null,
+      queue: Array.isArray(saved.queue) ? saved.queue.filter(persistable) : [],
+    };
+  } catch {
+    return INITIAL;
+  }
+}
+
 export const PlayerProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(reducer, INITIAL);
+  const [state, dispatch] = useReducer(reducer, undefined, loadState);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(QUEUE_KEY, JSON.stringify({
+        current: persistable(state.current) ? state.current : null,
+        queue: state.queue.filter(persistable),
+      }));
+    } catch { /* private mode / quota — the queue just won't survive a reload */ }
+  }, [state.current, state.queue]);
 
   const play = useCallback((source) => dispatch({ type: 'play', source }), []);
   const enqueue = useCallback((source) => dispatch({ type: 'enqueue', source }), []);

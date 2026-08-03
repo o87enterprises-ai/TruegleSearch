@@ -420,6 +420,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
     try {
       const categoryMap = {
         pics: 'images',
+        reels: 'videos',   // filtered to short-form client-side after the fetch
         vids: 'videos',
         audio: 'web',
         soc: 'social',
@@ -501,10 +502,12 @@ export default function UniversalSearch({ lockedGreen = false }) {
       if (!response.ok) throw new Error(`Search error: ${response.status}`);
 
       const data = await response.json();
-      // "Reels/Shorts" maps to the backend's videos category, which returns
+      // "Reels/Shorts" — whether picked as a category pill or from the filter
+      // dropdown — maps to the backend's videos category, which returns
       // long-form too. Keep only what's actually short-form, otherwise the
       // filter is decorative.
-      const results = filters.category === 'reels'
+      const wantsShortForm = filters.category === 'reels' || activeCategory === 'reels';
+      const results = wantsShortForm
         ? (data.results || []).filter(isShortForm)
         : (data.results || []);
       setSearchResults(results);

@@ -22,12 +22,14 @@ import {
   Home,
   MapPin,
   Map,
+  Clapperboard,
 } from 'lucide-react';
 
 const categories = [
   { id: 'local', label: 'Local', icon: MapPin },
   { id: 'maps', label: 'Maps', icon: Map },
   { id: 'pics', label: 'Pics', icon: Image },
+  { id: 'reels', label: 'Reels', icon: Clapperboard },
   { id: 'vids', label: 'Vids', icon: Video },
   { id: 'soc', label: 'Soc', icon: Users },
   { id: 'finance', label: 'Finance', icon: DollarSign },

@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import QueueAddMenu from './QueueAddMenu';
 import { buildPlayerLink } from '../../utils/playerLink';
+import { MODE_COLORS, BRAND_GRADIENT } from '../../config/modeTheme';
+import { usePageMode, BRAND } from '../../hooks/usePageMode';
 
 // Persistent pop-out mini-player. Rendered ABOVE <Routes> (in AppContent) so
 // the media node it hosts is never unmounted on navigation — the source keeps
@@ -53,6 +55,14 @@ export default function MiniPlayer() {
     current, queue, history, minimized,
     next, prev, jump, removeFromQueue, close, toggleMinimize,
   } = usePlayer();
+  // The player floats over whatever page you're on, so it takes that page's
+  // colour — otherwise it reads as a foreign dark box sitting on top of the
+  // design (which is exactly how it looked on a phone).
+  const pageMode = usePageMode();
+  const accent = pageMode === BRAND ? null : (MODE_COLORS[pageMode] || MODE_COLORS.blue);
+  const ring = accent ? `${accent}8c` : BRAND_GRADIENT;   // 8c ≈ 55% alpha
+  const tint = accent ? `${accent}1f` : 'rgba(255,255,255,0.06)'; // 1f ≈ 12%
+
   const mediaRef = useRef(null);
   const drag = useRef(null);
   const saved = useRef(loadGeom());
@@ -198,22 +208,26 @@ export default function MiniPlayer() {
         />
       )}
 
+      {/* The 1.5px "ring" is a background, not a border, so the same code path
+          renders a flat mode colour and the brand gradient. Inner surface stays
+          translucent over it. */}
       <div
         data-mini
-        style={style}
-        className={`fixed z-[9996] max-w-[calc(100vw-1rem)] rounded-xl overflow-hidden bg-[#0d0d14]/95 backdrop-blur-xl shadow-2xl transition-shadow ${
-          adjust
-            ? 'border-2 border-cyan-400 shadow-[0_0_0_4px_rgba(34,211,238,0.15)]'
-            : 'border border-white/15'
-        } ${dragging ? 'select-none' : ''}`}
+        style={{
+          ...style,
+          background: adjust ? MODE_COLORS.ocean : ring,
+          padding: adjust ? 2.5 : 1.5,
+        }}
+        className={`fixed z-[9996] max-w-[calc(100vw-1rem)] rounded-xl shadow-2xl transition-shadow ${dragging ? 'select-none' : ''}`}
       >
+      <div className="rounded-[10px] overflow-hidden bg-[#0d0d14]/95 backdrop-blur-xl">
         {/* ── Grab bar. Thick on purpose: 44px tall, full width, with a visible
             grip so it reads as "hold here to move me". ── */}
         <div
           onPointerDown={startMove}
-          style={{ touchAction: 'none' }}
+          style={{ touchAction: 'none', background: adjust ? 'rgba(34,211,238,0.15)' : tint }}
           className={`flex items-center gap-1.5 px-2 min-h-[44px] border-b cursor-move ${
-            adjust ? 'bg-cyan-400/15 border-cyan-400/30' : 'border-white/10'
+            adjust ? 'border-cyan-400/30' : 'border-white/10'
           }`}
         >
           <GripHorizontal size={18} className={adjust ? 'text-cyan-300 shrink-0' : 'text-white/40 shrink-0'} />
@@ -302,7 +316,7 @@ export default function MiniPlayer() {
         )}
 
         {/* ── Transport row: prev / next / queue / add / share / adjust ── */}
-        <div className="flex items-center gap-0.5 px-1.5 py-1 border-t border-white/10 bg-black/20">
+        <div style={{ background: tint }} className="flex items-center gap-0.5 px-1.5 py-1 border-t border-white/10">
           <button type="button" onClick={prev} disabled={!history.length} title="Previous" className={ctrl}>
             <SkipBack size={16} />
           </button>
@@ -317,7 +331,10 @@ export default function MiniPlayer() {
           >
             <ListMusic size={16} />
             {queue.length > 0 && (
-              <span className="absolute top-0.5 right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-cyan-500 text-black text-[9px] font-bold leading-[14px] text-center">
+              <span
+                style={{ background: accent || '#e5e7eb' }}
+                className="absolute top-0.5 right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full text-black text-[9px] font-bold leading-[14px] text-center"
+              >
                 {queue.length}
               </span>
             )}
@@ -356,7 +373,7 @@ export default function MiniPlayer() {
         {/* Queue panel */}
         {showQueue && !minimized && (
           <div className="border-t border-white/10 bg-black/30">
-            {showAdd && <QueueAddMenu onClose={() => setShowAdd(false)} />}
+            {showAdd && <QueueAddMenu />}
             <div className="max-h-44 overflow-y-auto">
               {queue.length === 0 ? (
                 <div className="px-3 py-3 text-[11px] text-white/40">
@@ -396,6 +413,7 @@ export default function MiniPlayer() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </>
   );

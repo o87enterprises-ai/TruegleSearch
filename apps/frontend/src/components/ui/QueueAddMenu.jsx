@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
-import { HardDrive, Link2, Search, Loader2, Plus } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { HardDrive, Link2, Search, Loader2, Plus, Check } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { getPlayable } from '../../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../../utils/playerLink';
@@ -7,7 +7,15 @@ import { resolveShareInput, titleFromUrl } from '../../utils/playerLink';
 // The queue's "+" panel: three ways to feed the player.
 //   Device — a local file, played from an object URL. Never uploaded.
 //   Link   — a Truegle player link, or any URL the player can host.
-//   Search — text search filtered down to results that actually play in here.
+//   Search — live search, filtered down to results that actually play in here.
+//
+// Nothing in here closes the panel. Building a queue means adding several
+// things in a row, and auto-closing after the first one both broke that flow
+// and caused a real bug: the panel unmounted under the user's finger, so the
+// click that followed landed on whatever result card was underneath and
+// navigated the page away — taking the in-memory queue with it. Adds are
+// confirmed with a tick instead, and the queue now survives navigation
+// (see PlayerContext).
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 const TABS = [
@@ -16,15 +24,26 @@ const TABS = [
   { id: 'search', label: 'Search', icon: Search },
 ];
 
-export default function QueueAddMenu({ onClose }) {
-  const { enqueue, enqueueMany } = usePlayer();
+export default function QueueAddMenu() {
+  const { enqueueMany } = usePlayer();
   const [tab, setTab] = useState('search');
   const [linkText, setLinkText] = useState('');
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [added, setAdded] = useState(null);   // src of the last thing added
   const fileRef = useRef(null);
+  const abortRef = useRef(null);
+
+  // One place to add + confirm, so every path behaves identically and none of
+  // them unmount the panel.
+  const addSources = useCallback((sources, key) => {
+    if (!sources.length) return;
+    enqueueMany(sources);
+    setAdded(key ?? sources[0].src);
+    setTimeout(() => setAdded(null), 1600);
+  }, [enqueueMany]);
 
   // ── Device ──────────────────────────────────────────────────────────────
   // Object URLs are deliberately not revoked while the session lives: the
@@ -36,9 +55,8 @@ export default function QueueAddMenu({ onClose }) {
       return kind ? { kind, src: URL.createObjectURL(f), title: f.name, local: true } : null;
     }).filter(Boolean);
     if (!sources.length) { setError('No playable audio or video in that selection.'); return; }
-    enqueueMany(sources);
+    addSources(sources);
     setError('');
-    onClose?.();
   };
 
   // ── Link ────────────────────────────────────────────────────────────────
@@ -48,24 +66,27 @@ export default function QueueAddMenu({ onClose }) {
       setError("That link can't play in here yet — YouTube, Vimeo, SoundCloud, a direct audio/video file, or a Truegle player link.");
       return;
     }
-    enqueueMany(sources);
+    addSources(sources);
     setLinkText('');
     setError('');
-    onClose?.();
   };
 
   // ── Search ──────────────────────────────────────────────────────────────
-  const runSearch = useCallback((e) => {
-    e?.preventDefault();
-    const q = query.trim();
-    if (!q) return;
+  // Live: results propagate as you type. Debounced so a fast typist fires one
+  // request instead of ten, and the previous request is aborted so a slow
+  // early response can't overwrite a newer one.
+  const runSearch = useCallback((q) => {
+    abortRef.current?.abort();
+    if (q.length < 2) { setResults(null); setLoading(false); return; }
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     setError('');
-    setResults(null);
     fetch(`${BACKEND}/api/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: q, filters: { category: 'videos', bias: 'all', dateRange: 'any', perPage: 20 } }),
+      signal: controller.signal,
     })
       .then((r) => r.json())
       .then((d) => {
@@ -77,9 +98,17 @@ export default function QueueAddMenu({ onClose }) {
         }).filter(Boolean);
         setResults(playable);
       })
-      .catch(() => setError('Search is unreachable right now.'))
-      .finally(() => setLoading(false));
-  }, [query]);
+      .catch((e) => { if (e.name !== 'AbortError') setError('Search is unreachable right now.'); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+  }, []);
+
+  useEffect(() => {
+    const q = query.trim();
+    const id = setTimeout(() => runSearch(q), 300);
+    return () => clearTimeout(id);
+  }, [query, runSearch]);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const inputCls = 'flex-1 min-w-0 bg-black/40 border border-white/15 rounded-lg px-2.5 py-2 text-xs text-white placeholder-white/30 focus:outline-none focus:border-cyan-400/60';
   const goCls = 'px-3 py-2 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-200 text-xs hover:bg-cyan-500/30 transition-colors';
@@ -144,44 +173,62 @@ export default function QueueAddMenu({ onClose }) {
 
         {tab === 'search' && (
           <div>
-            <form onSubmit={runSearch} className="flex gap-1.5">
+            {/* No submit button: results arrive as you type. */}
+            <div className="relative">
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search for something to play"
-                className={inputCls}
+                placeholder="Start typing — results appear as you go"
+                aria-label="Search for something to play"
+                className={`${inputCls} w-full pr-8`}
               />
-              <button type="submit" className={goCls} disabled={loading}>
-                {loading ? <Loader2 size={14} className="animate-spin" /> : 'Go'}
-              </button>
-            </form>
+              {loading && (
+                <Loader2 size={14} className="animate-spin text-white/40 absolute right-2.5 top-1/2 -translate-y-1/2" />
+              )}
+            </div>
 
-            {results && results.length === 0 && (
+            {results && results.length === 0 && !loading && (
               <p className="mt-2 text-[11px] text-white/40">Nothing in those results can play in the Truegle player.</p>
             )}
 
             {results && results.length > 0 && (
               <div className="mt-2 max-h-48 overflow-y-auto -mx-1">
                 {results.map((r) => (
-                  <button
-                    key={r.pageUrl}
-                    type="button"
-                    onClick={() => { enqueue(r); onClose?.(); }}
-                    className="w-full flex items-center gap-2 px-1 py-1.5 rounded-lg hover:bg-white/10 text-left transition-colors"
-                  >
+                  <div key={r.pageUrl} className="flex items-center gap-2 px-1 py-1 rounded-lg hover:bg-white/5 transition-colors">
                     {r.poster
                       ? <img src={r.poster} alt="" className="w-10 h-7 rounded object-cover shrink-0"
                           onError={(e) => { e.target.style.visibility = 'hidden'; }} />
                       : <span className="w-10 h-7 rounded bg-white/10 shrink-0" />}
                     <span className="text-[11px] text-white/75 line-clamp-2 flex-1 min-w-0">{r.title}</span>
-                    <Plus size={14} className="text-white/40 shrink-0" />
-                  </button>
+                    {/* An explicit Add: the row itself is not a click target, so
+                        there is nothing here that can be mistaken for "open
+                        this result". stopPropagation keeps the tap inside the
+                        player. */}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); addSources([r], r.src); }}
+                      title="Add to queue"
+                      className={`shrink-0 flex items-center gap-1 pl-1.5 pr-2 h-8 rounded-lg border text-[11px] transition-colors ${
+                        added === r.src
+                          ? 'border-green-400/50 bg-green-400/10 text-green-300'
+                          : 'border-white/15 text-white/70 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      {added === r.src ? <Check size={13} /> : <Plus size={13} />}
+                      {added === r.src ? 'Added' : 'Add'}
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
           </div>
         )}
 
+        {added && tab !== 'search' && (
+          <p className="mt-2 flex items-center gap-1 text-[10px] text-green-300">
+            <Check size={11} /> Added to the queue.
+          </p>
+        )}
         {error && <p className="mt-2 text-[10px] text-amber-300/90 leading-tight">{error}</p>}
       </div>
     </div>

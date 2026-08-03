@@ -328,6 +328,14 @@
         "body": "public/_headers frame-src AND child-src had youtube.com/vimeo but NOT youtube-nocookie.com or w.soundcloud.com, so the mini-player's YouTube+SoundCloud embeds were blocked in production. Added youtube-nocookie.com, w.soundcloud.com, tiktok.com. Any new embed host needs BOTH directives updated or it silently fails to frame.",
         "ts": "2026-08-03",
         "created": "2026-08-03"
+      },
+      "queue-persist": {
+        "Id": "queue-persist",
+        "Type": "fact",
+        "Label": "Player queue persists in sessionStorage",
+        "body": "PlayerContext saves {current,queue} to sessionStorage key truegle_player_queue. blob: sources (device files) are stripped on save — object URLs are document-scoped and would restore unplayable entries. Fixes 'navigating away erased my playlist'.",
+        "ts": "2026-08-03",
+        "created": "2026-08-03"
       }
     },
     "decision": {
@@ -768,6 +776,14 @@
         "Type": "decision",
         "Label": "Live trending feed is sanitized before display",
         "body": "utils/sanitizeTrending.js masks profanity/adult/slurs with asterisks and DROPS entries containing PII (email/phone/SSN/card/street address/IPv4) — masking an email still advertises that someone searched a person, and a clickable pill would re-run that search. Entries >50% asterisks are dropped as noise. Masked pills navigate to the clean remainder (searchQuery), never the raw term. Catches leetspeak (sh1t/@ss), stretched letters (fuuuck) and self-censored (f*ck via consonant skeleton, only when a censor char is present so 'duck' is safe). Accepted false positive: 'dick'/'cock' mask surnames like Dick Cheney — over-masking is the cheaper error on a public landing page.",
+        "ts": "2026-08-03",
+        "created": "2026-08-03"
+      },
+      "player-page-themed": {
+        "Id": "player-page-themed",
+        "Type": "decision",
+        "Label": "Mini-player wears the current page's mode colour",
+        "body": "hooks/usePageMode.js derives the mode from the URL (landing + /w => BRAND, /chat => black, /search => ?mode=, /shorts => ocean, /extract => yellow, /creator/* => orange). MiniPlayer renders a 1.5px 'ring' as a BACKGROUND (not a border) with an inner surface div, so one code path handles both a flat mode colour and the BRAND_GRADIENT rainbow used on pages with no mode. Header/transport strips take a 12% tint, queue badge takes the accent.",
         "ts": "2026-08-03",
         "created": "2026-08-03"
       }

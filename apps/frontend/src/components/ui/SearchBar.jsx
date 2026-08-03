@@ -4,7 +4,7 @@ import {
   Image, Video, Users, DollarSign, Trophy, Music, ShoppingBag, Briefcase,
   BookOpen, Newspaper, Globe, Heart, Film, Mic, Code, Gamepad2, Utensils,
   Plane, Home, MapPin, Map, Star, Navigation, Phone, Clock, Mail, ExternalLink,
-  Camera, Paperclip, Shield, EyeOff, Eye, Play, Plus, PictureInPicture2
+  Camera, Paperclip, Shield, EyeOff, Eye, Play, Plus, PictureInPicture2, Clapperboard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -24,6 +24,7 @@ const searchCategories = [
   { id: 'local', label: 'Local', icon: MapPin },
   { id: 'maps', label: 'Maps', icon: Map },
   { id: 'pics', label: 'Pics', icon: Image },
+  { id: 'reels', label: 'Reels', icon: Clapperboard },
   { id: 'vids', label: 'Vids', icon: Video },
   { id: 'soc', label: 'Soc', icon: Users },
   { id: 'finance', label: 'Finance', icon: DollarSign },
