@@ -263,6 +263,7 @@ app.use('/api/osint-tools', require('./routes/osint-proxy'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/extract', require('./routes/extract'));
 app.use('/api/share', require('./routes/share'));
+app.use('/api/reels', require('./routes/reels'));
 
 // 404 handler
 app.use('*', (req, res) => {

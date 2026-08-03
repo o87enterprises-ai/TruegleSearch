@@ -164,17 +164,27 @@ function injectWatchPreview(html, url) {
     ? `Plus ${more} more, queued up. Opens in Truegle's sandboxed player — no tracking, and the embed can't redirect your tab.`
     : "Opens in Truegle's sandboxed player — no tracking, and the embed can't redirect your tab.";
 
+  const shareUrl = `${SITE}/w${url.search}`;
+  const image = previewImage(first);
+
   const meta = [
     ['og:title', title],
     ['og:description', description],
     ['og:type', 'video.other'],
-    ['og:url', `${SITE}/w${url.search}`],
-    ['og:image', previewImage(first)],
+    ['og:url', shareUrl],
+    ['og:image', image],
+    ['og:image:alt', `${title} — playing on Truegle`],
     ['og:site_name', 'Truegle'],
     ['twitter:card', 'summary_large_image'],
     ['twitter:title', title],
     ['twitter:description', description],
-    ['twitter:image', previewImage(first)],
+    ['twitter:image', image],
+    // Truegle's own marks, so a link pasted anywhere is attributable to us
+    // even where the platform only reads a subset of these.
+    ['twitter:site', '@truegle'],
+    ['twitter:label1', 'Plays in'],
+    ['twitter:data1', 'Truegle player'],
+    ['article:publisher', SITE],
   ];
 
   // Drop the shell's generic versions of anything we're about to set.
@@ -190,7 +200,30 @@ function injectWatchPreview(html, url) {
     })
     .join('');
 
-  out = out.replace('</head>', `${tags}</head>`);
+  // VideoObject schema — the machine-readable half of "embedded Truegle
+  // metadata". Crawlers that ignore OG (and search engines) still learn what
+  // the link is and that Truegle is the surface it plays on.
+  const schema = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'VideoObject',
+    name: title,
+    description,
+    thumbnailUrl: image,
+    url: shareUrl,
+    embedUrl: shareUrl,
+    publisher: {
+      '@type': 'Organization',
+      name: 'Truegle',
+      url: SITE,
+      logo: { '@type': 'ImageObject', url: `${SITE}/truegle.png` },
+    },
+    potentialAction: { '@type': 'WatchAction', target: shareUrl },
+  }).replace(/</g, '\\u003c'); // never let a title close the script tag
+
+  out = out.replace(
+    '</head>',
+    `${tags}<script type="application/ld+json">${schema}</script></head>`,
+  );
   out = out.replace(
     /<title>[\s\S]*?<\/title>/i,
     `<title>${escapeAttr(title)} · Truegle Player</title>`,

@@ -9,11 +9,6 @@
 //     and filtered rather than silently dropped.
 // Everything else short is caught by duration.
 
-// YouTube Shorts run to 3 minutes now and Reels to 90s, but a plain duration
-// cap that high sweeps in ordinary short videos. URL signals are authoritative;
-// duration is only the fallback, so it stays tight.
-export const SHORT_FORM_MAX_SECONDS = 90;
-
 /**
  * Normalize the assorted duration shapes the search backends return —
  * "0:45", "1:02:03", 45, "45", null — to seconds. Returns null if unknown.
@@ -51,14 +46,63 @@ export function shortFormPlatform(url) {
 }
 
 /**
- * True when a search result is short-form: an explicit Shorts/Reels/TikTok URL,
- * or a video short enough to behave like one.
+ * Is this result a REEL — genuinely short-form content from a short-form
+ * surface — rather than merely a short video?
+ *
+ * Duration alone is NOT enough and used to be the bug: a 90-second trailer,
+ * lyric video or news clip is a short video, not a Short. The feed filled up
+ * with ordinary YouTube uploads that happened to be brief. So membership is
+ * decided by the URL form, which is definitive:
+ *   youtube.com/shorts/…  ·  tiktok.com/…/video/…  ·  instagram.com/reel/…
+ *   facebook.com/reel/…
+ * Duration is only ever used as a tie-breaker on a result we already have a
+ * short-form marker for (see asReel).
  */
 export function isShortForm(result) {
-  if (!result) return false;
-  if (shortFormPlatform(result.url)) return true;
+  return !!shortFormPlatform(result?.url);
+}
+
+// A YouTube Short is reachable at BOTH /shorts/<id> and /watch?v=<id>, so a
+// Short surfaced by a search engine as a watch URL is indistinguishable from
+// an ordinary video by URL alone. When the uploader tagged it (#shorts is the
+// near-universal convention) AND it is short enough to be one, we can promote
+// it to its canonical /shorts/ form — at which point it is definitively a reel.
+//
+// Both conditions are required. The tag without the duration catches videos
+// *about* Shorts; the duration without the tag is the bug we just removed.
+const SHORTS_TAG = /#shorts?\b/i;
+const YOUTUBE_SHORT_MAX_SECONDS = 180; // YouTube's own Shorts ceiling
+
+function youtubeVideoId(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') return u.pathname.slice(1) || null;
+    if (host === 'youtube.com' || host.endsWith('.youtube.com')) {
+      if (u.pathname === '/watch') return u.searchParams.get('v');
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Normalize a search result into a reel, or return null if it isn't one.
+ * Promotes tagged, short-enough YouTube watch URLs to their /shorts/ form so
+ * the rest of the app sees one canonical shape.
+ */
+export function asReel(result) {
+  if (!result?.url) return null;
+  if (shortFormPlatform(result.url)) return result;
+
+  const id = youtubeVideoId(result.url);
+  if (!id) return null;
   const seconds = parseDurationSeconds(result.duration);
-  return seconds != null && seconds > 0 && seconds <= SHORT_FORM_MAX_SECONDS;
+  const tagged = SHORTS_TAG.test(`${result.title || ''} ${result.snippet || ''}`);
+  if (!tagged || seconds == null || seconds <= 0 || seconds > YOUTUBE_SHORT_MAX_SECONDS) return null;
+
+  return { ...result, url: `https://www.youtube.com/shorts/${id}` };
 }
 
 /** Short-form we can actually play inside Truegle (vs. merely link out to). */

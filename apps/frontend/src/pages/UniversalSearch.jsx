@@ -64,7 +64,7 @@ const LENS_MODES = ['blue', 'green', 'red', 'purple', 'ocean'];
 const MODE_TO_BACKEND = { blue: 'blue-pill', green: 'green', red: 'red-pill', purple: 'purple', ocean: 'ocean' };
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import QueueButton from '../components/ui/QueueButton';
-import { isShortForm } from '../utils/shortForm';
+import { isShortForm, asReel } from '../utils/shortForm';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
 // (mainstream, conspiracy, democratic, republican, nonpartisan, music, videos,
@@ -508,7 +508,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
       // filter is decorative.
       const wantsShortForm = filters.category === 'reels' || activeCategory === 'reels';
       const results = wantsShortForm
-        ? (data.results || []).filter(isShortForm)
+        ? (data.results || []).map(asReel).filter((r) => r && isShortForm(r))
         : (data.results || []);
       setSearchResults(results);
       setInstantAnswer(data.instantAnswer || null);
