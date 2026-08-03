@@ -7,7 +7,8 @@
 //   • Instagram / Facebook Reels — Meta gates oEmbed behind app review, so
 //     these stay link-out cards. Detected here so they can still be labelled
 //     and filtered rather than silently dropped.
-// Everything else short is caught by duration.
+// Nothing else qualifies. Membership is decided by the URL form, never by
+// duration — see isShortForm below for why.
 
 /**
  * Normalize the assorted duration shapes the search backends return —
