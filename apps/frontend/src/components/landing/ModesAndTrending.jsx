@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { TrendingUp, ArrowRight } from 'lucide-react';
+import { sanitizeTrendingList } from '../../utils/sanitizeTrending';
 
 // ── Mode showcase ────────────────────────────────────────────────────────────
 
@@ -133,12 +134,17 @@ function TrendingFeed() {
     fetch(`${BACKEND_URL}/api/search/trending`)
       .then((r) => r.json())
       .then((data) => {
-        if (data.trending && data.trending.length >= 4) {
+        // Live trending is built from real visitors' searches, so it is
+        // republished user content: mask profanity/adult terms and drop
+        // anything carrying personal information before it reaches the
+        // landing page. See utils/sanitizeTrending.js.
+        const safeTrending = sanitizeTrendingList(data.trending);
+        if (safeTrending.length >= 4) {
           // Merge live results with static so we always have ≥ 8 pills even
           // on a fresh deploy with no query history yet.
-          const liveQueries = new Set(data.trending.map((t) => t.query));
+          const liveQueries = new Set(safeTrending.map((t) => t.query));
           const fallback = TRENDING.filter((t) => !liveQueries.has(t.query));
-          setPool([...data.trending, ...fallback]);
+          setPool([...safeTrending, ...fallback]);
           setLive(true);
         }
       })
@@ -181,7 +187,7 @@ function TrendingFeed() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            onClick={() => navigate(`/search?mode=${item.mode}&q=${encodeURIComponent(item.query)}`)}
+            onClick={() => navigate(`/search?mode=${item.mode}&q=${encodeURIComponent(item.searchQuery || item.query)}`)}
             className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all hover:brightness-125 ${MODE_PILL[item.mode]}`}
           >
             {item.query}

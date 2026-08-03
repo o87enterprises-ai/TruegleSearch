@@ -65,10 +65,58 @@ refused with an explanation · queueing doesn't interrupt playback · full share
 → copy → reopen → both items restored round trip. `vite build` + `check:ads`
 clean.
 
-**Note:** `/w` is a client route with no prerender, so link *previews* in
-chat apps show the generic site OG card, not the video thumbnail. Giving
-shared links rich previews needs a prerendered or edge-rendered `/w` — not
-done here.
+---
+
+## 🗓️ SESSION LOG 2026-08-03 (cont.) — Rich previews, ungated links, shorts feed, trending sanitizer
+
+- **Rich link previews for `/w`** — `functions/_middleware.js` now rewrites the
+  `<head>` at the edge for `/w`: real title, real YouTube thumbnail (derived
+  keylessly as `i.ytimg.com/vi/<id>/hqdefault.jpg` from the embed id we built),
+  `summary_large_image` card. Done inside the **existing** middleware rather
+  than a new `functions/w.js` so there's no Functions-vs-`_redirects`
+  precedence question, and it reuses the HTML-patching path already proven in
+  production. It imports `parsePlayerParams` from `src/utils/playerLink.js`
+  (hence the explicit `.js` on that file's own import — the Pages bundler
+  isn't Vite) so the preview and the player share one definition of what's
+  playable. Attacker-supplied titles are escaped via `escapeAttr`.
+- **Ungated player links** — signed-out visitors get the share button and
+  "Copy safe player link" on any playable result; only the social composers
+  (which post *as* the user) still require sign-in.
+- **Shorts / Reels** — new `utils/shortForm.js` (URL + duration detection),
+  TikTok now playable via its keyless `/embed/v2/` player, vertical sources
+  carry a `vertical` flag so the player frames them 9:16, new **`/shorts`**
+  route (vertical snap feed, one-tap "play the whole feed" into the queue,
+  per-clip add-to-queue + safe-link share, only the visible card mounts an
+  iframe), and the pre-existing "Reels/Shorts" search filter now actually
+  filters instead of just adding keywords. Reachable from the global nav.
+  **Instagram/Facebook Reels are listed but link out** — Meta gates oEmbed
+  behind app review. Labelled on the card; a documented dead end, not a TODO.
+- **🔴 Live CSP bug fixed:** `frame-src`/`child-src` in `public/_headers`
+  never listed `youtube-nocookie.com` or `w.soundcloud.com`, so the
+  mini-player's YouTube and SoundCloud embeds were **blocked in production**.
+  Added those + `tiktok.com`. Any new embed host needs BOTH directives.
+- **Trending-feed sanitizer** (`utils/sanitizeTrending.js`) — the landing
+  page's live trending pills are built from real visitors' search queries,
+  i.e. republished user content. Now: profanity/slurs/adult terms are masked
+  with asterisks; entries containing **PII are dropped entirely** (masking an
+  email still advertises that someone searched a person, and the pill would
+  re-run that search on tap); entries >50% asterisks are dropped as noise;
+  and a masked pill navigates to the **clean remainder** ("best **** sites
+  reviewed" → searches "best sites reviewed"), never the raw term. Catches
+  leetspeak, stretched letters, and self-censoring (`f*ck`) via a consonant
+  skeleton that only applies when a censor character is present, so "duck"
+  stays "duck". Accepted false positive: `dick`/`cock` mask surnames — see
+  the note in the file.
+
+**Verified:** 68 automated checks across four Playwright/node suites (edge
+preview injection incl. XSS + spoof-host rejection, ungated share, short-form
+detection + duration parsing, feed filtering + lazy iframes + vertical
+framing, TikTok embed resolution, trending masking over a full 70s rotation
+incl. click-through, and regression over the original `/w` share flow).
+`vite build` + `check:ads` clean.
+
+**Still open:** `/w` previews rely on the Pages middleware actually running in
+production — verify one shared link in a real Discord/iMessage after deploy.
 
 ---
 
