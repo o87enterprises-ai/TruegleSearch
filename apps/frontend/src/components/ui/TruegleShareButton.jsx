@@ -56,7 +56,10 @@ export default function TruegleShareButton({ result, query, mode = 'blue', compa
     setOpen(false);
   };
 
-  if (!isAuthenticated) {
+  // Signed-out users still get the player link — a link into our own sandboxed
+  // player costs nothing to hand out and is the whole point of the format. Only
+  // the social composers (which post as the user) stay behind the sign-in.
+  if (!isAuthenticated && !playerLink) {
     return (
       <a
         href="/auth/signup"
@@ -83,7 +86,7 @@ export default function TruegleShareButton({ result, query, mode = 'blue', compa
       {open && (
         <div className="absolute bottom-6 right-0 z-50 w-52 bg-[#0d0d1a] border border-white/15 rounded-xl shadow-2xl shadow-black/60 overflow-hidden">
           <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
-            <span className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">Post on Truegle</span>
+            <span className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">{isAuthenticated ? 'Post on Truegle' : 'Share'}</span>
             <button onClick={() => setOpen(false)} className="text-white/30 hover:text-white">
               <X size={12} />
             </button>
@@ -100,24 +103,35 @@ export default function TruegleShareButton({ result, query, mode = 'blue', compa
                 <span>{copiedPlayer ? 'Player link copied!' : 'Copy safe player link'}</span>
               </button>
             )}
-            {PLATFORMS.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => handlePlatform(p)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left text-xs text-white/80 hover:text-white transition-all ${p.color}`}
-              >
-                <p.icon />
-                <span>{p.label}</span>
-              </button>
-            ))}
+            {isAuthenticated ? (
+              <>
+                {PLATFORMS.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => handlePlatform(p)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left text-xs text-white/80 hover:text-white transition-all ${p.color}`}
+                  >
+                    <p.icon />
+                    <span>{p.label}</span>
+                  </button>
+                ))}
 
-            <button
-              onClick={handleCopyLink}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-white/10 hover:border-white/30 text-left text-xs text-white/60 hover:text-white transition-all"
-            >
-              {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-              <span>{copied ? 'Copied!' : 'Copy post text'}</span>
-            </button>
+                <button
+                  onClick={handleCopyLink}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border border-white/10 hover:border-white/30 text-left text-xs text-white/60 hover:text-white transition-all"
+                >
+                  {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+                  <span>{copied ? 'Copied!' : 'Copy post text'}</span>
+                </button>
+              </>
+            ) : (
+              <a
+                href="/auth/signup"
+                className="block px-3 py-2 rounded-lg text-[11px] text-white/40 hover:text-white/70 transition-colors"
+              >
+                Sign in to post this straight to social →
+              </a>
+            )}
           </div>
 
           <div className="px-3 py-2 border-t border-white/10">

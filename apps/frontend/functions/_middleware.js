@@ -1,6 +1,25 @@
 /**
- * Truegle AI Crawler Middleware — Cloudflare Pages Function
+ * Truegle Pages middleware — two jobs:
+ *   1. Rich link previews for shared player links (`/w`). See below.
+ *   2. AI crawler licensing notices. See below.
  *
+ * ── 1. /w rich previews ──────────────────────────────────────────────────
+ * `/w` is a client-side route, so a crawler (iMessage, Discord, WhatsApp,
+ * Slack, Twitter) that doesn't run JS would otherwise see the generic Truegle
+ * OG card for every shared video. Here at the edge we can read `?u=`/`?t=`
+ * and rewrite the <head> before the crawler sees it — the same HTML the SPA
+ * boots from, just with an accurate title and thumbnail.
+ *
+ * Two rules this code must never break:
+ *   • The link's `u` values are attacker-supplied. They go through the SAME
+ *     parser the player uses (parsePlayerParams → getPlayable), so a preview
+ *     can only ever be generated for media we'd actually host. Nothing else
+ *     is echoed anywhere.
+ *   • Titles are attacker-supplied text going into HTML attributes, so every
+ *     value is escaped (escapeAttr) before it touches the document. This is
+ *     the one place in the app that builds HTML by hand — keep it that way.
+ *
+ * ── 2. AI crawler licensing ──────────────────────────────────────────────
  * Detects known AI crawler bot User-Agents, tracks daily request counts
  * per bot family per IP in CF KV, and injects a licensing notice into
  * HTML responses once the free tier is exhausted.
@@ -18,6 +37,8 @@
  * participate in the Open Web Licensing Initiative. The more sites that do
  * this, the more pressure builds on AI companies to formalize licensing deals.
  */
+
+import { parsePlayerParams } from '../src/utils/playerLink.js';
 
 // Known AI crawler families. Keys are substrings matched against User-Agent.
 const AI_BOTS = {
@@ -92,6 +113,91 @@ this notice travels with it. See https://truegle.info/ai-licensing for licensing
 </truegle-ai-licensing>`;
 }
 
+// ── /w rich previews ───────────────────────────────────────────────────────
+
+const SITE = 'https://truegle.info';
+const DEFAULT_IMAGE = `${SITE}/og-image.png`;
+
+// Attacker-supplied text is about to become an HTML attribute value. Escape
+// every character that could end the attribute or open a tag.
+function escapeAttr(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    // Control characters have no business in a preview title.
+    .replace(/[\u0000-\u001f\u007f]/g, ' ');
+}
+
+// A thumbnail we can derive without an API key. `src` here is the embed URL
+// the player itself built, never the raw shared input. hqdefault is used
+// rather than maxresdefault because it exists for every video — a 404 in a
+// preview card is worse than a smaller image.
+function previewImage(source) {
+  const yt = /youtube(?:-nocookie)?\.com\/embed\/([\w-]{6,20})/.exec(source?.src || '');
+  if (yt) return `https://i.ytimg.com/vi/${yt[1]}/hqdefault.jpg`;
+  return DEFAULT_IMAGE; // Vimeo/SoundCloud/direct files fall back to the site card
+}
+
+// Tags we replace wholesale, so a crawler never sees both ours and the
+// shell's generic defaults.
+const OVERRIDDEN_META = new Set([
+  'og:title', 'og:description', 'og:image', 'og:url', 'og:type',
+  'twitter:title', 'twitter:description', 'twitter:image', 'twitter:card',
+]);
+
+function injectWatchPreview(html, url) {
+  let sources;
+  try {
+    ({ sources } = parsePlayerParams(url.search));
+  } catch {
+    return html; // malformed link — leave the generic card in place
+  }
+  if (!sources.length) return html;
+
+  const first = sources[0];
+  const more = sources.length - 1;
+  const title = first.title || 'Watch on Truegle';
+  const description = more > 0
+    ? `Plus ${more} more, queued up. Opens in Truegle's sandboxed player — no tracking, and the embed can't redirect your tab.`
+    : "Opens in Truegle's sandboxed player — no tracking, and the embed can't redirect your tab.";
+
+  const meta = [
+    ['og:title', title],
+    ['og:description', description],
+    ['og:type', 'video.other'],
+    ['og:url', `${SITE}/w${url.search}`],
+    ['og:image', previewImage(first)],
+    ['og:site_name', 'Truegle'],
+    ['twitter:card', 'summary_large_image'],
+    ['twitter:title', title],
+    ['twitter:description', description],
+    ['twitter:image', previewImage(first)],
+  ];
+
+  // Drop the shell's generic versions of anything we're about to set.
+  let out = html.replace(
+    /<meta\s+(?:property|name)="([^"]+)"[^>]*>\s*/gi,
+    (match, key) => (OVERRIDDEN_META.has(key) ? '' : match),
+  );
+
+  const tags = meta
+    .map(([key, value]) => {
+      const attr = key.startsWith('og:') ? 'property' : 'name';
+      return `<meta ${attr}="${key}" content="${escapeAttr(value)}" />`;
+    })
+    .join('');
+
+  out = out.replace('</head>', `${tags}</head>`);
+  out = out.replace(
+    /<title>[\s\S]*?<\/title>/i,
+    `<title>${escapeAttr(title)} · Truegle Player</title>`,
+  );
+  return out;
+}
+
 export async function onRequest(context) {
   const { request, next, env } = context;
 
@@ -99,11 +205,15 @@ export async function onRequest(context) {
   const method = request.method;
   if (method !== 'GET' && method !== 'HEAD') return next();
 
+  const url = new URL(request.url);
   const ua = request.headers.get('user-agent') || '';
   const bot = detectBot(ua);
+  // Preview rewriting is for every client, not just the AI-bot list: the
+  // crawlers that matter here are Discord/iMessage/WhatsApp/Slack.
+  const isWatch = url.pathname === '/w' || url.pathname === '/w/';
 
-  // Not a known AI bot — pass through instantly
-  if (!bot) return next();
+  // Nothing to do — pass through instantly
+  if (!bot && !isWatch) return next();
 
   // Get the upstream response first (always serve content)
   const response = await next();
@@ -111,6 +221,19 @@ export async function onRequest(context) {
   // Only modify HTML — skip assets, JSON, etc.
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('text/html')) return response;
+
+  let html = await response.text();
+  const headers = new Headers(response.headers);
+
+  if (isWatch) {
+    try {
+      html = injectWatchPreview(html, url);
+    } catch {
+      // A broken preview must never cost the visitor the page itself.
+    }
+  }
+
+  if (!bot) return new Response(html, { status: response.status, headers });
 
   // Track visit count in KV
   let count = 0;
@@ -133,9 +256,6 @@ export async function onRequest(context) {
     }
   }
 
-  // Consume and patch the HTML
-  let html = await response.text();
-
   // Always inject JSON-LD licensing schema into <head> for all bot requests
   html = html.replace('</head>', `${headInjection()}</head>`);
 
@@ -145,7 +265,6 @@ export async function onRequest(context) {
   }
 
   // Return patched response preserving original headers
-  const headers = new Headers(response.headers);
   headers.set('X-Truegle-Bot', bot.token);
   headers.set('X-Truegle-Bot-Count', String(count));
   headers.set('X-Truegle-License', 'https://truegle.info/ai-licensing');

@@ -64,6 +64,7 @@ const LENS_MODES = ['blue', 'green', 'red', 'purple', 'ocean'];
 const MODE_TO_BACKEND = { blue: 'blue-pill', green: 'green', red: 'red-pill', purple: 'purple', ocean: 'ocean' };
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import QueueButton from '../components/ui/QueueButton';
+import { isShortForm } from '../utils/shortForm';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
 // (mainstream, conspiracy, democratic, republican, nonpartisan, music, videos,
@@ -500,7 +501,13 @@ export default function UniversalSearch({ lockedGreen = false }) {
       if (!response.ok) throw new Error(`Search error: ${response.status}`);
 
       const data = await response.json();
-      setSearchResults(data.results || []);
+      // "Reels/Shorts" maps to the backend's videos category, which returns
+      // long-form too. Keep only what's actually short-form, otherwise the
+      // filter is decorative.
+      const results = filters.category === 'reels'
+        ? (data.results || []).filter(isShortForm)
+        : (data.results || []);
+      setSearchResults(results);
       setInstantAnswer(data.instantAnswer || null);
       setSearchError(false);
 
@@ -516,14 +523,14 @@ export default function UniversalSearch({ lockedGreen = false }) {
       }
 
       // Fetch summary only if not green mode and not dismissed
-      if (mode !== 'green' && sessionSummaryChoice !== 'none' && data.results && data.results.length > 0) {
-        fetchAiSummary(searchValue, data.results, backendMode);
+      if (mode !== 'green' && sessionSummaryChoice !== 'none' && results.length > 0) {
+        fetchAiSummary(searchValue, results, backendMode);
       }
       // Quick answer fires in parallel with the summary. Green mode is AI-free
       // by definition; deliberately NOT gated on sessionSummaryChoice — that
       // setting is about the summary banner, not the answer box.
-      if (mode !== 'green' && data.results && data.results.length > 0) {
-        fetchQuickAnswer(searchValue, data.results);
+      if (mode !== 'green' && results.length > 0) {
+        fetchQuickAnswer(searchValue, results);
       }
     } catch (error) {
       console.error('Search error:', error);

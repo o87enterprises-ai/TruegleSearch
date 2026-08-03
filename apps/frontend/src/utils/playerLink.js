@@ -1,4 +1,6 @@
-import { getPlayable } from './videoEmbed';
+// Explicit .js extension: this module is also imported by the Cloudflare Pages
+// middleware, which is bundled outside Vite's resolver.
+import { getPlayable } from './videoEmbed.js';
 
 // ── Truegle player links (/w) ──────────────────────────────────────────────
 // A Truegle player link is a share URL that opens the recipient straight into

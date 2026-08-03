@@ -35,6 +35,7 @@ import UniversalSearch from './pages/UniversalSearch';
 import TruegleChat from './pages/TruegleChat';
 import SharedThread from './pages/SharedThread';
 import WatchPage from './pages/WatchPage';
+import ShortsFeed from './pages/ShortsFeed';
 import FeelingBiasedPage from './pages/FeelingBiasedPage';
 import ExtractPage from './pages/ExtractPage';
 import CreatorPage from './pages/CreatorPage';
@@ -296,6 +297,8 @@ const AppContent = () => {
         <Route path="/s/:id" element={<RouteBoundary><SharedThread /></RouteBoundary>} />
         {/* Shared Truegle player link — opens straight into the sandboxed player */}
         <Route path="/w" element={<RouteBoundary><WatchPage /></RouteBoundary>} />
+        {/* Aggregated short-form feed (YouTube Shorts + TikTok) */}
+        <Route path="/shorts" element={<RouteBoundary><ShortsFeed /></RouteBoundary>} />
 
         {/* Locked Green Mode - AI-free, no navigation out */}
         <Route path="/green" element={<RouteBoundary><UniversalSearch lockedGreen /></RouteBoundary>} />

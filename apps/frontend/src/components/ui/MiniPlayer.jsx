@@ -170,9 +170,12 @@ export default function MiniPlayer() {
   if (!current) return null;
 
   const { kind, src, title } = current;
-  const isVideoIframe = kind === 'youtube' || kind === 'vimeo';
+  const isVideoIframe = kind === 'youtube' || kind === 'vimeo' || kind === 'tiktok';
   const isSoundcloud = kind === 'soundcloud';
   const isIframe = isVideoIframe || isSoundcloud;
+  // Shorts / Reels / TikToks are shot 9:16. Boxing them into a 16:9 frame
+  // wastes most of the player and shrinks the clip to a stamp.
+  const aspectPadding = current.vertical || kind === 'tiktok' ? '177.78%' : '56.25%';
   const clipWhenMin = (isIframe || kind === 'video') && minimized;
   const shareable = !!buildPlayerLink([current, ...queue].filter(Boolean));
 
@@ -241,7 +244,7 @@ export default function MiniPlayer() {
               allow="autoplay"
             />
           ) : isVideoIframe ? (
-            <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
+            <div className="relative w-full" style={{ paddingTop: aspectPadding }}>
               <iframe
                 key={src}
                 src={`${src}${src.includes('?') ? '&' : '?'}autoplay=1`}
