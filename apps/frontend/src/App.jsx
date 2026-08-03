@@ -34,6 +34,7 @@ import SignUpPage from './pages/SignUpPage';
 import UniversalSearch from './pages/UniversalSearch';
 import TruegleChat from './pages/TruegleChat';
 import SharedThread from './pages/SharedThread';
+import WatchPage from './pages/WatchPage';
 import FeelingBiasedPage from './pages/FeelingBiasedPage';
 import ExtractPage from './pages/ExtractPage';
 import CreatorPage from './pages/CreatorPage';
@@ -293,6 +294,8 @@ const AppContent = () => {
         <Route path="/search" element={<RouteBoundary><UniversalSearch /></RouteBoundary>} />
         <Route path="/chat" element={<RouteBoundary><TruegleChat /></RouteBoundary>} />
         <Route path="/s/:id" element={<RouteBoundary><SharedThread /></RouteBoundary>} />
+        {/* Shared Truegle player link — opens straight into the sandboxed player */}
+        <Route path="/w" element={<RouteBoundary><WatchPage /></RouteBoundary>} />
 
         {/* Locked Green Mode - AI-free, no navigation out */}
         <Route path="/green" element={<RouteBoundary><UniversalSearch lockedGreen /></RouteBoundary>} />

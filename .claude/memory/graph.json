@@ -312,6 +312,14 @@
         "body": "2026-08-01 incident: landing-page Adsterra tag hijacked window.top to bulsis.net/go/1740870 — site unusable. ROOT CAUSE: ad iframes loaded same-origin /adframe.html with NO sandbox attr, giving the ad script window.top.location + parent DOM + site-wide click listeners. CSP cannot stop this. PERMANENT RULES (docs/AD-POLICY.md, enforced by 'npm run check:ads' on every build): (1) zero ads on LandingPage / '/' '/de' '/es' '/fr' '/nl' '/pt' — guard walks the whole import tree; (2) no popunder/social bar/push/interstitial from any network ever — only in-content nativeBanner + Smartlink <a href>; (3) AdsterraBanner AD_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox', NEVER allow-same-origin or allow-top-navigation*; (4) rollback a bad zone by deleting its key in apps/frontend/src/config/ads.js (Adsterra can never delete an ad unit).",
         "ts": "2026-08-01",
         "created": "2026-08-01"
+      },
+      "getplayable-host-check": {
+        "Id": "getplayable-host-check",
+        "Type": "fact",
+        "Label": "getPlayable/getVideoEmbed host matching must be exact",
+        "body": "Was host.endsWith('youtube.com'), which also matched attacker hosts like evilyoutube.com and would iframe them as a trusted embed. Now host === 'youtube.com' || host.endsWith('.youtube.com') (plus youtube-nocookie). Share links make this externally reachable — do not loosen it.",
+        "ts": "2026-08-03",
+        "created": "2026-08-03"
       }
     },
     "decision": {
@@ -722,6 +730,30 @@
         "body": "Player = unified media player for audio+video the user brings (result cards / pasted link), source-agnostic via client-side embed adapters. Lives in global chrome above Routes (existing MiniPlayer), NOT a /player route. NO backend AggregationService (embeds are client-side, $0). NO AI auto-optimizing player metadata (fabrication risk vs Mandate B; show source metadata verbatim). Phase 1 shipped: SoundCloud adapter in getPlayable + MiniPlayer (commit after). Bandcamp deferred (needs server-side oEmbed for numeric embed id). Also cleaned 38 dead backup files + removed stale railway.json (backend=Vercel confirmed). NOTE: backend is Express/Node, NOT FastAPI.",
         "ts": "2026-08-01",
         "created": "2026-08-01"
+      },
+      "player-share-links": {
+        "Id": "player-share-links",
+        "Type": "decision",
+        "Label": "Truegle player share links (/w)",
+        "body": "Shareable link format /w?u=<source url>&t=<title> (repeat for a queue). WatchPage auto-opens the persistent MiniPlayer. Security boundary lives in utils/playerLink.js + getPlayable: only recognized media is accepted, and what renders is getPlayable's OUTPUT (an embed URL we build on youtube-nocookie/player.vimeo/w.soundcloud) never the raw input; unrecognized u values are printed as inert text, never navigated to. /w needs BOTH public/_redirects and public/_headers entries (SPA route rule) + noindex.",
+        "ts": "2026-08-03",
+        "created": "2026-08-03"
+      },
+      "player-iframe-sandbox": {
+        "Id": "player-iframe-sandbox",
+        "Type": "decision",
+        "Label": "Mini-player embeds are sandboxed",
+        "body": "MiniPlayer PLAYER_SANDBOX = 'allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox'. allow-same-origin is safe here: a cross-origin frame gets ITS OWN origin, not ours, and YouTube/Vimeo/SoundCloud won't play without it. allow-top-navigation is deliberately WITHHELD — that is what makes a shared Truegle link safe to open (same lesson as the 2026-08-01 ad hijack: CSP does not stop top-navigation, only the sandbox does).",
+        "ts": "2026-08-03",
+        "created": "2026-08-03"
+      },
+      "player-mobile-ux": {
+        "Id": "player-mobile-ux",
+        "Type": "decision",
+        "Label": "Mini-player mobile UX: touch-action + Adjust mode",
+        "body": "Every drag surface sets touch-action:none — without it the browser claims the touch for page scroll and pointermove never fires, which is why the player felt immovable on a phone. 44px grab bar, 36px controls, Adjust mode (Move button) turns the whole media area into a drag surface with a shield over the iframe + SIZE -/+ buttons and a snap-back. Geometry persists in localStorage 'truegle_player_geom'.",
+        "ts": "2026-08-03",
+        "created": "2026-08-03"
       }
     },
     "entity": {
@@ -995,5 +1027,5 @@
       }
     }
   },
-  "updated": "2026-08-01"
+  "updated": "2026-08-03"
 }

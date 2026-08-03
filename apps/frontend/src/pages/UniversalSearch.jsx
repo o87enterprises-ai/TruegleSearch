@@ -12,7 +12,6 @@ import {
   Eye,
   X,
   MapPin,
-  PictureInPicture2,
 } from 'lucide-react';
 
 // Backgrounds - Import all backgrounds
@@ -64,7 +63,7 @@ import { LITE_BG, PERSPECTIVE_COLORS, getModeAccent, MODE_LABELS, MODE_COLORS } 
 const LENS_MODES = ['blue', 'green', 'red', 'purple', 'ocean'];
 const MODE_TO_BACKEND = { blue: 'blue-pill', green: 'green', red: 'red-pill', purple: 'purple', ocean: 'ocean' };
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
-import { usePlayer } from '../context/PlayerContext';
+import QueueButton from '../components/ui/QueueButton';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
 // (mainstream, conspiracy, democratic, republican, nonpartisan, music, videos,
@@ -780,7 +779,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
     const [iframeBlocked, setIframeBlocked] = useState(false);
     const videoEmbed = getVideoEmbed(result.url);
     const playable = getPlayable(result.url);
-    const { enqueue } = usePlayer();
     const borderClass = accent.border;
     const titleClass = accent.title;
     const blurClass = safeSearch === 'blur' ? 'blur-md hover:blur-none transition-all duration-200' : '';
@@ -900,14 +898,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     {viewerOpen ? 'Close' : videoEmbed ? '▶ Play here' : 'Open in app'}
                   </button>
                   {playable && (
-                    <button
-                      type="button"
-                      onClick={() => enqueue({ ...playable, title: result.title || displayUrl, pageUrl: result.url })}
-                      title="Pop out — keep playing while you browse (adds to the queue if something's already playing)"
-                      className={`p-1.5 rounded-lg hover:bg-white/10 ${accent.link} transition-colors`}
-                    >
-                      <PictureInPicture2 size={15} />
-                    </button>
+                    <QueueButton
+                      source={{ ...playable, title: result.title || displayUrl, pageUrl: result.url, poster: result.image }}
+                      className={accent.link}
+                      showLabel
+                    />
                   )}
                   <TruegleShareButton
                     result={result}

@@ -6,8 +6,7 @@ import { fallbackVideos } from '../content/creatorVideosFallback';
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import { recordRef } from '../utils/creatorRef';
 import AdsterraBanner from '../components/ads/AdsterraBanner';
-import { usePlayer } from '../context/PlayerContext';
-import { PictureInPicture2 } from 'lucide-react';
+import QueueButton from '../components/ui/QueueButton';
 
 /*
  * Creator hub page — /creator/:slug.
@@ -23,7 +22,6 @@ export default function CreatorPage() {
   const [active, setActive] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
-  const { enqueue } = usePlayer();
 
   useEffect(() => {
     if (!creator) return;
@@ -121,14 +119,11 @@ export default function CreatorPage() {
             <div className="mt-3 flex items-start justify-between gap-3">
               {active.title && <h2 className="font-semibold flex-1">{active.title}</h2>}
               {(getPlayable(active.url)) && (
-                <button
-                  type="button"
-                  onClick={() => enqueue({ ...getPlayable(active.url), title: active.title || creator.name, pageUrl: active.url, poster: active.thumbnail })}
-                  title="Pop out — keep playing while you browse"
-                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 text-sm transition-colors"
-                >
-                  <PictureInPicture2 size={15} /> Pop out
-                </button>
+                <QueueButton
+                  source={{ ...getPlayable(active.url), title: active.title || creator.name, pageUrl: active.url, poster: active.thumbnail }}
+                  className="shrink-0 bg-white/5 border border-white/10 text-white/70 hover:text-white px-3 py-1.5"
+                  showLabel
+                />
               )}
             </div>
           )}

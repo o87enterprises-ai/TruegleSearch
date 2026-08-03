@@ -32,6 +32,11 @@ function reducer(s, a) {
       if (sameSrc(s.current, a.source) || s.queue.some((q) => sameSrc(q, a.source))) return s;
       return { ...s, queue: [...s.queue, a.source] };
     }
+    case 'enqueueMany': { // used by shared player links: first plays, rest line up
+      const list = (a.sources || []).filter((s) => s?.src);
+      if (!list.length) return s;
+      return list.reduce((acc, source) => reducer(acc, { type: 'enqueue', source }), s);
+    }
     case 'next': {
       if (s.queue.length === 0) return s;
       const [nx, ...rest] = s.queue;
@@ -66,6 +71,7 @@ export const PlayerProvider = ({ children }) => {
 
   const play = useCallback((source) => dispatch({ type: 'play', source }), []);
   const enqueue = useCallback((source) => dispatch({ type: 'enqueue', source }), []);
+  const enqueueMany = useCallback((sources) => dispatch({ type: 'enqueueMany', sources }), []);
   const next = useCallback(() => dispatch({ type: 'next' }), []);
   const prev = useCallback(() => dispatch({ type: 'prev' }), []);
   const jump = useCallback((index) => dispatch({ type: 'jump', index }), []);
@@ -74,8 +80,8 @@ export const PlayerProvider = ({ children }) => {
   const toggleMinimize = useCallback(() => dispatch({ type: 'toggleMin' }), []);
 
   const value = useMemo(
-    () => ({ ...state, play, enqueue, next, prev, jump, removeFromQueue, close, toggleMinimize }),
-    [state, play, enqueue, next, prev, jump, removeFromQueue, close, toggleMinimize]
+    () => ({ ...state, play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, toggleMinimize }),
+    [state, play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, toggleMinimize]
   );
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;

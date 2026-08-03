@@ -7,12 +7,18 @@ export function getVideoEmbed(url) {
   if (!url) return null;
   try {
     const u = new URL(url);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
     const host = u.hostname.replace(/^www\./, '');
     if (host === 'youtu.be') {
       const id = u.pathname.slice(1);
       return id ? `https://www.youtube.com/embed/${id}` : null;
     }
-    if (host.endsWith('youtube.com')) {
+    // Exact host or a real subdomain only. A bare endsWith('youtube.com')
+    // also matches attacker-controlled hosts like `evilyoutube.com`, which
+    // would then be iframed as a trusted embed — the one thing a shared
+    // Truegle player link must never do.
+    if (host === 'youtube.com' || host.endsWith('.youtube.com')
+      || host === 'youtube-nocookie.com' || host.endsWith('.youtube-nocookie.com')) {
       if (u.pathname === '/watch') {
         const id = u.searchParams.get('v');
         return id ? `https://www.youtube.com/embed/${id}` : null;

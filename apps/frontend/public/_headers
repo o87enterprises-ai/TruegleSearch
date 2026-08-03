@@ -26,6 +26,11 @@
 /s/*
   Content-Type: text/html; charset=utf-8
   X-Robots-Tag: noindex, follow
+# /w carries user-supplied media URLs in its query string — shareable, but not
+# something to index.
+/w
+  Content-Type: text/html; charset=utf-8
+  X-Robots-Tag: noindex, follow
 /extract
   Content-Type: text/html; charset=utf-8
 /blog

@@ -1,5 +1,74 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-08-01. Supersedes all prior handoff docs._
+_Last updated: 2026-08-03. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ SESSION LOG 2026-08-03 — Truegle player: share links + mobile UX + queue sources
+
+**Shipped (branch `claude/truegle-sharing-player-ux-t3hi43`):**
+
+- **Shareable Truegle player links — new `/w` route** (`pages/WatchPage.jsx`,
+  `utils/playerLink.js`). Format: `truegle.info/w?u=<source url>&t=<title>`,
+  repeat the pair to share a whole queue. Opening one drops the recipient
+  straight into the persistent MiniPlayer instead of the source site. Share
+  entry points: the player's own share button (copies, or the native share
+  sheet on mobile) and a "Copy safe player link" row in `TruegleShareButton`
+  on any playable result.
+  **Security boundary — all of it lives in `playerLink.js` + `getPlayable`:**
+  a `u` value is only accepted if `getPlayable` recognizes it, and what gets
+  rendered is getPlayable's **output** (an embed URL we build ourselves on
+  youtube-nocookie / player.vimeo / w.soundcloud, or a direct media file in a
+  native `<audio>/<video>`) — never the raw input. Anything unrecognized is
+  printed as inert text under "Not opened": never navigated to, never iframed.
+  So a player link can't be dressed up as an open redirect.
+- **Embeds are now sandboxed** (`PLAYER_SANDBOX` in MiniPlayer):
+  `allow-scripts allow-same-origin allow-presentation allow-popups
+  allow-popups-to-escape-sandbox`. `allow-same-origin` is safe on a
+  cross-origin frame (it gets *its* origin, not ours) and the embeds don't
+  play without it. **`allow-top-navigation` is deliberately withheld** — that
+  is precisely what stops an embed hijacking the tab, and it's what makes
+  "a Truegle link is a safe link" true. Same lesson as the 2026-08-01 ad
+  hijack: CSP doesn't prevent top-navigation, only the sandbox does.
+- **🔴 Fixed a real hole in `getVideoEmbed`:** the host test was
+  `host.endsWith('youtube.com')`, which **also matches `evilyoutube.com`** —
+  an attacker host would have been iframed as a trusted embed. Now exact host
+  or true subdomain only. Pre-existing, but share links made it reachable by
+  a third party. Don't loosen it.
+- **Mini-player mobile UX** (the "hard to maneuver" fix): every drag surface
+  sets `touch-action: none` — without it the browser claims the touch for page
+  scrolling and `pointermove` never fires, which is the actual reason the
+  player felt immovable on a phone. 44px grab bar with a visible grip, 36px
+  controls on their own transport row (was six 13px icons crammed into the
+  title bar), and a **Move/Adjust mode**: thick cyan border, the whole video
+  becomes a drag surface (a shield stops the iframe eating the touch), plus
+  SIZE −/+ buttons and a snap-back-to-corner. Position and width persist in
+  `localStorage.truegle_player_geom`.
+- **Queue "+" menu** (`QueueAddMenu.jsx`) — three sources: **Device** (local
+  file via object URL, never uploaded), **Link** (any playable URL *or* a
+  pasted Truegle player link, which round-trips back into the queue), and
+  **Search** (POSTs `/api/search` category=videos and lists only results
+  `getPlayable` can actually host).
+- **"Add to queue" on qualifying links** (`QueueButton.jsx`, now used by
+  UniversalSearch / TruegleChat / CreatorPage / MultimediaInterface): one
+  shared button that reads **"Pop out"** when nothing is playing and
+  **"Add to queue"** once the player is open — so a user can keep stacking
+  media while they scroll without interrupting playback. The reducer always
+  behaved this way; the affordance was invisible.
+
+**Verified (Playwright/Chromium, iPhone-13 viewport + desktop, 33 checks):**
+share link auto-opens the player · plays via youtube-nocookie · sandbox
+present and withholds top-navigation · spoofed `evilyoutube.com` host rejected
+· `javascript:` URL never becomes a source · adjust-mode drag moves the player
+(y 278→48) · stretch/shrink · 44px grab bar · geometry survives reload · all
+three "+" tabs · Truegle link pastes back into the queue · non-playable link
+refused with an explanation · queueing doesn't interrupt playback · full share
+→ copy → reopen → both items restored round trip. `vite build` + `check:ads`
+clean.
+
+**Note:** `/w` is a client route with no prerender, so link *previews* in
+chat apps show the generic site OG card, not the video thumbnail. Giving
+shared links rich previews needs a prerendered or edge-rendered `/w` — not
+done here.
 
 ---
 

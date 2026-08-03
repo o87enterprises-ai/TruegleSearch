@@ -1,13 +1,21 @@
 import { useState, useRef, useEffect } from 'react';
-import { Share2, X, Check, Copy } from 'lucide-react';
+import { Share2, X, Check, Copy, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { PLATFORMS } from '../../config/sharePlatforms';
+import { getPlayable } from '../../utils/videoEmbed';
+import { buildPlayerLink } from '../../utils/playerLink';
 
 export default function TruegleShareButton({ result, query, mode = 'blue', compact = false }) {
   const { isAuthenticated } = useAuth();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedPlayer, setCopiedPlayer] = useState(false);
   const ref = useRef(null);
+  // Media we can host ourselves gets a second, better share option: a link
+  // that opens in Truegle's sandboxed player instead of the source site.
+  const playerLink = getPlayable(result.url)
+    ? buildPlayerLink({ url: result.url, title: result.title })
+    : null;
 
   // Close on outside click
   useEffect(() => {
@@ -31,6 +39,14 @@ export default function TruegleShareButton({ result, query, mode = 'blue', compa
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleCopyPlayerLink = () => {
+    if (!playerLink) return;
+    navigator.clipboard.writeText(playerLink).then(() => {
+      setCopiedPlayer(true);
+      setTimeout(() => setCopiedPlayer(false), 2000);
     });
   };
 
@@ -74,6 +90,16 @@ export default function TruegleShareButton({ result, query, mode = 'blue', compa
           </div>
 
           <div className="p-1">
+            {playerLink && (
+              <button
+                onClick={handleCopyPlayerLink}
+                title="A link that opens inside Truegle's sandboxed player — it can't redirect whoever you send it to"
+                className="w-full flex items-center gap-2.5 px-3 py-2 mb-1 rounded-lg border border-cyan-400/40 bg-cyan-500/10 text-left text-xs text-cyan-100 hover:bg-cyan-500/20 transition-all"
+              >
+                {copiedPlayer ? <Check size={14} className="text-green-400" /> : <ShieldCheck size={14} />}
+                <span>{copiedPlayer ? 'Player link copied!' : 'Copy safe player link'}</span>
+              </button>
+            )}
             {PLATFORMS.map((p) => (
               <button
                 key={p.id}

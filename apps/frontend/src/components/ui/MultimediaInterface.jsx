@@ -17,11 +17,10 @@ import {
   Star,
   GitFork,
   Code,
-  PictureInPicture2,
 } from 'lucide-react';
 import SocialEmbed from './SocialEmbed';
 import { getPlayable } from '../../utils/videoEmbed';
-import { usePlayer } from '../../context/PlayerContext';
+import QueueButton from './QueueButton';
 
 // Build a mini-player source from a multimedia item (YouTube videoId or a
 // direct/embeddable url). Returns null when the item can't be played.
@@ -947,7 +946,6 @@ function AudioList({ audio }) {
 
 // Lightbox Component
 function Lightbox({ item, onClose, category }) {
-  const { enqueue } = usePlayer();
   const playerSource = itemToSource(item);
   return (
     <motion.div
@@ -1029,13 +1027,11 @@ function Lightbox({ item, onClose, category }) {
                 </div>
                 <div className="flex gap-2 shrink-0">
                   {playerSource && (
-                    <button
-                      onClick={() => { enqueue(playerSource); onClose(); }}
-                      className="p-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white transition-all"
-                      title="Pop out — keep playing while you browse"
-                    >
-                      <PictureInPicture2 size={16} />
-                    </button>
+                    <QueueButton
+                      source={playerSource}
+                      onAdded={onClose}
+                      className="bg-cyan-600 hover:bg-cyan-500 text-white"
+                    />
                   )}
                   <a
                     href={item.url}
@@ -1071,13 +1067,12 @@ function Lightbox({ item, onClose, category }) {
             <p className="text-white/60 text-sm mb-4">{item.snippet}</p>
             <div className="flex items-center gap-2 flex-wrap">
               {playerSource && (
-                <button
-                  onClick={() => { enqueue(playerSource); onClose(); }}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition-all"
-                  title="Pop out — keep playing while you browse"
-                >
-                  <PictureInPicture2 size={16} /> Pop out player
-                </button>
+                <QueueButton
+                  source={playerSource}
+                  onAdded={onClose}
+                  showLabel
+                  className="px-4 py-2 !rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold"
+                />
               )}
               <a
                 href={item.url}
