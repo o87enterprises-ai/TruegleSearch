@@ -17,7 +17,7 @@ import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 const REVERT_MS = 10000;
 
 export default function PlayerListSlot({ query = '', accent = '#f43f5e', onRevert, compact = false }) {
-  const { current, queue, jump, removeFromQueue, enqueue } = usePlayer();
+  const { current, queue, jump, removeFromQueue, enqueue, clearQueue } = usePlayer();
   const { results, loading, error } = usePlayerSearch(query);
   const [added, setAdded] = useState(null);
   const [showingResults, setShowingResults] = useState(false);
@@ -78,6 +78,7 @@ export default function PlayerListSlot({ query = '', accent = '#f43f5e', onRever
                 type="button"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); add(r); }}
                 title="Add to queue"
+                aria-label={`Add ${r.title || 'this'} to the queue`}
                 className={`shrink-0 flex items-center gap-1 pl-1.5 pr-2 h-8 rounded-lg border text-[11px] transition-colors ${
                   added === r.src
                     ? 'border-green-400/50 bg-green-400/10 text-green-300'
@@ -99,9 +100,18 @@ export default function PlayerListSlot({ query = '', accent = '#f43f5e', onRever
       <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/40">
         <ListMusic size={11} /> Up next
         {queue.length > 0 && (
-          <span className="ml-auto px-1.5 rounded-full text-[9px] font-bold text-black" style={{ background: accent }}>
-            {queue.length}
-          </span>
+          <>
+            <span className="ml-auto px-1.5 rounded-full text-[9px] font-bold text-black" style={{ background: accent }}>
+              {queue.length}
+            </span>
+            {/* The ONLY thing that empties the queue. Closing the player used
+                to do it silently, which is why playlists looked like they
+                vanished on their own. */}
+            <button type="button" onClick={clearQueue} title="Clear the queue" aria-label="Clear the queue"
+              className="text-[10px] uppercase tracking-wider text-white/35 hover:text-white/70 transition-colors">
+              Clear
+            </button>
+          </>
         )}
       </div>
       <div className={`${compact ? 'max-h-44' : 'max-h-64'} overflow-y-auto`}>

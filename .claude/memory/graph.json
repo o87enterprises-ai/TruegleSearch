@@ -882,6 +882,22 @@
         "body": "TrueglePlayer requests fullscreen on its own container so the transport bar + retracting list stay on screen. PlayerScreen fill prop switches from aspect-ratio sizing to flex-1. Handing fullscreen to the YouTube iframe would take our controls with it.",
         "ts": "2026-08-04",
         "created": "2026-08-04"
+      },
+      "player-single-mount": {
+        "Id": "player-single-mount",
+        "Type": "decision",
+        "Label": "The player mounts ONCE, above Routes; pages render a slot",
+        "body": "A page-rendered player unmounted its iframe on pop-out, so the track restarted. Now MiniPlayer is the only mount point: pages render an empty [data-player-slot] and the fixed frame positions itself over it (rect polled 250ms + scroll/resize). Height crosses back as CSS var --truegle-player-h so the slot reserves the right room. Page query reaches the player via utils/playerQueryStore (module store + useSyncExternalStore), NOT PlayerContext, to avoid re-rendering the app on every keystroke.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
+      },
+      "player-queue-durability": {
+        "Id": "player-queue-durability",
+        "Type": "decision",
+        "Label": "Closing the player never empties the queue",
+        "body": "close() now keeps queue+history and only stops playback / un-pops. Emptying is explicit via Clear in the up-next header. Queue persistence moved from sessionStorage to localStorage (truegle_player_queue_v2, migrating the old key) and now includes history, so a new tab or a recycled mobile tab no longer looks like the playlist erased itself.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
       }
     },
     "entity": {

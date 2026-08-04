@@ -107,7 +107,14 @@ function reducer(s, a) {
     case 'setDock':
       return { ...s, dock: a.value === 'footer' ? 'footer' : 'float', minimized: false };
     case 'close':
-      return INITIAL;
+      // Closing puts the player AWAY, it does not throw away the playlist the
+      // user built. The X sits a thumb-width from minimize in the popped-out
+      // header, and wiping an assembled queue on a mis-tap (with no undo) is
+      // what read as "the list erases itself at random". Emptying the queue is
+      // now only ever explicit — see clearQueue.
+      return { ...s, current: null, paused: false, poppedOut: false, expanded: false, minimized: false };
+    case 'clearQueue':
+      return { ...s, queue: [] };
     case 'toggleMin':
       return { ...s, minimized: !s.minimized };
     default:
@@ -115,24 +122,34 @@ function reducer(s, a) {
   }
 }
 
-// The queue used to live only in memory, so anything that left the SPA — an
-// external link, a hard navigation — silently wiped a playlist the user had
-// just built. It's restored per-tab from sessionStorage instead.
+// A playlist is something the user BUILT, so it outlives the tab that built
+// it. It was in sessionStorage, which meant a shared link opened in a new tab,
+// a restored tab, or a phone browser recycling the tab in the background all
+// came back to an empty queue — indistinguishable, from the outside, from the
+// queue erasing itself. localStorage instead, migrating anything a previous
+// session left behind.
 //
 // `blob:` sources (files added from the device) are dropped on save: an object
 // URL is only valid for the document that created it, so persisting one would
 // restore a queue entry that can never play.
-const QUEUE_KEY = 'truegle_player_queue';
+const QUEUE_KEY = 'truegle_player_queue_v2';
+const LEGACY_KEY = 'truegle_player_queue';
 const persistable = (s) => !!s && typeof s.src === 'string' && !s.src.startsWith('blob:');
 
 function loadState() {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(QUEUE_KEY) || 'null');
+    const raw = localStorage.getItem(QUEUE_KEY)
+      || sessionStorage.getItem(LEGACY_KEY)
+      || localStorage.getItem(LEGACY_KEY);
+    const saved = JSON.parse(raw || 'null');
     if (!saved) return INITIAL;
     return {
       ...INITIAL,
       current: persistable(saved.current) ? saved.current : null,
       queue: Array.isArray(saved.queue) ? saved.queue.filter(persistable) : [],
+      // Without this, prev() went dead after every reload — another way the
+      // player looked like it had forgotten what the user was doing.
+      history: Array.isArray(saved.history) ? saved.history.filter(persistable) : [],
       poppedOut: !!saved.poppedOut,
       expanded: !!saved.expanded,
       dock: saved.dock === 'footer' ? 'footer' : 'float',
@@ -147,15 +164,16 @@ export const PlayerProvider = ({ children }) => {
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(QUEUE_KEY, JSON.stringify({
+      localStorage.setItem(QUEUE_KEY, JSON.stringify({
         current: persistable(state.current) ? state.current : null,
         queue: state.queue.filter(persistable),
+        history: state.history.filter(persistable).slice(-20),
         poppedOut: state.poppedOut,
         expanded: state.expanded,
         dock: state.dock,
       }));
     } catch { /* private mode / quota — the queue just won't survive a reload */ }
-  }, [state.current, state.queue, state.poppedOut, state.expanded, state.dock]);
+  }, [state.current, state.queue, state.history, state.poppedOut, state.expanded, state.dock]);
 
   const play = useCallback((source) => dispatch({ type: 'play', source }), []);
   const enqueue = useCallback((source) => dispatch({ type: 'enqueue', source }), []);
@@ -165,6 +183,7 @@ export const PlayerProvider = ({ children }) => {
   const jump = useCallback((index) => dispatch({ type: 'jump', index }), []);
   const removeFromQueue = useCallback((index) => dispatch({ type: 'removeFromQueue', index }), []);
   const close = useCallback(() => dispatch({ type: 'close' }), []);
+  const clearQueue = useCallback(() => dispatch({ type: 'clearQueue' }), []);
   const toggleMinimize = useCallback(() => dispatch({ type: 'toggleMin' }), []);
   const stop = useCallback(() => dispatch({ type: 'stop' }), []);
   const togglePause = useCallback(() => dispatch({ type: 'togglePause' }), []);
@@ -177,10 +196,10 @@ export const PlayerProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       ...state,
-      play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, toggleMinimize,
+      play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setPlayMode,
     }),
-    [state, play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, toggleMinimize,
+    [state, play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode]
   );
 

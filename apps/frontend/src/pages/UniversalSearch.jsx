@@ -75,6 +75,7 @@ import QueueButton from '../components/ui/QueueButton';
 import { isShortForm, asReel } from '../utils/shortForm';
 import { useFeedAutoplay } from '../hooks/useFeedAutoplay';
 import TrueglePlayer from '../components/player/TrueglePlayer';
+import { setPlayerQuery } from '../utils/playerQueryStore';
 import { usePlayer } from '../context/PlayerContext';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
@@ -178,6 +179,13 @@ export default function UniversalSearch({ lockedGreen = false }) {
   // Docked = the player is living inside this page's search bar. Popped out,
   // the page is an ordinary search page again.
   const tubeDocked = mode === 'tube' && !poppedOut;
+  // Tube's bar is the player's bar, and the player lives above <Routes> now,
+  // so what's typed here has to be published to it.
+  useEffect(() => {
+    if (!tubeDocked) return undefined;
+    setPlayerQuery(searchValue);
+    return () => setPlayerQuery('');
+  }, [tubeDocked, searchValue]);
   const autoExpanded = useRef(false);
   useEffect(() => {
     if (autoExpanded.current) return;
@@ -1118,10 +1126,17 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   style={{ borderColor: `${MODE_COLORS.tube}59` }}
                 >
                   {tubeExpanded ? (
-                    <TrueglePlayer
-                      presentation="expanded"
-                      accent={MODE_COLORS.tube}
-                      query={searchValue}
+                    // NOT the player — the space the player docks into. The
+                    // one player is mounted above <Routes> and positions
+                    // itself over this slot, because rendering it here would
+                    // unmount its <iframe> the moment it popped out, and the
+                    // track would start over. Height comes from the player
+                    // itself via a CSS variable so the page reserves exactly
+                    // the room it occupies.
+                    <div
+                      data-player-slot
+                      aria-hidden="true"
+                      style={{ height: 'var(--truegle-player-h, 260px)' }}
                     />
                   ) : (
                     <div className="px-1.5 py-1 bg-black/30">

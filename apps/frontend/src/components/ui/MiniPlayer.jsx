@@ -5,6 +5,7 @@ import { MODE_COLORS, BRAND_GRADIENT } from '../../config/modeTheme';
 import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
 import { useFeedbackBarHeight } from './PreProductionBanner';
+import { usePlayerQuery } from '../../utils/playerQueryStore';
 
 // The floating FRAME for the one player. Rendered ABOVE <Routes> (in
 // AppContent) so the media node it hosts is never unmounted on navigation —
@@ -71,6 +72,43 @@ export default function MiniPlayer() {
   const [adjust, setAdjust] = useState(false);   // mobile stretch/shrink/drag mode
   const [playerQuery, setPlayerQuery] = useState('');
   const frameRef = useRef(null);
+  const pageQuery = usePlayerQuery();
+
+  // ── docking into a page's slot ───────────────────────────────────────────
+  // A page that wants the player inside its layout renders an empty
+  // [data-player-slot] and this frame positions itself over it. It does NOT
+  // render the player itself: React cannot move a DOM node between parents
+  // without recreating it, so a page-rendered player meant a brand-new
+  // <iframe> — and a track that started over — every time it popped out.
+  // One node, mounted once, above <Routes>; only its geometry changes.
+  const [slot, setSlot] = useState(null);
+  const wantSlot = !poppedOut;
+  useEffect(() => {
+    if (!wantSlot) { setSlot(null); return undefined; }
+    const measure = () => {
+      const el = document.querySelector('[data-player-slot]');
+      if (!el) { setSlot(null); return; }
+      const r = el.getBoundingClientRect();
+      setSlot((prev) => (prev
+        && Math.abs(prev.left - r.left) < 0.5
+        && Math.abs(prev.top - r.top) < 0.5
+        && Math.abs(prev.width - r.width) < 0.5
+        ? prev
+        : { left: r.left, top: r.top, width: r.width }));
+    };
+    measure();
+    window.addEventListener('scroll', measure, { passive: true, capture: true });
+    window.addEventListener('resize', measure);
+    // Catches the layout changes nothing tells us about — the slot appearing
+    // on a later render, ads loading above it, the bar growing a row.
+    const poll = setInterval(measure, 250);
+    return () => {
+      clearInterval(poll);
+      window.removeEventListener('scroll', measure, { capture: true });
+      window.removeEventListener('resize', measure);
+    };
+  }, [wantSlot]);
+  const docked = !!slot && wantSlot;
 
   // ── drag + resize ────────────────────────────────────────────────────────
   const onMove = useCallback((e) => {
@@ -156,6 +194,23 @@ export default function MiniPlayer() {
     return () => { ro?.disconnect(); document.body.style.paddingBottom = ''; };
   }, [footerDock, feedbackOffset, minimized, current]);
 
+  // A slot can't know how tall the player is, and the player can't be in the
+  // page's layout, so the height crosses as a CSS variable — the slot reserves
+  // exactly the room the frame occupies and the page never jumps.
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!docked || !el) return undefined;
+    const apply = () => document.documentElement.style.setProperty(
+      '--truegle-player-h', `${Math.round(el.getBoundingClientRect().height)}px`);
+    apply();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(apply) : null;
+    ro?.observe(el);
+    return () => {
+      ro?.disconnect();
+      document.documentElement.style.removeProperty('--truegle-player-h');
+    };
+  }, [docked]);
+
   // ── Media Session: lock-screen controls + background audio (native only) ──
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
@@ -176,19 +231,17 @@ export default function MiniPlayer() {
     return () => ['play', 'pause', 'previoustrack', 'nexttrack'].forEach((act) => set(act, null));
   }, [current, history.length, queue.length, next, prev]);
 
-  // Nothing playing and not popped out → nothing to show. But once popped
-  // out, the frame stays even with an empty screen: the user asked for the
-  // player, and its search bar is how they fill it.
-  if (!current && !poppedOut) return null;
-  // On Tube the player lives docked inside the search bar until it is popped
-  // out; everywhere else the floating frame IS the player. One component,
-  // two homes — never both at once.
-  if (pageMode === 'tube' && !poppedOut) return null;
+  // Nothing playing, not popped out, and no page slot asking for it → nothing
+  // to show. Once popped out the frame stays even with an empty screen: the
+  // user asked for the player, and its search bar is how they fill it.
+  if (!current && !poppedOut && !docked) return null;
 
   const title = current?.title;
   const clipWhenMin = minimized;
 
-  const style = footerDock
+  const style = docked
+    ? { left: slot.left, top: slot.top, width: slot.width }
+    : footerDock
     ? {
       left: '50%',
       transform: 'translateX(-50%)',
@@ -223,13 +276,25 @@ export default function MiniPlayer() {
         style={{
           ...style,
           background: adjust ? MODE_COLORS.ocean : ring,
-          padding: adjust ? 2.5 : 1.5,
+          // Docked, the bar above supplies the top edge — a ring all the way
+          // round would draw a line through the middle of one surface.
+          padding: docked ? '0 1.5px 1.5px' : (adjust ? 2.5 : 1.5),
         }}
-        className={`fixed z-[9996] max-w-[calc(100vw-1rem)] rounded-xl shadow-2xl transition-shadow ${dragging ? 'select-none' : ''}`}
+        className={`fixed shadow-2xl transition-shadow ${dragging ? 'select-none' : ''} ${
+          docked
+            // Below the page's own dropdowns (suggestions drop over this
+            // space), above the results underneath it.
+            ? 'z-[30] rounded-b-2xl'
+            : 'z-[9996] max-w-[calc(100vw-1rem)] rounded-xl'
+        }`}
       >
-      <div className="rounded-[10px] overflow-hidden bg-[#0d0d14]/95 backdrop-blur-xl">
+      <div className={`overflow-hidden bg-[#0d0d14]/95 backdrop-blur-xl ${docked ? 'rounded-b-[14px]' : 'rounded-[10px]'}`}>
         {/* ── Grab bar. Thick on purpose: 44px tall, full width, with a visible
-            grip so it reads as "hold here to move me". ── */}
+            grip so it reads as "hold here to move me".
+            Docked, it's gone entirely: the page's search bar is directly above
+            and a second search input under it is exactly the duplication we
+            took out. ── */}
+        {!docked && (
         <div
           onPointerDown={footerDock ? undefined : startMove}
           style={{ touchAction: footerDock ? 'auto' : 'none', background: adjust ? 'rgba(34,211,238,0.15)' : tint }}
@@ -256,10 +321,13 @@ export default function MiniPlayer() {
           <button type="button" onClick={toggleMinimize} title={minimized ? 'Expand' : 'Minimize'} className={ctrl}>
             {minimized ? <Maximize2 size={16} /> : <Minus size={16} />}
           </button>
-          <button type="button" onClick={close} title="Close player" className={ctrl}>
+          {/* Close puts the player away; it does NOT empty the queue. Clearing
+              is explicit, in the list. */}
+          <button type="button" onClick={close} title="Close player (keeps your queue)" className={ctrl}>
             <X size={16} />
           </button>
         </div>
+        )}
 
         {/* The player itself is the SHARED component — the same stack that
             docks inside the Tube search bar. This file now owns only the
@@ -267,11 +335,15 @@ export default function MiniPlayer() {
             inside it is TrueglePlayer, so "one player" is structural rather
             than a resemblance that drifts. */}
         <div className={clipWhenMin ? 'max-h-0 overflow-hidden' : ''}>
-          <TrueglePlayer presentation="popped" accent={accent || undefined} query={playerQuery} />
+          <TrueglePlayer
+            presentation={docked ? 'expanded' : 'popped'}
+            accent={accent || undefined}
+            query={docked ? pageQuery : playerQuery}
+          />
         </div>
 
         {/* ── Adjust bar: stretch / shrink without needing a precise grip ── */}
-        {adjust && !footerDock && (
+        {adjust && !footerDock && !docked && (
           <div className="flex items-center gap-1.5 px-2 py-1.5 border-t border-cyan-400/20 bg-cyan-400/10">
             <span className="text-[10px] text-cyan-200/70 uppercase tracking-wider mr-auto">Size</span>
             <button type="button" onClick={() => setWidth((w) => clampW(w - STEP))} title="Shrink"
@@ -293,9 +365,11 @@ export default function MiniPlayer() {
           </div>
         )}
 
-        {/* Dock + move, the two things only the floating frame can offer.
-            Neither means anything once the player is pinned to the footer. */}
-        {!minimized && !footerDock && (
+        {/* Move — the one thing only the floating window can offer. Docking is
+            NOT here: the transport's pop-out control is the single master for
+            where the player lives, and a second dock button next to it was
+            exactly the ambiguity we took out. */}
+        {!minimized && !footerDock && !docked && (
           <div className="flex items-center gap-0.5 px-1.5 py-1 border-t border-white/10 bg-black/20">
             <button type="button" onClick={() => setAdjust((v) => !v)} aria-pressed={adjust}
               title={adjust ? 'Finish moving/resizing' : 'Move and resize the player'}
@@ -304,19 +378,12 @@ export default function MiniPlayer() {
               }`}>
               <Move size={16} />
             </button>
-            {pageMode === 'tube' && (
-              <button type="button" onClick={() => setPoppedOut(false)}
-                title="Dock the player back into the search bar"
-                className="ml-auto flex items-center gap-1.5 px-3 h-9 rounded-lg text-white/60 hover:text-white hover:bg-white/10 text-xs transition-colors">
-                <Minimize2 size={15} /> Dock
-              </button>
-            )}
           </div>
         )}
 
         {/* Resize grip in its own footer strip — never overlaps the media
             controls. Doubles in size in Adjust mode so a thumb can find it. */}
-        {!minimized && !footerDock && (
+        {!minimized && !footerDock && !docked && (
           <div className={`flex justify-end border-t ${adjust ? 'border-cyan-400/20 bg-cyan-400/10' : 'border-white/10 bg-black/20'}`}>
             <div
               onPointerDown={startResize}
