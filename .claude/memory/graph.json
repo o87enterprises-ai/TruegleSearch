@@ -373,7 +373,7 @@
         "Id": "tube-bar-singleline",
         "Type": "fact",
         "Label": "Tube search bar is single-line horizontal",
-        "body": "SearchBar gained singleLine prop: fixed height, white-space:nowrap, overflow-x:auto. Growing downward pushed the player further down on every wrapped line. The auto-resize effect must NOT read  (declared later in the component — causes 'Cannot access config before initialization'); it just clears the inline height and lets the style block pin it. Left icon + right controls get an opaque bg in singleLine so scrolled text hides behind them.",
+        "body": "SearchBar gained singleLine prop: fixed height, white-space:nowrap, overflow-x:auto. Growing downward pushed the player further down on every wrapped line. The auto-resize effect must NOT read the \"config\" object (declared later in the component - causes \"Cannot access config before initialization\", which blanks the entire search bar); it clears the inline height and lets the style block pin it. Left icon + right controls get an opaque bg in singleLine so scrolled text hides behind them.",
         "ts": "2026-08-04",
         "created": "2026-08-04"
       }
