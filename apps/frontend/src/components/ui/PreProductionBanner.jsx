@@ -8,6 +8,46 @@ import { PREPRODUCTION_MODE, FEEDBACK_EMAIL } from '../../config/access';
 // collapsed (no regression), and there's now always a way back in.
 const DISMISS_KEY = 'truegle_preprod_banner_dismissed_v1';
 
+// Anything that pins itself to the bottom of the page (the footer-docked
+// player) has to sit ABOVE the feedback bar, so it needs to know whether the
+// bar is expanded or collapsed to a chip — and to hear about it the moment
+// that changes, not on the next reload.
+// The bar is MEASURED rather than assumed: its copy wraps to four lines on a
+// narrow phone and to one on a laptop, so any fixed constant would have the
+// player sitting on top of it at exactly the widths where space is tightest.
+const BAR_EVENT = 'truegle:feedback-bar';
+export const FEEDBACK_CHIP_HEIGHT = 12;
+
+export function useFeedbackBarHeight() {
+  const [height, setHeight] = useState(FEEDBACK_CHIP_HEIGHT);
+  useEffect(() => {
+    let ro;
+    const attach = () => {
+      const el = document.querySelector('[data-feedback-bar]');
+      ro?.disconnect();
+      if (!el) { setHeight(FEEDBACK_CHIP_HEIGHT); return; }
+      const measure = () => setHeight(el.getBoundingClientRect().height + 8);
+      measure();
+      if (typeof ResizeObserver !== 'undefined') {
+        ro = new ResizeObserver(measure);
+        ro.observe(el);
+      }
+    };
+    // The banner may mount after whatever is asking; retry a couple of times
+    // rather than latch onto its absence.
+    const timers = [0, 600, 1500].map((d) => setTimeout(attach, d));
+    window.addEventListener(BAR_EVENT, attach);
+    window.addEventListener('resize', attach);
+    return () => {
+      timers.forEach(clearTimeout);
+      ro?.disconnect();
+      window.removeEventListener(BAR_EVENT, attach);
+      window.removeEventListener('resize', attach);
+    };
+  }, []);
+  return height;
+}
+
 function feedbackMailto(kind = 'feedback') {
   const subject =
     kind === 'bug' ? 'TruegleSearch bug report' : 'TruegleSearch feedback / suggestion';
@@ -60,6 +100,7 @@ const PreProductionBanner = () => {
     } catch {
       /* ignore */
     }
+    window.dispatchEvent(new Event(BAR_EVENT));
   };
 
   return (
@@ -97,7 +138,11 @@ const PreProductionBanner = () => {
             <motion.button
               key="chip"
               type="button"
-              onClick={() => { setDismissed(false); try { localStorage.setItem(DISMISS_KEY, 'false'); } catch { /* ignore */ } }}
+              onClick={() => {
+                setDismissed(false);
+                try { localStorage.setItem(DISMISS_KEY, 'false'); } catch { /* ignore */ }
+                window.dispatchEvent(new Event(BAR_EVENT));
+              }}
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
@@ -110,6 +155,7 @@ const PreProductionBanner = () => {
           ) : (
             <motion.div
               key="banner"
+              data-feedback-bar
               initial={{ y: -60, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -60, opacity: 0 }}

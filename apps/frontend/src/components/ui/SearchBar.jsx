@@ -847,6 +847,9 @@ export default function SearchBar({
   showOSINTToggle = false,
   // Tube turns this off — its bar is the player, not a multimodal input.
   showMultiInput = true,
+  // Tube keeps voice (talk-to-text) but drops camera + file.
+  showCameraInput = true,
+  showFileInput = true,
   isOSINTMode = false,
   onOSINTToggle,
   // Category Props
@@ -1647,21 +1650,6 @@ const handleChange = useCallback((e) => {
             className={`absolute right-4 flex items-center gap-2 z-10 ${singleLine ? 'pl-2 bg-neutral-900 rounded-r-2xl' : ''}`}
             style={{ top: config.boxHeightPx / 2, transform: 'translateY(-50%)' }}
           >
-            {/* Pop-out player quick-access — appears whenever the mini-player
-                has a source; taps to expand/collapse it so it's always
-                reachable from the search bar. */}
-            {playerCurrent && (
-              <button
-                type="button"
-                onClick={togglePlayer}
-                title={playerMinimized ? 'Show pop-out player' : 'Hide pop-out player'}
-                aria-label="Toggle pop-out player"
-                className={`p-1.5 rounded-lg transition-colors ${playerMinimized ? 'text-cyan-400 hover:text-cyan-300 hover:bg-white/10' : 'text-cyan-300 bg-cyan-500/15 hover:bg-cyan-500/25'}`}
-              >
-                <PictureInPicture2 size={config.iconSize - 2} />
-              </button>
-            )}
-
             {/* Loading Indicator */}
             <AnimatePresence>
               {isLoading && (
@@ -1800,6 +1788,8 @@ const handleChange = useCallback((e) => {
                 </div>
               )}
 
+              {showCameraInput && (
+              <>
               {/* Camera Input — same reasoning as the FileInput attach above: a
                   search bar can't reason over pixels, so a captured/uploaded
                   photo hands off to /chat (vision-capable) instead of being
@@ -1820,6 +1810,10 @@ const handleChange = useCallback((e) => {
                 size={config.iconSize - 4}
               />
 
+              </>
+              )}
+              {showFileInput && (
+              <>
               {/* File Input */}
               <FileInput
                 onFileSelect={(files) => {
@@ -1878,6 +1872,8 @@ const handleChange = useCallback((e) => {
                 size={config.iconSize - 4}
               />
 
+              </>
+              )}
             </div>
             )}
 

@@ -866,6 +866,22 @@
         "body": "Popped out there are TWO independent bars. Player bar (in the floating frame's HEADER, never auto-hides) searches playable media — your entertainment. Page bar goes back to being a full search bar (categories, filters, real results) so you can keep working while the entertainment plays. Queries are independent by design. The old below-player bar is gone: it hid on a 3s idle timer that focus only restarted, so it vanished mid-word.",
         "ts": "2026-08-04",
         "created": "2026-08-04"
+      },
+      "player-one-popout": {
+        "Id": "player-one-popout",
+        "Type": "decision",
+        "Label": "One master pop-out control cycles the player home",
+        "body": "PlayerTransport has a single pop-out button (popOutMode: pop|footer|float|bar). SearchBar no longer has its own. On Tube it docks back into the bar; elsewhere it alternates floating window <-> footer dock (PlayerContext dock: float|footer). Footer dock sits above the measured feedback bar and adds body paddingBottom so the page scrolls clear of it.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
+      },
+      "player-fullscreen": {
+        "Id": "player-fullscreen",
+        "Type": "decision",
+        "Label": "Fullscreen is ours, not the embed(s)",
+        "body": "TrueglePlayer requests fullscreen on its own container so the transport bar + retracting list stay on screen. PlayerScreen fill prop switches from aspect-ratio sizing to flex-1. Handing fullscreen to the YouTube iframe would take our controls with it.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
       }
     },
     "entity": {

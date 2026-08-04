@@ -4,6 +4,7 @@ import { X, Minus, Maximize2, Move, Plus, GripHorizontal, Minimize2 } from 'luci
 import { MODE_COLORS, BRAND_GRADIENT } from '../../config/modeTheme';
 import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
+import { useFeedbackBarHeight } from './PreProductionBanner';
 
 // The floating FRAME for the one player. Rendered ABOVE <Routes> (in
 // AppContent) so the media node it hosts is never unmounted on navigation —
@@ -44,9 +45,14 @@ const loadGeom = () => {
 
 export default function MiniPlayer() {
   const {
-    current, queue, history, minimized, poppedOut,
+    current, queue, history, minimized, poppedOut, dock,
     next, prev, close, toggleMinimize, setPoppedOut,
   } = usePlayer();
+  // 'footer' = pinned across the bottom of the page, above the feedback bar.
+  // The frame stops being a window in that state: no dragging, no resizing,
+  // no stored geometry — it belongs to the page now.
+  const footerDock = dock === 'footer';
+  const feedbackOffset = useFeedbackBarHeight();
   // The player floats over whatever page you're on, so it takes that page's
   // colour — otherwise it reads as a foreign dark box sitting on top of the
   // design (which is exactly how it looked on a phone).
@@ -135,6 +141,21 @@ export default function MiniPlayer() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  // Footer dock covers the bottom of the page, so the page gets that height
+  // back as extra scroll — otherwise the last few lines of every page sit
+  // permanently underneath the player and can never be read.
+  useEffect(() => {
+    const el = frameRef.current;
+    if (!footerDock || !el) { document.body.style.paddingBottom = ''; return; }
+    const apply = () => {
+      document.body.style.paddingBottom = `${el.getBoundingClientRect().height + feedbackOffset + 24}px`;
+    };
+    apply();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(apply) : null;
+    ro?.observe(el);
+    return () => { ro?.disconnect(); document.body.style.paddingBottom = ''; };
+  }, [footerDock, feedbackOffset, minimized, current]);
+
   // ── Media Session: lock-screen controls + background audio (native only) ──
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
@@ -167,9 +188,16 @@ export default function MiniPlayer() {
   const title = current?.title;
   const clipWhenMin = minimized;
 
-  const style = pos
-    ? { left: pos.left, top: pos.top, width }
-    : { left: 16, bottom: BANNER_CLEARANCE, width };
+  const style = footerDock
+    ? {
+      left: '50%',
+      transform: 'translateX(-50%)',
+      bottom: feedbackOffset,
+      width: 'min(calc(100vw - 1rem), 48rem)',
+    }
+    : pos
+      ? { left: pos.left, top: pos.top, width }
+      : { left: 16, bottom: BANNER_CLEARANCE, width };
 
   // Every control is a ≥36px square. The old 13px icons packed edge to edge
   // were the other half of the "hard to maneuver" problem.
@@ -203,13 +231,15 @@ export default function MiniPlayer() {
         {/* ── Grab bar. Thick on purpose: 44px tall, full width, with a visible
             grip so it reads as "hold here to move me". ── */}
         <div
-          onPointerDown={startMove}
-          style={{ touchAction: 'none', background: adjust ? 'rgba(34,211,238,0.15)' : tint }}
-          className={`flex items-center gap-1.5 px-2 min-h-[44px] border-b cursor-move ${
+          onPointerDown={footerDock ? undefined : startMove}
+          style={{ touchAction: footerDock ? 'auto' : 'none', background: adjust ? 'rgba(34,211,238,0.15)' : tint }}
+          className={`flex items-center gap-1.5 px-2 min-h-[44px] border-b ${footerDock ? '' : 'cursor-move'} ${
             adjust ? 'border-cyan-400/30' : 'border-white/10'
           }`}
         >
-          <GripHorizontal size={18} className={adjust ? 'text-cyan-300 shrink-0' : 'text-white/40 shrink-0'} />
+          {!footerDock && (
+            <GripHorizontal size={18} className={adjust ? 'text-cyan-300 shrink-0' : 'text-white/40 shrink-0'} />
+          )}
           {/* The player's OWN search bar, in the header where it can't be
               mistaken for the page's. Deliberately never auto-hides: the old
               below-player bar collapsed on a 3s idle timer that focus merely
@@ -241,7 +271,7 @@ export default function MiniPlayer() {
         </div>
 
         {/* ── Adjust bar: stretch / shrink without needing a precise grip ── */}
-        {adjust && (
+        {adjust && !footerDock && (
           <div className="flex items-center gap-1.5 px-2 py-1.5 border-t border-cyan-400/20 bg-cyan-400/10">
             <span className="text-[10px] text-cyan-200/70 uppercase tracking-wider mr-auto">Size</span>
             <button type="button" onClick={() => setWidth((w) => clampW(w - STEP))} title="Shrink"
@@ -263,8 +293,9 @@ export default function MiniPlayer() {
           </div>
         )}
 
-        {/* Dock + move, the two things only the floating frame can offer. */}
-        {!minimized && (
+        {/* Dock + move, the two things only the floating frame can offer.
+            Neither means anything once the player is pinned to the footer. */}
+        {!minimized && !footerDock && (
           <div className="flex items-center gap-0.5 px-1.5 py-1 border-t border-white/10 bg-black/20">
             <button type="button" onClick={() => setAdjust((v) => !v)} aria-pressed={adjust}
               title={adjust ? 'Finish moving/resizing' : 'Move and resize the player'}
@@ -285,7 +316,7 @@ export default function MiniPlayer() {
 
         {/* Resize grip in its own footer strip — never overlaps the media
             controls. Doubles in size in Adjust mode so a thumb can find it. */}
-        {!minimized && (
+        {!minimized && !footerDock && (
           <div className={`flex justify-end border-t ${adjust ? 'border-cyan-400/20 bg-cyan-400/10' : 'border-white/10 bg-black/20'}`}>
             <div
               onPointerDown={startResize}

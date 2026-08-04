@@ -1102,7 +1102,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
               // OSINT exception: the ocean page swaps the content categories for
               // the investigation-class row rendered below the bar.
               showCategories={mode !== 'ocean' && !tubeDocked}
-              showMultiInput={!tubeDocked}
+              showMultiInput
+              showCameraInput={!tubeDocked}
+              showFileInput={!tubeDocked}
               singleLine={tubeDocked}
               belowSlot={mode === 'tube' && !poppedOut ? (
                 // The transport gets its OWN row directly under the input
@@ -1120,19 +1122,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
                       presentation="expanded"
                       accent={MODE_COLORS.tube}
                       query={searchValue}
-                      showCollapse
-                      collapsed={false}
-                      onToggleCollapse={() => setExpanded(false)}
                     />
                   ) : (
                     <div className="px-1.5 py-1 bg-black/30">
-                      <TrueglePlayer
-                        presentation="collapsed"
-                        accent={MODE_COLORS.tube}
-                        showCollapse
-                        collapsed
-                        onToggleCollapse={() => setExpanded(true)}
-                      />
+                      <TrueglePlayer presentation="collapsed" accent={MODE_COLORS.tube} />
                     </div>
                   )}
                 </div>

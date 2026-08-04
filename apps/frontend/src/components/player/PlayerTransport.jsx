@@ -1,7 +1,7 @@
 import {
   Play, Pause, Square, SkipBack, SkipForward,
-  ListMusic, Share2, Check, PictureInPicture2, Minimize2, Move,
-  ChevronDown, ChevronUp,
+  ListMusic, Share2, Check, PictureInPicture2, Minimize2, Move, PanelBottom,
+  Repeat, Repeat1, Shuffle, ArrowDownUp, Maximize, Minimize,
 } from 'lucide-react';
 
 // The one transport row. Identical in all three presentations — collapsed
@@ -11,6 +11,34 @@ import {
 // player rather than three widgets.
 //
 // Every control is a >=36px target: this is used one-handed on a phone.
+//
+// Play mode cycles auto -> repeat one -> shuffle -> loop, defaulting to auto
+// (play straight through the queue) — the behaviour people expect without
+// touching anything.
+export const PLAY_MODES = ['auto', 'repeat-one', 'shuffle', 'loop'];
+const PLAY_MODE_LABEL = {
+  auto: 'Auto — play through the queue',
+  'repeat-one': 'Repeat this one',
+  shuffle: 'Shuffle the queue',
+  loop: 'Loop the whole queue',
+};
+
+// The ONE pop-out control. It is a master toggle rather than three separate
+// buttons: whatever the player's current home is, this moves it to the next
+// one, and its icon/label say where that is. Having a second pop-out on the
+// search bar was the thing that made it ambiguous which one was in charge.
+//
+//   pop    → lift it out into the floating window
+//   footer → pin it across the bottom of the page (above the feedback bar)
+//   float  → let it float freely again
+//   bar    → put it back inside the Tube search bar
+const POP_OUT = {
+  pop: { label: 'Pop out the player', icon: <PictureInPicture2 size={16} /> },
+  footer: { label: 'Dock the player at the bottom of the page', icon: <PanelBottom size={16} /> },
+  float: { label: 'Float the player', icon: <PictureInPicture2 size={16} /> },
+  bar: { label: 'Dock the player back into the search bar', icon: <Minimize2 size={16} /> },
+};
+
 export default function PlayerTransport({
   playing,
   canPrev,
@@ -20,10 +48,13 @@ export default function PlayerTransport({
   showList = false,
   listOpen = false,
   showPopOut = false,
+  popOutMode = 'pop',
   showDock = false,
   showAdjust = false,
-  showCollapse = false,
-  collapsed = false,
+  showFullscreen = false,
+  fullscreen = false,
+  playMode = 'auto',
+  showPlayMode = false,
   adjustOn = false,
   shareState = 'idle',
   onPlayPause,
@@ -35,7 +66,8 @@ export default function PlayerTransport({
   onDock,
   onShare,
   onToggleAdjust,
-  onToggleCollapse,
+  onToggleFullscreen,
+  onCyclePlayMode,
   className = '',
 }) {
   const btn = 'flex items-center justify-center w-9 h-9 rounded-lg text-white/60 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors';
@@ -59,12 +91,14 @@ export default function PlayerTransport({
       </button>
 
       <div className="ml-auto flex items-center gap-0.5">
-        {showCollapse && (
-          <button type="button" onClick={onToggleCollapse} aria-expanded={!collapsed}
-            title={collapsed ? 'Show the player' : 'Collapse the player into the bar'}
-            aria-label={collapsed ? 'Show the player' : 'Collapse the player'}
-            className={btn}>
-            {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+        {showPlayMode && (
+          <button type="button" onClick={onCyclePlayMode}
+            title={PLAY_MODE_LABEL[playMode]} aria-label={PLAY_MODE_LABEL[playMode]}
+            className={`${btn} ${playMode !== 'auto' ? 'text-white bg-white/10' : ''}`}>
+            {playMode === 'repeat-one' ? <Repeat1 size={16} />
+              : playMode === 'shuffle' ? <Shuffle size={16} />
+                : playMode === 'loop' ? <Repeat size={16} />
+                  : <ArrowDownUp size={16} />}
           </button>
         )}
         {showList && (
@@ -97,10 +131,18 @@ export default function PlayerTransport({
             <Move size={16} />
           </button>
         )}
+        {showFullscreen && (
+          <button type="button" onClick={onToggleFullscreen} aria-pressed={fullscreen}
+            title={fullscreen ? 'Leave full screen' : 'Full screen'}
+            aria-label={fullscreen ? 'Leave full screen' : 'Full screen'}
+            className={btn}>
+            {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+          </button>
+        )}
         {showPopOut && (
-          <button type="button" onClick={onPopOut} title="Pop out the player"
-            aria-label="Pop out the player" className={btn}>
-            <PictureInPicture2 size={16} />
+          <button type="button" onClick={onPopOut} title={POP_OUT[popOutMode].label}
+            aria-label={POP_OUT[popOutMode].label} className={btn}>
+            {POP_OUT[popOutMode].icon}
           </button>
         )}
         {showDock && (

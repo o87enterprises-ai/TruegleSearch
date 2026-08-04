@@ -28,6 +28,11 @@ export const usePlayer = () => {
 const INITIAL = {
   current: null, queue: [], history: [], minimized: false,
   paused: false, expanded: false, poppedOut: false,
+  // Where the popped-out player lives: 'float' = the draggable window,
+  // 'footer' = pinned across the bottom of the page above the feedback bar.
+  dock: 'float',
+  // auto | repeat-one | shuffle | loop. Auto = play straight through.
+  playMode: 'auto',
 };
 const sameSrc = (a, b) => !!a && !!b && a.src === b.src;
 
@@ -50,10 +55,19 @@ function reducer(s, a) {
       return list.reduce((acc, source) => reducer(acc, { type: 'enqueue', source }), s);
     }
     case 'next': {
-      if (s.queue.length === 0) return s;
-      const [nx, ...rest] = s.queue;
+      // Repeat-one replays what's on now; shuffle picks at random; loop sends
+      // the finished item to the back so the queue never empties.
+      if (s.playMode === 'repeat-one' && s.current) return { ...s, current: { ...s.current } };
+      if (s.queue.length === 0) {
+        if (s.playMode === 'loop' && s.current) return { ...s, current: { ...s.current } };
+        return s;
+      }
+      const pick = s.playMode === 'shuffle' ? Math.floor(Math.random() * s.queue.length) : 0;
+      const nx = s.queue[pick];
+      const rest = s.queue.filter((_, i) => i !== pick);
       const history = s.current ? [...s.history, s.current] : s.history;
-      return { ...s, current: nx, queue: rest, history };
+      const queue = s.playMode === 'loop' && s.current ? [...rest, s.current] : rest;
+      return { ...s, current: nx, queue, history };
     }
     case 'prev': {
       if (s.history.length === 0) return s;
@@ -75,12 +89,23 @@ function reducer(s, a) {
       return { ...s, paused: !s.paused };
     case 'setPaused':
       return { ...s, paused: !!a.value };
+    case 'setPlayMode':
+      return { ...s, playMode: a.value };
     case 'setExpanded':
       return { ...s, expanded: !!a.value };
     case 'setPoppedOut':
       // Popping out always shows the whole component, so it can never pop out
-      // into a collapsed sliver with no visible controls.
-      return { ...s, poppedOut: !!a.value, expanded: a.value ? true : s.expanded, minimized: false };
+      // into a collapsed sliver with no visible controls. Docking back into
+      // the bar also resets the dock: the next pop-out starts floating again.
+      return {
+        ...s,
+        poppedOut: !!a.value,
+        expanded: a.value ? true : s.expanded,
+        dock: a.value ? s.dock : 'float',
+        minimized: false,
+      };
+    case 'setDock':
+      return { ...s, dock: a.value === 'footer' ? 'footer' : 'float', minimized: false };
     case 'close':
       return INITIAL;
     case 'toggleMin':
@@ -110,6 +135,7 @@ function loadState() {
       queue: Array.isArray(saved.queue) ? saved.queue.filter(persistable) : [],
       poppedOut: !!saved.poppedOut,
       expanded: !!saved.expanded,
+      dock: saved.dock === 'footer' ? 'footer' : 'float',
     };
   } catch {
     return INITIAL;
@@ -126,9 +152,10 @@ export const PlayerProvider = ({ children }) => {
         queue: state.queue.filter(persistable),
         poppedOut: state.poppedOut,
         expanded: state.expanded,
+        dock: state.dock,
       }));
     } catch { /* private mode / quota — the queue just won't survive a reload */ }
-  }, [state.current, state.queue, state.poppedOut, state.expanded]);
+  }, [state.current, state.queue, state.poppedOut, state.expanded, state.dock]);
 
   const play = useCallback((source) => dispatch({ type: 'play', source }), []);
   const enqueue = useCallback((source) => dispatch({ type: 'enqueue', source }), []);
@@ -144,15 +171,17 @@ export const PlayerProvider = ({ children }) => {
   const setPaused = useCallback((value) => dispatch({ type: 'setPaused', value }), []);
   const setExpanded = useCallback((value) => dispatch({ type: 'setExpanded', value }), []);
   const setPoppedOut = useCallback((value) => dispatch({ type: 'setPoppedOut', value }), []);
+  const setDock = useCallback((value) => dispatch({ type: 'setDock', value }), []);
+  const setPlayMode = useCallback((value) => dispatch({ type: 'setPlayMode', value }), []);
 
   const value = useMemo(
     () => ({
       ...state,
       play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, toggleMinimize,
-      stop, togglePause, setPaused, setExpanded, setPoppedOut,
+      stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setPlayMode,
     }),
     [state, play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, toggleMinimize,
-      stop, togglePause, setPaused, setExpanded, setPoppedOut]
+      stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode]
   );
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;

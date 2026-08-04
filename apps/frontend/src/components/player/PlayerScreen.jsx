@@ -16,10 +16,13 @@ import TruegleWatermark from '../ui/TruegleWatermark';
 export const PLAYER_SANDBOX =
   'allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox';
 
-const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, onEnded, maxHeight }, ref) {
+// `fill` = take all the height that's going (full screen), instead of sizing
+// from the clip's aspect ratio. The controls bar below stays on screen either
+// way — that's the whole reason full screen is ours and not the embed's.
+const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, onEnded, maxHeight, fill = false }, ref) {
   if (!source) {
     return (
-      <div ref={ref} className="w-full aspect-video bg-black/60 flex flex-col items-center justify-center gap-2">
+      <div ref={ref} className={`w-full bg-black/60 flex flex-col items-center justify-center gap-2 ${fill ? 'flex-1 min-h-0' : 'aspect-video'}`}>
         <Film size={28} className="text-white/15" />
         <span className="text-[11px] text-white/30">Search or paste a link to start watching</span>
       </div>
@@ -34,7 +37,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, onEnde
   const aspectPadding = source.vertical || kind === 'tiktok' ? '177.78%' : '56.25%';
 
   return (
-    <div ref={ref} className="relative w-full bg-black">
+    <div ref={ref} className={`relative w-full bg-black ${fill ? 'flex-1 min-h-0' : ''}`}>
       {isSoundcloud ? (
         <iframe
           key={src}
@@ -46,7 +49,8 @@ const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, onEnde
           allow="autoplay"
         />
       ) : isVideoIframe ? (
-        <div className="relative w-full" style={{ paddingTop: aspectPadding }}>
+        <div className={fill ? 'relative w-full h-full' : 'relative w-full'}
+          style={fill ? undefined : { paddingTop: aspectPadding }}>
           <iframe
             key={src}
             src={`${src}${src.includes('?') ? '&' : '?'}autoplay=1`}
@@ -59,7 +63,8 @@ const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, onEnde
         </div>
       ) : kind === 'video' ? (
         <video ref={mediaRef} key={src} src={src} controls autoPlay playsInline onEnded={onEnded}
-          style={{ maxHeight }} className="w-full bg-black" />
+          style={fill ? undefined : { maxHeight }}
+          className={fill ? 'w-full h-full bg-black object-contain' : 'w-full bg-black'} />
       ) : (
         <div className="flex items-center gap-2 px-3 py-3">
           <Music size={16} className="text-white/40 shrink-0" />

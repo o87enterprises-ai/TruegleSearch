@@ -25,6 +25,7 @@ import PillModeRow from '../components/landing/PillModeRow';
 import { MODE_COLORS } from '../config/modeTheme';
 import VsToggleRow from '../components/landing/VsToggleRow';
 import ThreeCards from '../components/landing/ThreeCards';
+import PlayerFeatureCard from '../components/landing/PlayerFeatureCard';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import CursorGlow from '../components/ui/CursorGlow';
 import LandingBackground from '../components/LandingBackground';
@@ -53,6 +54,7 @@ export default function LandingPage() {
     ocean:  { label: 'Privacy / OSINT',   sub: 'Digital investigation lens',             color: 'from-cyan-500 to-teal-700',       dot: 'bg-cyan-400' },
     orange: { label: 'Rewards',           sub: 'Earn a share of ad revenue',             color: 'from-orange-500 to-amber-700',    dot: 'bg-orange-400' },
     yellow: { label: 'Transcripts',       sub: 'Extract & transcribe',                   color: 'from-yellow-400 to-amber-600',    dot: 'bg-yellow-300' },
+    tube:   { label: 'Tube',             sub: 'Watch and queue without leaving search', color: 'from-slate-300 to-slate-500',     dot: 'bg-slate-300' },
   };
 
   // Pill Mode click handler — cycling the single pill only ever changes
@@ -295,11 +297,17 @@ export default function LandingPage() {
                 onChange={(e) =>
                   setSearchQuery(typeof e === 'string' ? e : e.target.value)
                 }
-                showFilters={pillMode !== 'black'}
+                // Tube's bar is the player's bar: single line, no filters,
+                // and voice only — a camera and a file picker have nothing to
+                // do with choosing something to watch.
+                showFilters={pillMode !== 'black' && pillMode !== 'tube'}
                 filters={filters}
                 onFiltersChange={setFilters}
                 compactFilters={false}
-                showFilterToggle={true}
+                showFilterToggle={pillMode !== 'tube'}
+                singleLine={pillMode === 'tube'}
+                showCameraInput={pillMode !== 'tube'}
+                showFileInput={pillMode !== 'tube'}
                 themeColor="green"
                 searchButtonGradient="from-green-600 to-emerald-600"
                 biasedButtonGradient="from-red-600 to-red-800"
@@ -336,6 +344,13 @@ export default function LandingPage() {
                 size="large"
               />
             </div>
+
+            {/* Player introduction — directly under the search bar. Hidden in
+                Tube mode, where the bar already IS the player and the card
+                would be introducing something the user is looking at. */}
+            {pillMode !== 'tube' && (
+              <PlayerFeatureCard onOpen={() => { setPillMode('tube'); navigate('/tube'); }} />
+            )}
 
             {/* Chat Mode row (multi-select chat lenses) — directly below the
                 search bar. Collapsed by default; only relevant in Chat mode
