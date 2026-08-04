@@ -30,7 +30,11 @@ const INITIAL = {
   paused: false, expanded: false, poppedOut: false,
   // Where the popped-out player lives: 'float' = the draggable window,
   // 'footer' = pinned across the bottom of the page above the feedback bar.
-  dock: 'float',
+  // null = nobody has chosen, so the surface picks: a floating window covers
+  // the results it was popped out to sit beside on a phone, so phone-width
+  // screens dock to the footer the way every mobile player does. Set only by
+  // the pop-out control, and remembered once set.
+  dock: null,
   // auto | repeat-one | shuffle | loop. Auto = play straight through.
   playMode: 'auto',
 };
@@ -115,7 +119,9 @@ function reducer(s, a) {
         ...s,
         poppedOut: !!a.value,
         expanded: a.value ? true : s.expanded,
-        dock: a.value ? s.dock : 'float',
+        // Docking back into the bar forgets the choice, so the next pop-out
+        // gets the right default for whatever screen it happens on.
+        dock: a.value ? s.dock : null,
         minimized: false,
       };
     case 'setDock':
@@ -166,7 +172,10 @@ function loadState() {
       history: Array.isArray(saved.history) ? saved.history.filter(persistable) : [],
       poppedOut: !!saved.poppedOut,
       expanded: !!saved.expanded,
-      dock: saved.dock === 'footer' ? 'footer' : 'float',
+      // Collapsing the player is a decision too; springing back to full size
+      // on every reload is the same "it forgot what I did" complaint.
+      minimized: !!saved.minimized,
+      dock: saved.dock === 'footer' || saved.dock === 'float' ? saved.dock : null,
     };
   } catch {
     return INITIAL;
@@ -184,10 +193,11 @@ export const PlayerProvider = ({ children }) => {
         history: state.history.filter(persistable).slice(-20),
         poppedOut: state.poppedOut,
         expanded: state.expanded,
+        minimized: state.minimized,
         dock: state.dock,
       }));
     } catch { /* private mode / quota — the queue just won't survive a reload */ }
-  }, [state.current, state.queue, state.history, state.poppedOut, state.expanded, state.dock]);
+  }, [state.current, state.queue, state.history, state.poppedOut, state.expanded, state.minimized, state.dock]);
 
   const play = useCallback((source) => dispatch({ type: 'play', source }), []);
   const playNow = useCallback((source) => dispatch({ type: 'playNow', source }), []);

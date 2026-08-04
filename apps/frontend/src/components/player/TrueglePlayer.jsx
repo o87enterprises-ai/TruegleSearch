@@ -1,6 +1,7 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
 import { usePageMode } from '../../hooks/usePageMode';
+import { useNarrowViewport } from '../../hooks/useNarrowViewport';
 import { buildPlayerLink } from '../../utils/playerLink';
 import PlayerScreen from './PlayerScreen';
 import PlayerTransport, { PLAY_MODES } from './PlayerTransport';
@@ -64,15 +65,22 @@ export default function TrueglePlayer({
   // One master pop-out control, cycling through the player's homes. On Tube it
   // goes back into the search bar; everywhere else it alternates between the
   // floating window and the footer dock.
+  //
+  // An unset dock resolves by screen — phone-width defaults to the footer, so
+  // the player doesn't float over the results it was popped out to sit beside.
+  // Same resolution as MiniPlayer's, so the button never offers the state the
+  // player is already in.
+  const narrow = useNarrowViewport();
+  const atFooter = dock === 'footer' || (!dock && narrow);
   const popOutMode = presentation !== 'popped'
     ? 'pop'
-    : pageMode === 'tube' ? 'bar' : (dock === 'footer' ? 'float' : 'footer');
+    : pageMode === 'tube' ? 'bar' : (atFooter ? 'float' : 'footer');
 
   const cyclePopOut = useCallback(() => {
     if (presentation !== 'popped') { setPoppedOut(true); return; }
     if (pageMode === 'tube') { setPoppedOut(false); return; }
-    setDock(dock === 'footer' ? 'float' : 'footer');
-  }, [presentation, pageMode, dock, setPoppedOut, setDock]);
+    setDock(atFooter ? 'float' : 'footer');
+  }, [presentation, pageMode, atFooter, setPoppedOut, setDock]);
 
   // Typing opens the list; it retreats again once the user has made their
   // selection (PlayerListSlot's post-add timer calls onRevert).

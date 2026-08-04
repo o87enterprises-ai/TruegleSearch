@@ -6,6 +6,7 @@ import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
 import { useFeedbackBarHeight } from './PreProductionBanner';
 import { usePlayerQuery } from '../../utils/playerQueryStore';
+import { useNarrowViewport } from '../../hooks/useNarrowViewport';
 
 // The floating FRAME for the one player. Rendered ABOVE <Routes> (in
 // AppContent) so the media node it hosts is never unmounted on navigation —
@@ -51,7 +52,14 @@ export default function MiniPlayer() {
   // 'footer' = pinned across the bottom of the page, above the feedback bar.
   // The frame stops being a window in that state: no dragging, no resizing,
   // no stored geometry — it belongs to the page now.
-  const footerDock = dock === 'footer';
+  //
+  // dock === null means nobody has chosen, so the screen decides: on a phone a
+  // floating window is big enough to cover the very results it was popped out
+  // to sit beside, so phone-width defaults to the footer — the same place
+  // every mobile player puts itself. The pop-out control still switches it,
+  // and that choice is remembered.
+  const narrow = useNarrowViewport();
+  const footerDock = dock === 'footer' || (!dock && narrow);
   const feedbackOffset = useFeedbackBarHeight();
   // The player floats over whatever page you're on, so it takes that page's
   // colour — otherwise it reads as a foreign dark box sitting on top of the

@@ -930,6 +930,14 @@
         "body": "PlayerContext playNow: the interrupted current goes to the FRONT of the queue (not history), the new track becomes current, and any copy of it further down the queue is removed so it cannot play twice. When it ends, next() resumes the interrupted track and the list continues in order. Nothing is cleared. QueueButton now renders Play now + Add to queue for every playable link; MultimediaInterface video GRID TILES got them too (previously only the opened lightbox had one).",
         "ts": "2026-08-04",
         "created": "2026-08-04"
+      },
+      "player-home-by-screen": {
+        "Id": "player-home-by-screen",
+        "Type": "decision",
+        "Label": "Popped-out player defaults by screen size",
+        "body": "PlayerContext dock is now null|float|footer; null = unchosen and resolved by useNarrowViewport (<640px). Phone-width pops out to the FOOTER dock (page gains bottom padding so nothing is permanently covered); wider screens keep the floating window. The pop-out control still switches, and an explicit choice is persisted; docking back into the Tube bar resets to null so the next pop-out gets the right default for that screen. minimized is now persisted too.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
       }
     },
     "entity": {
