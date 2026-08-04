@@ -26,7 +26,7 @@ export default function PlayerFeatureCard({ onOpen }) {
       <button
         type="button"
         onClick={() => (onOpen ? onOpen() : navigate('/tube'))}
-        aria-label="Open the Truegle player in Tube mode"
+        aria-label="Open True Tube"
         className="group w-full text-left rounded-2xl border border-white/15 bg-white/[0.07] backdrop-blur-lg
                    px-4 py-3 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.11] hover:border-purple-400/40"
       >
@@ -38,8 +38,8 @@ export default function PlayerFeatureCard({ onOpen }) {
 
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
-              <span className="text-white font-semibold text-sm">New — the Truegle Player</span>
-              <span className="text-[10px] uppercase tracking-wide text-green-400/90 font-bold">Tube</span>
+              <span className="text-white font-semibold text-sm">True Tube</span>
+              <span className="text-[10px] uppercase tracking-wide text-green-400/90 font-bold">New</span>
             </div>
             <p className="text-white/60 text-xs leading-snug mt-0.5">
               One player for video, reels and audio. Pop it out and it follows you across
