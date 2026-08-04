@@ -60,7 +60,7 @@ export default function PlayerListSlot({ query = '', accent = '#f43f5e', onRever
           <SearchIcon size={11} /> Results
           {loading && <Loader2 size={11} className="animate-spin ml-auto" />}
         </div>
-        <div className={`${compact ? 'max-h-44' : 'max-h-64'} overflow-y-auto`}>
+        <div className={`overflow-y-auto ${compact ? 'max-h-[min(11rem,26svh)]' : 'max-h-[min(16rem,32svh)]'}`}>
           {error && <p className="px-3 py-2 text-[11px] text-amber-300/90">{error}</p>}
           {results && results.length === 0 && !loading && (
             <p className="px-3 py-2 text-[11px] text-white/40">Nothing here can play in the Truegle player.</p>
@@ -114,7 +114,7 @@ export default function PlayerListSlot({ query = '', accent = '#f43f5e', onRever
           </>
         )}
       </div>
-      <div className={`${compact ? 'max-h-44' : 'max-h-64'} overflow-y-auto`}>
+      <div className={`overflow-y-auto ${compact ? 'max-h-[min(11rem,26svh)]' : 'max-h-[min(16rem,32svh)]'}`}>
         {queue.length === 0 ? (
           <p className="px-3 py-3 text-[11px] text-white/40">
             {current ? 'Nothing queued yet — search above to line something up.' : 'Search above to start watching.'}

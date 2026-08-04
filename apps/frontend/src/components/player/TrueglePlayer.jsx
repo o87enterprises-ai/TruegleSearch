@@ -172,6 +172,7 @@ export default function TrueglePlayer({
         mediaRef={mediaRef}
         onEnded={advance}
         fill={fullscreen}
+        compact={presentation === 'popped'}
         maxHeight={presentation === 'popped' ? 320 : 420}
       />
       {paused && current && (

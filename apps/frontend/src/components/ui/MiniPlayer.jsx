@@ -88,6 +88,14 @@ export default function MiniPlayer() {
       const el = document.querySelector('[data-player-slot]');
       if (!el) { setSlot(null); return; }
       const r = el.getBoundingClientRect();
+      // How much room is actually left below the page's header. A 9:16 reel
+      // capped only against the viewport still ran past the bottom once the
+      // logo, pill row and search bar had taken their share — the transport
+      // ended up just off screen, which is exactly when you need it.
+      document.documentElement.style.setProperty(
+        '--truegle-player-cap',
+        `${Math.max(180, Math.round(window.innerHeight - r.top - 120))}px`,
+      );
       setSlot((prev) => (prev
         && Math.abs(prev.left - r.left) < 0.5
         && Math.abs(prev.top - r.top) < 0.5
@@ -105,6 +113,7 @@ export default function MiniPlayer() {
       clearInterval(poll);
       window.removeEventListener('scroll', measure, { capture: true });
       window.removeEventListener('resize', measure);
+      document.documentElement.style.removeProperty('--truegle-player-cap');
     };
   }, [wantSlot]);
   const docked = !!slot && wantSlot;

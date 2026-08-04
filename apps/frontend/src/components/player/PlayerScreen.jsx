@@ -19,7 +19,7 @@ export const PLAYER_SANDBOX =
 // `fill` = take all the height that's going (full screen), instead of sizing
 // from the clip's aspect ratio. The controls bar below stays on screen either
 // way — that's the whole reason full screen is ours and not the embed's.
-const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, onEnded, maxHeight, fill = false }, ref) {
+const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, onEnded, maxHeight, fill = false, compact = false }, ref) {
   if (!source) {
     return (
       <div ref={ref} className={`w-full bg-black/60 flex flex-col items-center justify-center gap-2 ${fill ? 'flex-1 min-h-0' : 'aspect-video'}`}>
@@ -34,7 +34,31 @@ const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, onEnde
   const isSoundcloud = kind === 'soundcloud';
   // Shorts / Reels / TikToks are shot 9:16. Boxing them into a 16:9 frame
   // wastes most of the player and shrinks the clip to a stamp.
-  const aspectPadding = source.vertical || kind === 'tiktok' ? '177.78%' : '56.25%';
+  const vertical = !!source.vertical || kind === 'tiktok';
+
+  // A 9:16 clip is ~1.78× its width tall — at phone width that is taller than
+  // the whole viewport, which pushed the transport row off the bottom of the
+  // screen and put the controls out of reach exactly when a reel was playing.
+  // The box is capped against the VIEWPORT (svh, so the mobile browser's own
+  // chrome counts) and letterboxes: the clip narrows and centres rather than
+  // growing past what you can see. The floating window gets a tighter cap
+  // still — it sits ON TOP of the page, so a tall one covers the very search
+  // bar you popped it out to keep using.
+  // --truegle-player-cap is set by whatever is hosting the player when it
+  // knows the real room available (the docked slot does); the svh figure is
+  // the fallback when nobody has measured.
+  const cap = compact
+    ? '42svh'
+    : `min(${vertical ? '58svh' : '62svh'}, var(--truegle-player-cap, 100svh))`;
+  const boxStyle = fill ? undefined : {
+    aspectRatio: vertical ? '9 / 16' : '16 / 9',
+    maxHeight: cap,
+    // width:auto lets max-height win and the box shrink sideways rather than
+    // overflow — that's what produces the side bars on a reel.
+    width: 'auto',
+    maxWidth: '100%',
+    margin: '0 auto',
+  };
 
   return (
     <div ref={ref} className={`relative w-full bg-black ${fill ? 'flex-1 min-h-0' : ''}`}>
@@ -49,8 +73,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, onEnde
           allow="autoplay"
         />
       ) : isVideoIframe ? (
-        <div className={fill ? 'relative w-full h-full' : 'relative w-full'}
-          style={fill ? undefined : { paddingTop: aspectPadding }}>
+        <div className={fill ? 'relative w-full h-full' : 'relative'} style={boxStyle}>
           <iframe
             key={src}
             src={`${src}${src.includes('?') ? '&' : '?'}autoplay=1`}
@@ -63,7 +86,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, onEnde
         </div>
       ) : kind === 'video' ? (
         <video ref={mediaRef} key={src} src={src} controls autoPlay playsInline onEnded={onEnded}
-          style={fill ? undefined : { maxHeight }}
+          style={fill ? undefined : { maxHeight: maxHeight ? `min(${maxHeight}px, ${cap})` : cap }}
           className={fill ? 'w-full h-full bg-black object-contain' : 'w-full bg-black'} />
       ) : (
         <div className="flex items-center gap-2 px-3 py-3">

@@ -1127,7 +1127,9 @@ export default function SearchBar({
     userTypedRef.current = false; // picked, not typing → keep dropdown closed
     setShowSuggestions(false);
     saveToRecentSearches(suggestion.text);
-    inputRef.current?.focus();
+    // Picking a suggestion IS the submit, so let the keyboard go rather than
+    // re-focusing the input behind the results.
+    inputRef.current?.blur();
     // Trigger search
     setTimeout(() => {
       onSubmit?.();
@@ -1347,6 +1349,10 @@ const handleChange = useCallback((e) => {
       userTypedRef.current = false;
       setShowSuggestions(false);
       setSelectedSuggestionIndex(-1);
+      // Drop focus so the on-screen keyboard retracts. Nothing else takes
+      // focus off this input on submit, so on a phone the keyboard stayed up
+      // over the results — and over the player — on every page after.
+      try { inputRef.current?.blur(); } catch { /* no input mounted */ }
       gatedSearch();
     }
   }, [localValue, gatedSearch]);

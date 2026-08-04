@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -597,7 +598,10 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
       if (showRepairsModal) setShowRepairsModal(false);
 
       // Show green-mode preference modal exactly once ever (localStorage).
-      if (!firstSearchDone) {
+      // Never on an already-AI-free mode: offering to "disable smart features"
+      // on Tube, which has no AI on it at all, is a dialog with nothing to
+      // agree to — and it lands right on top of the player.
+      if (!firstSearchDone && !isAiFree(mode)) {
         setFirstSearchDone(true);
         localStorage.setItem('truegle_mode_pref_asked', 'true');
         setShowFirstSearchModal(true);
@@ -1097,16 +1101,21 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
           {/* Logo - CENTERED AND BIG (same as SearchResults). The logo is scaled
               1.5-1.8x, which visually overflows its layout box; the extra bottom
               margin keeps that overflow from covering the mode-pill row below. */}
+          {/* The header answers to the viewport: on a short screen (a phone in
+              portrait, a phone with the keyboard up) a 1.8×-scaled logo and a
+              48px margin are most of what you can see, and they pushed the
+              player's controls off the bottom. Every search page shrinks the
+              same way, so the layouts stay identical to each other. */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex justify-center mb-12"
+            className="vp-header-gap flex justify-center mb-12"
           >
             {/* True Tube wears its own mark — it's a destination people share
                 by name, not just a colour of the search page. */}
             <TruegleLogo
               variant={mode === 'tube' ? 'tube' : 'default'}
-              className="scale-[1.5] sm:scale-[1.8]"
+              className="vp-logo scale-[1.5] sm:scale-[1.8]"
               onClick={lockedGreen ? undefined : () => navigate('/')}
             />
           </motion.div>
@@ -1637,14 +1646,18 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
             query={query}
           />
 
-          {/* No Summary Confirmation Modal */}
+          {/* No Summary Confirmation Modal — portalled to <body>. Inside the
+              page's z-10 wrapper its z-50 is scoped to that wrapper, so it
+              could never rise above the fixed player; the player painted over
+              the dialog and the buttons were unreachable. */}
+          {createPortal(
           <AnimatePresence>
             {showNoSummaryConfirm && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
               >
                 <motion.div
                   initial={{ scale: 0.95, opacity: 0 }}
@@ -1678,16 +1691,18 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
                 </motion.div>
               </motion.div>
             )}
-          </AnimatePresence>
+          </AnimatePresence>, document.body)}
 
-          {/* First-Search Modal: Disable Smart Features? */}
+          {/* First-Search Modal: Disable Smart Features? — portalled for the
+              same reason as the one above. */}
+          {createPortal(
           <AnimatePresence>
             {showFirstSearchModal && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
               >
                 <motion.div
                   initial={{ scale: 0.95, opacity: 0 }}
@@ -1729,7 +1744,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
                 </motion.div>
               </motion.div>
             )}
-          </AnimatePresence>
+          </AnimatePresence>, document.body)}
 
           {/* Down-for-repairs modal (consecutive search malfunctions) */}
           <RepairsModal
