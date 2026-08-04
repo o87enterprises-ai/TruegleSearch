@@ -15,7 +15,6 @@ import {
   Camera,
   Paperclip,
   File as FileIcon,
-  BookOpen,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ModesAndTrending from '../components/landing/ModesAndTrending';
@@ -592,20 +591,10 @@ export default function LandingPage() {
         </footer>
       </div>
 
-      {/* Learn More — a small fixed link stacked directly above the
-          early-access feedback control (bottom-right, see PreProductionBanner),
-          rather than a big hero CTA competing with the search bar. */}
-      <button
-        type="button"
-        onClick={() => {
-          const featuresEl = document.getElementById('features');
-          if (featuresEl) featuresEl.scrollIntoView({ behavior: 'smooth' });
-        }}
-        className="fixed bottom-20 right-4 z-[55] flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full bg-[#13131f]/95 border border-purple-400/30 backdrop-blur shadow-2xl text-purple-300 text-[11px] font-semibold hover:border-purple-400/60 hover:text-purple-200 transition-colors"
-      >
-        <BookOpen size={13} />
-        Learn more
-      </button>
+      {/* Learn More removed 2026-08-04 — the fixed bottom-right pill sat on
+          top of whatever scrolled under it (it was clipping the player feature
+          card on a phone). The features section is still reachable by
+          scrolling and from the footer. */}
 
       {/* Permission Request Modal */}
       {showPermissions && (
