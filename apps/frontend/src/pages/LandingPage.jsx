@@ -326,6 +326,9 @@ export default function LandingPage() {
                     navigate('/rewards');
                   } else if (pillMode === 'yellow') {
                     navigate('/extract');
+                  } else if (pillMode === 'tube') {
+                    // True Tube owns /tube — that's the link people share.
+                    navigate(q ? `/tube?q=${encodeURIComponent(q)}` : '/tube');
                   } else {
                     // Search color mode: carry the chosen category (if any) through
                     // to the results page as &category=.

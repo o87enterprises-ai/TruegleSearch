@@ -17,7 +17,7 @@ const ITEMS = [
   { label: 'Chat',         mode: 'black',  path: '/chat' },
   { label: 'Extract',      mode: 'yellow', path: '/extract' },
   { label: 'Shorts',       mode: 'orange', path: '/shorts' },
-  { label: 'Tube',         mode: 'tube',   path: '/search?mode=tube' },
+  { label: 'Tube',         mode: 'tube',   path: '/tube' },
   // 'Rewards' removed 2026-07-24 — ad-pay/rewards program paused.
 ];
 
@@ -43,6 +43,8 @@ export default function BrandBar() {
     if (item.path === '/chat') return location.pathname === '/chat';
     if (item.path === '/extract') return location.pathname === '/extract';
     if (item.path === '/rewards') return location.pathname === '/rewards';
+    // Modes that own a route of their own, rather than a ?mode= on /search.
+    if (item.path === '/tube') return location.pathname === '/tube';
     const params = new URLSearchParams(location.search);
     return location.pathname === '/search' && (params.get('mode') || 'blue') === item.mode;
   };

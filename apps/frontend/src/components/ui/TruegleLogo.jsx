@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logoImage from '../../assets/images/truegle.webp';
 import logoChatImage from '../../assets/images/truegle-chat-transparent.webp';
@@ -8,9 +8,17 @@ import logoChatImage from '../../assets/images/truegle-chat-transparent.webp';
 // bright-on-black RGB art, so it needs mixBlendMode:screen to drop its dark
 // backdrop against the dark page. The chat mark is a genuine transparent PNG —
 // it composites cleanly with 'normal' blend (screen would wash out its colors).
+//
+// 'tube' is the True Tube mark on /tube. It is served from /public rather than
+// bundled, so the artwork can be replaced without a code change — and if it
+// isn't there yet the component falls back to the default mark rather than
+// showing a broken image. Export it TRANSPARENT (like the chat mark): a white
+// background would sit on the dark page as a white box, and 'screen' can't
+// remove white the way it removes black.
 const LOGO_VARIANTS = {
   default: { src: logoImage, alt: 'Truegle — Unbiased Search', blend: 'screen' },
   chat: { src: logoChatImage, alt: 'TrueGLE Chat', blend: 'normal' },
+  tube: { src: '/truetube.png', alt: 'True Tube — watch and queue on Truegle', blend: 'normal' },
 };
 
 function TruegleLogo({
@@ -21,7 +29,9 @@ function TruegleLogo({
   onClick,
 }) {
   const navigate = useNavigate();
-  const { src, alt, blend } = LOGO_VARIANTS[variant] || LOGO_VARIANTS.default;
+  const [failed, setFailed] = useState(false);
+  const chosen = LOGO_VARIANTS[variant] || LOGO_VARIANTS.default;
+  const { src, alt, blend } = failed ? LOGO_VARIANTS.default : chosen;
 
   const sizes = {
     small: 'h-12 w-auto',
@@ -40,6 +50,7 @@ function TruegleLogo({
         mixBlendMode: blend || 'screen',
       }}
       onClick={onClick || (() => navigate('/'))}
+      onError={() => setFailed(true)}
     />
   );
 

@@ -2,11 +2,11 @@
 // middleware, which is bundled outside Vite's resolver.
 import { getPlayable } from './videoEmbed.js';
 
-// ── Truegle player links (/w) ──────────────────────────────────────────────
+// ── Truegle player links (/tube) ───────────────────────────────────────────
 // A Truegle player link is a share URL that opens the recipient straight into
 // Truegle's own sandboxed player instead of the source site:
 //
-//   https://truegle.info/w?u=<source url>&t=<title>
+//   https://truegle.info/tube?u=<source url>&t=<title>
 //
 // Repeat `u` (and `t`) to share a whole queue; the first plays, the rest line
 // up behind it.
@@ -24,7 +24,12 @@ import { getPlayable } from './videoEmbed.js';
 //   • Titles are attacker-supplied text. They are rendered as text nodes and
 //     length-capped; never as markup, never as a URL.
 
-export const PLAYER_LINK_PATH = '/w';
+// New links land on True Tube — the full player page, which is also what
+// truegle.info/tube is on its own. /w is the ORIGINAL player-link path: every
+// link already shared points there, so it stays readable forever even though
+// nothing builds one any more.
+export const PLAYER_LINK_PATH = '/tube';
+export const LEGACY_PLAYER_LINK_PATH = '/w';
 
 const MAX_ITEMS = 25;
 const MAX_TITLE = 120;
@@ -80,7 +85,8 @@ export function resolveShareInput(text) {
   if (!raw) return [];
   let u;
   try { u = new URL(raw); } catch { return []; }
-  if (u.pathname === PLAYER_LINK_PATH || u.pathname === `${PLAYER_LINK_PATH}/`) {
+  const path = u.pathname.replace(/\/$/, '') || '/';
+  if (path === PLAYER_LINK_PATH || path === LEGACY_PLAYER_LINK_PATH) {
     return parsePlayerParams(u.search).sources;
   }
   const playable = getPlayable(raw);
@@ -100,7 +106,7 @@ export function titleFromUrl(url) {
 
 /**
  * The Truegle link for ANY result, media or not.
- *   • playable  → /w  (opens in Truegle's sandboxed player)
+ *   • playable  → /tube (opens in True Tube, Truegle's sandboxed player)
  *   • otherwise → /l  (lands on Truegle showing where the link goes)
  *
  * Every share surface routes through here, so a Truegle share link always

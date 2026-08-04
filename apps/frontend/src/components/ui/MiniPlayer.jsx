@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
-import { X, Minus, Maximize2, Move, Plus, GripHorizontal, Minimize2 } from 'lucide-react';
+import { X, Minus, Maximize2, Move, GripHorizontal } from 'lucide-react';
 import { MODE_COLORS, BRAND_GRADIENT } from '../../config/modeTheme';
 import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
@@ -31,7 +31,6 @@ import { usePlayerQuery } from '../../utils/playerQueryStore';
 const DEFAULT_W = 340;
 const MIN_W = 240;
 const MAX_W = 900;
-const STEP = 60;              // px per tap of the −/+ size buttons
 const BANNER_CLEARANCE = 80;  // px above the bottom pre-production banner
 const GEOM_KEY = 'truegle_player_geom';
 
@@ -69,7 +68,7 @@ export default function MiniPlayer() {
   const [pos, setPos] = useState(saved.current?.pos || null); // {left, top}; null = docked
   const [width, setWidth] = useState(saved.current?.width || DEFAULT_W);
   const [dragging, setDragging] = useState(false);
-  const [adjust, setAdjust] = useState(false);   // mobile stretch/shrink/drag mode
+  const [adjust, setAdjust] = useState(false);   // move mode: drag from anywhere
   const [playerQuery, setPlayerQuery] = useState('');
   const frameRef = useRef(null);
   const pageQuery = usePlayerQuery();
@@ -288,7 +287,20 @@ export default function MiniPlayer() {
             : 'z-[9996] max-w-[calc(100vw-1rem)] rounded-xl'
         }`}
       >
-      <div className={`overflow-hidden bg-[#0d0d14]/95 backdrop-blur-xl ${docked ? 'rounded-b-[14px]' : 'rounded-[10px]'}`}>
+      <div className={`relative overflow-hidden bg-[#0d0d14]/95 backdrop-blur-xl ${docked ? 'rounded-b-[14px]' : 'rounded-[10px]'}`}>
+        {/* Move mode: the WHOLE player becomes the drag handle, including the
+            video area — an iframe swallows pointer events, so without this
+            overlay "move" could only ever be started from the grab bar, which
+            is why the button felt like it did nothing but resize. Resizing
+            still lives on the corner grip; it never needed a mode. */}
+        {adjust && !docked && !footerDock && (
+          <div
+            onPointerDown={startMove}
+            style={{ touchAction: 'none' }}
+            className="absolute inset-0 z-20 cursor-move"
+            aria-hidden="true"
+          />
+        )}
         {/* ── Grab bar. Thick on purpose: 44px tall, full width, with a visible
             grip so it reads as "hold here to move me".
             Docked, it's gone entirely: the page's search bar is directly above
@@ -342,49 +354,35 @@ export default function MiniPlayer() {
           />
         </div>
 
-        {/* ── Adjust bar: stretch / shrink without needing a precise grip ── */}
-        {adjust && !footerDock && !docked && (
-          <div className="flex items-center gap-1.5 px-2 py-1.5 border-t border-cyan-400/20 bg-cyan-400/10">
-            <span className="text-[10px] text-cyan-200/70 uppercase tracking-wider mr-auto">Size</span>
-            <button type="button" onClick={() => setWidth((w) => clampW(w - STEP))} title="Shrink"
-              className="flex items-center justify-center w-9 h-9 rounded-lg bg-black/30 text-cyan-200 hover:bg-black/50 transition-colors">
-              <Minus size={16} />
-            </button>
-            <button type="button" onClick={() => setWidth((w) => clampW(w + STEP))} title="Stretch"
-              className="flex items-center justify-center w-9 h-9 rounded-lg bg-black/30 text-cyan-200 hover:bg-black/50 transition-colors">
-              <Plus size={16} />
-            </button>
-            <button type="button" onClick={() => { setPos(null); setWidth(DEFAULT_W); }} title="Snap back to the corner"
-              className="flex items-center justify-center w-9 h-9 rounded-lg bg-black/30 text-cyan-200 hover:bg-black/50 transition-colors">
-              <Minimize2 size={15} />
-            </button>
-            <button type="button" onClick={() => setAdjust(false)}
-              className="px-3 h-9 rounded-lg bg-cyan-400 text-black text-xs font-semibold hover:bg-cyan-300 transition-colors">
-              Done
-            </button>
-          </div>
-        )}
-
         {/* Move — the one thing only the floating window can offer. Docking is
             NOT here: the transport's pop-out control is the single master for
             where the player lives, and a second dock button next to it was
-            exactly the ambiguity we took out. */}
+            exactly the ambiguity we took out.
+            z-30 keeps it above the move overlay, so the same button that turns
+            move mode on is the one that turns it off. */}
         {!minimized && !footerDock && !docked && (
-          <div className="flex items-center gap-0.5 px-1.5 py-1 border-t border-white/10 bg-black/20">
+          <div className="relative z-30 flex items-center gap-0.5 px-1.5 py-1 border-t border-white/10 bg-black/20">
             <button type="button" onClick={() => setAdjust((v) => !v)} aria-pressed={adjust}
-              title={adjust ? 'Finish moving/resizing' : 'Move and resize the player'}
+              title={adjust ? 'Done moving' : 'Move the player'}
+              aria-label={adjust ? 'Done moving' : 'Move the player'}
               className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors ${
                 adjust ? 'text-black bg-cyan-400 hover:bg-cyan-300' : 'text-white/60 hover:text-white hover:bg-white/10'
               }`}>
               <Move size={16} />
             </button>
+            {adjust && (
+              <span className="text-[10px] uppercase tracking-wider text-cyan-200/70">
+                Drag anywhere to move
+              </span>
+            )}
           </div>
         )}
 
         {/* Resize grip in its own footer strip — never overlaps the media
-            controls. Doubles in size in Adjust mode so a thumb can find it. */}
+            controls, and needs no mode of its own. Bigger while moving so a
+            thumb can find it without leaving the mode. */}
         {!minimized && !footerDock && !docked && (
-          <div className={`flex justify-end border-t ${adjust ? 'border-cyan-400/20 bg-cyan-400/10' : 'border-white/10 bg-black/20'}`}>
+          <div className={`relative z-30 flex justify-end border-t ${adjust ? 'border-cyan-400/20 bg-cyan-400/10' : 'border-white/10 bg-black/20'}`}>
             <div
               onPointerDown={startResize}
               title="Drag to resize"

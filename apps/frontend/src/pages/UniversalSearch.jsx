@@ -76,6 +76,7 @@ import { isShortForm, asReel } from '../utils/shortForm';
 import { useFeedAutoplay } from '../hooks/useFeedAutoplay';
 import TrueglePlayer from '../components/player/TrueglePlayer';
 import { setPlayerQuery } from '../utils/playerQueryStore';
+import { parsePlayerParams } from '../utils/playerLink';
 import { usePlayer } from '../context/PlayerContext';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
@@ -103,7 +104,7 @@ const FILTER_CATEGORY_TYPE_MAP = {
 // geocode fallback) are deliberately excluded — they show a "View map" chip.
 const MAP_AUTO_OPEN_TYPES = ['geolocation', 'directions', 'zipcode'];
 
-export default function UniversalSearch({ lockedGreen = false }) {
+export default function UniversalSearch({ lockedGreen = false, lockedTube = false }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
@@ -114,6 +115,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const query = searchParams.get('q') || '';
   const queryIsQuestion = isQuestionQuery(query);
 
+  // Routes that ARE a mode (shareable in their own right) rather than a query
+  // string on /search. Their path is what the user shares and lands back on.
+  const lockedPath = lockedGreen ? '/green' : lockedTube ? '/tube' : null;
+
   // Mode management - Default to 'blue' (SearchPortal)
   const modeParam = searchParams.get('mode');
   const { mode: autoMode, modeConfig, overrideMode } = useSearchMode(query);
@@ -121,6 +126,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
   // URL param overrides (so direct links like ?mode=red still work).
   const [mode, setMode] = useState(() => {
     if (lockedGreen) return 'green';
+    if (lockedTube) return 'tube';
     if (modeParam) return modeParam;
     return localStorage.getItem('truegle_mode_pref') || 'blue';
   });
@@ -170,7 +176,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
   // floating frame and leaves a way back.
   const {
     poppedOut, setPoppedOut, current: playerCurrent,
-    expanded: tubeExpanded, setExpanded,
+    expanded: tubeExpanded, setExpanded, enqueueMany, play,
   } = usePlayer();
   // The screen drops out of the bar on its own the first time there's
   // something to show, but `expanded` stays authoritative after that — a
@@ -179,6 +185,21 @@ export default function UniversalSearch({ lockedGreen = false }) {
   // Docked = the player is living inside this page's search bar. Popped out,
   // the page is an ordinary search page again.
   const tubeDocked = mode === 'tube' && !poppedOut;
+  // A shared player link is now just /tube?u=…&t=… — same page, arriving with
+  // a queue. Everything a `u` has to survive (getPlayable or it isn't
+  // rendered at all) is enforced inside parsePlayerParams; unplayable values
+  // are dropped rather than shown, because this page has no inert-text slot
+  // for them the way /l does.
+  const sharedLoaded = useRef(false);
+  useEffect(() => {
+    if (!lockedTube || sharedLoaded.current) return;
+    const { sources } = parsePlayerParams(searchParams.toString());
+    if (!sources.length) return;
+    sharedLoaded.current = true;
+    enqueueMany(sources);
+    play(sources[0]);
+  }, [lockedTube, searchParams, enqueueMany, play]);
+
   // Tube's bar is the player's bar, and the player lives above <Routes> now,
   // so what's typed here has to be published to it.
   useEffect(() => {
@@ -189,11 +210,14 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const autoExpanded = useRef(false);
   useEffect(() => {
     if (autoExpanded.current) return;
-    if (playerCurrent || searchValue.trim().length >= 2) {
+    // Landing on /tube — a link somebody shared — must show the player, not a
+    // collapsed strip with nothing in it. Everywhere else the screen drops out
+    // once there's something to show.
+    if (lockedTube || playerCurrent || searchValue.trim().length >= 2) {
       autoExpanded.current = true;
       setExpanded(true);
     }
-  }, [playerCurrent, searchValue, setExpanded]);
+  }, [lockedTube, playerCurrent, searchValue, setExpanded]);
   // OSINT (ocean) exception: multi-select investigation classes that replace
   // the content categories on the ocean page and tag the query with entity types.
   const [osintClasses, setOsintClasses] = useState([]);
@@ -307,14 +331,15 @@ export default function UniversalSearch({ lockedGreen = false }) {
     bias: 'all'
   });
 
-  // Update mode when URL param changes (ignored in locked green mode)
+  // Update mode when URL param changes (a locked route IS the mode, so a
+  // stray ?mode= on /green or /tube can't unlock it)
   useEffect(() => {
-    if (lockedGreen) return;
+    if (lockedPath) return;
     const urlMode = searchParams.get('mode');
     if (urlMode) {
       setMode(urlMode);
     }
-  }, [searchParams, lockedGreen]);
+  }, [searchParams, lockedPath]);
 
   // Update search value when query param changes
   useEffect(() => {
@@ -436,7 +461,11 @@ export default function UniversalSearch({ lockedGreen = false }) {
     // separate route, which is what keeps its layout identical by construction.
     if (pillMode !== mode) {
       setMode(pillMode);
-      navigate(`/search?mode=${pillMode}&q=${encodeURIComponent(q)}`);
+      // Tube owns /tube, so switching into it lands on the shareable route
+      // rather than a query string that means the same thing.
+      navigate(pillMode === 'tube'
+        ? `/tube?q=${encodeURIComponent(q)}`
+        : `/search?mode=${pillMode}&q=${encodeURIComponent(q)}`);
       return;
     }
     handleSearch();
@@ -445,16 +474,20 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const handleSearch = async () => {
     if (!searchValue.trim()) return;
 
-    // Update URL
+    // Update URL. A locked route keeps its own path — rewriting /tube to
+    // /search?mode=tube would hand the user a different link to share than the
+    // one they arrived on (and reloading /green would leave the lock behind).
     const params = new URLSearchParams();
     params.set('q', searchValue);
-    if (mode !== 'blue') {
+    if (mode !== 'blue' && !lockedPath) {
       params.set('mode', mode);
     }
-    if (selectedPerspectives.length > 0) {
+    // Tube has no perspectives control, so carrying the default in the URL is
+    // just noise on a link people are meant to share.
+    if (selectedPerspectives.length > 0 && !lockedTube) {
       params.set('perspectives', selectedPerspectives.join(','));
     }
-    window.history.replaceState({}, '', `/search?${params.toString()}`);
+    window.history.replaceState({}, '', `${lockedPath || '/search'}?${params.toString()}`);
 
     setSearchLoading(true);
     setAiSummary(null);
@@ -1069,7 +1102,13 @@ export default function UniversalSearch({ lockedGreen = false }) {
             animate={{ opacity: 1, scale: 1 }}
             className="flex justify-center mb-12"
           >
-            <TruegleLogo className="scale-[1.5] sm:scale-[1.8]" onClick={lockedGreen ? undefined : () => navigate('/')} />
+            {/* True Tube wears its own mark — it's a destination people share
+                by name, not just a colour of the search page. */}
+            <TruegleLogo
+              variant={mode === 'tube' ? 'tube' : 'default'}
+              className="scale-[1.5] sm:scale-[1.8]"
+              onClick={lockedGreen ? undefined : () => navigate('/')}
+            />
           </motion.div>
 
           {/* Single cycling pill — same control as the landing page. relative

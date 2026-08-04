@@ -306,13 +306,17 @@ const AppContent = () => {
         {/* Locked Green Mode - AI-free, no navigation out */}
         <Route path="/green" element={<RouteBoundary><UniversalSearch lockedGreen /></RouteBoundary>} />
 
+        {/* True Tube — a real route, not an alias, so truegle.info/tube is what
+            people actually share and what they land back on. Same page and
+            layout as every other search mode; only the pill is pinned. */}
+        <Route path="/tube" element={<RouteBoundary><UniversalSearch lockedTube /></RouteBoundary>} />
+
         {/* Legacy Routes - Redirect to Universal Search */}
         <Route path="/search-portal" element={<Navigate to="/search" replace />} />
         <Route path="/search-results" element={<Navigate to="/search" replace />} />
         <Route path="/results" element={<Navigate to="/search" replace />} />
         <Route path="/biased" element={<Navigate to="/search?mode=purple" replace />} />
         <Route path="/osint" element={<Navigate to="/search?mode=ocean" replace />} />
-        <Route path="/tube" element={<Navigate to="/search?mode=tube" replace />} />
         <Route path="/osint/search" element={<Navigate to="/search?mode=ocean" replace />} />
         <Route path="/osint/tools" element={<Navigate to="/search?mode=ocean" replace />} />
 

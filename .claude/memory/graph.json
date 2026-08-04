@@ -898,6 +898,14 @@
         "body": "close() now keeps queue+history and only stops playback / un-pops. Emptying is explicit via Clear in the up-next header. Queue persistence moved from sessionStorage to localStorage (truegle_player_queue_v2, migrating the old key) and now includes history, so a new tab or a recycled mobile tab no longer looks like the playlist erased itself.",
         "ts": "2026-08-04",
         "created": "2026-08-04"
+      },
+      "tube-route": {
+        "Id": "tube-route",
+        "Type": "decision",
+        "Label": "True Tube owns /tube; share links point there",
+        "body": "App.jsx renders UniversalSearch lockedTube at /tube (was a Navigate alias to /search?mode=tube, which rewrote the shared URL). lockedPath keeps /tube and /green from rewriting themselves to /search on submit. buildPlayerLink now emits /tube?u=&t= (PLAYER_LINK_PATH); /w stays mounted and parseable for links already shared (LEGACY_PLAYER_LINK_PATH); non-playable shares still go to /l. Middleware gives /tube?u= the clip card and bare /tube the True Tube card + canonical.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
       }
     },
     "entity": {
@@ -1142,6 +1150,15 @@
         "status": "open",
         "ts": "2026-07-29",
         "created": "2026-07-29"
+      },
+      "truetube-logo-asset": {
+        "Id": "truetube-logo-asset",
+        "Type": "thread",
+        "Label": "True Tube logo file still needed",
+        "body": "TruegleLogo variant tube points at PUBLIC path /truetube.png (apps/frontend/public/truetube.png) and falls back to the default mark on 404. Owner must drop a TRANSPARENT png there — the sample supplied had a white background, which would show as a white box on the dark page.",
+        "status": "open",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
       }
     }
   },

@@ -164,7 +164,9 @@ function injectWatchPreview(html, url) {
     ? `Plus ${more} more, queued up. Opens in Truegle's sandboxed player — no tracking, and the embed can't redirect your tab.`
     : "Opens in Truegle's sandboxed player — no tracking, and the embed can't redirect your tab.";
 
-  const shareUrl = `${SITE}/w${url.search}`;
+  // New links are /tube?u=…; /w is only ever arrived at, never built. Either
+  // way the card points back at the path the recipient actually opened.
+  const shareUrl = `${SITE}${url.pathname.replace(/\/$/, '') || '/w'}${url.search}`;
   const image = previewImage(first);
 
   const meta = [
@@ -275,6 +277,46 @@ function injectLinkPreview(html, url) {
   return out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeAttr(title)} · Shared on Truegle</title>`);
 }
 
+// /tube — True Tube, the player page. It's meant to be handed round ("watch
+// this on Truegle"), so it gets its own card instead of the generic site one.
+// Everything here is static: unlike /w and /l there is no user-supplied value
+// in the URL to reflect, and the optional ?q= is deliberately NOT echoed —
+// a card that repeats whatever a stranger typed is a card that can be used to
+// put words in Truegle's mouth.
+function injectTubePreview(html) {
+  const title = 'True Tube — watch and queue on Truegle';
+  const description =
+    "One player for video, reels and audio, from YouTube, Vimeo, TikTok, SoundCloud and direct files. "
+    + "It keeps playing while you search, and the embed can't redirect your tab.";
+  const shareUrl = `${SITE}/tube`;
+
+  const meta = [
+    ['og:title', title],
+    ['og:description', description],
+    ['og:type', 'website'],
+    ['og:url', shareUrl],
+    ['og:image', DEFAULT_IMAGE],
+    ['og:site_name', 'Truegle'],
+    ['twitter:card', 'summary_large_image'],
+    ['twitter:title', title],
+    ['twitter:description', description],
+    ['twitter:image', DEFAULT_IMAGE],
+  ];
+
+  let out = html.replace(
+    /<meta\s+(?:property|name)="([^"]+)"[^>]*>\s*/gi,
+    (match, key) => (OVERRIDDEN_META.has(key) ? '' : match),
+  );
+  const tags = meta
+    .map(([key, value]) => `<meta ${key.startsWith('og:') ? 'property' : 'name'}="${key}" content="${escapeAttr(value)}" />`)
+    .join('');
+  // The shell canonicalises to "/", which would point every share of this page
+  // at the landing page. Replace it rather than adding a second one.
+  out = out.replace(/<link\s+rel="canonical"[^>]*>\s*/i, '');
+  out = out.replace('</head>', `${tags}<link rel="canonical" href="${shareUrl}" /></head>`);
+  return out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeAttr(title)}</title>`);
+}
+
 export async function onRequest(context) {
   const { request, next, env } = context;
 
@@ -289,9 +331,10 @@ export async function onRequest(context) {
   // crawlers that matter here are Discord/iMessage/WhatsApp/Slack.
   const isWatch = url.pathname === '/w' || url.pathname === '/w/';
   const isLink = url.pathname === '/l' || url.pathname === '/l/';
+  const isTube = url.pathname === '/tube' || url.pathname === '/tube/';
 
   // Nothing to do — pass through instantly
-  if (!bot && !isWatch && !isLink) return next();
+  if (!bot && !isWatch && !isLink && !isTube) return next();
 
   // Get the upstream response first (always serve content)
   const response = await next();
@@ -308,6 +351,14 @@ export async function onRequest(context) {
     try { html = injectWatchPreview(html, url); } catch { /* keep the shell */ }
   } else if (isLink) {
     try { html = injectLinkPreview(html, url); } catch { /* keep the shell */ }
+  } else if (isTube) {
+    // A shared queue (/tube?u=…) gets the clip's own card; the bare page gets
+    // True Tube's.
+    try {
+      html = url.searchParams.has('u')
+        ? injectWatchPreview(html, url)
+        : injectTubePreview(html);
+    } catch { /* keep the shell */ }
   }
 
   if (!bot) return new Response(html, { status: response.status, headers });
