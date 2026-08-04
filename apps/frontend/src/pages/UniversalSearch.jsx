@@ -12,6 +12,9 @@ import {
   Eye,
   X,
   MapPin,
+  PlayCircle,
+  PauseCircle,
+  ChevronsDown,
 } from 'lucide-react';
 
 // Backgrounds - Import all backgrounds
@@ -65,6 +68,7 @@ const MODE_TO_BACKEND = { blue: 'blue-pill', green: 'green', red: 'red-pill', pu
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import QueueButton from '../components/ui/QueueButton';
 import { isShortForm, asReel } from '../utils/shortForm';
+import { useFeedAutoplay } from '../hooks/useFeedAutoplay';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
 // (mainstream, conspiracy, democratic, republican, nonpartisan, music, videos,
@@ -151,6 +155,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
   // Search state
   const [searchValue, setSearchValue] = useState(query);
   const [activeCategory, setActiveCategory] = useState('all');
+  // Viewport-driven autoplay for the results feed: the visible playable result
+  // plays, the rest stay still, and (optionally) the page walks itself down.
+  const feed = useFeedAutoplay();
   // OSINT (ocean) exception: multi-select investigation classes that replace
   // the content categories on the ocean page and tag the query with entity types.
   const [osintClasses, setOsintClasses] = useState([]);
@@ -789,6 +796,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
     const [iframeBlocked, setIframeBlocked] = useState(false);
     const videoEmbed = getVideoEmbed(result.url);
     const playable = getPlayable(result.url);
+    // Auto-played by the feed while this card is the one on screen. The embed
+    // unmounts when it stops being active, which is what pauses it.
+    const autoPlaying = feed.autoplay && videoEmbed && feed.activeIndex === index;
+    const showViewer = viewerOpen || autoPlaying;
     const borderClass = accent.border;
     const titleClass = accent.title;
     const blurClass = safeSearch === 'blur' ? 'blur-md hover:blur-none transition-all duration-200' : '';
@@ -806,7 +817,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
     // keep executing their own behavior without also opening the page.
     const openCardLink = (e) => {
       if (e.target.closest('a, button, iframe, input, [role="menu"]')) return;
-      if (viewerOpen) return; // in-app viewer open = user is browsing here
+      if (showViewer) return; // in-app viewer open = user is browsing here
       // Don't hijack text selection (mobile long-press copy)
       if (window.getSelection && String(window.getSelection())) return;
       window.open(result.url, '_blank', 'noopener,noreferrer');
@@ -814,6 +825,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
 
     return (
       <motion.div
+        // Only playable cards join the autoplay rotation.
+        ref={videoEmbed ? (el) => feed.register(index, el) : undefined}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.05 }}
@@ -925,8 +938,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
             </div>
           </div>
 
-          {/* Inline iframe viewer (Open in app) */}
-          {viewerOpen && (
+          {/* Inline iframe viewer (Open in app, or feed autoplay) */}
+          {showViewer && (
             <div className={`mt-3 rounded-xl overflow-hidden border ${accent.iframeBorder}`}>
               <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-white/5">
                 <span className="text-xs text-white/40 truncate flex-1 mr-2">{result.url}</span>
@@ -941,8 +954,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
               {videoEmbed ? (
                 <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
                   <iframe
-                    key={videoEmbed}
-                    src={`${videoEmbed}?autoplay=1`}
+                    key={`${videoEmbed}${autoPlaying ? '-auto' : ''}`}
+                    src={`${videoEmbed}?autoplay=1${autoPlaying ? '&mute=1' : ''}`}
                     className="absolute inset-0 w-full h-full"
                     title="Video player"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -1698,6 +1711,45 @@ export default function UniversalSearch({ lockedGreen = false }) {
                         ))}
                       </div>
                     </TokenGate>
+                  )}
+
+                  {/* Feed autoplay controls — only where there's media to play */}
+                  {searchResults.some((r) => getVideoEmbed(r.url)) && (
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => feed.setAutoplay((v) => !v)}
+                        aria-pressed={feed.autoplay}
+                        title="Play each video as you scroll to it, and stop it when you scroll away"
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                          feed.autoplay
+                            ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-100'
+                            : 'bg-white/5 border-white/15 text-white/60 hover:text-white'
+                        }`}
+                      >
+                        {feed.autoplay ? <PauseCircle size={13} /> : <PlayCircle size={13} />}
+                        {feed.autoplay ? 'Autoplay on' : 'Autoplay feed'}
+                      </button>
+                      {feed.autoplay && (
+                        <button
+                          type="button"
+                          onClick={() => { feed.setAutoAdvance((v) => !v); feed.bumpInteraction(); }}
+                          aria-pressed={feed.autoAdvance}
+                          title="Also scroll to the next video on its own"
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                            feed.autoAdvance
+                              ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-100'
+                              : 'bg-white/5 border-white/15 text-white/60 hover:text-white'
+                          }`}
+                        >
+                          <ChevronsDown size={13} />
+                          {feed.autoAdvance ? 'Auto-scroll on' : 'Auto-scroll'}
+                        </button>
+                      )}
+                      <span className="text-[10px] text-white/30">
+                        {feed.autoplay ? 'Videos play muted as you reach them' : 'Play videos as you scroll'}
+                      </span>
+                    </div>
                   )}
 
                   {mode !== 'ocean' && searchResults.map((result, index) => (
