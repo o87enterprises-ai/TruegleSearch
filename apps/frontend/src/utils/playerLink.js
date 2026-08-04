@@ -97,3 +97,23 @@ export function titleFromUrl(url) {
     return String(url).slice(0, MAX_TITLE);
   }
 }
+
+/**
+ * The Truegle link for ANY result, media or not.
+ *   • playable  → /w  (opens in Truegle's sandboxed player)
+ *   • otherwise → /l  (lands on Truegle showing where the link goes)
+ *
+ * Every share surface routes through here, so a Truegle share link always
+ * brings the recipient back to Truegle first rather than handing them
+ * straight to an outside site.
+ */
+export function buildShareLink({ url, title }, origin) {
+  if (!url) return null;
+  const player = buildPlayerLink({ url, title }, origin);
+  if (player) return player;
+  const base = origin || (typeof window !== 'undefined' ? window.location.origin : 'https://truegle.info');
+  const params = new URLSearchParams({ u: url });
+  const clean = cleanTitle(title);
+  if (clean) params.set('t', clean);
+  return `${base}/l?${params.toString()}`;
+}

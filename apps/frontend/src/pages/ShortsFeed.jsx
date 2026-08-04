@@ -26,6 +26,7 @@ const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 // Seed topics for a cold open, so the feed has something in it before anyone
 // types a query.
+const AUTO_KEY = 'truegle_reels_autoscroll';
 const SEED_TOPICS = ['trending shorts', 'viral clips', 'shorts today'];
 const pickSeed = () => SEED_TOPICS[Math.floor(Math.random() * SEED_TOPICS.length)];
 
@@ -139,12 +140,17 @@ export default function ShortsFeed() {
   // "ended" without loading each platform's JS SDK, so this is a timer, not
   // an end-of-media event.
   //
-  // Defaults OFF when the visitor asked for reduced motion — auto-scrolling
-  // content is exactly what that setting is about (WCAG 2.2.2); the toggle is
-  // always there either way.
-  const [autoAdvance, setAutoAdvance] = useState(
-    () => !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
-  );
+  // Auto-scroll is the default behaviour of the feed, not an opt-in: sitting
+  // still should keep playing. WCAG 2.2.2 wants moving content to be stoppable
+  // rather than absent, which the always-visible Auto/Paused toggle satisfies —
+  // and the choice is remembered, so pausing once pauses for good.
+  const [autoAdvance, setAutoAdvance] = useState(() => {
+    try {
+      const saved = localStorage.getItem(AUTO_KEY);
+      if (saved !== null) return saved === '1';
+    } catch { /* private mode */ }
+    return true;
+  });
   const [repeat, setRepeat] = useState('all');   // 'all' = loop the feed, 'one' = loop this clip, 'off'
   const [replayKey, setReplayKey] = useState(0); // bumping this remounts the active embed
   const [interaction, setInteraction] = useState(0);
@@ -184,6 +190,10 @@ export default function ShortsFeed() {
     return () => { clearInterval(tick); clearTimeout(advance); };
     // `interaction` is a dependency on purpose: any touch restarts the dwell.
   }, [activeIndex, autoAdvance, repeat, dwellSeconds, items.length, interaction, goTo]);
+
+  useEffect(() => {
+    try { localStorage.setItem(AUTO_KEY, autoAdvance ? '1' : '0'); } catch { /* private mode */ }
+  }, [autoAdvance]);
 
   const cycleRepeat = () => setRepeat((r) => (r === 'all' ? 'one' : r === 'one' ? 'off' : 'all'));
   const RepeatIcon = repeat === 'one' ? Repeat1 : Repeat;
@@ -230,7 +240,7 @@ export default function ShortsFeed() {
           />
         )}
 
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-3">
           <button
             type="button"
             onClick={() => setAddOpen((v) => !v)}
@@ -242,15 +252,7 @@ export default function ShortsFeed() {
           >
             <Plus size={13} /> Add a reel
           </button>
-        </div>
-
-        {items.length > 0 && (
-          <div className="flex items-center gap-3 mb-3">
-            <button type="button" onClick={playAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/15 text-xs text-white/70 hover:text-white transition-colors">
-              <Play size={13} /> Play in Truegle player
-            </button>
-            <button
+          <button
               type="button"
               onClick={() => { setAutoAdvance((v) => !v); bumpInteraction(); }}
               aria-pressed={autoAdvance}
@@ -274,15 +276,21 @@ export default function ShortsFeed() {
                   : 'bg-cyan-500/20 border-cyan-400/40 text-cyan-100'
               }`}
             >
-              <RepeatIcon size={13} />
-              {repeat === 'all' ? 'Feed' : repeat === 'one' ? 'One' : 'Off'}
-            </button>
-          </div>
-        )}
+            <RepeatIcon size={13} />
+            {repeat === 'all' ? 'Feed' : repeat === 'one' ? 'One' : 'Off'}
+          </button>
+        </div>
+
         {items.length > 0 && (
-          <span className="text-[11px] text-white/30 mb-2">
-            {items.length} clips · swipe up, or let it roll
-          </span>
+          <div className="flex items-center gap-3 mb-2">
+            <button type="button" onClick={playAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/15 text-xs text-white/70 hover:text-white transition-colors">
+              <Play size={13} /> Play in Truegle player
+            </button>
+            <span className="text-[11px] text-white/30">
+              {items.length} clips · swipe up, or let it roll
+            </span>
+          </div>
         )}
 
         {error && !loading && (

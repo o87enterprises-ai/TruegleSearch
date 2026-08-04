@@ -352,6 +352,14 @@
         "body": "Posting on a user's behalf needs Meta/TikTok app review + business verification + audited app; /bin/bash budget. Also cannot watermark a third-party reel — we don't hold the video bytes (iframe embeds), ripping breaks ToS, and re-uploading under our mark misattributes the creator. Route that DOES work: navigator.share() native sheet (reaches IG/TikTok/YT via the user's own session) + public web intents (FB/X/Reddit/WhatsApp/Telegram/LinkedIn/Bluesky). Watermark goes on OUR surfaces + metadata on the /w link.",
         "ts": "2026-08-03",
         "created": "2026-08-03"
+      },
+      "reels-autoscroll": {
+        "Id": "reels-autoscroll",
+        "Type": "fact",
+        "Label": "Reels auto-scroll is the default behaviour",
+        "body": "ShortsFeed auto-advances by default; preference persisted in localStorage truegle_reels_autoscroll. Auto/Repeat/Add-a-reel controls render OUTSIDE the items.length>0 guard — they were previously hidden entirely on an empty feed, which is why they looked missing. Dwell = clip duration clamped 8-90s; community-submitted reels have NO duration so they use the 30s default.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
       }
     },
     "decision": {
@@ -810,6 +818,14 @@
         "body": "isShortForm() requires a short-form URL form (youtube.com/shorts, tiktok video, instagram/facebook reel). Duration alone was the bug — it swept in ordinary brief videos (a 2:04 music video showed as a reel). asReel() promotes a YouTube WATCH url to /shorts/<id> only when BOTH a #shorts tag is present AND duration<=180s; either alone is rejected.",
         "ts": "2026-08-03",
         "created": "2026-08-03"
+      },
+      "truegle-share-links-unified": {
+        "Id": "truegle-share-links-unified",
+        "Type": "decision",
+        "Label": "Every Truegle share link lands on Truegle",
+        "body": "buildShareLink() in utils/playerLink.js is the single entry point: playable -> /w (sandboxed player), everything else -> /l (branded interstitial showing the destination). /l NEVER auto-navigates (no redirect/meta-refresh) so it can't be an open redirect laundering a hostile URL behind truegle.info; only http(s) accepted; the outbound anchor is rel=noopener noreferrer nofollow. NO inline iframe preview on /l — framing arbitrary sites needs 'https:' in CSP frame-src, which is exactly what was tightened after the ad hijack. Middleware injects OG cards for /l too.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
       }
     },
     "entity": {
@@ -1083,5 +1099,5 @@
       }
     }
   },
-  "updated": "2026-08-03"
+  "updated": "2026-08-04"
 }

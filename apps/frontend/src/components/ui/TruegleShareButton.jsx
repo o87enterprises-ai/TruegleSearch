@@ -3,7 +3,7 @@ import { Share2, X, Check, Copy, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { PLATFORMS } from '../../config/sharePlatforms';
 import { getPlayable } from '../../utils/videoEmbed';
-import { buildPlayerLink } from '../../utils/playerLink';
+import { buildShareLink } from '../../utils/playerLink';
 
 export default function TruegleShareButton({ result, query, mode = 'blue', compact = false }) {
   const { isAuthenticated } = useAuth();
@@ -13,9 +13,10 @@ export default function TruegleShareButton({ result, query, mode = 'blue', compa
   const ref = useRef(null);
   // Media we can host ourselves gets a second, better share option: a link
   // that opens in Truegle's sandboxed player instead of the source site.
-  const playerLink = getPlayable(result.url)
-    ? buildPlayerLink({ url: result.url, title: result.title })
-    : null;
+  // Every result gets a Truegle link now — /w for media, /l for everything
+  // else — so a shared link always lands the recipient back on Truegle.
+  const playerLink = buildShareLink({ url: result.url, title: result.title });
+  const isMedia = !!getPlayable(result.url);
 
   // Close on outside click
   useEffect(() => {
@@ -29,13 +30,13 @@ export default function TruegleShareButton({ result, query, mode = 'blue', compa
   const modeTag = mode === 'red' ? '#RedPill' : mode === 'purple' ? '#AllPerspectives' : mode === 'ocean' ? '#OSINT' : '';
   const sharePayload = {
     title,
-    url: result.url,
+    url: playerLink || result.url,
     // Body the shared platform composers fold in ({ title, text, url }).
     text: `📌 Posted on Truegle\n\n"${title}"\n\nFound searching "${query || ''}" on Truegle${modeTag ? ` ${modeTag}` : ''}`,
   };
 
   const handleCopyLink = () => {
-    const text = `📌 Posted on Truegle\n\n"${title}"\n\n${result.url}\n\nFound with Truegle — the unbiased search engine → truegle.info`;
+    const text = `📌 Posted on Truegle\n\n"${title}"\n\n${playerLink || result.url}\n\nFound with Truegle — the unbiased search engine → truegle.info`;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -96,11 +97,13 @@ export default function TruegleShareButton({ result, query, mode = 'blue', compa
             {playerLink && (
               <button
                 onClick={handleCopyPlayerLink}
-                title="A link that opens inside Truegle's sandboxed player — it can't redirect whoever you send it to"
+                title={isMedia
+                  ? "A link that opens inside Truegle's sandboxed player — it can't redirect whoever you send it to"
+                  : 'A Truegle link — it lands on Truegle showing where it goes, instead of sending people straight off-site'}
                 className="w-full flex items-center gap-2.5 px-3 py-2 mb-1 rounded-lg border border-cyan-400/40 bg-cyan-500/10 text-left text-xs text-cyan-100 hover:bg-cyan-500/20 transition-all"
               >
                 {copiedPlayer ? <Check size={14} className="text-green-400" /> : <ShieldCheck size={14} />}
-                <span>{copiedPlayer ? 'Player link copied!' : 'Copy safe player link'}</span>
+                <span>{copiedPlayer ? 'Truegle link copied!' : isMedia ? 'Copy safe player link' : 'Copy safe Truegle link'}</span>
               </button>
             )}
             {isAuthenticated ? (

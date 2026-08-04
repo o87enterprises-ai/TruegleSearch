@@ -231,6 +231,50 @@ function injectWatchPreview(html, url) {
   return out;
 }
 
+// /l — the non-media share link. Same treatment, minus the video specifics:
+// the destination is an arbitrary page, so there is no thumbnail to derive and
+// no VideoObject to claim. The `u` value is validated but NEVER echoed into a
+// link — the card describes the share, not the destination.
+function injectLinkPreview(html, url) {
+  const params = new URLSearchParams(url.search);
+  const raw = params.get('u') || '';
+  let host;
+  try {
+    const target = new URL(raw);
+    if (target.protocol !== 'https:' && target.protocol !== 'http:') return html;
+    host = target.hostname.replace(/^www\./, '');
+  } catch {
+    return html;
+  }
+
+  const title = (params.get('t') || '').trim().slice(0, 120) || `A link from ${host}`;
+  const description = `Shared on Truegle — opens on Truegle first, so you can see where ${host} goes before you go there.`;
+  const shareUrl = `${SITE}/l${url.search}`;
+
+  const meta = [
+    ['og:title', title],
+    ['og:description', description],
+    ['og:type', 'website'],
+    ['og:url', shareUrl],
+    ['og:image', DEFAULT_IMAGE],
+    ['og:site_name', 'Truegle'],
+    ['twitter:card', 'summary_large_image'],
+    ['twitter:title', title],
+    ['twitter:description', description],
+    ['twitter:image', DEFAULT_IMAGE],
+  ];
+
+  let out = html.replace(
+    /<meta\s+(?:property|name)="([^"]+)"[^>]*>\s*/gi,
+    (match, key) => (OVERRIDDEN_META.has(key) ? '' : match),
+  );
+  const tags = meta
+    .map(([key, value]) => `<meta ${key.startsWith('og:') ? 'property' : 'name'}="${key}" content="${escapeAttr(value)}" />`)
+    .join('');
+  out = out.replace('</head>', `${tags}</head>`);
+  return out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeAttr(title)} · Shared on Truegle</title>`);
+}
+
 export async function onRequest(context) {
   const { request, next, env } = context;
 
@@ -244,9 +288,10 @@ export async function onRequest(context) {
   // Preview rewriting is for every client, not just the AI-bot list: the
   // crawlers that matter here are Discord/iMessage/WhatsApp/Slack.
   const isWatch = url.pathname === '/w' || url.pathname === '/w/';
+  const isLink = url.pathname === '/l' || url.pathname === '/l/';
 
   // Nothing to do — pass through instantly
-  if (!bot && !isWatch) return next();
+  if (!bot && !isWatch && !isLink) return next();
 
   // Get the upstream response first (always serve content)
   const response = await next();
@@ -258,12 +303,11 @@ export async function onRequest(context) {
   let html = await response.text();
   const headers = new Headers(response.headers);
 
+  // A broken preview must never cost the visitor the page itself.
   if (isWatch) {
-    try {
-      html = injectWatchPreview(html, url);
-    } catch {
-      // A broken preview must never cost the visitor the page itself.
-    }
+    try { html = injectWatchPreview(html, url); } catch { /* keep the shell */ }
+  } else if (isLink) {
+    try { html = injectLinkPreview(html, url); } catch { /* keep the shell */ }
   }
 
   if (!bot) return new Response(html, { status: response.status, headers });
