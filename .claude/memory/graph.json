@@ -946,6 +946,14 @@
         "body": "getPlayable now also accepts Dailymotion (+dai.ly), Rumble and Odysee via their keyless embeds, each with its own kind and exact-or-subdomain host matching; the hosts were added to BOTH child-src and frame-src in public/_headers (omitting CSP is what silently broke youtube-nocookie/soundcloud before). usePlayerSearch also recovers a YouTube id from an i.ytimg.com thumbnail when the result URL is unclassifiable, and falls back from the videos category to plain web results when videos yields nothing playable. Footer dock has two named states: watch (picture) and hidden (controls only, media stays MOUNTED so playback continues) — footerView in PlayerContext, persisted.",
         "ts": "2026-08-04",
         "created": "2026-08-04"
+      },
+      "player-input-and-keyboard": {
+        "Id": "player-input-and-keyboard",
+        "Type": "decision",
+        "Label": "Popped player input: Enter submits, X clears, keyboard-aware frame",
+        "body": "MiniPlayer header input is now a form: Enter blurs (retracts the on-screen keyboard, uncovering the results) and bumps openListNonce so TrueglePlayer opens its list even when the text is unchanged. An X clears the field. useKeyboardInset (visualViewport vs window.innerHeight, ignoring sub-120px URL-bar moves) lifts the fixed frame by exactly what the keyboard covers, for both footer dock and floating. PlayerProgress renders in footerView=hidden: real seekable play head for native audio/video, honest indeterminate sweep for platform embeds because reading currentTime out of a vendor iframe needs that vendor SDK, which this player does not load.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
       }
     },
     "entity": {

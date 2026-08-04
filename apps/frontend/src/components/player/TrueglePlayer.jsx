@@ -6,6 +6,7 @@ import { buildPlayerLink } from '../../utils/playerLink';
 import PlayerScreen from './PlayerScreen';
 import PlayerTransport, { PLAY_MODES } from './PlayerTransport';
 import PlayerListSlot from './PlayerListSlot';
+import PlayerProgress from './PlayerProgress';
 import { getPlayable } from '../../utils/videoEmbed';
 import { titleFromUrl } from '../../utils/playerLink';
 
@@ -31,6 +32,10 @@ export default function TrueglePlayer({
   query = '',
   showList = true,
   hideScreen = false,
+  // Bumped by the host when the user SUBMITS a search, so the list opens even
+  // when the text hasn't changed since last time — pressing enter and seeing
+  // nothing happen is what made the popped-out player feel broken.
+  openListNonce = 0,
   onQueryHandled,
   className = '',
 }) {
@@ -88,6 +93,9 @@ export default function TrueglePlayer({
   useEffect(() => {
     if (query.trim().length >= 2) setListOpen(true);
   }, [query]);
+  useEffect(() => {
+    if (openListNonce) setListOpen(true);
+  }, [openListNonce]);
 
   // A native element can really pause; keep the DOM node in step with state.
   useEffect(() => {
@@ -190,6 +198,11 @@ export default function TrueglePlayer({
           maxHeight={presentation === 'popped' ? 320 : 420}
         />
       </div>
+      {/* With the picture hidden there is nothing on screen saying anything is
+          happening — so the play head goes here. */}
+      {hideScreen && current && (
+        <PlayerProgress mediaRef={mediaRef} source={current} playing={!paused} accent={accent} />
+      )}
       {paused && current && (
         <div className="px-3 py-2 text-[11px] text-white/40 bg-black/40 border-t border-white/10">
           Paused — {current.title || 'this clip'}

@@ -7,6 +7,7 @@ import TrueglePlayer from '../player/TrueglePlayer';
 import { useFeedbackBarHeight } from './PreProductionBanner';
 import { usePlayerQuery } from '../../utils/playerQueryStore';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
+import { useKeyboardInset } from '../../hooks/useKeyboardInset';
 
 // The floating FRAME for the one player. Rendered ABOVE <Routes> (in
 // AppContent) so the media node it hosts is never unmounted on navigation —
@@ -60,6 +61,10 @@ export default function MiniPlayer() {
   // and that choice is remembered.
   const narrow = useNarrowViewport();
   const footerDock = dock === 'footer' || (!dock && narrow);
+  // A fixed element is positioned against the layout viewport, which Android
+  // doesn't shrink for the keyboard — so the player (and the input inside it)
+  // ended up underneath it. Lift by exactly what the keyboard covers.
+  const keyboardInset = useKeyboardInset();
   const feedbackOffset = useFeedbackBarHeight();
   // The player floats over whatever page you're on, so it takes that page's
   // colour — otherwise it reads as a foreign dark box sitting on top of the
@@ -78,6 +83,16 @@ export default function MiniPlayer() {
   const [dragging, setDragging] = useState(false);
   const [adjust, setAdjust] = useState(false);   // move mode: drag from anywhere
   const [playerQuery, setPlayerQuery] = useState('');
+  // Bumped on submit so TrueglePlayer opens its list even when the text is
+  // unchanged — otherwise a second Enter looks like nothing happened.
+  const [submitNonce, setSubmitNonce] = useState(0);
+  const playerInputRef = useRef(null);
+  const submitPlayerQuery = useCallback(() => {
+    setSubmitNonce((n) => n + 1);
+    // Dropping focus is what retracts the keyboard; with the keyboard up there
+    // is no room left to show the results that were just fetched.
+    playerInputRef.current?.blur();
+  }, []);
   const frameRef = useRef(null);
   const pageQuery = usePlayerQuery();
 
@@ -271,12 +286,18 @@ export default function MiniPlayer() {
     ? {
       left: '50%',
       transform: 'translateX(-50%)',
-      bottom: feedbackOffset,
+      bottom: feedbackOffset + keyboardInset,
       width: 'min(calc(100vw - 1rem), 48rem)',
     }
     : pos
-      ? { left: pos.left, top: pos.top, width }
-      : { left: 16, bottom: BANNER_CLEARANCE, width };
+      ? {
+        left: pos.left,
+        // Same rule for the floating window: with the keyboard up, slide it
+        // up by whatever it would otherwise be buried under.
+        top: Math.max(4, pos.top - keyboardInset),
+        width,
+      }
+      : { left: 16, bottom: BANNER_CLEARANCE + keyboardInset, width };
 
   // Every control is a ≥36px square. The old 13px icons packed edge to edge
   // were the other half of the "hard to maneuver" problem.
@@ -348,15 +369,37 @@ export default function MiniPlayer() {
               mistaken for the page's. Deliberately never auto-hides: the old
               below-player bar collapsed on a 3s idle timer that focus merely
               restarted, so it vanished mid-word. Its query is independent of
-              the page's bar — that separation is the point of having two. */}
-          <input
-            value={playerQuery}
-            onChange={(e) => setPlayerQuery(e.target.value)}
+              the page's bar — that separation is the point of having two.
+              Enter blurs, which retracts the on-screen keyboard and uncovers
+              the results underneath; it also forces the list open, so pressing
+              enter always visibly does something. */}
+          <form
+            onSubmit={(e) => { e.preventDefault(); submitPlayerQuery(); }}
             onPointerDown={(e) => e.stopPropagation()}
-            placeholder={title || 'Search something to play…'}
-            aria-label="Search the player"
-            className="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 focus:outline-none focus:border-white/30"
-          />
+            className="relative flex-1 min-w-0"
+          >
+            <input
+              ref={playerInputRef}
+              value={playerQuery}
+              onChange={(e) => setPlayerQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitPlayerQuery(); } }}
+              enterKeyHint="search"
+              placeholder={title || 'Search something to play…'}
+              aria-label="Search the player"
+              className={`w-full bg-black/40 border border-white/10 rounded-lg py-1.5 pl-2.5 text-xs text-white placeholder-white/35 focus:outline-none focus:border-white/30 ${playerQuery ? 'pr-7' : 'pr-2.5'}`}
+            />
+            {playerQuery && (
+              <button
+                type="button"
+                onClick={() => { setPlayerQuery(''); playerInputRef.current?.focus(); }}
+                title="Clear"
+                aria-label="Clear the player search"
+                className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 rounded-md text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </form>
           {/* Footer dock: two named states. Watch = the picture. Hidden = the
               controls only, still playing — the "listening while I read the
               results" case, which is most of what a dock at the bottom of a
@@ -401,6 +444,7 @@ export default function MiniPlayer() {
             presentation={docked ? 'expanded' : 'popped'}
             accent={accent || undefined}
             hideScreen={footerDock && footerView === 'hidden'}
+            openListNonce={submitNonce}
             query={docked ? pageQuery : playerQuery}
           />
         </div>

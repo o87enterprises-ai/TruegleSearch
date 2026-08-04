@@ -876,3 +876,14 @@ canvas { display: block !important; margin: 0 auto !important; image-rendering: 
   .vp-logo { transform: scale(0.7) !important; }
   .vp-header-gap { margin-bottom: 0.25rem !important; }
 }
+
+/* The "we don't know the position" play head: a sweep that says the media is
+   running without inventing a number we can't read out of a vendor iframe. */
+@keyframes player-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+.animate-player-sweep { animation: player-sweep 2.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-player-sweep { animation: none; opacity: 0.5; transform: none; width: 100%; }
+}
