@@ -16,7 +16,7 @@ export const LITE_BG = {
   purple: 'bg-gradient-to-br from-[#1a0a2e] via-black to-[#16213e]',
   ocean: 'bg-gradient-to-b from-[#001f3f] via-[#001020] to-black',
   green: 'bg-gradient-to-br from-green-950 via-black to-emerald-950',
-  tube: 'bg-gradient-to-b from-[#2a0a1e] via-black to-[#0a0a14]',
+  tube: 'bg-gradient-to-b from-[#151a21] via-black to-[#0b0e12]',
 };
 
 // Hex accent per mode — for anything that needs a raw color value rather
@@ -30,7 +30,7 @@ export const MODE_COLORS = {
   orange: '#f97316',
   yellow: '#eab308',
   black: '#e5e7eb',
-  tube: '#f43f5e',
+  tube: '#9aa7b8',
 };
 
 // The Truegle rainbow, for surfaces that belong to no single mode (landing,
@@ -51,9 +51,17 @@ export const MODE_LABELS = {
   tube: 'Tube',
 };
 
+// Optional metallic finish per mode, for surfaces that fill with the mode
+// colour. A flat mid-grey reads as "disabled", so steel needs a highlight and
+// a shadow edge to read as brushed metal. Modes without an entry keep their
+// flat MODE_COLORS fill.
+export const MODE_GRADIENT = {
+  tube: 'linear-gradient(160deg, #eef2f7 0%, #b9c4d2 22%, #8794a6 52%, #6d7a8c 74%, #aab6c6 100%)',
+};
+
 // Mode colors that are light enough that a solid fill needs dark text for
 // readable contrast (used when a mode button is selected → solid mode color).
-export const LIGHT_MODES = new Set(['black', 'yellow']);
+export const LIGHT_MODES = new Set(['black', 'yellow', 'tube']);
 export const solidTextClass = (mode) => (LIGHT_MODES.has(mode) ? 'text-neutral-900' : 'text-white');
 
 // Per-mode container accent — each page takes its theme color. (green uses
@@ -64,7 +72,7 @@ export const MODE_ACCENT = {
   red:    { border: 'border-red-500/40 hover:border-red-500/60',       title: 'text-red-400 group-hover:text-red-300',       link: 'text-red-400 hover:text-red-300',       iframeBorder: 'border-red-500/20',    count: 'text-red-300' },
   purple: { border: 'border-purple-500/40 hover:border-purple-500/60', title: 'text-purple-300 group-hover:text-purple-200', link: 'text-purple-300 hover:text-purple-200', iframeBorder: 'border-purple-500/20', count: 'text-purple-300' },
   green:  { border: 'border-green-500/50 hover:border-green-500/70',   title: 'text-green-300 group-hover:text-green-200',   link: 'text-green-300 hover:text-green-200',   iframeBorder: 'border-green-500/30',  count: 'text-green-300' },
-  tube:   { border: 'border-rose-500/40 hover:border-rose-500/60',     title: 'text-rose-300 group-hover:text-rose-200',     link: 'text-rose-300 hover:text-rose-200',     iframeBorder: 'border-rose-500/25',   count: 'text-rose-300' },
+  tube:   { border: 'border-slate-400/40 hover:border-slate-400/60',   title: 'text-slate-200 group-hover:text-white',       link: 'text-slate-200 hover:text-white',       iframeBorder: 'border-slate-400/25',  count: 'text-slate-200' },
 };
 
 // Bias badge classes — matches the label categorizeByBias attaches to results.

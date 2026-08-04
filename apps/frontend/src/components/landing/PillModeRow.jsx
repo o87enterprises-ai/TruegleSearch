@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { MODE_COLORS, MODE_LABELS, solidTextClass } from '../../config/modeTheme';
+import { MODE_COLORS, MODE_GRADIENT, MODE_LABELS, solidTextClass } from '../../config/modeTheme';
 
 // Pill Mode — lives ABOVE the search bar (spec #2). This is the SEARCH mode
 // selector: a single pill, not a row. Clicking it cycles to the next mode
@@ -38,6 +38,8 @@ export default function PillModeRow({ activeMode, onSelect }) {
   };
 
   const color = MODE_COLORS[activeMode];
+  // A mode may ask for a metallic finish instead of a flat fill (steel).
+  const gradient = MODE_GRADIENT[activeMode];
   const label = activeMode === 'black' ? 'Chat' : MODE_LABELS[activeMode];
 
   return (
@@ -57,8 +59,21 @@ export default function PillModeRow({ activeMode, onSelect }) {
         whileTap={{ scale: 0.96 }}
         title={activeMode === 'black' ? 'Click to switch mode' : 'Click to switch mode — hold to jump back to Chat'}
         className={`relative overflow-hidden flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 ${solidTextClass(activeMode)}`}
-        style={{ backgroundColor: color, borderColor: color }}
+        style={{
+          background: gradient || color,
+          borderColor: gradient ? 'rgba(255,255,255,0.45)' : color,
+          boxShadow: gradient ? 'inset 0 1px 0 rgba(255,255,255,0.75), inset 0 -1px 0 rgba(0,0,0,0.25)' : undefined,
+        }}
       >
+        {/* Specular highlight across the top half — what turns a grey fill
+            into something that reads as polished metal. */}
+        {gradient && (
+          <span
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 h-1/2 pointer-events-none rounded-t-full"
+            style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.55), rgba(255,255,255,0))' }}
+          />
+        )}
         {/* Hold-progress fill — sweeps left→right over HOLD_MS; resets instantly if released early */}
         {holding && (
           <motion.span
