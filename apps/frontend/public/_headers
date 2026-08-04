@@ -33,6 +33,8 @@
   X-Robots-Tag: noindex, follow
 /shorts
   Content-Type: text/html; charset=utf-8
+/tube
+  Content-Type: text/html; charset=utf-8
 # /l carries a user-supplied destination in its query string — shareable, but
 # not something to index.
 /l

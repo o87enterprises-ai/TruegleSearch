@@ -312,6 +312,7 @@ const AppContent = () => {
         <Route path="/results" element={<Navigate to="/search" replace />} />
         <Route path="/biased" element={<Navigate to="/search?mode=purple" replace />} />
         <Route path="/osint" element={<Navigate to="/search?mode=ocean" replace />} />
+        <Route path="/tube" element={<Navigate to="/search?mode=tube" replace />} />
         <Route path="/osint/search" element={<Navigate to="/search?mode=ocean" replace />} />
         <Route path="/osint/tools" element={<Navigate to="/search?mode=ocean" replace />} />
 

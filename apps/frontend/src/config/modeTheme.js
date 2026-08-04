@@ -16,6 +16,7 @@ export const LITE_BG = {
   purple: 'bg-gradient-to-br from-[#1a0a2e] via-black to-[#16213e]',
   ocean: 'bg-gradient-to-b from-[#001f3f] via-[#001020] to-black',
   green: 'bg-gradient-to-br from-green-950 via-black to-emerald-950',
+  tube: 'bg-gradient-to-b from-[#2a0a1e] via-black to-[#0a0a14]',
 };
 
 // Hex accent per mode — for anything that needs a raw color value rather
@@ -29,6 +30,7 @@ export const MODE_COLORS = {
   orange: '#f97316',
   yellow: '#eab308',
   black: '#e5e7eb',
+  tube: '#f43f5e',
 };
 
 // The Truegle rainbow, for surfaces that belong to no single mode (landing,
@@ -46,6 +48,7 @@ export const MODE_LABELS = {
   orange: 'Rewards',
   yellow: 'Transcripts',
   black: 'Chat',
+  tube: 'Tube',
 };
 
 // Mode colors that are light enough that a solid fill needs dark text for
@@ -61,6 +64,7 @@ export const MODE_ACCENT = {
   red:    { border: 'border-red-500/40 hover:border-red-500/60',       title: 'text-red-400 group-hover:text-red-300',       link: 'text-red-400 hover:text-red-300',       iframeBorder: 'border-red-500/20',    count: 'text-red-300' },
   purple: { border: 'border-purple-500/40 hover:border-purple-500/60', title: 'text-purple-300 group-hover:text-purple-200', link: 'text-purple-300 hover:text-purple-200', iframeBorder: 'border-purple-500/20', count: 'text-purple-300' },
   green:  { border: 'border-green-500/50 hover:border-green-500/70',   title: 'text-green-300 group-hover:text-green-200',   link: 'text-green-300 hover:text-green-200',   iframeBorder: 'border-green-500/30',  count: 'text-green-300' },
+  tube:   { border: 'border-rose-500/40 hover:border-rose-500/60',     title: 'text-rose-300 group-hover:text-rose-200',     link: 'text-rose-300 hover:text-rose-200',     iframeBorder: 'border-rose-500/25',   count: 'text-rose-300' },
 };
 
 // Bias badge classes — matches the label categorizeByBias attaches to results.
@@ -81,6 +85,11 @@ export const MODE_TO_CONTEXT = {
   red: 'red_pill',
   purple: 'biased_results',
   ocean: 'osint',
+  // Tube is a media surface, not a different lens on the answer — it reuses
+  // the plain search prompt rather than inventing a backend context that
+  // MODE_PROMPTS doesn't define (an unknown key silently falls back to the
+  // generic assistant, which reads as a bug with no error).
+  tube: 'search_results',
 };
 
 export function getModeAccent(mode) {

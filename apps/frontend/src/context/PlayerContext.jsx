@@ -16,7 +16,19 @@ export const usePlayer = () => {
   return ctx;
 };
 
-const INITIAL = { current: null, queue: [], history: [], minimized: false };
+// `paused` is best-effort: a native <audio>/<video> really pauses and keeps
+// its position, but a cross-origin embed has no pause() we can call without
+// loading each platform's SDK, so pausing one unmounts it and resuming starts
+// it over. That's the honest trade for not shipping four vendor SDKs.
+//
+// `poppedOut` decides whether the player floats or lives docked in the Tube
+// search bar; `expanded` is whether the docked form is showing its screen.
+// Both live here rather than in a component so the presentation can change
+// without remounting the media node and restarting playback.
+const INITIAL = {
+  current: null, queue: [], history: [], minimized: false,
+  paused: false, expanded: false, poppedOut: false,
+};
 const sameSrc = (a, b) => !!a && !!b && a.src === b.src;
 
 function reducer(s, a) {
@@ -24,7 +36,7 @@ function reducer(s, a) {
     case 'play': { // interrupt: play now, remembering what was playing
       if (!a.source?.src) return s;
       const history = s.current && !sameSrc(s.current, a.source) ? [...s.history, s.current] : s.history;
-      return { ...s, current: a.source, history, minimized: false };
+      return { ...s, current: a.source, history, minimized: false, paused: false };
     }
     case 'enqueue': { // idle → play now; busy → append (dedup against current/queue)
       if (!a.source?.src) return s;
@@ -57,6 +69,18 @@ function reducer(s, a) {
     }
     case 'removeFromQueue':
       return { ...s, queue: s.queue.filter((_, i) => i !== a.index) };
+    case 'stop': // stop playback, keep the queue — unlike close, which clears everything
+      return { ...s, current: null, paused: false };
+    case 'togglePause':
+      return { ...s, paused: !s.paused };
+    case 'setPaused':
+      return { ...s, paused: !!a.value };
+    case 'setExpanded':
+      return { ...s, expanded: !!a.value };
+    case 'setPoppedOut':
+      // Popping out always shows the whole component, so it can never pop out
+      // into a collapsed sliver with no visible controls.
+      return { ...s, poppedOut: !!a.value, expanded: a.value ? true : s.expanded, minimized: false };
     case 'close':
       return INITIAL;
     case 'toggleMin':
@@ -84,6 +108,8 @@ function loadState() {
       ...INITIAL,
       current: persistable(saved.current) ? saved.current : null,
       queue: Array.isArray(saved.queue) ? saved.queue.filter(persistable) : [],
+      poppedOut: !!saved.poppedOut,
+      expanded: !!saved.expanded,
     };
   } catch {
     return INITIAL;
@@ -98,9 +124,11 @@ export const PlayerProvider = ({ children }) => {
       sessionStorage.setItem(QUEUE_KEY, JSON.stringify({
         current: persistable(state.current) ? state.current : null,
         queue: state.queue.filter(persistable),
+        poppedOut: state.poppedOut,
+        expanded: state.expanded,
       }));
     } catch { /* private mode / quota — the queue just won't survive a reload */ }
-  }, [state.current, state.queue]);
+  }, [state.current, state.queue, state.poppedOut, state.expanded]);
 
   const play = useCallback((source) => dispatch({ type: 'play', source }), []);
   const enqueue = useCallback((source) => dispatch({ type: 'enqueue', source }), []);
@@ -111,10 +139,20 @@ export const PlayerProvider = ({ children }) => {
   const removeFromQueue = useCallback((index) => dispatch({ type: 'removeFromQueue', index }), []);
   const close = useCallback(() => dispatch({ type: 'close' }), []);
   const toggleMinimize = useCallback(() => dispatch({ type: 'toggleMin' }), []);
+  const stop = useCallback(() => dispatch({ type: 'stop' }), []);
+  const togglePause = useCallback(() => dispatch({ type: 'togglePause' }), []);
+  const setPaused = useCallback((value) => dispatch({ type: 'setPaused', value }), []);
+  const setExpanded = useCallback((value) => dispatch({ type: 'setExpanded', value }), []);
+  const setPoppedOut = useCallback((value) => dispatch({ type: 'setPoppedOut', value }), []);
 
   const value = useMemo(
-    () => ({ ...state, play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, toggleMinimize }),
-    [state, play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, toggleMinimize]
+    () => ({
+      ...state,
+      play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, toggleMinimize,
+      stop, togglePause, setPaused, setExpanded, setPoppedOut,
+    }),
+    [state, play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, toggleMinimize,
+      stop, togglePause, setPaused, setExpanded, setPoppedOut]
   );
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;

@@ -26,6 +26,7 @@
 /s/*              /_index  200
 /w                /_index  200
 /shorts           /_index  200
+/tube             /_index  200
 /l                /_index  200
 /extract          /_index  200
 # /blog and /blog/* are intentionally NOT here — all blog routes are

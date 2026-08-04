@@ -841,6 +841,8 @@ export default function SearchBar({
   showFilterToggle = true,
   // OSINT Mode Props
   showOSINTToggle = false,
+  // Tube turns this off — its bar is the player, not a multimodal input.
+  showMultiInput = true,
   isOSINTMode = false,
   onOSINTToggle,
   // Category Props
@@ -1735,7 +1737,10 @@ const handleChange = useCallback((e) => {
               </button>
             )}
 
-            {/* Media Input Components - Mic, Camera, File */}
+            {/* Media Input Components - Mic, Camera, File.
+                Suppressed entirely in Tube mode: that bar is the player, and a
+                mic/camera/file row next to transport controls reads as noise. */}
+            {showMultiInput && (
             <div className={`flex items-center gap-1 ml-1 pl-2 border-l border-neutral-700/50 ${variant === 'chat' && !mediaOpen ? 'hidden' : ''}`}>
               {/* Voice Recognition */}
               <VoiceRecognition
@@ -1863,6 +1868,7 @@ const handleChange = useCallback((e) => {
                 </div>
               )}
             </div>
+            )}
           </div>
         </motion.div>
 

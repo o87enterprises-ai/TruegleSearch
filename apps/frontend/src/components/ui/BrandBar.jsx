@@ -17,6 +17,7 @@ const ITEMS = [
   { label: 'Chat',         mode: 'black',  path: '/chat' },
   { label: 'Extract',      mode: 'yellow', path: '/extract' },
   { label: 'Shorts',       mode: 'orange', path: '/shorts' },
+  { label: 'Tube',         mode: 'tube',   path: '/search?mode=tube' },
   // 'Rewards' removed 2026-07-24 — ad-pay/rewards program paused.
 ];
 

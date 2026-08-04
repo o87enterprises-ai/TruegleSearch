@@ -22,6 +22,7 @@ export function usePageMode() {
   if (pathname === '/chat') return 'black';
   if (pathname === '/green') return 'green';
   if (pathname === '/shorts') return 'ocean';
+  if (pathname === '/tube') return 'tube';
   if (pathname === '/extract') return 'yellow';
   if (pathname.startsWith('/creator/')) return 'orange';
   if (pathname === '/search' || pathname.startsWith('/search/')) {

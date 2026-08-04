@@ -64,11 +64,13 @@ import { LITE_BG, PERSPECTIVE_COLORS, getModeAccent, MODE_LABELS, MODE_COLORS } 
 // here only blend into the AI summary + follow-up chat, so the results grid and
 // its routing are never destabilized by multi-select.
 const LENS_MODES = ['blue', 'green', 'red', 'purple', 'ocean'];
-const MODE_TO_BACKEND = { blue: 'blue-pill', green: 'green', red: 'red-pill', purple: 'purple', ocean: 'ocean' };
+const MODE_TO_BACKEND = { blue: 'blue-pill', green: 'green', red: 'red-pill', purple: 'purple', ocean: 'ocean', tube: 'blue-pill' };
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import QueueButton from '../components/ui/QueueButton';
 import { isShortForm, asReel } from '../utils/shortForm';
 import { useFeedAutoplay } from '../hooks/useFeedAutoplay';
+import TrueglePlayer from '../components/player/TrueglePlayer';
+import { usePlayer } from '../context/PlayerContext';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
 // (mainstream, conspiracy, democratic, republican, nonpartisan, music, videos,
@@ -158,6 +160,9 @@ export default function UniversalSearch({ lockedGreen = false }) {
   // Viewport-driven autoplay for the results feed: the visible playable result
   // plays, the rest stay still, and (optionally) the page walks itself down.
   const feed = useFeedAutoplay();
+  // Tube docks the one player into this page; popping it out hands it to the
+  // floating frame and leaves a way back.
+  const { poppedOut, setPoppedOut } = usePlayer();
   // OSINT (ocean) exception: multi-select investigation classes that replace
   // the content categories on the ocean page and tag the query with entity types.
   const [osintClasses, setOsintClasses] = useState([]);
@@ -396,6 +401,8 @@ export default function UniversalSearch({ lockedGreen = false }) {
     if (pillMode === 'black') { navigate(`/chat?q=${encodeURIComponent(q)}`); return; }
     if (pillMode === 'orange') { navigate('/rewards'); return; }
     if (pillMode === 'yellow') { navigate('/extract'); return; }
+    // Tube stays on this page — it is a mode of the search page, not a
+    // separate route, which is what keeps its layout identical by construction.
     if (pillMode !== mode) {
       setMode(pillMode);
       navigate(`/search?mode=${pillMode}&q=${encodeURIComponent(q)}`);
@@ -1063,15 +1070,16 @@ export default function UniversalSearch({ lockedGreen = false }) {
               showPillToggle={false}
               safeSearch={settings.safeSearch}
               onSafeSearchChange={(v) => updateSetting('safeSearch', v)}
-              showFilters={true}
+              showFilters={mode !== 'tube'}
               filters={filters}
               onFiltersChange={setFilters}
               compactFilters={false}
-              showFilterToggle={true}
+              showFilterToggle={mode !== 'tube'}
               showOSINTToggle={false}
               // OSINT exception: the ocean page swaps the content categories for
               // the investigation-class row rendered below the bar.
-              showCategories={mode !== 'ocean'}
+              showCategories={mode !== 'ocean' && mode !== 'tube'}
+              showMultiInput={mode !== 'tube'}
               activeCategory={activeCategory}
               onSelectCategory={setActiveCategory}
               showMap={showMap || (autoOpenMap && !mapManuallyClosed)}
@@ -1631,8 +1639,34 @@ export default function UniversalSearch({ lockedGreen = false }) {
 
           {/* Results Grid (same as SearchResults) */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Main Results Column */}
+            {/* Main Results Column — in Tube this is the player instead. The
+                page, its rails and everything above are untouched, which is
+                what keeps Tube's layout identical to the other search pages. */}
             <div className="lg:col-span-3 space-y-4">
+              {mode === 'tube' && !poppedOut && (
+                <div
+                  className="rounded-xl overflow-hidden border"
+                  style={{ borderColor: `${MODE_COLORS.tube}59` }}
+                >
+                  <TrueglePlayer
+                    presentation="expanded"
+                    accent={MODE_COLORS.tube}
+                    query={searchValue}
+                  />
+                </div>
+              )}
+              {mode === 'tube' && poppedOut && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-6 text-center">
+                  <p className="text-sm text-white/60">The player is popped out.</p>
+                  <button
+                    type="button"
+                    onClick={() => setPoppedOut(false)}
+                    className="mt-2 text-xs text-rose-300 hover:text-rose-200"
+                  >
+                    Dock it back into the search bar
+                  </button>
+                </div>
+              )}
               {searchLoading ? (
                 <div className="space-y-4">
                   <div className="text-sm text-white/60 mb-4">Searching...</div>
@@ -1714,7 +1748,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   )}
 
                   {/* Feed autoplay controls — only where there's media to play */}
-                  {searchResults.some((r) => getVideoEmbed(r.url)) && (
+                  {mode !== 'tube' && searchResults.some((r) => getVideoEmbed(r.url)) && (
                     <div className="flex flex-wrap items-center gap-2 mb-3">
                       <button
                         type="button"
@@ -1752,7 +1786,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     </div>
                   )}
 
-                  {mode !== 'ocean' && searchResults.map((result, index) => (
+                  {mode !== 'ocean' && mode !== 'tube' && searchResults.map((result, index) => (
                     <Fragment key={result.url || index}>
                       <div>
                         <ResultCard
