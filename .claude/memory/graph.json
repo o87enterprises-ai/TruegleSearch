@@ -368,6 +368,14 @@
         "body": "SearchBar gained a belowSlot prop (rendered inside the pill wrapper, under the input). Tube uses it for the transport row and, when expanded, the whole player. The transport was first put in the input row via rightIcons — that left ~100px of usable input width on a phone and the placeholder wrapped one character per line. A -mt-3 tuck under the pill's rounded bottom makes bar+controls read as one surface. rightIcons now renders OUTSIDE the showMultiInput conditional so it survives showMultiInput={false}.",
         "ts": "2026-08-04",
         "created": "2026-08-04"
+      },
+      "tube-bar-singleline": {
+        "Id": "tube-bar-singleline",
+        "Type": "fact",
+        "Label": "Tube search bar is single-line horizontal",
+        "body": "SearchBar gained singleLine prop: fixed height, white-space:nowrap, overflow-x:auto. Growing downward pushed the player further down on every wrapped line. The auto-resize effect must NOT read  (declared later in the component — causes 'Cannot access config before initialization'); it just clears the inline height and lets the style block pin it. Left icon + right controls get an opaque bg in singleLine so scrolled text hides behind them.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
       }
     },
     "decision": {
@@ -848,6 +856,14 @@
         "Type": "decision",
         "Label": "There is exactly ONE player component",
         "body": "components/player/TrueglePlayer.jsx with presentation='collapsed'|'expanded'|'popped'. MiniPlayer.jsx now owns ONLY the floating frame (drag/resize/geometry/accent ring/auto-hiding search bar) and renders TrueglePlayer inside it, so the popped-out player is not a lookalike of the docked one — it IS the same one. Media node lives in PlayerScreen.jsx and state in PlayerContext, so switching presentation never remounts the embed and playback carries through docking/popping/navigation. On Tube the floating frame returns null unless poppedOut; elsewhere the frame IS the player.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
+      },
+      "tube-two-bars": {
+        "Id": "tube-two-bars",
+        "Type": "decision",
+        "Label": "Tube: player bar vs page bar have different jobs",
+        "body": "Popped out there are TWO independent bars. Player bar (in the floating frame's HEADER, never auto-hides) searches playable media — your entertainment. Page bar goes back to being a full search bar (categories, filters, real results) so you can keep working while the entertainment plays. Queries are independent by design. The old below-player bar is gone: it hid on a 3s idle timer that focus only restarted, so it vanished mid-word.",
         "ts": "2026-08-04",
         "created": "2026-08-04"
       }

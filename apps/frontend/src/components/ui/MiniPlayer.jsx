@@ -3,7 +3,6 @@ import { usePlayer } from '../../context/PlayerContext';
 import { X, Minus, Maximize2, Move, Plus, GripHorizontal, Minimize2 } from 'lucide-react';
 import { MODE_COLORS, BRAND_GRADIENT } from '../../config/modeTheme';
 import { usePageMode, BRAND } from '../../hooks/usePageMode';
-import { useIdleReveal } from '../../hooks/useIdleReveal';
 import TrueglePlayer from '../player/TrueglePlayer';
 
 // The floating FRAME for the one player. Rendered ABOVE <Routes> (in
@@ -16,9 +15,11 @@ import TrueglePlayer from '../player/TrueglePlayer';
 // docked one — it is the same one.
 //
 // What lives here is only what a floating window needs: drag, resize,
-// geometry persistence, the page-mode accent ring, and its own auto-hiding
-// search bar. Media Session (lock-screen controls for native audio/video) also
-// stays here, since it belongs to the page-level singleton.
+// geometry persistence, the page-mode accent ring, and its own search bar in
+// the header. That bar's query is INDEPENDENT of the page's bar — two bars
+// that mirrored each other would defeat the point of having two. Media
+// Session (lock-screen controls for native audio/video) also stays here,
+// since it belongs to the page-level singleton.
 //
 // MOBILE: every drag surface sets `touch-action: none`. Without it the browser
 // claims the touch for page scrolling before pointermove ever fires, which is
@@ -64,7 +65,6 @@ export default function MiniPlayer() {
   const [adjust, setAdjust] = useState(false);   // mobile stretch/shrink/drag mode
   const [playerQuery, setPlayerQuery] = useState('');
   const frameRef = useRef(null);
-  const { visible: barVisible, wake } = useIdleReveal(frameRef);
 
   // ── drag + resize ────────────────────────────────────────────────────────
   const onMove = useCallback((e) => {
@@ -210,9 +210,19 @@ export default function MiniPlayer() {
           }`}
         >
           <GripHorizontal size={18} className={adjust ? 'text-cyan-300 shrink-0' : 'text-white/40 shrink-0'} />
-          <span className="text-xs text-white/70 truncate flex-1 min-w-0" title={title}>
-            {title || 'Now playing'}
-          </span>
+          {/* The player's OWN search bar, in the header where it can't be
+              mistaken for the page's. Deliberately never auto-hides: the old
+              below-player bar collapsed on a 3s idle timer that focus merely
+              restarted, so it vanished mid-word. Its query is independent of
+              the page's bar — that separation is the point of having two. */}
+          <input
+            value={playerQuery}
+            onChange={(e) => setPlayerQuery(e.target.value)}
+            onPointerDown={(e) => e.stopPropagation()}
+            placeholder={title || 'Search something to play…'}
+            aria-label="Search the player"
+            className="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 focus:outline-none focus:border-white/30"
+          />
           <button type="button" onClick={toggleMinimize} title={minimized ? 'Expand' : 'Minimize'} className={ctrl}>
             {minimized ? <Maximize2 size={16} /> : <Minus size={16} />}
           </button>
@@ -229,27 +239,6 @@ export default function MiniPlayer() {
         <div className={clipWhenMin ? 'max-h-0 overflow-hidden' : ''}>
           <TrueglePlayer presentation="popped" accent={accent || undefined} query={playerQuery} />
         </div>
-
-        {/* Its own search bar — playable results only, so you can line up the
-            next thing without leaving whatever you're watching. It hides when
-            idle and wakes on movement near the player (useIdleReveal), which
-            is what lets the player sit over a page you're still reading. */}
-        {!minimized && (
-          <div
-            className={`overflow-hidden border-t border-white/10 transition-all duration-200 ${
-              barVisible ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'
-            }`}
-          >
-            <input
-              value={playerQuery}
-              onChange={(e) => setPlayerQuery(e.target.value)}
-              onFocus={wake}
-              placeholder="Search something to play…"
-              aria-label="Search for something to play"
-              className="w-full bg-black/40 px-3 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none"
-            />
-          </div>
-        )}
 
         {/* ── Adjust bar: stretch / shrink without needing a precise grip ── */}
         {adjust && (

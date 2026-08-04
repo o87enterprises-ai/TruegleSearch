@@ -1,6 +1,7 @@
 import {
   Play, Pause, Square, SkipBack, SkipForward,
   ListMusic, Share2, Check, PictureInPicture2, Minimize2, Move,
+  ChevronDown, ChevronUp,
 } from 'lucide-react';
 
 // The one transport row. Identical in all three presentations — collapsed
@@ -21,6 +22,8 @@ export default function PlayerTransport({
   showPopOut = false,
   showDock = false,
   showAdjust = false,
+  showCollapse = false,
+  collapsed = false,
   adjustOn = false,
   shareState = 'idle',
   onPlayPause,
@@ -32,6 +35,7 @@ export default function PlayerTransport({
   onDock,
   onShare,
   onToggleAdjust,
+  onToggleCollapse,
   className = '',
 }) {
   const btn = 'flex items-center justify-center w-9 h-9 rounded-lg text-white/60 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors';
@@ -55,6 +59,14 @@ export default function PlayerTransport({
       </button>
 
       <div className="ml-auto flex items-center gap-0.5">
+        {showCollapse && (
+          <button type="button" onClick={onToggleCollapse} aria-expanded={!collapsed}
+            title={collapsed ? 'Show the player' : 'Collapse the player into the bar'}
+            aria-label={collapsed ? 'Show the player' : 'Collapse the player'}
+            className={btn}>
+            {collapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+          </button>
+        )}
         {showList && (
           <button type="button" onClick={onToggleList} title="Queue and results"
             aria-label="Queue and results" aria-pressed={listOpen}

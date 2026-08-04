@@ -167,10 +167,25 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const feed = useFeedAutoplay();
   // Tube docks the one player into this page; popping it out hands it to the
   // floating frame and leaves a way back.
-  const { poppedOut, setPoppedOut, current: playerCurrent, expanded: tubeExpandedState } = usePlayer();
-  // The player screen drops out of the bar as soon as there's anything to
-  // show — something playing, or a query being typed into it.
-  const tubeExpanded = tubeExpandedState || !!playerCurrent || searchValue.trim().length >= 2;
+  const {
+    poppedOut, setPoppedOut, current: playerCurrent,
+    expanded: tubeExpanded, setExpanded,
+  } = usePlayer();
+  // The screen drops out of the bar on its own the first time there's
+  // something to show, but `expanded` stays authoritative after that — a
+  // purely derived flag can never be collapsed back, which is what made the
+  // collapse control appear broken.
+  // Docked = the player is living inside this page's search bar. Popped out,
+  // the page is an ordinary search page again.
+  const tubeDocked = mode === 'tube' && !poppedOut;
+  const autoExpanded = useRef(false);
+  useEffect(() => {
+    if (autoExpanded.current) return;
+    if (playerCurrent || searchValue.trim().length >= 2) {
+      autoExpanded.current = true;
+      setExpanded(true);
+    }
+  }, [playerCurrent, searchValue, setExpanded]);
   // OSINT (ocean) exception: multi-select investigation classes that replace
   // the content categories on the ocean page and tag the query with entity types.
   const [osintClasses, setOsintClasses] = useState([]);
@@ -1078,16 +1093,17 @@ export default function UniversalSearch({ lockedGreen = false }) {
               showPillToggle={false}
               safeSearch={settings.safeSearch}
               onSafeSearchChange={(v) => updateSetting('safeSearch', v)}
-              showFilters={mode !== 'tube'}
+              showFilters={!tubeDocked}
               filters={filters}
               onFiltersChange={setFilters}
               compactFilters={false}
-              showFilterToggle={mode !== 'tube'}
+              showFilterToggle={!tubeDocked}
               showOSINTToggle={false}
               // OSINT exception: the ocean page swaps the content categories for
               // the investigation-class row rendered below the bar.
-              showCategories={mode !== 'ocean' && mode !== 'tube'}
-              showMultiInput={mode !== 'tube'}
+              showCategories={mode !== 'ocean' && !tubeDocked}
+              showMultiInput={!tubeDocked}
+              singleLine={tubeDocked}
               belowSlot={mode === 'tube' && !poppedOut ? (
                 // The transport gets its OWN row directly under the input
                 // rather than sitting inside it. Crammed into the input row it
@@ -1104,10 +1120,19 @@ export default function UniversalSearch({ lockedGreen = false }) {
                       presentation="expanded"
                       accent={MODE_COLORS.tube}
                       query={searchValue}
+                      showCollapse
+                      collapsed={false}
+                      onToggleCollapse={() => setExpanded(false)}
                     />
                   ) : (
                     <div className="px-1.5 py-1 bg-black/30">
-                      <TrueglePlayer presentation="collapsed" accent={MODE_COLORS.tube} />
+                      <TrueglePlayer
+                        presentation="collapsed"
+                        accent={MODE_COLORS.tube}
+                        showCollapse
+                        collapsed
+                        onToggleCollapse={() => setExpanded(true)}
+                      />
                     </div>
                   )}
                 </div>
@@ -1676,14 +1701,16 @@ export default function UniversalSearch({ lockedGreen = false }) {
                 what keeps Tube's layout identical to the other search pages. */}
             <div className="lg:col-span-3 space-y-4">
               {mode === 'tube' && poppedOut && (
-                <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-6 text-center">
-                  <p className="text-sm text-white/60">The player is popped out.</p>
+                <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+                  <span className="text-[11px] text-white/45 flex-1">
+                    Playing in the popped-out player — keep searching here, it won&apos;t interrupt.
+                  </span>
                   <button
                     type="button"
                     onClick={() => setPoppedOut(false)}
-                    className="mt-2 text-xs text-rose-300 hover:text-rose-200"
+                    className="text-[11px] text-slate-200 hover:text-white whitespace-nowrap"
                   >
-                    Dock it back into the search bar
+                    Dock it back
                   </button>
                 </div>
               )}
@@ -1768,7 +1795,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   )}
 
                   {/* Feed autoplay controls — only where there's media to play */}
-                  {mode !== 'tube' && searchResults.some((r) => getVideoEmbed(r.url)) && (
+                  {!tubeDocked && searchResults.some((r) => getVideoEmbed(r.url)) && (
                     <div className="flex flex-wrap items-center gap-2 mb-3">
                       <button
                         type="button"
@@ -1806,7 +1833,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                     </div>
                   )}
 
-                  {mode !== 'ocean' && mode !== 'tube' && searchResults.map((result, index) => (
+                  {mode !== 'ocean' && !tubeDocked && searchResults.map((result, index) => (
                     <Fragment key={result.url || index}>
                       <div>
                         <ResultCard

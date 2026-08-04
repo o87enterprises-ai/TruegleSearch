@@ -9,7 +9,7 @@ import { MODE_COLORS, MODE_GRADIENT, MODE_LABELS, solidTextClass } from '../../c
 // default state. A small non-clickable "Chat"/"Search" label sits directly
 // above it as a passive status indicator.
 // 'orange' (Rewards) removed 2026-07-24 — ad-pay/rewards program paused.
-const CYCLE = ['black', 'blue', 'green', 'red', 'purple', 'ocean', 'tube', 'yellow'];
+const CYCLE = ['black', 'tube', 'blue', 'green', 'red', 'purple', 'ocean', 'yellow'];
 const HOLD_MS = 2200; // press-and-hold this long (mobile long-press or desktop click-hold) to jump straight back to Chat
 
 export default function PillModeRow({ activeMode, onSelect }) {

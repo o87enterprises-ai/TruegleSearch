@@ -24,6 +24,9 @@ export default function TrueglePlayer({
   accent = '#f43f5e',
   query = '',
   showList = true,
+  showCollapse = false,
+  collapsed = false,
+  onToggleCollapse,
   onQueryHandled,
   className = '',
 }) {
@@ -62,6 +65,9 @@ export default function TrueglePlayer({
       queueCount={queue.length}
       accent={accent}
       showList={showList && presentation === 'popped'}
+      showCollapse={showCollapse}
+      collapsed={collapsed}
+      onToggleCollapse={onToggleCollapse}
       listOpen={listOpen}
       showPopOut={presentation !== 'popped'}
       shareState={shareState}

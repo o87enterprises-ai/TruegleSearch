@@ -823,6 +823,8 @@ export default function SearchBar({
   rightIcons = null,
   // Rendered directly beneath the input pill, inside the same wrapper.
   belowSlot = null,
+  // Fixed-height bar that scrolls horizontally rather than wrapping.
+  singleLine = false,
   isLoading = false,
   showCharCount = false,
   maxLength = 2048,
@@ -1233,10 +1235,16 @@ export default function SearchBar({
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
+    // Single-line modes (Tube) keep a fixed height and scroll sideways instead.
+    // Growing downward there would push the player further down the page on
+    // every wrapped line.
+    // The inline style already pins the height for single-line modes; don't
+    // touch it here (and don't read `config` — it's declared further down).
+    if (singleLine) { el.style.height = ''; return; }
     const cap = variant === 'chat' ? 132 : 240;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, cap)}px`;
-  }, [localValue, variant]);
+  }, [localValue, variant, singleLine]);
 
   // Design System: Input sizes aligned to 8px spacing grid
   const sizeConfig = {
@@ -1540,7 +1548,7 @@ const handleChange = useCallback((e) => {
               (the single-line center) rather than 50% of the box, so it stays
               pinned near the first line as the textarea grows taller. */}
           <motion.div
-            className="absolute left-4 z-10 pointer-events-none"
+            className={`absolute left-4 z-10 pointer-events-none ${singleLine ? 'pl-1 pr-2 -ml-2 bg-neutral-900 rounded-l-2xl' : ''}`}
             style={{ top: config.boxHeightPx / 2 }}
             initial={false}
             animate={{
@@ -1608,6 +1616,13 @@ const handleChange = useCallback((e) => {
               paddingRight: getRightPadding(),
               letterSpacing: '0.025em',
               minHeight: `${config.boxHeightPx}px`,
+              ...(singleLine ? {
+                height: `${config.boxHeightPx}px`,
+                maxHeight: `${config.boxHeightPx}px`,
+                whiteSpace: 'nowrap',
+                overflowX: 'auto',
+                overflowY: 'hidden',
+              } : {}),
               // chat variant stays closer to a single-line search box, scrolling
               // internally sooner instead of growing into a tall block.
               maxHeight: variant === 'chat' ? '132px' : '240px',
@@ -1629,7 +1644,7 @@ const handleChange = useCallback((e) => {
               single-line center as the search icon so it doesn't slide to the
               middle of a taller box once the textarea grows. */}
           <div
-            className="absolute right-4 flex items-center gap-2 z-10"
+            className={`absolute right-4 flex items-center gap-2 z-10 ${singleLine ? 'pl-2 bg-neutral-900 rounded-r-2xl' : ''}`}
             style={{ top: config.boxHeightPx / 2, transform: 'translateY(-50%)' }}
           >
             {/* Pop-out player quick-access — appears whenever the mini-player
