@@ -1,0 +1,282 @@
+/**
+ * MediaService — community-submitted playable links.
+ *
+ * WHY THIS EXISTS: Truegle's search finds what the web indexes, which is not
+ * the same set as what Truegle's player can play. A track or clip somebody
+ * already knows the link to is invisible to everyone else until someone says
+ * "this plays". A submission does exactly that: one person adds a link, and it
+ * becomes findable — by title or by the link itself — for everyone.
+ *
+ * NOTHING IS UPLOADED. We store a URL and a little metadata; the media plays
+ * from its original platform's own embed, so the creator keeps their views.
+ *
+ * SECURITY: a submitted URL ends up inside an iframe for every visitor, so the
+ * accept rule is the same one the player uses — classify it or reject it, and
+ * store OUR canonical embed target rather than whatever was pasted. Host
+ * matching is exact-or-true-subdomain: a bare endsWith('youtube.com') also
+ * matches attacker hosts like `evilyoutube.com`. Mirrors
+ * apps/frontend/src/utils/videoEmbed.js — keep the two in step.
+ */
+const { query } = require('../db/connection');
+const logger = require('../utils/logger');
+
+class MediaError extends Error {
+  constructor(code, message) {
+    super(message || code);
+    this.name = 'MediaError';
+    this.code = code; // INVALID | UNSUPPORTED | NOT_FOUND | UNAUTHENTICATED
+  }
+}
+
+const MAX_TITLE = 200;
+const MAX_URL = 2048;
+const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|wav|flac)(\?|#|$)/i;
+const VIDEO_EXT = /\.(mp4|webm|mov|m4v)(\?|#|$)/i;
+
+/**
+ * Recognize a link the player can host.
+ * @returns {{kind, platform, canonical, src, vertical}} or throws MediaError.
+ */
+function classifyMedia(rawUrl) {
+  let u;
+  try {
+    u = new URL(String(rawUrl).trim());
+  } catch {
+    throw new MediaError('INVALID', 'That does not look like a link.');
+  }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') {
+    throw new MediaError('INVALID', 'Only http(s) links can be added.');
+  }
+
+  const host = u.hostname.replace(/^www\./, '').toLowerCase();
+  const isHost = (base) => host === base || host.endsWith(`.${base}`);
+  const path = u.pathname;
+
+  if (host === 'youtu.be') {
+    const id = path.slice(1).split('/')[0];
+    if (id) {
+      return {
+        kind: 'youtube',
+        platform: 'YouTube',
+        canonical: `youtube.com/watch/${id.toLowerCase()}`,
+        src: `https://www.youtube-nocookie.com/embed/${id}`,
+        vertical: false,
+      };
+    }
+  }
+  if (isHost('youtube.com') || isHost('youtube-nocookie.com')) {
+    if (path === '/watch') {
+      const id = u.searchParams.get('v');
+      if (id) {
+        return {
+          kind: 'youtube',
+          platform: 'YouTube',
+          canonical: `youtube.com/watch/${id.toLowerCase()}`,
+          src: `https://www.youtube-nocookie.com/embed/${id}`,
+          vertical: false,
+        };
+      }
+    }
+    if (path.startsWith('/shorts/') || path.startsWith('/embed/')) {
+      const id = path.split('/')[2];
+      if (id) {
+        const short = path.startsWith('/shorts/');
+        return {
+          kind: 'youtube',
+          platform: short ? 'YouTube Shorts' : 'YouTube',
+          canonical: `youtube.com/watch/${id.toLowerCase()}`,
+          src: `https://www.youtube-nocookie.com/embed/${id}`,
+          vertical: short,
+        };
+      }
+    }
+  }
+  if (isHost('vimeo.com')) {
+    const id = path.split('/').filter(Boolean)[0];
+    if (id && /^\d+$/.test(id)) {
+      return {
+        kind: 'vimeo',
+        platform: 'Vimeo',
+        canonical: `vimeo.com/${id}`,
+        src: `https://player.vimeo.com/video/${id}`,
+        vertical: false,
+      };
+    }
+  }
+  if (isHost('tiktok.com')) {
+    const id = /\/video\/(\d+)/.exec(path)?.[1];
+    if (id) {
+      return {
+        kind: 'tiktok',
+        platform: 'TikTok',
+        canonical: `tiktok.com/video/${id}`,
+        src: `https://www.tiktok.com/embed/v2/${id}`,
+        vertical: true,
+      };
+    }
+  }
+  if (isHost('soundcloud.com')) {
+    const slug = path.split('/').filter(Boolean).slice(0, 2).join('/');
+    if (slug.includes('/')) {
+      const clean = `https://soundcloud.com/${slug}`;
+      return {
+        kind: 'soundcloud',
+        platform: 'SoundCloud',
+        canonical: `soundcloud.com/${slug.toLowerCase()}`,
+        src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(clean)}`
+          + '&auto_play=true&hide_related=true&show_comments=false&show_user=true&visual=false',
+        vertical: false,
+      };
+    }
+  }
+  // A direct file plays natively. The stored src IS the submitted URL here,
+  // so it is kept exactly as given (already https-checked above).
+  const asString = u.toString();
+  if (AUDIO_EXT.test(path)) {
+    return { kind: 'audio', platform: 'Audio file', canonical: `${host}${path.toLowerCase()}`, src: asString, vertical: false };
+  }
+  if (VIDEO_EXT.test(path)) {
+    return { kind: 'video', platform: 'Video file', canonical: `${host}${path.toLowerCase()}`, src: asString, vertical: false };
+  }
+
+  throw new MediaError(
+    'UNSUPPORTED',
+    "Truegle's player can't host that link. YouTube, Vimeo, TikTok, SoundCloud "
+    + 'and direct audio/video files all work.',
+  );
+}
+
+// A thumbnail we can derive with no API key. Only YouTube publishes one
+// openly; the rest need oEmbed behind app review, so their rows carry the
+// platform name instead of a preview image.
+function deriveThumbnail(kind, canonical) {
+  if (kind !== 'youtube') return null;
+  const id = canonical.split('/').pop();
+  return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
+}
+
+const clean = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : null);
+
+// A row as the player consumes it — same shape getPlayable() returns on the
+// client, so a submitted link drops straight into the queue.
+const toSource = (row) => ({
+  id: row.id,
+  kind: row.kind,
+  src: row.src,
+  title: row.title,
+  pageUrl: row.url,
+  poster: row.thumbnail,
+  platform: row.platform,
+  ...(row.vertical ? { vertical: true } : {}),
+  community: true,
+});
+
+const MediaService = {
+  classifyMedia,
+  toSource,
+
+  /**
+   * Add a link so everyone can play it. Requires a userId — the route enforces
+   * a signed-in account, and the column is NOT NULL, so an unattributed row
+   * cannot exist. Idempotent per canonical URL: submitting the same link twice
+   * returns the existing row and fills in a title if it was missing.
+   */
+  async submit({ url, title, userId }) {
+    if (!userId) throw new MediaError('UNAUTHENTICATED', 'Sign in to add a link.');
+    const raw = clean(url, MAX_URL);
+    if (!raw) throw new MediaError('INVALID', 'No link was provided.');
+
+    const { kind, platform, canonical, src, vertical } = classifyMedia(raw);
+    const thumbnail = deriveThumbnail(kind, canonical);
+
+    const { rows } = await query(
+      `INSERT INTO community_media (url, canonical, kind, platform, title, thumbnail, submitted_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (canonical) DO UPDATE
+         SET title = COALESCE(community_media.title, EXCLUDED.title)
+       RETURNING id, url, kind, platform, title, thumbnail, created_at`,
+      [raw, canonical, kind, platform, clean(title, MAX_TITLE), thumbnail, userId],
+    );
+    logger.info('Media submitted', { kind, canonical });
+    return toSource({ ...rows[0], src, vertical });
+  },
+
+  /**
+   * Find submitted media by title OR by the link itself — people paste a URL
+   * they half-remember as often as they type a name. Results are re-classified
+   * on the way out rather than trusting a stored embed src, so a row written
+   * before a rule changed can never outlive the rule.
+   */
+  async search({ q, limit = 12 } = {}) {
+    const term = clean(q, 200);
+    if (!term || term.length < 2) return [];
+    const capped = Math.min(Math.max(parseInt(limit, 10) || 12, 1), 50);
+    const like = `%${term.toLowerCase()}%`;
+    const { rows } = await query(
+      `SELECT id, url, kind, platform, title, thumbnail, created_at
+         FROM community_media
+        WHERE hidden = FALSE
+          AND (lower(COALESCE(title, '')) LIKE $1 OR lower(url) LIKE $1 OR canonical LIKE $1)
+        ORDER BY plays DESC, created_at DESC
+        LIMIT $2`,
+      [like, capped],
+    );
+    return rows.map((row) => {
+      try {
+        const { src, vertical, kind } = classifyMedia(row.url);
+        return toSource({ ...row, src, vertical, kind });
+      } catch {
+        return null; // no longer playable under the current rules — drop it
+      }
+    }).filter(Boolean);
+  },
+
+  /** Newest visible submissions. */
+  async list({ limit = 24 } = {}) {
+    const capped = Math.min(Math.max(parseInt(limit, 10) || 24, 1), 100);
+    const { rows } = await query(
+      `SELECT id, url, kind, platform, title, thumbnail, created_at
+         FROM community_media
+        WHERE hidden = FALSE
+        ORDER BY created_at DESC
+        LIMIT $1`,
+      [capped],
+    );
+    return rows.map((row) => {
+      try {
+        const { src, vertical, kind } = classifyMedia(row.url);
+        return toSource({ ...row, src, vertical, kind });
+      } catch {
+        return null;
+      }
+    }).filter(Boolean);
+  },
+
+  /** Best-effort play counter; never fails a playback because of a write. */
+  async countPlay(id) {
+    try {
+      await query('UPDATE community_media SET plays = plays + 1 WHERE id = $1', [id]);
+    } catch (err) {
+      logger.warn('Play count failed', { error: err && err.message });
+    }
+  },
+
+  /**
+   * Report a submission. Soft moderation: enough reports hides it from results
+   * without deleting the row, so an over-eager report is reversible.
+   */
+  async report(id, threshold = 3) {
+    const { rows } = await query(
+      `UPDATE community_media
+          SET reports = reports + 1,
+              hidden  = (reports + 1) >= $2
+        WHERE id = $1
+      RETURNING id, hidden`,
+      [id, threshold],
+    );
+    if (!rows[0]) throw new MediaError('NOT_FOUND', 'That link no longer exists.');
+    return rows[0];
+  },
+};
+
+module.exports = { MediaService, MediaError };

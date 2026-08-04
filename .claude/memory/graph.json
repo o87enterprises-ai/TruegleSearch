@@ -376,6 +376,14 @@
         "body": "SearchBar gained singleLine prop: fixed height, white-space:nowrap, overflow-x:auto. Growing downward pushed the player further down on every wrapped line. The auto-resize effect must NOT read the \"config\" object (declared later in the component - causes \"Cannot access config before initialization\", which blanks the entire search bar); it clears the inline height and lets the style block pin it. Left icon + right controls get an opaque bg in singleLine so scrolled text hides behind them.",
         "ts": "2026-08-04",
         "created": "2026-08-04"
+      },
+      "media-migration": {
+        "Id": "media-migration",
+        "Type": "fact",
+        "Label": "Migration 018 must be run in prod",
+        "body": "node apps/backend/scripts/run-migrations.js applies 018_community_media.sql. Until it runs, POST /api/media and GET /api/media/search 500 on a missing relation; the player still works because the community fetch fails soft to [].",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
       }
     },
     "decision": {
@@ -904,6 +912,14 @@
         "Type": "decision",
         "Label": "True Tube owns /tube; share links point there",
         "body": "App.jsx renders UniversalSearch lockedTube at /tube (was a Navigate alias to /search?mode=tube, which rewrote the shared URL). lockedPath keeps /tube and /green from rewriting themselves to /search on submit. buildPlayerLink now emits /tube?u=&t= (PLAYER_LINK_PATH); /w stays mounted and parseable for links already shared (LEGACY_PLAYER_LINK_PATH); non-playable shares still go to /l. Middleware gives /tube?u= the clip card and bare /tube the True Tube card + canonical.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
+      },
+      "community-media": {
+        "Id": "community-media",
+        "Type": "decision",
+        "Label": "Community link submissions (018_community_media)",
+        "body": "POST /api/media requires authenticate (NOT optionalAuth) and community_media.submitted_by is NOT NULL: a submission is playable by every visitor so it must be attributable. GET /api/media/search is public and matches title OR url/canonical. MediaService.classifyMedia mirrors frontend getPlayable with exact-or-subdomain host checks and stores OUR embed src, never the pasted string; rows are re-classified on read so a row cannot outlive a rule change. usePlayerSearch merges community results ahead of web results. AddLinkRow queues locally for anyone, and prompts sign-in to share.",
         "ts": "2026-08-04",
         "created": "2026-08-04"
       }

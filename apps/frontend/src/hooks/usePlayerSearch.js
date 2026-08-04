@@ -11,8 +11,12 @@ import { resolveShareInput, titleFromUrl } from '../utils/playerLink';
 // already been through getPlayable(), so any row can go straight into the
 // queue.
 //
-// A pasted URL short-circuits the search entirely — including a Truegle /w
-// link, so a shared link can be dropped straight back into the player.
+// A pasted URL short-circuits the search entirely — including a Truegle
+// player link, so a shared link can be dropped straight back into the player.
+//
+// Results are web search PLUS what the community has submitted. Submissions
+// come first: somebody vouched that those play, and they are the only way a
+// link the web index doesn't carry becomes findable at all.
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 const DEBOUNCE_MS = 300;
 const MIN_CHARS = 2;
@@ -37,21 +41,40 @@ export function usePlayerSearch(query) {
     abortRef.current = controller;
     setLoading(true);
     setError('');
-    fetch(`${BACKEND}/api/search`, {
+
+    const web = fetch(`${BACKEND}/api/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: q, filters: { category: 'videos', bias: 'all', dateRange: 'any', perPage: 20 } }),
       signal: controller.signal,
     })
       .then((r) => r.json())
-      .then((d) => {
-        const playable = (d.results || []).map((r) => {
-          const base = getPlayable(r.url);
-          return base
-            ? { ...base, title: r.title || titleFromUrl(r.url), pageUrl: r.url, poster: r.image, duration: r.duration }
-            : null;
-        }).filter(Boolean);
-        setResults(playable);
+      .then((d) => (d.results || []).map((r) => {
+        const base = getPlayable(r.url);
+        return base
+          ? { ...base, title: r.title || titleFromUrl(r.url), pageUrl: r.url, poster: r.image, duration: r.duration }
+          : null;
+      }).filter(Boolean));
+
+    // Community submissions. A failure here must never cost the user the web
+    // results, so it resolves to nothing rather than rejecting.
+    const community = fetch(
+      `${BACKEND}/api/media/search?q=${encodeURIComponent(q)}&limit=8`,
+      { signal: controller.signal },
+    )
+      .then((r) => (r.ok ? r.json() : { results: [] }))
+      .then((d) => (d.results || []))
+      .catch(() => []);
+
+    Promise.all([web, community])
+      .then(([webRows, communityRows]) => {
+        const seen = new Set();
+        const merged = [...communityRows, ...webRows].filter((row) => {
+          if (!row || seen.has(row.src)) return false;
+          seen.add(row.src);
+          return true;
+        });
+        setResults(merged);
       })
       // An aborted request is a newer keystroke, not a failure.
       .catch((e) => { if (e.name !== 'AbortError') setError('Search is unreachable right now.'); })

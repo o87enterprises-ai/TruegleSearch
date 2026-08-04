@@ -248,7 +248,17 @@ export default function MiniPlayer() {
   const clipWhenMin = minimized;
 
   const style = docked
-    ? { left: slot.left, top: slot.top, width: slot.width }
+    ? {
+      left: slot.left,
+      top: slot.top,
+      width: slot.width,
+      // The frame is FIXED, so anything of its own that runs past the bottom
+      // of the screen can never be scrolled to — the page scrolls, the frame
+      // doesn't. Cap it at what's actually visible and let it scroll itself,
+      // so an opened panel (add-a-link, a long queue) stays reachable.
+      maxHeight: `calc(100svh - ${Math.max(0, Math.round(slot.top))}px - 8px)`,
+      overflowY: 'auto',
+    }
     : footerDock
     ? {
       left: '50%',

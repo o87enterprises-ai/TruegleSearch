@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus, Check, X, Loader2, ListMusic, Search as SearchIcon } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
+import AddLinkRow from './AddLinkRow';
 
 // The list that lives under the player — the same one in all three
 // presentations.
@@ -91,6 +92,9 @@ export default function PlayerListSlot({ query = '', accent = '#f43f5e', onRever
             </div>
           ))}
         </div>
+        {/* Right where the disappointment is: nothing in these results plays,
+            but you have the link. */}
+        <AddLinkRow accent={accent} compact={compact} onQueued={add} />
       </div>
     );
   }
@@ -135,6 +139,7 @@ export default function PlayerListSlot({ query = '', accent = '#f43f5e', onRever
           ))
         )}
       </div>
+      <AddLinkRow accent={accent} compact={compact} onQueued={add} />
     </div>
   );
 }
