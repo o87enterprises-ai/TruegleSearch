@@ -360,6 +360,14 @@
         "body": "ShortsFeed auto-advances by default; preference persisted in localStorage truegle_reels_autoscroll. Auto/Repeat/Add-a-reel controls render OUTSIDE the items.length>0 guard — they were previously hidden entirely on an empty feed, which is why they looked missing. Dwell = clip duration clamped 8-90s; community-submitted reels have NO duration so they use the 30s default.",
         "ts": "2026-08-04",
         "created": "2026-08-04"
+      },
+      "tube-bar-player": {
+        "Id": "tube-bar-player",
+        "Type": "fact",
+        "Label": "Tube's collapsed player is a row UNDER the input, not inside it",
+        "body": "SearchBar gained a belowSlot prop (rendered inside the pill wrapper, under the input). Tube uses it for the transport row and, when expanded, the whole player. The transport was first put in the input row via rightIcons — that left ~100px of usable input width on a phone and the placeholder wrapped one character per line. A -mt-3 tuck under the pill's rounded bottom makes bar+controls read as one surface. rightIcons now renders OUTSIDE the showMultiInput conditional so it survives showMultiInput={false}.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
       }
     },
     "decision": {

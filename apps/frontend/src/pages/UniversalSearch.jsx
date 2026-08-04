@@ -167,7 +167,10 @@ export default function UniversalSearch({ lockedGreen = false }) {
   const feed = useFeedAutoplay();
   // Tube docks the one player into this page; popping it out hands it to the
   // floating frame and leaves a way back.
-  const { poppedOut, setPoppedOut } = usePlayer();
+  const { poppedOut, setPoppedOut, current: playerCurrent, expanded: tubeExpandedState } = usePlayer();
+  // The player screen drops out of the bar as soon as there's anything to
+  // show — something playing, or a query being typed into it.
+  const tubeExpanded = tubeExpandedState || !!playerCurrent || searchValue.trim().length >= 2;
   // OSINT (ocean) exception: multi-select investigation classes that replace
   // the content categories on the ocean page and tag the query with entity types.
   const [osintClasses, setOsintClasses] = useState([]);
@@ -1085,6 +1088,30 @@ export default function UniversalSearch({ lockedGreen = false }) {
               // the investigation-class row rendered below the bar.
               showCategories={mode !== 'ocean' && mode !== 'tube'}
               showMultiInput={mode !== 'tube'}
+              belowSlot={mode === 'tube' && !poppedOut ? (
+                // The transport gets its OWN row directly under the input
+                // rather than sitting inside it. Crammed into the input row it
+                // left roughly 100px of usable width on a phone and the
+                // placeholder wrapped one character per line. Negative margin
+                // tucks this under the pill's rounded bottom so the bar and
+                // its controls read as one surface, not a box under a box.
+                <div
+                  className="relative z-[6] -mt-3 rounded-b-2xl overflow-hidden border border-t-0"
+                  style={{ borderColor: `${MODE_COLORS.tube}59` }}
+                >
+                  {tubeExpanded ? (
+                    <TrueglePlayer
+                      presentation="expanded"
+                      accent={MODE_COLORS.tube}
+                      query={searchValue}
+                    />
+                  ) : (
+                    <div className="px-1.5 py-1 bg-black/30">
+                      <TrueglePlayer presentation="collapsed" accent={MODE_COLORS.tube} />
+                    </div>
+                  )}
+                </div>
+              ) : null}
               activeCategory={activeCategory}
               onSelectCategory={setActiveCategory}
               showMap={showMap || (autoOpenMap && !mapManuallyClosed)}
@@ -1648,18 +1675,6 @@ export default function UniversalSearch({ lockedGreen = false }) {
                 page, its rails and everything above are untouched, which is
                 what keeps Tube's layout identical to the other search pages. */}
             <div className="lg:col-span-3 space-y-4">
-              {mode === 'tube' && !poppedOut && (
-                <div
-                  className="rounded-xl overflow-hidden border"
-                  style={{ borderColor: `${MODE_COLORS.tube}59` }}
-                >
-                  <TrueglePlayer
-                    presentation="expanded"
-                    accent={MODE_COLORS.tube}
-                    query={searchValue}
-                  />
-                </div>
-              )}
               {mode === 'tube' && poppedOut && (
                 <div className="rounded-xl border border-white/10 bg-white/[0.02] px-4 py-6 text-center">
                   <p className="text-sm text-white/60">The player is popped out.</p>

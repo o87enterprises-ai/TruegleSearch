@@ -155,13 +155,16 @@ export default function MiniPlayer() {
     return () => ['play', 'pause', 'previoustrack', 'nexttrack'].forEach((act) => set(act, null));
   }, [current, history.length, queue.length, next, prev]);
 
-  if (!current) return null;
+  // Nothing playing and not popped out → nothing to show. But once popped
+  // out, the frame stays even with an empty screen: the user asked for the
+  // player, and its search bar is how they fill it.
+  if (!current && !poppedOut) return null;
   // On Tube the player lives docked inside the search bar until it is popped
   // out; everywhere else the floating frame IS the player. One component,
   // two homes — never both at once.
   if (pageMode === 'tube' && !poppedOut) return null;
 
-  const title = current.title;
+  const title = current?.title;
   const clipWhenMin = minimized;
 
   const style = pos

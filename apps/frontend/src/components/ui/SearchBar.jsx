@@ -821,6 +821,8 @@ export default function SearchBar({
   showUnbiasedButton = false,
   onUnbiasedClick,
   rightIcons = null,
+  // Rendered directly beneath the input pill, inside the same wrapper.
+  belowSlot = null,
   isLoading = false,
   showCharCount = false,
   maxLength = 2048,
@@ -1861,16 +1863,24 @@ const handleChange = useCallback((e) => {
                 size={config.iconSize - 4}
               />
 
-              {/* Custom Right Icons - if provided, they will be added after the media inputs */}
-              {rightIcons && (
-                <div className="flex items-center gap-1 ml-1 pl-2 border-l border-neutral-700/50">
-                  {rightIcons}
-                </div>
-              )}
             </div>
+            )}
+
+            {/* Custom Right Icons — deliberately OUTSIDE the media-input
+                conditional above: Tube switches that row off but still needs
+                its transport controls here in the input row. */}
+            {rightIcons && (
+              <div className={`flex items-center gap-1 ml-1 ${showMultiInput ? 'pl-2 border-l border-neutral-700/50' : ''}`}>
+                {rightIcons}
+              </div>
             )}
           </div>
         </motion.div>
+
+        {/* Anything a mode wants hanging off the bottom of the bar — Tube
+            drops its player screen in here so bar and player read as one
+            continuous surface rather than two stacked boxes. */}
+        {belowSlot}
 
         {/* Character Count - Optional */}
         <AnimatePresence>
