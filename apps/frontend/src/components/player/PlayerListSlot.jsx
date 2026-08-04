@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Check, X, Loader2, ListMusic, Search as SearchIcon } from 'lucide-react';
+import { Plus, Check, X, Loader2, ListMusic, Play, Search as SearchIcon } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import AddLinkRow from './AddLinkRow';
@@ -18,7 +18,7 @@ import AddLinkRow from './AddLinkRow';
 const REVERT_MS = 10000;
 
 export default function PlayerListSlot({ query = '', accent = '#f43f5e', onRevert, compact = false }) {
-  const { current, queue, jump, removeFromQueue, enqueue, clearQueue } = usePlayer();
+  const { current, queue, jump, removeFromQueue, enqueue, clearQueue, playNow } = usePlayer();
   const { results, loading, error } = usePlayerSearch(query);
   const [added, setAdded] = useState(null);
   const [showingResults, setShowingResults] = useState(false);
@@ -73,6 +73,16 @@ export default function PlayerListSlot({ query = '', accent = '#f43f5e', onRever
                     onError={(e) => { e.target.style.visibility = 'hidden'; }} />
                 : <span className="w-10 h-7 rounded bg-white/10 shrink-0" />}
               <span className="text-[11px] text-white/75 line-clamp-2 flex-1 min-w-0">{r.title}</span>
+              {/* Play now: jumps the queue and comes back to what was on. */}
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); playNow(r); }}
+                title="Play now — comes back to what you were on afterwards"
+                aria-label={`Play ${r.title || 'this'} now`}
+                className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg border border-white/15 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <Play size={13} />
+              </button>
               {/* Explicit add — the row is not a click target, so nothing here
                   can be mistaken for "open this result" and navigate away. */}
               <button

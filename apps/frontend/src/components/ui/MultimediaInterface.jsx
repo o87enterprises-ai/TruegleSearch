@@ -871,6 +871,16 @@ function VideoDomeGallery({ videos, onSelect, searchContext }) {
               <div className="absolute bottom-2 right-2 bg-black/80 px-2 py-1 rounded text-white text-xs font-semibold">
                 {video.duration}
               </div>
+              {/* Play now / add to queue, on the TILE. These used to exist only
+                  inside the opened lightbox, so from the grid there was no way
+                  to queue anything without first opening it and coming back.
+                  stopPropagation lives in QueueButton, so neither one opens the
+                  video by accident. */}
+              {itemToSource(video) && (
+                <div className="absolute top-2 right-2 flex gap-1 rounded-lg bg-black/70 backdrop-blur px-0.5">
+                  <QueueButton source={itemToSource(video)} className="text-white" />
+                </div>
+              )}
               <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                 <p className="text-white text-sm font-semibold line-clamp-2">
                   {video.title}

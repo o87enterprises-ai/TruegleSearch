@@ -43,6 +43,20 @@ function reducer(s, a) {
       const history = s.current && !sameSrc(s.current, a.source) ? [...s.history, s.current] : s.history;
       return { ...s, current: a.source, history, minimized: false, paused: false };
     }
+    case 'playNow': {
+      // Jump the queue WITHOUT losing your place. What was playing goes to the
+      // FRONT of the queue, so when this finishes the player drops straight
+      // back into it and carries on down the list. Nothing is dropped and
+      // nothing is reordered behind it — that's the difference between this
+      // and 'play', which simply replaces what's on.
+      if (!a.source?.src) return s;
+      if (sameSrc(s.current, a.source)) return { ...s, paused: false };
+      // If this track was already queued further down, take it from there —
+      // otherwise it would play twice.
+      const rest = s.queue.filter((q) => !sameSrc(q, a.source));
+      const queue = s.current ? [s.current, ...rest] : rest;
+      return { ...s, current: a.source, queue, paused: false, minimized: false };
+    }
     case 'enqueue': { // idle → play now; busy → append (dedup against current/queue)
       if (!a.source?.src) return s;
       if (!s.current) return { ...s, current: a.source, minimized: false };
@@ -176,6 +190,7 @@ export const PlayerProvider = ({ children }) => {
   }, [state.current, state.queue, state.history, state.poppedOut, state.expanded, state.dock]);
 
   const play = useCallback((source) => dispatch({ type: 'play', source }), []);
+  const playNow = useCallback((source) => dispatch({ type: 'playNow', source }), []);
   const enqueue = useCallback((source) => dispatch({ type: 'enqueue', source }), []);
   const enqueueMany = useCallback((sources) => dispatch({ type: 'enqueueMany', sources }), []);
   const next = useCallback(() => dispatch({ type: 'next' }), []);
@@ -196,10 +211,10 @@ export const PlayerProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       ...state,
-      play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
+      play, playNow, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setPlayMode,
     }),
-    [state, play, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
+    [state, play, playNow, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode]
   );
 

@@ -922,6 +922,14 @@
         "body": "POST /api/media requires authenticate (NOT optionalAuth) and community_media.submitted_by is NOT NULL: a submission is playable by every visitor so it must be attributable. GET /api/media/search is public and matches title OR url/canonical. MediaService.classifyMedia mirrors frontend getPlayable with exact-or-subdomain host checks and stores OUR embed src, never the pasted string; rows are re-classified on read so a row cannot outlive a rule change. usePlayerSearch merges community results ahead of web results. AddLinkRow queues locally for anyone, and prompts sign-in to share.",
         "ts": "2026-08-04",
         "created": "2026-08-04"
+      },
+      "play-now": {
+        "Id": "play-now",
+        "Type": "decision",
+        "Label": "Play now jumps the queue without losing your place",
+        "body": "PlayerContext playNow: the interrupted current goes to the FRONT of the queue (not history), the new track becomes current, and any copy of it further down the queue is removed so it cannot play twice. When it ends, next() resumes the interrupted track and the list continues in order. Nothing is cleared. QueueButton now renders Play now + Add to queue for every playable link; MultimediaInterface video GRID TILES got them too (previously only the opened lightbox had one).",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
       }
     },
     "entity": {
