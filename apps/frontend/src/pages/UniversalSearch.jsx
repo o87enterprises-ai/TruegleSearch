@@ -64,6 +64,11 @@ import { LITE_BG, PERSPECTIVE_COLORS, getModeAccent, MODE_LABELS, MODE_COLORS } 
 // here only blend into the AI summary + follow-up chat, so the results grid and
 // its routing are never destabilized by multi-select.
 const LENS_MODES = ['blue', 'green', 'red', 'purple', 'ocean'];
+// Modes with no AI surfaces at all — no summary banner, no quick answer, and
+// no request fired for either. Green is summarise-only by definition; Tube is
+// a player, and an answer card above the video is noise.
+const AI_FREE_MODES = new Set(['green', 'tube']);
+const isAiFree = (m) => AI_FREE_MODES.has(m);
 const MODE_TO_BACKEND = { blue: 'blue-pill', green: 'green', red: 'red-pill', purple: 'purple', ocean: 'ocean', tube: 'blue-pill' };
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import QueueButton from '../components/ui/QueueButton';
@@ -217,7 +222,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
   // the AI summary (not the whole search) so multi-select feels immediate.
   const lensSig = extraLenses.join(',');
   useEffect(() => {
-    if (mode !== 'green' && sessionSummaryChoice !== 'none' && searchResults.length > 0 && query) {
+    if (!isAiFree(mode) && sessionSummaryChoice !== 'none' && searchResults.length > 0 && query) {
       fetchAiSummary(query, searchResults, MODE_TO_BACKEND[mode]);
     }
   }, [lensSig]); // intentionally lens-only: re-summarize on lens change, not on every result update
@@ -229,7 +234,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
   useEffect(() => {
     if (
       queryIsQuestion &&
-      mode !== 'green' && mode !== 'ocean' &&
+      !isAiFree(mode) && mode !== 'ocean' &&
       searchResults.length > 0 &&
       sessionSummaryChoice === null
     ) {
@@ -540,13 +545,13 @@ export default function UniversalSearch({ lockedGreen = false }) {
       }
 
       // Fetch summary only if not green mode and not dismissed
-      if (mode !== 'green' && sessionSummaryChoice !== 'none' && results.length > 0) {
+      if (!isAiFree(mode) && sessionSummaryChoice !== 'none' && results.length > 0) {
         fetchAiSummary(searchValue, results, backendMode);
       }
       // Quick answer fires in parallel with the summary. Green mode is AI-free
       // by definition; deliberately NOT gated on sessionSummaryChoice — that
       // setting is about the summary banner, not the answer box.
-      if (mode !== 'green' && results.length > 0) {
+      if (!isAiFree(mode) && results.length > 0) {
         fetchQuickAnswer(searchValue, results);
       }
     } catch (error) {
@@ -1113,7 +1118,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
                   summary, so it's shown ONLY once the summary is actually in use
                   — never on a plain results page (where it's meaningless and
                   misleading) or on OSINT/Summarize modes that have no summary. */}
-              {mode !== 'ocean' && mode !== 'green' && sessionSummaryChoice === 'show' && (
+              {mode !== 'ocean' && !isAiFree(mode) && sessionSummaryChoice === 'show' && (
                 <button
                   type="button"
                   onClick={() => setNepheshMode((v) => !v)}
@@ -1134,7 +1139,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
           </div>
 
           {/* Quick Result Card — directly below search bar for instant visibility */}
-          {instantAnswer && (
+          {instantAnswer && mode !== 'tube' && (
             <div className="max-w-4xl mx-auto mb-4 mt-2">
               <QuickResultCard instantAnswer={instantAnswer} mode={mode === 'green' ? 'green' : mode === 'red' ? 'red' : mode === 'purple' ? 'purple' : mode === 'ocean' ? 'ocean' : 'blue'} />
             </div>
@@ -1264,7 +1269,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
 
           {/* Prominent Question Answer — auto-shown for direct questions, no click required.
               (Ocean/OSINT has no AI summary surfaces — the tools module owns the AI.) */}
-          {aiSummary?.isQuestion && mode !== 'green' && mode !== 'ocean' && (
+          {aiSummary?.isQuestion && !isAiFree(mode) && mode !== 'ocean' && (
             <div className="max-w-4xl mx-auto mb-4">
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -1303,7 +1308,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
           {/* Search Summary — Banner + Expandable Card.
               Excluded on ocean: the OSINT Tools module above hosts its own AI
               results-summary + debrief, so there's no separate summary here. */}
-          {mode !== 'green' && mode !== 'ocean' && sessionSummaryChoice !== 'none' && (
+          {!isAiFree(mode) && mode !== 'ocean' && sessionSummaryChoice !== 'none' && (
             <div className="max-w-4xl mx-auto mb-4">
               {/* (The AI lenses now live inside the expanded summary's inline
                   mini-chat — see InlineSummaryChat — rather than an always-shown
@@ -1517,7 +1522,7 @@ export default function UniversalSearch({ lockedGreen = false }) {
           {/* One ad below the AI summary — orange-outlined, "Sponsored". Hidden
               on question-phrased queries so the quick-answer card gets the space,
               and in green (Summarize) mode. */}
-          {!queryIsQuestion && mode !== 'green' && (
+          {!queryIsQuestion && !isAiFree(mode) && (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
