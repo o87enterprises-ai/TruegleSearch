@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
-import { X, Minus, Maximize2, Move, GripHorizontal } from 'lucide-react';
+import { X, Minus, Maximize2, Move, GripHorizontal, Eye, EyeOff } from 'lucide-react';
 import { MODE_COLORS, BRAND_GRADIENT } from '../../config/modeTheme';
 import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
@@ -46,8 +46,8 @@ const loadGeom = () => {
 
 export default function MiniPlayer() {
   const {
-    current, queue, history, minimized, poppedOut, dock,
-    next, prev, close, toggleMinimize, setPoppedOut,
+    current, queue, history, minimized, poppedOut, dock, footerView,
+    next, prev, close, toggleMinimize, setPoppedOut, setFooterView,
   } = usePlayer();
   // 'footer' = pinned across the bottom of the page, above the feedback bar.
   // The frame stops being a window in that state: no dragging, no resizing,
@@ -357,9 +357,32 @@ export default function MiniPlayer() {
             aria-label="Search the player"
             className="flex-1 min-w-0 bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-white/35 focus:outline-none focus:border-white/30"
           />
-          <button type="button" onClick={toggleMinimize} title={minimized ? 'Expand' : 'Minimize'} className={ctrl}>
-            {minimized ? <Maximize2 size={16} /> : <Minus size={16} />}
-          </button>
+          {/* Footer dock: two named states. Watch = the picture. Hidden = the
+              controls only, still playing — the "listening while I read the
+              results" case, which is most of what a dock at the bottom of a
+              page is for. Elsewhere the frame keeps its plain minimize. */}
+          {footerDock ? (
+            <div className="flex items-center rounded-lg bg-black/40 border border-white/10 p-0.5 shrink-0">
+              {[['watch', 'Watch', Eye], ['hidden', 'Hidden', EyeOff]].map(([value, label, Icon]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setFooterView(value)}
+                  aria-pressed={footerView === value}
+                  title={value === 'watch' ? 'Show the video' : 'Hide the video — keeps playing'}
+                  className={`flex items-center gap-1 px-2 h-8 rounded-md text-[11px] font-semibold transition-colors ${
+                    footerView === value ? 'bg-white/15 text-white' : 'text-white/45 hover:text-white/80'
+                  }`}
+                >
+                  <Icon size={13} /> {label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <button type="button" onClick={toggleMinimize} title={minimized ? 'Expand' : 'Minimize'} className={ctrl}>
+              {minimized ? <Maximize2 size={16} /> : <Minus size={16} />}
+            </button>
+          )}
           {/* Close puts the player away; it does NOT empty the queue. Clearing
               is explicit, in the list. */}
           <button type="button" onClick={close} title="Close player (keeps your queue)" className={ctrl}>
@@ -377,6 +400,7 @@ export default function MiniPlayer() {
           <TrueglePlayer
             presentation={docked ? 'expanded' : 'popped'}
             accent={accent || undefined}
+            hideScreen={footerDock && footerView === 'hidden'}
             query={docked ? pageQuery : playerQuery}
           />
         </div>

@@ -938,6 +938,14 @@
         "body": "PlayerContext dock is now null|float|footer; null = unchosen and resolved by useNarrowViewport (<640px). Phone-width pops out to the FOOTER dock (page gains bottom padding so nothing is permanently covered); wider screens keep the floating window. The pop-out control still switches, and an explicit choice is persisted; docking back into the Tube bar resets to null so the next pop-out gets the right default for that screen. minimized is now persisted too.",
         "ts": "2026-08-04",
         "created": "2026-08-04"
+      },
+      "player-playability": {
+        "Id": "player-playability",
+        "Type": "decision",
+        "Label": "Widen what the player accepts + footer Watch/Hidden",
+        "body": "getPlayable now also accepts Dailymotion (+dai.ly), Rumble and Odysee via their keyless embeds, each with its own kind and exact-or-subdomain host matching; the hosts were added to BOTH child-src and frame-src in public/_headers (omitting CSP is what silently broke youtube-nocookie/soundcloud before). usePlayerSearch also recovers a YouTube id from an i.ytimg.com thumbnail when the result URL is unclassifiable, and falls back from the videos category to plain web results when videos yields nothing playable. Footer dock has two named states: watch (picture) and hidden (controls only, media stays MOUNTED so playback continues) — footerView in PlayerContext, persisted.",
+        "ts": "2026-08-04",
+        "created": "2026-08-04"
       }
     },
     "entity": {

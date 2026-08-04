@@ -2,6 +2,30 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { getPlayable } from '../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../utils/playerLink';
 
+// A video result whose URL we can't classify is sometimes still a YouTube
+// video — the search backend hands back a watch page on a host we don't
+// accept, or a redirect, while the thumbnail is unmistakably i.ytimg.com/vi/<id>.
+// That id is enough to play it, so recover it rather than throwing the result
+// away: this is the difference between "59 results" and "nothing here can play".
+const YT_THUMB = /\/vi(?:_webp)?\/([\w-]{6,20})\//;
+function fromThumbnail(image) {
+  const id = typeof image === 'string' ? YT_THUMB.exec(image)?.[1] : null;
+  return id ? { kind: 'youtube', src: `https://www.youtube-nocookie.com/embed/${id}` } : null;
+}
+
+// One search result → a player source, or null if there's no way to play it.
+function toSource(r) {
+  const base = getPlayable(r.url) || fromThumbnail(r.image);
+  if (!base) return null;
+  return {
+    ...base,
+    title: r.title || titleFromUrl(r.url),
+    pageUrl: r.url,
+    poster: r.image,
+    duration: r.duration,
+  };
+}
+
 // Debounced, playable-only search shared by every surface that feeds the
 // player — the Tube search bar, the popped-out player's own bar, and the
 // queue's "+" panel.
@@ -42,19 +66,22 @@ export function usePlayerSearch(query) {
     setLoading(true);
     setError('');
 
-    const web = fetch(`${BACKEND}/api/search`, {
+    const ask = (category) => fetch(`${BACKEND}/api/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: q, filters: { category: 'videos', bias: 'all', dateRange: 'any', perPage: 20 } }),
+      body: JSON.stringify({ query: q, filters: { category, bias: 'all', dateRange: 'any', perPage: 20 } }),
       signal: controller.signal,
     })
       .then((r) => r.json())
-      .then((d) => (d.results || []).map((r) => {
-        const base = getPlayable(r.url);
-        return base
-          ? { ...base, title: r.title || titleFromUrl(r.url), pageUrl: r.url, poster: r.image, duration: r.duration }
-          : null;
-      }).filter(Boolean));
+      .then((d) => (d.results || []).map(toSource).filter(Boolean));
+
+    // The videos category is the right place to look first, but its results
+    // are full of hosts with no embeddable player. When it yields nothing we
+    // can actually play, fall back to plain web results for the same query —
+    // that's usually where the YouTube/SoundCloud link is.
+    const web = ask('videos')
+      .then((rows) => (rows.length ? rows : ask('web')))
+      .catch((e) => { if (e.name === 'AbortError') throw e; return []; });
 
     // Community submissions. A failure here must never cost the user the web
     // results, so it resolves to nothing rather than rejecting.

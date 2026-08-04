@@ -35,6 +35,11 @@ const INITIAL = {
   // screens dock to the footer the way every mobile player does. Set only by
   // the pop-out control, and remembered once set.
   dock: null,
+  // What the footer dock shows: 'watch' = the picture, 'hidden' = just the
+  // controls, with the media still mounted and still playing. Hidden is for
+  // "I'm listening while I read the results", which is most of what a dock at
+  // the bottom of a page is for.
+  footerView: 'watch',
   // auto | repeat-one | shuffle | loop. Auto = play straight through.
   playMode: 'auto',
 };
@@ -126,6 +131,8 @@ function reducer(s, a) {
       };
     case 'setDock':
       return { ...s, dock: a.value === 'footer' ? 'footer' : 'float', minimized: false };
+    case 'setFooterView':
+      return { ...s, footerView: a.value === 'hidden' ? 'hidden' : 'watch' };
     case 'close':
       // Closing puts the player AWAY, it does not throw away the playlist the
       // user built. The X sits a thumb-width from minimize in the popped-out
@@ -176,6 +183,7 @@ function loadState() {
       // on every reload is the same "it forgot what I did" complaint.
       minimized: !!saved.minimized,
       dock: saved.dock === 'footer' || saved.dock === 'float' ? saved.dock : null,
+      footerView: saved.footerView === 'hidden' ? 'hidden' : 'watch',
     };
   } catch {
     return INITIAL;
@@ -195,9 +203,10 @@ export const PlayerProvider = ({ children }) => {
         expanded: state.expanded,
         minimized: state.minimized,
         dock: state.dock,
+        footerView: state.footerView,
       }));
     } catch { /* private mode / quota — the queue just won't survive a reload */ }
-  }, [state.current, state.queue, state.history, state.poppedOut, state.expanded, state.minimized, state.dock]);
+  }, [state.current, state.queue, state.history, state.poppedOut, state.expanded, state.minimized, state.dock, state.footerView]);
 
   const play = useCallback((source) => dispatch({ type: 'play', source }), []);
   const playNow = useCallback((source) => dispatch({ type: 'playNow', source }), []);
@@ -216,13 +225,14 @@ export const PlayerProvider = ({ children }) => {
   const setExpanded = useCallback((value) => dispatch({ type: 'setExpanded', value }), []);
   const setPoppedOut = useCallback((value) => dispatch({ type: 'setPoppedOut', value }), []);
   const setDock = useCallback((value) => dispatch({ type: 'setDock', value }), []);
+  const setFooterView = useCallback((value) => dispatch({ type: 'setFooterView', value }), []);
   const setPlayMode = useCallback((value) => dispatch({ type: 'setPlayMode', value }), []);
 
   const value = useMemo(
     () => ({
       ...state,
       play, playNow, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
-      stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setPlayMode,
+      stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode,
     }),
     [state, play, playNow, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode]

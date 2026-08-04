@@ -33,6 +33,31 @@ export function getVideoEmbed(url) {
       const id = u.pathname.split('/').filter(Boolean)[0];
       return id && /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : null;
     }
+    // Video hosts beyond YouTube/Vimeo that publish a keyless embed. A search
+    // for anything musical comes back full of these, and every one we don't
+    // recognize is a result the player has to throw away — which is how a page
+    // with 59 results ends up saying "nothing here can play".
+    // Same exact-or-true-subdomain rule as above; these all end up in an
+    // iframe, so a lookalike host must never match.
+    if (host === 'dailymotion.com' || host.endsWith('.dailymotion.com')) {
+      const id = /\/video\/([a-z0-9]+)/i.exec(u.pathname)?.[1];
+      return id ? `https://www.dailymotion.com/embed/video/${id}` : null;
+    }
+    if (host === 'dai.ly') {
+      const id = u.pathname.slice(1);
+      return id ? `https://www.dailymotion.com/embed/video/${id}` : null;
+    }
+    if (host === 'rumble.com' || host.endsWith('.rumble.com')) {
+      // Rumble's own embed ids live at /embed/<id>/; a watch URL carries the
+      // id as its first path segment (v1a2b3c-title.html).
+      if (u.pathname.startsWith('/embed/')) return url;
+      const id = /^\/(v[a-z0-9]+)/i.exec(u.pathname)?.[1];
+      return id ? `https://rumble.com/embed/${id}/` : null;
+    }
+    if (host === 'odysee.com' || host.endsWith('.odysee.com')) {
+      const path = u.pathname.replace(/^\//, '');
+      return path.includes('/') ? `https://odysee.com/$/embed/${path}` : null;
+    }
     return null;
   } catch {
     return null;
@@ -73,6 +98,12 @@ export function getPlayable(url) {
   const embed = getVideoEmbed(url);
   if (embed) {
     if (embed.includes('player.vimeo.com')) return { kind: 'vimeo', src: embed };
+    // The other keyless hosts render through the same iframe path; they get
+    // their own kind rather than being labelled 'youtube', so nothing
+    // downstream reasons about them as if they were YouTube.
+    if (embed.includes('dailymotion.com')) return { kind: 'dailymotion', src: embed };
+    if (embed.includes('rumble.com')) return { kind: 'rumble', src: embed };
+    if (embed.includes('odysee.com')) return { kind: 'odysee', src: embed };
     // Swap youtube.com/embed → youtube-nocookie.com/embed for the mini-player.
     return {
       kind: 'youtube',

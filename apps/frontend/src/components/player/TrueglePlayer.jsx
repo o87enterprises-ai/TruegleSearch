@@ -30,6 +30,7 @@ export default function TrueglePlayer({
   accent = '#f43f5e',
   query = '',
   showList = true,
+  hideScreen = false,
   onQueryHandled,
   className = '',
 }) {
@@ -175,14 +176,20 @@ export default function TrueglePlayer({
       ref={rootRef}
       className={fullscreen ? 'flex flex-col w-full h-full bg-black' : className}
     >
-      <PlayerScreen
-        source={paused ? null : current}
-        mediaRef={mediaRef}
-        onEnded={advance}
-        fill={fullscreen}
-        compact={presentation === 'popped'}
-        maxHeight={presentation === 'popped' ? 320 : 420}
-      />
+      {/* 'hidden' clips the picture to nothing rather than unmounting it: an
+          unmounted iframe stops playing and starts over when it comes back,
+          which is the opposite of what "hide the video, keep listening" means.
+          The transport below stays exactly where it was. */}
+      <div className={hideScreen ? 'max-h-0 overflow-hidden' : ''} aria-hidden={hideScreen}>
+        <PlayerScreen
+          source={paused ? null : current}
+          mediaRef={mediaRef}
+          onEnded={advance}
+          fill={fullscreen}
+          compact={presentation === 'popped'}
+          maxHeight={presentation === 'popped' ? 320 : 420}
+        />
+      </div>
       {paused && current && (
         <div className="px-3 py-2 text-[11px] text-white/40 bg-black/40 border-t border-white/10">
           Paused — {current.title || 'this clip'}
