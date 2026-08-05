@@ -53,6 +53,9 @@ export function usePlayerSearch(query, scope = 'all') {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // A pasted link we can't host — kept apart from `error`, because it isn't a
+  // failure, it's an honest "not this provider".
+  const [unsupported, setUnsupported] = useState('');
   const abortRef = useRef(null);
 
   const run = useCallback((raw, activeScope) => {
@@ -61,9 +64,26 @@ export function usePlayerSearch(query, scope = 'all') {
     if (q.length < MIN_CHARS) { setResults(null); setLoading(false); setError(''); return; }
 
     // Typed or pasted a link? Resolve it directly — no round trip, and it
-    // accepts Truegle player links as well as raw media URLs.
-    const pasted = resolveShareInput(q);
-    if (pasted.length) { setResults(pasted); setLoading(false); setError(''); return; }
+    // accepts Truegle player links as well as raw media URLs. A link that
+    // plays is fair game: nothing to sign in for, nothing to submit, it just
+    // goes in the player.
+    let asUrl = null;
+    try {
+      const u = new URL(q);
+      if (u.protocol === 'http:' || u.protocol === 'https:') asUrl = u;
+    } catch { /* not a URL — fall through to searching */ }
+
+    if (asUrl) {
+      const pasted = resolveShareInput(q);
+      setLoading(false);
+      setError('');
+      if (pasted.length) { setResults(pasted); setUnsupported(''); return; }
+      // A real link we simply can't play. Say which host, and say it plainly.
+      setResults([]);
+      setUnsupported(asUrl.hostname.replace(/^www\./, ''));
+      return;
+    }
+    setUnsupported('');
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -90,18 +110,41 @@ export function usePlayerSearch(query, scope = 'all') {
       .then((r) => r.json())
       .then((d) => (d.results || []).map(toSource).filter(Boolean));
 
-    const ask = (category, query) => once(category, query)
-      .then((rows) => (rows.length ? rows : new Promise((res) => { setTimeout(res, 600); })
-        .then(() => once(category, query))))
+    // One retry, on the FIRST ask only. Retrying every rung of the fallback
+    // chain turned an empty search into eight sequential requests and ten
+    // seconds of spinner before the last resort was even tried.
+    const ask = (category, query, retry = false) => once(category, query)
+      .then((rows) => (rows.length || !retry
+        ? rows
+        : new Promise((res) => { setTimeout(res, 500); }).then(() => once(category, query))))
       .catch((e) => { if (e.name === 'AbortError') throw e; return []; });
 
     // Scoped first, then progressively looser — but never so loose that an
     // explicit ask ("!yt", "@channel") is quietly ignored.
-    const web = ask('videos', intent.backendQuery)
+    const web = ask('videos', intent.backendQuery, true)
       .then((rows) => (rows.length ? rows : ask('web', intent.backendQuery)))
       .then((rows) => (rows.length || intent.explicit ? rows : ask('videos', q)))
       .then((rows) => (rows.length ? rows : (intent.explicit ? [] : ask('web', q))))
+      .then((rows) => (rows.length ? rows : youtube()))
       .catch((e) => { if (e.name === 'AbortError') throw e; return []; });
+
+    // Last resort: YouTube's own search. It answers "find me this video"
+    // properly, but costs 100 quota units against 10k/day, so it is only asked
+    // when everything else came back with nothing playable — and the backend
+    // caches each query for an hour on top of that.
+    const youtube = () => fetch(
+      `${BACKEND}/api/creators/search?q=${encodeURIComponent(intent.text || q)}`,
+      { signal: controller.signal },
+    )
+      .then((r) => (r.ok ? r.json() : { videos: [] }))
+      .then((d) => (d.videos || []).map((v) => {
+        const base = getPlayable(v.url);
+        return base ? {
+          ...base, title: v.title || titleFromUrl(v.url), pageUrl: v.url,
+          poster: v.thumbnail, channel: v.channel,
+        } : null;
+      }).filter(Boolean))
+      .catch(() => []);
 
     // Community submissions. A failure here must never cost the user the web
     // results, so it resolves to nothing rather than rejecting.
@@ -137,5 +180,5 @@ export function usePlayerSearch(query, scope = 'all') {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  return { results, loading, error };
+  return { results, loading, error, unsupported };
 }

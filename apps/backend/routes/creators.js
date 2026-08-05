@@ -37,6 +37,13 @@ router.get('/resolve', async (req, res) => {
   if (hit && Date.now() - hit.at < TTL_MS) return res.json({ channelId: hit.channelId });
 
   try {
+    // Data API first: channels.list?forHandle costs ONE quota unit and is a
+    // documented contract, unlike reading an id out of page markup.
+    const viaApi = await resolveViaDataApi(handle);
+    if (viaApi) {
+      handleCache.set(handle.toLowerCase(), { at: Date.now(), channelId: viaApi });
+      return res.json({ channelId: viaApi });
+    }
     const r = await fetch(`https://www.youtube.com/@${encodeURIComponent(handle)}`, {
       headers: { 'User-Agent': YT_UA, 'Accept-Language': 'en-US,en;q=0.9' },
     });
@@ -115,6 +122,78 @@ async function fetchViaDataApi(channelId) {
     };
   }).filter(Boolean);
 }
+
+// channels.list?forHandle — 1 quota unit. Returns null with no key set, so
+// the caller falls back to reading the channel page.
+async function resolveViaDataApi(handle) {
+  const key = process.env.YOUTUBE_API_KEY;
+  if (!key) return null;
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=${encodeURIComponent(`@${handle}`)}&key=${key}`;
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const j = await r.json();
+    const id = j.items?.[0]?.id;
+    return /^UC[A-Za-z0-9_-]{20,30}$/.test(id || '') ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/*
+ * YouTube search, for when the web index can't answer a "find me this video"
+ * question — which is most of the time, since it indexes pages about videos
+ * rather than the videos themselves.
+ *
+ * QUOTA IS THE CONSTRAINT, not the code: search.list costs 100 units against a
+ * 10,000/day free allowance, i.e. ~100 searches a day for the whole site. So
+ * this is NOT the front door — the frontend calls it only when its normal
+ * search comes back with nothing playable — and every query is cached for an
+ * hour so a repeated search costs nothing.
+ */
+const searchCache = new Map(); // q -> { at, videos }
+const SEARCH_TTL_MS = 60 * 60 * 1000;
+
+router.get('/search', async (req, res) => {
+  const q = String(req.query.q || '').trim().slice(0, 120);
+  if (q.length < 2) return res.status(400).json({ error: 'bad_query', videos: [] });
+
+  const cached = searchCache.get(q.toLowerCase());
+  if (cached && Date.now() - cached.at < SEARCH_TTL_MS) {
+    return res.json({ videos: cached.videos, cached: true });
+  }
+
+  const key = process.env.YOUTUBE_API_KEY;
+  if (!key) return res.json({ videos: [], unavailable: true });
+
+  try {
+    const url = 'https://www.googleapis.com/youtube/v3/search'
+      + `?part=snippet&type=video&maxResults=12&q=${encodeURIComponent(q)}&key=${key}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`search ${r.status}`);
+    const j = await r.json();
+    const videos = (j.items || []).map((it) => {
+      const id = it.id?.videoId;
+      const sn = it.snippet || {};
+      if (!id) return null;
+      return {
+        videoId: id,
+        title: sn.title || '',
+        channel: sn.channelTitle || '',
+        published: sn.publishedAt || null,
+        thumbnail: sn.thumbnails?.high?.url || `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+        url: `https://www.youtube.com/watch?v=${id}`,
+      };
+    }).filter(Boolean);
+    searchCache.set(q.toLowerCase(), { at: Date.now(), videos });
+    return res.json({ videos });
+  } catch (err) {
+    logger.warn('YouTube search failed:', { q, error: err.message });
+    // Quota exhaustion lands here too; an empty list degrades to the web
+    // results the caller already has.
+    return res.json({ videos: [], unavailable: true });
+  }
+});
 
 async function fetchViaRss(channelId) {
   const r = await fetch(

@@ -392,6 +392,14 @@
         "body": "Tested live: \"Darkwaters 9\" returns a film and a DND series; an OR group of spellings returns nothing useful (the provider does not honour OR grouping); @darkwaters9 returns the channel. So parsePlayerQuery normalises any channel to toHandle() — spaces/dots/dashes stripped, lowercased, leading @ — and sends site:youtube.com @handle. The Tube Channel chip pre-writes the box to that form and keeps spaces out while it is on.",
         "ts": "2026-08-05",
         "created": "2026-08-05"
+      },
+      "youtube-api-wiring": {
+        "Id": "youtube-api-wiring",
+        "Type": "fact",
+        "Label": "YOUTUBE_API_KEY wiring and its quota ceiling",
+        "body": "Wired two ways in routes/creators.js: channels.list?forHandle for handle->channelId (1 unit, scrape kept as fallback) and GET /api/creators/search for real YouTube search (search.list = 100 units of a 10k/day free quota = ~100 searches/day for the WHOLE site). Because of that ceiling the frontend calls /creators/search only as a last resort, when web+community results yield nothing playable, and the backend caches each query for an hour. Quota exhaustion returns an empty list and degrades to whatever the web search had.",
+        "ts": "2026-08-05",
+        "created": "2026-08-05"
       }
     },
     "decision": {
@@ -992,6 +1000,14 @@
         "Type": "decision",
         "Label": "Channel search can open the real channel feed",
         "body": "GET /api/creators/resolve?handle=x scrapes the channel page for its UC id (keyless, cached 30min, only the id is taken and it is shape-matched) and the existing /:channelId/videos RSS proxy returns the uploads. useChannelFeed joins the two; PlayerListSlot shows an \"Open this channel\" row whenever the parsed intent has a channel, and opening it replaces the search results with that channel feed newest-first, with Back to results to return.",
+        "ts": "2026-08-05",
+        "created": "2026-08-05"
+      },
+      "link-agnostic-bar": {
+        "Id": "link-agnostic-bar",
+        "Type": "decision",
+        "Label": "Player bar takes links or text; no auth to play a link",
+        "body": "The community-submission UI (AddLinkRow) is REMOVED — pasting a YouTube link required sign-in for something that needs no permission. usePlayerSearch now detects a pasted http(s) URL: playable -> offered as a row to play/queue immediately, unplayable -> named honestly (\"Truegle cant play links from <host> yet\") rather than an error. The /api/media submission backend stays in place, unused, until real provider OAuth exists.",
         "ts": "2026-08-05",
         "created": "2026-08-05"
       }

@@ -4,7 +4,6 @@ import { usePlayer } from '../../context/PlayerContext';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useChannelFeed } from '../../hooks/useChannelFeed';
 import { parsePlayerQuery, toHandle } from '../../utils/playerQuery';
-import AddLinkRow from './AddLinkRow';
 
 // The list that lives under the player — the same one in all three
 // presentations.
@@ -21,7 +20,7 @@ const REVERT_MS = 10000;
 
 export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f43f5e', onRevert, compact = false }) {
   const { current, queue, jump, removeFromQueue, enqueue, clearQueue, playNow } = usePlayer();
-  const { results, loading, error } = usePlayerSearch(query, scope);
+  const { results, loading, error, unsupported } = usePlayerSearch(query, scope);
   // Asking for a channel should be able to give you the CHANNEL, not a
   // scattering of its videos: one row to open its real feed, newest first.
   const intent = parsePlayerQuery(query, scope);
@@ -32,6 +31,12 @@ export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f
   const revertTimer = useRef(null);
 
   const typing = query.trim().length >= 2;
+  // The search is debounced, so between a keystroke and the request there was
+  // a stretch where nothing said anything was happening. `pending` covers it:
+  // busy from the moment the text changes until results for THAT text land.
+  const [ranFor, setRanFor] = useState('');
+  useEffect(() => { if (results !== null || error) setRanFor(query); }, [results, error, query]);
+  const pending = typing && ranFor !== query;
 
   // Typing switches the slot to results.
   useEffect(() => {
@@ -66,7 +71,7 @@ export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f
       <div className="border-t border-white/10 bg-black/30">
         <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/40">
           <SearchIcon size={11} /> Results
-          {loading && <Loader2 size={11} className="animate-spin ml-auto" />}
+          {(loading || pending) && <Loader2 size={11} className="animate-spin ml-auto" />}
         </div>
         {/* The channel itself, offered before its scattered videos. */}
         {intent.channel && !feedRows && (
@@ -111,7 +116,7 @@ export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f
           {error && !feedRows && <p className="px-3 py-2 text-[11px] text-amber-300/90">{error}</p>}
           {/* Something to look at while the provider answers — it can take a
               couple of seconds and a retry, and a blank panel reads as broken. */}
-          {loading && !feedRows && (
+          {(loading || pending) && !feedRows && (
             <div className="px-2 py-1.5 space-y-1.5" aria-live="polite">
               <span className="sr-only">Searching…</span>
               {[0, 1, 2].map((i) => (
@@ -123,7 +128,21 @@ export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f
               ))}
             </div>
           )}
-          {!feedRows && results && results.length === 0 && !loading && (
+          {/* A link from somewhere we can't host. Not an error — a limit, and
+              worth naming so it doesn't read as "your link is broken". */}
+          {unsupported && (
+            <p className="px-3 py-2.5 text-[11px] text-white/55 leading-snug">
+              Sorry — Truegle can&apos;t play links from{' '}
+              <span className="text-white/80 font-semibold">{unsupported}</span> yet.
+              That platform doesn&apos;t let its videos play outside its own app.
+              <br />
+              <span className="text-white/35">
+                YouTube, Vimeo, TikTok, SoundCloud, Dailymotion, Rumble, Odysee and direct
+                audio/video files all play here.
+              </span>
+            </p>
+          )}
+          {!feedRows && !unsupported && results && results.length === 0 && !loading && !pending && (
             <p className="px-3 py-2 text-[11px] text-white/40">Nothing here can play in the Truegle player.</p>
           )}
           {(feedRows || results || []).map((r) => (
@@ -162,9 +181,6 @@ export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f
             </div>
           ))}
         </div>
-        {/* Right where the disappointment is: nothing in these results plays,
-            but you have the link. */}
-        <AddLinkRow accent={accent} compact={compact} onQueued={add} />
       </div>
     );
   }
@@ -209,7 +225,6 @@ export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f
           ))
         )}
       </div>
-      <AddLinkRow accent={accent} compact={compact} onQueued={add} />
     </div>
   );
 }
