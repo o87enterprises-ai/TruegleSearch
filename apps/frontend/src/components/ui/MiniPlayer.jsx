@@ -6,6 +6,7 @@ import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
 import { useFeedbackBarHeight } from './PreProductionBanner';
 import { usePlayerQuery } from '../../utils/playerQueryStore';
+import { SEARCH_SCOPES, toHandle } from '../../utils/playerQuery';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
 import { useKeyboardInset } from '../../hooks/useKeyboardInset';
 
@@ -86,9 +87,15 @@ export default function MiniPlayer() {
   // Bumped on submit so TrueglePlayer opens its list even when the text is
   // unchanged — otherwise a second Enter looks like nothing happened.
   const [submitNonce, setSubmitNonce] = useState(0);
+  // The popped-out player has its own bar, so it needs its own type chips —
+  // they were only ever on the Tube page, which meant the same search behaved
+  // differently depending on where you typed it.
+  const [playerScope, setPlayerScope] = useState('all');
+  const [scopesOpen, setScopesOpen] = useState(false);
   const playerInputRef = useRef(null);
   const submitPlayerQuery = useCallback(() => {
     setSubmitNonce((n) => n + 1);
+    setScopesOpen(false);   // same as Tube: spent once a search has run
     // Dropping focus is what retracts the keyboard; with the keyboard up there
     // is no room left to show the results that were just fetched.
     playerInputRef.current?.blur();
@@ -269,6 +276,16 @@ export default function MiniPlayer() {
 
   const title = current?.title;
   const clipWhenMin = minimized;
+  // What's actually on screen once the keyboard has taken its share, and the
+  // geometry that fits INSIDE it. The height floor has to move the frame UP
+  // rather than let it overhang — a minimum height enforced against a fixed
+  // top just pushes the bottom off the screen, which is where the search box
+  // went when the keyboard opened.
+  const visible = Math.max(200, (typeof window !== 'undefined' ? window.innerHeight : 800) - keyboardInset);
+  const avail = Math.max(120, visible - 8);
+  const minH = Math.min(180, avail);
+  const floatTop = pos ? Math.max(4, Math.min(pos.top, visible - minH - 8)) : 4;
+  const visibleHeight = Math.max(minH, Math.round(Math.min(avail, visible - floatTop - 8)));
 
   const style = docked
     ? {
@@ -294,10 +311,22 @@ export default function MiniPlayer() {
         left: pos.left,
         // Same rule for the floating window: with the keyboard up, slide it
         // up by whatever it would otherwise be buried under.
-        top: Math.max(4, pos.top - keyboardInset),
+        top: floatTop,
         width,
+        // ...and it must FIT what's left. Without a cap the frame ran past the
+        // bottom of the visible viewport, and since it's fixed, nothing could
+        // scroll it back — the header, with the search box in it, ended up
+        // above the top of the screen with no way to reach it.
+        maxHeight: `${visibleHeight}px`,
+        overflowY: 'auto',
       }
-      : { left: 16, bottom: BANNER_CLEARANCE + keyboardInset, width };
+      : {
+        left: 16,
+        bottom: BANNER_CLEARANCE + keyboardInset,
+        width,
+        maxHeight: `${Math.max(180, Math.round(window.innerHeight - keyboardInset - BANNER_CLEARANCE - 16))}px`,
+        overflowY: 'auto',
+      };
 
   // Every control is a ≥36px square. The old 13px icons packed edge to edge
   // were the other half of the "hard to maneuver" problem.
@@ -358,7 +387,7 @@ export default function MiniPlayer() {
         <div
           onPointerDown={footerDock ? undefined : startMove}
           style={{ touchAction: footerDock ? 'auto' : 'none', background: adjust ? 'rgba(34,211,238,0.15)' : tint }}
-          className={`flex items-center gap-1.5 px-2 min-h-[44px] border-b ${footerDock ? '' : 'cursor-move'} ${
+          className={`sticky top-0 z-40 flex items-center gap-1.5 px-2 min-h-[44px] border-b backdrop-blur-xl ${footerDock ? '' : 'cursor-move'} ${
             adjust ? 'border-cyan-400/30' : 'border-white/10'
           }`}
         >
@@ -381,7 +410,10 @@ export default function MiniPlayer() {
             <input
               ref={playerInputRef}
               value={playerQuery}
-              onChange={(e) => setPlayerQuery(e.target.value)}
+              onChange={(e) => {
+                setScopesOpen(true);
+                setPlayerQuery(playerScope === 'channel' ? toHandle(e.target.value) : e.target.value);
+              }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitPlayerQuery(); } }}
               enterKeyHint="search"
               placeholder={title || 'Search something to play…'}
@@ -446,6 +478,39 @@ export default function MiniPlayer() {
         </div>
         )}
 
+        {/* The same type chips Tube has, under THIS bar's input — the popped
+            out player is the same player, so it has to search the same way.
+            Sticky with the header so the keyboard can't push them out of
+            reach; they retract on Enter and come back on the next keystroke. */}
+        {!docked && scopesOpen && (
+          <div className="sticky top-[44px] z-40 flex gap-1.5 overflow-x-auto px-2 py-1.5 bg-black/60 backdrop-blur-xl border-b border-white/10">
+            {SEARCH_SCOPES.map((sc) => (
+              <button
+                key={sc.id}
+                type="button"
+                onClick={() => {
+                  setPlayerScope(sc.id);
+                  if (sc.id === 'channel') {
+                    const h = toHandle(playerQuery);
+                    if (h) setPlayerQuery(h);
+                  } else if (playerScope === 'channel') {
+                    setPlayerQuery(playerQuery.replace(/^@/, ''));
+                  }
+                  setScopesOpen(true);
+                }}
+                aria-pressed={playerScope === sc.id}
+                className={`shrink-0 px-2.5 h-6 rounded-full text-[10px] font-semibold border transition-colors ${
+                  playerScope === sc.id
+                    ? 'bg-white/15 border-white/30 text-white'
+                    : 'bg-white/[0.03] border-white/10 text-white/50 hover:text-white/80'
+                }`}
+              >
+                {sc.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* The player itself is the SHARED component — the same stack that
             docks inside the Tube search bar. This file now owns only the
             floating FRAME (drag, resize, geometry, accent ring); everything
@@ -460,7 +525,7 @@ export default function MiniPlayer() {
             moveOn={adjust}
             onToggleMove={() => setAdjust((v) => !v)}
             query={docked ? page.text : playerQuery}
-            scope={docked ? page.scope : 'all'}
+            scope={docked ? page.scope : playerScope}
           />
         </div>
 
