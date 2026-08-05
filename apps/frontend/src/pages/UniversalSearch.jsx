@@ -208,6 +208,10 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
   // model: the same words mean different searches depending on whether you
   // are after a channel, a song or a title.
   const [tubeScope, setTubeScope] = useState('all');
+  // The type chips belong to the act of composing a search, so they sit under
+  // the bar and get out of the way once one has been run — typing brings them
+  // straight back.
+  const [scopesOpen, setScopesOpen] = useState(true);
   const selectedUrl = searchParams.get('sel') || '';
   useEffect(() => {
     if (!tubeDocked) return undefined;
@@ -1171,14 +1175,17 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
               showSearchButton={false}
               showBiasedButton={false}
               showUnbiasedButton={false}
-              onChange={(val) => setSearchValue(
-                // While the Channel chip is on, the box IS a handle: keep the @
-                // and drop spaces as they're typed, so what you see is what
-                // gets searched.
-                tubeDocked && tubeScope === 'channel' ? toHandle(val) : val,
-              )}
+              onChange={(val) => {
+                setScopesOpen(true);
+                setSearchValue(
+                  // While the Channel chip is on, the box IS a handle: keep the
+                  // @ and drop spaces as they're typed, so what you see is what
+                  // gets searched.
+                  tubeDocked && tubeScope === 'channel' ? toHandle(val) : val,
+                );
+              }}
               onSubmit={() => submitSearch()}
-              onSearch={() => submitSearch()}
+              onSearch={() => { setScopesOpen(false); submitSearch(); }}
               placeholder={mode === 'purple' ? 'Explore perspectives...' : mode === 'ocean' ? 'OSINT search...' : 'Search for unbiased truth...'}
               size="medium"
               // Legacy in-bar pill + OSINT toggles removed — the single cycling
@@ -1219,12 +1226,10 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
                     // itself via a CSS variable so the page reserves exactly
                     // the room it occupies.
                     <>
-                      <div
-                        data-player-slot
-                        aria-hidden="true"
-                        style={{ height: 'var(--truegle-player-h, 260px)' }}
-                      />
-                      <div className="flex gap-1.5 overflow-x-auto px-2 py-2 bg-black/30 border-t border-white/10">
+                      {/* Directly under the bar, because it qualifies what you
+                          are about to type — not what came back. */}
+                      {scopesOpen && (
+                      <div className="flex gap-1.5 overflow-x-auto px-2 py-2 bg-black/30 border-b border-white/10">
                         {SEARCH_SCOPES.map((sc) => (
                           <button
                             key={sc.id}
@@ -1240,6 +1245,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
                               } else if (tubeScope === 'channel') {
                                 setSearchValue(searchValue.replace(/^@/, ''));
                               }
+                              setScopesOpen(true);
                             }}
                             aria-pressed={tubeScope === sc.id}
                             className={`shrink-0 px-3 h-7 rounded-full text-[11px] font-semibold border transition-colors ${
@@ -1252,6 +1258,12 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
                           </button>
                         ))}
                       </div>
+                      )}
+                      <div
+                        data-player-slot
+                        aria-hidden="true"
+                        style={{ height: 'var(--truegle-player-h, 260px)' }}
+                      />
                     </>
                   ) : (
                     <div className="px-1.5 py-1 bg-black/30">
