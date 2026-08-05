@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
-import { Music, Film } from 'lucide-react';
+import { Music } from 'lucide-react';
 import TruegleWatermark from '../ui/TruegleWatermark';
+import PlayerStarters from './PlayerStarters';
 
 // The media surface itself — the only place an embed is mounted, so playback
 // state lives in exactly one node no matter which presentation is on screen.
@@ -33,11 +34,13 @@ function withPlaybackChannel(kind, src) {
 }
 
 const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, frameRef, onEnded, maxHeight, fill = false, compact = false }, ref) {
+  // Idle. An empty black rectangle reads as a player that has never worked, so
+  // this is four Truegle creators and their latest uploads instead — real
+  // things to press, and the roster in front of people.
   if (!source) {
     return (
-      <div ref={ref} className={`w-full bg-black/60 flex flex-col items-center justify-center gap-2 ${fill ? 'flex-1 min-h-0' : 'aspect-video'}`}>
-        <Film size={28} className="text-white/15" />
-        <span className="text-[11px] text-white/30">Search or paste a link to start watching</span>
+      <div ref={ref} className={`w-full overflow-y-auto ${fill ? 'flex-1 min-h-0' : ''}`}>
+        <PlayerStarters compact={compact} />
       </div>
     );
   }

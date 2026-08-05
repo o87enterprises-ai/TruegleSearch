@@ -978,6 +978,14 @@
         "body": "UniversalSearch no longer hides its result list on Tube — every result shows below the player, playable or not. A capture-phase handler on the card (the title is a real <a>) pops the player out and navigates to /search?q&mode=blue&sel=<url>; handleSearch preserves sel so the rewrite after navigation cannot drop it, and ResultCard opens its viewer when sel matches. SEARCH_SCOPES chips (all/channel/song/artist/title/topic) publish through playerQueryStore (snapshot is a single string so useSyncExternalStore compares by identity). parsePlayerQuery now reads spoken forms (\"X channel\", \"channel for X\") and searches a channel in BOTH spellings (\"Dark Waters 9\" OR darkwaters9 OR @darkwaters9) — the squashed handle is what the index has. usePlayerSearch retries once after 600ms and aborts at 20s; PlayerListSlot shows skeleton rows while loading.",
         "ts": "2026-08-05",
         "created": "2026-08-05"
+      },
+      "player-idle-starters": {
+        "Id": "player-idle-starters",
+        "Type": "decision",
+        "Label": "Idle player shows 4 creators, not an empty box",
+        "body": "PlayerScreen renders PlayerStarters when there is no source: four CREATORS at a time, each with their latest upload from /api/creators/:channelId/videos (build-time fallback when the feed is empty), cached per channel per session, with a More button rotating through the roster. Picking one clears the queue, plays the latest and enqueues the REST of that channel, so Next and auto-advance walk that creator until the user plays something else.",
+        "ts": "2026-08-05",
+        "created": "2026-08-05"
       }
     },
     "entity": {
