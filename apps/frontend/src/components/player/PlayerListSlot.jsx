@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Check, X, Loader2, ListMusic, Play, Search as SearchIcon } from 'lucide-react';
+import { Plus, Check, X, Loader2, ListMusic, Play, ChevronRight, Search as SearchIcon } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
+import { useChannelFeed } from '../../hooks/useChannelFeed';
+import { parsePlayerQuery, toHandle } from '../../utils/playerQuery';
 import AddLinkRow from './AddLinkRow';
 
 // The list that lives under the player — the same one in all three
@@ -20,6 +22,11 @@ const REVERT_MS = 10000;
 export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f43f5e', onRevert, compact = false }) {
   const { current, queue, jump, removeFromQueue, enqueue, clearQueue, playNow } = usePlayer();
   const { results, loading, error } = usePlayerSearch(query, scope);
+  // Asking for a channel should be able to give you the CHANNEL, not a
+  // scattering of its videos: one row to open its real feed, newest first.
+  const intent = parsePlayerQuery(query, scope);
+  const feed = useChannelFeed();
+  const feedRows = feed.videos;
   const [added, setAdded] = useState(null);
   const [showingResults, setShowingResults] = useState(false);
   const revertTimer = useRef(null);
@@ -61,11 +68,50 @@ export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f
           <SearchIcon size={11} /> Results
           {loading && <Loader2 size={11} className="animate-spin ml-auto" />}
         </div>
+        {/* The channel itself, offered before its scattered videos. */}
+        {intent.channel && !feedRows && (
+          <button
+            type="button"
+            onClick={() => feed.open(toHandle(intent.channel), intent.channel)}
+            disabled={feed.loading}
+            className="w-full flex items-center gap-2 px-3 py-2 border-b border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-left transition-colors disabled:opacity-60"
+          >
+            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-white/10 shrink-0 text-[11px] font-bold text-white/70">
+              {(intent.channel[0] || '@').toUpperCase()}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[11px] font-semibold text-white/85 truncate">
+                {toHandle(intent.channel)}
+              </span>
+              <span className="block text-[10px] text-white/40">
+                {feed.loading ? 'Opening the channel…' : 'Open this channel — latest uploads first'}
+              </span>
+            </span>
+            {feed.loading
+              ? <Loader2 size={13} className="animate-spin text-white/40 shrink-0" />
+              : <ChevronRight size={14} className="text-white/40 shrink-0" />}
+          </button>
+        )}
+        {feed.error && !feedRows && (
+          <p className="px-3 py-2 text-[11px] text-amber-300/90 border-b border-white/10">{feed.error}</p>
+        )}
+        {feedRows && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-white/10 bg-white/[0.04]">
+            <span className="text-[10px] uppercase tracking-wider text-white/50 truncate flex-1">
+              {`@${feed.handle}`} — newest first
+            </span>
+            <button type="button" onClick={feed.clear}
+              className="text-[10px] uppercase tracking-wider text-white/35 hover:text-white/70 transition-colors">
+              Back to results
+            </button>
+          </div>
+        )}
+
         <div className={`overflow-y-auto ${compact ? 'max-h-[min(11rem,26svh)]' : 'max-h-[min(16rem,32svh)]'}`}>
-          {error && <p className="px-3 py-2 text-[11px] text-amber-300/90">{error}</p>}
+          {error && !feedRows && <p className="px-3 py-2 text-[11px] text-amber-300/90">{error}</p>}
           {/* Something to look at while the provider answers — it can take a
               couple of seconds and a retry, and a blank panel reads as broken. */}
-          {loading && (
+          {loading && !feedRows && (
             <div className="px-2 py-1.5 space-y-1.5" aria-live="polite">
               <span className="sr-only">Searching…</span>
               {[0, 1, 2].map((i) => (
@@ -77,10 +123,10 @@ export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f
               ))}
             </div>
           )}
-          {results && results.length === 0 && !loading && (
+          {!feedRows && results && results.length === 0 && !loading && (
             <p className="px-3 py-2 text-[11px] text-white/40">Nothing here can play in the Truegle player.</p>
           )}
-          {(results || []).map((r) => (
+          {(feedRows || results || []).map((r) => (
             <div key={r.pageUrl || r.src} className={`flex items-center gap-2 px-2 ${rowH} hover:bg-white/5`}>
               {r.poster
                 ? <img src={r.poster} alt="" className="w-10 h-7 rounded object-cover shrink-0"

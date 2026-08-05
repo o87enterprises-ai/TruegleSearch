@@ -16,6 +16,44 @@ const { query } = require('../db/connection');
 const cache = new Map(); // channelId -> { at, videos }
 const TTL_MS = 30 * 60 * 1000; // 30 min
 
+/*
+ * Resolve a channel HANDLE (@name) to its channelId, then hand back that
+ * channel's feed. Searching for a channel gives us a name, not a UC… id, and
+ * YouTube's RSS only speaks ids — so this is the missing step between "I found
+ * the channel" and "show me their videos, newest first".
+ *
+ * Keyless: the channel page carries its own id in the markup. Only the id is
+ * taken from that page, matched against the exact UC-id shape, and nothing
+ * else from the response is used or echoed.
+ */
+const handleCache = new Map(); // handle -> { at, channelId }
+const HANDLE_RE = /^[A-Za-z0-9._-]{2,60}$/;
+
+router.get('/resolve', async (req, res) => {
+  const handle = String(req.query.handle || '').replace(/^@+/, '').trim();
+  if (!HANDLE_RE.test(handle)) return res.status(400).json({ error: 'bad_handle' });
+
+  const hit = handleCache.get(handle.toLowerCase());
+  if (hit && Date.now() - hit.at < TTL_MS) return res.json({ channelId: hit.channelId });
+
+  try {
+    const r = await fetch(`https://www.youtube.com/@${encodeURIComponent(handle)}`, {
+      headers: { 'User-Agent': YT_UA, 'Accept-Language': 'en-US,en;q=0.9' },
+    });
+    if (!r.ok) throw new Error(`handle ${r.status}`);
+    const html = await r.text();
+    const id = (/"channelId":"(UC[A-Za-z0-9_-]{20,30})"/.exec(html)
+      || /channel\/(UC[A-Za-z0-9_-]{20,30})/.exec(html))?.[1];
+    if (!id) return res.status(404).json({ error: 'not_found' });
+    handleCache.set(handle.toLowerCase(), { at: Date.now(), channelId: id });
+    return res.json({ channelId: id });
+  } catch (err) {
+    logger.warn('Handle resolve failed:', { handle, error: err.message });
+    if (hit) return res.json({ channelId: hit.channelId, stale: true });
+    return res.status(502).json({ error: 'resolve_failed' });
+  }
+});
+
 router.get('/:channelId/videos', async (req, res) => {
   const { channelId } = req.params;
   // YouTube channel IDs are "UC" + 22 url-safe chars; validate defensively.

@@ -986,6 +986,14 @@
         "body": "PlayerScreen renders PlayerStarters when there is no source: four CREATORS at a time, each with their latest upload from /api/creators/:channelId/videos (build-time fallback when the feed is empty), cached per channel per session, with a More button rotating through the roster. Picking one clears the queue, plays the latest and enqueues the REST of that channel, so Next and auto-advance walk that creator until the user plays something else.",
         "ts": "2026-08-05",
         "created": "2026-08-05"
+      },
+      "channel-feed": {
+        "Id": "channel-feed",
+        "Type": "decision",
+        "Label": "Channel search can open the real channel feed",
+        "body": "GET /api/creators/resolve?handle=x scrapes the channel page for its UC id (keyless, cached 30min, only the id is taken and it is shape-matched) and the existing /:channelId/videos RSS proxy returns the uploads. useChannelFeed joins the two; PlayerListSlot shows an \"Open this channel\" row whenever the parsed intent has a channel, and opening it replaces the search results with that channel feed newest-first, with Back to results to return.",
+        "ts": "2026-08-05",
+        "created": "2026-08-05"
       }
     },
     "entity": {
