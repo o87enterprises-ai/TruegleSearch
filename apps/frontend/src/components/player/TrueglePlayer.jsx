@@ -7,6 +7,7 @@ import PlayerScreen from './PlayerScreen';
 import PlayerTransport, { PLAY_MODES } from './PlayerTransport';
 import PlayerListSlot from './PlayerListSlot';
 import PlayerProgress from './PlayerProgress';
+import { useEmbedPlayback } from '../../hooks/useEmbedPlayback';
 import { getPlayable } from '../../utils/videoEmbed';
 import { titleFromUrl } from '../../utils/playerLink';
 
@@ -41,11 +42,12 @@ export default function TrueglePlayer({
 }) {
   const {
     current, queue, history, paused, dock,
-    next, prev, stop, togglePause, setPoppedOut, setDock, play,
+    next, skipNext, prev, stop, togglePause, setPoppedOut, setDock, play,
     playMode, setPlayMode,
   } = usePlayer();
   const pageMode = usePageMode();
   const mediaRef = useRef(null);
+  const frameRef = useRef(null);
   const rootRef = useRef(null);
   const [listOpen, setListOpen] = useState(false);
   const [shareState, setShareState] = useState('idle');
@@ -133,6 +135,12 @@ export default function TrueglePlayer({
     next();
   }, [queue.length, playMode, current, next, play]);
 
+  // Platform embeds fire no `ended` event — that is why the queue never
+  // advanced by itself for the things people actually queue. This talks
+  // postMessage to the iframe we already have (no vendor SDK) and calls the
+  // same advance() a native <video> would have.
+  const embed = useEmbedPlayback({ frameRef, source: current, onEnded: () => advance() });
+
   const share = useCallback(async () => {
     const link = buildPlayerLink([current, ...queue].filter(Boolean));
     if (!link) return; // a device file has no shareable URL
@@ -165,7 +173,7 @@ export default function TrueglePlayer({
       onPlayPause={() => (current ? togglePause() : null)}
       onStop={stop}
       onPrev={prev}
-      onNext={advance}
+      onNext={skipNext}
       onToggleList={() => setListOpen((v) => !v)}
       onPopOut={cyclePopOut}
       onShare={current ? share : undefined}
@@ -192,6 +200,7 @@ export default function TrueglePlayer({
         <PlayerScreen
           source={paused ? null : current}
           mediaRef={mediaRef}
+          frameRef={frameRef}
           onEnded={advance}
           fill={fullscreen}
           compact={presentation === 'popped'}
@@ -201,7 +210,14 @@ export default function TrueglePlayer({
       {/* With the picture hidden there is nothing on screen saying anything is
           happening — so the play head goes here. */}
       {hideScreen && current && (
-        <PlayerProgress mediaRef={mediaRef} source={current} playing={!paused} accent={accent} />
+        <PlayerProgress
+          mediaRef={mediaRef}
+          source={current}
+          playing={!paused}
+          accent={accent}
+          embedTime={embed.time}
+          embedDuration={embed.duration}
+        />
       )}
       {paused && current && (
         <div className="px-3 py-2 text-[11px] text-white/40 bg-black/40 border-t border-white/10">

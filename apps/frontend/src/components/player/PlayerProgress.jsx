@@ -20,7 +20,12 @@ const fmt = (s) => {
   return `${m}:${String(r).padStart(2, '0')}`;
 };
 
-export default function PlayerProgress({ mediaRef, source, playing, accent = '#f43f5e' }) {
+export default function PlayerProgress({
+  mediaRef, source, playing, accent = '#f43f5e',
+  // YouTube and Vimeo report position over postMessage (see useEmbedPlayback),
+  // so where they do, the play head is real rather than indeterminate.
+  embedTime = 0, embedDuration = 0,
+}) {
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const native = source && (source.kind === 'audio' || source.kind === 'video');
@@ -44,7 +49,10 @@ export default function PlayerProgress({ mediaRef, source, playing, accent = '#f
 
   if (!source) return null;
 
-  const pct = duration > 0 ? Math.min(100, (time / duration) * 100) : 0;
+  const known = native || embedDuration > 0;
+  const shownTime = native ? time : embedTime;
+  const shownDuration = native ? duration : embedDuration;
+  const pct = shownDuration > 0 ? Math.min(100, (shownTime / shownDuration) * 100) : 0;
 
   return (
     <div className="px-3 py-1.5 border-t border-white/10 bg-black/30">
@@ -52,9 +60,9 @@ export default function PlayerProgress({ mediaRef, source, playing, accent = '#f
         <span className="text-[11px] text-white/60 truncate flex-1 min-w-0">
           {source.title || 'Now playing'}
         </span>
-        {native && duration > 0 && (
+        {known && shownDuration > 0 && (
           <span className="text-[10px] text-white/40 tabular-nums shrink-0">
-            {fmt(time)} / {fmt(duration)}
+            {fmt(shownTime)} / {fmt(shownDuration)}
           </span>
         )}
       </div>
@@ -77,6 +85,13 @@ export default function PlayerProgress({ mediaRef, source, playing, accent = '#f
             background: `linear-gradient(to right, ${accent} ${pct}%, rgba(255,255,255,0.15) ${pct}%)`,
           }}
         />
+      ) : shownDuration > 0 ? (
+        // The platform told us where it is, so show it. Seeking still isn't
+        // ours to offer — that needs their SDK — so this one is read-only.
+        <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+          <div className="h-full rounded-full transition-[width] duration-500"
+            style={{ width: `${pct}%`, background: accent }} />
+        </div>
       ) : (
         // No position to show — say so by movement, not by a fake number.
         <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/10 overflow-hidden" aria-hidden="true">

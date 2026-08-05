@@ -45,6 +45,11 @@ const INITIAL = {
 };
 const sameSrc = (a, b) => !!a && !!b && a.src === b.src;
 
+// Playing the SAME source again needs a changed identity, or the media node
+// (keyed on src) is never recreated and the "replay" is invisible. This token
+// is the only thing that differs, and it never leaves the client.
+const replay = (source) => ({ ...source, playToken: (source.playToken || 0) + 1 });
+
 function reducer(s, a) {
   switch (a.type) {
     case 'play': { // interrupt: play now, remembering what was playing
@@ -78,11 +83,16 @@ function reducer(s, a) {
       return list.reduce((acc, source) => reducer(acc, { type: 'enqueue', source }), s);
     }
     case 'next': {
-      // Repeat-one replays what's on now; shuffle picks at random; loop sends
-      // the finished item to the back so the queue never empties.
-      if (s.playMode === 'repeat-one' && s.current) return { ...s, current: { ...s.current } };
+      // `manual` = the user pressed Next. Play mode describes what happens
+      // AUTOMATICALLY when something finishes; it must never make the skip
+      // button do nothing, which is exactly how repeat-one behaved — it re-set
+      // the same track and the press looked ignored.
+      if (!a.manual && s.playMode === 'repeat-one' && s.current) return { ...s, current: replay(s.current) };
       if (s.queue.length === 0) {
-        if (s.playMode === 'loop' && s.current) return { ...s, current: { ...s.current } };
+        // Nothing queued: loop restarts the current track, and so does an
+        // automatic repeat-one. A manual press with an empty queue has
+        // nowhere to go, so it leaves things alone.
+        if (!a.manual && s.playMode === 'loop' && s.current) return { ...s, current: replay(s.current) };
         return s;
       }
       const pick = s.playMode === 'shuffle' ? Math.floor(Math.random() * s.queue.length) : 0;
@@ -212,7 +222,10 @@ export const PlayerProvider = ({ children }) => {
   const playNow = useCallback((source) => dispatch({ type: 'playNow', source }), []);
   const enqueue = useCallback((source) => dispatch({ type: 'enqueue', source }), []);
   const enqueueMany = useCallback((sources) => dispatch({ type: 'enqueueMany', sources }), []);
+  // Automatic advance (a track ended) honours the play mode; the transport's
+  // Next button passes manual so it always moves.
   const next = useCallback(() => dispatch({ type: 'next' }), []);
+  const skipNext = useCallback(() => dispatch({ type: 'next', manual: true }), []);
   const prev = useCallback(() => dispatch({ type: 'prev' }), []);
   const jump = useCallback((index) => dispatch({ type: 'jump', index }), []);
   const removeFromQueue = useCallback((index) => dispatch({ type: 'removeFromQueue', index }), []);
@@ -231,10 +244,10 @@ export const PlayerProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       ...state,
-      play, playNow, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
+      play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode,
     }),
-    [state, play, playNow, enqueue, enqueueMany, next, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
+    [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode]
   );
 

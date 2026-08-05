@@ -19,7 +19,20 @@ export const PLAYER_SANDBOX =
 // `fill` = take all the height that's going (full screen), instead of sizing
 // from the clip's aspect ratio. The controls bar below stays on screen either
 // way — that's the whole reason full screen is ours and not the embed's.
-const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, onEnded, maxHeight, fill = false, compact = false }, ref) {
+// YouTube only pushes state over postMessage when the embed is built with
+// enablejsapi=1 (and an origin, which scopes who it will talk to). These are
+// added HERE rather than in the shared source builder so what we store, share
+// and hand to /w stays a plain embed URL.
+function withPlaybackChannel(kind, src) {
+  const sep = src.includes('?') ? '&' : '?';
+  if (kind === 'youtube') {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${src}${sep}autoplay=1&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
+  }
+  return `${src}${sep}autoplay=1`;
+}
+
+const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, frameRef, onEnded, maxHeight, fill = false, compact = false }, ref) {
   if (!source) {
     return (
       <div ref={ref} className={`w-full bg-black/60 flex flex-col items-center justify-center gap-2 ${fill ? 'flex-1 min-h-0' : 'aspect-video'}`}>
@@ -75,8 +88,9 @@ const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, onEnde
       ) : isVideoIframe ? (
         <div className={fill ? 'relative w-full h-full' : 'relative'} style={boxStyle}>
           <iframe
-            key={src}
-            src={`${src}${src.includes('?') ? '&' : '?'}autoplay=1`}
+            ref={frameRef}
+            key={source.playToken ? `${src}#${source.playToken}` : src}
+            src={withPlaybackChannel(kind, src)}
             className="absolute inset-0 w-full h-full"
             title={title || 'Video player'}
             sandbox={PLAYER_SANDBOX}
@@ -85,13 +99,13 @@ const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, onEnde
           />
         </div>
       ) : kind === 'video' ? (
-        <video ref={mediaRef} key={src} src={src} controls autoPlay playsInline onEnded={onEnded}
+        <video ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay playsInline onEnded={onEnded}
           style={fill ? undefined : { maxHeight: maxHeight ? `min(${maxHeight}px, ${cap})` : cap }}
           className={fill ? 'w-full h-full bg-black object-contain' : 'w-full bg-black'} />
       ) : (
         <div className="flex items-center gap-2 px-3 py-3">
           <Music size={16} className="text-white/40 shrink-0" />
-          <audio ref={mediaRef} key={src} src={src} controls autoPlay onEnded={onEnded} className="w-full" />
+          <audio ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay onEnded={onEnded} className="w-full" />
         </div>
       )}
 
