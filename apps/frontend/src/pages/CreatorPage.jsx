@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import { getCreator } from '../content/creators';
@@ -7,6 +7,7 @@ import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import { recordRef } from '../utils/creatorRef';
 import AdsterraBanner from '../components/ads/AdsterraBanner';
 import QueueButton from '../components/ui/QueueButton';
+import { usePlayer } from '../context/PlayerContext';
 
 /*
  * Creator hub page — /creator/:slug.
@@ -17,6 +18,7 @@ import QueueButton from '../components/ui/QueueButton';
 export default function CreatorPage() {
   const { slug } = useParams();
   const creator = getCreator(slug);
+  const { play, setPoppedOut, current: playing } = usePlayer();
 
   const [videos, setVideos] = useState([]);
   const [active, setActive] = useState(null);
@@ -49,6 +51,20 @@ export default function CreatorPage() {
     return () => { live = false; };
   }, [creator]);
 
+  // A creator page is a place you come to WATCH, so the active video goes
+  // straight into the Truegle player, popped out — the same player that keeps
+  // going while you browse on. Two players on one page would mean two audio
+  // streams, so the page's own embed steps aside below when this takes over.
+  const handedOff = useRef(null);
+  useEffect(() => {
+    if (!active?.url) return;
+    const source = getPlayable(active.url);
+    if (!source || handedOff.current === active.url) return;
+    handedOff.current = active.url;
+    play({ ...source, title: active.title || creator?.name, pageUrl: active.url, poster: active.thumbnail });
+    setPoppedOut(true);
+  }, [active, creator, play, setPoppedOut]);
+
   if (!creator) {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
@@ -59,6 +75,10 @@ export default function CreatorPage() {
   }
 
   const embed = active ? getVideoEmbed(active.url) : null;
+  // Is the popped-out player already showing this very video? Then the page
+  // must not mount a second copy of it.
+  const activePlayable = active ? getPlayable(active.url) : null;
+  const inPlayer = !!(activePlayable && playing && playing.src === activePlayable.src);
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -97,7 +117,15 @@ export default function CreatorPage() {
         )}
 
         <div className="mt-8">
-          {embed ? (
+          {inPlayer ? (
+            <div className="w-full rounded-2xl border border-white/10 bg-white/5 flex flex-col items-center justify-center gap-1 text-center px-4"
+              style={{ aspectRatio: '16 / 9' }}>
+              <span className="text-white/70 text-sm font-semibold">Playing in the Truegle player</span>
+              <span className="text-white/40 text-xs">
+                It keeps going while you browse — move or close it from the player itself.
+              </span>
+            </div>
+          ) : embed ? (
             <div className="relative w-full rounded-2xl overflow-hidden border border-white/10" style={{ aspectRatio: '16 / 9' }}>
               <iframe
                 src={embed}

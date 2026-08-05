@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getPlayable } from '../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../utils/playerLink';
+import { parsePlayerQuery, rankPlayable } from '../utils/playerQuery';
 
 // A video result whose URL we can't classify is sometimes still a YouTube
 // video — the search backend hands back a watch page on a host we don't
@@ -66,21 +67,28 @@ export function usePlayerSearch(query) {
     setLoading(true);
     setError('');
 
-    const ask = (category) => fetch(`${BACKEND}/api/search`, {
+    // People type into this the way they type into YouTube — a channel, an
+    // @handle, "videos by someone" — so the query is read for that intent and
+    // site-scoped before it goes anywhere. Asking a general index for an
+    // artist's name returns lyric sites and reposts; asking it for
+    // `site:youtube.com "<name>"` returns the videos.
+    const intent = parsePlayerQuery(q);
+
+    const ask = (category, query) => fetch(`${BACKEND}/api/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: q, filters: { category, bias: 'all', dateRange: 'any', perPage: 20 } }),
+      body: JSON.stringify({ query, filters: { category, bias: 'all', dateRange: 'any', perPage: 20 } }),
       signal: controller.signal,
     })
       .then((r) => r.json())
       .then((d) => (d.results || []).map(toSource).filter(Boolean));
 
-    // The videos category is the right place to look first, but its results
-    // are full of hosts with no embeddable player. When it yields nothing we
-    // can actually play, fall back to plain web results for the same query —
-    // that's usually where the YouTube/SoundCloud link is.
-    const web = ask('videos')
-      .then((rows) => (rows.length ? rows : ask('web')))
+    // Scoped first, then progressively looser — but never so loose that an
+    // explicit ask ("!yt", "@channel") is quietly ignored.
+    const web = ask('videos', intent.backendQuery)
+      .then((rows) => (rows.length ? rows : ask('web', intent.backendQuery)))
+      .then((rows) => (rows.length || intent.explicit ? rows : ask('videos', q)))
+      .then((rows) => (rows.length ? rows : (intent.explicit ? [] : ask('web', q))))
       .catch((e) => { if (e.name === 'AbortError') throw e; return []; });
 
     // Community submissions. A failure here must never cost the user the web
@@ -101,7 +109,9 @@ export function usePlayerSearch(query) {
           seen.add(row.src);
           return true;
         });
-        setResults(merged);
+        // YouTube first, then the rest — and anything matching the channel
+        // that was asked for above its own group.
+        setResults(rankPlayable(merged, intent));
       })
       // An aborted request is a newer keystroke, not a failure.
       .catch((e) => { if (e.name !== 'AbortError') setError('Search is unreachable right now.'); })

@@ -37,6 +37,10 @@ const POP_OUT = {
   footer: { label: 'Dock the player at the bottom of the page', icon: <PanelBottom size={16} /> },
   float: { label: 'Float the player', icon: <PictureInPicture2 size={16} /> },
   bar: { label: 'Dock the player back into the search bar', icon: <Minimize2 size={16} /> },
+  // Popped out and away from Tube: there is nothing to dock back into, so this
+  // slot is move/resize instead — the thing that was previously two presses
+  // and a mode away.
+  move: { label: 'Move and resize the player', icon: <Move size={16} /> },
 };
 
 export default function PlayerTransport({
@@ -141,7 +145,9 @@ export default function PlayerTransport({
         )}
         {showPopOut && (
           <button type="button" onClick={onPopOut} title={POP_OUT[popOutMode].label}
-            aria-label={POP_OUT[popOutMode].label} className={btn}>
+            aria-label={POP_OUT[popOutMode].label}
+            aria-pressed={popOutMode === 'move' ? adjustOn : undefined}
+            className={`${btn} ${popOutMode === 'move' && adjustOn ? 'text-black bg-cyan-400 hover:bg-cyan-300 hover:text-black' : ''}`}>
             {POP_OUT[popOutMode].icon}
           </button>
         )}

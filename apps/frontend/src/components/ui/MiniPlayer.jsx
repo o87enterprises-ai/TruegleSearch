@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
-import { X, Minus, Maximize2, Move, GripHorizontal, Eye, EyeOff } from 'lucide-react';
+import { X, Minus, Maximize2, GripHorizontal, Eye, EyeOff, PictureInPicture2, PanelBottom } from 'lucide-react';
 import { MODE_COLORS, BRAND_GRADIENT } from '../../config/modeTheme';
 import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
@@ -48,7 +48,7 @@ const loadGeom = () => {
 export default function MiniPlayer() {
   const {
     current, queue, history, minimized, poppedOut, dock, footerView,
-    next, prev, close, toggleMinimize, setPoppedOut, setFooterView,
+    next, prev, close, toggleMinimize, setPoppedOut, setFooterView, setDock,
   } = usePlayer();
   // 'footer' = pinned across the bottom of the page, above the feedback bar.
   // The frame stops being a window in that state: no dragging, no resizing,
@@ -426,6 +426,18 @@ export default function MiniPlayer() {
               {minimized ? <Maximize2 size={16} /> : <Minus size={16} />}
             </button>
           )}
+          {/* Where the window lives. It left the transport when that slot became
+              the move control, and it belongs with the other window chrome
+              anyway. */}
+          <button
+            type="button"
+            onClick={() => setDock(footerDock ? 'float' : 'footer')}
+            title={footerDock ? 'Float the player' : 'Dock the player at the bottom of the page'}
+            aria-label={footerDock ? 'Float the player' : 'Dock the player at the bottom of the page'}
+            className={ctrl}
+          >
+            {footerDock ? <PictureInPicture2 size={15} /> : <PanelBottom size={15} />}
+          </button>
           {/* Close puts the player away; it does NOT empty the queue. Clearing
               is explicit, in the list. */}
           <button type="button" onClick={close} title="Close player (keeps your queue)" className={ctrl}>
@@ -445,31 +457,21 @@ export default function MiniPlayer() {
             accent={accent || undefined}
             hideScreen={footerDock && footerView === 'hidden'}
             openListNonce={submitNonce}
+            moveOn={adjust}
+            onToggleMove={() => setAdjust((v) => !v)}
             query={docked ? pageQuery : playerQuery}
           />
         </div>
 
-        {/* Move — the one thing only the floating window can offer. Docking is
-            NOT here: the transport's pop-out control is the single master for
-            where the player lives, and a second dock button next to it was
-            exactly the ambiguity we took out.
-            z-30 keeps it above the move overlay, so the same button that turns
-            move mode on is the one that turns it off. */}
-        {!minimized && !footerDock && !docked && (
-          <div className="relative z-30 flex items-center gap-0.5 px-1.5 py-1 border-t border-white/10 bg-black/20">
-            <button type="button" onClick={() => setAdjust((v) => !v)} aria-pressed={adjust}
-              title={adjust ? 'Done moving' : 'Move the player'}
-              aria-label={adjust ? 'Done moving' : 'Move the player'}
-              className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors ${
-                adjust ? 'text-black bg-cyan-400 hover:bg-cyan-300' : 'text-white/60 hover:text-white hover:bg-white/10'
-              }`}>
-              <Move size={16} />
-            </button>
-            {adjust && (
-              <span className="text-[10px] uppercase tracking-wider text-cyan-200/70">
-                Drag anywhere to move
-              </span>
-            )}
+        {/* Move mode's own row is gone: the transport's right-hand control IS
+            the move toggle once the player is popped out and away from Tube.
+            Two buttons for one job, in two different places, was the "press
+            pop-out, press move, drag, press move, press pop-out" dance. */}
+        {adjust && !footerDock && !docked && (
+          <div className="relative z-30 px-3 py-1 border-t border-cyan-400/20 bg-cyan-400/10">
+            <span className="text-[10px] uppercase tracking-wider text-cyan-200/80">
+              Drag anywhere to move · corner to resize
+            </span>
           </div>
         )}
 

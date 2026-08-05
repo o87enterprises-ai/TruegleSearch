@@ -37,6 +37,10 @@ export default function TrueglePlayer({
   // when the text hasn't changed since last time — pressing enter and seeing
   // nothing happen is what made the popped-out player feel broken.
   openListNonce = 0,
+  // Move mode belongs to the floating frame (it owns the geometry), but its
+  // control belongs on the transport with everything else.
+  moveOn = false,
+  onToggleMove,
   onQueryHandled,
   className = '',
 }) {
@@ -70,25 +74,29 @@ export default function TrueglePlayer({
     else el.requestFullscreen?.().catch(() => { /* denied — stay inline */ });
   }, []);
 
-  // One master pop-out control, cycling through the player's homes. On Tube it
-  // goes back into the search bar; everywhere else it alternates between the
-  // floating window and the footer dock.
+  // The transport's right-hand control, which changes with where the player
+  // is — one button, one meaning, at all times:
   //
-  // An unset dock resolves by screen — phone-width defaults to the footer, so
-  // the player doesn't float over the results it was popped out to sit beside.
-  // Same resolution as MiniPlayer's, so the button never offers the state the
-  // player is already in.
+  //   docked in a page  → pop out
+  //   popped on Tube    → dock back into the search bar (its home is there)
+  //   popped elsewhere  → MOVE. Off Tube there is nowhere to dock back into,
+  //                       and moving the window was buried behind its own
+  //                       separate toggle: press pop-out, press move, drag,
+  //                       press move again, press pop-out again. The frame's
+  //                       X already closes it, so the useful thing to put here
+  //                       is the one that was hardest to reach.
   const narrow = useNarrowViewport();
   const atFooter = dock === 'footer' || (!dock && narrow);
+  const onTube = pageMode === 'tube';
   const popOutMode = presentation !== 'popped'
     ? 'pop'
-    : pageMode === 'tube' ? 'bar' : (atFooter ? 'float' : 'footer');
+    : onTube ? 'bar' : 'move';
 
   const cyclePopOut = useCallback(() => {
     if (presentation !== 'popped') { setPoppedOut(true); return; }
-    if (pageMode === 'tube') { setPoppedOut(false); return; }
-    setDock(atFooter ? 'float' : 'footer');
-  }, [presentation, pageMode, atFooter, setPoppedOut, setDock]);
+    if (onTube) { setPoppedOut(false); return; }
+    onToggleMove?.();
+  }, [presentation, onTube, setPoppedOut, onToggleMove]);
 
   // Typing opens the list; it retreats again once the user has made their
   // selection (PlayerListSlot's post-add timer calls onRevert).
@@ -166,6 +174,7 @@ export default function TrueglePlayer({
       listOpen={listOpen}
       showPopOut
       popOutMode={popOutMode}
+      adjustOn={moveOn}
       showFullscreen={presentation !== 'collapsed'}
       fullscreen={fullscreen}
       onToggleFullscreen={toggleFullscreen}
@@ -186,6 +195,10 @@ export default function TrueglePlayer({
   // The list retracts into the player rather than staying pinned open — the
   // bottom list button is the only thing that shows or hides it.
   const listVisible = showList && listOpen;
+  // Full screen always shows the picture. Hidden clips the screen to nothing,
+  // and keeping that clip in full screen produced a full screen of black with
+  // the controls floating on it — asking for full screen IS asking to watch.
+  const clipScreen = hideScreen && !fullscreen;
 
   return (
     <div
@@ -196,7 +209,15 @@ export default function TrueglePlayer({
           unmounted iframe stops playing and starts over when it comes back,
           which is the opposite of what "hide the video, keep listening" means.
           The transport below stays exactly where it was. */}
-      <div className={hideScreen ? 'max-h-0 overflow-hidden' : ''} aria-hidden={hideScreen}>
+      {/* This wrapper exists to CLIP the picture in Hidden mode. It also sits
+          in the flex chain in full screen, so it has to pass the available
+          height through — without `flex-1 min-h-0 flex` the screen below it
+          resolved to zero height and full screen was a black rectangle with
+          controls on it. */}
+      <div
+        className={clipScreen ? 'max-h-0 overflow-hidden' : (fullscreen ? 'flex flex-1 min-h-0' : '')}
+        aria-hidden={clipScreen}
+      >
         <PlayerScreen
           source={paused ? null : current}
           mediaRef={mediaRef}
@@ -209,7 +230,7 @@ export default function TrueglePlayer({
       </div>
       {/* With the picture hidden there is nothing on screen saying anything is
           happening — so the play head goes here. */}
-      {hideScreen && current && (
+      {clipScreen && current && (
         <PlayerProgress
           mediaRef={mediaRef}
           source={current}
@@ -226,7 +247,9 @@ export default function TrueglePlayer({
       )}
       {/* The controller bar keeps its place in full screen — same row, same
           order, just pinned to the bottom of the screen instead of the card. */}
-      <div className="shrink-0 px-1.5 py-1 border-t border-white/10 bg-black/20">{transport}</div>
+      {/* relative z-30 keeps the controls ABOVE the frame's move overlay (z-20).
+          Without it, arming move mode covered the very button that disarms it. */}
+      <div className="relative z-30 shrink-0 px-1.5 py-1 border-t border-white/10 bg-black/20">{transport}</div>
       {listVisible && (
         <div className={fullscreen ? 'shrink-0 max-h-[45vh] overflow-y-auto' : ''}>
           <PlayerListSlot
