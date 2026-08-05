@@ -45,6 +45,12 @@ const unquote = (v) => String(v || '').replace(/^"|"$/g, '').trim();
 // matched on its squashed form and searched for BOTH ways.
 const squash = (v) => String(v || '').toLowerCase().replace(/[\s._-]/g, '');
 
+// "Dark Waters 9" → "@darkwaters9". The one form the index answers.
+export const toHandle = (v) => {
+  const bare = squash(String(v || '').replace(/^@+/, ''));
+  return bare ? `@${bare}` : '';
+};
+
 // A trailing (or leading) "channel" / "yt channel" is the user naming what
 // they want, not part of the name: "dark waters 9 channel" means the channel.
 const TRAILING_CHANNEL = /^(.*?)\s+(?:yt\s+|youtube\s+)?channel\s*$/i;
@@ -121,14 +127,12 @@ export function parsePlayerQuery(raw, scope = 'all') {
   const explicit = !!(channel || platform || activeScope !== 'all');
   const site = platform && platform !== 'any' ? SITE[platform] : '';
 
-  // The channel is asked for in both spellings — the spoken one and the
-  // handle — because an index has seen the page under whichever the creator
-  // uses. "Darkwaters 9" alone never matched @DarkWaters9.
-  const channelTerms = channel
-    ? (squash(channel) === channel.toLowerCase()
-      ? `"${channel}"`
-      : `("${channel}" OR "${squash(channel)}" OR "@${squash(channel)}")`)
-    : '';
+  // The HANDLE is the query. Tested against the live index: "Darkwaters 9"
+  // returns a film and a DND series, an OR group of spellings returns nothing
+  // useful (the provider doesn't honour the grouping), and @darkwaters9
+  // returns the channel. So a channel is always normalised to its handle —
+  // spaces out, leading @ on — and asked for exactly that way.
+  const channelTerms = channel ? toHandle(channel) : '';
 
   // Scope shapes the words around the query the way YouTube's chips do.
   const shaped = {

@@ -384,6 +384,14 @@
         "body": "node apps/backend/scripts/run-migrations.js applies 018_community_media.sql. Until it runs, POST /api/media and GET /api/media/search 500 on a missing relation; the player still works because the community fetch fails soft to [].",
         "ts": "2026-08-04",
         "created": "2026-08-04"
+      },
+      "channel-search-form": {
+        "Id": "channel-search-form",
+        "Type": "fact",
+        "Label": "Channel search only works as @handle",
+        "body": "Tested live: \"Darkwaters 9\" returns a film and a DND series; an OR group of spellings returns nothing useful (the provider does not honour OR grouping); @darkwaters9 returns the channel. So parsePlayerQuery normalises any channel to toHandle() — spaces/dots/dashes stripped, lowercased, leading @ — and sends site:youtube.com @handle. The Tube Channel chip pre-writes the box to that form and keeps spaces out while it is on.",
+        "ts": "2026-08-05",
+        "created": "2026-08-05"
       }
     },
     "decision": {

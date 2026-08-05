@@ -77,7 +77,7 @@ import { isShortForm, asReel } from '../utils/shortForm';
 import { useFeedAutoplay } from '../hooks/useFeedAutoplay';
 import TrueglePlayer from '../components/player/TrueglePlayer';
 import { setPlayerQuery } from '../utils/playerQueryStore';
-import { SEARCH_SCOPES } from '../utils/playerQuery';
+import { SEARCH_SCOPES, toHandle } from '../utils/playerQuery';
 import { parsePlayerParams } from '../utils/playerLink';
 import { usePlayer } from '../context/PlayerContext';
 
@@ -1171,7 +1171,12 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
               showSearchButton={false}
               showBiasedButton={false}
               showUnbiasedButton={false}
-              onChange={(val) => setSearchValue(val)}
+              onChange={(val) => setSearchValue(
+                // While the Channel chip is on, the box IS a handle: keep the @
+                // and drop spaces as they're typed, so what you see is what
+                // gets searched.
+                tubeDocked && tubeScope === 'channel' ? toHandle(val) : val,
+              )}
               onSubmit={() => submitSearch()}
               onSearch={() => submitSearch()}
               placeholder={mode === 'purple' ? 'Explore perspectives...' : mode === 'ocean' ? 'OSINT search...' : 'Search for unbiased truth...'}
@@ -1224,7 +1229,18 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
                           <button
                             key={sc.id}
                             type="button"
-                            onClick={() => setTubeScope(sc.id)}
+                            onClick={() => {
+                              setTubeScope(sc.id);
+                              // Picking Channel rewrites the box into the form
+                              // that actually finds one: spaces out, @ on.
+                              // Anything else hands the plain words back.
+                              if (sc.id === 'channel') {
+                                const h = toHandle(searchValue);
+                                if (h) setSearchValue(h);
+                              } else if (tubeScope === 'channel') {
+                                setSearchValue(searchValue.replace(/^@/, ''));
+                              }
+                            }}
                             aria-pressed={tubeScope === sc.id}
                             className={`shrink-0 px-3 h-7 rounded-full text-[11px] font-semibold border transition-colors ${
                               tubeScope === sc.id
