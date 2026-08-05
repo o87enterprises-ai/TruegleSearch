@@ -17,9 +17,9 @@ import AddLinkRow from './AddLinkRow';
 // the list away mid-choice.
 const REVERT_MS = 10000;
 
-export default function PlayerListSlot({ query = '', accent = '#f43f5e', onRevert, compact = false }) {
+export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f43f5e', onRevert, compact = false }) {
   const { current, queue, jump, removeFromQueue, enqueue, clearQueue, playNow } = usePlayer();
-  const { results, loading, error } = usePlayerSearch(query);
+  const { results, loading, error } = usePlayerSearch(query, scope);
   const [added, setAdded] = useState(null);
   const [showingResults, setShowingResults] = useState(false);
   const revertTimer = useRef(null);
@@ -63,6 +63,20 @@ export default function PlayerListSlot({ query = '', accent = '#f43f5e', onRever
         </div>
         <div className={`overflow-y-auto ${compact ? 'max-h-[min(11rem,26svh)]' : 'max-h-[min(16rem,32svh)]'}`}>
           {error && <p className="px-3 py-2 text-[11px] text-amber-300/90">{error}</p>}
+          {/* Something to look at while the provider answers — it can take a
+              couple of seconds and a retry, and a blank panel reads as broken. */}
+          {loading && (
+            <div className="px-2 py-1.5 space-y-1.5" aria-live="polite">
+              <span className="sr-only">Searching…</span>
+              {[0, 1, 2].map((i) => (
+                <div key={i} className={`flex items-center gap-2 ${rowH}`}>
+                  <span className="w-10 h-7 rounded bg-white/10 shrink-0 animate-pulse" />
+                  <span className="h-3 rounded bg-white/10 flex-1 animate-pulse"
+                    style={{ maxWidth: `${80 - i * 15}%` }} />
+                </div>
+              ))}
+            </div>
+          )}
           {results && results.length === 0 && !loading && (
             <p className="px-3 py-2 text-[11px] text-white/40">Nothing here can play in the Truegle player.</p>
           )}

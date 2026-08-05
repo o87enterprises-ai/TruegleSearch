@@ -10,19 +10,27 @@ import { useSyncExternalStore } from 'react';
 // Deliberately NOT in PlayerContext: that provider sits above the whole app,
 // and pushing a keystroke through it would re-render every page on every
 // letter typed.
-let query = '';
+// Snapshot is a single string so useSyncExternalStore can compare it by
+// identity — an object rebuilt each read would loop forever.
+let snapshot = 'all\u0000';
 const listeners = new Set();
 
-export function setPlayerQuery(next) {
-  const value = next || '';
-  if (value === query) return;
-  query = value;
+export function setPlayerQuery(next, scope = 'all') {
+  const value = `${scope || 'all'}\u0000${next || ''}`;
+  if (value === snapshot) return;
+  snapshot = value;
   listeners.forEach((fn) => fn());
 }
 
 const subscribe = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
-const getSnapshot = () => query;
+const getSnapshot = () => snapshot;
+const EMPTY = 'all\u0000';
+
+function split(raw) {
+  const i = raw.indexOf('\u0000');
+  return { scope: raw.slice(0, i), text: raw.slice(i + 1) };
+}
 
 export function usePlayerQuery() {
-  return useSyncExternalStore(subscribe, getSnapshot, () => '');
+  return split(useSyncExternalStore(subscribe, getSnapshot, () => EMPTY));
 }

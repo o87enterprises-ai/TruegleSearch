@@ -962,6 +962,14 @@
         "body": "Popped out and off Tube the transport control IS move/resize (no pop-out there is nothing to dock into) and the float/footer switch moved to the window header — the old flow was pop-out, move, drag, move, pop-out. Transport row got relative z-30 so the move overlay cannot cover the button that disarms it. Full screen now forces the picture (clipScreen = hideScreen && !fullscreen) AND the clip wrapper passes height through in fullscreen (flex flex-1 min-h-0) — that wrapper was silently making fullscreen a black rectangle. Creator pages hand the active video to the popped-out player and render a placeholder instead of a second iframe. utils/playerQuery.js parses bangs (!yt !sc !vimeo !tiktok !web !ch) and dorks (channel:/from:/by:/@handle) into a site:-scoped backend query, and rankPlayable puts YouTube first, channel matches above their group.",
         "ts": "2026-08-05",
         "created": "2026-08-05"
+      },
+      "tube-search-tuning": {
+        "Id": "tube-search-tuning",
+        "Type": "decision",
+        "Label": "Tube: full results below the player, scopes, channel matching",
+        "body": "UniversalSearch no longer hides its result list on Tube — every result shows below the player, playable or not. A capture-phase handler on the card (the title is a real <a>) pops the player out and navigates to /search?q&mode=blue&sel=<url>; handleSearch preserves sel so the rewrite after navigation cannot drop it, and ResultCard opens its viewer when sel matches. SEARCH_SCOPES chips (all/channel/song/artist/title/topic) publish through playerQueryStore (snapshot is a single string so useSyncExternalStore compares by identity). parsePlayerQuery now reads spoken forms (\"X channel\", \"channel for X\") and searches a channel in BOTH spellings (\"Dark Waters 9\" OR darkwaters9 OR @darkwaters9) — the squashed handle is what the index has. usePlayerSearch retries once after 600ms and aborts at 20s; PlayerListSlot shows skeleton rows while loading.",
+        "ts": "2026-08-05",
+        "created": "2026-08-05"
       }
     },
     "entity": {

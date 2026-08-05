@@ -77,6 +77,7 @@ import { isShortForm, asReel } from '../utils/shortForm';
 import { useFeedAutoplay } from '../hooks/useFeedAutoplay';
 import TrueglePlayer from '../components/player/TrueglePlayer';
 import { setPlayerQuery } from '../utils/playerQueryStore';
+import { SEARCH_SCOPES } from '../utils/playerQuery';
 import { parsePlayerParams } from '../utils/playerLink';
 import { usePlayer } from '../context/PlayerContext';
 
@@ -203,11 +204,16 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
 
   // Tube's bar is the player's bar, and the player lives above <Routes> now,
   // so what's typed here has to be published to it.
+  // What the Tube box is being used to look for. YouTube's chips are the
+  // model: the same words mean different searches depending on whether you
+  // are after a channel, a song or a title.
+  const [tubeScope, setTubeScope] = useState('all');
+  const selectedUrl = searchParams.get('sel') || '';
   useEffect(() => {
     if (!tubeDocked) return undefined;
-    setPlayerQuery(searchValue);
-    return () => setPlayerQuery('');
-  }, [tubeDocked, searchValue]);
+    setPlayerQuery(searchValue, tubeScope);
+    return () => setPlayerQuery('', 'all');
+  }, [tubeDocked, searchValue, tubeScope]);
   const autoExpanded = useRef(false);
   useEffect(() => {
     if (autoExpanded.current) return;
@@ -488,6 +494,10 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
     if (selectedPerspectives.length > 0 && !lockedTube) {
       params.set('perspectives', selectedPerspectives.join(','));
     }
+    // A card handed over from Tube stays selected: this rewrite runs right
+    // after that navigation and would otherwise drop the very link the user
+    // tapped, landing them on an ordinary list.
+    if (selectedUrl) params.set('sel', selectedUrl);
     window.history.replaceState({}, '', `${lockedPath || '/search'}?${params.toString()}`);
 
     setSearchLoading(true);
@@ -867,7 +877,10 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
 
   // ── ResultCard ──────────────────────────────────────────────────────────
   function ResultCard({ result, index, perspectiveColors, accent, safeSearch, currentQuery, currentMode }) {
-    const [viewerOpen, setViewerOpen] = useState(false);
+    // `&sel=` — arrived here from a Tube result. That card opens with its
+    // actions showing, so the trip lands on the thing you tapped rather than
+    // on a list you have to find it in again.
+    const [viewerOpen, setViewerOpen] = useState(() => selectedUrl === result.url);
     const [iframeBlocked, setIframeBlocked] = useState(false);
     const videoEmbed = getVideoEmbed(result.url);
     const playable = getPlayable(result.url);
@@ -898,6 +911,24 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
       window.open(result.url, '_blank', 'noopener,noreferrer');
     };
 
+    // On Tube these results are listed BELOW the player, including the ones it
+    // can't play. Tapping one shouldn't throw you out to the open web: it pops
+    // the player out so whatever is playing keeps playing, and hands the link
+    // to the mainstream results page with its own actions — open in app, view
+    // anonymously, visit the site — already open on it.
+    //
+    // Capture phase, because the title is a real <a>: by the time a click
+    // bubbles to the card the browser is already following the link. Buttons
+    // are left alone so Play now / Add to queue still do their own job.
+    const tubeHandoff = (e) => {
+      if (e.target.closest('button, input, iframe, [role="menu"]')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setPoppedOut(true);
+      navigate(`/search?q=${encodeURIComponent(lastSearchedQuery || searchValue)}`
+        + `&mode=blue&sel=${encodeURIComponent(result.url)}`);
+    };
+
     return (
       <motion.div
         // Only playable cards join the autoplay rotation.
@@ -907,6 +938,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
         transition={{ delay: index * 0.05 }}
         role="link"
         tabIndex={0}
+        onClickCapture={tubeDocked ? tubeHandoff : undefined}
         aria-label={`Open ${result.title || result.url}`}
         onClick={openCardLink}
         onKeyDown={(e) => {
@@ -1181,11 +1213,30 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
                     // track would start over. Height comes from the player
                     // itself via a CSS variable so the page reserves exactly
                     // the room it occupies.
-                    <div
-                      data-player-slot
-                      aria-hidden="true"
-                      style={{ height: 'var(--truegle-player-h, 260px)' }}
-                    />
+                    <>
+                      <div
+                        data-player-slot
+                        aria-hidden="true"
+                        style={{ height: 'var(--truegle-player-h, 260px)' }}
+                      />
+                      <div className="flex gap-1.5 overflow-x-auto px-2 py-2 bg-black/30 border-t border-white/10">
+                        {SEARCH_SCOPES.map((sc) => (
+                          <button
+                            key={sc.id}
+                            type="button"
+                            onClick={() => setTubeScope(sc.id)}
+                            aria-pressed={tubeScope === sc.id}
+                            className={`shrink-0 px-3 h-7 rounded-full text-[11px] font-semibold border transition-colors ${
+                              tubeScope === sc.id
+                                ? 'bg-white/15 border-white/30 text-white'
+                                : 'bg-white/[0.03] border-white/10 text-white/50 hover:text-white/80'
+                            }`}
+                          >
+                            {sc.label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   ) : (
                     <div className="px-1.5 py-1 bg-black/30">
                       <TrueglePlayer presentation="collapsed" accent={MODE_COLORS.tube} />
@@ -1895,7 +1946,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
                     </div>
                   )}
 
-                  {mode !== 'ocean' && !tubeDocked && searchResults.map((result, index) => (
+                  {mode !== 'ocean' && searchResults.map((result, index) => (
                     <Fragment key={result.url || index}>
                       <div>
                         <ResultCard

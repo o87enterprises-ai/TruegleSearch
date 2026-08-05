@@ -31,6 +31,7 @@ export default function TrueglePlayer({
   presentation = 'expanded',
   accent = '#f43f5e',
   query = '',
+  scope = 'all',
   showList = true,
   hideScreen = false,
   // Bumped by the host when the user SUBMITS a search, so the list opens even
@@ -254,6 +255,7 @@ export default function TrueglePlayer({
         <div className={fullscreen ? 'shrink-0 max-h-[45vh] overflow-y-auto' : ''}>
           <PlayerListSlot
             query={query}
+            scope={scope}
             accent={accent}
             compact={presentation === 'popped'}
             onRevert={() => { setListOpen(false); onQueryHandled?.(); }}

@@ -94,7 +94,7 @@ export default function MiniPlayer() {
     playerInputRef.current?.blur();
   }, []);
   const frameRef = useRef(null);
-  const pageQuery = usePlayerQuery();
+  const page = usePlayerQuery();
 
   // ── docking into a page's slot ───────────────────────────────────────────
   // A page that wants the player inside its layout renders an empty
@@ -459,7 +459,8 @@ export default function MiniPlayer() {
             openListNonce={submitNonce}
             moveOn={adjust}
             onToggleMove={() => setAdjust((v) => !v)}
-            query={docked ? pageQuery : playerQuery}
+            query={docked ? page.text : playerQuery}
+            scope={docked ? page.scope : 'all'}
           />
         </div>
 

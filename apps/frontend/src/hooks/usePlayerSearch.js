@@ -45,14 +45,17 @@ function toSource(r) {
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 const DEBOUNCE_MS = 300;
 const MIN_CHARS = 2;
+// Long enough for a cold SearXNG plus a retry; short enough that a dead
+// request doesn't spin forever.
+const REQUEST_TIMEOUT_MS = 20000;
 
-export function usePlayerSearch(query) {
+export function usePlayerSearch(query, scope = 'all') {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const abortRef = useRef(null);
 
-  const run = useCallback((raw) => {
+  const run = useCallback((raw, activeScope) => {
     abortRef.current?.abort();
     const q = raw.trim();
     if (q.length < MIN_CHARS) { setResults(null); setLoading(false); setError(''); return; }
@@ -64,6 +67,7 @@ export function usePlayerSearch(query) {
 
     const controller = new AbortController();
     abortRef.current = controller;
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     setLoading(true);
     setError('');
 
@@ -72,9 +76,12 @@ export function usePlayerSearch(query) {
     // site-scoped before it goes anywhere. Asking a general index for an
     // artist's name returns lyric sites and reposts; asking it for
     // `site:youtube.com "<name>"` returns the videos.
-    const intent = parsePlayerQuery(q);
+    const intent = parsePlayerQuery(q, activeScope);
 
-    const ask = (category, query) => fetch(`${BACKEND}/api/search`, {
+    // The provider is often cold and answers the first ask with nothing, which
+    // is exactly the "took three tries" symptom. One retry, and a ceiling so a
+    // hung request can't leave the spinner running forever.
+    const once = (category, query) => fetch(`${BACKEND}/api/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, filters: { category, bias: 'all', dateRange: 'any', perPage: 20 } }),
@@ -82,6 +89,11 @@ export function usePlayerSearch(query) {
     })
       .then((r) => r.json())
       .then((d) => (d.results || []).map(toSource).filter(Boolean));
+
+    const ask = (category, query) => once(category, query)
+      .then((rows) => (rows.length ? rows : new Promise((res) => { setTimeout(res, 600); })
+        .then(() => once(category, query))))
+      .catch((e) => { if (e.name === 'AbortError') throw e; return []; });
 
     // Scoped first, then progressively looser — but never so loose that an
     // explicit ask ("!yt", "@channel") is quietly ignored.
@@ -115,13 +127,13 @@ export function usePlayerSearch(query) {
       })
       // An aborted request is a newer keystroke, not a failure.
       .catch((e) => { if (e.name !== 'AbortError') setError('Search is unreachable right now.'); })
-      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      .finally(() => { clearTimeout(timeout); setLoading(false); });
   }, []);
 
   useEffect(() => {
-    const id = setTimeout(() => run(query || ''), DEBOUNCE_MS);
+    const id = setTimeout(() => run(query || '', scope), DEBOUNCE_MS);
     return () => clearTimeout(id);
-  }, [query, run]);
+  }, [query, scope, run]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 

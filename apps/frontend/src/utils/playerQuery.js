@@ -40,6 +40,29 @@ const SITE = {
 
 const unquote = (v) => String(v || '').replace(/^"|"$/g, '').trim();
 
+// "Darkwaters 9 channel" is how people say it; the channel is actually
+// @DarkWaters9. Spoken names carry spaces the handle doesn't, so a channel is
+// matched on its squashed form and searched for BOTH ways.
+const squash = (v) => String(v || '').toLowerCase().replace(/[\s._-]/g, '');
+
+// A trailing (or leading) "channel" / "yt channel" is the user naming what
+// they want, not part of the name: "dark waters 9 channel" means the channel.
+const TRAILING_CHANNEL = /^(.*?)\s+(?:yt\s+|youtube\s+)?channel\s*$/i;
+const LEADING_CHANNEL = /^channel\s+(?:for\s+)?(.+)$/i;
+
+// What the user is looking for. YouTube's own chips are the model: people
+// scan by one axis at a time, and "song" and "channel" want very different
+// queries even for identical text.
+export const SEARCH_SCOPES = [
+  { id: 'all', label: 'All' },
+  { id: 'channel', label: 'Channel' },
+  { id: 'song', label: 'Song' },
+  { id: 'artist', label: 'Artist' },
+  { id: 'title', label: 'Title' },
+  { id: 'topic', label: 'Topic' },
+];
+const SCOPE_IDS = new Set(SEARCH_SCOPES.map((s) => s.id));
+
 /**
  * @returns {{text, channel, platform, backendQuery, explicit}}
  *   text        — what's left after the operators are removed
@@ -48,10 +71,11 @@ const unquote = (v) => String(v || '').replace(/^"|"$/g, '').trim();
  *   backendQuery— what to actually send to search
  *   explicit    — the user asked for a platform/channel, so don't second-guess
  */
-export function parsePlayerQuery(raw) {
+export function parsePlayerQuery(raw, scope = 'all') {
   let text = String(raw || '').trim();
   let platform = null;
   let channel = null;
+  const activeScope = SCOPE_IDS.has(scope) ? scope : 'all';
 
   // Bangs, anywhere in the string — people put them at either end.
   for (const [bang, value] of Object.entries(PLATFORM_BANGS)) {
@@ -81,20 +105,48 @@ export function parsePlayerQuery(raw) {
     text = text.replace(handle[0], ' ').trim();
   }
 
+  // "… channel" / "channel …" — said out loud rather than typed as an operator.
+  if (!channel) {
+    const trailing = TRAILING_CHANNEL.exec(text);
+    const leading = !trailing && LEADING_CHANNEL.exec(text);
+    if (trailing && trailing[1].trim()) { channel = trailing[1].trim(); text = ''; }
+    else if (leading && leading[1].trim()) { channel = leading[1].trim(); text = ''; }
+  }
+  // The Channel chip says the whole box is a channel name.
+  if (activeScope === 'channel' && !channel && text) { channel = text; text = ''; }
+
   // A channel without a platform means YouTube: that is where channels are.
   if (channel && !platform) platform = 'youtube';
 
-  const explicit = !!(channel || platform);
+  const explicit = !!(channel || platform || activeScope !== 'all');
   const site = platform && platform !== 'any' ? SITE[platform] : '';
-  const backendQuery = [
-    site,
-    // A channel scopes the site further — youtube.com/@handle is a real URL,
-    // so this narrows rather than merely hints.
-    channel && platform === 'youtube' ? `"${channel}"` : channel ? `"${channel}"` : '',
-    text,
-  ].filter(Boolean).join(' ').trim();
 
-  return { text, channel, platform, backendQuery: backendQuery || text, explicit };
+  // The channel is asked for in both spellings — the spoken one and the
+  // handle — because an index has seen the page under whichever the creator
+  // uses. "Darkwaters 9" alone never matched @DarkWaters9.
+  const channelTerms = channel
+    ? (squash(channel) === channel.toLowerCase()
+      ? `"${channel}"`
+      : `("${channel}" OR "${squash(channel)}" OR "@${squash(channel)}")`)
+    : '';
+
+  // Scope shapes the words around the query the way YouTube's chips do.
+  const shaped = {
+    all: text,
+    channel: '',
+    song: text ? `${text} (song OR audio OR "official audio" OR "official video")` : '',
+    artist: text ? `"${text}" (artist OR official OR music)` : '',
+    title: text ? `"${text}"` : '',
+    topic: text,
+  }[activeScope];
+
+  const backendQuery = [site, channelTerms, shaped]
+    .filter(Boolean).join(' ').trim();
+
+  return {
+    text, channel, platform, scope: activeScope,
+    backendQuery: backendQuery || text, explicit,
+  };
 }
 
 // Rank playable results the way someone searching for something to watch
