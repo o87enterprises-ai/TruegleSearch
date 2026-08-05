@@ -1263,6 +1263,15 @@
         "status": "open",
         "ts": "2026-08-04",
         "created": "2026-08-04"
+      },
+      "truetube-tv": {
+        "Id": "truetube-tv",
+        "Type": "thread",
+        "Label": "True Tube smart TV app — planning",
+        "body": "docs/TRUETUBE-TV-PLAN.md committed 2026-08-05. Recommends option A+B: TV app is discovery/search/queue/remote, hands YouTube playback to the TV's own YouTube app (iframe embed is browser-only, TV store review rejects it), plays directly only what we may. Platform order Samsung Tizen + LG webOS (free, HTML apps, reuse React), then Fire TV; Android TV $25 / Apple TV $99yr / Roku rewrite all deferred behind sign-off. BLOCKED on 5 [DECIDE] questions in section 7. No build until answered.",
+        "status": "open",
+        "ts": "2026-08-05",
+        "created": "2026-08-05"
       }
     }
   },
