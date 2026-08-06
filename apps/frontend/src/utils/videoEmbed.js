@@ -64,6 +64,86 @@ export function getVideoEmbed(url) {
   }
 }
 
+// ── Identity ────────────────────────────────────────────────────────────────
+// The SAME video reaches us as half a dozen different strings: a watch URL, a
+// youtu.be short link, an /embed/ URL with a ?si= tracking suffix, a nocookie
+// host, a thumbnail-recovered id. Comparing `src` treats every one of those as
+// a different video — which is why de-duplication silently failed, why the
+// queue could hold the same clip twice, and above all why auto-advance
+// "played the next duplicate listing of the same video": it searched the
+// title, got the same video back under a different URL, saw a src it had
+// never seen, and played it again.
+//
+// mediaKey() is the one identity everything compares on: platform + the
+// platform's own id. It mirrors MediaService.classifyMedia's `canonical` on
+// the backend — keep the two in step.
+const KEY_RULES = [
+  [/youtube(?:-nocookie)?\.com\/embed\/([\w-]{6,20})/i, 'youtube'],
+  [/youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|live\/)([\w-]{6,20})/i, 'youtube'],
+  [/youtu\.be\/([\w-]{6,20})/i, 'youtube'],
+  [/\/vi(?:_webp)?\/([\w-]{6,20})\//i, 'youtube'],          // i.ytimg thumbnail
+  [/(?:player\.)?vimeo\.com\/(?:video\/)?(\d+)/i, 'vimeo'],
+  [/tiktok\.com\/(?:embed\/v2\/|[^?]*\/video\/)(\d+)/i, 'tiktok'],
+  [/dailymotion\.com\/(?:embed\/)?video\/([a-z0-9]+)/i, 'dailymotion'],
+  [/dai\.ly\/([a-z0-9]+)/i, 'dailymotion'],
+  [/rumble\.com\/embed\/(v[a-z0-9]+)/i, 'rumble'],
+  [/rumble\.com\/(v[a-z0-9]+)/i, 'rumble'],
+];
+
+export function mediaKey(input) {
+  if (!input) return '';
+  const raws = typeof input === 'string' ? [input] : [input.src, input.pageUrl];
+  for (const raw of raws) {
+    if (typeof raw !== 'string' || !raw) continue;
+    // SoundCloud's widget wraps the real track URL in a query parameter, so
+    // the identity has to be dug out of it rather than read off the widget.
+    const wrapped = /w\.soundcloud\.com\/player\/\?url=([^&]+)/i.exec(raw);
+    const s = wrapped ? decodeURIComponent(wrapped[1]) : raw;
+    for (const [re, platform] of KEY_RULES) {
+      const m = re.exec(s);
+      if (m) return `${platform}:${m[1]}`;
+    }
+    const sc = /soundcloud\.com\/([^/?#]+\/[^/?#]+)/i.exec(s);
+    if (sc) return `soundcloud:${sc[1].toLowerCase()}`;
+  }
+  // Anything else (a direct file, an unrecognised host) is identified by host
+  // and path — the query string is where cache-busters and tracking live.
+  const s = (typeof input === 'string' ? input : input.src) || '';
+  try {
+    const u = new URL(s);
+    return `${u.hostname.replace(/^www\./, '')}${u.pathname}`.toLowerCase();
+  } catch {
+    return s.toLowerCase();
+  }
+}
+
+// The inverse: a stored key back to a URL getPlayable() will accept. The
+// platform signal pool is keyed, not URL'd, and older rows may have no page
+// URL at all — this is what makes those rows playable again.
+export function urlFromKey(key) {
+  const i = String(key || '').indexOf(':');
+  if (i < 1) return null;
+  const platform = key.slice(0, i);
+  const id = key.slice(i + 1);
+  if (!id) return null;
+  switch (platform) {
+    case 'youtube': return `https://www.youtube.com/watch?v=${id}`;
+    case 'vimeo': return `https://vimeo.com/${id}`;
+    case 'tiktok': return `https://www.tiktok.com/@x/video/${id}`;
+    case 'dailymotion': return `https://www.dailymotion.com/video/${id}`;
+    case 'rumble': return `https://rumble.com/${id}`;
+    case 'soundcloud': return `https://soundcloud.com/${id}`;
+    default: return null;
+  }
+}
+
+/** Do these two sources point at the same piece of media? */
+export const sameMedia = (a, b) => {
+  if (!a || !b) return false;
+  const ka = mediaKey(a);
+  return !!ka && ka === mediaKey(b);
+};
+
 // Direct-media file extensions the persistent mini-player can play natively.
 const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|wav|flac)(\?|#|$)/i;
 const VIDEO_EXT = /\.(mp4|webm|mov|m4v)(\?|#|$)/i;

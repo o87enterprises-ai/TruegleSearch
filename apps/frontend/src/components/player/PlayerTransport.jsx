@@ -1,7 +1,7 @@
 import {
   Play, Pause, Square, SkipBack, SkipForward,
   ListMusic, Share2, Check, PictureInPicture2, Minimize2, Move, PanelBottom,
-  Repeat, Repeat1, Shuffle, ArrowDownUp, Maximize, Minimize,
+  Repeat, Repeat1, Shuffle, ArrowDownUp, Maximize, Minimize, ThumbsUp, ThumbsDown,
 } from 'lucide-react';
 
 // The one transport row. Identical in all three presentations — collapsed
@@ -59,6 +59,11 @@ export default function PlayerTransport({
   fullscreen = false,
   playMode = 'auto',
   showPlayMode = false,
+  // 👍/👎. `rating` is 1, -1 or 0; pressing the thumb that's already lit
+  // clears it, so the pair behaves like every other vote control.
+  showRating = false,
+  rating = 0,
+  onRate,
   adjustOn = false,
   shareState = 'idle',
   onPlayPause,
@@ -93,6 +98,38 @@ export default function PlayerTransport({
         aria-label="Next" className={btn}>
         <SkipForward size={16} />
       </button>
+
+      {/* Thumbs sit next to the transport rather than off in a menu, because
+          they are the only thing steering what plays next — burying the one
+          control that trains the feed would leave the feed untrained.
+          What they do is split: the taste they build stays in this browser,
+          and only an anonymous counter bump leaves it. See utils/taste.js. */}
+      {showRating && (
+        <>
+          <button
+            type="button"
+            onClick={() => onRate?.(1)}
+            disabled={!onRate}
+            aria-pressed={rating === 1}
+            title={rating === 1 ? 'Liked — press again to undo' : 'More like this'}
+            aria-label={rating === 1 ? 'Remove like' : 'Like — more like this'}
+            className={`${btn} ${rating === 1 ? 'text-green-400 bg-green-400/10' : ''}`}
+          >
+            <ThumbsUp size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onRate?.(-1)}
+            disabled={!onRate}
+            aria-pressed={rating === -1}
+            title={rating === -1 ? 'Hidden from your feed — press again to undo' : 'Less like this'}
+            aria-label={rating === -1 ? 'Remove dislike' : 'Dislike — less like this'}
+            className={`${btn} ${rating === -1 ? 'text-rose-400 bg-rose-400/10' : ''}`}
+          >
+            <ThumbsDown size={15} />
+          </button>
+        </>
+      )}
 
       <div className="ml-auto flex items-center gap-0.5">
         {showPlayMode && (

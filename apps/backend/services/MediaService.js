@@ -252,6 +252,103 @@ const MediaService = {
     }).filter(Boolean);
   },
 
+  /**
+   * Record an anonymous 👍/👎/play against a piece of media.
+   *
+   * `from`/`to` are the vote TRANSITION the client is applying (0 none, 1 up,
+   * -1 down), not an increment — so twenty presses of the same thumb move the
+   * counter once. Nothing identifying is accepted or stored; see the migration
+   * for why that is a design constraint rather than an oversight.
+   *
+   * Never throws: a lost vote must not cost anybody their playback.
+   */
+  async signal({ key, from = 0, to = 0, play = false, kind, title, pageUrl, poster, channel } = {}) {
+    const mediaKey = clean(key, 200);
+    if (!mediaKey || !/^[\w.:@/-]+$/.test(mediaKey)) return { ok: false };
+
+    const dir = (v) => (v === 1 || v === -1 ? v : 0);
+    const a = dir(from);
+    const b = dir(to);
+    // A transition moves at most one counter each way: up→down is -1 up, +1 down.
+    const dUp = (b === 1 ? 1 : 0) - (a === 1 ? 1 : 0);
+    const dDown = (b === -1 ? 1 : 0) - (a === -1 ? 1 : 0);
+    const dPlay = play ? 1 : 0;
+    if (!dUp && !dDown && !dPlay) return { ok: true };
+
+    try {
+      const { rows } = await query(
+        `INSERT INTO media_signals (media_key, kind, title, page_url, poster, channel, ups, downs, plays)
+         VALUES ($1, $2, $3, $4, $5, $6, GREATEST($7, 0), GREATEST($8, 0), GREATEST($9, 0))
+         ON CONFLICT (media_key) DO UPDATE SET
+           ups      = GREATEST(media_signals.ups   + $7, 0),
+           downs    = GREATEST(media_signals.downs + $8, 0),
+           plays    = GREATEST(media_signals.plays + $9, 0),
+           title    = COALESCE(media_signals.title, EXCLUDED.title),
+           page_url = COALESCE(media_signals.page_url, EXCLUDED.page_url),
+           poster   = COALESCE(media_signals.poster, EXCLUDED.poster),
+           channel  = COALESCE(media_signals.channel, EXCLUDED.channel),
+           hidden   = (GREATEST(media_signals.downs + $8, 0)
+                        >= 5 + 3 * GREATEST(media_signals.ups + $7, 0)),
+           updated_at = NOW()
+         RETURNING ups, downs`,
+        [
+          mediaKey, clean(kind, 32), clean(title, MAX_TITLE), clean(pageUrl, MAX_URL),
+          clean(poster, MAX_URL), clean(channel, 120), dUp, dDown, dPlay,
+        ],
+      );
+      return { ok: true, ...rows[0] };
+    } catch (err) {
+      logger.warn('Media signal failed', { error: err && err.message });
+      return { ok: false };
+    }
+  },
+
+  /**
+   * What the platform as a whole is enjoying — the cold-start pool for a
+   * visitor with no taste profile of their own, and extra candidates for one
+   * who has.
+   *
+   * Ranked by a lower-confidence-bound rather than raw ups: a single 👍 on a
+   * brand-new row should not outrank forty ups and two downs. Recency nudges
+   * it so the pool doesn't calcify around whatever was popular in month one.
+   */
+  async trending({ limit = 20, exclude = [] } = {}) {
+    const capped = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
+    const skip = (Array.isArray(exclude) ? exclude : [])
+      .map((k) => clean(k, 200)).filter(Boolean).slice(0, 60);
+    try {
+      const { rows } = await query(
+        `SELECT media_key, kind, title, page_url, poster, channel, ups, downs, plays,
+                ( (ups + 1.0) / (ups + downs + 2.0)
+                  - 1.0 / SQRT(ups + downs + 2.0)
+                  + LEAST(plays, 50) / 500.0
+                  + CASE WHEN updated_at > NOW() - INTERVAL '14 days' THEN 0.08 ELSE 0 END
+                ) AS score
+           FROM media_signals
+          WHERE hidden = FALSE
+            AND (ups > 0 OR plays > 0)
+            AND ($2::text[] IS NULL OR NOT (media_key = ANY($2)))
+          ORDER BY score DESC, updated_at DESC
+          LIMIT $1`,
+        [capped, skip.length ? skip : null],
+      );
+      return rows.map((r) => ({
+        mediaKey: r.media_key,
+        kind: r.kind,
+        title: r.title,
+        pageUrl: r.page_url,
+        poster: r.poster,
+        channel: r.channel,
+        ups: r.ups,
+        downs: r.downs,
+        score: Number(r.score) || 0,
+      }));
+    } catch (err) {
+      logger.warn('Media trending failed', { error: err && err.message });
+      return [];
+    }
+  },
+
   /** Best-effort play counter; never fails a playback because of a write. */
   async countPlay(id) {
     try {

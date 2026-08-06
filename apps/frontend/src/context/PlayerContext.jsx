@@ -1,4 +1,5 @@
 import { createContext, useContext, useReducer, useCallback, useMemo, useEffect } from 'react';
+import { sameMedia } from '../utils/videoEmbed';
 
 // Global media-player state for the persistent pop-out mini-player. Lives ABOVE
 // <Routes> so the media node it drives (MiniPlayer) survives SPA navigation —
@@ -43,7 +44,12 @@ const INITIAL = {
   // auto | repeat-one | shuffle | loop. Auto = play straight through.
   playMode: 'auto',
 };
-const sameSrc = (a, b) => !!a && !!b && a.src === b.src;
+// Identity is the MEDIA, not the URL string. The same YouTube video arrives as
+// a watch link, a youtu.be link and an /embed/ URL with a ?si= suffix, and
+// comparing `src` called those three different videos — which is how the queue
+// ended up holding the same clip several times over and how auto-advance kept
+// "advancing" onto another copy of what had just finished. See mediaKey().
+const sameSrc = (a, b) => !!a && !!b && (a.src === b.src || sameMedia(a, b));
 
 // Playing the SAME source again needs a changed identity, or the media node
 // (keyed on src) is never recreated and the "replay" is invisible. This token

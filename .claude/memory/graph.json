@@ -400,6 +400,14 @@
         "body": "Wired two ways in routes/creators.js: channels.list?forHandle for handle->channelId (1 unit, scrape kept as fallback) and GET /api/creators/search for real YouTube search (search.list = 100 units of a 10k/day free quota = ~100 searches/day for the WHOLE site). Because of that ceiling the frontend calls /creators/search only as a last resort, when web+community results yield nothing playable, and the backend caches each query for an hour. Quota exhaustion returns an empty list and degrades to whatever the web search had.",
         "ts": "2026-08-05",
         "created": "2026-08-05"
+      },
+      "fullscreen-swipe": {
+        "Id": "fullscreen-swipe",
+        "Type": "fact",
+        "Label": "Fullscreen swipe nav needs a transparent sheet",
+        "body": "An iframe swallows touches, so gestures over the video are unreadable without an overlay. hooks/useSwipeNav.js mounts one ONLY in fullscreen (where our transport bar is already pinned, so losing the embed's controls costs nothing): swipe up = next, down = prev, tap = play/pause, arrows/space for desktop. touchAction pan-x or the browser scrolls the page instead.",
+        "ts": "2026-08-06",
+        "created": "2026-08-06"
       }
     },
     "decision": {
@@ -1010,6 +1018,22 @@
         "body": "The community-submission UI (AddLinkRow) is REMOVED — pasting a YouTube link required sign-in for something that needs no permission. usePlayerSearch now detects a pasted http(s) URL: playable -> offered as a row to play/queue immediately, unplayable -> named honestly (\"Truegle cant play links from <host> yet\") rather than an error. The /api/media submission backend stays in place, unused, until real provider OAuth exists.",
         "ts": "2026-08-05",
         "created": "2026-08-05"
+      },
+      "tube-feed-algorithm": {
+        "Id": "tube-feed-algorithm",
+        "Type": "decision",
+        "Label": "True Tube feed: local taste + anonymous platform pool",
+        "body": "Auto-advance replayed the same video because identity was the URL string. Fixed with mediaKey() (platform:id) in utils/videoEmbed.js — mirrors MediaService.classifyMedia canonical. Feed = useUpNext hook: candidates from (1) liked channels' RSS, (2) GET /api/media/trending anonymous vote pool, (3) title-seeded search as tail; scored by utils/taste.js. TWO LAYERS: personal 👍/👎 profile stays in localStorage (truegle_taste_v1, never sent, erasable via 'Your taste' > 'Forget it'); only an anonymous counter transition {key,from,to} goes to POST /api/media/signal — no user/session/IP stored (migration 019_media_signals.sql). Ranking = Wilson-ish lower bound + plays + 14d recency. Dislike hides from your feed but does NOT skip the current track.",
+        "ts": "2026-08-06",
+        "created": "2026-08-06"
+      },
+      "player-peek-on-typing": {
+        "Id": "player-peek-on-typing",
+        "Type": "decision",
+        "Label": "Player retracts to a 36px strip while a page field is focused",
+        "body": "Footer/floating player + keyboard inset landed exactly on the page search bar (screenshots 2026-08-05). hooks/usePageInputFocus.js detects text entry outside [data-mini]; MiniPlayer clips header+chips+body (never unmounts the iframe — that restarts playback) and shows a 36px strip with play/pause, next, restore, close. 301px -> 39px verified. Slot-docked player is exempt (it is in the layout).",
+        "ts": "2026-08-06",
+        "created": "2026-08-06"
       }
     },
     "entity": {
@@ -1301,5 +1325,5 @@
       }
     }
   },
-  "updated": "2026-08-05"
+  "updated": "2026-08-06"
 }

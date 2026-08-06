@@ -4,6 +4,7 @@ import { usePlayer } from '../../context/PlayerContext';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useChannelFeed } from '../../hooks/useChannelFeed';
 import { parsePlayerQuery, toHandle } from '../../utils/playerQuery';
+import { hasTaste, forgetTaste } from '../../utils/taste';
 
 // The list that lives under the player — the same one in all three
 // presentations.
@@ -27,6 +28,7 @@ export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f
   const feed = useChannelFeed();
   const feedRows = feed.videos;
   const [added, setAdded] = useState(null);
+  const [forgetOpen, setForgetOpen] = useState(false);
   const [showingResults, setShowingResults] = useState(false);
   const revertTimer = useRef(null);
 
@@ -155,7 +157,12 @@ export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f
               {/* Play now: jumps the queue and comes back to what was on. */}
               <button
                 type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); playNow(r); }}
+                // Choosing something to play is a selection, exactly like an
+                // add — so it starts the same countdown back to the queue.
+                // Without this the panel sat on results forever once you had
+                // picked, and the up-next list (and everything under it) was
+                // unreachable until you cleared the search.
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); playNow(r); scheduleRevert(); }}
                 title="Play now — comes back to what you were on afterwards"
                 aria-label={`Play ${r.title || 'this'} now`}
                 className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg border border-white/15 text-white/70 hover:text-white hover:bg-white/10 transition-colors"
@@ -189,6 +196,19 @@ export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f
     <div className="border-t border-white/10 bg-black/30">
       <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/40">
         <ListMusic size={11} /> Up next
+        {hasTaste() && (
+          <button
+            type="button"
+            onClick={() => setForgetOpen((v) => !v)}
+            aria-pressed={forgetOpen}
+            title="What the player has learned from your thumbs — and how to erase it"
+            className={`${queue.length > 0 ? '' : 'ml-auto '}text-[10px] uppercase tracking-wider transition-colors ${
+              forgetOpen ? 'text-white/70' : 'text-white/25 hover:text-white/60'
+            }`}
+          >
+            Your taste
+          </button>
+        )}
         {queue.length > 0 && (
           <>
             <span className="ml-auto px-1.5 rounded-full text-[9px] font-bold text-black" style={{ background: accent }}>
@@ -225,6 +245,24 @@ export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f
           ))
         )}
       </div>
+      {/* A taste profile you can't delete is a dossier. This wipes the 👍/👎
+          the player has learned from — all of which lives in this browser and
+          nowhere else. The anonymous platform counters have nothing in them
+          tying back to anyone, so there is nothing there to withdraw. */}
+      {forgetOpen && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-t border-white/10">
+          <span className="text-[10px] text-white/35 flex-1 leading-snug">
+            What the player has learned from your 👍/👎 — kept in this browser only.
+          </span>
+          <button
+            type="button"
+            onClick={() => { forgetTaste(); setForgetOpen(false); }}
+            className="shrink-0 px-2 h-6 rounded-md border border-white/15 text-[10px] uppercase tracking-wider text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            Forget it
+          </button>
+        </div>
+      )}
     </div>
   );
 }

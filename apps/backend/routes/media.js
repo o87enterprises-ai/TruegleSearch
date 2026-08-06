@@ -64,6 +64,29 @@ router.post('/', authenticate, rateLimitSearch, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/media/signal  { key, from, to, play?, kind?, title?, … }
+ * PUBLIC AND ANONYMOUS BY DESIGN. A thumb is a counter bump against a video,
+ * with no user, session or IP recorded — the visitor's own taste profile never
+ * leaves their browser. Rate-limited so the counters cost something to game.
+ * Always 200s: a lost vote must never interrupt playback.
+ */
+router.post('/signal', rateLimitSearch, async (req, res) => {
+  const result = await MediaService.signal(req.body || {});
+  return res.json({ success: true, ...result });
+});
+
+/**
+ * GET /api/media/trending?limit=20&exclude=key1,key2
+ * The aggregate pool every visitor draws on before they have a taste of their
+ * own. `exclude` drops what they have already seen this session.
+ */
+router.get('/trending', async (req, res) => {
+  const exclude = String(req.query.exclude || '').split(',').filter(Boolean);
+  const results = await MediaService.trending({ limit: req.query.limit, exclude });
+  return res.json({ success: true, results });
+});
+
 /** POST /api/media/:id/play — best-effort popularity signal for ordering. */
 router.post('/:id/play', async (req, res) => {
   await MediaService.countPlay(req.params.id);

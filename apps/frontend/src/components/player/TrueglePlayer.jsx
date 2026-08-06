@@ -8,10 +8,10 @@ import PlayerTransport, { PLAY_MODES } from './PlayerTransport';
 import PlayerListSlot from './PlayerListSlot';
 import PlayerProgress from './PlayerProgress';
 import { useEmbedPlayback } from '../../hooks/useEmbedPlayback';
-import { getPlayable } from '../../utils/videoEmbed';
-import { titleFromUrl } from '../../utils/playerLink';
-
-const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+import { useUpNext } from '../../hooks/useUpNext';
+import { useSwipeNav } from '../../hooks/useSwipeNav';
+import { rate, useRating, signalPlay } from '../../utils/taste';
+import { mediaKey } from '../../utils/videoEmbed';
 
 // THE player. There is only one, and this is it.
 //
@@ -116,33 +116,60 @@ export default function TrueglePlayer({
     else el.play?.().catch(() => { /* autoplay policy — user will press play */ });
   }, [paused, current]);
 
-  // Nothing queued? Keep going anyway — find the next relevant track from
-  // what's playing and roll into it, the way an autoplay feed does. Only in
-  // 'auto': the other modes are explicit instructions about what comes next,
-  // and quietly overriding them would be wrong.
-  const seen = useRef(new Set());
+  // Nothing queued? Keep going anyway — build the next thing from this
+  // browser's own 👍/👎 profile and the platform's anonymous vote pool, the way
+  // an autoplay feed does. Only in 'auto': the other play modes are explicit
+  // instructions about what comes next and quietly overriding them would be
+  // wrong.
+  const upNext = useUpNext();
   const advance = useCallback(async () => {
     if (queue.length > 0 || playMode !== 'auto' || !current) { next(); return; }
-    const seed = current.title || titleFromUrl(current.pageUrl || current.src || '');
-    if (!seed) { next(); return; }
-    seen.current.add(current.src);
-    try {
-      const res = await fetch(`${BACKEND}/api/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: seed, filters: { category: 'videos', perPage: 12 } }),
-      });
-      const data = await res.json();
-      const nextUp = (data.results || [])
-        .map((r) => {
-          const base = getPlayable(r.url);
-          return base ? { ...base, title: r.title || titleFromUrl(r.url), pageUrl: r.url, poster: r.image } : null;
-        })
-        .find((r) => r && !seen.current.has(r.src));
-      if (nextUp) { play(nextUp); return; }
-    } catch { /* offline or search down — fall through */ }
+    const nextUp = await upNext.pick(current);
+    if (nextUp) { play(nextUp); return; }
     next();
-  }, [queue.length, playMode, current, next, play]);
+  }, [queue.length, playMode, current, next, play, upNext]);
+
+  // A manual Next must always go somewhere. With an empty queue it used to do
+  // nothing at all, which is what "I hit next and nothing happened" was: the
+  // feed is now what it falls through to, in every play mode, because pressing
+  // the button is an explicit instruction that outranks repeat-one.
+  const goNext = useCallback(async () => {
+    if (queue.length > 0 || !current) { skipNext(); return; }
+    const nextUp = await upNext.pick(current);
+    if (nextUp) play(nextUp); else skipNext();
+  }, [queue.length, current, upNext, play, skipNext]);
+
+  // Everything that plays counts as seen, however it got here — otherwise
+  // picking something by hand and then letting it run could hand you the same
+  // clip straight back. The anonymous play counter (no id of any kind, see
+  // utils/taste.js) goes out on the same edge, once per piece of media.
+  const counted = useRef('');
+  useEffect(() => {
+    const key = mediaKey(current);
+    if (!key || counted.current === key) return;
+    counted.current = key;
+    upNext.remember(current);
+    signalPlay(current);
+  }, [current, upNext]);
+
+  // 👍/👎. The thumb steers what plays next; a dislike also guarantees this
+  // never comes back. It deliberately does NOT skip — you may be halfway
+  // through and simply registering an opinion, and losing your place to a
+  // mis-tap is the same complaint that made the queue feel unsafe.
+  const rating = useRating(current);
+  const onRate = useCallback((dir) => { if (current) rate(current, dir); }, [current]);
+
+  // Swipe up = next, swipe down = back, tap = play/pause. Only in full screen:
+  // reading the gesture at all needs a transparent sheet over the embed (an
+  // iframe swallows touches), and that sheet costs the platform's own
+  // controls — a fair trade only when our controller bar is already pinned to
+  // the bottom of the screen, which is exactly what full screen is.
+  const swipe = useSwipeNav({
+    active: fullscreen,
+    onNext: goNext,
+    onPrev: prev,
+    onTap: () => (current ? togglePause() : null),
+  });
 
   // Platform embeds fire no `ended` event — that is why the queue never
   // advanced by itself for the things people actually queue. This talks
@@ -165,10 +192,13 @@ export default function TrueglePlayer({
     <PlayerTransport
       playing={!!current && !paused}
       canPrev={history.length > 0}
-      canNext={queue.length > 0}
+      canNext={queue.length > 0 || !!current}
       queueCount={queue.length}
       accent={accent}
       showList={showList}
+      showRating={!!current}
+      rating={rating}
+      onRate={current ? onRate : undefined}
       showPlayMode
       playMode={playMode}
       onCyclePlayMode={() => setPlayMode(PLAY_MODES[(PLAY_MODES.indexOf(playMode) + 1) % PLAY_MODES.length])}
@@ -183,7 +213,7 @@ export default function TrueglePlayer({
       onPlayPause={() => (current ? togglePause() : null)}
       onStop={stop}
       onPrev={prev}
-      onNext={skipNext}
+      onNext={goNext}
       onToggleList={() => setListOpen((v) => !v)}
       onPopOut={cyclePopOut}
       onShare={current ? share : undefined}
@@ -216,7 +246,7 @@ export default function TrueglePlayer({
           resolved to zero height and full screen was a black rectangle with
           controls on it. */}
       <div
-        className={clipScreen ? 'max-h-0 overflow-hidden' : (fullscreen ? 'flex flex-1 min-h-0' : '')}
+        className={clipScreen ? 'max-h-0 overflow-hidden' : (fullscreen ? 'relative flex flex-1 min-h-0' : '')}
         aria-hidden={clipScreen}
       >
         <PlayerScreen
@@ -228,6 +258,16 @@ export default function TrueglePlayer({
           compact={presentation === 'popped'}
           maxHeight={presentation === 'popped' ? 320 : 420}
         />
+        {swipe && current && (
+          <div
+            {...swipe}
+            // Vertical panning has to be ours or the browser starts scrolling
+            // the page and the gesture never completes.
+            style={{ touchAction: 'pan-x' }}
+            className="absolute inset-0 z-10"
+            aria-hidden="true"
+          />
+        )}
       </div>
       {/* With the picture hidden there is nothing on screen saying anything is
           happening — so the play head goes here. */}

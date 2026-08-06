@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
-import { X, Minus, Maximize2, GripHorizontal, Eye, EyeOff, PictureInPicture2, PanelBottom } from 'lucide-react';
+import { X, Minus, Maximize2, GripHorizontal, Eye, EyeOff, PictureInPicture2, PanelBottom, Play, Pause, SkipForward, ChevronUp } from 'lucide-react';
 import { MODE_COLORS, BRAND_GRADIENT } from '../../config/modeTheme';
 import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
@@ -9,6 +9,7 @@ import { usePlayerQuery } from '../../utils/playerQueryStore';
 import { SEARCH_SCOPES, toHandle } from '../../utils/playerQuery';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
 import { useKeyboardInset } from '../../hooks/useKeyboardInset';
+import { usePageInputFocus } from '../../hooks/usePageInputFocus';
 
 // The floating FRAME for the one player. Rendered ABOVE <Routes> (in
 // AppContent) so the media node it hosts is never unmounted on navigation —
@@ -48,8 +49,8 @@ const loadGeom = () => {
 
 export default function MiniPlayer() {
   const {
-    current, queue, history, minimized, poppedOut, dock, footerView,
-    next, prev, close, toggleMinimize, setPoppedOut, setFooterView, setDock,
+    current, queue, history, minimized, poppedOut, dock, footerView, paused,
+    next, prev, close, toggleMinimize, setPoppedOut, setFooterView, setDock, togglePause,
   } = usePlayer();
   // 'footer' = pinned across the bottom of the page, above the feedback bar.
   // The frame stops being a window in that state: no dragging, no resizing,
@@ -84,6 +85,18 @@ export default function MiniPlayer() {
   const [dragging, setDragging] = useState(false);
   const [adjust, setAdjust] = useState(false);   // move mode: drag from anywhere
   const [playerQuery, setPlayerQuery] = useState('');
+  // ── getting out of the way of the page's search bar ──────────────────────
+  // Pinned to the bottom of a phone screen and lifted by the keyboard, the
+  // player lands exactly on the search bar the visitor is typing into — it
+  // covered the input, the suggestions under it, and on the landing page the
+  // whole search block. While a page field has focus the player retracts to a
+  // single 36px strip: still playing, still controllable, no longer in front
+  // of the thing being used. `peekOpen` is the escape hatch for anyone who
+  // wants it back mid-type, and it resets when focus leaves so the retract is
+  // automatic again next time.
+  const pageTyping = usePageInputFocus();
+  const [peekOpen, setPeekOpen] = useState(false);
+  useEffect(() => { if (!pageTyping) setPeekOpen(false); }, [pageTyping]);
   // Bumped on submit so TrueglePlayer opens its list even when the text is
   // unchanged — otherwise a second Enter looks like nothing happened.
   const [submitNonce, setSubmitNonce] = useState(0);
@@ -147,6 +160,9 @@ export default function MiniPlayer() {
     };
   }, [wantSlot]);
   const docked = !!slot && wantSlot;
+  // Only the free-floating and footer forms overlap the page. The slot-docked
+  // player is IN the layout, so it can't be in anybody's way.
+  const peek = pageTyping && !peekOpen && !docked;
 
   // ── drag + resize ────────────────────────────────────────────────────────
   const onMove = useCallback((e) => {
@@ -331,6 +347,9 @@ export default function MiniPlayer() {
   // Every control is a ≥36px square. The old 13px icons packed edge to edge
   // were the other half of the "hard to maneuver" problem.
   const ctrl = 'flex items-center justify-center w-9 h-9 rounded-lg text-white/60 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors';
+  // The retracted strip trades the 36px target for staying out of the way; it
+  // is a temporary state you are not meant to be operating from.
+  const peekBtn = 'flex items-center justify-center w-7 h-7 rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0';
 
   return (
     <>
@@ -378,12 +397,39 @@ export default function MiniPlayer() {
             aria-hidden="true"
           />
         )}
+        {/* Retracted: the whole player as one 36px strip. The media node is
+            NOT unmounted — it is still playing, and unmounting an iframe
+            restarts it. Only the chrome around it goes away, which is all that
+            was covering the search bar. */}
+        {peek && (
+          <div className="flex items-center gap-0.5 px-1.5 h-9 bg-black/70 backdrop-blur-xl">
+            <button type="button" onClick={() => (current ? togglePause() : null)}
+              title={paused ? 'Play' : 'Pause'} aria-label={paused ? 'Play' : 'Pause'} className={peekBtn}>
+              {paused ? <Play size={14} /> : <Pause size={14} />}
+            </button>
+            <span className="flex-1 min-w-0 truncate text-[11px] text-white/55">
+              {title || 'Truegle player'}
+            </span>
+            <button type="button" onClick={next} title="Next" aria-label="Next" className={peekBtn}>
+              <SkipForward size={14} />
+            </button>
+            <button type="button" onClick={() => setPeekOpen(true)}
+              title="Show the player" aria-label="Show the player" className={peekBtn}>
+              <ChevronUp size={14} />
+            </button>
+            <button type="button" onClick={close} title="Close player (keeps your queue)"
+              aria-label="Close player" className={peekBtn}>
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         {/* ── Grab bar. Thick on purpose: 44px tall, full width, with a visible
             grip so it reads as "hold here to move me".
             Docked, it's gone entirely: the page's search bar is directly above
             and a second search input under it is exactly the duplication we
             took out. ── */}
-        {!docked && (
+        {!docked && !peek && (
         <div
           onPointerDown={footerDock ? undefined : startMove}
           style={{ touchAction: footerDock ? 'auto' : 'none', background: adjust ? 'rgba(34,211,238,0.15)' : tint }}
@@ -482,7 +528,7 @@ export default function MiniPlayer() {
             out player is the same player, so it has to search the same way.
             Sticky with the header so the keyboard can't push them out of
             reach; they retract on Enter and come back on the next keystroke. */}
-        {!docked && scopesOpen && (
+        {!docked && !peek && scopesOpen && (
           <div className="sticky top-[44px] z-40 flex gap-1.5 overflow-x-auto px-2 py-1.5 bg-black/60 backdrop-blur-xl border-b border-white/10">
             {SEARCH_SCOPES.map((sc) => (
               <button
@@ -516,7 +562,7 @@ export default function MiniPlayer() {
             floating FRAME (drag, resize, geometry, accent ring); everything
             inside it is TrueglePlayer, so "one player" is structural rather
             than a resemblance that drifts. */}
-        <div className={clipWhenMin ? 'max-h-0 overflow-hidden' : ''}>
+        <div className={clipWhenMin || peek ? 'max-h-0 overflow-hidden' : ''} aria-hidden={peek}>
           <TrueglePlayer
             presentation={docked ? 'expanded' : 'popped'}
             accent={accent || undefined}
@@ -533,7 +579,7 @@ export default function MiniPlayer() {
             the move toggle once the player is popped out and away from Tube.
             Two buttons for one job, in two different places, was the "press
             pop-out, press move, drag, press move, press pop-out" dance. */}
-        {adjust && !footerDock && !docked && (
+        {adjust && !footerDock && !docked && !peek && (
           <div className="relative z-30 px-3 py-1 border-t border-cyan-400/20 bg-cyan-400/10">
             <span className="text-[10px] uppercase tracking-wider text-cyan-200/80">
               Drag anywhere to move · corner to resize
@@ -544,7 +590,7 @@ export default function MiniPlayer() {
         {/* Resize grip in its own footer strip — never overlaps the media
             controls, and needs no mode of its own. Bigger while moving so a
             thumb can find it without leaving the mode. */}
-        {!minimized && !footerDock && !docked && (
+        {!minimized && !footerDock && !docked && !peek && (
           <div className={`relative z-30 flex justify-end border-t ${adjust ? 'border-cyan-400/20 bg-cyan-400/10' : 'border-white/10 bg-black/20'}`}>
             <div
               onPointerDown={startResize}

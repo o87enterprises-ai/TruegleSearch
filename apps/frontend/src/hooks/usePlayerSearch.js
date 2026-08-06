@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { getPlayable } from '../utils/videoEmbed';
+import { getPlayable, mediaKey } from '../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../utils/playerLink';
 import { parsePlayerQuery, rankPlayable } from '../utils/playerQuery';
 
@@ -158,10 +158,16 @@ export function usePlayerSearch(query, scope = 'all') {
 
     Promise.all([web, community])
       .then(([webRows, communityRows]) => {
+        // De-duplicate by MEDIA, not by URL: a search for a song comes back
+        // with the same upload four times over — youtu.be, /watch?v=,
+        // /embed/…?si=, a mirror — and every one of those is a different
+        // `src`. Keying on src is why the list looked padded with repeats and
+        // why auto-advance rolled straight into another copy of the same clip.
         const seen = new Set();
         const merged = [...communityRows, ...webRows].filter((row) => {
-          if (!row || seen.has(row.src)) return false;
-          seen.add(row.src);
+          const key = row && (mediaKey(row) || row.src);
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
           return true;
         });
         // YouTube first, then the rest — and anything matching the channel
