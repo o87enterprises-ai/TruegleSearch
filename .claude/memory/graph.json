@@ -1034,6 +1034,14 @@
         "body": "Footer/floating player + keyboard inset landed exactly on the page search bar (screenshots 2026-08-05). hooks/usePageInputFocus.js detects text entry outside [data-mini]; MiniPlayer clips header+chips+body (never unmounts the iframe — that restarts playback) and shows a 36px strip with play/pause, next, restore, close. 301px -> 39px verified. Slot-docked player is exempt (it is in the layout).",
         "ts": "2026-08-06",
         "created": "2026-08-06"
+      },
+      "tube-browse-deck": {
+        "Id": "tube-browse-deck",
+        "Type": "decision",
+        "Label": "Idle Tube viewport = swipeable deck of search results",
+        "body": "PlayerBrowse.jsx fills the video viewport when nothing is playing AND a search has results (falls back to PlayerStarters creators when the query is empty). Vertical CSS scroll-snap column — swipe up/down is the BROWSER'S native scroll, not a gesture handler, so it can't fight the page or the fullscreen swipe nav. Two-stage preview on hold/hover: instantly cycle YouTube's free hq1/hq2/hq3 storyboard stills, then at ~900ms mount a muted controls=0 embed (one at a time, unmounted on release, PLAYER_SANDBOX kept). Tap plays + queues the rest; a sustained hold does NOT choose. usePlayerSearch was lifted from PlayerListSlot into TrueglePlayer so the deck and the list share ONE request (verified 1 call). PLAYER_SANDBOX moved to components/player/playerSandbox.js to avoid a circular import.",
+        "ts": "2026-08-06",
+        "created": "2026-08-06"
       }
     },
     "entity": {

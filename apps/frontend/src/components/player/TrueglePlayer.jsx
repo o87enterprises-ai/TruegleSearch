@@ -8,6 +8,7 @@ import PlayerTransport, { PLAY_MODES } from './PlayerTransport';
 import PlayerListSlot from './PlayerListSlot';
 import PlayerProgress from './PlayerProgress';
 import { useEmbedPlayback } from '../../hooks/useEmbedPlayback';
+import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useUpNext } from '../../hooks/useUpNext';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
 import { rate, useRating, signalPlay } from '../../utils/taste';
@@ -55,6 +56,10 @@ export default function TrueglePlayer({
   const frameRef = useRef(null);
   const rootRef = useRef(null);
   const [listOpen, setListOpen] = useState(false);
+  // ONE search per query, shared by the list below and the browse deck in the
+  // viewport. It used to live inside PlayerListSlot; with two consumers that
+  // would have been two identical round trips per keystroke.
+  const search = usePlayerSearch(query, scope);
   const [shareState, setShareState] = useState('idle');
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -257,6 +262,8 @@ export default function TrueglePlayer({
           fill={fullscreen}
           compact={presentation === 'popped'}
           maxHeight={presentation === 'popped' ? 320 : 420}
+          browse={search.results}
+          browseLoading={search.loading}
         />
         {swipe && current && (
           <div
@@ -294,6 +301,7 @@ export default function TrueglePlayer({
       {listVisible && (
         <div className={fullscreen ? 'shrink-0 max-h-[45vh] overflow-y-auto' : ''}>
           <PlayerListSlot
+            search={search}
             query={query}
             scope={scope}
             accent={accent}

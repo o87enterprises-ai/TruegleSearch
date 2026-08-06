@@ -2,21 +2,14 @@ import { forwardRef } from 'react';
 import { Music } from 'lucide-react';
 import TruegleWatermark from '../ui/TruegleWatermark';
 import PlayerStarters from './PlayerStarters';
+import PlayerBrowse from './PlayerBrowse';
+import { PLAYER_SANDBOX } from './playerSandbox';
+
+export { PLAYER_SANDBOX };
 
 // The media surface itself — the only place an embed is mounted, so playback
 // state lives in exactly one node no matter which presentation is on screen.
 //
-// Cross-origin embeds run sandboxed. `allow-same-origin` here grants the frame
-// ITS OWN origin (youtube-nocookie / player.vimeo / w.soundcloud / tiktok),
-// never ours — the embeds need it for storage and won't play without it. What
-// is deliberately withheld is `allow-top-navigation*`: that's the permission
-// that lets an embed yank the whole tab somewhere else, and withholding it is
-// what makes a shared Truegle player link safe to open. Same lesson as the
-// 2026-08-01 ad hijack — CSP does not stop top-navigation, only the sandbox
-// does.
-export const PLAYER_SANDBOX =
-  'allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox';
-
 // `fill` = take all the height that's going (full screen), instead of sizing
 // from the clip's aspect ratio. The controls bar below stays on screen either
 // way — that's the whole reason full screen is ours and not the embed's.
@@ -33,14 +26,24 @@ function withPlaybackChannel(kind, src) {
   return `${src}${sep}autoplay=1`;
 }
 
-const PlayerScreen = forwardRef(function PlayerScreen({ source, mediaRef, frameRef, onEnded, maxHeight, fill = false, compact = false }, ref) {
-  // Idle. An empty black rectangle reads as a player that has never worked, so
-  // this is four Truegle creators and their latest uploads instead — real
-  // things to press, and the roster in front of people.
+const PlayerScreen = forwardRef(function PlayerScreen({
+  source, mediaRef, frameRef, onEnded, maxHeight, fill = false, compact = false,
+  // What the current search turned up. With nothing playing, the viewport
+  // becomes a swipeable deck of those results instead of a black rectangle.
+  browse = null, browseLoading = false,
+}, ref) {
+  // Idle. An empty black rectangle reads as a player that has never worked.
+  // If a search has run, the results themselves fill it — full-size, one flick
+  // apart, previewable by holding. Otherwise it's four Truegle creators and
+  // their latest uploads: real things to press, and the roster in front of
+  // people.
   if (!source) {
+    const browsing = browseLoading || (browse && browse.length > 0);
     return (
-      <div ref={ref} className={`w-full overflow-y-auto ${fill ? 'flex-1 min-h-0' : ''}`}>
-        <PlayerStarters compact={compact} />
+      <div ref={ref} className={`w-full ${browsing ? '' : 'overflow-y-auto'} ${fill ? 'flex flex-col flex-1 min-h-0' : ''}`}>
+        {browsing
+          ? <PlayerBrowse rows={browse} loading={browseLoading} compact={compact} fill={fill} />
+          : <PlayerStarters compact={compact} />}
       </div>
     );
   }

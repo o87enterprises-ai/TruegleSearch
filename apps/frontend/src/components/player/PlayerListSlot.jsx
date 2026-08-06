@@ -19,9 +19,14 @@ import { hasTaste, forgetTaste } from '../../utils/taste';
 // the list away mid-choice.
 const REVERT_MS = 10000;
 
-export default function PlayerListSlot({ query = '', scope = 'all', accent = '#f43f5e', onRevert, compact = false }) {
+export default function PlayerListSlot({ search, query = '', scope = 'all', accent = '#f43f5e', onRevert, compact = false }) {
   const { current, queue, jump, removeFromQueue, enqueue, clearQueue, playNow } = usePlayer();
-  const { results, loading, error, unsupported } = usePlayerSearch(query, scope);
+  // The host runs the search now — the viewport's browse deck shows the same
+  // results, and two hooks on one query meant two identical requests per
+  // keystroke. `own` is the standalone fallback for any caller that doesn't
+  // supply one.
+  const own = usePlayerSearch(search ? '' : query, scope);
+  const { results, loading, error, unsupported } = search || own;
   // Asking for a channel should be able to give you the CHANNEL, not a
   // scattering of its videos: one row to open its real feed, newest first.
   const intent = parsePlayerQuery(query, scope);
