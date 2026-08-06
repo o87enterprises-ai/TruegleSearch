@@ -26,7 +26,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
   // keystroke. `own` is the standalone fallback for any caller that doesn't
   // supply one.
   const own = usePlayerSearch(search ? '' : query, scope, provider);
-  const { results, loading, error, unsupported } = search || own;
+  const { results, loading, error, unsupported, trace } = search || own;
   // Asking for a channel should be able to give you the CHANNEL, not a
   // scattering of its videos: one row to open its real feed, newest first.
   const intent = parsePlayerQuery(query, scope, provider);
@@ -153,7 +153,22 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
             </p>
           )}
           {!feedRows && !unsupported && results && results.length === 0 && !loading && !pending && (
-            <p className="px-3 py-2 text-[11px] text-white/40">Nothing here can play in the Truegle player.</p>
+            <div className="px-3 py-2">
+              <p className="text-[11px] text-white/40">Nothing here can play in the Truegle player.</p>
+              {/* What was asked and what came back, in the UI rather than in a
+                  console nobody can open on a phone. "social 0→0" means the
+                  backend found nothing; "social 12→0" means it found plenty and
+                  none of it was playable. Those are completely different
+                  faults and the difference used to be invisible. */}
+              {trace && (
+                <p className="mt-1 text-[10px] text-white/25 leading-snug break-words">
+                  asked: {trace.steps.join(' · ') || 'nothing'}
+                  {trace.community ? ` · community ${trace.community}` : ''}
+                  <br />
+                  <span className="text-white/20">q: {trace.query}</span>
+                </p>
+              )}
+            </div>
           )}
           {(feedRows || results || []).map((r) => (
             <div key={r.pageUrl || r.src} className={`flex items-center gap-2 px-2 ${rowH} hover:bg-white/5`}>

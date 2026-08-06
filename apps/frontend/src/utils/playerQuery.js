@@ -48,21 +48,25 @@ export const PROVIDERS = [
   // "Anywhere", not "All" — the What row has its own All, and two chips
   // reading the same word in adjacent rows is the kind of thing that makes a
   // control feel arbitrary. It also just answers "where?" better.
-  { id: 'all', label: 'Anywhere', site: '', channelLabel: 'Channel', prefix: '@' },
-  { id: 'youtube', label: 'YouTube', site: 'site:youtube.com', channelLabel: 'Channel', prefix: '@' },
+  { id: 'all', label: 'Anywhere', site: '', category: 'videos', channelLabel: 'Channel', prefix: '@' },
+  { id: 'youtube', label: 'YouTube', site: 'site:youtube.com', category: 'videos', channelLabel: 'Channel', prefix: '@' },
   // site: takes a DOMAIN. `site:reddit.com/r` is a path prefix, which only
   // Google honours — every other engine SearXNG fans out to treats it as
   // malformed and returns nothing, which is why Reddit searches came back
   // empty on the live index while passing against a mock.
-  { id: 'reddit', label: 'Reddit', site: 'site:reddit.com', channelLabel: 'Subreddit', prefix: 'r/' },
-  { id: 'vimeo', label: 'Vimeo', site: 'site:vimeo.com', channelLabel: 'Creator', prefix: '' },
+  // 'social' is the backend's OWN Reddit path: SearXNG's social-media category
+  // plus a Google query it builds itself. It does not depend on our site:
+  // filter surviving, and — the reason this matters — it still answers when
+  // SearXNG is cold, which 'web' and 'videos' may not.
+  { id: 'reddit', label: 'Reddit', site: 'site:reddit.com', category: 'social', channelLabel: 'Subreddit', prefix: 'r/' },
+  { id: 'vimeo', label: 'Vimeo', site: 'site:vimeo.com', category: 'videos', channelLabel: 'Creator', prefix: '' },
   // NOT "Artist" — the What row already has an Artist chip, and two chips with
   // the same word on screen is worse than a slightly duller label.
-  { id: 'soundcloud', label: 'SoundCloud', site: 'site:soundcloud.com', channelLabel: 'Profile', prefix: '' },
-  { id: 'tiktok', label: 'TikTok', site: 'site:tiktok.com', channelLabel: 'Creator', prefix: '@' },
-  { id: 'dailymotion', label: 'Dailymotion', site: 'site:dailymotion.com', channelLabel: 'Channel', prefix: '' },
-  { id: 'rumble', label: 'Rumble', site: 'site:rumble.com', channelLabel: 'Channel', prefix: 'c/' },
-  { id: 'odysee', label: 'Odysee', site: 'site:odysee.com', channelLabel: 'Channel', prefix: '@' },
+  { id: 'soundcloud', label: 'SoundCloud', site: 'site:soundcloud.com', category: 'web', channelLabel: 'Profile', prefix: '' },
+  { id: 'tiktok', label: 'TikTok', site: 'site:tiktok.com', category: 'videos', channelLabel: 'Creator', prefix: '@' },
+  { id: 'dailymotion', label: 'Dailymotion', site: 'site:dailymotion.com', category: 'videos', channelLabel: 'Channel', prefix: '' },
+  { id: 'rumble', label: 'Rumble', site: 'site:rumble.com', category: 'videos', channelLabel: 'Channel', prefix: 'c/' },
+  { id: 'odysee', label: 'Odysee', site: 'site:odysee.com', category: 'videos', channelLabel: 'Channel', prefix: '@' },
 ];
 const PROVIDER_BY_ID = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
 export const providerMeta = (id) => PROVIDER_BY_ID[id] || PROVIDER_BY_ID.all;
@@ -201,12 +205,23 @@ export function parsePlayerQuery(raw, scope = 'all', provider = 'all') {
     topic: text,
   }[activeScope];
 
-  const backendQuery = [site, channelTerms, shaped]
-    .filter(Boolean).join(' ').trim();
+  const siteQuery = [site, channelTerms, shaped].filter(Boolean).join(' ').trim();
+
+  // The category-scoped ask does NOT carry our site: filter. The backend's
+  // social path appends its own ("… site:reddit.com OR site:twitter.com …"),
+  // and stacking two site: clauses in one Google query returns nothing. What
+  // keeps non-Reddit noise out is getPlayable(), which refuses every host in
+  // that list except Reddit.
+  const category = providerMeta(platform && platform !== 'any' ? platform : 'all').category || 'videos';
+  const scopedQuery = category === 'social'
+    ? [channelTerms, shaped].filter(Boolean).join(' ').trim()
+    : siteQuery;
 
   return {
-    text, channel, platform, scope: activeScope,
-    backendQuery: backendQuery || text, explicit,
+    text, channel, platform, scope: activeScope, category,
+    backendQuery: scopedQuery || siteQuery || text,
+    siteQuery: siteQuery || text,
+    explicit,
   };
 }
 

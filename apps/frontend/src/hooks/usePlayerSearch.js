@@ -57,10 +57,7 @@ const MIN_CHARS = 2;
 // Long enough for a cold SearXNG plus a retry; short enough that a dead
 // request doesn't spin forever.
 const REQUEST_TIMEOUT_MS = 20000;
-// Platforms the 'videos' index cannot hold, so the general web index is asked
-// first for them.
-const WEB_FIRST = new Set(['reddit', 'soundcloud']);
-// …and the ones YouTube's own search can stand in for. Anything else asked for
+// The providers YouTube's own search can stand in for. Anything else asked for
 // explicitly must come back empty rather than come back wrong.
 const YT_FALLBACK_OK = new Set([null, undefined, 'youtube', 'any']);
 
@@ -71,6 +68,10 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
   // A pasted link we can't host — kept apart from `error`, because it isn't a
   // failure, it's an honest "not this provider".
   const [unsupported, setUnsupported] = useState('');
+  // What was actually asked, and what came back. An empty list is currently
+  // indistinguishable from a broken one, which is why "no results" took three
+  // rounds of guessing to diagnose — the UI knew nothing and so did I.
+  const [trace, setTrace] = useState(null);
   const abortRef = useRef(null);
 
   const run = useCallback((raw, activeScope, activeProvider) => {
@@ -117,6 +118,7 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
     // The provider is often cold and answers the first ask with nothing, which
     // is exactly the "took three tries" symptom. One retry, and a ceiling so a
     // hung request can't leave the spinner running forever.
+    const steps = [];
     const once = (category, query) => fetch(`${BACKEND}/api/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -124,7 +126,14 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
       signal: controller.signal,
     })
       .then((r) => r.json())
-      .then((d) => (d.results || []).map((r) => toSource(r, allowReddit)).filter(Boolean));
+      .then((d) => {
+        const raw = (d.results || []).length;
+        const rows = (d.results || []).map((r) => toSource(r, allowReddit)).filter(Boolean);
+        // raw vs playable is the whole diagnosis: 0/0 means the backend found
+        // nothing, 12/0 means it found plenty and none of it can be played.
+        steps.push(`${category} ${raw}→${rows.length}`);
+        return rows;
+      });
 
     // One retry, on the FIRST ask only. Retrying every rung of the fallback
     // chain turned an empty search into eight sequential requests and ten
@@ -135,18 +144,19 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         : new Promise((res) => { setTimeout(res, 500); }).then(() => once(category, query))))
       .catch((e) => { if (e.name === 'AbortError') throw e; return []; });
 
-    // WHICH INDEX FIRST. The 'videos' category only fans out to video engines,
-    // and Reddit and SoundCloud are not in any of them — asking there first
-    // meant two guaranteed-empty requests (the first with a retry) before the
-    // one that could actually answer, which on a cold SearXNG is most of the
-    // 20s budget. Ask the index that can plausibly hold the answer first.
-    const first = WEB_FIRST.has(intent.platform) ? 'web' : 'videos';
-    const second = first === 'web' ? 'videos' : 'web';
+    // WHICH INDEX FIRST. Each provider names the backend category that can
+    // actually hold it (see PROVIDERS). Reddit is 'social' — the backend's own
+    // Reddit path, which queries SearXNG's social-media category AND builds its
+    // own Google query, so it still answers when SearXNG is cold. Asking
+    // 'videos' first for Reddit meant two guaranteed-empty requests, the first
+    // retried, before anything that could possibly answer — most of the 20s
+    // budget spent proving a video index has no Reddit posts in it.
+    const first = intent.category || 'videos';
 
     // Scoped first, then progressively looser — but never so loose that an
     // explicit ask ("!yt", "@channel", the Reddit chip) is quietly ignored.
     const web = ask(first, intent.backendQuery, true)
-      .then((rows) => (rows.length ? rows : ask(second, intent.backendQuery)))
+      .then((rows) => (rows.length ? rows : ask('web', intent.siteQuery)))
       .then((rows) => (rows.length || intent.explicit ? rows : ask('videos', q)))
       .then((rows) => (rows.length ? rows : (intent.explicit ? [] : ask('web', q))))
       // The last resort is YouTube's OWN search, so it can only ever answer a
@@ -201,6 +211,7 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         // YouTube first, then the rest — and anything matching the channel
         // that was asked for above its own group.
         setResults(rankPlayable(merged, intent));
+        setTrace({ steps, community: communityRows.length, query: intent.backendQuery });
       })
       // An aborted request is a newer keystroke, not a failure.
       .catch((e) => { if (e.name !== 'AbortError') setError('Search is unreachable right now.'); })
@@ -214,5 +225,5 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  return { results, loading, error, unsupported };
+  return { results, loading, error, unsupported, trace };
 }

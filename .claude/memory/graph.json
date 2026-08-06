@@ -424,6 +424,14 @@
         "body": "(1) toHandle() mangled pasted URLs: the Channel chip rewrites the box every keystroke, so a pasted link became 'r/https://wwwredditcom/...' — no longer a URL, sent to search as garbage. toHandle now passes anything matching ^https?:// straight through. Affected YouTube's @ too. (2) 'site:reddit.com/r' is a PATH prefix — only Google honours it; every other SearXNG engine returns nothing. Provider site is now domain-only 'site:reddit.com' and a subreddit is a quoted TERM. (3) The 'videos' category has no reddit/soundcloud engines, so those asked two guaranteed-empty requests (first with a retry) before the web index — most of the 20s budget on a cold SearXNG. WEB_FIRST set fixes ordering; YT_FALLBACK_OK stops the YouTube Data API standing in for an explicit non-YouTube ask (was returning YouTube videos for a Reddit search and burning 100 quota units). LESSON: cannot reach the live backend from the agent sandbox (proxy 403) — search-shaping changes are mock-verified only and MUST be flagged as unverified.",
         "ts": "2026-08-06",
         "created": "2026-08-06"
+      },
+      "reddit-social-category": {
+        "Id": "reddit-social-category",
+        "Type": "fact",
+        "Label": "Reddit search must use the backend's 'social' category, not 'web'",
+        "body": "apps/backend/services/SearchService.js line ~176: searchSocial => SearXNG 'social media' category AND a self-built Google query (`${query} site:reddit.com OR site:twitter.com OR site:facebook.com`). It is the ONLY category with a Reddit path, and it still answers when SearXNG is cold because of the Google leg. 'web' and 'videos' have no Reddit path at all. Our site: filter must NOT be added to a social ask — the backend appends its own and two site: clauses in one Google query returns nothing. Non-Reddit social results (twitter/fb/HN) are dropped client-side by getPlayable. PROVIDERS entries now each carry a 'category'. Valid backend categories: all|web|news|videos|images|shopping|social.",
+        "ts": "2026-08-06",
+        "created": "2026-08-06"
       }
     },
     "decision": {
