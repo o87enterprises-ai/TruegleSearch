@@ -1344,6 +1344,15 @@
         "status": "open",
         "ts": "2026-08-05",
         "created": "2026-08-05"
+      },
+      "truegle-games": {
+        "Id": "truegle-games",
+        "Type": "thread",
+        "Label": "Games page — planning, blocked on the AD-POLICY decision",
+        "body": "docs/TRUEGLE-GAMES-PLAN.md written 2026-08-06. Words with Friends / Monopoly / Clash of Clans are IMPOSSIBLE: native apps, no embed API, IP-protected; the FB versions were Meta Instant Games (app-review gated, same wall as IG/FB Reels). Recommends building our own turn-based games. TWO HARD CONSTRAINTS: (1) every HTML5 game network (GameDistribution/CrazyGames/Poki) monetises with interstitials + rewarded video, which AD-POLICY Rule 2 bans on every page from every network — so network games earn nothing unless the policy gets a written sandboxed-iframe exception with its own check:ads rule. (2) Vercel serverless cannot hold a WebSocket, so NO real-time; turn-based only, match state in Postgres with polling — fine for chess/checkers/dominoes/word games, useless for action games. v1 = /games page, shared game shell, six turn-based games, anonymous players, invite links reusing buildShareLink. Phase 1 = Connect 4 solo as the shell go/no-go. Word game is LAST because TWL/SOWPODS dictionaries are Hasbro/Collins copyright (use ENABLE/dwyl, noisier). BLOCKED on 5 [DECIDE] questions.",
+        "status": "open",
+        "ts": "2026-08-06",
+        "created": "2026-08-06"
       }
     }
   },
