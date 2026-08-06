@@ -50,7 +50,11 @@ export const PROVIDERS = [
   // control feel arbitrary. It also just answers "where?" better.
   { id: 'all', label: 'Anywhere', site: '', channelLabel: 'Channel', prefix: '@' },
   { id: 'youtube', label: 'YouTube', site: 'site:youtube.com', channelLabel: 'Channel', prefix: '@' },
-  { id: 'reddit', label: 'Reddit', site: 'site:reddit.com/r', channelLabel: 'Subreddit', prefix: 'r/' },
+  // site: takes a DOMAIN. `site:reddit.com/r` is a path prefix, which only
+  // Google honours — every other engine SearXNG fans out to treats it as
+  // malformed and returns nothing, which is why Reddit searches came back
+  // empty on the live index while passing against a mock.
+  { id: 'reddit', label: 'Reddit', site: 'site:reddit.com', channelLabel: 'Subreddit', prefix: 'r/' },
   { id: 'vimeo', label: 'Vimeo', site: 'site:vimeo.com', channelLabel: 'Creator', prefix: '' },
   // NOT "Artist" — the What row already has an Artist chip, and two chips with
   // the same word on screen is worse than a slightly duller label.
@@ -81,6 +85,13 @@ const squash = (v) => String(v || '').toLowerCase().replace(/[\s._-]/g, '');
 // YouTube — "Darkwaters 9" returns a film and a DND series, @darkwaters9
 // returns the channel.
 export const toHandle = (v, provider = 'youtube') => {
+  // A LINK IS NOT A HANDLE. The Channel chip rewrites the box on every
+  // keystroke, so pasting a URL while it was on produced
+  // "r/https://wwwredditcom/r/aww/comments/..." — no longer a URL, so it went
+  // to the search backend as a garbage query and came back with nothing. That
+  // is what "not even direct links work" was. Pass links through untouched.
+  const asText = String(v || '');
+  if (/^\s*https?:\/\//i.test(asText)) return asText.trim();
   const { prefix } = providerMeta(provider === 'all' ? 'youtube' : provider);
   const bare = squash(String(v || '').replace(/^@+/, '').replace(/^r\//i, '').replace(/^c\//i, ''));
   return bare ? `${prefix}${bare}` : '';
@@ -174,13 +185,11 @@ export function parsePlayerQuery(raw, scope = 'all', provider = 'all') {
   // spaces out, leading @ on — and asked for exactly that way.
   let channelTerms = channel ? toHandle(channel, platform || 'youtube') : '';
 
-  // On Reddit the "channel" is a path, not a term — site:reddit.com/r/aww is a
-  // far sharper ask than the words "r/aww" floating in a query, and it is the
-  // only form that reliably returns just that subreddit.
-  if (platform === 'reddit' && channelTerms) {
-    site = `site:reddit.com/${channelTerms}`;
-    channelTerms = '';
-  }
+  // A subreddit stays a TERM alongside the domain scope, for the same reason:
+  // `site:reddit.com/r/aww` is a path filter most engines don't support.
+  // `site:reddit.com "r/aww"` works everywhere and is nearly as sharp, since
+  // the subreddit name appears in the URL and the page of every post in it.
+  if (platform === 'reddit' && channelTerms) channelTerms = `"${channelTerms}"`;
 
   // Scope shapes the words around the query the way YouTube's chips do.
   const shaped = {

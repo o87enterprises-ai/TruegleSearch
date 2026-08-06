@@ -57,6 +57,12 @@ const MIN_CHARS = 2;
 // Long enough for a cold SearXNG plus a retry; short enough that a dead
 // request doesn't spin forever.
 const REQUEST_TIMEOUT_MS = 20000;
+// Platforms the 'videos' index cannot hold, so the general web index is asked
+// first for them.
+const WEB_FIRST = new Set(['reddit', 'soundcloud']);
+// …and the ones YouTube's own search can stand in for. Anything else asked for
+// explicitly must come back empty rather than come back wrong.
+const YT_FALLBACK_OK = new Set([null, undefined, 'youtube', 'any']);
 
 export function usePlayerSearch(query, scope = 'all', provider = 'all') {
   const [results, setResults] = useState(null);
@@ -129,13 +135,25 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         : new Promise((res) => { setTimeout(res, 500); }).then(() => once(category, query))))
       .catch((e) => { if (e.name === 'AbortError') throw e; return []; });
 
+    // WHICH INDEX FIRST. The 'videos' category only fans out to video engines,
+    // and Reddit and SoundCloud are not in any of them — asking there first
+    // meant two guaranteed-empty requests (the first with a retry) before the
+    // one that could actually answer, which on a cold SearXNG is most of the
+    // 20s budget. Ask the index that can plausibly hold the answer first.
+    const first = WEB_FIRST.has(intent.platform) ? 'web' : 'videos';
+    const second = first === 'web' ? 'videos' : 'web';
+
     // Scoped first, then progressively looser — but never so loose that an
-    // explicit ask ("!yt", "@channel") is quietly ignored.
-    const web = ask('videos', intent.backendQuery, true)
-      .then((rows) => (rows.length ? rows : ask('web', intent.backendQuery)))
+    // explicit ask ("!yt", "@channel", the Reddit chip) is quietly ignored.
+    const web = ask(first, intent.backendQuery, true)
+      .then((rows) => (rows.length ? rows : ask(second, intent.backendQuery)))
       .then((rows) => (rows.length || intent.explicit ? rows : ask('videos', q)))
       .then((rows) => (rows.length ? rows : (intent.explicit ? [] : ask('web', q))))
-      .then((rows) => (rows.length ? rows : youtube()))
+      // The last resort is YouTube's OWN search, so it can only ever answer a
+      // YouTube-shaped question. Firing it for an explicit Reddit or SoundCloud
+      // ask returned YouTube videos for a Reddit search — and burned 100 quota
+      // units of 10k/day to do it.
+      .then((rows) => (rows.length || !YT_FALLBACK_OK.has(intent.platform) ? rows : youtube()))
       .catch((e) => { if (e.name === 'AbortError') throw e; return []; });
 
     // Last resort: YouTube's own search. It answers "find me this video"

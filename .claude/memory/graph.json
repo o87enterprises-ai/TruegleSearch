@@ -416,6 +416,14 @@
         "body": "Vercel's dashboard stores environment variables WRITE-ONLY; you cannot read DATABASE_URL back out, only overwrite it. Sources in order: (1) Neon Console > project > Dashboard > Connection string (source of truth), (2) npx vercel env pull from a laptop, (3) reset the neondb_owner password — but that takes prod down until Vercel is updated and redeployed. BEST: skip the string entirely — run migrations by pasting the SQL into Neon Console > SQL Editor, which works from a phone. docs/NEON-TASKS.md carries the paste-ready SQL for each migration; keep adding to it.",
         "ts": "2026-08-06",
         "created": "2026-08-06"
+      },
+      "reddit-search-live-bugs": {
+        "Id": "reddit-search-live-bugs",
+        "Type": "fact",
+        "Label": "Three bugs that made Reddit return nothing on the LIVE index (mocks hid all of them)",
+        "body": "(1) toHandle() mangled pasted URLs: the Channel chip rewrites the box every keystroke, so a pasted link became 'r/https://wwwredditcom/...' — no longer a URL, sent to search as garbage. toHandle now passes anything matching ^https?:// straight through. Affected YouTube's @ too. (2) 'site:reddit.com/r' is a PATH prefix — only Google honours it; every other SearXNG engine returns nothing. Provider site is now domain-only 'site:reddit.com' and a subreddit is a quoted TERM. (3) The 'videos' category has no reddit/soundcloud engines, so those asked two guaranteed-empty requests (first with a retry) before the web index — most of the 20s budget on a cold SearXNG. WEB_FIRST set fixes ordering; YT_FALLBACK_OK stops the YouTube Data API standing in for an explicit non-YouTube ask (was returning YouTube videos for a Reddit search and burning 100 quota units). LESSON: cannot reach the live backend from the agent sandbox (proxy 403) — search-shaping changes are mock-verified only and MUST be flagged as unverified.",
+        "ts": "2026-08-06",
+        "created": "2026-08-06"
       }
     },
     "decision": {
