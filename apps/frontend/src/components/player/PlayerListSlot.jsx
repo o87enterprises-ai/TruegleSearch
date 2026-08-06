@@ -144,8 +144,8 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', acce
               That platform doesn&apos;t let its videos play outside its own app.
               <br />
               <span className="text-white/35">
-                YouTube, Vimeo, TikTok, SoundCloud, Dailymotion, Rumble, Odysee and direct
-                audio/video files all play here.
+                YouTube, Vimeo, TikTok, SoundCloud, Dailymotion, Rumble, Odysee,
+                Reddit posts and direct audio/video files all play here.
               </span>
             </p>
           )}

@@ -15,9 +15,18 @@ function fromThumbnail(image) {
 }
 
 // One search result → a player source, or null if there's no way to play it.
-function toSource(r) {
+//
+// `allowReddit` is a quality gate, not a capability one. A `site:reddit.com`
+// search returns text posts, image posts and link posts alongside the videos,
+// and getPlayable() will happily wrap any of them in the redditmedia embed —
+// which would fill a list whose entire promise is "things to watch" with
+// things to read. So Reddit rows only survive when the user actually asked
+// for Reddit (!reddit / !r). Pasting a Reddit link still always works: that
+// path never comes through here.
+function toSource(r, allowReddit = false) {
   const base = getPlayable(r.url) || fromThumbnail(r.image);
   if (!base) return null;
+  if (base.kind === 'reddit' && !allowReddit) return null;
   return {
     ...base,
     title: r.title || titleFromUrl(r.url),
@@ -97,6 +106,7 @@ export function usePlayerSearch(query, scope = 'all') {
     // artist's name returns lyric sites and reposts; asking it for
     // `site:youtube.com "<name>"` returns the videos.
     const intent = parsePlayerQuery(q, activeScope);
+    const allowReddit = intent.platform === 'reddit';
 
     // The provider is often cold and answers the first ask with nothing, which
     // is exactly the "took three tries" symptom. One retry, and a ceiling so a
@@ -108,7 +118,7 @@ export function usePlayerSearch(query, scope = 'all') {
       signal: controller.signal,
     })
       .then((r) => r.json())
-      .then((d) => (d.results || []).map(toSource).filter(Boolean));
+      .then((d) => (d.results || []).map((r) => toSource(r, allowReddit)).filter(Boolean));
 
     // One retry, on the FIRST ask only. Retrying every rung of the fallback
     // chain turned an empty search into eight sequential requests and ten

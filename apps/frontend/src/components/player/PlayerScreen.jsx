@@ -49,7 +49,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   }
 
   const { kind, src, title } = source;
-  const isVideoIframe = ['youtube', 'vimeo', 'tiktok', 'dailymotion', 'rumble', 'odysee'].includes(kind);
+  const isVideoIframe = ['youtube', 'vimeo', 'tiktok', 'dailymotion', 'rumble', 'odysee', 'reddit'].includes(kind);
   const isSoundcloud = kind === 'soundcloud';
   // Shorts / Reels / TikToks are shot 9:16. Boxing them into a 16:9 frame
   // wastes most of the player and shrinks the clip to a stamp.

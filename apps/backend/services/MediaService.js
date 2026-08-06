@@ -115,6 +115,24 @@ function classifyMedia(rawUrl) {
       };
     }
   }
+  // Reddit → the official redditmedia embed. Only a full post permalink can
+  // be embedded (the embed is addressed by subreddit + post id), and we
+  // deliberately don't touch v.redd.it: those are DASH/HLS with the audio on a
+  // separate track, which would mean shipping a player library.
+  // Mirrors getPlayable() in apps/frontend/src/utils/videoEmbed.js.
+  if (isHost('reddit.com')) {
+    const m = /^\/r\/([A-Za-z0-9_]{2,30})\/comments\/([a-z0-9]{4,10})/i.exec(path);
+    if (m) {
+      return {
+        kind: 'reddit',
+        platform: 'Reddit',
+        canonical: `reddit.com/comments/${m[2].toLowerCase()}`,
+        src: `https://www.redditmedia.com/r/${m[1]}/comments/${m[2]}/`
+          + '?ref_source=embed&ref=share&embed=true&theme=dark&showmedia=true&depth=1',
+        vertical: false,
+      };
+    }
+  }
   if (isHost('soundcloud.com')) {
     const slug = path.split('/').filter(Boolean).slice(0, 2).join('/');
     if (slug.includes('/')) {
@@ -141,8 +159,8 @@ function classifyMedia(rawUrl) {
 
   throw new MediaError(
     'UNSUPPORTED',
-    "Truegle's player can't host that link. YouTube, Vimeo, TikTok, SoundCloud "
-    + 'and direct audio/video files all work.',
+    "Truegle's player can't host that link. YouTube, Vimeo, TikTok, SoundCloud, "
+    + 'Reddit posts and direct audio/video files all work.',
   );
 }
 

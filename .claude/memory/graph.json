@@ -1042,6 +1042,14 @@
         "body": "PlayerBrowse.jsx fills the video viewport when nothing is playing AND a search has results (falls back to PlayerStarters creators when the query is empty). Vertical CSS scroll-snap column — swipe up/down is the BROWSER'S native scroll, not a gesture handler, so it can't fight the page or the fullscreen swipe nav. Two-stage preview on hold/hover: instantly cycle YouTube's free hq1/hq2/hq3 storyboard stills, then at ~900ms mount a muted controls=0 embed (one at a time, unmounted on release, PLAYER_SANDBOX kept). Tap plays + queues the rest; a sustained hold does NOT choose. usePlayerSearch was lifted from PlayerListSlot into TrueglePlayer so the deck and the list share ONE request (verified 1 call). PLAYER_SANDBOX moved to components/player/playerSandbox.js to avoid a circular import.",
         "ts": "2026-08-06",
         "created": "2026-08-06"
+      },
+      "reddit-in-tube": {
+        "Id": "reddit-in-tube",
+        "Type": "decision",
+        "Label": "Reddit plays via the official redditmedia embed only",
+        "body": "getPlayable/classifyMedia accept full post permalinks (/r/<sub>/comments/<id>) -> https://www.redditmedia.com/r/<sub>/comments/<id>/?embed=true&showmedia=true. NOT v.redd.it: those are DASH/HLS with audio on a separate track and would need dash.js/hls.js — refused honestly instead. CSP _headers frame-src+child-src gained www.redditmedia.com. !reddit / !r bang -> site:reddit.com/r; HOST_RANK reddit=8 (last). QUALITY GATE: usePlayerSearch toSource(r, allowReddit) drops reddit rows unless intent.platform==='reddit', because site:reddit.com returns text/image posts that getPlayable would wrap as 'playable'. Pasted links bypass the gate. LIMITS: no autoplay and no ended event from a Reddit embed, so auto-advance can't fire on a Reddit item; no free server-side Reddit search without an OAuth app.",
+        "ts": "2026-08-06",
+        "created": "2026-08-06"
       }
     },
     "entity": {

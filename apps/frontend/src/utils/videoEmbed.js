@@ -88,6 +88,9 @@ const KEY_RULES = [
   [/dai\.ly\/([a-z0-9]+)/i, 'dailymotion'],
   [/rumble\.com\/embed\/(v[a-z0-9]+)/i, 'rumble'],
   [/rumble\.com\/(v[a-z0-9]+)/i, 'rumble'],
+  // A Reddit post is identified by its post id, which is the same in the
+  // permalink and in the redditmedia embed we build from it.
+  [/redd(?:it|itmedia)\.com\/r\/[A-Za-z0-9_]+\/comments\/([a-z0-9]{4,10})/i, 'reddit'],
 ];
 
 export function mediaKey(input) {
@@ -132,6 +135,11 @@ export function urlFromKey(key) {
     case 'tiktok': return `https://www.tiktok.com/@x/video/${id}`;
     case 'dailymotion': return `https://www.dailymotion.com/video/${id}`;
     case 'rumble': return `https://rumble.com/${id}`;
+    // Reddit's embed needs the subreddit, which the key doesn't carry. The
+    // bare comments path redirects to the real one, and that is enough for a
+    // link — but not enough to rebuild the embed, so the pool row keeps its
+    // own pageUrl for that.
+    case 'reddit': return `https://www.reddit.com/comments/${id}`;
     case 'soundcloud': return `https://soundcloud.com/${id}`;
     default: return null;
   }
@@ -200,6 +208,29 @@ export function getPlayable(url) {
     if (host === 'tiktok.com' || host.endsWith('.tiktok.com')) {
       const id = /\/video\/(\d+)/.exec(u.pathname)?.[1];
       return id ? { kind: 'tiktok', src: `https://www.tiktok.com/embed/v2/${id}`, vertical: true } : null;
+    }
+    // Reddit → the official redditmedia embed, which is the ONLY way Reddit
+    // content plays outside Reddit without a library.
+    //
+    // What we deliberately do NOT do: reach for the v.redd.it stream directly.
+    // Reddit serves those as DASH/HLS with the audio on a SEPARATE track, so
+    // playing one means shipping dash.js or hls.js and muxing two streams —
+    // a dependency and a maintenance burden for one platform. The embed plays
+    // the same video with sound, for free, in the iframe we already have.
+    //
+    // Only a full post permalink works: the embed is addressed by subreddit +
+    // post id, and a bare v.redd.it or redd.it link carries neither. Those are
+    // better reported as "can't play that" than silently mangled.
+    if (host === 'reddit.com' || host.endsWith('.reddit.com')) {
+      const m = /^\/r\/([A-Za-z0-9_]{2,30})\/comments\/([a-z0-9]{4,10})/i.exec(u.pathname);
+      if (m) {
+        return {
+          kind: 'reddit',
+          src: `https://www.redditmedia.com/r/${m[1]}/comments/${m[2]}/`
+            + '?ref_source=embed&ref=share&embed=true&theme=dark&showmedia=true&depth=1',
+        };
+      }
+      return null;
     }
     // SoundCloud → official widget player (full tracks, artist-friendly, no
     // OAuth). src is the fully-built widget URL so the player renders it as-is.

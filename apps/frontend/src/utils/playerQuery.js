@@ -15,6 +15,7 @@
 // the dork forms are what people who use search operators already type.
 
 // !yt / !youtube          → YouTube only
+// !reddit / !r <words>    → Reddit posts only
 // !ch <name> / @<name>    → that channel
 // channel:<name>          → same, operator form
 // from:<name> / by:<name> → same, phrased the way people talk
@@ -28,6 +29,8 @@ const PLATFORM_BANGS = {
   '!sc': 'soundcloud',
   '!soundcloud': 'soundcloud',
   '!tiktok': 'tiktok',
+  '!reddit': 'reddit',
+  '!r': 'reddit',
   '!web': 'any',        // escape hatch: search everything, not just video hosts
 };
 
@@ -36,6 +39,9 @@ const SITE = {
   vimeo: 'site:vimeo.com',
   soundcloud: 'site:soundcloud.com',
   tiktok: 'site:tiktok.com',
+  // Reddit posts are found through the ordinary index; there is no free
+  // Reddit search we can call from a server without an OAuth app.
+  reddit: 'site:reddit.com/r',
 };
 
 const unquote = (v) => String(v || '').replace(/^"|"$/g, '').trim();
@@ -73,7 +79,7 @@ const SCOPE_IDS = new Set(SEARCH_SCOPES.map((s) => s.id));
  * @returns {{text, channel, platform, backendQuery, explicit}}
  *   text        — what's left after the operators are removed
  *   channel     — a channel/author name, if one was asked for
- *   platform    — 'youtube' | 'vimeo' | 'soundcloud' | 'tiktok' | 'any' | null
+ *   platform    — 'youtube' | 'vimeo' | 'soundcloud' | 'tiktok' | 'reddit' | 'any' | null
  *   backendQuery— what to actually send to search
  *   explicit    — the user asked for a platform/channel, so don't second-guess
  */
@@ -158,7 +164,9 @@ export function parsePlayerQuery(raw, scope = 'all') {
 // actually play, and inside each group the ones that match the channel they
 // asked for. Without this the list was whatever order the index returned,
 // which is what "random and sparse" looked like.
-const HOST_RANK = { youtube: 0, vimeo: 1, soundcloud: 2, tiktok: 3 };
+// Reddit sits last: its embed is a post card rather than a player, so it is
+// what you get when you asked for it, not what you get by default.
+const HOST_RANK = { youtube: 0, vimeo: 1, soundcloud: 2, tiktok: 3, reddit: 8 };
 
 export function rankPlayable(rows, { channel, platform } = {}) {
   const wanted = channel ? channel.toLowerCase().replace(/[\s._-]/g, '') : null;
