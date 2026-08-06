@@ -6,7 +6,8 @@ import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
 import { useFeedbackBarHeight } from './PreProductionBanner';
 import { usePlayerQuery } from '../../utils/playerQueryStore';
-import { SEARCH_SCOPES, toHandle } from '../../utils/playerQuery';
+import { toHandle } from '../../utils/playerQuery';
+import PlayerScopeChips from '../player/PlayerScopeChips';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
 import { useKeyboardInset } from '../../hooks/useKeyboardInset';
 import { usePageInputFocus } from '../../hooks/usePageInputFocus';
@@ -104,6 +105,7 @@ export default function MiniPlayer() {
   // they were only ever on the Tube page, which meant the same search behaved
   // differently depending on where you typed it.
   const [playerScope, setPlayerScope] = useState('all');
+  const [playerProvider, setPlayerProvider] = useState('all');
   const [scopesOpen, setScopesOpen] = useState(false);
   const playerInputRef = useRef(null);
   const submitPlayerQuery = useCallback(() => {
@@ -458,7 +460,9 @@ export default function MiniPlayer() {
               value={playerQuery}
               onChange={(e) => {
                 setScopesOpen(true);
-                setPlayerQuery(playerScope === 'channel' ? toHandle(e.target.value) : e.target.value);
+                setPlayerQuery(playerScope === 'channel'
+                  ? toHandle(e.target.value, playerProvider)
+                  : e.target.value);
               }}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitPlayerQuery(); } }}
               enterKeyHint="search"
@@ -529,32 +533,29 @@ export default function MiniPlayer() {
             Sticky with the header so the keyboard can't push them out of
             reach; they retract on Enter and come back on the next keystroke. */}
         {!docked && !peek && scopesOpen && (
-          <div className="sticky top-[44px] z-40 flex gap-1.5 overflow-x-auto px-2 py-1.5 bg-black/60 backdrop-blur-xl border-b border-white/10">
-            {SEARCH_SCOPES.map((sc) => (
-              <button
-                key={sc.id}
-                type="button"
-                onClick={() => {
-                  setPlayerScope(sc.id);
-                  if (sc.id === 'channel') {
-                    const h = toHandle(playerQuery);
-                    if (h) setPlayerQuery(h);
-                  } else if (playerScope === 'channel') {
-                    setPlayerQuery(playerQuery.replace(/^@/, ''));
-                  }
-                  setScopesOpen(true);
-                }}
-                aria-pressed={playerScope === sc.id}
-                className={`shrink-0 px-2.5 h-6 rounded-full text-[10px] font-semibold border transition-colors ${
-                  playerScope === sc.id
-                    ? 'bg-white/15 border-white/30 text-white'
-                    : 'bg-white/[0.03] border-white/10 text-white/50 hover:text-white/80'
-                }`}
-              >
-                {sc.label}
-              </button>
-            ))}
-          </div>
+          <PlayerScopeChips
+            compact
+            provider={playerProvider}
+            scope={playerScope}
+            onProvider={(id) => {
+              setPlayerProvider(id);
+              // The address changes with the platform: @handle on YouTube,
+              // r/ on Reddit. Rewrite what's in the box so it stays valid.
+              if (playerScope === 'channel') setPlayerQuery(toHandle(playerQuery, id));
+              setScopesOpen(true);
+            }}
+            onScope={(id) => {
+              setPlayerScope(id);
+              if (id === 'channel') {
+                const h = toHandle(playerQuery, playerProvider);
+                if (h) setPlayerQuery(h);
+              } else if (playerScope === 'channel') {
+                setPlayerQuery(playerQuery.replace(/^(@|r\/|c\/)/i, ''));
+              }
+              setScopesOpen(true);
+            }}
+            className="sticky top-[44px] z-40 bg-black/60 backdrop-blur-xl border-b border-white/10"
+          />
         )}
 
         {/* The player itself is the SHARED component — the same stack that
@@ -572,6 +573,7 @@ export default function MiniPlayer() {
             onToggleMove={() => setAdjust((v) => !v)}
             query={docked ? page.text : playerQuery}
             scope={docked ? page.scope : playerScope}
+            provider={docked ? page.provider : playerProvider}
           />
         </div>
 

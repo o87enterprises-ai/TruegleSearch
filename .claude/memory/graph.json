@@ -1058,6 +1058,14 @@
         "body": "getPlayable/classifyMedia accept full post permalinks (/r/<sub>/comments/<id>) -> https://www.redditmedia.com/r/<sub>/comments/<id>/?embed=true&showmedia=true. NOT v.redd.it: those are DASH/HLS with audio on a separate track and would need dash.js/hls.js — refused honestly instead. CSP _headers frame-src+child-src gained www.redditmedia.com. !reddit / !r bang -> site:reddit.com/r; HOST_RANK reddit=8 (last). QUALITY GATE: usePlayerSearch toSource(r, allowReddit) drops reddit rows unless intent.platform==='reddit', because site:reddit.com returns text/image posts that getPlayable would wrap as 'playable'. Pasted links bypass the gate. LIMITS: no autoplay and no ended event from a Reddit embed, so auto-advance can't fire on a Reddit item; no free server-side Reddit search without an OAuth app.",
         "ts": "2026-08-06",
         "created": "2026-08-06"
+      },
+      "provider-scope-chips": {
+        "Id": "provider-scope-chips",
+        "Type": "decision",
+        "Label": "Tube search chips are two axes: Where (provider) + What (type)",
+        "body": "PROVIDERS in playerQuery.js = anywhere/youtube/reddit/vimeo/soundcloud/tiktok/dailymotion/rumble/odysee, each with site:, channelLabel and prefix. Provider chip == a bang; a bang typed in the box OVERRIDES the chip. The Channel chip RENAMES per provider because the address differs: YouTube @handle, Reddit r/sub (and reddit turns it into site:reddit.com/r/<sub>, a PATH not a loose term), SoundCloud bare slug labelled 'Profile' (not 'Artist' — collides with the Artist scope chip), provider-All labelled 'Anywhere' (not 'All' — collides with the All scope chip). toHandle(v, provider) is provider-aware. Shared component components/player/PlayerScopeChips.jsx used by BOTH the Tube bar and the popped-out player. playerQueryStore snapshot is now scope\\0provider\\0text. Channel-feed row in PlayerListSlot gated to YouTube (creators/resolve is YouTube-only).",
+        "ts": "2026-08-06",
+        "created": "2026-08-06"
       }
     },
     "entity": {

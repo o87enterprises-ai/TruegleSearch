@@ -19,17 +19,17 @@ import { hasTaste, forgetTaste } from '../../utils/taste';
 // the list away mid-choice.
 const REVERT_MS = 10000;
 
-export default function PlayerListSlot({ search, query = '', scope = 'all', accent = '#f43f5e', onRevert, compact = false }) {
+export default function PlayerListSlot({ search, query = '', scope = 'all', provider = 'all', accent = '#f43f5e', onRevert, compact = false }) {
   const { current, queue, jump, removeFromQueue, enqueue, clearQueue, playNow } = usePlayer();
   // The host runs the search now — the viewport's browse deck shows the same
   // results, and two hooks on one query meant two identical requests per
   // keystroke. `own` is the standalone fallback for any caller that doesn't
   // supply one.
-  const own = usePlayerSearch(search ? '' : query, scope);
+  const own = usePlayerSearch(search ? '' : query, scope, provider);
   const { results, loading, error, unsupported } = search || own;
   // Asking for a channel should be able to give you the CHANNEL, not a
   // scattering of its videos: one row to open its real feed, newest first.
-  const intent = parsePlayerQuery(query, scope);
+  const intent = parsePlayerQuery(query, scope, provider);
   const feed = useChannelFeed();
   const feedRows = feed.videos;
   const [added, setAdded] = useState(null);
@@ -80,11 +80,14 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', acce
           <SearchIcon size={11} /> Results
           {(loading || pending) && <Loader2 size={11} className="animate-spin ml-auto" />}
         </div>
-        {/* The channel itself, offered before its scattered videos. */}
-        {intent.channel && !feedRows && (
+        {/* The channel itself, offered before its scattered videos. YouTube
+            only: opening a real feed goes through /creators/resolve, which
+            speaks YouTube channel ids and nothing else. Offering the row for a
+            subreddit would be a button that always fails. */}
+        {intent.channel && !feedRows && (!intent.platform || intent.platform === 'youtube') && (
           <button
             type="button"
-            onClick={() => feed.open(toHandle(intent.channel), intent.channel)}
+            onClick={() => feed.open(toHandle(intent.channel, 'youtube'), intent.channel)}
             disabled={feed.loading}
             className="w-full flex items-center gap-2 px-3 py-2 border-b border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-left transition-colors disabled:opacity-60"
           >
@@ -93,7 +96,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', acce
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-[11px] font-semibold text-white/85 truncate">
-                {toHandle(intent.channel)}
+                {toHandle(intent.channel, intent.platform || 'youtube')}
               </span>
               <span className="block text-[10px] text-white/40">
                 {feed.loading ? 'Opening the channel…' : 'Open this channel — latest uploads first'}

@@ -58,7 +58,7 @@ const MIN_CHARS = 2;
 // request doesn't spin forever.
 const REQUEST_TIMEOUT_MS = 20000;
 
-export function usePlayerSearch(query, scope = 'all') {
+export function usePlayerSearch(query, scope = 'all', provider = 'all') {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -67,7 +67,7 @@ export function usePlayerSearch(query, scope = 'all') {
   const [unsupported, setUnsupported] = useState('');
   const abortRef = useRef(null);
 
-  const run = useCallback((raw, activeScope) => {
+  const run = useCallback((raw, activeScope, activeProvider) => {
     abortRef.current?.abort();
     const q = raw.trim();
     if (q.length < MIN_CHARS) { setResults(null); setLoading(false); setError(''); return; }
@@ -105,7 +105,7 @@ export function usePlayerSearch(query, scope = 'all') {
     // site-scoped before it goes anywhere. Asking a general index for an
     // artist's name returns lyric sites and reposts; asking it for
     // `site:youtube.com "<name>"` returns the videos.
-    const intent = parsePlayerQuery(q, activeScope);
+    const intent = parsePlayerQuery(q, activeScope, activeProvider);
     const allowReddit = intent.platform === 'reddit';
 
     // The provider is often cold and answers the first ask with nothing, which
@@ -190,9 +190,9 @@ export function usePlayerSearch(query, scope = 'all') {
   }, []);
 
   useEffect(() => {
-    const id = setTimeout(() => run(query || '', scope), DEBOUNCE_MS);
+    const id = setTimeout(() => run(query || '', scope, provider), DEBOUNCE_MS);
     return () => clearTimeout(id);
-  }, [query, scope, run]);
+  }, [query, scope, provider, run]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 

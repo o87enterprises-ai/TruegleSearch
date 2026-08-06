@@ -77,7 +77,8 @@ import { isShortForm, asReel } from '../utils/shortForm';
 import { useFeedAutoplay } from '../hooks/useFeedAutoplay';
 import TrueglePlayer from '../components/player/TrueglePlayer';
 import { setPlayerQuery } from '../utils/playerQueryStore';
-import { SEARCH_SCOPES, toHandle } from '../utils/playerQuery';
+import { toHandle } from '../utils/playerQuery';
+import PlayerScopeChips from '../components/player/PlayerScopeChips';
 import { parsePlayerParams } from '../utils/playerLink';
 import { usePlayer } from '../context/PlayerContext';
 
@@ -208,6 +209,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
   // model: the same words mean different searches depending on whether you
   // are after a channel, a song or a title.
   const [tubeScope, setTubeScope] = useState('all');
+  const [tubeProvider, setTubeProvider] = useState('all');
   // The type chips belong to the act of composing a search, so they sit under
   // the bar and get out of the way once one has been run — typing brings them
   // straight back.
@@ -215,9 +217,9 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
   const selectedUrl = searchParams.get('sel') || '';
   useEffect(() => {
     if (!tubeDocked) return undefined;
-    setPlayerQuery(searchValue, tubeScope);
-    return () => setPlayerQuery('', 'all');
-  }, [tubeDocked, searchValue, tubeScope]);
+    setPlayerQuery(searchValue, tubeScope, tubeProvider);
+    return () => setPlayerQuery('', 'all', 'all');
+  }, [tubeDocked, searchValue, tubeScope, tubeProvider]);
   const autoExpanded = useRef(false);
   useEffect(() => {
     if (autoExpanded.current) return;
@@ -1181,7 +1183,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
                   // While the Channel chip is on, the box IS a handle: keep the
                   // @ and drop spaces as they're typed, so what you see is what
                   // gets searched.
-                  tubeDocked && tubeScope === 'channel' ? toHandle(val) : val,
+                  tubeDocked && tubeScope === 'channel' ? toHandle(val, tubeProvider) : val,
                 );
               }}
               onSubmit={() => submitSearch()}
@@ -1229,35 +1231,32 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
                       {/* Directly under the bar, because it qualifies what you
                           are about to type — not what came back. */}
                       {scopesOpen && (
-                      <div className="flex gap-1.5 overflow-x-auto px-2 py-2 bg-black/30 border-b border-white/10">
-                        {SEARCH_SCOPES.map((sc) => (
-                          <button
-                            key={sc.id}
-                            type="button"
-                            onClick={() => {
-                              setTubeScope(sc.id);
-                              // Picking Channel rewrites the box into the form
-                              // that actually finds one: spaces out, @ on.
-                              // Anything else hands the plain words back.
-                              if (sc.id === 'channel') {
-                                const h = toHandle(searchValue);
-                                if (h) setSearchValue(h);
-                              } else if (tubeScope === 'channel') {
-                                setSearchValue(searchValue.replace(/^@/, ''));
-                              }
-                              setScopesOpen(true);
-                            }}
-                            aria-pressed={tubeScope === sc.id}
-                            className={`shrink-0 px-3 h-7 rounded-full text-[11px] font-semibold border transition-colors ${
-                              tubeScope === sc.id
-                                ? 'bg-white/15 border-white/30 text-white'
-                                : 'bg-white/[0.03] border-white/10 text-white/50 hover:text-white/80'
-                            }`}
-                          >
-                            {sc.label}
-                          </button>
-                        ))}
-                      </div>
+                        <PlayerScopeChips
+                          provider={tubeProvider}
+                          scope={tubeScope}
+                          onProvider={(id) => {
+                            setTubeProvider(id);
+                            // The address changes with the platform: @handle on
+                            // YouTube, r/ on Reddit. Rewrite the box so what
+                            // you see stays what actually gets searched.
+                            if (tubeScope === 'channel') setSearchValue(toHandle(searchValue, id));
+                            setScopesOpen(true);
+                          }}
+                          onScope={(id) => {
+                            setTubeScope(id);
+                            // Picking Channel rewrites the box into the form
+                            // that actually finds one. Anything else hands the
+                            // plain words back.
+                            if (id === 'channel') {
+                              const h = toHandle(searchValue, tubeProvider);
+                              if (h) setSearchValue(h);
+                            } else if (tubeScope === 'channel') {
+                              setSearchValue(searchValue.replace(/^(@|r\/|c\/)/i, ''));
+                            }
+                            setScopesOpen(true);
+                          }}
+                          className="bg-black/30 border-b border-white/10"
+                        />
                       )}
                       <div
                         data-player-slot

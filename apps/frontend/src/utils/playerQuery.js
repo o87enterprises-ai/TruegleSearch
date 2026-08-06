@@ -34,15 +34,38 @@ const PLATFORM_BANGS = {
   '!web': 'any',        // escape hatch: search everything, not just video hosts
 };
 
-const SITE = {
-  youtube: 'site:youtube.com',
-  vimeo: 'site:vimeo.com',
-  soundcloud: 'site:soundcloud.com',
-  tiktok: 'site:tiktok.com',
-  // Reddit posts are found through the ordinary index; there is no free
-  // Reddit search we can call from a server without an OAuth app.
-  reddit: 'site:reddit.com/r',
-};
+// Every platform the player can actually host, as a pickable chip.
+//
+// A provider is the same instruction as a bang (!yt, !reddit) — this is just
+// the version you can tap. Both land in the same `platform` field.
+//
+// `channelLabel` and `prefix` exist because "the channel" is a DIFFERENT
+// address on every platform, and using the wrong shape returns nothing:
+// YouTube wants @handle, Reddit wants r/subreddit, SoundCloud wants a bare
+// user slug. Naming each one correctly is the difference between the Channel
+// chip working and looking broken.
+export const PROVIDERS = [
+  // "Anywhere", not "All" — the What row has its own All, and two chips
+  // reading the same word in adjacent rows is the kind of thing that makes a
+  // control feel arbitrary. It also just answers "where?" better.
+  { id: 'all', label: 'Anywhere', site: '', channelLabel: 'Channel', prefix: '@' },
+  { id: 'youtube', label: 'YouTube', site: 'site:youtube.com', channelLabel: 'Channel', prefix: '@' },
+  { id: 'reddit', label: 'Reddit', site: 'site:reddit.com/r', channelLabel: 'Subreddit', prefix: 'r/' },
+  { id: 'vimeo', label: 'Vimeo', site: 'site:vimeo.com', channelLabel: 'Creator', prefix: '' },
+  // NOT "Artist" — the What row already has an Artist chip, and two chips with
+  // the same word on screen is worse than a slightly duller label.
+  { id: 'soundcloud', label: 'SoundCloud', site: 'site:soundcloud.com', channelLabel: 'Profile', prefix: '' },
+  { id: 'tiktok', label: 'TikTok', site: 'site:tiktok.com', channelLabel: 'Creator', prefix: '@' },
+  { id: 'dailymotion', label: 'Dailymotion', site: 'site:dailymotion.com', channelLabel: 'Channel', prefix: '' },
+  { id: 'rumble', label: 'Rumble', site: 'site:rumble.com', channelLabel: 'Channel', prefix: 'c/' },
+  { id: 'odysee', label: 'Odysee', site: 'site:odysee.com', channelLabel: 'Channel', prefix: '@' },
+];
+const PROVIDER_BY_ID = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
+export const providerMeta = (id) => PROVIDER_BY_ID[id] || PROVIDER_BY_ID.all;
+
+const SITE = Object.fromEntries(
+  PROVIDERS.filter((p) => p.site).map((p) => [p.id, p.site]),
+);
 
 const unquote = (v) => String(v || '').replace(/^"|"$/g, '').trim();
 
@@ -52,10 +75,19 @@ const unquote = (v) => String(v || '').replace(/^"|"$/g, '').trim();
 const squash = (v) => String(v || '').toLowerCase().replace(/[\s._-]/g, '');
 
 // "Dark Waters 9" → "@darkwaters9". The one form the index answers.
-export const toHandle = (v) => {
-  const bare = squash(String(v || '').replace(/^@+/, ''));
-  return bare ? `@${bare}` : '';
+//
+// Provider-aware, because the prefix IS the address: r/askreddit is not
+// @askreddit and searching for the wrong one returns nothing. Live-tested on
+// YouTube — "Darkwaters 9" returns a film and a DND series, @darkwaters9
+// returns the channel.
+export const toHandle = (v, provider = 'youtube') => {
+  const { prefix } = providerMeta(provider === 'all' ? 'youtube' : provider);
+  const bare = squash(String(v || '').replace(/^@+/, '').replace(/^r\//i, '').replace(/^c\//i, ''));
+  return bare ? `${prefix}${bare}` : '';
 };
+
+/** What to call "the channel" on this provider — the Channel chip's label. */
+export const channelLabel = (provider) => providerMeta(provider).channelLabel;
 
 // A trailing (or leading) "channel" / "yt channel" is the user naming what
 // they want, not part of the name: "dark waters 9 channel" means the channel.
@@ -79,13 +111,15 @@ const SCOPE_IDS = new Set(SEARCH_SCOPES.map((s) => s.id));
  * @returns {{text, channel, platform, backendQuery, explicit}}
  *   text        — what's left after the operators are removed
  *   channel     — a channel/author name, if one was asked for
- *   platform    — 'youtube' | 'vimeo' | 'soundcloud' | 'tiktok' | 'reddit' | 'any' | null
+ *   platform    — a PROVIDERS id, 'any', or null
  *   backendQuery— what to actually send to search
  *   explicit    — the user asked for a platform/channel, so don't second-guess
  */
-export function parsePlayerQuery(raw, scope = 'all') {
+export function parsePlayerQuery(raw, scope = 'all', provider = 'all') {
   let text = String(raw || '').trim();
-  let platform = null;
+  // The provider chip is a default that a bang typed in the box can override —
+  // typing "!yt" while Reddit is selected means you changed your mind.
+  let platform = provider && provider !== 'all' && PROVIDER_BY_ID[provider] ? provider : null;
   let channel = null;
   const activeScope = SCOPE_IDS.has(scope) ? scope : 'all';
 
@@ -130,15 +164,23 @@ export function parsePlayerQuery(raw, scope = 'all') {
   // A channel without a platform means YouTube: that is where channels are.
   if (channel && !platform) platform = 'youtube';
 
-  const explicit = !!(channel || platform || activeScope !== 'all');
-  const site = platform && platform !== 'any' ? SITE[platform] : '';
+  const explicit = !!(channel || platform || activeScope !== 'all' || (provider && provider !== 'all'));
+  let site = platform && platform !== 'any' ? SITE[platform] || '' : '';
 
   // The HANDLE is the query. Tested against the live index: "Darkwaters 9"
   // returns a film and a DND series, an OR group of spellings returns nothing
   // useful (the provider doesn't honour the grouping), and @darkwaters9
   // returns the channel. So a channel is always normalised to its handle —
   // spaces out, leading @ on — and asked for exactly that way.
-  const channelTerms = channel ? toHandle(channel) : '';
+  let channelTerms = channel ? toHandle(channel, platform || 'youtube') : '';
+
+  // On Reddit the "channel" is a path, not a term — site:reddit.com/r/aww is a
+  // far sharper ask than the words "r/aww" floating in a query, and it is the
+  // only form that reliably returns just that subreddit.
+  if (platform === 'reddit' && channelTerms) {
+    site = `site:reddit.com/${channelTerms}`;
+    channelTerms = '';
+  }
 
   // Scope shapes the words around the query the way YouTube's chips do.
   const shaped = {

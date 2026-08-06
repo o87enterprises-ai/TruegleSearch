@@ -33,6 +33,7 @@ export default function TrueglePlayer({
   accent = '#f43f5e',
   query = '',
   scope = 'all',
+  provider = 'all',
   showList = true,
   hideScreen = false,
   // Bumped by the host when the user SUBMITS a search, so the list opens even
@@ -59,7 +60,7 @@ export default function TrueglePlayer({
   // ONE search per query, shared by the list below and the browse deck in the
   // viewport. It used to live inside PlayerListSlot; with two consumers that
   // would have been two identical round trips per keystroke.
-  const search = usePlayerSearch(query, scope);
+  const search = usePlayerSearch(query, scope, provider);
   const [shareState, setShareState] = useState('idle');
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -304,6 +305,7 @@ export default function TrueglePlayer({
             search={search}
             query={query}
             scope={scope}
+            provider={provider}
             accent={accent}
             compact={presentation === 'popped'}
             onRevert={() => { setListOpen(false); onQueryHandled?.(); }}
