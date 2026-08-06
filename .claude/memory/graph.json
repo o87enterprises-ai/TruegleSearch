@@ -408,6 +408,14 @@
         "body": "An iframe swallows touches, so gestures over the video are unreadable without an overlay. hooks/useSwipeNav.js mounts one ONLY in fullscreen (where our transport bar is already pinned, so losing the embed's controls costs nothing): swipe up = next, down = prev, tap = play/pause, arrows/space for desktop. touchAction pan-x or the browser scrolls the page instead.",
         "ts": "2026-08-06",
         "created": "2026-08-06"
+      },
+      "vercel-env-write-only": {
+        "Id": "vercel-env-write-only",
+        "Type": "fact",
+        "Label": "Vercel no longer reveals env var values — get DB string from Neon, or skip it",
+        "body": "Vercel's dashboard stores environment variables WRITE-ONLY; you cannot read DATABASE_URL back out, only overwrite it. Sources in order: (1) Neon Console > project > Dashboard > Connection string (source of truth), (2) npx vercel env pull from a laptop, (3) reset the neondb_owner password — but that takes prod down until Vercel is updated and redeployed. BEST: skip the string entirely — run migrations by pasting the SQL into Neon Console > SQL Editor, which works from a phone. docs/NEON-TASKS.md carries the paste-ready SQL for each migration; keep adding to it.",
+        "ts": "2026-08-06",
+        "created": "2026-08-06"
       }
     },
     "decision": {
