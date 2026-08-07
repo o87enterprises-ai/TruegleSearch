@@ -440,6 +440,14 @@
         "body": "Android widgets need an APK with AppWidgetProvider; iOS needs a WidgetKit extension in Swift. No manifest field or permission grants either. The \"widgets\" manifest member is Windows 11 Widgets Board only, not a home screen. Background mic capture is also impossible — every mobile browser releases the microphone when the tab is backgrounded, by design. SHIPPED INSTEAD (all $0, see docs/HOME-SCREEN.md): manifest.shortcuts (long-press icon -> Talk to Truegle at /search?voice=1 which opens ALREADY RECORDING, True Tube, Chat, Search); manifest.share_target GET -> /tube (share a video from any app and it plays; Android puts the URL in the share TEXT field as often as the URL field, so both are read and a URL is regexed out of the text); Media Session lock-screen controls (native audio/video only — a cross-origin embed s media belongs to the iframe, so YouTube s own notification shows instead and cannot be relabelled). Cross-origin embeds also stop when the tab is backgrounded — platform rule, not our bug. A REAL widget = thin native shell: Android Kotlin WebView + AppWidgetProvider ($25 one-time), iOS WidgetKit ($99/yr). Not started. NOTE: sw.js is the 2026-06-15 self-destructing kill switch — do NOT register it; none of the above needs a service worker.",
         "ts": "2026-08-07",
         "created": "2026-08-07"
+      },
+      "app-icon-source": {
+        "Id": "app-icon-source",
+        "Type": "fact",
+        "Label": "The PWA/home-screen icon must be /truegle.png, never /og-image.png",
+        "body": "og-image.png is 1200x630 — a WIDE link-preview card. It was set as the manifest icon, the favicon and the apple-touch-icon, so every home-screen install cropped that banner into a square and looked wrong. truegle.png is already 1024x1024 and is the correct source; it is now used for manifest icons (any + maskable), the favicon, apple-touch-icon and three of the four shortcut icons (the Tube shortcut uses truetube.png). og:image and twitter:image correctly STAY as og-image.png — link previews want the wide card. To change the icon art, replace apps/frontend/public/truegle.png with a square PNG; nothing else needs editing.",
+        "ts": "2026-08-07",
+        "created": "2026-08-07"
       }
     },
     "decision": {

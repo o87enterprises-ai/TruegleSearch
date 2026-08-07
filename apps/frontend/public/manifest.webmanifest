@@ -11,10 +11,16 @@
   "categories": ["search", "utilities", "news"],
   "icons": [
     {
-      "src": "/og-image.png",
-      "sizes": "512x512",
+      "src": "/truegle.png",
+      "sizes": "1024x1024",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/truegle.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
@@ -23,28 +29,28 @@
       "short_name": "Voice",
       "description": "Start a voice search straight away",
       "url": "/search?voice=1&source=shortcut",
-      "icons": [{ "src": "/og-image.png", "sizes": "512x512" }]
+      "icons": [{ "src": "/truegle.png", "sizes": "1024x1024" }]
     },
     {
       "name": "True Tube",
       "short_name": "Tube",
       "description": "The player — pick up whatever was queued",
       "url": "/tube?source=shortcut",
-      "icons": [{ "src": "/truetube.png", "sizes": "512x512" }]
+      "icons": [{ "src": "/truetube.png", "sizes": "1024x1024" }]
     },
     {
       "name": "Chat with TrueGLE",
       "short_name": "Chat",
       "description": "Ask the AI directly",
       "url": "/chat?source=shortcut",
-      "icons": [{ "src": "/og-image.png", "sizes": "512x512" }]
+      "icons": [{ "src": "/truegle.png", "sizes": "1024x1024" }]
     },
     {
       "name": "Search",
       "short_name": "Search",
       "description": "Type a search",
       "url": "/search?source=shortcut",
-      "icons": [{ "src": "/og-image.png", "sizes": "512x512" }]
+      "icons": [{ "src": "/truegle.png", "sizes": "1024x1024" }]
     }
   ],
   "share_target": {

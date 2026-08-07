@@ -50,6 +50,7 @@ import LanguageSelector from '../components/ui/LanguageSelector';
 // selection); osintHintPrefix is still used to tag ocean web searches.
 import { osintHintPrefix } from '../components/search/OsintClassRow';
 import PillModeRow from '../components/landing/PillModeRow';
+import ChatModeRow from '../components/landing/ChatModeRow';
 import CreatorHeader, { CreatorPill } from '../components/creator/CreatorHeader';
 import { recordRef } from '../utils/creatorRef';
 
@@ -153,6 +154,34 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // current search mode; cycling stages a new one and submitting navigates to
   // it (black = Chat -> /chat, orange/yellow -> their page, else /search?mode=).
   const [pillMode, setPillMode] = useState(mode);
+  // Cycling the pill to Chat has to change the row UNDER the bar too. It
+  // didn't: the categories are driven by `mode`, which only updates on submit,
+  // so the pill said Chat while All / Local / Maps / Pics / Reels sat
+  // underneath it offering things chat has no concept of.
+  //
+  // Same localStorage keys the landing page and TruegleChat use, so a lens
+  // staged here carries silently into /chat on submit.
+  const [chatModes, setChatModes] = useState(() => {
+    try {
+      const arr = JSON.parse(localStorage.getItem('truegle_modes_pref') || 'null');
+      if (Array.isArray(arr) && arr.length) return arr;
+    } catch { /* fall through */ }
+    return ['blue'];
+  });
+  const [chatModesOpen, setChatModesOpen] = useState(false);
+  const toggleChatMode = (id) => setChatModes((prev) => {
+    if (prev.includes(id)) return prev.length === 1 ? prev : prev.filter((x) => x !== id);
+    return [...prev, id];
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('truegle_modes_pref', JSON.stringify(chatModes));
+      localStorage.setItem('truegle_mode_pref', chatModes[0]);
+    } catch { /* private mode */ }
+  }, [chatModes]);
+  // Staging Chat should show the lenses without a second tap — that is the
+  // whole point of the row appearing.
+  useEffect(() => { if (pillMode === 'black') setChatModesOpen(true); }, [pillMode]);
   useEffect(() => { setPillMode(mode); }, [mode]);
 
   // Nephesh mode (opt-in Null-Prime dual-audit protocol) and verbosity
@@ -1322,7 +1351,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
               showOSINTToggle={false}
               // OSINT exception: the ocean page swaps the content categories for
               // the investigation-class row rendered below the bar.
-              showCategories={mode !== 'ocean' && !tubeDocked}
+              showCategories={mode !== 'ocean' && !tubeDocked && pillMode !== 'black'}
               showMultiInput
               autoVoice={autoVoice}
               showCameraInput={!tubeDocked}
@@ -1415,6 +1444,18 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
               }
               isLoading={searchLoading}
             />
+            {/* Chat lenses, in the slot the search categories just vacated —
+                the row under the bar always describes the mode the pill is
+                showing. Submitting carries them into /chat via localStorage,
+                the same contract the landing page uses. */}
+            {pillMode === 'black' && (
+              <ChatModeRow
+                activeModes={chatModes}
+                onToggle={toggleChatMode}
+                open={chatModesOpen}
+                onToggleOpen={() => setChatModesOpen((v) => !v)}
+              />
+            )}
             {/* (Ocean/OSINT: the investigation-class row and the "TrueGLE vs"
                 toggle are removed — the interactive OSINT Tools module below the
                 bar now owns tool selection and the AI. Other modes keep them.) */}

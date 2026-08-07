@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Play, RefreshCw } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Play, RefreshCw, ChevronRight } from 'lucide-react';
 import api from '../../services/api';
 import { CREATORS } from '../../content/creators';
 import { fallbackVideos } from '../../content/creatorVideosFallback';
@@ -85,7 +86,7 @@ export default function PlayerStarters({ compact = false }) {
     <div className="w-full bg-black/60 p-2">
       <div className="flex items-center gap-1.5 px-1 pb-1.5">
         <span className="text-[10px] uppercase tracking-wider text-white/40">
-          Truegle creators — start here
+          Truegle creators — tap art to play, name to visit
         </span>
         <button
           type="button"
@@ -112,13 +113,16 @@ export default function PlayerStarters({ compact = false }) {
       ) : (
         <div className="grid grid-cols-2 gap-2">
           {rows.map((row) => (
-            <button
+            <div
               key={row.creator.slug}
+              className="group relative overflow-hidden rounded-lg border border-white/10 bg-white/[0.03] text-left hover:border-white/30 transition-colors"
+            >
+            <button
               type="button"
               onClick={() => startChannel(row)}
               title={`Play ${row.creator.name} — the rest of their uploads queue up behind it`}
               aria-label={`Play ${row.latest.title} from ${row.creator.name}`}
-              className="group relative overflow-hidden rounded-lg border border-white/10 bg-white/[0.03] text-left hover:border-white/30 transition-colors"
+              className="block w-full text-left"
             >
               <div className={`relative w-full ${cardH} bg-black/40`}>
                 {row.latest.poster && (
@@ -137,14 +141,26 @@ export default function PlayerStarters({ compact = false }) {
                 </span>
               </div>
               <div className="px-1.5 py-1">
-                <span className="block text-[10px] font-semibold text-white/85 truncate">
-                  {row.creator.name}
-                </span>
                 <span className="block text-[10px] text-white/40 truncate">
                   {row.latest.title}
                 </span>
               </div>
             </button>
+
+            {/* The way IN to the creator's own page. It was missing entirely:
+                creator pages existed but nothing on Tube linked to one, so the
+                only route was typing the URL. A nested <a> inside the play
+                button would be invalid, so the name sits beside it as its own
+                target — press the art to play, press the name to visit. */}
+            <Link
+              to={`/creator/${row.creator.slug}`}
+              title={`${row.creator.name} — open their page`}
+              className="flex items-center gap-0.5 px-1.5 pb-1 -mt-0.5 text-[10px] font-semibold text-white/85 hover:text-white transition-colors"
+            >
+              <span className="truncate">{row.creator.name}</span>
+              <ChevronRight size={11} className="shrink-0 text-white/35" />
+            </Link>
+            </div>
           ))}
         </div>
       )}

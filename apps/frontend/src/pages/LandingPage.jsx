@@ -347,13 +347,6 @@ export default function LandingPage() {
               />
             </div>
 
-            {/* Player introduction — directly under the search bar. Hidden in
-                Tube mode, where the bar already IS the player and the card
-                would be introducing something the user is looking at. */}
-            {pillMode !== 'tube' && (
-              <PlayerFeatureCard onOpen={() => { setPillMode('tube'); navigate('/tube'); }} />
-            )}
-
             {/* Chat Mode row (multi-select chat lenses) — directly below the
                 search bar. Collapsed by default; only relevant in Chat mode
                 (retracts + locks the moment the pill switches to a search
@@ -389,6 +382,16 @@ export default function LandingPage() {
                 nepheshMode={nepheshMode}
                 onToggleNephesh={() => setNepheshMode((v) => !v)}
               />
+            )}
+
+            {/* Player introduction — BELOW the mode rows, not above them.
+                The chat modes and search categories qualify the box you are
+                about to type in, so they belong against it; an unrelated
+                feature card wedged between the bar and its own controls broke
+                that pairing and pushed the modes off a phone screen. Hidden in
+                Tube mode, where the bar already IS the player. */}
+            {pillMode !== 'tube' && (
+              <PlayerFeatureCard onOpen={() => { setPillMode('tube'); navigate('/tube'); }} />
             )}
 
           </div>
