@@ -847,6 +847,8 @@ export default function SearchBar({
   showOSINTToggle = false,
   // Tube turns this off — its bar is the player, not a multimodal input.
   showMultiInput = true,
+  // Start listening the moment the bar mounts — the home-screen voice shortcut.
+  autoVoice = false,
   // Tube keeps voice (talk-to-text) but drops camera + file.
   showCameraInput = true,
   showFileInput = true,
@@ -1755,6 +1757,7 @@ const handleChange = useCallback((e) => {
             <div className={`flex items-center gap-1 ml-1 pl-2 border-l border-neutral-700/50 ${variant === 'chat' && !mediaOpen ? 'hidden' : ''}`}>
               {/* Voice Recognition */}
               <VoiceRecognition
+                autoStart={autoVoice}
                 onTranscriptChange={(transcript) => {
                   setLocalValue(transcript);
                   onChange?.(transcript);

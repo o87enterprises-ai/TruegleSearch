@@ -37,6 +37,11 @@ const VoiceRecognition = ({
   onTranscriptChange,
   onStatusChange,
   disabled = false,
+  // Open already listening. Set by the home-screen "Talk to Truegle" shortcut
+  // (/search?voice=1): the point of that shortcut is that you tap the icon and
+  // start speaking — making you find and press the mic afterwards defeats it.
+  // Fires once per mount, and never while something else is already recording.
+  autoStart = false,
   size = 16,
   className = '',
 }) => {
@@ -275,6 +280,19 @@ const VoiceRecognition = ({
     if (isRecording) stopRecording();
     else startRecording();
   };
+
+  // A gesture-less getUserMedia is allowed when the permission has already been
+  // granted; the first time, the browser prompts, which is the correct
+  // behaviour for a shortcut the user deliberately tapped.
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!autoStart || autoStarted.current || disabled) return;
+    autoStarted.current = true;
+    startRecording();
+    // startRecording is recreated each render; the ref guard is what makes
+    // this run exactly once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, disabled]);
 
   const renderIcon = () => {
     if (isProcessing) return <Loader2 size={size} className="animate-spin" />;

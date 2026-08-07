@@ -432,6 +432,14 @@
         "body": "apps/backend/services/SearchService.js line ~176: searchSocial => SearXNG 'social media' category AND a self-built Google query (`${query} site:reddit.com OR site:twitter.com OR site:facebook.com`). It is the ONLY category with a Reddit path, and it still answers when SearXNG is cold because of the Google leg. 'web' and 'videos' have no Reddit path at all. Our site: filter must NOT be added to a social ask — the backend appends its own and two site: clauses in one Google query returns nothing. Non-Reddit social results (twitter/fb/HN) are dropped client-side by getPlayable. PROVIDERS entries now each carry a 'category'. Valid backend categories: all|web|news|videos|images|shopping|social.",
         "ts": "2026-08-06",
         "created": "2026-08-06"
+      },
+      "home-screen-limits": {
+        "Id": "home-screen-limits",
+        "Type": "fact",
+        "Label": "A web app CANNOT make a home-screen widget, and cannot record in the background",
+        "body": "Android widgets need an APK with AppWidgetProvider; iOS needs a WidgetKit extension in Swift. No manifest field or permission grants either. The 'widgets' manifest member is Windows 11 Widgets Board only, not a home screen. Background mic capture is also impossible — every mobile browser releases the microphone when the tab is backgrounded, by design. SHIPPED INSTEAD (all $0, see docs/HOME-SCREEN.md): manifest.shortcuts (long-press icon -> Talk to Truegle /search?voice=1 which opens ALREADY RECORDING, True Tube, Chat, Search); manifest.share_target GET -> /tube (share a video from any app and it plays; Android puts the URL in  as often as , so both are read); Media Session lock-screen controls (native audio/video only — a cross-origin embed's media belongs to the iframe, so YouTube's own notification shows instead and cannot be relabelled). Cross-origin embeds also stop when the tab is backgrounded — platform rule, not our bug. A REAL widget = thin native shell: Android Kotlin WebView + AppWidgetProvider ($25 one-time), iOS WidgetKit ($99/yr). Not started.",
+        "ts": "2026-08-07",
+        "created": "2026-08-07"
       }
     },
     "decision": {
@@ -1382,5 +1390,5 @@
       }
     }
   },
-  "updated": "2026-08-06"
+  "updated": "2026-08-07"
 }

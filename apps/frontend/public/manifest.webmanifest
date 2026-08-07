@@ -16,5 +16,44 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Talk to Truegle",
+      "short_name": "Voice",
+      "description": "Start a voice search straight away",
+      "url": "/search?voice=1&source=shortcut",
+      "icons": [{ "src": "/og-image.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "True Tube",
+      "short_name": "Tube",
+      "description": "The player — pick up whatever was queued",
+      "url": "/tube?source=shortcut",
+      "icons": [{ "src": "/truetube.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Chat with TrueGLE",
+      "short_name": "Chat",
+      "description": "Ask the AI directly",
+      "url": "/chat?source=shortcut",
+      "icons": [{ "src": "/og-image.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Search",
+      "short_name": "Search",
+      "description": "Type a search",
+      "url": "/search?source=shortcut",
+      "icons": [{ "src": "/og-image.png", "sizes": "512x512" }]
+    }
+  ],
+  "share_target": {
+    "action": "/tube",
+    "method": "GET",
+    "params": {
+      "title": "sharetitle",
+      "text": "sharetext",
+      "url": "add"
+    }
+  }
 }

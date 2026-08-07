@@ -79,7 +79,7 @@ import TrueglePlayer from '../components/player/TrueglePlayer';
 import { setPlayerQuery } from '../utils/playerQueryStore';
 import { toHandle } from '../utils/playerQuery';
 import PlayerScopeChips from '../components/player/PlayerScopeChips';
-import { parsePlayerParams } from '../utils/playerLink';
+import { parsePlayerParams, resolveShareInput } from '../utils/playerLink';
 import { usePlayer } from '../context/PlayerContext';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
@@ -203,6 +203,35 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
     play(sources[0]);
   }, [lockedTube, searchParams, enqueueMany, play]);
 
+  // ── shared INTO Truegle from another app ─────────────────────────────────
+  // The manifest registers Truegle as a share target, so once it is installed
+  // it appears in the phone's own share sheet. Sharing a video from YouTube,
+  // Reddit or a browser lands here and plays it — that is the whole
+  // interaction, and it is the closest a web app gets to being a place you
+  // can throw things at from the home screen.
+  //
+  // Android is inconsistent about WHERE it puts the link: some apps fill the
+  // `url` field, most stuff it into `text` next to the title. Both are read,
+  // and a URL is dug out of the text when that is all there is.
+  const sharedInRef = useRef(false);
+  useEffect(() => {
+    if (!lockedTube || sharedInRef.current) return;
+    const direct = searchParams.get('add') || '';
+    const fromText = /https?:\/\/\S+/.exec(searchParams.get('sharetext') || '')?.[0] || '';
+    const link = direct || fromText;
+    if (!link) return;
+    sharedInRef.current = true;
+    const sources = resolveShareInput(link);
+    if (sources.length) {
+      play(sources[0]);
+      if (sources.length > 1) enqueueMany(sources.slice(1));
+    } else {
+      // Not playable. Don't fail silently — put it in the box so the player's
+      // own "we can't play that provider" message explains why.
+      setSearchValue(link);
+    }
+  }, [lockedTube, searchParams, play, enqueueMany]);
+
   // Tube's bar is the player's bar, and the player lives above <Routes> now,
   // so what's typed here has to be published to it.
   // What the Tube box is being used to look for. YouTube's chips are the
@@ -215,6 +244,14 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
   // straight back.
   const [scopesOpen, setScopesOpen] = useState(true);
   const selectedUrl = searchParams.get('sel') || '';
+  // The home-screen "Talk to Truegle" shortcut. Consumed once: leaving it in
+  // the URL would restart the mic on every re-render and on back-navigation.
+  const [autoVoice, setAutoVoice] = useState(() => searchParams.get('voice') === '1');
+  useEffect(() => {
+    if (!autoVoice) return;
+    const t = setTimeout(() => setAutoVoice(false), 1500);
+    return () => clearTimeout(t);
+  }, [autoVoice]);
   useEffect(() => {
     if (!tubeDocked) return undefined;
     setPlayerQuery(searchValue, tubeScope, tubeProvider);
@@ -1205,6 +1242,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
               // the investigation-class row rendered below the bar.
               showCategories={mode !== 'ocean' && !tubeDocked}
               showMultiInput
+              autoVoice={autoVoice}
               showCameraInput={!tubeDocked}
               showFileInput={!tubeDocked}
               singleLine={tubeDocked}
