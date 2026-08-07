@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, Fragment } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -50,6 +50,8 @@ import LanguageSelector from '../components/ui/LanguageSelector';
 // selection); osintHintPrefix is still used to tag ocean web searches.
 import { osintHintPrefix } from '../components/search/OsintClassRow';
 import PillModeRow from '../components/landing/PillModeRow';
+import CreatorHeader, { CreatorPill } from '../components/creator/CreatorHeader';
+import { recordRef } from '../utils/creatorRef';
 
 // Hooks and Config
 import { useSearchMode } from '../hooks/useSearchMode';
@@ -72,6 +74,8 @@ const AI_FREE_MODES = new Set(['green', 'tube']);
 const isAiFree = (m) => AI_FREE_MODES.has(m);
 const MODE_TO_BACKEND = { blue: 'blue-pill', green: 'green', red: 'red-pill', purple: 'purple', ocean: 'ocean', tube: 'blue-pill' };
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
+import api from '../services/api';
+import { fallbackVideos } from '../content/creatorVideosFallback';
 import QueueButton from '../components/ui/QueueButton';
 import { isShortForm, asReel } from '../utils/shortForm';
 import { useFeedAutoplay } from '../hooks/useFeedAutoplay';
@@ -107,7 +111,14 @@ const FILTER_CATEGORY_TYPE_MAP = {
 // geocode fallback) are deliberately excluded — they show a "View map" chip.
 const MAP_AUTO_OPEN_TYPES = ['geolocation', 'directions', 'zipcode'];
 
-export default function UniversalSearch({ lockedGreen = false, lockedTube = false }) {
+// `creator` turns this into a creator page: the SAME Tube page — same logo,
+// pill row, search bar, player and results — with the creator's identity block
+// between the logo and the bar. The old /creator/:slug was a seventh copy of
+// the search layout and had already drifted away from every other page; this
+// makes "on brand" true by construction rather than by re-matching it by hand
+// every time something changes. Same reasoning as /tube itself being a mode.
+export default function UniversalSearch({ lockedGreen = false, lockedTube: lockedTubeProp = false, creator = null }) {
+  const lockedTube = lockedTubeProp || !!creator;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
@@ -120,7 +131,12 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
 
   // Routes that ARE a mode (shareable in their own right) rather than a query
   // string on /search. Their path is what the user shares and lands back on.
-  const lockedPath = lockedGreen ? '/green' : lockedTube ? '/tube' : null;
+  // Searching from a creator page must stay ON that creator page — this path
+  // is what the URL is rewritten to after a search, and /tube would have
+  // quietly thrown the visitor off the creator they were watching.
+  const lockedPath = lockedGreen ? '/green'
+    : creator ? `/creator/${creator.slug}`
+      : lockedTube ? '/tube' : null;
 
   // Mode management - Default to 'blue' (SearchPortal)
   const modeParam = searchParams.get('mode');
@@ -213,6 +229,59 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
   // Android is inconsistent about WHERE it puts the link: some apps fill the
   // `url` field, most stuff it into `text` next to the title. Both are read,
   // and a URL is dug out of the text when that is all there is.
+  // Visiting a creator's page attributes traffic to them.
+  useEffect(() => { if (creator?.refCode) recordRef(creator.refCode); }, [creator]);
+
+  // The creator's uploads, newest first — the card's "latest" tile, and the
+  // queue the page starts you on. Falls back to the committed snapshot when
+  // the live feed is empty, same as the old page did.
+  const [creatorVideos, setCreatorVideos] = useState([]);
+  useEffect(() => {
+    if (!creator) { setCreatorVideos([]); return undefined; }
+    let live = true;
+    api.get(`/creators/${creator.channelId}/videos`)
+      .then((r) => {
+        if (!live) return;
+        const v = r.data?.videos || [];
+        setCreatorVideos(v.length ? v : fallbackVideos(creator.channelId));
+      })
+      .catch(() => { if (live) setCreatorVideos(fallbackVideos(creator.channelId)); });
+    return () => { live = false; };
+  }, [creator]);
+  const creatorLatest = creatorVideos[0] || null;
+
+  const toCreatorSource = useCallback((v) => {
+    const base = v && getPlayable(v.url);
+    return base ? {
+      ...base, title: v.title || creator?.name, pageUrl: v.url,
+      poster: v.thumbnail, channel: creator?.name,
+    } : null;
+  }, [creator]);
+
+  // Playing anything of theirs lines the rest of the channel up behind it, so
+  // Next walks the channel instead of wandering into general search.
+  const playCreatorVideo = useCallback((v) => {
+    const source = toCreatorSource(v);
+    if (!source) return;
+    play(source);
+    const rest = creatorVideos
+      .slice(creatorVideos.indexOf(v) + 1)
+      .map(toCreatorSource)
+      .filter(Boolean);
+    if (rest.length) enqueueMany(rest);
+  }, [toCreatorSource, creatorVideos, play, enqueueMany]);
+
+  // Arriving on a creator page with nothing playing starts their latest —
+  // this is a page you came to WATCH. If something is already playing it is
+  // left alone; interrupting whatever the visitor chose would be worse.
+  const startedCreator = useRef(null);
+  useEffect(() => {
+    if (!creator || !creatorLatest || playerCurrent) return;
+    if (startedCreator.current === creator.slug) return;
+    startedCreator.current = creator.slug;
+    playCreatorVideo(creatorLatest);
+  }, [creator, creatorLatest, playerCurrent, playCreatorVideo]);
+
   const sharedInRef = useRef(false);
   useEffect(() => {
     if (!lockedTube || sharedInRef.current) return;
@@ -1199,10 +1268,23 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube = fals
               z-20 so it sits above the scaled logo's overflow and stays
               clickable. Cycling only stages the mode; navigation happens on
               submit (see the search bar's onSearch below). */}
-          {!lockedGreen && (
+          {creator ? (
+            <div className="relative z-20 mb-3">
+              <CreatorPill creator={creator} />
+            </div>
+          ) : !lockedGreen && (
             <div className="relative z-20 mb-2">
               <PillModeRow activeMode={pillMode} onSelect={setPillMode} />
             </div>
+          )}
+
+          {/* Whose page this is — under the mark, above the bar. */}
+          {creator && (
+            <CreatorHeader
+              creator={creator}
+              latest={creatorLatest}
+              onPlayLatest={playCreatorVideo}
+            />
           )}
 
           {/* Search Bar - Directly Below Logo (same as SearchResults) */}

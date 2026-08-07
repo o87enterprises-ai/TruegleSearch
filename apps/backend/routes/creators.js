@@ -61,6 +61,88 @@ router.get('/resolve', async (req, res) => {
   }
 });
 
+/*
+ * Channel ABOUT — name, bio and avatar for the creator card.
+ *
+ * channels.list?part=snippet costs ONE quota unit (search.list costs 100), so
+ * this is affordable per page view even before the 6-hour cache. Without a key
+ * it falls back to the channel page's own OpenGraph tags, which carry the same
+ * three fields and need no credentials — the creator card should not go blank
+ * just because a key is missing.
+ */
+const aboutCache = new Map(); // channelId -> { at, about }
+const ABOUT_TTL_MS = 6 * 60 * 60 * 1000;
+
+router.get('/:channelId/about', async (req, res) => {
+  const { channelId } = req.params;
+  if (!/^[A-Za-z0-9_-]{10,40}$/.test(channelId)) return res.status(400).json({ error: 'bad_channel_id' });
+
+  const hit = aboutCache.get(channelId);
+  if (hit && Date.now() - hit.at < ABOUT_TTL_MS) return res.json(hit.about);
+
+  try {
+    let about = await aboutViaDataApi(channelId);
+    if (!about) about = await aboutViaChannelPage(channelId);
+    if (!about) throw new Error('no about');
+    aboutCache.set(channelId, { at: Date.now(), about });
+    return res.json(about);
+  } catch (err) {
+    logger.warn('Channel about failed:', { channelId, error: err.message });
+    // Stale beats blank on a card that is mostly decoration.
+    if (hit) return res.json({ ...hit.about, stale: true });
+    return res.status(502).json({ error: 'about_failed' });
+  }
+});
+
+async function aboutViaDataApi(channelId) {
+  const key = process.env.YOUTUBE_API_KEY;
+  if (!key) return null;
+  try {
+    const url = 'https://www.googleapis.com/youtube/v3/channels'
+      + `?part=snippet,statistics&id=${encodeURIComponent(channelId)}&key=${key}`;
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const item = (await r.json())?.items?.[0];
+    if (!item) return null;
+    const t = item.snippet?.thumbnails || {};
+    return {
+      channelId,
+      name: item.snippet?.title || null,
+      bio: (item.snippet?.description || '').slice(0, 600) || null,
+      avatar: (t.high || t.medium || t.default || {}).url || null,
+      handle: item.snippet?.customUrl ? `@${item.snippet.customUrl.replace(/^@/, '')}` : null,
+      subscribers: item.statistics?.hiddenSubscriberCount ? null : (item.statistics?.subscriberCount || null),
+      source: 'api',
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Keyless fallback: the channel page's own OpenGraph tags. Only these three
+// values are read, and nothing from the page is echoed back verbatim beyond
+// them — same rule as the id scrape in /resolve.
+async function aboutViaChannelPage(channelId) {
+  const r = await fetch(`https://www.youtube.com/channel/${encodeURIComponent(channelId)}`, {
+    headers: { 'User-Agent': YT_UA, 'Accept-Language': 'en-US,en;q=0.9' },
+  });
+  if (!r.ok) return null;
+  const html = await r.text();
+  const meta = (prop) => new RegExp(`<meta property="${prop}" content="([^"]*)"`).exec(html)?.[1] || null;
+  const decode = (v) => (v ? v.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>') : null);
+  const name = decode(meta('og:title'));
+  if (!name) return null;
+  return {
+    channelId,
+    name,
+    bio: (decode(meta('og:description')) || '').slice(0, 600) || null,
+    avatar: meta('og:image'),
+    handle: null,
+    subscribers: null,
+    source: 'page',
+  };
+}
+
 router.get('/:channelId/videos', async (req, res) => {
   const { channelId } = req.params;
   // YouTube channel IDs are "UC" + 22 url-safe chars; validate defensively.

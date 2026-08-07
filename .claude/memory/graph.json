@@ -1090,6 +1090,14 @@
         "body": "PROVIDERS in playerQuery.js = anywhere/youtube/reddit/vimeo/soundcloud/tiktok/dailymotion/rumble/odysee, each with site:, channelLabel and prefix. Provider chip == a bang; a bang typed in the box OVERRIDES the chip. The Channel chip RENAMES per provider because the address differs: YouTube @handle, Reddit r/sub (and reddit turns it into site:reddit.com/r/<sub>, a PATH not a loose term), SoundCloud bare slug labelled 'Profile' (not 'Artist' — collides with the Artist scope chip), provider-All labelled 'Anywhere' (not 'All' — collides with the All scope chip). toHandle(v, provider) is provider-aware. Shared component components/player/PlayerScopeChips.jsx used by BOTH the Tube bar and the popped-out player. playerQueryStore snapshot is now scope\\0provider\\0text. Channel-feed row in PlayerListSlot gated to YouTube (creators/resolve is YouTube-only).",
         "ts": "2026-08-06",
         "created": "2026-08-06"
+      },
+      "creator-page-is-tube-mode": {
+        "Id": "creator-page-is-tube-mode",
+        "Type": "decision",
+        "Label": "Creator pages are a MODE of UniversalSearch, not their own layout",
+        "body": "CreatorPage.jsx is now a ~30-line wrapper: getCreator(slug) then <UniversalSearch creator={creator} />. lockedTube is derived from creator, so mode===\"tube\" gives the TrueTube mark, tube theming, the docked one player, and all-results-below-the-player for free. Layout parity with /tube is verified by measuring the rail and bar containers (identical). lockedPath is /creator/<slug> so searching stays on the creator page. NEW: components/creator/CreatorHeader.jsx = identity line (circled initial or avatar, FEATURED CREATOR, name, TrueTube chip -> /tube replacing the old \"YouTube arrow\" that sent people off-site) + creator card (avatar, channel bio, subs, latest upload thumbnail that plays and queues the rest of the channel). CreatorPill is translucent white/6 and is deliberately NOT in the global PillModeRow CYCLE — every other search page would be able to cycle into \"creator\" with nothing selected; on a creator page it cycles the roster instead. NEW backend GET /api/creators/:channelId/about — channels.list?part=snippet,statistics (1 quota unit) with an OpenGraph scrape fallback, 6h cache. Arriving plays their latest and queues the channel behind it, unless something is already playing.",
+        "ts": "2026-08-07",
+        "created": "2026-08-07"
       }
     },
     "entity": {
