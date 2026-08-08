@@ -500,7 +500,7 @@ export default function LandingPage() {
                   </li>
                   <li>
                     <a
-                      href="/search?mode=purple"
+                      href="/search?mode=red&fold=1"
                       className="text-body-medium text-gray-400 hover:text-purple-400 transition-colors"
                     >
                       Feeling Biased

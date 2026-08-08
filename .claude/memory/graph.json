@@ -1186,6 +1186,14 @@
         "body": "services/OsintToolbelt.js. The complaint (\"it shouldnt tell users to look up a source it can look up itself\") was NOT a prompt problem — Truegle already had real, free, keyless lookups (RDAP whois, DNS, ipGeo, emailIntel, offline libphonenumber phoneIntel, crt.sh certTransparency, usernameCheck, wayback, peopleSearchLinks) in OsintLookups.js, reachable only by a human clicking /osint. The assistant had no way to call any of them. The toolbelt reuses detectEntities+gather from OsintInvestigationService, renders findings as PLAIN LINES (a model grounds far better on \"Registrar: Cloudflare\" than nested JSON) and prepends them to the AI context labelled as primary sources with an explicit instruction not to tell the user to look it up. ~940 chars for 3 entities, 9s budget via Promise.race so a slow lookup cannot hold up an answer. TRIGGER: any routed flow EXCEPT compute, whenever entities are detected — gating on the investigate flow alone would have missed \"who owns X.com\", which routes to lookup and where whois IS the answer. Safe to be broad because the detector is conservative: usernames need an explicit @handle or \"username: x\", people need stated lookup intent. CRITICAL: the require of OsintInvestigationService MUST stay LAZY — OsintInvestigationService -> UnifiedAIService -> OsintToolbelt is a cycle, and a top-level require leaves detectEntities undefined depending on load order, failing SILENTLY as \"no entities detected\". Verified across all three load orders.",
         "ts": "2026-08-08",
         "created": "2026-08-08"
+      },
+      "d-red-purple-fold": {
+        "Id": "d-red-purple-fold",
+        "Type": "decision",
+        "Label": "Perspectives folded into the Rabbit Hole (reread then rerun)",
+        "body": "Purple is no longer a mode. The Rabbit Hole (red) has a re-ask fold: pick perspectives, the on-screen results REREAD instantly (client-side filter on the bias label the backend already attached — zero network), and only if that misses does the user press 'Not it — search again' for a RERUN (backend red-pill + strict perspective filter, falls back to unfiltered if the lens empties the set). ?mode=purple and /biased still resolve — they land on red with the fold open (FOLDED_MODES in UniversalSearch). Purple removed from PillModeRow CYCLE and BrandBar. Perspective list de-duplicated into src/config/perspectives.js; PERSPECTIVE_BIAS there MUST stay in sync with SearchService.mapPerspectivesToBias. Verified 16/16 with Playwright.",
+        "ts": "2026-08-08",
+        "created": "2026-08-08"
       }
     },
     "entity": {
@@ -1463,6 +1471,15 @@
         "Type": "thread",
         "Label": "Final pre-production backlog captured — docs/PRE-PRODUCTION-BACKLOG.md",
         "body": "HEADLINE: aggregating other peoples social feeds via official APIs is IMPOSSIBLE at any price — Instagram Basic Display shut down Dec 2024, Facebook user_posts not granted to non-partners, Snapchat has NO feed read API at all, TikTok Display API returns only the logged-in users own videos, X costs $200/mo minimum for meaningful read. Reddit is the ONE that works (free OAuth). RECOMMENDED PIVOT: dont aggregate accounts, aggregate LINKS — community_media + the 019 vote pool + the share target already are an anonymous user-submitted social feed; it needs a feed VIEW and per-creator pools, no OAuth from anyone. Awaiting [DECIDE]. Other items P1: clipboard stale-clip, tube docked input off-screen (FIXED), transport buttons cut off (FIXED), SoundCloud search (same class as the Reddit bug — wrong backend category), search-bar single-line-follow-cursor vs chat-shape morph, and the prompt router. NAMING CORRECTION: there is no Obsidian model brain — what the user described is an INTENT ROUTER: tiny classifier picks a flow (lookup/investigate/deep/compute/alt-views/vs/simple), each flow owns a 3-6 line prompt, one short shared base prompt. Fits the existing DB-backed PromptService as rows. OSINT: needs tool-calling not prompting; most of OSINT Framework cannot be curled (browser-only or blocks datacenter IPs) — start with 5 that work: email breach/MX, username presence, phone via offline libphonenumber, domain WHOIS/DNS/crt.sh, reverse-image LINKS. 404 8-bit game replaces the games page v1 and moots its AD-POLICY problem.",
+        "status": "open",
+        "ts": "2026-08-08",
+        "created": "2026-08-08"
+      },
+      "t404-survival": {
+        "Id": "t404-survival",
+        "Type": "thread",
+        "Label": "404 page: hidden offline survival-guide PDFs",
+        "body": "Easter egg on the 404 page: offline / offgrid / pioneer-days survival guide PDFs, hidden on the page so Truegle has stored value even with no service. USER GATHERS THE DOCUMENTS — do not source or invent them. Pairs with the 8-bit game already planned for 404. Requirement: assets must be reachable/cached with no network (service-worker precache or inlined), and discoverable only via the egg, not linked in nav.",
         "status": "open",
         "ts": "2026-08-08",
         "created": "2026-08-08"

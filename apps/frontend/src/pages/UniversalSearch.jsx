@@ -38,6 +38,8 @@ import { SkeletonSearchResult } from '../components/ui/Skeleton';
 import QuickAnswerCard from '../components/ui/QuickAnswerCard';
 import AsSeenOn from '../components/Content/AsSeenOn';
 import PerspectiveSelector from '../components/search/PerspectiveSelector';
+import RabbitHoleFold from '../components/search/RabbitHoleFold';
+import { readThroughLens } from '../utils/perspectiveLens';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import { MapViewWrapper } from '../components/map';
 import QuickResultCard from '../components/ui/QuickResultCard';
@@ -74,6 +76,18 @@ const LENS_MODES = ['blue', 'green', 'red', 'purple', 'ocean'];
 const AI_FREE_MODES = new Set(['green', 'tube']);
 const isAiFree = (m) => AI_FREE_MODES.has(m);
 const MODE_TO_BACKEND = { blue: 'blue-pill', green: 'green', red: 'red-pill', purple: 'purple', ocean: 'ocean', tube: 'blue-pill' };
+
+// FOLDED MODES. Perspectives is no longer a mode of its own — its one job
+// ("show me this from another angle") is now the Rabbit Hole fold, which does
+// it without a page, a background, or a round trip you didn't ask for.
+//
+// The old entry points still resolve. ?mode=purple and /biased land on Red
+// with the fold already open, so bookmarks, shared links and every citation
+// the assistant ever emitted keep working instead of quietly becoming a
+// different page. Nothing here deletes purple's code paths: the rerun still
+// uses the same perspective ids and the same backend mapping.
+const FOLDED_MODES = { purple: 'red' };
+const foldMode = (m) => FOLDED_MODES[m] || m;
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import api from '../services/api';
 import { fallbackVideos } from '../content/creatorVideosFallback';
@@ -147,9 +161,13 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   const [mode, setMode] = useState(() => {
     if (lockedGreen) return 'green';
     if (lockedTube) return 'tube';
-    if (modeParam) return modeParam;
-    return localStorage.getItem('truegle_mode_pref') || 'blue';
+    if (modeParam) return foldMode(modeParam);
+    return foldMode(localStorage.getItem('truegle_mode_pref') || 'blue');
   });
+  // Arriving from an old Perspectives link opens the fold, so the control that
+  // replaced that page is the first thing on screen rather than something to
+  // go hunting for.
+  const arrivedFolded = modeParam === 'purple' || searchParams.get('fold') === '1';
   // Single cycling pill (same control as the landing page). Reflects the
   // current search mode; cycling stages a new one and submitting navigates to
   // it (black = Chat -> /chat, orange/yellow -> their page, else /search?mode=).
@@ -440,8 +458,27 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     }
   }, [queryIsQuestion, searchResults.length, mode, sessionSummaryChoice]);
 
-  // Purple mode: Perspective state
-  const [selectedPerspectives, setSelectedPerspectives] = useState(['neutral']);
+  // Perspective state. Shared by the (folded) purple page and the Rabbit Hole
+  // fold — same ids, same toggle handler.
+  // Seeded from ?perspectives= so an old Perspectives link arrives with its
+  // lens intact. It was written into the URL all along and never read back,
+  // which meant every shared purple link opened on Neutral — the one thing the
+  // sender definitionally wasn't looking at.
+  const [selectedPerspectives, setSelectedPerspectives] = useState(() => {
+    const raw = (searchParams.get('perspectives') || '').split(',').map((s) => s.trim()).filter(Boolean);
+    return raw.length ? raw : ['neutral'];
+  });
+
+  // THE REREAD/RERUN SPLIT. On the Rabbit Hole, choosing a lens must NOT fire a
+  // search: the reread re-reads the results already on screen, instantly and
+  // for free. Only `lensRerun` — set when the user says the reread missed what
+  // they were after — goes back to the network. Purple keeps its old
+  // behaviour, where every perspective change was a fresh search.
+  const [lensRerun, setLensRerun] = useState([]);
+  const runLensAgain = (ids) => setLensRerun(ids.filter((id) => id && id !== 'neutral'));
+  // A new query is a new question — the previous lens shouldn't silently
+  // narrow it server-side.
+  useEffect(() => { setLensRerun([]); }, [query]);
 
   // Ad targeting context — prefer the most specific signal available.
   // Passed to AdsterraBanner so Adsterra campaigns can be keyword-targeted
@@ -485,7 +522,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     if (lockedPath) return;
     const urlMode = searchParams.get('mode');
     if (urlMode) {
-      setMode(urlMode);
+      setMode(foldMode(urlMode));
     }
   }, [searchParams, lockedPath]);
 
@@ -554,14 +591,22 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   }, [searchParams]);
 
   // Re-search whenever the mode, active category pill, filter dropdowns, or
-  // (in purple mode) the selected perspectives change — previously only `mode`
-  // was wired up, so switching categories/filters/perspectives silently left
-  // stale results on screen instead of re-ranking/re-filtering them.
+  // the server-side perspective set change — previously only `mode` was wired
+  // up, so switching categories/filters/perspectives silently left stale
+  // results on screen instead of re-ranking/re-filtering them.
+  //
+  // Deliberately NOT `selectedPerspectives`. On the Rabbit Hole that state
+  // drives the reread, which is a local re-sort — firing a search on every
+  // chip press would put a network round trip behind a control whose entire
+  // reason for existing is that it doesn't need one. Purple's ids still land
+  // here, via `perspectiveSig` below, because there the perspective IS the
+  // search.
+  const perspectiveSig = (mode === 'purple' ? selectedPerspectives : lensRerun).join(',');
   useEffect(() => {
     if (lastSearchedQuery && searchValue && !searchLoading) {
       handleSearch();
     }
-  }, [mode, activeCategory, osintClasses, filters.bias, filters.dateRange, filters.sortBy, filters.order, filters.category, selectedPerspectives]);
+  }, [mode, activeCategory, osintClasses, filters.bias, filters.dateRange, filters.sortBy, filters.order, filters.category, perspectiveSig]);
 
   // Auto-detect shopping category
   const isShoppingQuery = (query) => {
@@ -716,7 +761,10 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
             filters: {
               category: searchCategory,
               bias: effectiveBias,
-              perspectives: mode === 'purple' ? selectedPerspectives : [],
+              // Purple sends whatever is selected. Red sends only what the
+              // user explicitly asked to search again for — a lens they are
+              // merely reading through must never change what gets fetched.
+              perspectives: mode === 'purple' ? selectedPerspectives : (mode === 'red' ? lensRerun : []),
               dateRange: filters.dateRange,
               sortBy: filters.sortBy,
               order: filters.order,
@@ -882,24 +930,22 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     navigate(`/search?${params.toString()}`, { replace: true });
   };
 
-  const handleBiasedClick = () => {
-    if (lockedGreen) return;
-    setMode('purple');
-    const params = new URLSearchParams(searchParams);
-    params.set('mode', 'purple');
-    navigate(`/search?${params.toString()}`, { replace: true });
-  };
-
-  // Red-pill "deep dive": jump straight into purple mode strictly filtered to
-  // the chosen perspective, reusing the existing perspective-specific pipeline.
+  // "Deep dive" from a perspective named in the AI summary. It used to throw
+  // the user onto the Perspectives page — a different background, a different
+  // pill, a fresh search — to see one angle on the results they were already
+  // reading. Now it selects that lens where they stand: the results re-read
+  // instantly, and the rerun is one press away if the reread misses.
   const handleDeepDivePerspective = (perspectiveId) => {
     if (lockedGreen) return;
     setSelectedPerspectives([perspectiveId]);
-    setMode('purple');
-    const params = new URLSearchParams(searchParams);
-    params.set('mode', 'purple');
-    params.set('perspectives', perspectiveId);
-    navigate(`/search?${params.toString()}`, { replace: true });
+    if (mode !== 'red') {
+      setMode('red');
+      const params = new URLSearchParams(searchParams);
+      params.set('mode', 'red');
+      params.set('perspectives', perspectiveId);
+      params.set('fold', '1');
+      navigate(`/search?${params.toString()}`, { replace: true });
+    }
   };
 
   const toggleOSINT = () => {
@@ -1014,6 +1060,23 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // Perspective colors + per-mode container accent — shared with other
   // mode-aware pages via config/modeTheme.js.
   const perspectiveColors = PERSPECTIVE_COLORS;
+
+  // THE REREAD, applied. `searchResults` stays the raw set the backend
+  // returned; this is what the page actually renders. Keeping the two separate
+  // is what makes the lens undoable in one press without re-fetching anything
+  // — clearing it restores the full set from memory.
+  //
+  // Red only: everywhere else the lens has no meaning, and quietly filtering a
+  // Blue search by a perspective the user can't see or clear would look
+  // exactly like the search losing results.
+  const lensView = useMemo(
+    () => readThroughLens(searchResults, mode === 'red' ? selectedPerspectives : []),
+    [searchResults, selectedPerspectives, mode],
+  );
+  // A lens that matches nothing shows the unfiltered results rather than an
+  // empty page — the fold's status bar is already saying "0 of 20 read this
+  // way", which is the useful version of that information.
+  const displayResults = lensView.active && lensView.count > 0 ? lensView.matched : searchResults;
   const modeAccent = getModeAccent(mode);
 
   // ── ResultCard ──────────────────────────────────────────────────────────
@@ -1604,14 +1667,31 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
               AI results-summary + debrief all live here (no separate summary). */}
           {mode === 'ocean' && <OSINTToolsPanel initialQuery={lastSearchedQuery} />}
 
-          {/* Perspective Selector (Purple mode only) */}
+          {/* The Rabbit Hole fold — Perspectives, on demand, in the mode that
+              already asks the same question. Only once there is something to
+              re-read: an empty page has no angles to offer. */}
+          {mode === 'red' && searchResults.length > 0 && (
+            <RabbitHoleFold
+              results={searchResults}
+              selected={selectedPerspectives}
+              onSelect={handleTogglePerspective}
+              onRerun={runLensAgain}
+              rerunning={searchLoading}
+              startOpen={arrivedFolded}
+            />
+          )}
+
+          {/* Perspective Selector — the folded purple page. Unreachable from
+              the UI now (?mode=purple redirects into the fold above); kept
+              because the mode, its backend filter and its strict date ranking
+              still work, and deleting a working pipeline to remove a pill is
+              how you lose the ability to put it back. */}
           {mode === 'purple' && (
             <div className="max-w-4xl mx-auto mb-6">
               <PerspectiveSelector
                 selectedPerspectives={selectedPerspectives}
                 onTogglePerspective={handleTogglePerspective}
                 show={true}
-                onClose={() => {}}
                 activeCategoryIndex={activePerspectiveCategory}
                 onCategoryChange={setActivePerspectiveCategory}
               />
@@ -2031,7 +2111,11 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                 <>
                   <div className="text-sm mb-4">
                     <span className={modeAccent.count}>
-                      {searchResults.length > 0 ? `About ${searchResults.length} results` : 'No results yet - try searching!'}
+                      {displayResults.length > 0
+                        ? (lensView.active && lensView.count > 0
+                          ? `${displayResults.length} of ${searchResults.length} results, read through your lens`
+                          : `About ${displayResults.length} results`)
+                        : 'No results yet - try searching!'}
                     </span>
                   </div>
 
@@ -2138,7 +2222,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                     </div>
                   )}
 
-                  {mode !== 'ocean' && searchResults.map((result, index) => (
+                  {mode !== 'ocean' && displayResults.map((result, index) => (
                     <Fragment key={result.url || index}>
                       <div>
                         <ResultCard
@@ -2152,7 +2236,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                           currentMode={mode}
                         />
                       </div>
-                      {(index + 1) % 3 === 0 && index !== searchResults.length - 1 && (
+                      {(index + 1) % 3 === 0 && index !== displayResults.length - 1 && (
                         <div className="my-2">
                           <SponsoredAd searchContext={adContext} />
                         </div>

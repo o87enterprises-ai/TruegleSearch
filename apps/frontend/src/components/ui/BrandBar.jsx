@@ -12,7 +12,9 @@ import { MODE_COLORS } from '../../config/modeTheme';
 const ITEMS = [
   { label: 'Search',       mode: 'blue',   path: '/search?mode=blue' },
   { label: 'Rabbit Hole',  mode: 'red',    path: '/search?mode=red' },
-  { label: 'Perspectives', mode: 'purple', path: '/search?mode=purple' },
+  // Perspectives folded into the Rabbit Hole 2026-08-08 — its entry point is
+  // now the re-ask fold on Red, so a separate nav item would lead to the same
+  // page with a different name on it.
   { label: 'OSINT',        mode: 'ocean',  path: '/search?mode=ocean' },
   { label: 'Chat',         mode: 'black',  path: '/chat' },
   { label: 'Extract',      mode: 'yellow', path: '/extract' },

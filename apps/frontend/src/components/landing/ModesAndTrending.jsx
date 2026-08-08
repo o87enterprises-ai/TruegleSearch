@@ -34,17 +34,20 @@ const MODES = [
     path: '/search?mode=red&q=federal+reserve+money+printing+explained',
   },
   {
+    // Perspectives is no longer a mode — it is the re-ask fold inside the
+    // Rabbit Hole. The card stays because the capability is worth advertising;
+    // it just points at where the capability actually lives now.
     id: 'purple',
-    label: 'Perspectives Mode',
+    label: 'Re-ask It',
     tagline: 'Multi-viewpoint · Skeptical',
-    description: 'A conservative or skeptical filter. Counter-narratives, accountability journalism, and perspectives that are underrepresented in mainstream search — for those who don\'t trust the mainstream.',
+    description: 'Inside the Rabbit Hole: re-read the results you already have from a conservative, skeptical, faith, or economic angle — instantly, without searching again. Search again only if that angle isn\'t in them.',
     color: 'from-purple-600 to-violet-400',
     glow: 'shadow-purple-500/30',
     border: 'border-purple-500/30 hover:border-purple-400/60',
     dot: 'bg-purple-400',
     textAccent: 'text-purple-400',
     exampleQuery: 'immigration policy effects',
-    path: '/search?mode=purple&q=immigration+policy+effects',
+    path: '/search?mode=red&fold=1&q=immigration+policy+effects',
   },
   {
     id: 'ocean',

@@ -390,21 +390,44 @@ class SearchService {
       // (SearXNG results already carry proxyUrl from format time).
       combinedResults = this.attachProxyUrls(combinedResults);
 
-      const categorizedResults = this.categorizeByBias(combinedResults);
+      let categorizedResults = this.categorizeByBias(combinedResults);
       console.log(`🏷️  Categorized results: ${categorizedResults.length}`);
+
+      const perspectives = Array.isArray(filters.perspectives) ? filters.perspectives.filter(Boolean) : [];
 
       // Purple mode: strict perspective filter — ONLY results matching the
       // selected perspective(s), strictly date-ranked. No padding with
       // unrelated "neutral" results — if the filter is sparse, it stays sparse.
-      if (isPurple && filters.perspectives && filters.perspectives.length > 0) {
-        const mapped = this.mapPerspectivesToBias(filters.perspectives);
+      if (isPurple && perspectives.length > 0) {
+        const mapped = this.mapPerspectivesToBias(perspectives);
         const filtered = categorizedResults.filter(r => mapped.includes(r.bias));
-        console.log(`🟣 Purple strict filter: ${filtered.length} results for perspectives [${filters.perspectives.join(',')}]`);
+        console.log(`🟣 Purple strict filter: ${filtered.length} results for perspectives [${perspectives.join(',')}]`);
 
         return [...filtered].sort((a, b) => {
           const diff = new Date(b.date) - new Date(a.date);
           return filters.order === 'asc' ? -diff : diff;
         });
+      }
+
+      // Red-pill LENS RERUN — the Rabbit Hole fold that replaced the
+      // Perspectives page. Same perspective ids, but this is a narrowing of a
+      // rabbit-hole search rather than a different mode, so it keeps red-pill's
+      // own ranking (alternative/independent sources boosted) instead of
+      // purple's pure date sort.
+      //
+      // 'neutral' is excluded deliberately: on the fold it is the default
+      // selection, i.e. "no lens", and treating it as a filter would quietly
+      // strip every labelled source from an ordinary red-pill search.
+      //
+      // If the lens empties the set entirely, the unfiltered results stand. The
+      // fold already tells the user how many results read that way — zero of
+      // twenty is information; an empty page after pressing "search again" is
+      // just a dead end at the exact moment they asked for more.
+      if (isRedPill && perspectives.some((p) => p !== 'neutral')) {
+        const mapped = this.mapPerspectivesToBias(perspectives.filter((p) => p !== 'neutral'));
+        const filtered = categorizedResults.filter(r => mapped.includes(r.bias));
+        console.log(`🔴 Red lens rerun: ${filtered.length}/${categorizedResults.length} for [${perspectives.join(',')}] → ${mapped.join(',')}`);
+        if (filtered.length > 0) categorizedResults = filtered;
       }
 
       let finalResults = this.sortAndFilter(categorizedResults, filters);
