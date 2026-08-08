@@ -1,4 +1,5 @@
-import { PROVIDERS, SEARCH_SCOPES, channelLabel } from '../../utils/playerQuery';
+import { ChevronDown } from 'lucide-react';
+import { PROVIDERS, SEARCH_SCOPES, channelLabel, providerMeta } from '../../utils/playerQuery';
 
 // The two questions a search has to answer before it can be sharp: WHERE, and
 // WHAT KIND. They are separate axes, so they get separate rows — one row mixing
@@ -18,6 +19,13 @@ export default function PlayerScopeChips({
   scope = 'all',
   onProvider,
   onScope,
+  // The rows retract on their own once a search has run, which is right — they
+  // are for composing, not for reading results against. But retracting with no
+  // way back meant the only route to them was typing again. This tab is always
+  // there: it shows what is currently selected when closed, and closes them
+  // again when open.
+  open = true,
+  onToggleOpen,
   compact = false,
   className = '',
 }) {
@@ -28,8 +36,38 @@ export default function PlayerScopeChips({
     on ? 'bg-white/15 border-white/30 text-white' : 'bg-white/[0.03] border-white/10 text-white/50 hover:text-white/80'
   }`;
 
+  const meta = providerMeta(provider);
+  const scopeLabel = scope === 'channel'
+    ? channelLabel(provider)
+    : (SEARCH_SCOPES.find((x) => x.id === scope)?.label || 'All');
+
   return (
     <div className={className}>
+      {/* The handle. Always visible, whether the rows are open or not. */}
+      {onToggleOpen && (
+        <button
+          type="button"
+          onClick={onToggleOpen}
+          aria-expanded={open}
+          title={open ? 'Hide the search filters' : 'Show the search filters'}
+          className={`w-full flex items-center gap-1.5 ${compact ? 'px-2 py-1' : 'px-2 py-1.5'} text-left hover:bg-white/[0.04] transition-colors`}
+        >
+          <span className={`${compact ? 'text-[9px]' : 'text-[10px]'} uppercase tracking-wider text-white/30`}>
+            Filters
+          </span>
+          {/* What is on, so a closed row is still informative. */}
+          <span className={`${compact ? 'text-[9px]' : 'text-[10px]'} text-white/50 truncate`}>
+            {meta.label} · {scopeLabel}
+          </span>
+          <ChevronDown
+            size={compact ? 12 : 13}
+            className={`ml-auto shrink-0 text-white/35 transition-transform ${open ? 'rotate-180' : ''}`}
+          />
+        </button>
+      )}
+
+      {!open ? null : (
+      <>
       <div className={`flex gap-1.5 overflow-x-auto ${compact ? 'px-2 pt-1.5' : 'px-2 pt-2'}`}>
         <span className={`shrink-0 self-center ${compact ? 'text-[9px]' : 'text-[10px]'} uppercase tracking-wider text-white/25 pr-0.5`}>
           Where
@@ -62,6 +100,8 @@ export default function PlayerScopeChips({
           </button>
         ))}
       </div>
+      </>
+      )}
     </div>
   );
 }

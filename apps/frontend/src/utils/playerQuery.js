@@ -212,7 +212,11 @@ export function parsePlayerQuery(raw, scope = 'all', provider = 'all') {
     all: text,
     channel: '',
     song: text ? `${text} audio` : '',
-    artist: text ? `"${text}" music` : '',
+    // NOT a quoted phrase. "Duck E. Duck" typed with a stray period matches
+    // nothing exactly, and the engine then falls back to loose matching and
+    // returns five unrelated things. Exact-phrase is what the Title chip is
+    // FOR; Artist just needs a lexical nudge.
+    artist: text ? `${text} music` : '',
     title: text ? `"${text}"` : '',
     topic: text,
   }[activeScope];
@@ -229,10 +233,25 @@ export function parsePlayerQuery(raw, scope = 'all', provider = 'all') {
     ? [channelTerms, shaped].filter(Boolean).join(' ').trim()
     : siteQuery;
 
+  // THE FALLBACK RUNG HAS TO ASK SOMETHING DIFFERENT. The live trace showed
+  // `web 5→0 · web 5→0 · web 5→0` — the identical query three times, because
+  // for most providers backendQuery and siteQuery are the same string. Asking
+  // a question that already failed, twice more, is just latency.
+  //
+  // So the second rung drops the site: OPERATOR and uses the platform's name
+  // as a plain KEYWORD. Not a cosmetic difference: engines that silently
+  // ignore `site:` still rank soundcloud.com pages highly for the word
+  // "soundcloud", and getPlayable() drops anything that isn't the real thing
+  // anyway, so a looser question costs nothing.
+  const keywordQuery = platform && platform !== 'any'
+    ? [channelTerms, shaped, platform].filter(Boolean).join(' ').trim()
+    : '';
+
   return {
     text, channel, platform, scope: activeScope, category,
     backendQuery: scopedQuery || siteQuery || text,
     siteQuery: siteQuery || text,
+    keywordQuery: keywordQuery || siteQuery || text,
     explicit,
   };
 }

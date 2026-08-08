@@ -542,9 +542,12 @@ export default function MiniPlayer() {
             out player is the same player, so it has to search the same way.
             Sticky with the header so the keyboard can't push them out of
             reach; they retract on Enter and come back on the next keystroke. */}
-        {!docked && !peek && scopesOpen && (
+        {/* Rendered even when collapsed — the tab inside it is the way back. */}
+        {!docked && !peek && (
           <PlayerScopeChips
             compact
+            open={scopesOpen}
+            onToggleOpen={() => setScopesOpen((v) => !v)}
             provider={playerProvider}
             scope={playerScope}
             onProvider={(id) => {

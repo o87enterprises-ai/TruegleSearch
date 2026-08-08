@@ -132,14 +132,22 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         // raw vs playable is the whole diagnosis: 0/0 means the backend found
         // nothing, 12/0 means it found plenty and none of it can be played.
         steps.push(`${category} ${raw}→${rows.length}`);
+        // `raw` rides along so the retry can tell those two apart.
+        rows.raw = raw;
         return rows;
       });
 
     // One retry, on the FIRST ask only. Retrying every rung of the fallback
     // chain turned an empty search into eight sequential requests and ten
     // seconds of spinner before the last resort was even tried.
+    //
+    // And retry only when the provider returned NOTHING AT ALL. The retry
+    // exists for a cold SearXNG that answers the first ask with an empty body;
+    // if it returned twelve results and none were playable, it answered fine
+    // and asking again will produce the same twelve. The live trace showed
+    // exactly that waste: 5 raw results, 0 playable, asked twice.
     const ask = (category, query, retry = false) => once(category, query)
-      .then((rows) => (rows.length || !retry
+      .then((rows) => (rows.length || rows.raw > 0 || !retry
         ? rows
         : new Promise((res) => { setTimeout(res, 500); }).then(() => once(category, query))))
       .catch((e) => { if (e.name === 'AbortError') throw e; return []; });
@@ -156,7 +164,10 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
     // Scoped first, then progressively looser — but never so loose that an
     // explicit ask ("!yt", "@channel", the Reddit chip) is quietly ignored.
     const web = ask(first, intent.backendQuery, true)
-      .then((rows) => (rows.length ? rows : ask('web', intent.siteQuery)))
+      // Second rung: the SAME need, a DIFFERENT question — keyword instead of
+      // site: operator. Repeating the failed query here is what produced
+      // `web 5→0 · web 5→0 · web 5→0` in the live trace.
+      .then((rows) => (rows.length ? rows : ask('web', intent.keywordQuery)))
       .then((rows) => (rows.length || intent.explicit ? rows : ask('videos', q)))
       .then((rows) => (rows.length ? rows : (intent.explicit ? [] : ask('web', q))))
       // The last resort is YouTube's OWN search, so it can only ever answer a

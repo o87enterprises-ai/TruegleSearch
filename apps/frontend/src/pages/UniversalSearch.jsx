@@ -1379,8 +1379,12 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                     <>
                       {/* Directly under the bar, because it qualifies what you
                           are about to type — not what came back. */}
-                      {scopesOpen && (
+                      {/* Always rendered; the tab inside it reopens the rows
+                          after they retract on their own. */}
+                      {(
                         <PlayerScopeChips
+                          open={scopesOpen}
+                          onToggleOpen={() => setScopesOpen((v) => !v)}
                           provider={tubeProvider}
                           scope={tubeScope}
                           onProvider={(id) => {

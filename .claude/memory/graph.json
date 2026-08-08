@@ -456,6 +456,14 @@
         "body": "ONE: the search provider does not honour (a OR b OR c). It was documented for the channel query and then still used in the Song and Artist scope shaping, which broke those chips on EVERY platform. Shaping is now: song = \"<text> audio\", artist = quoted text + \"music\", title = quoted text, topic/all = plain. Quoted phrases ARE honoured. TWO: squash() (remove spaces/dots/hyphens, lowercase) is a YOUTUBE-HANDLE rule — handles carry no spaces. Applying it to hyphenated-slug platforms searched \"duckeduck\" for \"duck-e-duck\" and found nothing. toHandle now only squashes for PREFIXED providers (@ youtube/tiktok/odysee, r/ reddit, c/ rumble); prefix-less providers (soundcloud, vimeo, dailymotion) keep the words. THREE: a SoundCloud PROFILE url (one path segment) is playable — the widget streams that artists whole catalogue — so both getPlayable and MediaService.classifyMedia accept it, excluding SoundClouds reserved pages (discover/stream/you/search/...). The two sides disagreeing is how a link plays in search but is refused on submit.",
         "ts": "2026-08-08",
         "created": "2026-08-08"
+      },
+      "search-trace-readings": {
+        "Id": "search-trace-readings",
+        "Type": "fact",
+        "Label": "How to read the players `asked:` diagnostic — and what it revealed",
+        "body": "Format is `<category> <raw>→<playable>`. raw=0 means the backend found NOTHING (cold provider / bad operator). raw>0 with playable=0 means it found things and getPlayable rejected them all (wrong hosts came back). The live SoundCloud trace read `web 5→0 · web 5→0 · web 5→0` and that single line diagnosed three separate faults: (1) site: was being IGNORED by whatever serves the web category — 5 unrelated non-SoundCloud results came back; (2) the fallback rung asked the IDENTICAL query because backendQuery === siteQuery for most providers, so a failed question was repeated twice more for nothing; (3) the retry fired even though raw was 5, when the retry exists only for a cold provider returning an empty body. FIXES: intent now carries keywordQuery — the platform name as a plain KEYWORD instead of the site: operator, which engines cannot ignore — and the second rung uses it; ask() retries only when rows.raw === 0; the Artist scope no longer forces a quoted exact phrase (Duck E. Duck with a stray period matched nothing exactly and the engine fell back to loose matching). Exact-phrase is what the Title chip is for.",
+        "ts": "2026-08-08",
+        "created": "2026-08-08"
       }
     },
     "decision": {
