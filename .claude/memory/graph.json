@@ -1377,6 +1377,15 @@
         "status": "open",
         "ts": "2026-08-06",
         "created": "2026-08-06"
+      },
+      "preproduction-backlog": {
+        "Id": "preproduction-backlog",
+        "Type": "thread",
+        "Label": "Final pre-production backlog captured — docs/PRE-PRODUCTION-BACKLOG.md",
+        "body": "HEADLINE: aggregating other peoples social feeds via official APIs is IMPOSSIBLE at any price — Instagram Basic Display shut down Dec 2024, Facebook user_posts not granted to non-partners, Snapchat has NO feed read API at all, TikTok Display API returns only the logged-in users own videos, X costs $200/mo minimum for meaningful read. Reddit is the ONE that works (free OAuth). RECOMMENDED PIVOT: dont aggregate accounts, aggregate LINKS — community_media + the 019 vote pool + the share target already are an anonymous user-submitted social feed; it needs a feed VIEW and per-creator pools, no OAuth from anyone. Awaiting [DECIDE]. Other items P1: clipboard stale-clip, tube docked input off-screen (FIXED), transport buttons cut off (FIXED), SoundCloud search (same class as the Reddit bug — wrong backend category), search-bar single-line-follow-cursor vs chat-shape morph, and the prompt router. NAMING CORRECTION: there is no Obsidian model brain — what the user described is an INTENT ROUTER: tiny classifier picks a flow (lookup/investigate/deep/compute/alt-views/vs/simple), each flow owns a 3-6 line prompt, one short shared base prompt. Fits the existing DB-backed PromptService as rows. OSINT: needs tool-calling not prompting; most of OSINT Framework cannot be curled (browser-only or blocks datacenter IPs) — start with 5 that work: email breach/MX, username presence, phone via offline libphonenumber, domain WHOIS/DNS/crt.sh, reverse-image LINKS. 404 8-bit game replaces the games page v1 and moots its AD-POLICY problem.",
+        "status": "open",
+        "ts": "2026-08-08",
+        "created": "2026-08-08"
       }
     }
   },
@@ -1406,5 +1415,5 @@
       }
     }
   },
-  "updated": "2026-08-07"
+  "updated": "2026-08-08"
 }

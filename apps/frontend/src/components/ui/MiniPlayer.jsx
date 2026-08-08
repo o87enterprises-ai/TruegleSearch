@@ -313,8 +313,18 @@ export default function MiniPlayer() {
       // The frame is FIXED, so anything of its own that runs past the bottom
       // of the screen can never be scrolled to — the page scrolls, the frame
       // doesn't. Cap it at what's actually visible and let it scroll itself,
-      // so an opened panel (add-a-link, a long queue) stays reachable.
-      maxHeight: `calc(100svh - ${Math.max(0, Math.round(slot.top))}px - 8px)`,
+      // so an opened panel (a long queue, the results list) stays reachable.
+      //
+      // The KEYBOARD counts as "not visible". This was the one geometry path
+      // that ignored it: 100svh does not shrink for the keyboard on Android,
+      // so with the list open the frame was sized against the full screen,
+      // grew down behind the keyboard, and covered the page's search bar —
+      // the very box you were typing into. The float and footer paths already
+      // subtracted this; docked never did.
+      maxHeight: `${Math.max(140, Math.round(
+        (typeof window !== 'undefined' ? window.innerHeight : 800)
+        - keyboardInset - Math.max(0, slot.top) - 8,
+      ))}px`,
       overflowY: 'auto',
     }
     : footerDock
