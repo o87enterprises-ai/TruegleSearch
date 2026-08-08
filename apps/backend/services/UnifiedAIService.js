@@ -15,6 +15,7 @@ const OllamaService = require('./OllamaService');
 const PromptService = require('./PromptService');
 const { query } = require('../db/connection');
 const logger = require('../utils/logger');
+const promptRouter = require('./PromptRouter');
 
 class UnifiedAIService {
   constructor() {
@@ -265,10 +266,30 @@ class UnifiedAIService {
         timestamp: new Date().toISOString()
       };
 
-      const systemPrompt = options.systemOverride || this.promptService.interpolatePrompt(
-        prompt.prompt_text,
-        variables
-      );
+      // THE PROMPT ROUTER. A caller with its own system prompt (the versioned
+      // TrueGLE mode prompts) still wins — that contract is unchanged. What
+      // changes is the DEFAULT: instead of one general instruction block
+      // interpolated with the query, the context, the results and a
+      // perspective on every call, a short base plus one short flow chosen for
+      // THIS question. A page of instructions gives a model more to contradict
+      // and more room to answer confidently off-topic, which is what the
+      // hallucination was.
+      //
+      // Deterministic heuristics, no second model and no extra request — see
+      // PromptRouter. Set PROMPT_ROUTER=off to fall straight back to the
+      // database prompt.
+      let routed = null;
+      if (!options.systemOverride && promptRouter.enabled()) {
+        routed = promptRouter.route(queryContext || context, {
+          mode: options.mode || options.perspectiveMode,
+          hasSources: !!(content && String(content).trim()),
+        });
+        logger.info('Prompt routed', { flow: routed.flow, chars: routed.system.length });
+      }
+
+      const systemPrompt = options.systemOverride
+        || (routed && routed.system)
+        || this.promptService.interpolatePrompt(prompt.prompt_text, variables);
 
       // Get provider order
       const providerOrder = await this.getProviderOrder(prompt.id);
@@ -297,10 +318,13 @@ class UnifiedAIService {
             {
               ...options,
               system: systemPrompt,
-              temperature: prompt.temperature,
+              // A flow knows what it needs: a calculation wants temperature 0
+              // and a deep investigation wants room. The single DB-wide value
+              // could only ever be a compromise between the two.
+              temperature: routed ? routed.temperature : prompt.temperature,
               // Honor a caller-supplied cap (vs/Null-Prime summaries need room
               // for the full audit scaffold); default otherwise.
-              max_tokens: options.maxTokens || prompt.max_tokens
+              max_tokens: options.maxTokens || (routed ? routed.maxTokens : prompt.max_tokens)
             }
           );
 

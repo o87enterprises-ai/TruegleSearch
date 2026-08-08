@@ -6,6 +6,7 @@ import { useChannelFeed } from '../../hooks/useChannelFeed';
 import { parsePlayerQuery, toHandle } from '../../utils/playerQuery';
 import { hasTaste, forgetTaste } from '../../utils/taste';
 import { reportBroken, useBrokenFlag, useBrokenVersion, withoutBroken } from '../../utils/broken';
+import { useMediaMeta, formatDuration } from '../../utils/mediaMeta';
 
 // The list that lives under the player — the same one in all three
 // presentations.
@@ -61,6 +62,10 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
   // results ARRIVE; without this the row you just flagged would sit there
   // until the next search, which reads as the button not working.
   useBrokenVersion();
+  // Durations and channels learned by actually playing things — see
+  // utils/mediaMeta.js. Subscribing here is what makes a row fill in its
+  // length the moment that track has been played once.
+  const metaFor = useMediaMeta();
   const [showingResults, setShowingResults] = useState(false);
   const revertTimer = useRef(null);
 
@@ -203,7 +208,27 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
                 ? <img src={r.poster} alt="" className="w-10 h-7 rounded object-cover shrink-0"
                     onError={(e) => { e.target.style.visibility = 'hidden'; }} />
                 : <span className="w-10 h-7 rounded bg-white/10 shrink-0" />}
-              <span className="text-[11px] text-white/75 line-clamp-2 flex-1 min-w-0">{r.title}</span>
+              {/* Title, then whatever we actually know: the channel if the
+                  result carried one or playback taught us, and the length
+                  once this track has been played once. The index never
+                  supplies a duration, so an empty slot here is honest rather
+                  than a gap waiting to be filled with a guess. */}
+              <span className="flex-1 min-w-0">
+                <span className="block text-[11px] text-white/75 line-clamp-2">{r.title}</span>
+                {(() => {
+                  const m = metaFor(r) || {};
+                  const channel = r.channel || m.c;
+                  const length = formatDuration(r.duration || m.d);
+                  if (!channel && !length) return null;
+                  return (
+                    <span className="flex items-center gap-1.5 mt-0.5 text-[10px] text-white/35">
+                      {channel && <span className="truncate max-w-[10rem]">{channel}</span>}
+                      {channel && length && <span className="text-white/20">·</span>}
+                      {length && <span className="tabular-nums shrink-0">{length}</span>}
+                    </span>
+                  );
+                })()}
+              </span>
               {/* Play now: jumps the queue and comes back to what was on. */}
               <button
                 type="button"

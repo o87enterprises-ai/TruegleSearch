@@ -14,6 +14,7 @@ import { useUpNext } from '../../hooks/useUpNext';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
 import { rate, useRating, signalPlay } from '../../utils/taste';
 import { reportBroken } from '../../utils/broken';
+import { learnMeta } from '../../utils/mediaMeta';
 import { copyText } from '../../utils/clipboard';
 import { mediaKey } from '../../utils/videoEmbed';
 
@@ -199,6 +200,15 @@ export default function TrueglePlayer({
     },
   });
 
+  // The list can't know how long anything is — the index doesn't carry it and
+  // no free API will say. The embed does, the moment it starts, so remember it
+  // against this media key and every future appearance of the track shows its
+  // length. Same for the channel, which some result rows arrive without.
+  useEffect(() => {
+    if (!current || !embed?.duration) return;
+    learnMeta(current, { duration: embed.duration, channel: current.channel });
+  }, [current, embed?.duration]);
+
   const share = useCallback(async () => {
     const link = buildPlayerLink([current, ...queue].filter(Boolean));
     if (!link) return; // a device file has no shareable URL
@@ -228,7 +238,12 @@ export default function TrueglePlayer({
       showRating={!!current}
       rating={rating}
       onRate={current ? onRate : undefined}
-      showLock={presentation !== 'collapsed'}
+      // FULL SCREEN ONLY. The lock is for watching undisturbed — a pocket, a
+      // propped-up phone — and that is exactly when you are in full screen.
+      // On the normal row it was an eleventh button competing with the two
+      // controls people actually reach for, and it pushed full screen and
+      // pop-out off the end.
+      showLock={fullscreen}
       onLock={() => setLocked(true)}
       showPlayMode
       playMode={playMode}

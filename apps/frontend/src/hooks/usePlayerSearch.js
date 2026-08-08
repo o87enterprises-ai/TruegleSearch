@@ -34,6 +34,10 @@ function toSource(r, allowReddit = false) {
     pageUrl: r.url,
     poster: r.image,
     duration: r.duration,
+    // The channel was being dropped here, so every row that HAD one still
+    // showed nothing under the title. Different providers name the field
+    // differently and none of them is guaranteed, so take whichever arrived.
+    channel: r.channel || r.author || r.uploader || r.creator || null,
   };
 }
 
