@@ -134,8 +134,15 @@ function classifyMedia(rawUrl) {
     }
   }
   if (isHost('soundcloud.com')) {
-    const slug = path.split('/').filter(Boolean).slice(0, 2).join('/');
-    if (slug.includes('/')) {
+    // Mirrors getPlayable(): a one-segment path is an ARTIST PROFILE and the
+    // widget plays their catalogue from it, so it is accepted — except for
+    // SoundCloud's own reserved pages, which have no audio behind them. The
+    // two sides disagreeing is how a link plays in search but is refused on
+    // submit.
+    const seg = path.split('/').filter(Boolean);
+    const RESERVED = new Set(['discover', 'stream', 'you', 'search', 'upload', 'pages', 'terms', 'settings', 'notifications', 'messages', 'charts', 'tags', 'people']);
+    const slug = seg.slice(0, 2).join('/');
+    if (seg.length && !RESERVED.has(seg[0].toLowerCase())) {
       const clean = `https://soundcloud.com/${slug}`;
       return {
         kind: 'soundcloud',

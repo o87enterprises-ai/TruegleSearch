@@ -88,6 +88,11 @@ const squash = (v) => String(v || '').toLowerCase().replace(/[\s._-]/g, '');
 // @askreddit and searching for the wrong one returns nothing. Live-tested on
 // YouTube — "Darkwaters 9" returns a film and a DND series, @darkwaters9
 // returns the channel.
+// Squashing ("Duck E Duck" -> "duckeduck") is a YOUTUBE-HANDLE rule: handles
+// carry no spaces, so removing them is what makes the term match. It is wrong
+// everywhere else — SoundCloud, Vimeo and Dailymotion slugs are hyphenated
+// words, so "duck-e-duck" was being searched for as "duckeduck" and found
+// nothing. Only platforms with a prefix (@ , r/ , c/) get the squash.
 export const toHandle = (v, provider = 'youtube') => {
   // A LINK IS NOT A HANDLE. The Channel chip rewrites the box on every
   // keystroke, so pasting a URL while it was on produced
@@ -97,7 +102,9 @@ export const toHandle = (v, provider = 'youtube') => {
   const asText = String(v || '');
   if (/^\s*https?:\/\//i.test(asText)) return asText.trim();
   const { prefix } = providerMeta(provider === 'all' ? 'youtube' : provider);
-  const bare = squash(String(v || '').replace(/^@+/, '').replace(/^r\//i, '').replace(/^c\//i, ''));
+  const stripped = String(v || '').replace(/^@+/, '').replace(/^r\//i, '').replace(/^c\//i, '').trim();
+  if (!prefix) return stripped;          // hyphenated slug platforms: leave the words alone
+  const bare = squash(stripped);
   return bare ? `${prefix}${bare}` : '';
 };
 
@@ -196,11 +203,16 @@ export function parsePlayerQuery(raw, scope = 'all', provider = 'all') {
   if (platform === 'reddit' && channelTerms) channelTerms = `"${channelTerms}"`;
 
   // Scope shapes the words around the query the way YouTube's chips do.
+  // NO OR-GROUPS. This is the same lesson the channel query already carries:
+  // the provider does not honour `(a OR b OR c)` and an ask containing one
+  // comes back empty — which is what was wrong with the Song and Artist chips
+  // on every platform, not just SoundCloud. Quoted phrases ARE honoured, so
+  // exact-title stays quoted; the rest lean on one plain keyword.
   const shaped = {
     all: text,
     channel: '',
-    song: text ? `${text} (song OR audio OR "official audio" OR "official video")` : '',
-    artist: text ? `"${text}" (artist OR official OR music)` : '',
+    song: text ? `${text} audio` : '',
+    artist: text ? `"${text}" music` : '',
     title: text ? `"${text}"` : '',
     topic: text,
   }[activeScope];

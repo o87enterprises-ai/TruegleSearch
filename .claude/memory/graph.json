@@ -448,6 +448,14 @@
         "body": "og-image.png is 1200x630 — a WIDE link-preview card. It was set as the manifest icon, the favicon and the apple-touch-icon, so every home-screen install cropped that banner into a square and looked wrong. truegle.png is already 1024x1024 and is the correct source; it is now used for manifest icons (any + maskable), the favicon, apple-touch-icon and three of the four shortcut icons (the Tube shortcut uses truetube.png). og:image and twitter:image correctly STAY as og-image.png — link previews want the wide card. To change the icon art, replace apps/frontend/public/truegle.png with a square PNG; nothing else needs editing.",
         "ts": "2026-08-07",
         "created": "2026-08-07"
+      },
+      "query-shaping-rules": {
+        "Id": "query-shaping-rules",
+        "Type": "fact",
+        "Label": "Two query-shaping rules learned the hard way — no OR-groups, and squash is YouTube-only",
+        "body": "ONE: the search provider does not honour (a OR b OR c). It was documented for the channel query and then still used in the Song and Artist scope shaping, which broke those chips on EVERY platform. Shaping is now: song = \"<text> audio\", artist = quoted text + \"music\", title = quoted text, topic/all = plain. Quoted phrases ARE honoured. TWO: squash() (remove spaces/dots/hyphens, lowercase) is a YOUTUBE-HANDLE rule — handles carry no spaces. Applying it to hyphenated-slug platforms searched \"duckeduck\" for \"duck-e-duck\" and found nothing. toHandle now only squashes for PREFIXED providers (@ youtube/tiktok/odysee, r/ reddit, c/ rumble); prefix-less providers (soundcloud, vimeo, dailymotion) keep the words. THREE: a SoundCloud PROFILE url (one path segment) is playable — the widget streams that artists whole catalogue — so both getPlayable and MediaService.classifyMedia accept it, excluding SoundClouds reserved pages (discover/stream/you/search/...). The two sides disagreeing is how a link plays in search but is refused on submit.",
+        "ts": "2026-08-08",
+        "created": "2026-08-08"
       }
     },
     "decision": {
@@ -1106,6 +1114,14 @@
         "body": "CreatorPage.jsx is now a ~30-line wrapper: getCreator(slug) then <UniversalSearch creator={creator} />. lockedTube is derived from creator, so mode===\"tube\" gives the TrueTube mark, tube theming, the docked one player, and all-results-below-the-player for free. Layout parity with /tube is verified by measuring the rail and bar containers (identical). lockedPath is /creator/<slug> so searching stays on the creator page. NEW: components/creator/CreatorHeader.jsx = identity line (circled initial or avatar, FEATURED CREATOR, name, TrueTube chip -> /tube replacing the old \"YouTube arrow\" that sent people off-site) + creator card (avatar, channel bio, subs, latest upload thumbnail that plays and queues the rest of the channel). CreatorPill is translucent white/6 and is deliberately NOT in the global PillModeRow CYCLE — every other search page would be able to cycle into \"creator\" with nothing selected; on a creator page it cycles the roster instead. NEW backend GET /api/creators/:channelId/about — channels.list?part=snippet,statistics (1 quota unit) with an OpenGraph scrape fallback, 6h cache. Arriving plays their latest and queues the channel behind it, unless something is already playing.",
         "ts": "2026-08-07",
         "created": "2026-08-07"
+      },
+      "social-feeds-per-user": {
+        "Id": "social-feeds-per-user",
+        "Type": "decision",
+        "Label": "Social feeds: each user logs into THEIR OWN accounts, sees their own feeds in one place",
+        "body": "Owner decision 2026-08-07, and my earlier framing was too broad. NOT reading other peoples feeds — per-user OAuth to the platforms that visitor already uses. Reddit = full home feed on free OAuth, build FIRST. TikTok/Instagram(Business or Creator) = the users OWN posts, free, behind app review. Facebook = own posts with user_posts review. X = works but $200/mo app tier, revenue-gated. Snapchat = genuinely impossible, Login Kit is identity+Bitmoji only, no content read endpoint exists. The ANONYMOUS submission path (community_media + 019 vote pool + share target) runs ALONGSIDE this, not instead of it — owner states it is a deliberate stance so participation never requires a digital ID. Work order: Reddit OAuth -> anonymous feed view -> TikTok/IG review -> X when revenue allows. Do not re-litigate.",
+        "ts": "2026-08-08",
+        "created": "2026-08-08"
       }
     },
     "entity": {

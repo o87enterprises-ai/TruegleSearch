@@ -12,6 +12,7 @@ import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useUpNext } from '../../hooks/useUpNext';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
 import { rate, useRating, signalPlay } from '../../utils/taste';
+import { copyText } from '../../utils/clipboard';
 import { mediaKey } from '../../utils/videoEmbed';
 
 // THE player. There is only one, and this is it.
@@ -187,8 +188,15 @@ export default function TrueglePlayer({
     const link = buildPlayerLink([current, ...queue].filter(Boolean));
     if (!link) return; // a device file has no shareable URL
     try {
-      if (navigator.share) await navigator.share({ title: current?.title || 'Watch on Truegle', url: link });
-      else await navigator.clipboard.writeText(link);
+      if (navigator.share) {
+        await navigator.share({ title: current?.title || 'Watch on Truegle', url: link });
+      } else if (!(await copyText(link))) {
+        // Say so rather than showing a tick over a clipboard that still holds
+        // the last thing copied.
+        setShareState('failed');
+        setTimeout(() => setShareState('idle'), 2500);
+        return;
+      }
       setShareState('done');
       setTimeout(() => setShareState('idle'), 2000);
     } catch { /* user dismissed the sheet */ }

@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { PLATFORMS } from '../../config/sharePlatforms';
 import { getPlayable } from '../../utils/videoEmbed';
 import { buildShareLink } from '../../utils/playerLink';
+import { copyText } from '../../utils/clipboard';
 
 export default function TruegleShareButton({ result, query, mode = 'blue', compact = false }) {
   const { isAuthenticated } = useAuth();
@@ -35,20 +36,21 @@ export default function TruegleShareButton({ result, query, mode = 'blue', compa
     text: `📌 Posted on Truegle\n\n"${title}"\n\nFound searching "${query || ''}" on Truegle${modeTag ? ` ${modeTag}` : ''}`,
   };
 
-  const handleCopyLink = () => {
+  // Both of these used a bare .then() with no .catch(). A rejected write left
+  // the clipboard holding the PREVIOUS link and said nothing — see
+  // utils/clipboard.js. The tick now only appears when the copy really landed.
+  const handleCopyLink = async () => {
     const text = `📌 Posted on Truegle\n\n"${title}"\n\n${playerLink || result.url}\n\nFound with Truegle — the unbiased search engine → truegle.info`;
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    if (!(await copyText(text))) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleCopyPlayerLink = () => {
+  const handleCopyPlayerLink = async () => {
     if (!playerLink) return;
-    navigator.clipboard.writeText(playerLink).then(() => {
-      setCopiedPlayer(true);
-      setTimeout(() => setCopiedPlayer(false), 2000);
-    });
+    if (!(await copyText(playerLink))) return;
+    setCopiedPlayer(true);
+    setTimeout(() => setCopiedPlayer(false), 2000);
   };
 
   const handlePlatform = (platform) => {

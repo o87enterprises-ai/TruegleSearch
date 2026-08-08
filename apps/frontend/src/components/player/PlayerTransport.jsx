@@ -3,6 +3,7 @@ import {
   Play, Pause, Square, SkipBack, SkipForward,
   ListMusic, Share2, Check, PictureInPicture2, Minimize2, Move, PanelBottom,
   Repeat, Repeat1, Shuffle, ArrowDownUp, Maximize, Minimize, ThumbsUp, ThumbsDown,
+  AlertTriangle,
 } from 'lucide-react';
 
 // The one transport row. Identical in all three presentations — collapsed
@@ -191,9 +192,13 @@ export default function PlayerTransport({
         )}
         {onShare && (
           <button type="button" onClick={onShare} aria-label="Share"
-            title="Share a Truegle player link — opens inside Truegle's sandboxed player"
-            className={`${btn} ${shareState === 'done' ? 'text-green-400' : ''}`}>
-            {shareState === 'done' ? <Check size={size} /> : <Share2 size={size} />}
+            title={shareState === 'failed'
+              ? "Couldn't copy — the browser blocked it. Try again."
+              : "Share a Truegle player link — opens inside Truegle's sandboxed player"}
+            className={`${btn} ${shareState === 'done' ? 'text-green-400' : ''} ${shareState === 'failed' ? 'text-amber-400' : ''}`}>
+            {shareState === 'done' ? <Check size={size} />
+              : shareState === 'failed' ? <AlertTriangle size={size} />
+                : <Share2 size={size} />}
           </button>
         )}
         {showAdjust && (

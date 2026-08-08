@@ -50,8 +50,27 @@ What it still needs (P2): a feed *view* over `community_media` (chronological +
 ranked), per-creator submission so a creator's pool is their channel, and the
 "who submitted this" attribution surfaced.
 
-**[DECIDE]** Confirm the pivot. If yes, add Reddit OAuth later as the one real
-account integration (free), and treat X at $200/mo as a revenue-gated decision.
+### DECIDED 2026-08-07 — per-user login, own feeds, one place
+
+The owner's call, and the framing above was too broad. The design is **not**
+reading other people's feeds: each visitor signs in to the platforms *they*
+already use, and Truegle shows **their own feeds together in one place**. That
+is a materially different and more achievable proposition:
+
+- **Reddit** — full home feed, free OAuth. Build first.
+- **TikTok / Instagram (Business or Creator)** — the user's own posts, free,
+  behind app review.
+- **Facebook** — own posts, needs `user_posts` review.
+- **X** — works, but the $200/mo app tier is unavoidable. Revenue-gated.
+- **Snapchat** — still genuinely impossible: Login Kit is identity and Bitmoji,
+  there is no content read endpoint to call.
+
+The anonymous submission path stays alongside it, not instead of it. Per the
+owner it is a deliberate stance, not a fallback: no digital ID required to
+post or to read, so participation never depends on being identifiable.
+
+Order of work: Reddit OAuth → anonymous feed view over `community_media` →
+TikTok/IG review submissions → X when revenue allows.
 
 ---
 

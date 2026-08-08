@@ -235,6 +235,13 @@ export function getPlayable(url) {
     // SoundCloud → official widget player (full tracks, artist-friendly, no
     // OAuth). src is the fully-built widget URL so the player renders it as-is.
     if (host === 'soundcloud.com' || host.endsWith('.soundcloud.com')) {
+      // A PROFILE is playable too — the widget streams that artist's whole
+      // catalogue from it, which is precisely what "play this EP" means when
+      // the search turned up the artist rather than one track. What must be
+      // refused is SoundCloud's own furniture, which has no audio behind it.
+      const seg = u.pathname.split('/').filter(Boolean);
+      const RESERVED = new Set(['discover', 'stream', 'you', 'search', 'upload', 'pages', 'terms', 'settings', 'notifications', 'messages', 'charts', 'tags', 'people']);
+      if (!seg.length || RESERVED.has(seg[0].toLowerCase())) return null;
       const widget = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}`
         + '&auto_play=true&hide_related=true&show_comments=false&show_user=true&visual=false';
       return { kind: 'soundcloud', src: widget };
