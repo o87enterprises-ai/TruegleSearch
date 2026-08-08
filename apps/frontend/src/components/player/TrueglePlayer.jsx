@@ -149,42 +149,6 @@ export default function TrueglePlayer({
     if (nextUp) play(nextUp); else skipNext();
   }, [queue.length, current, upNext, play, skipNext]);
 
-  // Everything that plays counts as seen, however it got here — otherwise
-  // picking something by hand and then letting it run could hand you the same
-  // clip straight back. The anonymous play counter (no id of any kind, see
-  // utils/taste.js) goes out on the same edge, once per piece of media.
-  const counted = useRef('');
-  useEffect(() => {
-    const key = mediaKey(current);
-    if (!key || counted.current === key) return;
-    counted.current = key;
-    upNext.remember(current);
-    signalPlay(current);
-  }, [current, upNext]);
-
-  // 👍/👎. The thumb steers what plays next; a dislike also guarantees this
-  // never comes back. It deliberately does NOT skip — you may be halfway
-  // through and simply registering an opinion, and losing your place to a
-  // mis-tap is the same complaint that made the queue feel unsafe.
-  const rating = useRating(current);
-  const onRate = useCallback((dir) => { if (current) rate(current, dir); }, [current]);
-
-  // Swipe up = next, swipe down = back, tap = play/pause. Only in full screen:
-  // reading the gesture at all needs a transparent sheet over the embed (an
-  // iframe swallows touches), and that sheet costs the platform's own
-  // controls — a fair trade only when our controller bar is already pinned to
-  // the bottom of the screen, which is exactly what full screen is.
-  const swipe = useSwipeNav({
-    active: fullscreen && !locked,
-    onNext: goNext,
-    onPrev: prev,
-    onTap: () => (current ? togglePause() : null),
-  });
-
-  // Platform embeds fire no `ended` event — that is why the queue never
-  // advanced by itself for the things people actually queue. This talks
-  // postMessage to the iframe we already have (no vendor SDK) and calls the
-  // same advance() a native <video> would have.
   const embed = useEmbedPlayback({
     frameRef,
     source: current,
@@ -209,6 +173,53 @@ export default function TrueglePlayer({
     learnMeta(current, { duration: embed.duration, channel: current.channel });
   }, [current, embed?.duration]);
 
+  // Everything that plays counts as seen, however it got here — otherwise
+  // picking something by hand and then letting it run could hand you the same
+  // clip straight back. The anonymous play counter (no id of any kind, see
+  // utils/taste.js) goes out on the same edge, once per piece of media.
+  const counted = useRef('');
+  useEffect(() => {
+    const key = mediaKey(current);
+    if (!key || counted.current === key) return;
+    counted.current = key;
+    upNext.remember(current);
+    signalPlay(current);
+  }, [current, upNext]);
+
+  // Pause and resume over the channel that is already open. This is what
+  // stops a tap in full screen resetting the video: `paused` used to null the
+  // source, which unmounted the iframe, so every tap started the track over.
+  useEffect(() => {
+    if (!embed.canCommand || !current) return;
+    embed.command(paused ? 'pause' : 'play');
+  }, [paused, current, embed]);
+
+  // 👍/👎. The thumb steers what plays next; a dislike also guarantees this
+  // never comes back. It deliberately does NOT skip — you may be halfway
+  // through and simply registering an opinion, and losing your place to a
+  // mis-tap is the same complaint that made the queue feel unsafe.
+  const rating = useRating(current);
+  const onRate = useCallback((dir) => { if (current) rate(current, dir); }, [current]);
+
+  // Swipe up = next, swipe down = back, tap = play/pause. Only in full screen:
+  // reading the gesture at all needs a transparent sheet over the embed (an
+  // iframe swallows touches), and that sheet costs the platform's own
+  // controls — a fair trade only when our controller bar is already pinned to
+  // the bottom of the screen, which is exactly what full screen is.
+  const swipe = useSwipeNav({
+    active: fullscreen && !locked,
+    onNext: goNext,
+    onPrev: prev,
+    // Tapping toggles pause — but ONLY where that can be done in place. On a
+    // platform with no control channel, pause means unmount, and a stray touch
+    // restarting the video is far worse than a tap doing nothing.
+    onTap: () => (current && embed.canCommand ? togglePause() : null),
+  });
+
+  // Platform embeds fire no `ended` event — that is why the queue never
+  // advanced by itself for the things people actually queue. This talks
+  // postMessage to the iframe we already have (no vendor SDK) and calls the
+  // same advance() a native <video> would have.
   const share = useCallback(async () => {
     const link = buildPlayerLink([current, ...queue].filter(Boolean));
     if (!link) return; // a device file has no shareable URL
@@ -299,7 +310,11 @@ export default function TrueglePlayer({
         aria-hidden={clipScreen}
       >
         <PlayerScreen
-          source={paused ? null : current}
+          // Unmounting is now the LAST resort, not the definition of pause.
+          // An embed we can command pauses in place and keeps its position;
+          // only the platforms that give us no control channel still have to
+          // be torn down, and those are the ones where resuming restarts.
+          source={paused && !embed.canCommand ? null : current}
           mediaRef={mediaRef}
           frameRef={frameRef}
           onEnded={advance}

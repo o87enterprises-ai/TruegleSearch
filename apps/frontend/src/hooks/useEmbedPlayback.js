@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // Knowing when a PLATFORM EMBED finishes, without loading a vendor SDK.
 //
@@ -117,7 +117,45 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
     // iframe — the handshake has to be redone against the new window.
   }, [kind, src, source?.playToken, frameRef]);
 
-  return progress;
+  // ── REAL pause, instead of unmounting ──────────────────────────────────
+  // Pausing used to mean setting the source to null, which unmounts the
+  // iframe — so resuming started the track over, and in full screen ANY tap
+  // (which toggles pause) reset the video. The postMessage channel is already
+  // open for progress and `ended`; it takes commands too. Nothing extra is
+  // loaded, no vendor SDK, no second connection.
+  const command = useCallback((action) => {
+    const frame = frameRef?.current;
+    if (!frame?.contentWindow) return false;
+    try {
+      if (kind === 'youtube') {
+        frame.contentWindow.postMessage(JSON.stringify({
+          event: 'command',
+          func: action === 'pause' ? 'pauseVideo' : 'playVideo',
+          args: [],
+        }), '*');
+        return true;
+      }
+      if (kind === 'vimeo') {
+        frame.contentWindow.postMessage(JSON.stringify({ method: action }), VIMEO_ORIGIN);
+        return true;
+      }
+      if (kind === 'soundcloud') {
+        // SoundCloud's widget speaks the same shape on its own origin.
+        frame.contentWindow.postMessage(JSON.stringify({
+          method: action === 'pause' ? 'pause' : 'play',
+        }), 'https://w.soundcloud.com');
+        return true;
+      }
+    } catch { /* frame gone or cross-origin refused */ }
+    return false;
+  }, [kind, frameRef]);
+
+  // Which embeds can be paused in place. Everything else still has to unmount,
+  // which is a worse experience but an honest one — and it is now confined to
+  // the platforms that genuinely give us no control channel.
+  const canCommand = kind === 'youtube' || kind === 'vimeo' || kind === 'soundcloud';
+
+  return { ...progress, command, canCommand };
 }
 
 export default useEmbedPlayback;

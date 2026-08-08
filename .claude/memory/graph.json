@@ -472,6 +472,14 @@
         "body": "Two live traces settled it: `site:soundcloud.com <name>` returns web 0->0 from the Truegle backend — literally zero, not wrong results. The owner is the artist: 33 followers, ranked ~11th for his own name on SoundCloud itself. Google/Bing do not crawl deep SoundCloud pages for tiny accounts, so no operator, keyword or scope shaping will ever reach him. SoundCloud has NO open search API either — app registrations have been closed for years, and api-v2 needs a client_id scraped from the web player (ToS-grey, breaks). WHAT WORKS: the link. Added GET /api/media/resolve?url= using the platforms PUBLIC keyless oEmbed (soundcloud.com/oembed, youtube.com/oembed, vimeo.com/api/oembed.json, tiktok.com/oembed) -> real title, author, artwork; SoundCloud thumbnails upgraded -large -> -t500x500. It classifies BEFORE fetching so it can never be a general URL fetcher. usePlayerSearch shows the pasted row instantly then upgrades it. THE DISCOVERY PATH for a small artist is therefore: paste link -> it resolves properly -> Add -> community_media -> findable by everyone forever. That is what community submission is FOR.",
         "ts": "2026-08-08",
         "created": "2026-08-08"
+      },
+      "pause-no-longer-unmounts": {
+        "Id": "pause-no-longer-unmounts",
+        "Type": "fact",
+        "Label": "Pause now pauses IN PLACE via postMessage — it used to unmount the iframe",
+        "body": "THE BUG: PlayerScreen received source={paused ? null : current}, so pausing UNMOUNTED the embed and resuming restarted the track. In full screen the tap-to-pause gesture meant ANY touch reset the video. THE FIX: useEmbedPlayback already holds an open postMessage channel for progress and ended — it takes commands too. Added command(action) + canCommand. YouTube: {event:\"command\",func:\"pauseVideo\"|\"playVideo\",args:[]} to any origin. Vimeo: {method:\"pause\"|\"play\"} to https://player.vimeo.com. SoundCloud widget: same shape to https://w.soundcloud.com. No vendor SDK, no extra connection. TrueglePlayer now unmounts ONLY when !canCommand (tiktok/reddit/dailymotion/rumble/odysee have no control channel), and the full-screen tap is a NO-OP for those rather than resetting them. NOTE the hook ordering: useEmbedPlayback had to be hoisted above the swipe-nav and pause effects or `embed` is in the TDZ. TEST TECHNIQUE: counting added iframe nodes UNDER-COUNTS because React adds a wrapper div, not the iframe — tag the DOM node (f.__truegleTag) and assert the tag survives, plus assert a real track change DESTROYS it so the check cannot pass for the wrong reason.",
+        "ts": "2026-08-08",
+        "created": "2026-08-08"
       }
     },
     "decision": {
