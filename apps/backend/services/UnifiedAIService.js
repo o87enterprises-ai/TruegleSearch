@@ -16,6 +16,7 @@ const PromptService = require('./PromptService');
 const { query } = require('../db/connection');
 const logger = require('../utils/logger');
 const promptRouter = require('./PromptRouter');
+const osintToolbelt = require('./OsintToolbelt');
 
 class UnifiedAIService {
   constructor() {
@@ -261,7 +262,7 @@ class UnifiedAIService {
         userName: options.userName || 'User',
         query: queryContext,
         context: context,
-        searchResults: content,
+        searchResults: toolText ? `${toolText}\n\n${content || ''}` : content,
         perspective: options.perspective || 'Neutral',
         timestamp: new Date().toISOString()
       };
@@ -282,9 +283,37 @@ class UnifiedAIService {
       if (!options.systemOverride && promptRouter.enabled()) {
         routed = promptRouter.route(queryContext || context, {
           mode: options.mode || options.perspectiveMode,
-          hasSources: !!(content && String(content).trim()),
+          hasSources: !!(content && String(content).trim())
+            || osintToolbelt.hasEntities(queryContext),
         });
         logger.info('Prompt routed', { flow: routed.flow, chars: routed.system.length });
+      }
+
+      // TOOLS BEFORE ANSWERING. If the question names a domain, IP, email,
+      // phone number or username, run the lookups instead of describing how
+      // the user could run them — that advice-instead-of-answer behaviour was
+      // never a prompt problem, it was the assistant genuinely having no way
+      // to reach lookups that already existed and already worked.
+      //
+      // Runs on ANY flow that names an entity, not just the investigative
+      // ones. "who owns bulsis.com" routes to `lookup` — and whois IS the
+      // answer to it, so gating on `investigate` would have missed the most
+      // common case. The detector earns that breadth by being conservative:
+      // a username needs an explicit @handle or "username: x", a domain needs
+      // a real TLD shape, a person needs stated lookup intent. Ordinary
+      // questions detect nothing and cost nothing.
+      //
+      // `compute` is the one exclusion — a ten-digit figure in a calculation
+      // reads as a phone number, and nobody doing arithmetic wants a carrier
+      // lookup.
+      let toolText = '';
+      const toolable = routed && routed.flow !== 'compute';
+      if (toolable && osintToolbelt.hasEntities(queryContext)) {
+        const tools = await osintToolbelt.run(queryContext);
+        if (tools.ran) {
+          toolText = tools.text;
+          logger.info('OSINT toolbelt attached', { entities: tools.entities });
+        }
       }
 
       const systemPrompt = options.systemOverride
@@ -313,7 +342,9 @@ class UnifiedAIService {
           logger.info(`Attempting analysis with ${providerName}`);
 
           const response = await provider.analyzeContent(
-            content,
+            // Live lookup output goes FIRST — it was retrieved just now and is
+            // the most reliable thing in the context.
+            toolText ? `${toolText}\n\n${content || ''}` : content,
             queryContext,
             {
               ...options,
