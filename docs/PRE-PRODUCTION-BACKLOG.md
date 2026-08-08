@@ -104,15 +104,24 @@ Mapbox/TomTom, `LocationDetailsPanel`). This is a presentation component plus a
 "is this a place?" trigger, not new plumbing. Only render it when the query
 resolves to a real place — a half-filled panel is worse than a normal card.
 
-## 4. Lock-screen function — P2
+## 4. Lock the player UI — ✅ DONE 2026-08-08
 
-Ambiguous, two readings, both cheap:
-- **Lock-screen media controls** — already shipped via Media Session for native
-  audio/video; can't be extended to cross-origin embeds (see `HOME-SCREEN.md`).
-- **Lock the player UI** — a toggle that ignores taps so a pocket can't skip the
-  track. That is likely what you meant, and it's ~30 lines.
+Decided: lock the **UI**, not the lock-screen controls (those already exist via
+Media Session for native media).
 
-**[DECIDE]** which one.
+A padlock on the transport covers the whole player with a sheet that swallows
+every pointer event, so a pocket cannot skip, pause, dislike or close. The media
+is not unmounted — the sheet is a sibling, so playback continues untouched.
+
+**Unlocking is a 700ms hold**, not a tap: one tap is exactly what a pocket
+produces, so a tap-to-unlock lock is not a lock. A filling ring makes the hold
+discoverable, because the failure mode of a hidden long-press is "the button is
+broken". Full-screen swipe navigation is disabled while locked too — otherwise
+the sheet would stop the buttons and let the gestures straight through.
+
+The lock **survives a reload on purpose**: you locked it deliberately, and
+having it quietly release when the tab is recycled is the exact failure it
+exists to prevent.
 
 ## 5. Remove /shorts, fold into the player — P2
 
@@ -121,11 +130,10 @@ surface. Shorts are already handled (`vertical` sources letterbox correctly, the
 browse deck is a vertical swipe feed). Delete the route, keep `_redirects`
 pointing `/shorts → /tube` so shared links survive.
 
-**Transcript extraction (`/extract`)**: fold the *capability* into the player as
-a "transcript" panel beside the queue — genuinely useful while watching. But
-`/extract` also serves pasted URLs with no video, so **keep the route** and let
-it and the player share one `TranscriptService` call. Removing it would delete
-a working feature to save a menu entry.
+**Transcript extraction (`/extract`)**: **DECIDED — keep the route.** Fold the
+*capability* into the player as a transcript panel beside the queue, and let
+both call one `TranscriptService`. `/extract` also serves pasted URLs with no
+video, so deleting it would remove a working feature to save a menu entry.
 
 ## 6. TrueGLE hallucination — a prompt router, not a bigger prompt — P1
 

@@ -43,6 +43,10 @@ const INITIAL = {
   footerView: 'watch',
   // auto | repeat-one | shuffle | loop. Auto = play straight through.
   playMode: 'auto',
+  // Controls ignored so a pocket can't skip the track. Deliberately survives a
+  // reload: you locked it on purpose, and quietly unlocking itself when the tab
+  // is recycled is the exact failure the lock exists to prevent.
+  locked: false,
 };
 // Identity is the MEDIA, not the URL string. The same YouTube video arrives as
 // a watch link, a youtu.be link and an /embed/ URL with a ?si= suffix, and
@@ -130,6 +134,8 @@ function reducer(s, a) {
       return { ...s, paused: !!a.value };
     case 'setPlayMode':
       return { ...s, playMode: a.value };
+    case 'setLocked':
+      return { ...s, locked: !!a.value };
     case 'setExpanded':
       return { ...s, expanded: !!a.value };
     case 'setPoppedOut':
@@ -200,6 +206,7 @@ function loadState() {
       minimized: !!saved.minimized,
       dock: saved.dock === 'footer' || saved.dock === 'float' ? saved.dock : null,
       footerView: saved.footerView === 'hidden' ? 'hidden' : 'watch',
+      locked: !!saved.locked,
     };
   } catch {
     return INITIAL;
@@ -220,9 +227,10 @@ export const PlayerProvider = ({ children }) => {
         minimized: state.minimized,
         dock: state.dock,
         footerView: state.footerView,
+        locked: state.locked,
       }));
     } catch { /* private mode / quota — the queue just won't survive a reload */ }
-  }, [state.current, state.queue, state.history, state.poppedOut, state.expanded, state.minimized, state.dock, state.footerView]);
+  }, [state.current, state.queue, state.history, state.poppedOut, state.expanded, state.minimized, state.dock, state.footerView, state.locked]);
 
   const play = useCallback((source) => dispatch({ type: 'play', source }), []);
   const playNow = useCallback((source) => dispatch({ type: 'playNow', source }), []);
@@ -246,15 +254,16 @@ export const PlayerProvider = ({ children }) => {
   const setDock = useCallback((value) => dispatch({ type: 'setDock', value }), []);
   const setFooterView = useCallback((value) => dispatch({ type: 'setFooterView', value }), []);
   const setPlayMode = useCallback((value) => dispatch({ type: 'setPlayMode', value }), []);
+  const setLocked = useCallback((value) => dispatch({ type: 'setLocked', value }), []);
 
   const value = useMemo(
     () => ({
       ...state,
       play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
-      stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode,
+      stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked,
     }),
     [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
-      stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode]
+      stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode, setLocked]
   );
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;

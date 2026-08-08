@@ -3,7 +3,7 @@ import {
   Play, Pause, Square, SkipBack, SkipForward,
   ListMusic, Share2, Check, PictureInPicture2, Minimize2, Move, PanelBottom,
   Repeat, Repeat1, Shuffle, ArrowDownUp, Maximize, Minimize, ThumbsUp, ThumbsDown,
-  AlertTriangle,
+  AlertTriangle, Lock,
 } from 'lucide-react';
 
 // The one transport row. Identical in all three presentations — collapsed
@@ -69,6 +69,8 @@ export default function PlayerTransport({
   showRating = false,
   rating = 0,
   onRate,
+  showLock = false,
+  onLock,
   adjustOn = false,
   shareState = 'idle',
   onPlayPause,
@@ -207,6 +209,17 @@ export default function PlayerTransport({
             aria-label="Move and resize"
             className={`${btn} ${adjustOn ? 'text-black bg-cyan-400 hover:bg-cyan-300 hover:text-black' : ''}`}>
             <Move size={size} />
+          </button>
+        )}
+        {/* Lock the controls. A single press is enough to lock; UNLOCKING is a
+            long-press on the overlay, because a lock a pocket can undo is not
+            a lock. */}
+        {showLock && (
+          <button type="button" onClick={onLock}
+            title="Lock the controls — hold the padlock to unlock"
+            aria-label="Lock the player controls"
+            className={btn}>
+            <Lock size={size - 1} />
           </button>
         )}
         {showFullscreen && (

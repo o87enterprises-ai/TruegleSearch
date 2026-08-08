@@ -1122,6 +1122,14 @@
         "body": "Owner decision 2026-08-07, and my earlier framing was too broad. NOT reading other peoples feeds — per-user OAuth to the platforms that visitor already uses. Reddit = full home feed on free OAuth, build FIRST. TikTok/Instagram(Business or Creator) = the users OWN posts, free, behind app review. Facebook = own posts with user_posts review. X = works but $200/mo app tier, revenue-gated. Snapchat = genuinely impossible, Login Kit is identity+Bitmoji only, no content read endpoint exists. The ANONYMOUS submission path (community_media + 019 vote pool + share target) runs ALONGSIDE this, not instead of it — owner states it is a deliberate stance so participation never requires a digital ID. Work order: Reddit OAuth -> anonymous feed view -> TikTok/IG review -> X when revenue allows. Do not re-litigate.",
         "ts": "2026-08-08",
         "created": "2026-08-08"
+      },
+      "player-ui-lock": {
+        "Id": "player-ui-lock",
+        "Type": "decision",
+        "Label": "Player UI lock: sheet + 700ms hold to release, survives reload",
+        "body": "Owner chose lock-the-UI over lock-screen controls (the latter already exist via Media Session for native media). components/player/PlayerLockOverlay.jsx covers the whole TrueglePlayer with a z-40 sheet that swallows pointer events — above the move overlay (z-20) and the transport (z-30), or the controls it disables stay live. The media is a SIBLING, never unmounted, so playback continues. UNLOCK IS A 700ms HOLD, not a tap: a tap is exactly what a pocket produces. A filling SVG ring makes the hold discoverable (a hidden long-press reads as a broken button). useSwipeNav is gated on !locked too, or the sheet would block buttons while gestures passed through. `locked` is in PlayerContext and persisted — it survives a reload deliberately. Also DECIDED: keep the /extract route; fold transcripts into the player as a panel sharing one TranscriptService call, since /extract also serves pasted non-video URLs.",
+        "ts": "2026-08-08",
+        "created": "2026-08-08"
       }
     },
     "entity": {

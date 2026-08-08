@@ -6,6 +6,7 @@ import { buildPlayerLink } from '../../utils/playerLink';
 import PlayerScreen from './PlayerScreen';
 import PlayerTransport, { PLAY_MODES } from './PlayerTransport';
 import PlayerListSlot from './PlayerListSlot';
+import PlayerLockOverlay from './PlayerLockOverlay';
 import PlayerProgress from './PlayerProgress';
 import { useEmbedPlayback } from '../../hooks/useEmbedPlayback';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
@@ -49,7 +50,7 @@ export default function TrueglePlayer({
   className = '',
 }) {
   const {
-    current, queue, history, paused, dock,
+    current, queue, history, paused, dock, locked, setLocked,
     next, skipNext, prev, stop, togglePause, setPoppedOut, setDock, play,
     playMode, setPlayMode,
   } = usePlayer();
@@ -172,7 +173,7 @@ export default function TrueglePlayer({
   // controls — a fair trade only when our controller bar is already pinned to
   // the bottom of the screen, which is exactly what full screen is.
   const swipe = useSwipeNav({
-    active: fullscreen,
+    active: fullscreen && !locked,
     onNext: goNext,
     onPrev: prev,
     onTap: () => (current ? togglePause() : null),
@@ -213,6 +214,8 @@ export default function TrueglePlayer({
       showRating={!!current}
       rating={rating}
       onRate={current ? onRate : undefined}
+      showLock={presentation !== 'collapsed'}
+      onLock={() => setLocked(true)}
       showPlayMode
       playMode={playMode}
       onCyclePlayMode={() => setPlayMode(PLAY_MODES[(PLAY_MODES.indexOf(playMode) + 1) % PLAY_MODES.length])}
@@ -248,8 +251,11 @@ export default function TrueglePlayer({
   return (
     <div
       ref={rootRef}
-      className={fullscreen ? 'flex flex-col w-full h-full bg-black' : className}
+      // `relative` so the lock sheet can cover exactly this component and
+      // nothing else on the page.
+      className={`relative ${fullscreen ? 'flex flex-col w-full h-full bg-black' : className}`}
     >
+      {locked && <PlayerLockOverlay onUnlock={() => setLocked(false)} />}
       {/* 'hidden' clips the picture to nothing rather than unmounting it: an
           unmounted iframe stops playing and starts over when it comes back,
           which is the opposite of what "hide the video, keep listening" means.
