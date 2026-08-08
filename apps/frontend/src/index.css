@@ -887,3 +887,25 @@ canvas { display: block !important; margin: 0 auto !important; image-rendering: 
 @media (prefers-reduced-motion: reduce) {
   .animate-player-sweep { animation: none; opacity: 0.5; transform: none; width: 100%; }
 }
+
+/* The minimized player's title line. Only applied when the text actually
+   overflows its box — see PlayerMiniBar — because a title that fits and
+   scrolls anyway is movement for its own sake and harder to read.
+   `paused` on hover so someone trying to read it can stop it. */
+@keyframes truegle-marquee {
+  0%, 8%    { transform: translateX(0); }
+  92%, 100% { transform: translateX(calc(-100% + 12rem)); }
+}
+.truegle-marquee {
+  animation: truegle-marquee 12s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.truegle-marquee:hover { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  /* Never scroll text at someone who asked for less motion; truncate instead. */
+  .truegle-marquee {
+    animation: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

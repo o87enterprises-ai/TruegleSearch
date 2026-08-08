@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
-import { X, Minus, Maximize2, GripHorizontal, Eye, EyeOff, PictureInPicture2, PanelBottom, Play, Pause, SkipForward, ChevronUp } from 'lucide-react';
+import { X, Minus, GripHorizontal, PictureInPicture2, PanelBottom } from 'lucide-react';
 import { MODE_COLORS, BRAND_GRADIENT } from '../../config/modeTheme';
 import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
@@ -8,6 +8,7 @@ import { useFeedbackBarHeight } from './PreProductionBanner';
 import { usePlayerQuery } from '../../utils/playerQueryStore';
 import { toHandle } from '../../utils/playerQuery';
 import PlayerScopeChips from '../player/PlayerScopeChips';
+import PlayerMiniBar from '../player/PlayerMiniBar';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
 import { useKeyboardInset } from '../../hooks/useKeyboardInset';
 import { usePageInputFocus } from '../../hooks/usePageInputFocus';
@@ -50,8 +51,8 @@ const loadGeom = () => {
 
 export default function MiniPlayer() {
   const {
-    current, queue, history, minimized, poppedOut, dock, footerView, paused,
-    next, prev, close, toggleMinimize, setPoppedOut, setFooterView, setDock, togglePause,
+    current, queue, history, minimized, poppedOut, dock,
+    next, prev, close, toggleMinimize, setPoppedOut, setDock,
   } = usePlayer();
   // 'footer' = pinned across the bottom of the page, above the feedback bar.
   // The frame stops being a window in that state: no dragging, no resizing,
@@ -164,7 +165,14 @@ export default function MiniPlayer() {
   const docked = !!slot && wantSlot;
   // Only the free-floating and footer forms overlap the page. The slot-docked
   // player is IN the layout, so it can't be in anybody's way.
-  const peek = pageTyping && !peekOpen && !docked;
+  // ONE small state. `peek` (retract while typing) used to be a fourth
+  // presentation with its own row of buttons; it is now just this — the same
+  // bar, shown for a different reason. Docked included: the whole point of the
+  // consolidation is that "small" looks identical wherever the player lives.
+  // Docked, the player sits IN the page below the search bar rather than on
+  // top of it, so typing never covers anything and shrinking would just be
+  // the layout jumping around. Minimizing by hand still applies everywhere.
+  const small = minimized || (pageTyping && !peekOpen && !docked);
 
   // ── drag + resize ────────────────────────────────────────────────────────
   const onMove = useCallback((e) => {
@@ -293,7 +301,6 @@ export default function MiniPlayer() {
   if (!current && !poppedOut && !docked) return null;
 
   const title = current?.title;
-  const clipWhenMin = minimized;
   // What's actually on screen once the keyboard has taken its share, and the
   // geometry that fits INSIDE it. The height floor has to move the frame UP
   // rather than let it overhang — a minimum height enforced against a fixed
@@ -359,9 +366,6 @@ export default function MiniPlayer() {
   // Every control is a ≥36px square. The old 13px icons packed edge to edge
   // were the other half of the "hard to maneuver" problem.
   const ctrl = 'flex items-center justify-center w-9 h-9 rounded-lg text-white/60 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors';
-  // The retracted strip trades the 36px target for staying out of the way; it
-  // is a temporary state you are not meant to be operating from.
-  const peekBtn = 'flex items-center justify-center w-7 h-7 rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0';
 
   return (
     <>
@@ -409,31 +413,18 @@ export default function MiniPlayer() {
             aria-hidden="true"
           />
         )}
-        {/* Retracted: the whole player as one 36px strip. The media node is
-            NOT unmounted — it is still playing, and unmounting an iframe
-            restarts it. Only the chrome around it goes away, which is all that
-            was covering the search bar. */}
-        {peek && (
-          <div className="flex items-center gap-0.5 px-1.5 h-9 bg-black/70 backdrop-blur-xl">
-            <button type="button" onClick={() => (current ? togglePause() : null)}
-              title={paused ? 'Play' : 'Pause'} aria-label={paused ? 'Play' : 'Pause'} className={peekBtn}>
-              {paused ? <Play size={14} /> : <Pause size={14} />}
-            </button>
-            <span className="flex-1 min-w-0 truncate text-[11px] text-white/55">
-              {title || 'Truegle player'}
-            </span>
-            <button type="button" onClick={next} title="Next" aria-label="Next" className={peekBtn}>
-              <SkipForward size={14} />
-            </button>
-            <button type="button" onClick={() => setPeekOpen(true)}
-              title="Show the player" aria-label="Show the player" className={peekBtn}>
-              <ChevronUp size={14} />
-            </button>
-            <button type="button" onClick={close} title="Close player (keeps your queue)"
-              aria-label="Close player" className={peekBtn}>
-              <X size={14} />
-            </button>
-          </div>
+        {/* THE minimized player — the same component and the same footprint
+            whether the player is floating, docked into the page, or pinned to
+            the footer, and whether it got small because you minimized it or
+            because you started typing. That sameness is the point: the
+            controls stop changing under you. The media node is NOT unmounted
+            to render this; it keeps playing behind the bar. */}
+        {small && (
+          <PlayerMiniBar
+            accent={accent || undefined}
+            onExpand={() => { setPeekOpen(true); if (minimized) toggleMinimize(); }}
+            onClose={close}
+          />
         )}
 
         {/* ── Grab bar. Thick on purpose: 44px tall, full width, with a visible
@@ -441,7 +432,7 @@ export default function MiniPlayer() {
             Docked, it's gone entirely: the page's search bar is directly above
             and a second search input under it is exactly the duplication we
             took out. ── */}
-        {!docked && !peek && (
+        {!docked && !small && (
         <div
           onPointerDown={footerDock ? undefined : startMove}
           style={{ touchAction: footerDock ? 'auto' : 'none', background: adjust ? 'rgba(34,211,238,0.15)' : tint }}
@@ -496,28 +487,14 @@ export default function MiniPlayer() {
               controls only, still playing — the "listening while I read the
               results" case, which is most of what a dock at the bottom of a
               page is for. Elsewhere the frame keeps its plain minimize. */}
-          {footerDock ? (
-            <div className="flex items-center rounded-lg bg-black/40 border border-white/10 p-0.5 shrink-0">
-              {[['watch', 'Watch', Eye], ['hidden', 'Hidden', EyeOff]].map(([value, label, Icon]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setFooterView(value)}
-                  aria-pressed={footerView === value}
-                  title={value === 'watch' ? 'Show the video' : 'Hide the video — keeps playing'}
-                  className={`flex items-center gap-1 px-2 h-8 rounded-md text-[11px] font-semibold transition-colors ${
-                    footerView === value ? 'bg-white/15 text-white' : 'text-white/45 hover:text-white/80'
-                  }`}
-                >
-                  <Icon size={13} /> {label}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <button type="button" onClick={toggleMinimize} title={minimized ? 'Expand' : 'Minimize'} className={ctrl}>
-              {minimized ? <Maximize2 size={16} /> : <Minus size={16} />}
-            </button>
-          )}
+          {/* One Minimize everywhere. This slot used to be a Watch/Hidden
+              pair in the footer and a plain minimize elsewhere — two controls
+              for one idea, in two places, doing subtly different things.
+              Expanding again is the button on the minimized bar itself. */}
+          <button type="button" onClick={toggleMinimize} title="Minimize the player"
+            aria-label="Minimize the player" className={ctrl}>
+            <Minus size={16} />
+          </button>
           {/* Where the window lives. It left the transport when that slot became
               the move control, and it belongs with the other window chrome
               anyway. */}
@@ -543,7 +520,7 @@ export default function MiniPlayer() {
             Sticky with the header so the keyboard can't push them out of
             reach; they retract on Enter and come back on the next keystroke. */}
         {/* Rendered even when collapsed — the tab inside it is the way back. */}
-        {!docked && !peek && (
+        {!docked && !small && (
           <PlayerScopeChips
             compact
             open={scopesOpen}
@@ -576,11 +553,19 @@ export default function MiniPlayer() {
             floating FRAME (drag, resize, geometry, accent ring); everything
             inside it is TrueglePlayer, so "one player" is structural rather
             than a resemblance that drifts. */}
-        <div className={clipWhenMin || peek ? 'max-h-0 overflow-hidden' : ''} aria-hidden={peek}>
+        {/* Clipped, not unmounted — unmounting the iframe restarts the track.
+            But a clipped subtree is still TABBABLE, so aria-hidden alone would
+            leave a keyboard user landing on eleven invisible controls. `inert`
+            takes them out of the tab order and out of the a11y tree together,
+            which is the only correct pairing. */}
+        <div
+          className={small ? 'max-h-0 overflow-hidden' : ''}
+          aria-hidden={small}
+          inert={small ? '' : undefined}
+        >
           <TrueglePlayer
             presentation={docked ? 'expanded' : 'popped'}
             accent={accent || undefined}
-            hideScreen={footerDock && footerView === 'hidden'}
             openListNonce={submitNonce}
             moveOn={adjust}
             onToggleMove={() => setAdjust((v) => !v)}
@@ -594,7 +579,7 @@ export default function MiniPlayer() {
             the move toggle once the player is popped out and away from Tube.
             Two buttons for one job, in two different places, was the "press
             pop-out, press move, drag, press move, press pop-out" dance. */}
-        {adjust && !footerDock && !docked && !peek && (
+        {adjust && !footerDock && !docked && !small && (
           <div className="relative z-30 px-3 py-1 border-t border-cyan-400/20 bg-cyan-400/10">
             <span className="text-[10px] uppercase tracking-wider text-cyan-200/80">
               Drag anywhere to move · corner to resize
@@ -605,7 +590,7 @@ export default function MiniPlayer() {
         {/* Resize grip in its own footer strip — never overlaps the media
             controls, and needs no mode of its own. Bigger while moving so a
             thumb can find it without leaving the mode. */}
-        {!minimized && !footerDock && !docked && !peek && (
+        {!footerDock && !docked && !small && (
           <div className={`relative z-30 flex justify-end border-t ${adjust ? 'border-cyan-400/20 bg-cyan-400/10' : 'border-white/10 bg-black/20'}`}>
             <div
               onPointerDown={startResize}
