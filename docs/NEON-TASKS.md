@@ -136,6 +136,34 @@ Must show `media_signals`, not `null`.
 
 ---
 
+## ☐ Task 1c — Apply migration 020 (media_signals.broken)
+
+Adds the "this doesn't play" counter behind the player's error-review loop.
+Same rules as 1b: paste into Neon Console → SQL Editor, safe to re-run, and
+nothing breaks without it (the report just doesn't stick platform-wide; the
+reporter's own browser still filters it).
+
+```sql
+ALTER TABLE media_signals
+  ADD COLUMN IF NOT EXISTS broken INTEGER NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_media_signals_broken
+  ON media_signals (broken DESC)
+  WHERE broken > 0;
+
+INSERT INTO schema_migrations (filename) VALUES ('020_media_broken.sql')
+ON CONFLICT DO NOTHING;
+```
+
+### ☐ Verify
+```sql
+SELECT column_name FROM information_schema.columns
+ WHERE table_name = 'media_signals' AND column_name = 'broken';
+```
+Must return one row.
+
+---
+
 ## 🔴 Where the connection string actually lives
 
 **Not Vercel.** Vercel stores environment variables write-only — the dashboard

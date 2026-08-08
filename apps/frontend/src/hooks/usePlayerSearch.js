@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getPlayable, mediaKey } from '../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../utils/playerLink';
-import { parsePlayerQuery, rankPlayable } from '../utils/playerQuery';
+import { parsePlayerQuery, rankPlayable, isolatePlatform } from '../utils/playerQuery';
+import { withoutBroken, loadBrokenList } from '../utils/broken';
 
 // A video result whose URL we can't classify is sometimes still a YouTube
 // video — the search backend hands back a watch page on a host we don't
@@ -243,15 +244,26 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
           seen.add(key);
           return true;
         });
-        // YouTube first, then the rest — and anything matching the channel
-        // that was asked for above its own group.
-        setResults(rankPlayable(merged, intent));
+        // Two filters before ranking, in this order:
+        //   1. ISOLATE the chosen platform. The chip is enforced on rows we
+        //      can inspect rather than trusted to a site: operator the index
+        //      may ignore or answer with zero.
+        //   2. DROP anything known not to play — flagged by this browser or by
+        //      enough other people. A result that looks playable and isn't is
+        //      the worst kind, because it costs a press to discover.
+        const isolated = isolatePlatform(merged, intent.platform);
+        const alive = withoutBroken(isolated);
+        setResults(rankPlayable(alive, intent));
         setTrace({ steps, community: communityRows.length, query: intent.backendQuery });
       })
       // An aborted request is a newer keystroke, not a failure.
       .catch((e) => { if (e.name !== 'AbortError') setError('Search is unreachable right now.'); })
       .finally(() => { clearTimeout(timeout); setLoading(false); });
   }, []);
+
+  // Once per page load — the blocklist moves on the scale of days, and
+  // re-fetching per search would be a request per keystroke.
+  useEffect(() => { loadBrokenList(); }, []);
 
   useEffect(() => {
     const id = setTimeout(() => run(query || '', scope, provider), DEBOUNCE_MS);

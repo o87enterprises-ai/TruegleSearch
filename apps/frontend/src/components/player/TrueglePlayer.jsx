@@ -13,6 +13,7 @@ import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useUpNext } from '../../hooks/useUpNext';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
 import { rate, useRating, signalPlay } from '../../utils/taste';
+import { reportBroken } from '../../utils/broken';
 import { copyText } from '../../utils/clipboard';
 import { mediaKey } from '../../utils/videoEmbed';
 
@@ -183,7 +184,20 @@ export default function TrueglePlayer({
   // advanced by itself for the things people actually queue. This talks
   // postMessage to the iframe we already have (no vendor SDK) and calls the
   // same advance() a native <video> would have.
-  const embed = useEmbedPlayback({ frameRef, source: current, onEnded: () => advance() });
+  const embed = useEmbedPlayback({
+    frameRef,
+    source: current,
+    onEnded: () => advance(),
+    // The embed said it cannot play this. Report it and move on rather than
+    // leaving the visitor staring at a black rectangle — this is the whole
+    // error-review loop working without anybody having to notice or press
+    // anything, which is the only version of it that will actually run.
+    onUnplayable: () => {
+      if (!current) return;
+      reportBroken(current, { auto: true });
+      advance();
+    },
+  });
 
   const share = useCallback(async () => {
     const link = buildPlayerLink([current, ...queue].filter(Boolean));

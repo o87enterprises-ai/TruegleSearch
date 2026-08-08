@@ -265,6 +265,22 @@ export function parsePlayerQuery(raw, scope = 'all', provider = 'all') {
 // what you get when you asked for it, not what you get by default.
 const HOST_RANK = { youtube: 0, vimeo: 1, soundcloud: 2, tiktok: 3, reddit: 8 };
 
+/**
+ * Keep ONLY the chosen platform's results.
+ *
+ * `site:` is unreliable — two live traces showed it returning zero for one
+ * host and unrelated results for another — and the keyword fallback is looser
+ * still by design. So the provider chip is enforced HERE, on rows we can
+ * actually inspect, rather than trusted to an operator the index may ignore.
+ * Picking SoundCloud now means SoundCloud or nothing, which is the honest
+ * reading of the chip; a DuckDuckGo page in a SoundCloud search is worse than
+ * an empty list, because an empty list at least tells the truth.
+ */
+export function isolatePlatform(rows, platform) {
+  if (!platform || platform === 'any' || platform === 'all') return rows || [];
+  return (rows || []).filter((r) => r && r.kind === platform);
+}
+
 export function rankPlayable(rows, { channel, platform } = {}) {
   const wanted = channel ? channel.toLowerCase().replace(/[\s._-]/g, '') : null;
   const matchesChannel = (r) => {

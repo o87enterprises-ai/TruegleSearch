@@ -88,6 +88,17 @@ router.get('/trending', async (req, res) => {
 });
 
 /**
+ * GET /api/media/broken
+ * The keys the player should not offer: things enough people (or the embed
+ * itself) reported as unplayable. Keys only — no metadata, because every
+ * visitor fetches this.
+ */
+router.get('/broken', async (req, res) => {
+  const keys = await MediaService.brokenKeys({ limit: req.query.limit });
+  return res.json({ success: true, keys });
+});
+
+/**
  * GET /api/media/resolve?url=…
  * A pasted link's real title, artist and artwork via the platform's own public
  * oEmbed. Keyless and free. The URL is classified BEFORE any fetch, so this

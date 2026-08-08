@@ -1146,6 +1146,14 @@
         "body": "Owner chose lock-the-UI over lock-screen controls (the latter already exist via Media Session for native media). components/player/PlayerLockOverlay.jsx covers the whole TrueglePlayer with a z-40 sheet that swallows pointer events — above the move overlay (z-20) and the transport (z-30), or the controls it disables stay live. The media is a SIBLING, never unmounted, so playback continues. UNLOCK IS A 700ms HOLD, not a tap: a tap is exactly what a pocket produces. A filling SVG ring makes the hold discoverable (a hidden long-press reads as a broken button). useSwipeNav is gated on !locked too, or the sheet would block buttons while gestures passed through. `locked` is in PlayerContext and persisted — it survives a reload deliberately. Also DECIDED: keep the /extract route; fold transcripts into the player as a panel sharing one TranscriptService call, since /extract also serves pasted non-video URLs.",
         "ts": "2026-08-08",
         "created": "2026-08-08"
+      },
+      "broken-results-and-domain-isolation": {
+        "Id": "broken-results-and-domain-isolation",
+        "Type": "decision",
+        "Label": "Error-review loop for dead results + strict provider isolation",
+        "body": "TWO FIXES for \"results that dont play\" and \"isolate single domains\". (1) BROKEN REPORTS: migration 020 adds media_signals.broken. utils/broken.js mirrors taste.js — your report filters YOUR lists instantly via localStorage; an anonymous counter bump goes to POST /api/media/signal {broken:true}; GET /api/media/broken returns keys where broken>0 AND hidden. Threshold SCALES WITH LIKES: hidden when broken >= 2 + ups, so a loved video needs more reports (verified: 2 reports blocks an unknown key, 4 likes + 2 reports does not). AUTO-DETECTION is the important half — useEmbedPlayback now watches YouTube error codes 2/5/100/101/150 (removed, private, embedding disabled, region locked) and TrueglePlayer reports + advances automatically, so the loop runs without anyone pressing anything. Manual Flag button sits last in each result row, small on purpose. MUST FILTER AT RENDER TIME not just fetch time (useBrokenVersion) or the row you just flagged stays visible until the next search. (2) DOMAIN ISOLATION: isolatePlatform() in playerQuery.js drops every row whose kind !== the chosen provider. The chip is enforced on rows we can inspect instead of trusting a site: operator the index ignores or answers with zero. SoundCloud chip now means SoundCloud or nothing.",
+        "ts": "2026-08-08",
+        "created": "2026-08-08"
       }
     },
     "entity": {

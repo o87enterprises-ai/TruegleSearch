@@ -287,7 +287,7 @@ const MediaService = {
    *
    * Never throws: a lost vote must not cost anybody their playback.
    */
-  async signal({ key, from = 0, to = 0, play = false, kind, title, pageUrl, poster, channel } = {}) {
+  async signal({ key, from = 0, to = 0, play = false, broken = false, kind, title, pageUrl, poster, channel } = {}) {
     const mediaKey = clean(key, 200);
     if (!mediaKey || !/^[\w.:@/-]+$/.test(mediaKey)) return { ok: false };
 
@@ -298,33 +298,66 @@ const MediaService = {
     const dUp = (b === 1 ? 1 : 0) - (a === 1 ? 1 : 0);
     const dDown = (b === -1 ? 1 : 0) - (a === -1 ? 1 : 0);
     const dPlay = play ? 1 : 0;
-    if (!dUp && !dDown && !dPlay) return { ok: true };
+    const dBroken = broken ? 1 : 0;
+    if (!dUp && !dDown && !dPlay && !dBroken) return { ok: true };
 
     try {
       const { rows } = await query(
-        `INSERT INTO media_signals (media_key, kind, title, page_url, poster, channel, ups, downs, plays)
-         VALUES ($1, $2, $3, $4, $5, $6, GREATEST($7, 0), GREATEST($8, 0), GREATEST($9, 0))
+        `INSERT INTO media_signals (media_key, kind, title, page_url, poster, channel, ups, downs, plays, broken)
+         VALUES ($1, $2, $3, $4, $5, $6, GREATEST($7, 0), GREATEST($8, 0), GREATEST($9, 0), GREATEST($10, 0))
          ON CONFLICT (media_key) DO UPDATE SET
            ups      = GREATEST(media_signals.ups   + $7, 0),
            downs    = GREATEST(media_signals.downs + $8, 0),
            plays    = GREATEST(media_signals.plays + $9, 0),
+           broken   = GREATEST(media_signals.broken + $10, 0),
            title    = COALESCE(media_signals.title, EXCLUDED.title),
            page_url = COALESCE(media_signals.page_url, EXCLUDED.page_url),
            poster   = COALESCE(media_signals.poster, EXCLUDED.poster),
            channel  = COALESCE(media_signals.channel, EXCLUDED.channel),
+           -- Dead OR disliked into the ground. Both are "stop offering this",
+           -- and both scale with how many people liked it: something people
+           -- enjoy needs more reports before it disappears.
            hidden   = (GREATEST(media_signals.downs + $8, 0)
-                        >= 5 + 3 * GREATEST(media_signals.ups + $7, 0)),
+                        >= 5 + 3 * GREATEST(media_signals.ups + $7, 0))
+                      OR (GREATEST(media_signals.broken + $10, 0)
+                        >= 2 + GREATEST(media_signals.ups + $7, 0)),
            updated_at = NOW()
-         RETURNING ups, downs`,
+         RETURNING ups, downs, broken, hidden`,
         [
           mediaKey, clean(kind, 32), clean(title, MAX_TITLE), clean(pageUrl, MAX_URL),
-          clean(poster, MAX_URL), clean(channel, 120), dUp, dDown, dPlay,
+          clean(poster, MAX_URL), clean(channel, 120), dUp, dDown, dPlay, dBroken,
         ],
       );
       return { ok: true, ...rows[0] };
     } catch (err) {
       logger.warn('Media signal failed', { error: err && err.message });
       return { ok: false };
+    }
+  },
+
+  /**
+   * Everything currently considered dead — the blocklist the player filters
+   * search results through before showing them.
+   *
+   * Deliberately a LIST OF KEYS and nothing else: it is fetched by every
+   * visitor, cached, and compared against locally, so it must stay small and
+   * carry no metadata worth leaking. Reports below the threshold are not
+   * included — one person's region lock is not everyone's.
+   */
+  async brokenKeys({ limit = 500 } = {}) {
+    const capped = Math.min(Math.max(parseInt(limit, 10) || 500, 1), 2000);
+    try {
+      const { rows } = await query(
+        `SELECT media_key FROM media_signals
+          WHERE broken > 0 AND hidden = TRUE
+          ORDER BY broken DESC
+          LIMIT $1`,
+        [capped],
+      );
+      return rows.map((r) => r.media_key);
+    } catch (err) {
+      logger.warn('Broken list failed', { error: err && err.message });
+      return [];
     }
   },
 

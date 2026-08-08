@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Check, X, Loader2, ListMusic, Play, ChevronRight, Search as SearchIcon } from 'lucide-react';
+import { Plus, Check, X, Loader2, ListMusic, Play, ChevronRight, Search as SearchIcon, Flag } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useChannelFeed } from '../../hooks/useChannelFeed';
 import { parsePlayerQuery, toHandle } from '../../utils/playerQuery';
 import { hasTaste, forgetTaste } from '../../utils/taste';
+import { reportBroken, useBrokenFlag, useBrokenVersion, withoutBroken } from '../../utils/broken';
 
 // The list that lives under the player — the same one in all three
 // presentations.
@@ -18,6 +19,28 @@ import { hasTaste, forgetTaste } from '../../utils/taste';
 // people add several things in a row, and a keystroke-based timer would snap
 // the list away mid-choice.
 const REVERT_MS = 10000;
+
+// "This doesn't play." One press removes it from your lists immediately and
+// tells the platform anonymously; enough reports and nobody is offered it
+// again. Deliberately small and last in the row — it is the rarest action
+// here, and a prominent one invites mis-taps that hide working videos.
+function BrokenFlag({ source }) {
+  const flagged = useBrokenFlag(source);
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); reportBroken(source); }}
+      disabled={flagged}
+      title={flagged ? 'Reported — it will stop appearing' : "Doesn't play? Report it"}
+      aria-label={flagged ? 'Already reported as unplayable' : `Report ${source.title || 'this'} as unplayable`}
+      className={`shrink-0 flex items-center justify-center w-7 h-8 rounded-lg transition-colors ${
+        flagged ? 'text-amber-400/70' : 'text-white/20 hover:text-amber-300 hover:bg-white/10'
+      }`}
+    >
+      <Flag size={12} />
+    </button>
+  );
+}
 
 export default function PlayerListSlot({ search, query = '', scope = 'all', provider = 'all', accent = '#f43f5e', onRevert, compact = false }) {
   const { current, queue, jump, removeFromQueue, enqueue, clearQueue, playNow } = usePlayer();
@@ -34,6 +57,10 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
   const feedRows = feed.videos;
   const [added, setAdded] = useState(null);
   const [forgetOpen, setForgetOpen] = useState(false);
+  // Re-filter on every flag. usePlayerSearch drops known-dead rows when the
+  // results ARRIVE; without this the row you just flagged would sit there
+  // until the next search, which reads as the button not working.
+  useBrokenVersion();
   const [showingResults, setShowingResults] = useState(false);
   const revertTimer = useRef(null);
 
@@ -170,7 +197,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
               )}
             </div>
           )}
-          {(feedRows || results || []).map((r) => (
+          {withoutBroken(feedRows || results || []).map((r) => (
             <div key={r.pageUrl || r.src} className={`flex items-center gap-2 px-2 ${rowH} hover:bg-white/5`}>
               {r.poster
                 ? <img src={r.poster} alt="" className="w-10 h-7 rounded object-cover shrink-0"
@@ -208,6 +235,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
                 {added === r.src ? <Check size={13} /> : <Plus size={13} />}
                 {added === r.src ? 'Added' : 'Add'}
               </button>
+              <BrokenFlag source={r} />
             </div>
           ))}
         </div>

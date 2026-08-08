@@ -18,12 +18,22 @@ import { useEffect, useRef, useState } from 'react';
 const YT_ORIGINS = ['https://www.youtube-nocookie.com', 'https://www.youtube.com'];
 const VIMEO_ORIGIN = 'https://player.vimeo.com';
 
-export function useEmbedPlayback({ frameRef, source, onEnded }) {
+export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   const [progress, setProgress] = useState({ time: 0, duration: 0 });
   // Kept in a ref so a changing callback identity doesn't tear down the
   // listener mid-track.
   const endedRef = useRef(onEnded);
   endedRef.current = onEnded;
+  // The embed telling us it cannot play this. YouTube's error codes are the
+  // only fully reliable signal we get for "removed / embedding disabled /
+  // region locked", and they are worth far more than a person noticing: the
+  // player finds out on the FIRST play, before anyone has to press a flag.
+  //   2   malformed id
+  //   5   HTML5 player error
+  //   100 removed or private
+  //   101/150 the uploader disallowed embedding
+  const deadRef = useRef(onUnplayable);
+  deadRef.current = onUnplayable;
 
   const kind = source?.kind;
   const src = source?.src;
@@ -57,10 +67,17 @@ export function useEmbedPlayback({ frameRef, source, onEnded }) {
             }));
           }
           if (info.playerState === 0 && !done) { done = true; endedRef.current?.(); }
+          if (typeof info.errorCode === 'number') deadRef.current?.(info.errorCode);
         }
         if (data.event === 'onStateChange' && data.info === 0 && !done) {
           done = true;
           endedRef.current?.();
+        }
+        // 101 and 150 mean the same thing (embedding disallowed); the pair is
+        // a YouTube quirk, not two different faults.
+        if (data.event === 'onError') {
+          const code = typeof data.info === 'number' ? data.info : Number(data.info);
+          if ([2, 5, 100, 101, 150].includes(code)) deadRef.current?.(code);
         }
       } else {
         if (data.event === 'ended' && !done) { done = true; endedRef.current?.(); }
