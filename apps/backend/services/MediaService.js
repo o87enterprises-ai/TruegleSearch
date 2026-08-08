@@ -374,6 +374,78 @@ const MediaService = {
     }
   },
 
+  /**
+   * Resolve a link's real title, artist and artwork through the platform's own
+   * PUBLIC oEmbed endpoint — keyless, free, and documented.
+   *
+   * WHY THIS EXISTS: a general web index cannot find a small artist. Two live
+   * traces showed `site:soundcloud.com <name>` returning literally zero, and
+   * that is not a query-shaping bug — an artist with 33 followers, ranked
+   * eleventh for their own name, is simply not in the crawl. No amount of
+   * operator tuning reaches them, and SoundCloud has no open search API to ask
+   * instead (app registrations have been closed for years).
+   *
+   * What DOES work is the link itself. oEmbed turns a pasted URL into a real
+   * title, artist and thumbnail, so a submitted track looks like a track
+   * instead of a bare URL — which is what makes community submission a usable
+   * route to being findable rather than a chore.
+   */
+  async resolveLink(rawUrl) {
+    const url = clean(rawUrl, MAX_URL);
+    if (!url) throw new MediaError('INVALID', 'No link was provided.');
+    // Classify first: this refuses anything we would not play anyway, so the
+    // endpoint can never be used to make our server fetch arbitrary hosts.
+    const { kind, platform, canonical, src, vertical } = classifyMedia(url);
+
+    const ENDPOINTS = {
+      soundcloud: 'https://soundcloud.com/oembed?format=json&url=',
+      youtube: 'https://www.youtube.com/oembed?format=json&url=',
+      vimeo: 'https://vimeo.com/api/oembed.json?url=',
+      tiktok: 'https://www.tiktok.com/oembed?url=',
+    };
+    const endpoint = ENDPOINTS[kind];
+    let meta = {};
+    if (endpoint) {
+      try {
+        const r = await fetch(endpoint + encodeURIComponent(url), {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (r.ok) {
+          const j = await r.json();
+          meta = {
+            title: clean(j.title, MAX_TITLE),
+            author: clean(j.author_name, 120),
+            // oEmbed thumbnails are often tiny; SoundCloud's -large can be
+            // swapped for a bigger crop, which costs nothing to ask for.
+            thumbnail: clean(
+              typeof j.thumbnail_url === 'string'
+                ? j.thumbnail_url.replace('-large.', '-t500x500.')
+                : null,
+              MAX_URL,
+            ),
+          };
+        }
+      } catch (err) {
+        // Offline, rate-limited or a private track. The link still plays; it
+        // just carries no nice title, which is a worse row, not a broken one.
+        logger.warn('oEmbed resolve failed', { kind, error: err && err.message });
+      }
+    }
+
+    return {
+      kind,
+      platform,
+      canonical,
+      src,
+      pageUrl: url,
+      title: meta.title || null,
+      channel: meta.author || null,
+      poster: meta.thumbnail || deriveThumbnail(kind, canonical),
+      ...(vertical ? { vertical: true } : {}),
+    };
+  },
+
   /** Best-effort play counter; never fails a playback because of a write. */
   async countPlay(id) {
     try {

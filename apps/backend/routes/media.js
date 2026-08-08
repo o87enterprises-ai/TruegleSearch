@@ -87,6 +87,22 @@ router.get('/trending', async (req, res) => {
   return res.json({ success: true, results });
 });
 
+/**
+ * GET /api/media/resolve?url=…
+ * A pasted link's real title, artist and artwork via the platform's own public
+ * oEmbed. Keyless and free. The URL is classified BEFORE any fetch, so this
+ * can only ever reach hosts the player already accepts — it is not a general
+ * URL fetcher.
+ */
+router.get('/resolve', rateLimitSearch, async (req, res) => {
+  try {
+    const media = await MediaService.resolveLink(req.query.url);
+    return res.json({ success: true, media });
+  } catch (err) {
+    return mapError(err, res);
+  }
+});
+
 /** POST /api/media/:id/play — best-effort popularity signal for ordering. */
 router.post('/:id/play', async (req, res) => {
   await MediaService.countPlay(req.params.id);

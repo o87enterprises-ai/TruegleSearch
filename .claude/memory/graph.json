@@ -464,6 +464,14 @@
         "body": "Format is `<category> <raw>→<playable>`. raw=0 means the backend found NOTHING (cold provider / bad operator). raw>0 with playable=0 means it found things and getPlayable rejected them all (wrong hosts came back). The live SoundCloud trace read `web 5→0 · web 5→0 · web 5→0` and that single line diagnosed three separate faults: (1) site: was being IGNORED by whatever serves the web category — 5 unrelated non-SoundCloud results came back; (2) the fallback rung asked the IDENTICAL query because backendQuery === siteQuery for most providers, so a failed question was repeated twice more for nothing; (3) the retry fired even though raw was 5, when the retry exists only for a cold provider returning an empty body. FIXES: intent now carries keywordQuery — the platform name as a plain KEYWORD instead of the site: operator, which engines cannot ignore — and the second rung uses it; ask() retries only when rows.raw === 0; the Artist scope no longer forces a quoted exact phrase (Duck E. Duck with a stray period matched nothing exactly and the engine fell back to loose matching). Exact-phrase is what the Title chip is for.",
         "ts": "2026-08-08",
         "created": "2026-08-08"
+      },
+      "soundcloud-small-artist": {
+        "Id": "soundcloud-small-artist",
+        "Type": "fact",
+        "Label": "A general web index CANNOT find a small SoundCloud artist — stop shaping the query",
+        "body": "Two live traces settled it: `site:soundcloud.com <name>` returns web 0->0 from the Truegle backend — literally zero, not wrong results. The owner is the artist: 33 followers, ranked ~11th for his own name on SoundCloud itself. Google/Bing do not crawl deep SoundCloud pages for tiny accounts, so no operator, keyword or scope shaping will ever reach him. SoundCloud has NO open search API either — app registrations have been closed for years, and api-v2 needs a client_id scraped from the web player (ToS-grey, breaks). WHAT WORKS: the link. Added GET /api/media/resolve?url= using the platforms PUBLIC keyless oEmbed (soundcloud.com/oembed, youtube.com/oembed, vimeo.com/api/oembed.json, tiktok.com/oembed) -> real title, author, artwork; SoundCloud thumbnails upgraded -large -> -t500x500. It classifies BEFORE fetching so it can never be a general URL fetcher. usePlayerSearch shows the pasted row instantly then upgrades it. THE DISCOVERY PATH for a small artist is therefore: paste link -> it resolves properly -> Add -> community_media -> findable by everyone forever. That is what community submission is FOR.",
+        "ts": "2026-08-08",
+        "created": "2026-08-08"
       }
     },
     "decision": {

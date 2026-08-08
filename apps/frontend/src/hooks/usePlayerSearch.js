@@ -93,7 +93,31 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
       const pasted = resolveShareInput(q);
       setLoading(false);
       setError('');
-      if (pasted.length) { setResults(pasted); setUnsupported(''); return; }
+      if (pasted.length) {
+        setResults(pasted);
+        setUnsupported('');
+        setTrace(null);
+        // Show the row immediately, then upgrade it. A pasted link starts as
+        // "soundcloud.com/duck-e-duck" because that is all a URL tells us;
+        // the platform's own public oEmbed turns it into the real title,
+        // artist and artwork. Keyless and free — and the reason this matters
+        // is that a general web index cannot find a small artist at all, so
+        // the link IS the discovery path and it should look like one.
+        fetch(`${BACKEND}/api/media/resolve?url=${encodeURIComponent(q)}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => {
+            const m = d && d.media;
+            if (!m || !(m.title || m.poster)) return;
+            setResults((prev) => (prev || []).map((row, i) => (i === 0 ? {
+              ...row,
+              title: m.title || row.title,
+              poster: m.poster || row.poster,
+              channel: m.channel || row.channel,
+            } : row)));
+          })
+          .catch(() => { /* offline or a private track — the plain row still plays */ });
+        return;
+      }
       // A real link we simply can't play. Say which host, and say it plainly.
       setResults([]);
       setUnsupported(asUrl.hostname.replace(/^www\./, ''));
