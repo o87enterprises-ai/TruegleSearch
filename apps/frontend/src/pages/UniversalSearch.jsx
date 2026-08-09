@@ -98,7 +98,11 @@ import { isShortForm, asReel } from '../utils/shortForm';
 import { useFeedAutoplay } from '../hooks/useFeedAutoplay';
 import TrueglePlayer from '../components/player/TrueglePlayer';
 import { setPlayerQuery } from '../utils/playerQueryStore';
-import { toHandle } from '../utils/playerQuery';
+import { toHandle, SEARCH_SCOPES } from '../utils/playerQuery';
+
+// Guarded so a hand-typed ?scope=whatever can't put the chips into a state
+// that has no chip.
+const SEARCH_SCOPE_IDS = new Set(SEARCH_SCOPES.map((s) => s.id));
 import PlayerScopeChips from '../components/player/PlayerScopeChips';
 import { parsePlayerParams, resolveShareInput } from '../utils/playerLink';
 import { usePlayer } from '../context/PlayerContext';
@@ -355,7 +359,13 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // What the Tube box is being used to look for. YouTube's chips are the
   // model: the same words mean different searches depending on whether you
   // are after a channel, a song or a title.
-  const [tubeScope, setTubeScope] = useState('all');
+  // Seeded from ?scope= so /shorts — which now redirects to /tube?scope=shorts
+  // — lands on the short-form deck rather than on a generic Tube page that
+  // makes the redirect look like it went to the wrong place.
+  const [tubeScope, setTubeScope] = useState(() => {
+    const s = searchParams.get('scope');
+    return s && SEARCH_SCOPE_IDS.has(s) ? s : 'all';
+  });
   const [tubeProvider, setTubeProvider] = useState('all');
   // The type chips belong to the act of composing a search, so they sit under
   // the bar and get out of the way once one has been run — typing brings them

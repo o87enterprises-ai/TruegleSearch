@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getPlayable, mediaKey } from '../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../utils/playerLink';
-import { parsePlayerQuery, rankPlayable, isolatePlatform } from '../utils/playerQuery';
+import { parsePlayerQuery, rankPlayable, isolatePlatform, isShortsScope } from '../utils/playerQuery';
 import { withoutBroken, loadBrokenList } from '../utils/broken';
+import { isShortForm, asReel } from '../utils/shortForm';
 
 // A video result whose URL we can't classify is sometimes still a YouTube
 // video — the search backend hands back a watch page on a host we don't
@@ -13,6 +14,22 @@ const YT_THUMB = /\/vi(?:_webp)?\/([\w-]{6,20})\//;
 function fromThumbnail(image) {
   const id = typeof image === 'string' ? YT_THUMB.exec(image)?.[1] : null;
   return id ? { kind: 'youtube', src: `https://www.youtube-nocookie.com/embed/${id}` } : null;
+}
+
+// A player source, kept only if it is genuinely short-form.
+//
+// Bridges the two shapes: shortForm.js speaks the search-result vocabulary
+// (`url`, `duration`), while everything downstream of toSource speaks the
+// player-source one (`pageUrl`, `src`). Running asReel across that gap also
+// preserves the promotion the old /shorts page did — a YouTube watch URL that
+// is tagged #shorts and short enough is rewritten to its canonical /shorts/
+// form rather than being thrown away.
+function asShortSource(row) {
+  const link = row?.pageUrl || row?.src;
+  if (!link) return null;
+  const promoted = asReel({ url: link, title: row.title, snippet: row.snippet, duration: row.duration });
+  if (!promoted || !isShortForm(promoted)) return null;
+  return promoted.url === link ? row : { ...row, pageUrl: promoted.url };
 }
 
 // One search result → a player source, or null if there's no way to play it.
@@ -234,15 +251,38 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
       .then((d) => (d.results || []))
       .catch(() => []);
 
-    Promise.all([web, community])
-      .then(([webRows, communityRows]) => {
+    // The submitted-REELS pool, which lives in its own table (community_reels,
+    // not community_media) and was only ever reachable from the /shorts page.
+    // Folding that page into the player without folding this would have
+    // orphaned every reel anyone had submitted — the links would still be in
+    // the database and nothing on the site would ever show them again.
+    //
+    // Only fetched in the Shorts scope: it is a whole pool, not a search, so
+    // merging it into an ordinary query would put unrelated clips at the top
+    // of every list.
+    const shortsScope = isShortsScope(activeScope);
+    const reels = shortsScope
+      ? fetch(`${BACKEND}/api/reels?limit=40`, { signal: controller.signal })
+        .then((r) => (r.ok ? r.json() : { reels: [] }))
+        .then((d) => (d.reels || []).map((x) => toSource({
+          url: x.url, title: x.title, image: x.thumbnail, channel: x.author,
+        }, true)).filter(Boolean))
+        .catch(() => [])
+      : Promise.resolve([]);
+
+    Promise.all([web, community, reels])
+      .then(([webRows, communityRows, reelRows]) => {
         // De-duplicate by MEDIA, not by URL: a search for a song comes back
         // with the same upload four times over — youtu.be, /watch?v=,
         // /embed/…?si=, a mirror — and every one of those is a different
         // `src`. Keying on src is why the list looked padded with repeats and
         // why auto-advance rolled straight into another copy of the same clip.
         const seen = new Set();
-        const merged = [...communityRows, ...webRows].filter((row) => {
+        // Submitted reels lead in the Shorts scope for the same reason
+        // community submissions lead everywhere else: somebody vouched that
+        // they play, and they are the only rows the web index does not carry.
+        const seed = shortsScope ? [...reelRows, ...communityRows] : communityRows;
+        const merged = [...seed, ...webRows].filter((row) => {
           const key = row && (mediaKey(row) || row.src);
           if (!key || seen.has(key)) return false;
           seen.add(key);
@@ -257,8 +297,23 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         //      the worst kind, because it costs a press to discover.
         const isolated = isolatePlatform(merged, intent.platform);
         const alive = withoutBroken(isolated);
-        setResults(rankPlayable(alive, intent));
-        setTrace({ steps, community: communityRows.length, query: intent.backendQuery });
+        // Shorts means SHORT. The backend's videos category returns long-form
+        // too, so without this the Shorts scope is just search with a
+        // different label on it — which is exactly what made the old page's
+        // "reels" filter decorative.
+        //
+        // NOTE THE FIELD. By this point rows are player SOURCES, which carry
+        // the original link as `pageUrl`; `url` belongs to the search-result
+        // shape these helpers were written for. Filtering on `url` here reads
+        // undefined for every row and silently empties the deck.
+        const scoped = shortsScope ? alive.map(asShortSource).filter(Boolean) : alive;
+        setResults(rankPlayable(scoped, intent));
+        setTrace({
+          steps,
+          community: communityRows.length,
+          ...(shortsScope ? { reels: reelRows.length } : {}),
+          query: intent.backendQuery,
+        });
       })
       // An aborted request is a newer keystroke, not a failure.
       .catch((e) => { if (e.name !== 'AbortError') setError('Search is unreachable right now.'); })

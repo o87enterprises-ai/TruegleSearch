@@ -1226,6 +1226,14 @@
         "body": "POST /api/maps/place-panel {query,lat?,lng?} -> {panel|null}. QueryInterpreter.looksLikePlaceQuery() is a cheap regex gate that runs BEFORE any provider call (place-only categories, hours/phone/address/directions intent, near-me) and rejects wh-questions. PlacePanelService.resolve() = TomTom searchPlaces -> BusinessEnrichmentService.enrichLocation, 1h FIFO cache keyed on query+2dp coords. TWO HARD RULES: (1) returns null unless at least one of phone/website/hours/rating exists — a half-filled panel is worse than none; (2) 'near me'/'nearby' with no coordinates returns null WITHOUT spending a provider call rather than guessing from IP. An address-only match (name === address) is a pin, not a business. Frontend BusinessPanelCard + usePlacePanel (fires on lastSearchedQuery, not per keystroke). The panel REPLACES QuickAnswerCard, never stacks. NO PHOTO STRIP on purpose: no provider returns photos of the actual business and a stock photo beside a named business is a picture of somewhere else. Actions are real hrefs (tel:, maps URL, site). Verified 15/15 backend + 16/16 Playwright.",
         "ts": "2026-08-09",
         "created": "2026-08-09"
+      },
+      "d-shorts-folded": {
+        "Id": "d-shorts-folded",
+        "Type": "decision",
+        "Label": "/shorts folded into Tube as a Shorts scope",
+        "body": "Route /shorts now <Navigate to='/tube?scope=shorts' replace> (kept in public/_redirects AND _headers so a hard load reaches the SPA first). pages/ShortsFeed.jsx DELETED; BrandBar 'Shorts' item removed; usePageMode('/shorts') now 'tube' not 'ocean'. New SEARCH_SCOPES entry {id:'shorts'} + isShortsScope(); UniversalSearch seeds tubeScope from ?scope= (guarded against unknown ids). THE THING THAT WOULD HAVE BEEN LOST: the page was the only reader of community_reels (a DIFFERENT table from community_media), so usePlayerSearch now fetches /api/reels?limit=40 in the Shorts scope only and seeds the merge with it. GOTCHA that cost a round: shortForm.js helpers speak the search-RESULT shape (.url) but by merge time rows are player SOURCES (.pageUrl/.src) — filtering on .url reads undefined and silently empties the deck. asShortSource() bridges the two and preserves the #shorts watch-URL promotion. Verified 8/8.",
+        "ts": "2026-08-09",
+        "created": "2026-08-09"
       }
     },
     "entity": {

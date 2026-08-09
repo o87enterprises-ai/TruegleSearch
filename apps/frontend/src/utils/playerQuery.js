@@ -121,12 +121,24 @@ const LEADING_CHANNEL = /^channel\s+(?:for\s+)?(.+)$/i;
 // queries even for identical text.
 export const SEARCH_SCOPES = [
   { id: 'all', label: 'All' },
+  { id: 'shorts', label: 'Shorts' },
   { id: 'channel', label: 'Channel' },
   { id: 'song', label: 'Song' },
   { id: 'artist', label: 'Artist' },
   { id: 'title', label: 'Title' },
   { id: 'topic', label: 'Topic' },
 ];
+
+// Shorts is the folded-in /shorts page. It is a scope rather than a route
+// because the deck behind it — a vertical scroll-snap column you swipe — is
+// the player's browse view, which already existed; the old page was a second
+// copy of it with its own layout, its own search and its own drift.
+//
+// The one thing the page had that the player did not was the community_reels
+// pool, which is a DIFFERENT table from community_media. Folding the route
+// without folding that would have quietly orphaned every reel anyone
+// submitted, so this scope is what reaches it (see usePlayerSearch).
+export const isShortsScope = (scope) => scope === 'shorts';
 const SCOPE_IDS = new Set(SEARCH_SCOPES.map((s) => s.id));
 
 /**

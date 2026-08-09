@@ -35,7 +35,6 @@ import UniversalSearch from './pages/UniversalSearch';
 import TruegleChat from './pages/TruegleChat';
 import SharedThread from './pages/SharedThread';
 import WatchPage from './pages/WatchPage';
-import ShortsFeed from './pages/ShortsFeed';
 import LinkPage from './pages/LinkPage';
 import FeelingBiasedPage from './pages/FeelingBiasedPage';
 import ExtractPage from './pages/ExtractPage';
@@ -298,8 +297,12 @@ const AppContent = () => {
         <Route path="/s/:id" element={<RouteBoundary><SharedThread /></RouteBoundary>} />
         {/* Shared Truegle player link — opens straight into the sandboxed player */}
         <Route path="/w" element={<RouteBoundary><WatchPage /></RouteBoundary>} />
-        {/* Aggregated short-form feed (YouTube Shorts + TikTok) */}
-        <Route path="/shorts" element={<RouteBoundary><ShortsFeed /></RouteBoundary>} />
+        {/* /shorts folded into the player 2026-08-09. It was a second copy of
+            a vertical swipe feed the player already had, with its own layout,
+            its own search bar and its own drift. The route still resolves —
+            people have shared it — and lands on Tube with the Shorts scope
+            selected, which reaches the same submitted-reels pool the page did. */}
+        <Route path="/shorts" element={<Navigate to="/tube?scope=shorts" replace />} />
         {/* Shared Truegle link to a non-media page — lands on Truegle first */}
         <Route path="/l" element={<RouteBoundary><LinkPage /></RouteBoundary>} />
 

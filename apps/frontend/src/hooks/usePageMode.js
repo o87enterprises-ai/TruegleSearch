@@ -21,7 +21,9 @@ export function usePageMode() {
   if (pathname === '/w' || pathname === '/w/') return BRAND;
   if (pathname === '/chat') return 'black';
   if (pathname === '/green') return 'green';
-  if (pathname === '/shorts') return 'ocean';
+  // /shorts redirects to Tube; this only colours the frame for the instant
+  // before the redirect lands, so it should be Tube's colour, not OSINT's.
+  if (pathname === '/shorts') return 'tube';
   if (pathname === '/tube') return 'tube';
   if (pathname === '/extract') return 'yellow';
   if (pathname.startsWith('/creator/')) return 'orange';

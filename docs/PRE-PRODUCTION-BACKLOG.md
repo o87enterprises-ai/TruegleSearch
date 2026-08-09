@@ -8,7 +8,7 @@ launch · **✗** not possible as described.
 
 ## Status — 2026-08-09
 
-**9 done · 2 build items left · 1 feature · 1 process item.**
+**10 done · 1 build item left · 1 feature · 1 process item.**
 
 | | Item | State |
 |---|---|---|
@@ -21,8 +21,8 @@ launch · **✗** not possible as described.
 | §7 | OSINT — real tools for the agent | ✅ done |
 | §2 | Search-bar shape-shift (search = one line, chat = box) | ✅ done |
 | §3 | Quick-answer → business panel | ✅ done |
-| §5 | **Remove `/shorts`, fold into the player** | ⬜ **P2** (next) |
-| §8 | **404 8-bit game** + the offline survival-guide easter egg | ⬜ **P3** |
+| §5 | Remove `/shorts`, fold into the player | ✅ done |
+| §8 | **404 8-bit game** + the offline survival-guide easter egg | ⬜ **P3** (next) |
 | §0 | Reddit OAuth → anonymous feed view over `community_media` | ⬜ feature, P2 |
 | — | The standing blocker (live-backend verification) | ⬜ process, needs a decision |
 

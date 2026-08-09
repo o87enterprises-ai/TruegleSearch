@@ -18,7 +18,7 @@ const ITEMS = [
   { label: 'OSINT',        mode: 'ocean',  path: '/search?mode=ocean' },
   { label: 'Chat',         mode: 'black',  path: '/chat' },
   { label: 'Extract',      mode: 'yellow', path: '/extract' },
-  { label: 'Shorts',       mode: 'orange', path: '/shorts' },
+  // 'Shorts' removed 2026-08-09 — folded into Tube as the Shorts scope.
   { label: 'Tube',         mode: 'tube',   path: '/tube' },
   // 'Rewards' removed 2026-07-24 — ad-pay/rewards program paused.
 ];
