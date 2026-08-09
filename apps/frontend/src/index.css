@@ -909,3 +909,20 @@ canvas { display: block !important; margin: 0 auto !important; image-rendering: 
     text-overflow: ellipsis;
   }
 }
+
+/* The ±10s jump badge. Appears instantly so the gesture feels answered, then
+   gets out of the way on its own — a confirmation you have to dismiss is worse
+   than no confirmation. */
+@keyframes truegle-jump-flash {
+  0%   { opacity: 0; transform: scale(0.86); }
+  12%  { opacity: 1; transform: scale(1); }
+  70%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.04); }
+}
+.truegle-jump-flash {
+  animation: truegle-jump-flash 600ms ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Still shown — it is information, not decoration — just without the scale. */
+  .truegle-jump-flash { animation: truegle-jump-flash 600ms steps(1, end) forwards; }
+}

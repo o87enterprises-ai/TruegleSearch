@@ -150,12 +150,59 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
     return false;
   }, [kind, frameRef]);
 
+  // ── SEEK, on the same channel ──────────────────────────────────────────
+  // Both platforms take an ABSOLUTE target, not a delta, so a relative jump
+  // needs to know where we are. `progress.time` already does, because the
+  // progress listener above is running for exactly these two kinds — no extra
+  // subscription, no polling.
+  //
+  // Mirrored into a ref so `seek` keeps a stable identity: it is wired into a
+  // gesture handler, and a callback that changes on every timeupdate would
+  // rebind the touch listeners several times a second.
+  const timeRef = useRef(0);
+  timeRef.current = progress.time;
+  const durationRef = useRef(0);
+  durationRef.current = progress.duration;
+
+  const seek = useCallback((delta) => {
+    const frame = frameRef?.current;
+    if (!frame?.contentWindow) return null;
+    const dur = durationRef.current;
+    // Clamp short of the end rather than at it: seeking exactly to duration
+    // fires `ended` and advances the queue, which is not what "forward ten
+    // seconds" means to anyone.
+    const target = Math.max(0, dur > 0 ? Math.min(timeRef.current + delta, dur - 0.5) : timeRef.current + delta);
+    try {
+      if (kind === 'youtube') {
+        frame.contentWindow.postMessage(JSON.stringify({
+          event: 'command', func: 'seekTo', args: [target, true],
+        }), '*');
+      } else if (kind === 'vimeo') {
+        frame.contentWindow.postMessage(JSON.stringify({
+          method: 'setCurrentTime', value: target,
+        }), VIMEO_ORIGIN);
+      } else {
+        return null;
+      }
+      // Move the play head now instead of waiting for the embed to report
+      // back. The next timeupdate corrects it; without this the bar sits still
+      // for a beat after a jump, which reads as the jump not working.
+      setProgress((p) => ({ ...p, time: target }));
+      return target;
+    } catch { /* frame gone or cross-origin refused */ }
+    return null;
+  }, [kind, frameRef]);
+
   // Which embeds can be paused in place. Everything else still has to unmount,
   // which is a worse experience but an honest one — and it is now confined to
   // the platforms that genuinely give us no control channel.
   const canCommand = kind === 'youtube' || kind === 'vimeo' || kind === 'soundcloud';
+  // SoundCloud is deliberately absent: its widget can seek, but we never
+  // subscribed to its progress, so we would be jumping from a position we do
+  // not know. Better to offer no jump than a jump to the wrong place.
+  const canSeek = kind === 'youtube' || kind === 'vimeo';
 
-  return { ...progress, command, canCommand };
+  return { ...progress, command, canCommand, seek, canSeek };
 }
 
 export default useEmbedPlayback;

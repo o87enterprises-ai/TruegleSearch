@@ -206,6 +206,32 @@ export default function TrueglePlayer({
   // iframe swallows touches), and that sheet costs the platform's own
   // controls — a fair trade only when our controller bar is already pinned to
   // the bottom of the screen, which is exactly what full screen is.
+  // Double-tap a side to jump ten seconds, the gesture every video app has
+  // trained people to make. It works on the platforms whose play head we
+  // actually track, and on a native <video>/<audio> where it is just a
+  // property. Elsewhere it is off entirely rather than silently doing nothing:
+  // with `canDoubleTap` false the single tap also stops waiting on the
+  // double-tap window, so play/pause keeps its immediate response.
+  const nativeMedia = current?.kind === 'file' || current?.kind === 'audio' || current?.kind === 'video';
+  const canDoubleTap = !!current && (embed.canSeek || nativeMedia);
+  // The jump has to be VISIBLE. Ten seconds of a talking head looks identical
+  // to ten seconds earlier, and ten seconds of audio has no picture at all —
+  // without a flash, a working jump is indistinguishable from a dead zone.
+  const [jump, setJump] = useState(null); // { dir: -1 | 1, at }
+  const jumpTimer = useRef(null);
+  const seekBy = useCallback((delta) => {
+    const el = mediaRef.current;
+    if (el && typeof el.currentTime === 'number') {
+      el.currentTime = Math.max(0, Math.min(el.currentTime + delta, (el.duration || Infinity) - 0.5));
+    } else if (!embed.seek(delta)) {
+      return; // no channel — say nothing rather than flashing a jump that didn't happen
+    }
+    setJump({ dir: delta < 0 ? -1 : 1, at: Date.now() });
+    clearTimeout(jumpTimer.current);
+    jumpTimer.current = setTimeout(() => setJump(null), 600);
+  }, [embed]);
+  useEffect(() => () => clearTimeout(jumpTimer.current), []);
+
   const swipe = useSwipeNav({
     active: fullscreen && !locked,
     onNext: goNext,
@@ -214,6 +240,8 @@ export default function TrueglePlayer({
     // platform with no control channel, pause means unmount, and a stray touch
     // restarting the video is far worse than a tap doing nothing.
     onTap: () => (current && embed.canCommand ? togglePause() : null),
+    doubleTap: canDoubleTap,
+    onDoubleTap: (side) => seekBy(side === 'left' ? -10 : 10),
   });
 
   // Platform embeds fire no `ended` event — that is why the queue never
@@ -352,6 +380,27 @@ export default function TrueglePlayer({
             aria-hidden="true"
           />
         )}
+
+        {/* The jump, made visible. Sits on the half that was tapped, so it
+            also confirms WHICH way — a badge in the middle would leave you
+            guessing whether you hit back or forward. */}
+        {jump && (
+          <div
+            className={`absolute inset-y-0 z-20 flex items-center justify-center pointer-events-none
+              ${jump.dir < 0 ? 'left-0' : 'right-0'}`}
+            style={{ width: '38%' }}
+            aria-hidden="true"
+          >
+            <div className="flex flex-col items-center gap-1 px-4 py-3 rounded-2xl bg-black/55 backdrop-blur-sm truegle-jump-flash">
+              <span className="text-white text-lg leading-none">{jump.dir < 0 ? '«' : '»'}</span>
+              <span className="text-white/90 text-xs font-semibold tabular-nums">10s</span>
+            </div>
+          </div>
+        )}
+        {/* Announced separately for anyone not watching the flash. */}
+        <span className="sr-only" role="status" aria-live="polite">
+          {jump ? `Skipped ${jump.dir < 0 ? 'back' : 'forward'} 10 seconds` : ''}
+        </span>
       </div>
       {/* With the picture hidden there is nothing on screen saying anything is
           happening — so the play head goes here. */}

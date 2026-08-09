@@ -16,13 +16,28 @@ import { useEffect, useRef, useCallback } from 'react';
 const DISTANCE = 56;   // px before a drag counts as a swipe
 const TAP_SLOP = 12;   // px of wander still counted as a tap
 const TAP_MS = 350;
+const DOUBLE_MS = 280; // second tap has to land inside this to count as a pair
 
-export function useSwipeNav({ active, onNext, onPrev, onTap }) {
+export function useSwipeNav({ active, onNext, onPrev, onTap, onDoubleTap, doubleTap = false }) {
   const start = useRef(null);
+  // The last tap that has not yet been resolved into single-or-double, and the
+  // timer that will resolve it.
+  const lastTap = useRef(null);
+  const pending = useRef(null);
+
+  const clearPending = () => {
+    if (pending.current) { clearTimeout(pending.current); pending.current = null; }
+  };
 
   const onTouchStart = useCallback((e) => {
     const t = e.touches?.[0];
     start.current = t ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
+    // A new touch always cancels a tap that is still waiting to see whether it
+    // was the first half of a double. If this touch turns out to be the second
+    // tap we handle it below; if it turns out to be a swipe, the pending
+    // play/pause SHOULD be cancelled — reaching to swipe is not a request to
+    // pause.
+    clearPending();
   }, []);
 
   const onTouchEnd = useCallback((e) => {
@@ -35,14 +50,49 @@ export function useSwipeNav({ active, onNext, onPrev, onTap }) {
     const dy = t.clientY - s.y;
 
     if (Math.abs(dy) >= DISTANCE && Math.abs(dy) > Math.abs(dx)) {
+      lastTap.current = null;
       // Up = forward. Matches the feeds, and matches "the next one is below,
       // pull it into view".
       if (dy < 0) onNext?.();
       else onPrev?.();
       return;
     }
-    if (Math.abs(dx) < TAP_SLOP && Math.abs(dy) < TAP_SLOP && Date.now() - s.at < TAP_MS) onTap?.();
-  }, [onNext, onPrev, onTap]);
+    if (Math.abs(dx) >= TAP_SLOP || Math.abs(dy) >= TAP_SLOP || Date.now() - s.at >= TAP_MS) return;
+
+    // ── it was a tap ────────────────────────────────────────────────────
+    if (!doubleTap) { onTap?.(); return; }
+
+    // WHICH SIDE, measured against the sheet rather than the window: the sheet
+    // is a band in the middle of the screen, so window-relative maths would
+    // put the midpoint in the wrong place on any non-full-bleed layout.
+    const rect = e.currentTarget?.getBoundingClientRect?.();
+    const side = rect && (t.clientX - rect.left) < rect.width / 2 ? 'left' : 'right';
+
+    const now = Date.now();
+    const prev = lastTap.current;
+    if (prev && now - prev.at < DOUBLE_MS && prev.side === side) {
+      lastTap.current = null;
+      onDoubleTap?.(side);
+      return;
+    }
+
+    lastTap.current = { at: now, side };
+    // Play/pause has to WAIT for the double-tap window, or every jump would
+    // also toggle pause on its way through. It is the same ~280ms delay the
+    // native video apps accept for the same reason, and it is only paid where
+    // seeking is possible at all — `doubleTap` is false otherwise, and the tap
+    // fires immediately as before.
+    pending.current = setTimeout(() => {
+      pending.current = null;
+      lastTap.current = null;
+      onTap?.();
+    }, DOUBLE_MS);
+  }, [onNext, onPrev, onTap, onDoubleTap, doubleTap]);
+
+  // Leaving full screen (or locking) mid-gesture must not fire a tap a beat
+  // later at whatever is on screen by then.
+  useEffect(() => () => clearPending(), []);
+  useEffect(() => { if (!active) { clearPending(); lastTap.current = null; } }, [active]);
 
   // Arrows do the same thing, for anyone in full screen on a laptop. Bound to
   // the document because full screen takes focus away from our buttons.
@@ -54,10 +104,15 @@ export function useSwipeNav({ active, onNext, onPrev, onTap }) {
       if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); onNext?.(); }
       else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); onPrev?.(); }
       else if (e.key === ' ' || e.key === 'k') { e.preventDefault(); onTap?.(); }
+      // J / L, the keys every video player already uses for ±10s. The arrows
+      // are spoken for here (they move through the queue), so borrowing them
+      // for seeking would make the two navigations fight.
+      else if (doubleTap && (e.key === 'j' || e.key === 'J')) { e.preventDefault(); onDoubleTap?.('left'); }
+      else if (doubleTap && (e.key === 'l' || e.key === 'L')) { e.preventDefault(); onDoubleTap?.('right'); }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [active, onNext, onPrev, onTap]);
+  }, [active, onNext, onPrev, onTap, onDoubleTap, doubleTap]);
 
   if (!active) return null;
   return { onTouchStart, onTouchEnd };
