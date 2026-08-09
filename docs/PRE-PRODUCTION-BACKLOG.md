@@ -8,7 +8,7 @@ launch · **✗** not possible as described.
 
 ## Status — 2026-08-09
 
-**7 done · 4 build items left · 1 feature · 1 process item.**
+**8 done · 3 build items left · 1 feature · 1 process item.**
 
 | | Item | State |
 |---|---|---|
@@ -19,8 +19,8 @@ launch · **✗** not possible as described.
 | §4 | Lock the player UI | ✅ done |
 | §6 | Prompt router | ✅ done |
 | §7 | OSINT — real tools for the agent | ✅ done |
-| §2 | **Search-bar shape-shift** (search = one line, chat = box) | ⬜ **P1** |
-| §3 | **Quick-answer → business panel** | ⬜ **P2** |
+| §2 | Search-bar shape-shift (search = one line, chat = box) | ✅ done |
+| §3 | **Quick-answer → business panel** | ⬜ **P2** (next) |
 | §5 | **Remove `/shorts`, fold into the player** | ⬜ **P2** |
 | §8 | **404 8-bit game** + the offline survival-guide easter egg | ⬜ **P3** |
 | §0 | Reddit OAuth → anonymous feed view over `community_media` | ⬜ feature, P2 |

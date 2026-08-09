@@ -1202,6 +1202,14 @@
         "body": "YouTube blocks datacenter IPs (Vercel/AWS). services/YouTubeGateway.js is one shared pool of 12 public Invidious instances with a rotating cursor (different IP per request) and exponential failure cooldowns (2->4->8min, cap 1h, cleared by one success). Used by TranscriptService (captions) AND routes/creators.js (RSS uploads, channel about, handle resolve) — direct youtube.com first where cheap, pool underneath. Health at GET /api/health/youtube. DECIDED: no paid rotating proxies ($50-300/mo breaks $0 budget; free pools can read our traffic = privacy regression). The keyed Data API is NOT affected (quota-limited, not IP-limited). CRITICAL: none of this affects the EMBED — 'Sign in to confirm you're not a bot' in the player is served to the USER's IP by their own browser; no server proxy can change it. Docs: docs/YOUTUBE-ACCESS.md. Verified 13/13 against local fake instances.",
         "ts": "2026-08-09",
         "created": "2026-08-09"
+      },
+      "d-searchbar-shapeshift": {
+        "Id": "d-searchbar-shapeshift",
+        "Type": "decision",
+        "Label": "Search bar shape-shift: line on search, box on chat",
+        "body": "SearchBar takes shape='auto'|'line'|'chat' (default auto = unchanged). LandingPage + UniversalSearch pass shape={pillMode==='black'?'chat':'line'}. Line = fixed 1 row, nowrap, scrolls sideways, caret-follow via scrollLeft=scrollWidth on value change; heavier font. Chat = grows to 132px, font-normal, rounded-3xl, +16px resting height. Morph animates for 320ms only on shape change (a permanent height transition would lag every keystroke). Tube's singleLine still outranks shape. CRITICAL GOTCHA (cost 3 iterations): the icon gutter CANNOT be padding-right in a horizontally scrolling textarea — Chrome excludes end padding from scrollWidth, so the last ~18 chars park under the icons unreachable by any scroll. Fixed by INSETTING the box (marginLeft 48 + width calc(100% - 48 - inset), bg transparent, glow moved to the full-width wrapper). Second gotcha: a narrowed <textarea> is inline-block and gets centred by inherited text-align — needs display:block. Media inputs now collapse behind '+' in line shape too (3 icons reserved 216px of a 390px phone, leaving ~90px of text). getRightPadding now counts only rendered icons. Verified 21/21 Playwright.",
+        "ts": "2026-08-09",
+        "created": "2026-08-09"
       }
     },
     "entity": {

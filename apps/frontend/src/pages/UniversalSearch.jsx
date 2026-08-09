@@ -1399,6 +1399,11 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
               }}
               onSubmit={() => submitSearch()}
               onSearch={() => { setScopesOpen(false); submitSearch(); }}
+              // Same shape-shift as the landing bar, driven by the same pill,
+              // so cycling to Chat here changes the box exactly as it does
+              // there instead of looking like a different product.
+              variant={pillMode === 'black' ? 'chat' : 'default'}
+              shape={pillMode === 'black' ? 'chat' : 'line'}
               placeholder={mode === 'purple' ? 'Explore perspectives...' : mode === 'ocean' ? 'OSINT search...' : 'Search for unbiased truth...'}
               size="medium"
               // Legacy in-bar pill + OSINT toggles removed — the single cycling

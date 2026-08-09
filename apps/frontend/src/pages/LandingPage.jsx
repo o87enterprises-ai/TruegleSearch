@@ -292,6 +292,10 @@ export default function LandingPage() {
                 // Chat pill = a chat box: declutter to a normal-search-box feel
                 // (mic/camera/attach behind a "+", more compact growth).
                 variant={pillMode === 'black' ? 'chat' : 'default'}
+                // The bar tells you what Enter will do before you press it:
+                // a chat box on Chat, one continuous line on every search
+                // mode. Tube keeps its own `singleLine`, which outranks this.
+                shape={pillMode === 'black' ? 'chat' : 'line'}
                 value={searchQuery}
                 onChange={(e) =>
                   setSearchQuery(typeof e === 'string' ? e : e.target.value)

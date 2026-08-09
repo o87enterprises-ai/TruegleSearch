@@ -825,6 +825,22 @@ export default function SearchBar({
   belowSlot = null,
   // Fixed-height bar that scrolls horizontally rather than wrapping.
   singleLine = false,
+  // THE SHAPE-SHIFT. The bar physically changes form to say what pressing
+  // Enter is about to do, before you press it:
+  //
+  //   'line'  — searching. One continuous line that scrolls sideways and
+  //             follows the caret. A search query is a line of text; letting
+  //             it wrap into a paragraph implies a conversation is happening.
+  //   'chat'  — chatting. A taller box with a lighter typeface that grows
+  //             downward as you write, which is what every message box in the
+  //             world looks like.
+  //   'auto'  — today's behaviour, derived from `singleLine`/`variant`. The
+  //             default, so every existing call site is untouched.
+  //
+  // Driving this off the pill means the instinct arrives before the label is
+  // read. `singleLine` still wins outright where it is set (Tube's bar is the
+  // player's bar and has no chat form).
+  shape = 'auto',
   isLoading = false,
   showCharCount = false,
   maxLength = 2048,
@@ -1235,6 +1251,15 @@ export default function SearchBar({
     }
   }, [value]);
 
+  // The two shapes, resolved once. `singleLine` is absolute where it is set —
+  // Tube's bar IS the player's bar, and there is no chat form of it.
+  const lineShaped = singleLine || shape === 'line';
+  const chatShaped = !lineShaped && (shape === 'chat' || variant === 'chat');
+  // A line has one row to spend, so the media inputs fold behind the "+"
+  // there for the same reason they do in chat: the alternative is a bar with
+  // no room to read what you typed.
+  const mediaCollapsed = lineShaped;
+
   // Vertically-expanding search bar: grow the textarea line-by-line as the
   // user types (page content below reflows naturally since this is normal
   // document flow, not an absolutely-positioned box), capped so very long
@@ -1242,16 +1267,58 @@ export default function SearchBar({
   useEffect(() => {
     const el = inputRef.current;
     if (!el) return;
-    // Single-line modes (Tube) keep a fixed height and scroll sideways instead.
+    // Single-line shapes keep a fixed height and scroll sideways instead.
     // Growing downward there would push the player further down the page on
     // every wrapped line.
     // The inline style already pins the height for single-line modes; don't
     // touch it here (and don't read `config` — it's declared further down).
-    if (singleLine) { el.style.height = ''; return; }
-    const cap = variant === 'chat' ? 132 : 240;
+    if (lineShaped) { el.style.height = ''; return; }
+    const cap = chatShaped ? 132 : 240;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, cap)}px`;
-  }, [localValue, variant, singleLine]);
+  }, [localValue, chatShaped, lineShaped]);
+
+  // FOLLOW THE CARET. A single-line textarea scrolls sideways on its own while
+  // you type — but only while YOU are the one typing. When the value is
+  // rewritten underneath you (Tube's handle normaliser strips spaces as they
+  // are typed; a suggestion or a share link replaces the whole thing) the box
+  // keeps its old scroll position and the caret lands off the right edge, so
+  // the bar looks empty while you type into it.
+  //
+  // Caret position inside a textarea can't be measured without a mirror
+  // element, which is a lot of machinery for one case. The case that actually
+  // matters is the caret at the END of the value, which is where it is
+  // whenever someone is typing — so scroll fully right for that and leave the
+  // browser's native behaviour alone for mid-string editing, which it already
+  // handles correctly.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el || !lineShaped) return;
+    if (el.selectionStart !== el.value.length) return;
+    // Scroll to the maximum and let the browser clamp. Measured rather than
+    // assumed: Chrome counts the end padding as scrollable, so at max scroll
+    // the last character lands exactly at the CONTENT edge — flush against
+    // the gutter mask, fully readable. Backing off by the padding (which
+    // looks like the careful thing to do) under-scrolls by that much and
+    // hides the tail of what was just typed.
+    el.scrollLeft = el.scrollWidth;
+  }, [localValue, lineShaped]);
+
+  // Animate the morph, but ONLY the morph. A transition on height that is
+  // always on would lag every keystroke, because the autogrow effect above
+  // rewrites the height on each one — the bar would chase the text instead of
+  // holding it. So the transition is armed for one beat when the shape
+  // changes, then disarmed.
+  const [morphing, setMorphing] = useState(false);
+  const firstShape = useRef(true);
+  useEffect(() => {
+    // Not on mount: a bar that animates into existence on page load reads as
+    // a glitch, not as a response to anything.
+    if (firstShape.current) { firstShape.current = false; return undefined; }
+    setMorphing(true);
+    const t = setTimeout(() => setMorphing(false), 320);
+    return () => clearTimeout(t);
+  }, [chatShaped, lineShaped]);
 
   // Design System: Input sizes aligned to 8px spacing grid
   const sizeConfig = {
@@ -1416,10 +1483,17 @@ const handleChange = useCallback((e) => {
     if (hasValue) padding += 40; // clear button space
     if (hasValue) padding += 40; // submit ("play") button space
 
-    // Media input components (mic, camera, file). In the chat variant they're
-    // collapsed behind one "+" button, so reserve only that until expanded.
-    if (variant === 'chat') padding += mediaOpen ? 148 : 34;
-    else padding += 120; // 3 icons * ~40px each
+    // Media input components (mic, camera, file). Reserve for the ones that
+    // are actually rendered — Tube hides the camera and the file picker, and
+    // reserving a flat 120px for three icons when one is shown stole 80px of
+    // text from the narrowest bar on the site.
+    const mediaIcons = showMultiInput
+      ? 1 + (showCameraInput ? 1 : 0) + (showFileInput ? 1 : 0)
+      : 0;
+    if (mediaIcons) {
+      if (variant === 'chat' || mediaCollapsed) padding += mediaOpen ? 34 + mediaIcons * 38 : 34;
+      else padding += mediaIcons * 40;
+    }
 
     if (playerCurrent) padding += 34; // pop-out player access button
     if (isLoading) padding += 32; // loader space
@@ -1428,6 +1502,22 @@ const handleChange = useCallback((e) => {
     if (rightIcons) padding += 72; // additional icons space
     return `${padding}px`;
   };
+
+  // How much room the icon cluster needs, as a number. The line shape spends
+  // it as WIDTH rather than as padding — see the note on the textarea's style.
+  const lineInset = parseFloat(getRightPadding()) || 0;
+
+  // Mode-themed glow. Values are stored in Tailwind underscore format (shared
+  // with the className maps); converted to real CSS here so it can be applied
+  // as an inline style instead of a dynamic arbitrary shadow class, which
+  // Tailwind's JIT scanner can't generate at build time. Hoisted out of the
+  // textarea because the line shape paints it on the full-width wrapper.
+  const glow = (isFocused
+    ? colors.shadowFocused
+    : isHovered
+      ? colors.shadowHovered
+      : colors.shadowDefault
+  ).replace(/_/g, ' ');
 
   return (
     <div className={`w-full ${className}`}>
@@ -1531,14 +1621,19 @@ const handleChange = useCallback((e) => {
             scale: isFocused ? 1.005 : 1,
           }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="relative"
+          className={`relative ${lineShaped ? 'rounded-2xl' : ''}`}
+          // In the line shape the input box is narrower than the pill (it has
+          // to be — see the inset note), so the mode glow is painted here, on
+          // the element that still spans the full width. Every other shape
+          // keeps it on the box itself, exactly as before.
+          style={lineShaped ? { boxShadow: glow } : undefined}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
           {/* Glowing Border Effect - Enhanced with animation */}
           <div
             className={`
-              absolute inset-0 rounded-2xl
+              absolute inset-0 ${chatShaped ? 'rounded-3xl' : 'rounded-2xl'}
               transition-all duration-300 ease-out
               ${isFocused
                 ? `${colors.borderFocused} p-[2px] opacity-100`
@@ -1552,14 +1647,15 @@ const handleChange = useCallback((e) => {
               animation: isFocused ? 'gradient-shift 3s ease infinite' : 'none',
             }}
           >
-            <div className="w-full h-full bg-neutral-900/95 rounded-2xl" />
+            <div className={`w-full h-full bg-neutral-900/95 ${chatShaped ? 'rounded-3xl' : 'rounded-2xl'}`} />
           </div>
+
 
           {/* Search Icon - Animated on focus. Anchored to a fixed pixel line
               (the single-line center) rather than 50% of the box, so it stays
               pinned near the first line as the textarea grows taller. */}
           <motion.div
-            className={`absolute left-4 z-10 pointer-events-none ${singleLine ? 'pl-1 pr-2 -ml-2 bg-neutral-900 rounded-l-2xl' : ''}`}
+            className="absolute left-4 z-10 pointer-events-none"
             style={{ top: config.boxHeightPx / 2 }}
             initial={false}
             animate={{
@@ -1607,47 +1703,87 @@ const handleChange = useCallback((e) => {
             className={`
               relative z-[5]
               w-full
+              ${/* A <textarea> is inline-block by default, which nobody notices
+                   while it is full width. Narrow it for the line shape and the
+                   centred text-align it inherits from the page slides the whole
+                   box 65px to the right — the text then sits under the icons it
+                   was just inset away from. `block` pins it to the left edge. */''}
+              block
               pl-12 ${config.padY}
               bg-neutral-900/90 backdrop-blur-xl
               border-0
-              rounded-2xl
+              ${chatShaped ? 'rounded-3xl' : 'rounded-2xl'}
               resize-none overflow-y-auto
-              text-neutral-50 font-medium tracking-wide
+              text-neutral-50 tracking-wide
+              ${/* Thinner type on chat. A message is prose; a query is a label,
+                   and prose set in the same semibold as a query reads as
+                   shouting. This is half of what makes the two shapes feel
+                   like different instruments rather than one box resizing. */
+                chatShaped ? 'font-normal' : 'font-medium'}
               placeholder:text-neutral-400 placeholder:font-normal
               placeholder:transition-opacity placeholder:duration-200
               ${isFocused ? 'placeholder:opacity-60' : 'placeholder:opacity-100'}
               focus:outline-none
               ${colors.focusRing} focus-visible:ring-2
               focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900
-              transition-all duration-200 ease-out
+              transition-colors duration-200 ease-out
+              ${morphing ? 'transition-all duration-300 ease-out' : ''}
               disabled:opacity-50 disabled:cursor-not-allowed
               ${colors.selection}
             `}
             style={{
-              paddingRight: getRightPadding(),
-              letterSpacing: '0.025em',
-              minHeight: `${config.boxHeightPx}px`,
-              ...(singleLine ? {
+              // THE INSET, and why it is not padding.
+              //
+              // Every other shape reserves room for the icon cluster with
+              // padding-right. In a horizontally scrolling box that quietly
+              // fails: Chrome does NOT count end padding in scrollWidth, so
+              // the furthest you can scroll leaves the last ~18 characters
+              // parked under the icons with no way to bring them out. Measured,
+              // not assumed — the tail of a long query was simply unreachable.
+              //
+              // Narrowing the element makes its right edge the real content
+              // edge, so max scroll lands the caret exactly where it can be
+              // read. The pill does not shrink with it: the surface is the
+              // glow layer underneath at inset-0, which is why the box goes
+              // transparent here.
+              ...(lineShaped
+                ? {
+                  // Inset on BOTH sides rather than padded. Margins move the
+                  // box's own edges, so scrolling text physically cannot reach
+                  // the icons — no masking strip to colour-match against the
+                  // pill, and no glyphs parked somewhere unreachable.
+                  marginLeft: 48,
+                  paddingLeft: 8,
+                  paddingRight: 8,
+                  width: `calc(100% - ${48 + lineInset}px)`,
+                  backgroundColor: 'transparent',
+                }
+                : { paddingRight: getRightPadding() }),
+              letterSpacing: chatShaped ? '0.01em' : '0.025em',
+              // Chat rests taller than it needs to be for one line. An empty
+              // box the height of a search bar invites a search; an empty box
+              // with room in it invites a sentence.
+              minHeight: `${chatShaped ? config.boxHeightPx + 16 : config.boxHeightPx}px`,
+              // Chat scrolls internally sooner instead of growing into a tall
+              // block; a line shape never grows at all.
+              maxHeight: lineShaped
+                ? `${config.boxHeightPx}px`
+                : (chatShaped ? '132px' : '240px'),
+              ...(lineShaped ? {
                 height: `${config.boxHeightPx}px`,
-                maxHeight: `${config.boxHeightPx}px`,
                 whiteSpace: 'nowrap',
                 overflowX: 'auto',
                 overflowY: 'hidden',
               } : {}),
-              // chat variant stays closer to a single-line search box, scrolling
-              // internally sooner instead of growing into a tall block.
-              maxHeight: variant === 'chat' ? '132px' : '240px',
-              lineHeight: '1.5',
+              lineHeight: chatShaped ? '1.6' : '1.5',
               // Mode-themed glow. Values are stored in Tailwind underscore format
               // (shared with the className maps); convert to real CSS here so we
               // apply it as an inline style instead of a dynamic arbitrary shadow
               // class, which Tailwind's JIT scanner can't generate at build time.
-              boxShadow: (isFocused
-                ? colors.shadowFocused
-                : isHovered
-                  ? colors.shadowHovered
-                  : colors.shadowDefault
-              ).replace(/_/g, ' '),
+              // The narrowed box would drag the mode glow inward with it, so
+              // in the line shape the glow is painted by the full-width
+              // wrapper instead.
+              boxShadow: lineShaped ? 'none' : glow,
             }}
           />
 
@@ -1655,7 +1791,7 @@ const handleChange = useCallback((e) => {
               single-line center as the search icon so it doesn't slide to the
               middle of a taller box once the textarea grows. */}
           <div
-            className={`absolute right-4 flex items-center gap-2 z-10 ${singleLine ? 'pl-2 bg-neutral-900 rounded-r-2xl' : ''}`}
+            className="absolute right-4 flex items-center gap-2 z-10"
             style={{ top: config.boxHeightPx / 2, transform: 'translateY(-50%)' }}
           >
             {/* Loading Indicator */}
@@ -1736,9 +1872,14 @@ const handleChange = useCallback((e) => {
               )}
             </AnimatePresence>
 
-            {/* chat variant: collapse the media inputs behind a single "+" so the
-                bar reads like a normal search box (default variant shows them all). */}
-            {variant === 'chat' && (
+            {/* Collapse the media inputs behind a single "+".
+                Chat did this so the bar read like a normal search box. The line
+                shape needs it for a harder reason: on a 390px phone, three
+                always-visible icons plus clear plus play reserve ~216px, which
+                leaves about 90px of actual text. A search box you can see nine
+                characters in is not a search box. Behind the "+" the same bar
+                gives back roughly double that. */}
+            {(variant === 'chat' || mediaCollapsed) && (
               <button
                 type="button"
                 onClick={() => setMediaOpen((v) => !v)}
@@ -1754,7 +1895,7 @@ const handleChange = useCallback((e) => {
                 Suppressed entirely in Tube mode: that bar is the player, and a
                 mic/camera/file row next to transport controls reads as noise. */}
             {showMultiInput && (
-            <div className={`flex items-center gap-1 ml-1 pl-2 border-l border-neutral-700/50 ${variant === 'chat' && !mediaOpen ? 'hidden' : ''}`}>
+            <div className={`flex items-center gap-1 ml-1 pl-2 border-l border-neutral-700/50 ${(variant === 'chat' || mediaCollapsed) && !mediaOpen ? 'hidden' : ''}`}>
               {/* Voice Recognition */}
               <VoiceRecognition
                 autoStart={autoVoice}
