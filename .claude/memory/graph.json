@@ -1194,6 +1194,14 @@
         "body": "Purple is no longer a mode. The Rabbit Hole (red) has a re-ask fold: pick perspectives, the on-screen results REREAD instantly (client-side filter on the bias label the backend already attached — zero network), and only if that misses does the user press 'Not it — search again' for a RERUN (backend red-pill + strict perspective filter, falls back to unfiltered if the lens empties the set). ?mode=purple and /biased still resolve — they land on red with the fold open (FOLDED_MODES in UniversalSearch). Purple removed from PillModeRow CYCLE and BrandBar. Perspective list de-duplicated into src/config/perspectives.js; PERSPECTIVE_BIAS there MUST stay in sync with SearchService.mapPerspectivesToBias. Verified 16/16 with Playwright.",
         "ts": "2026-08-08",
         "created": "2026-08-08"
+      },
+      "d-yt-gateway": {
+        "Id": "d-yt-gateway",
+        "Type": "decision",
+        "Label": "YouTubeGateway — rotating Invidious pool, no paid proxies",
+        "body": "YouTube blocks datacenter IPs (Vercel/AWS). services/YouTubeGateway.js is one shared pool of 12 public Invidious instances with a rotating cursor (different IP per request) and exponential failure cooldowns (2->4->8min, cap 1h, cleared by one success). Used by TranscriptService (captions) AND routes/creators.js (RSS uploads, channel about, handle resolve) — direct youtube.com first where cheap, pool underneath. Health at GET /api/health/youtube. DECIDED: no paid rotating proxies ($50-300/mo breaks $0 budget; free pools can read our traffic = privacy regression). The keyed Data API is NOT affected (quota-limited, not IP-limited). CRITICAL: none of this affects the EMBED — 'Sign in to confirm you're not a bot' in the player is served to the USER's IP by their own browser; no server proxy can change it. Docs: docs/YOUTUBE-ACCESS.md. Verified 13/13 against local fake instances.",
+        "ts": "2026-08-09",
+        "created": "2026-08-09"
       }
     },
     "entity": {
@@ -1512,5 +1520,5 @@
       }
     }
   },
-  "updated": "2026-08-08"
+  "updated": "2026-08-09"
 }

@@ -2,35 +2,26 @@
  * TranscriptService — fetches YouTube captions.
  *
  * Strategy order (first to yield a transcript wins):
- *   1. INVIDIOUS/PIPED front-ends — these fetch YouTube from THEIR own IPs and
- *      return captions as clean data (WebVTT), so YouTube can't rate-limit
- *      Truegle's datacenter IP. This is the same decentralized YouTube pathway
- *      SearXNG uses, and is the primary fix for the "YouTube is rate-limiting
- *      Truegle's server" error.
+ *   1. INVIDIOUS/PIPED front-ends via YouTubeGateway — these fetch YouTube from
+ *      THEIR own IPs and return captions as clean data (WebVTT), so YouTube
+ *      can't rate-limit Truegle's datacenter IP. This is the same decentralized
+ *      YouTube pathway SearXNG uses, and is the primary fix for the "YouTube is
+ *      rate-limiting Truegle's server" error.
  *   2. DIRECT watch-page scrape — load the watch page, read `captionTracks`
  *      from `ytInitialPlayerResponse`, fetch+parse the timedtext XML. Kept as a
  *      last-resort fallback; can be routed through TRANSCRIPT_PROXY_URL.
+ *
+ * The instance pool, its rotation and its failure cooldowns now live in
+ * YouTubeGateway, shared with the creator-feed routes. They used to be a
+ * private list in this file, which meant a captcha on the creator page learned
+ * nothing from a captcha on transcripts, and vice versa — two services
+ * discovering the same dead instance independently, all day.
  *
  * Throws a `TranscriptError` with a stable `.code` so the route returns an
  * accurate, non-misleading message.
  */
 const axios = require('axios');
-const { HttpsProxyAgent } = require('https-proxy-agent');
-const config = require('../config/env');
-
-// Public Invidious instances (override with TRANSCRIPT_INVIDIOUS_INSTANCES).
-// Instances come and go, so we try several and fail over on any error.
-const DEFAULT_INVIDIOUS = [
-  'https://invidious.nerdvpn.de',
-  'https://inv.nadeko.net',
-  'https://invidious.jing.rocks',
-  'https://yewtu.be',
-  'https://invidious.privacyredirect.com',
-];
-
-const UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+const gateway = require('./YouTubeGateway');
 
 class TranscriptError extends Error {
   constructor(code, message) {
@@ -40,35 +31,14 @@ class TranscriptError extends Error {
   }
 }
 
-function requestOptions(extra = {}) {
-  const opts = {
-    headers: {
-      'User-Agent': UA,
-      'Accept-Language': 'en-US,en;q=0.9',
-      // CONSENT cookie skips the EU consent interstitial that otherwise hides the page.
-      Cookie: 'CONSENT=YES+cb',
-    },
-    timeout: 15000,
-    responseType: 'text',
-    maxRedirects: 5,
-    validateStatus: () => true,
-    ...extra,
-  };
-  if (config.transcript && config.transcript.proxyUrl) {
-    const agent = new HttpsProxyAgent(config.transcript.proxyUrl);
-    opts.httpsAgent = agent;
-    opts.httpAgent = agent;
-    opts.proxy = false; // let the agent handle it, not axios's own proxy logic
-  }
-  return opts;
-}
+// Headers, timeout and the optional TRANSCRIPT_PROXY_URL agent — same builder
+// the gateway uses for its own calls, so a proxy configured for one path is
+// configured for all of them.
+const requestOptions = gateway.requestOptions;
 
 // YouTube blocks datacenter IPs with /sorry/ + reCAPTCHA. Detect so we report
 // the truth ("rate limited") instead of "captions disabled".
-function looksRateLimited(status, html) {
-  if (status === 429) return true;
-  return /unusual traffic|\/sorry\/|g-recaptcha|recaptcha|detected unusual traffic/i.test(html);
-}
+const looksRateLimited = gateway.looksBlocked;
 
 // Extract the JSON object assigned to ytInitialPlayerResponse via brace-matching
 // (regex alone is unreliable for nested JSON).
@@ -187,43 +157,25 @@ function pickTrack(tracks, lang, codeKey) {
  * @returns {Promise<Array<{text:string, offset:number, duration:number}>>}
  */
 async function fetchViaInvidious(videoId, opts = {}) {
-  const lang = opts.lang;
-  const instances = (config.transcript && config.transcript.invidiousInstances) || DEFAULT_INVIDIOUS;
-  let sawNoCaptions = false;
-  let lastErr = null;
+  // The pool decides WHICH instance and remembers which ones are sick; this
+  // function only has to know what a caption track looks like.
+  const hit = await gateway.captionList(videoId);
+  if (!hit) throw new TranscriptError('FETCH_FAILED', 'no invidious instance responded');
 
-  for (const base of instances) {
-    try {
-      const listResp = await axios.get(
-        `${base}/api/v1/captions/${videoId}`,
-        requestOptions({ responseType: 'json' })
-      );
-      if (listResp.status === 429) { lastErr = new TranscriptError('RATE_LIMITED'); continue; }
-      if (listResp.status >= 400) { lastErr = new TranscriptError('FETCH_FAILED', `captions list HTTP ${listResp.status}`); continue; }
+  const caps = hit.data.captions;
+  // The instance answered, and its answer was "this video has none". That is a
+  // fact about the video, not about the instance — asking a second front-end
+  // the same question gets the same answer more slowly.
+  if (!caps.length) throw new TranscriptError('NO_CAPTIONS');
 
-      const caps = listResp.data && listResp.data.captions;
-      if (!Array.isArray(caps) || caps.length === 0) { sawNoCaptions = true; continue; }
+  const track = pickTrack(caps, opts.lang, 'languageCode');
+  const body = await gateway.captionBody(hit.base, track.url);
+  if (body === null) throw new TranscriptError('FETCH_FAILED', 'caption fetch failed');
 
-      const track = pickTrack(caps, lang, 'languageCode');
-      // Invidious returns `url` as an instance-relative path (e.g.
-      // /api/v1/captions/<id>?label=English); make it absolute.
-      const capUrl = /^https?:\/\//i.test(track.url) ? track.url : `${base}${track.url}`;
-
-      const vttResp = await axios.get(capUrl, requestOptions({ responseType: 'text' }));
-      if (vttResp.status >= 400) { lastErr = new TranscriptError('FETCH_FAILED', `caption HTTP ${vttResp.status}`); continue; }
-
-      const body = String(vttResp.data || '');
-      // Invidious usually returns WebVTT; some instances proxy raw timedtext XML.
-      const segments = /^\s*WEBVTT/.test(body) || body.includes('-->') ? parseVtt(body) : parseTimedText(body);
-      if (segments.length) return segments;
-      sawNoCaptions = true;
-    } catch (err) {
-      lastErr = new TranscriptError('FETCH_FAILED', err.message);
-    }
-  }
-
-  if (sawNoCaptions && !lastErr) throw new TranscriptError('NO_CAPTIONS');
-  throw lastErr || new TranscriptError('FETCH_FAILED', 'no invidious instance responded');
+  // Invidious usually returns WebVTT; some instances proxy raw timedtext XML.
+  const segments = /^\s*WEBVTT/.test(body) || body.includes('-->') ? parseVtt(body) : parseTimedText(body);
+  if (!segments.length) throw new TranscriptError('NO_CAPTIONS');
+  return segments;
 }
 
 /**
@@ -331,5 +283,5 @@ module.exports = {
   fetchTranscript,
   TranscriptError,
   // exported for unit testing
-  _internals: { extractPlayerResponse, parseTimedText, parseVtt, decodeEntities, looksRateLimited, pickTrack, vttTimeToSeconds },
+  _internals: { fetchViaInvidious, extractPlayerResponse, parseTimedText, parseVtt, decodeEntities, looksRateLimited, pickTrack, vttTimeToSeconds },
 };

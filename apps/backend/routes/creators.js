@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const logger = require('../utils/logger');
 const { query } = require('../db/connection');
+const gateway = require('../services/YouTubeGateway');
 
 /*
  * Creator hub — YouTube channel feed proxy.
@@ -44,13 +45,15 @@ router.get('/resolve', async (req, res) => {
       handleCache.set(handle.toLowerCase(), { at: Date.now(), channelId: viaApi });
       return res.json({ channelId: viaApi });
     }
-    const r = await fetch(`https://www.youtube.com/@${encodeURIComponent(handle)}`, {
-      headers: { 'User-Agent': YT_UA, 'Accept-Language': 'en-US,en;q=0.9' },
-    });
-    if (!r.ok) throw new Error(`handle ${r.status}`);
-    const html = await r.text();
-    const id = (/"channelId":"(UC[A-Za-z0-9_-]{20,30})"/.exec(html)
-      || /channel\/(UC[A-Za-z0-9_-]{20,30})/.exec(html))?.[1];
+    // Keyless: read the id out of the channel page. `direct` returns null
+    // rather than the captcha page when YouTube blocks the datacenter IP, so a
+    // block falls through to the front-end pool instead of being parsed as
+    // "this handle doesn't exist".
+    const html = await gateway.direct(`https://www.youtube.com/@${encodeURIComponent(handle)}`);
+    const id = html
+      ? (/"channelId":"(UC[A-Za-z0-9_-]{20,30})"/.exec(html)
+        || /channel\/(UC[A-Za-z0-9_-]{20,30})/.exec(html))?.[1]
+      : await gateway.resolveHandle(handle);
     if (!id) return res.status(404).json({ error: 'not_found' });
     handleCache.set(handle.toLowerCase(), { at: Date.now(), channelId: id });
     return res.json({ channelId: id });
@@ -123,15 +126,16 @@ async function aboutViaDataApi(channelId) {
 // values are read, and nothing from the page is echoed back verbatim beyond
 // them — same rule as the id scrape in /resolve.
 async function aboutViaChannelPage(channelId) {
-  const r = await fetch(`https://www.youtube.com/channel/${encodeURIComponent(channelId)}`, {
-    headers: { 'User-Agent': YT_UA, 'Accept-Language': 'en-US,en;q=0.9' },
-  });
-  if (!r.ok) return null;
-  const html = await r.text();
+  const html = await gateway.direct(`https://www.youtube.com/channel/${encodeURIComponent(channelId)}`);
+  // Blocked or gone. The front-end pool carries the same three fields as
+  // structured JSON, so a captcha on our IP no longer blanks the creator card.
+  if (!html) return gateway.channelAbout(channelId);
   const meta = (prop) => new RegExp(`<meta property="${prop}" content="([^"]*)"`).exec(html)?.[1] || null;
   const decode = (v) => (v ? v.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>') : null);
   const name = decode(meta('og:title'));
-  if (!name) return null;
+  // A page with no og:title is an interstitial we didn't pattern-match. Same
+  // treatment as an outright block.
+  if (!name) return gateway.channelAbout(channelId);
   return {
     channelId,
     name,
@@ -173,8 +177,8 @@ router.get('/:channelId/videos', async (req, res) => {
   }
 });
 
-const YT_UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+// The browser UA (and the consent cookie, and the optional proxy agent) moved
+// into YouTubeGateway with the requests that needed them.
 
 // Reliable path: YouTube Data API v3 playlistItems on the channel's uploads
 // playlist (uploads id = channel id with the "UC" prefix swapped to "UU").
@@ -277,13 +281,26 @@ router.get('/search', async (req, res) => {
   }
 });
 
+/**
+ * Uploads without a key. Direct RSS first — it is tolerant and cheap — and the
+ * rotating Invidious pool underneath it, so a captcha on our IP costs a
+ * different front-end's IP instead of an empty creator page.
+ */
 async function fetchViaRss(channelId) {
-  const r = await fetch(
-    `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`,
-    { headers: { 'User-Agent': YT_UA, 'Accept-Language': 'en-US,en;q=0.9' } }
-  );
-  if (!r.ok) throw new Error(`RSS ${r.status}`);
-  return parseFeed(await r.text()).slice(0, 12);
+  const hit = await gateway.channelUploads(channelId);
+  if (!hit) throw new Error('RSS unavailable and no front-end answered');
+  if (hit.kind === 'rss') return parseFeed(hit.data).slice(0, 12);
+
+  // Invidious shape → the same {videoId,title,published,thumbnail,url} the RSS
+  // parser produces, so callers and the cache never learn which path answered.
+  return hit.data.slice(0, 12).map((v) => ({
+    videoId: v.videoId,
+    title: v.title || '',
+    published: v.published ? new Date(v.published * 1000).toISOString() : null,
+    thumbnail: (Array.isArray(v.videoThumbnails) && v.videoThumbnails[0]?.url)
+      || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
+    url: `https://www.youtube.com/watch?v=${v.videoId}`,
+  })).filter((v) => v.videoId);
 }
 
 /*

@@ -229,6 +229,23 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+/**
+ * Which YouTube front-ends are answering right now, and which are sitting out
+ * a cooldown. Without this the rotation is invisible: "transcripts are slow"
+ * and "nine of twelve instances are cooling down" look identical from outside,
+ * and the second one is the answer.
+ *
+ * Base URLs of public instances only — no credentials, nothing per-user.
+ */
+app.get('/api/health/youtube', (req, res) => {
+  const pool = require('./services/YouTubeGateway').poolStatus();
+  res.json({
+    ready: pool.filter((p) => p.ready).length,
+    total: pool.length,
+    pool,
+  });
+});
+
 // API routes
 app.use('/api/search', [blockBadBots, suspiciousBotLimiter, searchPrivacyMiddleware, require('./routes/search')]);
 app.use('/api/auth', [authLimiter, require('./routes/auth')]);
