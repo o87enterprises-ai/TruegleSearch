@@ -66,8 +66,15 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // --truegle-player-cap is set by whatever is hosting the player when it
   // knows the real room available (the docked slot does); the svh figure is
   // the fallback when nobody has measured.
+  //
+  // NOTE the popped window ALSO honours the measured cap. It used to
+  // short-circuit to a flat 42svh, which is a share of the VIEWPORT — but the
+  // floating frame is sized against whatever is left after keeping clear of
+  // the page's search bar, which in a landscape phone is much less than that.
+  // The picture then overflowed a frame it was supposed to fit inside and
+  // pushed the transport row out of the bottom of it.
   const cap = compact
-    ? '42svh'
+    ? 'min(42svh, var(--truegle-player-cap, 100svh))'
     : `min(${vertical ? '58svh' : '62svh'}, var(--truegle-player-cap, 100svh))`;
   const boxStyle = fill ? undefined : {
     aspectRatio: vertical ? '9 / 16' : '16 / 9',
@@ -80,7 +87,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   };
 
   return (
-    <div ref={ref} className={`relative w-full bg-black ${fill ? 'flex-1 min-h-0' : ''}`}>
+    <div ref={ref} data-player-screen className={`relative w-full bg-black ${fill ? 'flex-1 min-h-0' : ''}`}>
       {isSoundcloud ? (
         <iframe
           key={src}

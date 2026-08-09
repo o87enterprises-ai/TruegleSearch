@@ -1234,6 +1234,14 @@
         "body": "Route /shorts now <Navigate to='/tube?scope=shorts' replace> (kept in public/_redirects AND _headers so a hard load reaches the SPA first). pages/ShortsFeed.jsx DELETED; BrandBar 'Shorts' item removed; usePageMode('/shorts') now 'tube' not 'ocean'. New SEARCH_SCOPES entry {id:'shorts'} + isShortsScope(); UniversalSearch seeds tubeScope from ?scope= (guarded against unknown ids). THE THING THAT WOULD HAVE BEEN LOST: the page was the only reader of community_reels (a DIFFERENT table from community_media), so usePlayerSearch now fetches /api/reels?limit=40 in the Shorts scope only and seeds the merge with it. GOTCHA that cost a round: shortForm.js helpers speak the search-RESULT shape (.url) but by merge time rows are player SOURCES (.pageUrl/.src) — filtering on .url reads undefined and silently empties the deck. asShortSource() bridges the two and preserves the #shorts watch-URL promotion. Verified 8/8.",
         "ts": "2026-08-09",
         "created": "2026-08-09"
+      },
+      "d-player-geometry-fixes": {
+        "Id": "d-player-geometry-fixes",
+        "Type": "decision",
+        "Label": "Floating player: clear of the page search bar; no move/resize in full screen",
+        "body": "(1) SearchBar's form carries data-page-search. MiniPlayer tracks its rect while FLOATING (poppedOut && !docked) and keeps clear. TWO different clamps because the two float branches anchor differently: a top-anchored frame (pos) shrinks its height (capBelow) — shrinking lifts its bottom edge; a bottom-anchored frame must RAISE its anchor (liftedBottom), because shrinking one of those moves the top and leaves the overlapping bottom edge where it was. Getting that backwards measured clean and changed nothing on screen. Retract-while-typing does NOT cover this: it fires on focus, and the overlap is what prevents focus. (2) --truegle-player-cap is now set for the floating frame too, from DOM-measured frame maxHeight minus DOM-measured chrome (a reasoned constant was 18px short). PlayerScreen's compact branch used to short-circuit to a flat 42svh and IGNORE the cap — that is why the picture overflowed the frame and pushed the transport out of the bottom in landscape. (3) showPopOut={!fullscreen}: that one button is pop-out/dock-back/MOVE by context and all three are nonsense in full screen. Move/resize is popped-out-and-off-Tube only; on Tube the same button docks back. Verified 11/11.",
+        "ts": "2026-08-09",
+        "created": "2026-08-09"
       }
     },
     "entity": {

@@ -288,7 +288,17 @@ export default function TrueglePlayer({
       playMode={playMode}
       onCyclePlayMode={() => setPlayMode(PLAY_MODES[(PLAY_MODES.indexOf(playMode) + 1) % PLAY_MODES.length])}
       listOpen={listOpen}
-      showPopOut
+      // NOT IN FULL SCREEN. This one button is pop-out / dock-back / MOVE
+      // depending on where the player is, and in full screen all three are
+      // nonsense: there is nowhere to pop out to, nothing to dock back into,
+      // and moving or resizing a window that IS the screen does nothing you
+      // can see. It was still rendering as the Move control, so full screen
+      // had a drag handle on it that appeared to do nothing.
+      //
+      // Move/resize belongs to the popped-out window and nowhere else —
+      // docked, minimized and full screen all have their geometry decided for
+      // them, which is the point of each of those states.
+      showPopOut={!fullscreen}
       popOutMode={popOutMode}
       adjustOn={moveOn}
       showFullscreen={presentation !== 'collapsed'}

@@ -1614,7 +1614,11 @@ const handleChange = useCallback((e) => {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="relative w-full">
+      {/* Marked so the floating player can keep clear of it. A player window
+          parked over the box you type into is the one overlap that makes the
+          page unusable — you cannot tap what is covered, and you cannot move
+          the thing covering it without first tapping past it. */}
+      <form data-page-search onSubmit={handleSubmit} className="relative w-full">
         <motion.div
           initial={false}
           animate={{

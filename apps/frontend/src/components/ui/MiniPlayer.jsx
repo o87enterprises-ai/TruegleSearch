@@ -163,6 +163,76 @@ export default function MiniPlayer() {
     };
   }, [wantSlot]);
   const docked = !!slot && wantSlot;
+
+  // ── keeping clear of the page's own search bar ───────────────────────────
+  // A floating window is free to sit anywhere, and in a SHORT viewport —
+  // a phone held in landscape — "anywhere" is on top of the search box, which
+  // is the one thing it must never cover. You cannot tap what is covered, and
+  // you cannot move the thing covering it without tapping past it first.
+  //
+  // Retract-while-typing already existed and does not help here: it fires on
+  // FOCUS, and focus is exactly what the overlap prevents.
+  const [pageBar, setPageBar] = useState(null);
+  const floating = poppedOut && !docked;
+  useEffect(() => {
+    if (!floating) { setPageBar(null); return undefined; }
+    const measure = () => {
+      const el = document.querySelector('[data-page-search]');
+      if (!el) { setPageBar(null); return; }
+      const r = el.getBoundingClientRect();
+      setPageBar((prev) => (prev
+        && Math.abs(prev.top - r.top) < 0.5
+        && Math.abs(prev.bottom - r.bottom) < 0.5
+        ? prev
+        : { top: r.top, bottom: r.bottom }));
+    };
+    measure();
+    // Same three triggers the slot uses: the bar moves when the page scrolls,
+    // when the viewport rotates, and when something above it loads.
+    window.addEventListener('scroll', measure, { passive: true, capture: true });
+    window.addEventListener('resize', measure);
+    const poll = setInterval(measure, 250);
+    return () => {
+      clearInterval(poll);
+      window.removeEventListener('scroll', measure, { capture: true });
+      window.removeEventListener('resize', measure);
+    };
+  }, [floating]);
+
+  // ── telling the screen how much room it actually has ────────────────────
+  // The docked path has always set --truegle-player-cap; the floating one
+  // never did. So the media area sized itself against the VIEWPORT while the
+  // frame was sized against whatever is left after keeping clear of the page's
+  // search bar — and in a short viewport the difference is the whole transport
+  // row, scrolled out of the bottom of a window that looks like it should not
+  // need scrolling.
+  //
+  // Both numbers are read from the DOM rather than derived. The frame's chrome
+  // (header, filter strip, transport) came to 18px more than a reasoned-out
+  // constant — borders, a divider, the transport's padding — and that is not a
+  // figure worth guessing when one rect read is exact. Polled because the list
+  // opening and the filter strip appearing both change it with no event.
+  useEffect(() => {
+    if (!floating) return undefined;
+    const root = document.documentElement;
+    const measure = () => {
+      const frame = document.querySelector('[data-mini]');
+      const screen = frame?.querySelector('[data-player-screen]');
+      if (!frame || !screen) return;
+      const max = parseFloat(getComputedStyle(frame).maxHeight);
+      if (!Number.isFinite(max)) return;
+      const chrome = Math.max(80, frame.scrollHeight - screen.getBoundingClientRect().height);
+      root.style.setProperty('--truegle-player-cap', `${Math.max(100, Math.round(max - chrome))}px`);
+    };
+    measure();
+    const poll = setInterval(measure, 400);
+    window.addEventListener('resize', measure);
+    return () => {
+      clearInterval(poll);
+      window.removeEventListener('resize', measure);
+      root.style.removeProperty('--truegle-player-cap');
+    };
+  }, [floating]);
   // Only the free-floating and footer forms overlap the page. The slot-docked
   // player is IN the layout, so it can't be in anybody's way.
   // ONE small state. `peek` (retract while typing) used to be a fourth
@@ -312,6 +382,36 @@ export default function MiniPlayer() {
   const floatTop = pos ? Math.max(4, Math.min(pos.top, visible - minH - 8)) : 4;
   const visibleHeight = Math.max(minH, Math.round(Math.min(avail, visible - floatTop - 8)));
 
+  // How tall the floating frame may be without crossing the page's search bar.
+  // Returns the height unchanged when the bar is off screen, already clear, or
+  // when clearing it would squash the frame below its minimum — in that last
+  // case there is genuinely no arrangement that fits, and a frame too small to
+  // use is not an improvement on one that overlaps.
+  // ...for a frame that hangs from a fixed TOP. Shrinking it lifts the bottom
+  // edge, which is exactly what is needed.
+  const capBelow = (height, top) => {
+    if (!pageBar) return height;
+    if (pageBar.bottom <= 0 || pageBar.top >= visible) return height; // off screen
+    const room = pageBar.top - top - 8;
+    if (room >= height) return height;                                // already clear
+    // No arrangement fits. A frame squashed below its minimum is not an
+    // improvement on one that overlaps, so leave it and let retract-on-typing
+    // handle the moment it actually matters.
+    return room >= minH ? Math.round(room) : height;
+  };
+
+  // ...and for a frame anchored to the BOTTOM. Shrinking one of those moves
+  // its TOP down and leaves the bottom edge exactly where it was — which is
+  // the edge doing the overlapping. The anchor has to be raised instead.
+  // Getting this backwards is why the first fix measured clean and changed
+  // nothing on screen.
+  const liftedBottom = (() => {
+    const base = BANNER_CLEARANCE + keyboardInset;
+    if (!pageBar) return base;
+    if (pageBar.bottom <= 0 || pageBar.top >= visible) return base;
+    return Math.max(base, Math.round(visible - pageBar.top + 8));
+  })();
+
   const style = docked
     ? {
       left: slot.left,
@@ -352,14 +452,14 @@ export default function MiniPlayer() {
         // bottom of the visible viewport, and since it's fixed, nothing could
         // scroll it back — the header, with the search box in it, ended up
         // above the top of the screen with no way to reach it.
-        maxHeight: `${visibleHeight}px`,
+        maxHeight: `${capBelow(visibleHeight, floatTop)}px`,
         overflowY: 'auto',
       }
       : {
         left: 16,
-        bottom: BANNER_CLEARANCE + keyboardInset,
+        bottom: liftedBottom,
         width,
-        maxHeight: `${Math.max(180, Math.round(window.innerHeight - keyboardInset - BANNER_CLEARANCE - 16))}px`,
+        maxHeight: `${Math.max(140, Math.round(visible - liftedBottom - 16))}px`,
         overflowY: 'auto',
       };
 
