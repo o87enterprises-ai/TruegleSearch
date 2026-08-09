@@ -1,0 +1,85 @@
+{
+  "_README": [
+    "Fill this in and send it back. Every field here changes the code, so",
+    "programming waits on it. Leave a value as null if it is genuinely still",
+    "open — null is information; a guess is not.",
+    "Fields beginning with _ are notes to you and are ignored by the build."
+  ],
+
+  "title": "Trail",
+
+  "deathModel": {
+    "_choose": "pool | party",
+    "_pool": "One health value. Simpler, reads faster, no names to get attached to.",
+    "_party": "Oregon Trail's model: individuals tracked separately, run ends with the last of them. More attachment, more UI, more text to write.",
+    "value": null,
+    "partySize": null,
+    "_partySize": "Only if 'party'. 3-5 is the workable range at 320x180."
+  },
+
+  "runShape": {
+    "_choose": "endless | destination",
+    "_endless": "Difficulty rises forever. Score is distance. No win state.",
+    "_destination": "A place you can actually reach. Needs a total distance and an ending.",
+    "value": null,
+    "totalDistance": null,
+    "_totalDistance": "Only if 'destination'. In the same units biomes use.",
+    "difficultyCurve": null,
+    "_difficultyCurve": "linear | stepped | accelerating — how fast it turns against you."
+  },
+
+  "resources": {
+    "_note": "List only the ones that really exist. Four is plenty; six needs a tutorial and there is nowhere to put one.",
+    "_candidates": ["fuel", "water", "food", "meds", "ammo", "morale", "parts"],
+    "value": null,
+    "startingAmounts": {},
+    "_startingAmounts": "e.g. { \"fuel\": 20, \"water\": 12 }"
+  },
+
+  "persistence": {
+    "_note": "Single life implies no saves, but a best-distance counter is a different thing from a save. Anything kept stays in the browser; nothing about a player leaves their device.",
+    "bestDistance": null,
+    "runsPlayed": null,
+    "_both": "true | false"
+  },
+
+  "palette": {
+    "_note": "16 or fewer. A build check will fail any asset using a colour outside this list, so it holds after everyone stops paying attention.",
+    "name": null,
+    "hex": [],
+    "_hex": "e.g. [\"#140c1c\", \"#442434\", ...] — include a true black and a near-white.",
+    "uiColour": null,
+    "_uiColour": "One hex from the list, reserved for UI and never used in art, so text stays legible over a busy backdrop."
+  },
+
+  "font": {
+    "_choose": "bitmap | system",
+    "value": "bitmap",
+    "uppercaseOnly": null,
+    "_uppercaseOnly": "true is fine and period-appropriate; lowercase then maps to the same glyphs."
+  },
+
+  "sheets": {
+    "_note": "Frame count per ROW. This is the only metadata the code needs — no atlas file.",
+    "party": { "idle": null, "walk": null, "hurt": null, "dead": null },
+    "hazards": { "count": null, "order": [] },
+    "items": { "count": null, "order": [] },
+    "ui": { "count": null, "order": [] }
+  },
+
+  "biomes": {
+    "_note": "Just the ids here; the full definitions go in content/biomes.json. One backdrop and one or more parallax layers per biome.",
+    "ids": [],
+    "parallaxLayersPerBiome": null
+  },
+
+  "sound": {
+    "_note": "Optional. Never autoplays — browsers block it and a 404 that makes noise unprompted is hostile.",
+    "included": null,
+    "cues": [],
+    "_cues": "e.g. [\"select\", \"hurt\", \"death\", \"arrive\"]"
+  },
+
+  "openQuestions": [],
+  "_openQuestions": "Anything you want decided jointly rather than handed over — put it here and it gets answered before build, not during."
+}
