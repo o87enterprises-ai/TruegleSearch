@@ -6,6 +6,30 @@ what it costs, whether it is possible at all, and what I recommend.
 Legend: **P1** ships before pre-production · **P2** ships during · **P3** after
 launch · **✗** not possible as described.
 
+## Status — 2026-08-09
+
+**7 done · 4 build items left · 1 feature · 1 process item.**
+
+| | Item | State |
+|---|---|---|
+| 1.1 | Clipboard pastes a stale clip | ✅ done |
+| 1.2 | Tube docked + list open → input off screen | ✅ done |
+| 1.3 | Player buttons cut off when shrunk | ✅ done |
+| 1.4 | SoundCloud search | ✅ root-caused + oEmbed resolve shipped; only on-device verification left |
+| §4 | Lock the player UI | ✅ done |
+| §6 | Prompt router | ✅ done |
+| §7 | OSINT — real tools for the agent | ✅ done |
+| §2 | **Search-bar shape-shift** (search = one line, chat = box) | ⬜ **P1** |
+| §3 | **Quick-answer → business panel** | ⬜ **P2** |
+| §5 | **Remove `/shorts`, fold into the player** | ⬜ **P2** |
+| §8 | **404 8-bit game** + the offline survival-guide easter egg | ⬜ **P3** |
+| §0 | Reddit OAuth → anonymous feed view over `community_media` | ⬜ feature, P2 |
+| — | The standing blocker (live-backend verification) | ⬜ process, needs a decision |
+
+Shipped alongside these, not on the original list: the Rabbit Hole re-ask fold
+(Perspectives folded in, reread → rerun), the one-footprint minimized player,
+the broken-result flag, provider/channel scope chips, `YouTubeGateway`.
+
 ---
 
 ## 0. The headline question: aggregating the social feeds
@@ -187,6 +211,18 @@ Better than the games page, and it moots most of `TRUEGLE-GAMES-PLAN.md`'s ad
 problem: nothing third-party, nothing to monetise, no store. One small canvas
 game, MIT-licensed or written from scratch, lazy-loaded so it costs nothing on
 a normal 404. **The games plan stays parked** — this replaces its v1.
+
+### Added 2026-08-09 — the offline easter egg
+
+The 404 page also hides a set of **offline / off-grid / pioneer-days survival
+guide PDFs**, so Truegle carries stored value even with no service. The owner
+gathers the documents; the requirement here is that they are *hidden* on the
+page rather than advertised.
+
+One thing this needs to actually work: the PDFs must be **service-worker
+precached** (or inlined), or "no service" means no PDFs either — a hidden link
+to a file that can't be fetched is worse than no link. Same lazy-load rule as
+the game: neither should cost anything on an ordinary 404.
 
 ---
 
