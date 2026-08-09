@@ -1,0 +1,6 @@
+{
+  "fuel":  { "label": "Fuel",  "colour": 9,  "unit": "L" },
+  "water": { "label": "Water", "colour": 12, "unit": "L" },
+  "food":  { "label": "Food",  "colour": 11, "unit": "kg" },
+  "meds":  { "label": "Meds",  "colour": 8,  "unit": "" }
+}

@@ -1250,6 +1250,14 @@
         "body": "Owner (2026-08-09) is designing the game and may generate assets with Kimi; agent does the programming. Concept: post-apocalyptic Oregon Trail, ONE continuous play cycle, SINGLE LIFE, no saves. Contract in docs/404-GAME-SPEC.md: plain canvas 2D (no engine/dep), 320x180 logical + integer nearest-neighbour scaling, lazy-loaded chunk, keyboard AND touch, <=400KB total assets, fixed <=16-colour palette enforced by a build check, bitmap font sheet preferred, sprite sheets on a fixed grid (no atlas JSON), content as JSON the owner writes (events/biomes/items/endings). CRITICAL FINDING: public/sw.js is currently a SELF-DESTRUCTING KILL SWITCH from the 2026-06-15 rogue ad-worker incident — it deletes all caches and unregisters, and the app never registers a SW. Nothing is cached offline today; the game AND the survival PDFs need a real precaching worker. ~8 weeks have passed (its own comment said 'weeks'), so plan is to replace it, scoped to the 404 payload only. Open questions in the doc: death model, endless vs destination, which resources, whether anything persists, palette hexes.",
         "ts": "2026-08-09",
         "created": "2026-08-09"
+      },
+      "d-trail-built": {
+        "Id": "d-trail-built",
+        "Type": "decision",
+        "Label": "TRAIL shipped on the 404 page",
+        "body": "Post-apocalyptic Oregon Trail, single life, 500 miles, PICO-8 palette, PROCEDURAL art (no PNGs). Files: src/games/trail/{engine,draw,state,index}.js + content/{events,biomes,items,endings}.json; src/components/TrailGame.jsx (lazy, portalled to body at z-100000); NotFound.jsx (the 404 numerals ARE the trigger; hint fades in after 4s). 18KB lazy chunk, nothing in the main bundle. KEY DESIGN FIX caught by simulation: first tuning let a no-event run reach 500, so every encounter was pure upside and the bot won 120/120. Drains now EXCEED what you carry (~38 fuel / 21 water needed vs 20/12 start) so a clean run stalls at 391 and scavenging is mandatory; greedy bot now wins 15%, careless 2%, avg 431mi. Balance test lives at apps/frontend/scripts/verify-trail.mjs — needs esbuild bundling because node requires import attributes for JSON and eslint is on ecmaVersion 2020 (kept source plain rather than bumping the repo config). Text is drawn at DEVICE resolution over an integer-scaled 320x180 world buffer, because the system font at 320x180 is ~6px and nearest-neighbour turns that to rubble. Letterboxes on tall phones (scale 2 on a 390px screen); acceptable, could go taller-logical later.",
+        "ts": "2026-08-09",
+        "created": "2026-08-09"
       }
     },
     "entity": {
@@ -1545,7 +1553,7 @@
         "Type": "thread",
         "Label": "404 game design in progress with owner",
         "body": "Paused agent-side 2026-08-09. Owner designing mechanics + generating assets (may use Kimi). Agent to build the survival-guide easter egg + offline plumbing meanwhile, since that is independent of whatever the game turns out to be.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-08-09",
         "created": "2026-08-09"
       }

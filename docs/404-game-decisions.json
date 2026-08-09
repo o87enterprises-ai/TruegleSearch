@@ -1,0 +1,30 @@
+{
+  "_note": "LOCKED 2026-08-09 by the owner. The template is docs/404-game-decisions.template.json; this is the answer sheet the build reads from.",
+  "title": "Trail",
+  "deathModel": { "value": "pool", "partySize": null },
+  "runShape": { "value": "destination", "totalDistance": 500, "difficultyCurve": "stepped" },
+  "resources": {
+    "value": ["fuel", "water", "food", "meds"],
+    "startingAmounts": { "fuel": 20, "water": 12, "food": 15, "meds": 5 }
+  },
+  "persistence": { "bestDistance": true, "runsPlayed": true },
+  "palette": {
+    "name": "PICO-8",
+    "hex": ["#000000","#1d2b53","#7e2553","#008751","#ab5236","#5f574f","#c2c3c7","#fff1e8",
+            "#ff004d","#ffa300","#ffec27","#00e436","#29adff","#83769c","#ff77a8","#ffccaa"],
+    "uiColour": "#fff1e8"
+  },
+  "font": { "value": "system", "uppercaseOnly": false },
+  "art": {
+    "_decision": "PROCEDURAL — no PNG assets. Everything is drawn from the palette in code, which is why the sheet counts below are nominal rather than a manifest.",
+    "sheets": {
+      "party": { "idle": 1, "walk": 1, "hurt": 1, "dead": 1 },
+      "hazards": { "count": 3, "order": ["raiders", "breakdown", "storm"] },
+      "items": { "count": 4, "order": ["fuel", "water", "food", "meds"] },
+      "ui": { "count": 6, "order": ["fuel-icon", "water-icon", "food-icon", "meds-icon", "heart", "distance"] }
+    }
+  },
+  "biomes": { "ids": ["highway", "desert", "mountains"], "parallaxLayersPerBiome": 2 },
+  "sound": { "included": false, "cues": [] },
+  "openQuestions": []
+}

@@ -1,0 +1,128 @@
+[
+  {
+    "id": "raider-toll",
+    "biome": "highway",
+    "weight": 3,
+    "text": "Three of them across the road. One is holding a stop sign like a shield.",
+    "choices": [
+      { "label": "Pay the toll", "cost": { "fuel": 2 }, "text": "They wave you through without a word." },
+      { "label": "Run it", "risk": 0.4, "fail": { "hp": -2 }, "win": {}, "text": "Metal on metal.", "failText": "The stop sign goes through the window." },
+      { "label": "Talk", "risk": 0.65, "fail": { "hp": -1 }, "win": { "food": 2 }, "text": "One of them used to drive this route. He gives you what he can spare.", "failText": "Talking was the wrong idea." }
+    ]
+  },
+  {
+    "id": "siphon",
+    "biome": "highway",
+    "weight": 4,
+    "text": "A line of cars, nose to tail, doors open. Abandoned in a hurry a long time ago.",
+    "choices": [
+      { "label": "Siphon what's left", "risk": 0.25, "win": { "fuel": 4 }, "fail": { "hp": -1 }, "text": "Four litres, and it barely smells off.", "failText": "Something was living in the third car." },
+      { "label": "Search the cabins", "risk": 0.3, "win": { "food": 3, "meds": 1 }, "fail": { "hp": -1 }, "text": "Somebody's glovebox stash.", "failText": "You cut your hand on the glass." },
+      { "label": "Keep moving", "text": "You don't look in the back seats." }
+    ]
+  },
+  {
+    "id": "overpass-camp",
+    "biome": "highway",
+    "weight": 2,
+    "text": "Smoke under an overpass. A woman waves — both hands, slowly, so you can see they're empty.",
+    "choices": [
+      { "label": "Stop and trade", "cost": { "food": 2 }, "win": { "meds": 2 }, "text": "She has antibiotics and no appetite for them." },
+      { "label": "Stop and rest", "cost": { "food": 1 }, "win": { "hp": 2 }, "text": "First fire you've sat at in a while." },
+      { "label": "Drive past", "text": "She stops waving before you're out of sight." }
+    ]
+  },
+  {
+    "id": "dry-well",
+    "biome": "desert",
+    "weight": 4,
+    "text": "A windmill still turning over a cattle trough. The trough is dry. The pipe is not.",
+    "choices": [
+      { "label": "Work the pump", "risk": 0.2, "win": { "water": 5 }, "fail": { "hp": -1 }, "text": "Rusty at first, then clear.", "failText": "The handle comes off in your hands and takes some skin with it." },
+      { "label": "Fill everything you have", "cost": { "hp": 1 }, "win": { "water": 8 }, "text": "An hour in the sun, and every container full." },
+      { "label": "Move on", "text": "You are not thirsty enough yet. Yet." }
+    ]
+  },
+  {
+    "id": "heat",
+    "biome": "desert",
+    "weight": 5,
+    "text": "The air over the road has gone liquid. Nothing has moved out there for hours.",
+    "choices": [
+      { "label": "Push through the afternoon", "cost": { "water": 3, "hp": 1 }, "text": "You make good distance and pay for it." },
+      { "label": "Wait for dark", "cost": { "food": 2 }, "win": { "hp": 1 }, "text": "You lose half a day and get some of yourself back." }
+    ]
+  },
+  {
+    "id": "salt-flat-wreck",
+    "biome": "desert",
+    "weight": 3,
+    "text": "A tanker on its side, a mile off the road. It would be a long walk.",
+    "choices": [
+      { "label": "Walk out to it", "cost": { "water": 2 }, "risk": 0.35, "win": { "fuel": 7 }, "fail": { "hp": -2 }, "text": "Seven litres and a working siphon hose.", "failText": "It's dry, and the walk back is worse than the walk out." },
+      { "label": "Leave it", "text": "Somebody else's gamble." }
+    ]
+  },
+  {
+    "id": "rockfall",
+    "biome": "mountains",
+    "weight": 4,
+    "text": "The road ahead is under half a hillside.",
+    "choices": [
+      { "label": "Clear a path", "cost": { "food": 2, "hp": 1 }, "text": "Two hours of moving rock. You get through." },
+      { "label": "Take the logging track", "risk": 0.45, "cost": { "fuel": 3 }, "fail": { "hp": -2 }, "text": "It rejoins the road eventually.", "failText": "It does not rejoin the road. You lose ground getting back." }
+    ]
+  },
+  {
+    "id": "cold-night",
+    "biome": "mountains",
+    "weight": 4,
+    "text": "The temperature drops the moment the sun goes behind the ridge.",
+    "choices": [
+      { "label": "Burn fuel for heat", "cost": { "fuel": 2 }, "text": "Expensive warmth. You sleep." },
+      { "label": "Ride it out", "risk": 0.5, "fail": { "hp": -2 }, "win": { "hp": -0 }, "text": "You shiver through it and wake up whole.", "failText": "You wake up worse than you went to sleep." }
+    ]
+  },
+  {
+    "id": "pass-shrine",
+    "biome": "mountains",
+    "weight": 2,
+    "text": "Somebody has stacked cairns along the last mile. Hundreds of them. Each has a name scratched into the top stone.",
+    "choices": [
+      { "label": "Add one", "win": { "hp": 1 }, "text": "You find a flat stone and a nail. It takes a while to decide on the name." },
+      { "label": "Read them", "text": "You recognise none of them, which is its own kind of relief." },
+      { "label": "Don't stop", "text": "You keep your eyes on the road." }
+    ]
+  },
+  {
+    "id": "breakdown-generic",
+    "biome": "*",
+    "weight": 3,
+    "text": "Something under the hood lets go with a sound you feel through the pedals.",
+    "choices": [
+      { "label": "Fix it properly", "cost": { "food": 1, "hp": 1 }, "text": "Half a day upside down in the engine bay. It holds." },
+      { "label": "Bodge it", "risk": 0.5, "fail": { "hp": -1, "fuel": -2 }, "text": "It holds. Somehow.", "failText": "It holds for six miles, then does it again, worse." }
+    ]
+  },
+  {
+    "id": "stranger-sick",
+    "biome": "*",
+    "weight": 2,
+    "text": "Someone is sitting at the roadside, not trying to flag you down. That's what makes you stop.",
+    "choices": [
+      { "label": "Give them meds", "cost": { "meds": 1 }, "win": { "hp": 1, "food": 2 }, "text": "They give you what's in their pack. It's more than you gave them." },
+      { "label": "Give them water", "cost": { "water": 2 }, "text": "They drink half and hand the rest back." },
+      { "label": "Drive on", "text": "You watch them in the mirror for longer than you meant to." }
+    ]
+  },
+  {
+    "id": "cache",
+    "biome": "*",
+    "weight": 3,
+    "text": "A plastic drum buried at the base of a mile marker, the lid a foot under.",
+    "choices": [
+      { "label": "Dig it out", "cost": { "hp": 1 }, "win": { "food": 4, "water": 3 }, "text": "Somebody planned for a journey they never made." },
+      { "label": "Leave it for the next one", "win": { "hp": 1 }, "text": "You rebury the lid and mark the post." }
+    ]
+  }
+]

@@ -1,0 +1,29 @@
+{
+  "arrive": {
+    "title": "YOU ARRIVE",
+    "lines": [
+      "Five hundred miles.",
+      "The lights are on, which you had stopped expecting.",
+      "Somebody opens the gate before you reach it."
+    ]
+  },
+  "hp": {
+    "title": "YOU DON'T GET UP",
+    "lines": ["It wasn't one thing. It never is."]
+  },
+  "fuel": {
+    "title": "STRANDED",
+    "lines": [
+      "The engine turns over twice and stops pretending.",
+      "You walk for a while. Not far enough."
+    ]
+  },
+  "water": {
+    "title": "THIRST",
+    "lines": ["Three days is the number people quote. It is optimistic."]
+  },
+  "food": {
+    "title": "HUNGER",
+    "lines": ["You stop feeling it near the end, which is the worst part."]
+  }
+}
