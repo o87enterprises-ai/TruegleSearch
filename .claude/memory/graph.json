@@ -1242,6 +1242,14 @@
         "body": "(1) SearchBar's form carries data-page-search. MiniPlayer tracks its rect while FLOATING (poppedOut && !docked) and keeps clear. TWO different clamps because the two float branches anchor differently: a top-anchored frame (pos) shrinks its height (capBelow) — shrinking lifts its bottom edge; a bottom-anchored frame must RAISE its anchor (liftedBottom), because shrinking one of those moves the top and leaves the overlapping bottom edge where it was. Getting that backwards measured clean and changed nothing on screen. Retract-while-typing does NOT cover this: it fires on focus, and the overlap is what prevents focus. (2) --truegle-player-cap is now set for the floating frame too, from DOM-measured frame maxHeight minus DOM-measured chrome (a reasoned constant was 18px short). PlayerScreen's compact branch used to short-circuit to a flat 42svh and IGNORE the cap — that is why the picture overflowed the frame and pushed the transport out of the bottom in landscape. (3) showPopOut={!fullscreen}: that one button is pop-out/dock-back/MOVE by context and all three are nonsense in full screen. Move/resize is popped-out-and-off-Tube only; on Tube the same button docks back. Verified 11/11.",
         "ts": "2026-08-09",
         "created": "2026-08-09"
+      },
+      "d-404-game-design": {
+        "Id": "d-404-game-design",
+        "Type": "decision",
+        "Label": "404 game: post-apocalyptic Oregon Trail, owner designs / agent programs",
+        "body": "Owner (2026-08-09) is designing the game and may generate assets with Kimi; agent does the programming. Concept: post-apocalyptic Oregon Trail, ONE continuous play cycle, SINGLE LIFE, no saves. Contract in docs/404-GAME-SPEC.md: plain canvas 2D (no engine/dep), 320x180 logical + integer nearest-neighbour scaling, lazy-loaded chunk, keyboard AND touch, <=400KB total assets, fixed <=16-colour palette enforced by a build check, bitmap font sheet preferred, sprite sheets on a fixed grid (no atlas JSON), content as JSON the owner writes (events/biomes/items/endings). CRITICAL FINDING: public/sw.js is currently a SELF-DESTRUCTING KILL SWITCH from the 2026-06-15 rogue ad-worker incident — it deletes all caches and unregisters, and the app never registers a SW. Nothing is cached offline today; the game AND the survival PDFs need a real precaching worker. ~8 weeks have passed (its own comment said 'weeks'), so plan is to replace it, scoped to the 404 payload only. Open questions in the doc: death model, endless vs destination, which resources, whether anything persists, palette hexes.",
+        "ts": "2026-08-09",
+        "created": "2026-08-09"
       }
     },
     "entity": {
@@ -1531,6 +1539,15 @@
         "status": "open",
         "ts": "2026-08-08",
         "created": "2026-08-08"
+      },
+      "t404-game-design": {
+        "Id": "t404-game-design",
+        "Type": "thread",
+        "Label": "404 game design in progress with owner",
+        "body": "Paused agent-side 2026-08-09. Owner designing mechanics + generating assets (may use Kimi). Agent to build the survival-guide easter egg + offline plumbing meanwhile, since that is independent of whatever the game turns out to be.",
+        "status": "open",
+        "ts": "2026-08-09",
+        "created": "2026-08-09"
       }
     }
   },
