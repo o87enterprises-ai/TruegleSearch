@@ -3,6 +3,8 @@ const router = express.Router();
 const MapboxService = require('../services/MapboxService');
 const TomTomService = require('../services/TomTomService');
 const BusinessEnrichmentService = require('../services/BusinessEnrichmentService');
+const PlacePanelService = require('../services/PlacePanelService');
+const QueryInterpreter = require('../services/QueryInterpreter');
 const OpenTrafficCamService = require('../services/OpenTrafficCamService');
 const MultiStateCameraService = require('../services/MultiStateCameraService');
 
@@ -270,6 +272,38 @@ router.post('/business-details', async (req, res) => {
         error: 'Unable to fetch additional details',
       },
     });
+  }
+});
+
+/**
+ * POST /api/maps/place-panel  { query, lat?, lng? }
+ *
+ * The local panel for a search page: given the query someone actually typed,
+ * either one real business with something you can act on, or null.
+ *
+ * Always 200s with `panel: null` rather than erroring — a missing panel must
+ * degrade to the ordinary results page, never to an error state on a search
+ * that otherwise worked fine.
+ *
+ * The cheap gate runs FIRST so the overwhelming majority of searches, which
+ * are not about places, never reach a provider at all.
+ */
+router.post('/place-panel', async (req, res) => {
+  const { query, lat, lng } = req.body || {};
+  const q = typeof query === 'string' ? query.trim() : '';
+  if (!q) return res.json({ success: true, panel: null, reason: 'no_query' });
+  if (!QueryInterpreter.looksLikePlaceQuery(q)) {
+    return res.json({ success: true, panel: null, reason: 'not_a_place_query' });
+  }
+  try {
+    const panel = await PlacePanelService.resolve(q, {
+      lat: typeof lat === 'number' ? lat : undefined,
+      lng: typeof lng === 'number' ? lng : undefined,
+    });
+    return res.json({ success: true, panel, reason: panel ? 'ok' : 'no_place' });
+  } catch (error) {
+    console.error('Place panel error:', error.message);
+    return res.json({ success: true, panel: null, reason: 'error' });
   }
 });
 

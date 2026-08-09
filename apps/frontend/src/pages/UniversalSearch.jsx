@@ -36,6 +36,8 @@ import { SMARTLINK_URL } from '../config/ads';
 import AdultConsentGate from '../components/ui/AdultConsentGate';
 import { SkeletonSearchResult } from '../components/ui/Skeleton';
 import QuickAnswerCard from '../components/ui/QuickAnswerCard';
+import BusinessPanelCard from '../components/ui/BusinessPanelCard';
+import { usePlacePanel } from '../hooks/usePlacePanel';
 import AsSeenOn from '../components/Content/AsSeenOn';
 import PerspectiveSelector from '../components/search/PerspectiveSelector';
 import RabbitHoleFold from '../components/search/RabbitHoleFold';
@@ -503,6 +505,19 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // bare-query geocode fallback matches most short terms), so it now keys off the
   // last query the user actually searched for.
   const { isLocationQuery, detectedLocation, queryType } = useLocationDetection(lastSearchedQuery);
+
+  // The local panel. Asked on the SUBMITTED query only, and the backend gate
+  // means most searches never reach a provider — a geocode per keystroke would
+  // spend a free-tier quota on the 99% of queries that are not places.
+  //
+  // The visitor's position is passed only when the location detector already
+  // resolved one for this query; it is never requested for the panel's sake.
+  // "near me" is unanswerable without it and correctly returns nothing rather
+  // than a plausible business in the wrong city.
+  const placePanel = usePlacePanel(lastSearchedQuery, {
+    lat: detectedLocation?.lat ?? null,
+    lng: detectedLocation?.lng ?? null,
+  });
   // Only EXPLICIT location intent auto-opens the map. Casual "in <place>"
   // phrasing ('location') and fuzzy place geocodes ('place') get a "View map"
   // chip instead — "where is the largest fireworks show in america" is a
@@ -2124,9 +2139,19 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                     </span>
                   </div>
 
+                  {/* The local panel, when the query turned out to be about a
+                      real place. It REPLACES the quick answer rather than
+                      stacking with it: both are answering the same question,
+                      and two answer boxes push the results off the screen. The
+                      panel wins because "call" and "directions" beat a sentence
+                      about a business every time. */}
+                  {placePanel.panel && (
+                    <BusinessPanelCard panel={placePanel.panel} className="mb-4" />
+                  )}
+
                   {/* Quick answer — short cited answer for question queries;
                       hidden when a structured instant answer already covers it */}
-                  {!instantAnswer && (
+                  {!instantAnswer && !placePanel.panel && (
                     <QuickAnswerCard quickAnswer={quickAnswer} loading={quickAnswerLoading} className="mb-4" />
                   )}
 

@@ -1218,6 +1218,14 @@
         "body": "Gesture sheet is now the MIDDLE BAND (absolute inset-x-0, top calc(safe-area+min(76px,14svh)), bottom calc(safe-area+min(96px,18svh))) — inset-0 sat under the status bar/notch/home indicator where iOS+Android claim edge strips for their own gestures, so reaching for the status bar started our swipe. Double-tap left/right = -10s/+10s: useEmbedPlayback gained seek(delta)+canSeek (YouTube {event:command,func:seekTo,args:[abs,true]}, Vimeo {method:setCurrentTime,value}); SoundCloud excluded because we never subscribed to its progress so we'd jump from an unknown position. Native video/audio seeks via mediaRef.currentTime. Clamps to 0 and to duration-0.5 (seeking exactly to duration fires ended and advances the queue). useSwipeNav gained onDoubleTap(side)+doubleTap flag; single tap is DELAYED 280ms when doubleTap is on (else every jump also toggles pause) and fires immediately when off. Keyboard J/L (arrows already mean prev/next). Visible flash badge .truegle-jump-flash on the tapped side + sr-only aria-live. Verified 11/11 + 6/6.",
         "ts": "2026-08-09",
         "created": "2026-08-09"
+      },
+      "d-business-panel": {
+        "Id": "d-business-panel",
+        "Type": "decision",
+        "Label": "Local business panel replaces the quick answer for place queries",
+        "body": "POST /api/maps/place-panel {query,lat?,lng?} -> {panel|null}. QueryInterpreter.looksLikePlaceQuery() is a cheap regex gate that runs BEFORE any provider call (place-only categories, hours/phone/address/directions intent, near-me) and rejects wh-questions. PlacePanelService.resolve() = TomTom searchPlaces -> BusinessEnrichmentService.enrichLocation, 1h FIFO cache keyed on query+2dp coords. TWO HARD RULES: (1) returns null unless at least one of phone/website/hours/rating exists — a half-filled panel is worse than none; (2) 'near me'/'nearby' with no coordinates returns null WITHOUT spending a provider call rather than guessing from IP. An address-only match (name === address) is a pin, not a business. Frontend BusinessPanelCard + usePlacePanel (fires on lastSearchedQuery, not per keystroke). The panel REPLACES QuickAnswerCard, never stacks. NO PHOTO STRIP on purpose: no provider returns photos of the actual business and a stock photo beside a named business is a picture of somewhere else. Actions are real hrefs (tel:, maps URL, site). Verified 15/15 backend + 16/16 Playwright.",
+        "ts": "2026-08-09",
+        "created": "2026-08-09"
       }
     },
     "entity": {

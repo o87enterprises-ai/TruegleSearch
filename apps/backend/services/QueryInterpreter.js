@@ -411,7 +411,41 @@ function scoreNavigationalMatch(query, url) {
   return Math.min(score, 1.0);
 }
 
+/**
+ * Heuristic gate for the BUSINESS PANEL: does this query look like it is
+ * asking about a real, physical place?
+ *
+ * Same contract as isAnswerableQuery above — cheap, no network, and it only
+ * decides whether to *attempt* a lookup. The place resolver still returns null
+ * when nothing real comes back, so a false positive costs one skipped panel,
+ * never a wrong one.
+ *
+ * Deliberately NOT "does the query contain a proper noun". Almost every query
+ * does, and treating every one as a possible business would put a geocode
+ * behind every search on the site for the handful that are places.
+ */
+const PLACE_INTENT = [
+  // Asking for something only a place has.
+  /\b(hours|opening hours|open now|closing time|phone number|address|directions|menu|reservations?|book a table|walk[- ]?in)\b/i,
+  // Asking for one nearby.
+  /\b(near me|nearby|near by|around me|close to me|closest|in my area|walking distance)\b/i,
+  // Place-shaped categories, which are only ever asked about as places.
+  /\b(restaurant|cafe|coffee shop|bar|pub|hotel|motel|pharmacy|dentist|doctor|clinic|hospital|urgent care|mechanic|barber|salon|gym|bank|atm|gas station|petrol station|grocery|supermarket|hardware store|laundromat|dispensary|vet|veterinarian|library|post office|dmv)\b/i,
+];
+
+function looksLikePlaceQuery(query) {
+  const q = (query || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  // Two words is not enough to identify a business, and one-word queries are
+  // overwhelmingly navigational ("youtube", "weather").
+  if (q.length < 4) return false;
+  // A question about the world is not a question about a shop, even when it
+  // mentions one. "who invented the hotel key card" is not a hotel.
+  if (/^(who|what|why|when|which|how (many|much|old|tall|far|long))\b/.test(q)) return false;
+  return PLACE_INTENT.some((re) => re.test(q));
+}
+
 module.exports = {
+  looksLikePlaceQuery,
   isBrandQuery,
   buildOfficialResult,
   normalizeForBrand,
