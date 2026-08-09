@@ -327,10 +327,28 @@ export default function TrueglePlayer({
         {swipe && current && (
           <div
             {...swipe}
-            // Vertical panning has to be ours or the browser starts scrolling
-            // the page and the gesture never completes.
-            style={{ touchAction: 'pan-x' }}
-            className="absolute inset-0 z-10"
+            style={{
+              // Vertical panning has to be ours or the browser starts scrolling
+              // the page and the gesture never completes.
+              touchAction: 'pan-x',
+              // THE MIDDLE BAND, not the whole screen.
+              //
+              // The top and bottom edges of a full-screen surface belong to the
+              // device: the status bar and notch above, the home indicator
+              // below, and on both iOS and Android an edge strip the OS claims
+              // for its own pull-down, back and home gestures. A sheet spanning
+              // inset-0 sat under all of it — so reaching for the status bar
+              // started one of our swipes, and the system gesture and ours
+              // fought over the same drag. Neither one wins that cleanly.
+              //
+              // Leaving the gutters open costs nothing: nobody swipes a feed
+              // from the very top or bottom edge of the glass. The min() keeps
+              // the band from collapsing on a short viewport (a phone held in
+              // landscape), where a fixed gutter would eat the whole screen.
+              top: 'calc(env(safe-area-inset-top, 0px) + min(76px, 14svh))',
+              bottom: 'calc(env(safe-area-inset-bottom, 0px) + min(96px, 18svh))',
+            }}
+            className="absolute inset-x-0 z-10"
             aria-hidden="true"
           />
         )}
