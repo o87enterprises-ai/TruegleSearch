@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>TRAIL — dev harness</title>
+<!--
+  A standalone page for working on the game without the app around it.
+
+  It is NOT a second copy of TRAIL. `trail.entry.js` imports the same
+  engine.js, draw.js, state.js and content JSON the shipped game uses, so
+  anything that works here works there and there is only ever one version of
+  the rules. A duplicate "for quick iteration" drifts within a day, and then
+  every bug has to be found twice.
+
+  No React, no Vite, no npm install to run it:
+
+      npm run trail        (from apps/frontend, then open the printed URL)
+
+  esbuild serves it and rebuilds on every save. Edit a file, reload.
+-->
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { display: flex; flex-direction: column; font: 12px ui-monospace, monospace; color: #5f574f; }
+  header { display: flex; justify-content: space-between; padding: 6px 10px; letter-spacing: .2em; flex: none; }
+  #host { flex: 1 1 auto; min-height: 0; }
+  canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; }
+</style>
+</head>
+<body>
+  <header><span>TRAIL — dev</span><span id="note">W / S or the pads to drive</span></header>
+  <div id="host"><canvas id="c"></canvas></div>
+  <script type="module" src="./.build/trail.js"></script>
+</body>
+</html>

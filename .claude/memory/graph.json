@@ -480,6 +480,14 @@
         "body": "THE BUG: PlayerScreen received source={paused ? null : current}, so pausing UNMOUNTED the embed and resuming restarted the track. In full screen the tap-to-pause gesture meant ANY touch reset the video. THE FIX: useEmbedPlayback already holds an open postMessage channel for progress and ended — it takes commands too. Added command(action) + canCommand. YouTube: {event:\"command\",func:\"pauseVideo\"|\"playVideo\",args:[]} to any origin. Vimeo: {method:\"pause\"|\"play\"} to https://player.vimeo.com. SoundCloud widget: same shape to https://w.soundcloud.com. No vendor SDK, no extra connection. TrueglePlayer now unmounts ONLY when !canCommand (tiktok/reddit/dailymotion/rumble/odysee have no control channel), and the full-screen tap is a NO-OP for those rather than resetting them. NOTE the hook ordering: useEmbedPlayback had to be hoisted above the swipe-nav and pause effects or `embed` is in the TDZ. TEST TECHNIQUE: counting added iframe nodes UNDER-COUNTS because React adds a wrapper div, not the iframe — tag the DOM node (f.__truegleTag) and assert the tag survives, plus assert a real track change DESTROYS it so the check cannot pass for the wrong reason.",
         "ts": "2026-08-08",
         "created": "2026-08-08"
+      },
+      "f-trail-no-standalone-html": {
+        "Id": "f-trail-no-standalone-html",
+        "Type": "fact",
+        "Label": "TRAIL: there is NO standalone game index.html, and one would be a second copy",
+        "body": "The only index.html in the repo is apps/frontend/index.html — Vite's SPA shell. The 404 is a React ROUTE (App.jsx <Route path=\"*\">), not a static page, so there is nothing to drop an HTML file onto; it would need an iframe inside the React page. The 'no library' rule was about the GAME and is already satisfied: src/games/trail/* imports nothing but its own files and content JSON — zero dependencies, plain canvas 2D. React is the host page that already exists, not part of the game. A standalone copy would duplicate the rules, the content and the drawing, and lose the lazy chunk, the balance test, the ESLint pass and the offline story. RESOLVED by giving the real benefit without the duplication: 'npm run trail' (apps/frontend) serves dev/trail.html via esbuild --servedir with instant rebuilds, importing the SHIPPED modules. 'npm run trail:test' runs the 32-check balance sim. No React, no Vite, no build step in that loop.",
+        "ts": "2026-08-10",
+        "created": "2026-08-10"
       }
     },
     "decision": {
