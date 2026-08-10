@@ -23,6 +23,17 @@ export default function TrailGame({ onClose }) {
     return () => { document.body.style.overflow = prev; };
   }, []);
 
+  // onClose through a REF, so the game mounts exactly once.
+  //
+  // It used to be an effect dependency, which meant every re-render of the
+  // parent tore the game down and built a new one — and since a fresh mount
+  // starts at the title, a run in progress silently vanished. The parent's
+  // own hint timer was enough to trigger it about four seconds in, so a
+  // player would tap to start, drive for a moment, and find themselves back
+  // at the menu with no idea why.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
   useEffect(() => {
     let unmount = null;
     let live = true;
@@ -30,12 +41,12 @@ export default function TrailGame({ onClose }) {
     import('../games/trail/index.js')
       .then(({ mount }) => {
         if (!live || !canvasRef.current) return;
-        unmount = mount(canvasRef.current, { onExit: onClose });
+        unmount = mount(canvasRef.current, { onExit: () => closeRef.current?.() });
       })
       .catch(() => setFailed(true));
 
     return () => { live = false; unmount?.(); };
-  }, [onClose]);
+  }, []);
 
   // Portalled to <body> and above everything. The site's own fixed chrome —
   // the hamburger at z-9998, the clock, the cookie bar — sits at four-figure

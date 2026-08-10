@@ -128,32 +128,86 @@ export function scene(s, biome, offset) {
 }
 
 /**
- * The vehicle, from behind, in the middle of the road.
- * `bob` walks it up and down a pixel; `hurt` tints it.
+ * The vehicle, from behind, held in the centre of the road.
+ *
+ * Horizontally FIXED with a sway rather than free movement: the road narrows
+ * to a point at the horizon, so a vehicle that could drive sideways would
+ * either leave the tarmac or need lane logic the game does not have. The sway
+ * and the bounce scale with speed, which is what sells pace when the scenery
+ * is the only other thing moving.
  */
-export function party(s, t, { hurt = false, dead = false } = {}) {
-  const x = W / 2 - 16;
-  const y = 128 + (dead ? 6 : Math.round(Math.sin(t / 140) * 1.5));
+export function drawVehicle(s, t, { speed = 0, hurt = false, dead = false } = {}) {
+  const pace = Math.min(1, speed / 10);
+  const sway = dead ? 0 : Math.sin(t / (260 - pace * 150)) * (0.6 + pace * 2.2);
+  const bounce = dead ? 6 : Math.sin(t / (110 - pace * 55)) * (0.5 + pace * 1.6);
+  const x = W / 2 - 16 + Math.round(sway);
+  const y = 128 + Math.round(bounce);
   const body = dead ? 5 : (hurt ? 8 : 4);
 
   s.rect(x + 4, y + 22, 24, 3, 0);              // shadow
   s.rect(x + 2, y + 6, 28, 16, body);           // body
+  s.rect(x + 2, y + 6, 28, 2, dead ? 5 : 15);   // top highlight
   s.rect(x + 5, y + 2, 22, 6, 13);              // canopy / tarp
   s.rect(x + 7, y + 9, 18, 7, 1);               // rear window
+  s.rect(x + 9, y + 10, 6, 2, 6);               // a glint on the glass
   s.rect(x + 1, y + 18, 6, 6, 0);               // wheels
   s.rect(x + 25, y + 18, 6, 6, 0);
   s.rect(x + 2, y + 19, 4, 4, 5);
   s.rect(x + 26, y + 19, 4, 4, 5);
-  if (!dead) {                                   // tail lights
-    s.rect(x + 3, y + 11, 3, 3, 8);
-    s.rect(x + 26, y + 11, 3, 3, 8);
+  if (!dead) {
+    // Tail lights brighten under braking — the one piece of feedback that
+    // reads instantly without a number attached to it.
+    const lamp = speed < 1.5 ? 8 : 2;
+    s.rect(x + 3, y + 11, 3, 3, lamp);
+    s.rect(x + 26, y + 11, 3, 3, lamp);
   }
-  // Junk lashed to the roof. Different every run, same all run.
+  // Junk lashed to the roof. Different every run, the same all run.
   const r = rng(97);
   for (let i = 0; i < 5; i += 1) {
     const w = 3 + Math.round(r() * 5);
     s.rect(x + 5 + i * 5, y - Math.round(r() * 3), w, 3, [9, 11, 6, 15, 4][i]);
   }
+  return { x: x + 16, y: y + 24 };
+}
+
+/**
+ * A thing in the road, drawn at a scale that grows as it closes.
+ * @param near 0 at the horizon, 1 when it is on top of you.
+ */
+export function drawObstacle(s, type, near) {
+  const k = 0.25 + near * near * 1.6;            // squared: things rush at the end
+  const y = 118 + near * 34;
+  const cx = W / 2;
+  const w = Math.max(2, Math.round(18 * k));
+  const h = Math.max(2, Math.round(12 * k));
+
+  if (type === 'crater') {
+    s.rect(cx - w, y, w * 2, Math.max(1, Math.round(h * 0.7)), 0);
+    s.rect(cx - w + 1, y + 1, w * 2 - 2, Math.max(1, Math.round(h * 0.4)), 1);
+    s.rect(cx - w, y - 1, w * 2, 1, 5);
+  } else if (type === 'wreck') {
+    s.rect(cx - w, y - h, w * 2, h, 5);
+    s.rect(cx - w, y - h, w * 2, Math.max(1, Math.round(h * 0.3)), 2);
+    s.rect(cx - Math.round(w * 0.6), y, Math.round(w * 0.5), Math.max(2, Math.round(h * 0.4)), 0);
+    s.rect(cx + Math.round(w * 0.2), y, Math.round(w * 0.5), Math.max(2, Math.round(h * 0.4)), 0);
+  } else if (type === 'storm') {
+    for (let i = 0; i < 5; i += 1) {
+      const o = (i - 2) * w * 0.45;
+      s.rect(cx + o - w * 0.4, y - h - i % 2 * 3, w * 0.8, h, i % 2 ? 4 : 15);
+    }
+    s.rect(cx - w * 1.4, y - h - 4, w * 2.8, Math.max(2, h * 0.4), 15);
+  } else { // rock
+    s.rect(cx - w * 0.8, y - h, w * 1.6, h, 5);
+    s.rect(cx - w * 0.5, y - h - Math.round(h * 0.4), w, Math.round(h * 0.5) + 1, 5);
+    s.rect(cx - w * 0.6, y - h, w * 0.5, Math.max(1, Math.round(h * 0.4)), 6);
+  }
+}
+
+/** One speck of dust. The caller owns the pool; this just paints. */
+export function drawParticle(s, p) {
+  const col = p.life > 0.6 ? 6 : (p.life > 0.3 ? 5 : 1);
+  const sz = p.life > 0.5 ? 2 : 1;
+  s.rect(p.x, p.y, sz, sz, col);
 }
 
 /** Little 8×8 glyphs for the resource row. Drawn, not typed. */

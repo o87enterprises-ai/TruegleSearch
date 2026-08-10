@@ -1258,6 +1258,14 @@
         "body": "Post-apocalyptic Oregon Trail, single life, 500 miles, PICO-8 palette, PROCEDURAL art (no PNGs). Files: src/games/trail/{engine,draw,state,index}.js + content/{events,biomes,items,endings}.json; src/components/TrailGame.jsx (lazy, portalled to body at z-100000); NotFound.jsx (the 404 numerals ARE the trigger; hint fades in after 4s). 18KB lazy chunk, nothing in the main bundle. KEY DESIGN FIX caught by simulation: first tuning let a no-event run reach 500, so every encounter was pure upside and the bot won 120/120. Drains now EXCEED what you carry (~38 fuel / 21 water needed vs 20/12 start) so a clean run stalls at 391 and scavenging is mandatory; greedy bot now wins 15%, careless 2%, avg 431mi. Balance test lives at apps/frontend/scripts/verify-trail.mjs — needs esbuild bundling because node requires import attributes for JSON and eslint is on ecmaVersion 2020 (kept source plain rather than bumping the repo config). Text is drawn at DEVICE resolution over an integer-scaled 320x180 world buffer, because the system font at 320x180 is ~6px and nearest-neighbour turns that to rubble. Letterboxes on tall phones (scale 2 on a 390px screen); acceptable, could go taller-logical later.",
         "ts": "2026-08-09",
         "created": "2026-08-09"
+      },
+      "d-trail-v2": {
+        "Id": "d-trail-v2",
+        "Type": "decision",
+        "Label": "TRAIL v2: speed dial, real-time obstacle events",
+        "body": "Built to the owner's v2.0 brief. Speed 0-10 via W/S and on-canvas gas/brake pads (world x276-314); fuel x(1+speed/5); event gap max(10,30-speed); obstacles drawn approaching on the road with a 5s countdown that auto-BRAKES; cost:{distance:n} moves you backwards; result card auto-clears after 3.5s. Biomes now 150/200/150 per the brief. THE MECHANIC THAT WOULD HAVE BEEN DEAD: if fuel/water/food all drained per MILE, crawling would be free and speed 1 would be optimal forever. Fuel is now per MILE (worse fast), water+food per SECOND (worse slow) — pace vs provisions, so neither end is safe. Sim proves it: slow 223 / mid 381 / fast 296 miles on a clean run, and an ADAPTIVE bot wins 21/120 vs a fixed-pace bot's 3/120. THREE BUGS worth remembering: (1) NotFound passed a new onClose identity every render and TrailGame had it in its effect deps, so the hint timer at 4s tore down and remounted the game mid-run — it silently restarted at the title. onClose now via ref, effect deps []. (2) React StrictMode double-mounted two live instances on one canvas, both drawing and both handling taps; mount() now enforces one per canvas via canvas.__trailUnmount. (3) A test that taps the middle of the screen 'passes' the gas-pad assertion on ordinary travel — assert against the drawn progress bar's pixels and use the real pad coordinates. Sim 32/32, browser 8/8. DEVIATIONS from the brief, flagged: no standalone index.html (it is a lazy ES-module chunk in the SPA) and content stays bundled rather than fetch()ed.",
+        "ts": "2026-08-10",
+        "created": "2026-08-10"
       }
     },
     "entity": {
@@ -1585,5 +1593,5 @@
       }
     }
   },
-  "updated": "2026-08-09"
+  "updated": "2026-08-10"
 }

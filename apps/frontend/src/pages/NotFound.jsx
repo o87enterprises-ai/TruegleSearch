@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import TruegleLogo from '../components/ui/TruegleLogo';
@@ -19,10 +19,15 @@ const NotFound = () => {
     return () => clearTimeout(t);
   }, []);
 
+  // Stable, so the game is not handed a new prop on every render of this
+  // page. The game guards against remounting on its own too — but a page
+  // that re-renders should not be asking it to.
+  const stopPlaying = useCallback(() => setPlaying(false), []);
+
   if (playing) {
     return (
       <Suspense fallback={<div className="fixed inset-0 z-[100] bg-black" />}>
-        <TrailGame onClose={() => setPlaying(false)} />
+        <TrailGame onClose={stopPlaying} />
       </Suspense>
     );
   }

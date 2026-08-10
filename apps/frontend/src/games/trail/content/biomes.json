@@ -2,7 +2,7 @@
   {
     "id": "highway",
     "label": "Cracked Highway",
-    "distance": 170,
+    "distance": 150,
     "sky": 12,
     "ground": 5,
     "far": 1,
@@ -14,15 +14,15 @@
     ],
     "hazardRate": 0.055,
     "drain": {
-      "fuel": 0.063,
-      "water": 0.034,
-      "food": 0.022
+      "fuel": 0.022,
+      "water": 0.055,
+      "food": 0.03
     }
   },
   {
     "id": "desert",
     "label": "The Long Dry",
-    "distance": 165,
+    "distance": 200,
     "sky": 9,
     "ground": 4,
     "far": 2,
@@ -34,15 +34,15 @@
     ],
     "hazardRate": 0.07,
     "drain": {
-      "fuel": 0.071,
-      "water": 0.057,
-      "food": 0.026
+      "fuel": 0.025,
+      "water": 0.085,
+      "food": 0.035
     }
   },
   {
     "id": "mountains",
     "label": "The Pass",
-    "distance": 165,
+    "distance": 150,
     "sky": 13,
     "ground": 1,
     "far": 5,
@@ -54,9 +54,9 @@
     ],
     "hazardRate": 0.085,
     "drain": {
-      "fuel": 0.095,
-      "water": 0.038,
-      "food": 0.032
+      "fuel": 0.031,
+      "water": 0.06,
+      "food": 0.04
     }
   }
 ]
