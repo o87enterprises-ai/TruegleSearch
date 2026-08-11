@@ -9,7 +9,8 @@
     "test": "jest",
     "migrate": "node scripts/run-migrations.js",
     "test:ngrok": "node scripts/test-ngrok.js",
-    "clear-cache": "node scripts/clear-prompt-cache.js"
+    "clear-cache": "node scripts/clear-prompt-cache.js",
+    "news:test": "node scripts/verify-news.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.1",

@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, ArrowRight } from 'lucide-react';
-import { sanitizeTrendingList } from '../../utils/sanitizeTrending';
+import { ArrowRight } from 'lucide-react';
+import NewsFeed from './NewsFeed';
 
 // ── Mode showcase ────────────────────────────────────────────────────────────
 
@@ -98,109 +97,6 @@ function ModeCard({ mode, index }) {
   );
 }
 
-// ── Trending searches ─────────────────────────────────────────────────────────
-
-const TRENDING = [
-  { query: 'AI regulation 2025', mode: 'blue' },
-  { query: 'Gaza ceasefire updates', mode: 'red' },
-  { query: 'Bitcoin ETF approval', mode: 'blue' },
-  { query: 'US election interference claims', mode: 'purple' },
-  { query: 'WHO pandemic treaty', mode: 'red' },
-  { query: 'nuclear fusion breakthrough', mode: 'blue' },
-  { query: 'TikTok ban Congress vote', mode: 'purple' },
-  { query: 'inflation vs wages 2025', mode: 'blue' },
-  { query: 'deep sea mining environment', mode: 'red' },
-  { query: 'CRISPR gene editing ethics', mode: 'purple' },
-  { query: 'domain IP lookup', mode: 'ocean' },
-  { query: 'social media censorship evidence', mode: 'red' },
-];
-
-const MODE_PILL = {
-  blue:   'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  red:    'bg-red-500/20 text-red-300 border-red-500/30',
-  purple: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-  ocean:  'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
-};
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-
-function TrendingFeed() {
-  const navigate = useNavigate();
-  // pool = whatever we're displaying; starts as static fallback
-  const [pool, setPool] = useState(TRENDING);
-  const [live, setLive] = useState(false);
-  const [visible, setVisible] = useState(TRENDING.slice(0, 8));
-  const [tick, setTick] = useState(0);
-
-  // Fetch real trending data once on mount; keep static list as fallback
-  useEffect(() => {
-    fetch(`${BACKEND_URL}/api/search/trending`)
-      .then((r) => r.json())
-      .then((data) => {
-        // Live trending is built from real visitors' searches, so it is
-        // republished user content: mask profanity/adult terms and drop
-        // anything carrying personal information before it reaches the
-        // landing page. See utils/sanitizeTrending.js.
-        const safeTrending = sanitizeTrendingList(data.trending);
-        if (safeTrending.length >= 4) {
-          // Merge live results with static so we always have ≥ 8 pills even
-          // on a fresh deploy with no query history yet.
-          const liveQueries = new Set(safeTrending.map((t) => t.query));
-          const fallback = TRENDING.filter((t) => !liveQueries.has(t.query));
-          setPool([...safeTrending, ...fallback]);
-          setLive(true);
-        }
-      })
-      .catch(() => {}); // network error → stay on static
-  }, []);
-
-  // Cycle one item every 4 s to give the feed a "live" feel
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 4000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    const shift = tick % pool.length;
-    const rotated = [...pool.slice(shift), ...pool.slice(0, shift)];
-    setVisible(rotated.slice(0, 8));
-  }, [tick, pool]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      className="mt-16"
-    >
-      <div className="flex items-center gap-2 mb-5">
-        <TrendingUp size={16} className="text-orange-400" />
-        <span className="text-sm font-semibold text-white/70 uppercase tracking-wider">Trending on Truegle</span>
-        <span className="ml-1 w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
-        {live && (
-          <span className="ml-1 text-[10px] text-orange-400/60 font-medium tracking-wide">LIVE</span>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {visible.map((item) => (
-          <motion.button
-            key={item.query}
-            layout
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            onClick={() => navigate(`/search?mode=${item.mode}&q=${encodeURIComponent(item.searchQuery || item.query)}`)}
-            className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all hover:brightness-125 ${MODE_PILL[item.mode]}`}
-          >
-            {item.query}
-          </motion.button>
-        ))}
-      </div>
-    </motion.div>
-  );
-}
-
 // ── Exported section ─────────────────────────────────────────────────────────
 
 export default function ModesAndTrending() {
@@ -223,7 +119,10 @@ export default function ModesAndTrending() {
           ))}
         </div>
 
-        <TrendingFeed />
+        {/* Was a rotating list of search QUERIES; now what has actually
+            happened — local + global headlines, video coverage and a live
+            markets summary. See NewsFeed.jsx. */}
+        <NewsFeed />
       </div>
     </section>
   );
