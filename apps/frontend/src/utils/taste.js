@@ -144,6 +144,23 @@ export function likedChannels(limit = 4) {
     .map(([name]) => name);
 }
 
+/**
+ * The words this browser's thumbs weight most heavily, best first.
+ *
+ * This is what a COLD feed is seeded from — on launch there is no "current
+ * title" to search around, and without a seed the search rung returns nothing
+ * and an empty player stays empty. Someone who keeps thumbing up grime tracks
+ * has "grime" sitting at the top of this list, which is a far better opening
+ * question than whatever the index would hand back for an empty string.
+ */
+export function likedWords(limit = 6) {
+  return Object.entries(state.words)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([w]) => w);
+}
+
 /** Has this browser voted at all? Decides whether to lean on the platform pool. */
 export const hasTaste = () => Object.keys(state.ratings).length > 0;
 

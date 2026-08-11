@@ -192,10 +192,23 @@ function loadState() {
       || localStorage.getItem(LEGACY_KEY);
     const saved = JSON.parse(raw || 'null');
     if (!saved) return INITIAL;
+    // NOTHING AUTO-PLAYS ON LAUNCH. What was playing when the tab closed goes
+    // back to the FRONT of the queue instead of straight into `current`, so
+    // opening Truegle never starts a video by itself.
+    //
+    // It used to be restored as `current`, which the screen mounts with
+    // autoplay=1 — so last session's clip was the default thing to play, and
+    // the only way to stop it being that was to hunt down the queue and empty
+    // it. Nothing is lost: it is still the very next thing, one press of play
+    // away, and it keeps its place at the head of the list. An empty queue now
+    // means an empty player, which is what lets the feed fill it with things
+    // this browser has not already been shown (see useUpNext's fill()).
+    const restored = Array.isArray(saved.queue) ? saved.queue.filter(persistable) : [];
+    const wasPlaying = persistable(saved.current) ? saved.current : null;
     return {
       ...INITIAL,
-      current: persistable(saved.current) ? saved.current : null,
-      queue: Array.isArray(saved.queue) ? saved.queue.filter(persistable) : [],
+      current: null,
+      queue: wasPlaying ? [wasPlaying, ...restored] : restored,
       // Without this, prev() went dead after every reload — another way the
       // player looked like it had forgotten what the user was doing.
       history: Array.isArray(saved.history) ? saved.history.filter(persistable) : [],

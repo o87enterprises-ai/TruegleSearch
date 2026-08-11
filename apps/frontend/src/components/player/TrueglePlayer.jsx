@@ -15,6 +15,7 @@ import { useSwipeNav } from '../../hooks/useSwipeNav';
 import { rate, useRating, signalPlay } from '../../utils/taste';
 import { reportBroken } from '../../utils/broken';
 import { learnMeta } from '../../utils/mediaMeta';
+import { recordWatch } from '../../utils/watchHistory';
 import { copyText } from '../../utils/clipboard';
 import { mediaKey } from '../../utils/videoEmbed';
 
@@ -54,7 +55,7 @@ export default function TrueglePlayer({
   const {
     current, queue, history, paused, dock, locked, setLocked,
     next, skipNext, prev, stop, togglePause, setPoppedOut, setDock, play,
-    playMode, setPlayMode,
+    enqueueMany, playMode, setPlayMode,
   } = usePlayer();
   const pageMode = usePageMode();
   const mediaRef = useRef(null);
@@ -149,6 +150,37 @@ export default function TrueglePlayer({
     if (nextUp) play(nextUp); else skipNext();
   }, [queue.length, current, upNext, play, skipNext]);
 
+  // AN EMPTY VIEWPORT FILLS ITSELF. Landing on the player with nothing playing
+  // and nothing queued used to be a dead end — the only way forward was to go
+  // and find something to search for, which is the "locating new videos can be
+  // a pain" complaint. Now the same taste profile that decides what comes next
+  // also decides what to open WITH, and tops the queue back up whenever it runs
+  // dry.
+  //
+  // Guarded three ways, because this fires a backend request:
+  //   · once per empty stretch (`filling`), so a slow reply can't stack fills;
+  //   · only when the player is actually on screen, so a page that merely
+  //     mounts the component in a collapsed bar doesn't fetch a feed nobody
+  //     asked for;
+  //   · never while locked — the lock means "leave this alone".
+  const filling = useRef(false);
+  const visible = presentation !== 'collapsed';
+  useEffect(() => {
+    if (locked || !visible) return;
+    if (current || queue.length > 0) { filling.current = false; return; }
+    if (filling.current) return;
+    filling.current = true;
+    let cancelled = false;
+    (async () => {
+      const batch = await upNext.fill(null, 6);
+      // The user may have started something themselves while we were waiting —
+      // dropping a feed on top of that would be the player talking over them.
+      if (cancelled || !batch.length) return;
+      enqueueMany(batch);
+    })();
+    return () => { cancelled = true; };
+  }, [current, queue.length, locked, visible, upNext, enqueueMany]);
+
   const embed = useEmbedPlayback({
     frameRef,
     source: current,
@@ -176,13 +208,15 @@ export default function TrueglePlayer({
   // Everything that plays counts as seen, however it got here — otherwise
   // picking something by hand and then letting it run could hand you the same
   // clip straight back. The anonymous play counter (no id of any kind, see
-  // utils/taste.js) goes out on the same edge, once per piece of media.
+  // utils/taste.js) goes out on the same edge, once per piece of media, and so
+  // does the watch-history entry that makes it replayable later.
   const counted = useRef('');
   useEffect(() => {
     const key = mediaKey(current);
     if (!key || counted.current === key) return;
     counted.current = key;
     upNext.remember(current);
+    recordWatch(current);
     signalPlay(current);
   }, [current, upNext]);
 

@@ -7,6 +7,8 @@ import { parsePlayerQuery, toHandle } from '../../utils/playerQuery';
 import { hasTaste, forgetTaste } from '../../utils/taste';
 import { reportBroken, useBrokenFlag, useBrokenVersion, withoutBroken } from '../../utils/broken';
 import { useMediaMeta, formatDuration } from '../../utils/mediaMeta';
+import PlayerLibrary from './PlayerLibrary';
+import { useWatchHistory, clearWatchHistory } from '../../utils/watchHistory';
 
 // The list that lives under the player — the same one in all three
 // presentations.
@@ -20,6 +22,15 @@ import { useMediaMeta, formatDuration } from '../../utils/mediaMeta';
 // people add several things in a row, and a keystroke-based timer would snap
 // the list away mid-choice.
 const REVERT_MS = 10000;
+
+// Up next / History / Lists. Tabs rather than three stacked sections: the slot
+// is already the shortest thing on a phone screen, and stacking would push the
+// queue — the one people look at most — off the bottom.
+const TABS = [
+  { id: 'queue', label: 'Up next' },
+  { id: 'history', label: 'History' },
+  { id: 'lists', label: 'Lists' },
+];
 
 // "This doesn't play." One press removes it from your lists immediately and
 // tells the platform anonymously; enough reports and nobody is offered it
@@ -45,6 +56,8 @@ function BrokenFlag({ source }) {
 
 export default function PlayerListSlot({ search, query = '', scope = 'all', provider = 'all', accent = '#f43f5e', onRevert, compact = false }) {
   const { current, queue, jump, removeFromQueue, enqueue, clearQueue, playNow } = usePlayer();
+  const [tab, setTab] = useState('queue');
+  const historyCount = useWatchHistory().length;
   // The host runs the search now — the viewport's browse deck shows the same
   // results, and two hooks on one query meant two identical requests per
   // keystroke. `own` is the standalone fallback for any caller that doesn't
@@ -268,11 +281,36 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
     );
   }
 
+  // Three lists behind one header, because they answer three different
+  // questions and only one of them was ever on screen: what's coming (the
+  // queue), what I already watched (replay), and what I chose to keep (lists).
+  const libraryTab = tab !== 'queue';
+
   return (
     <div className="border-t border-white/10 bg-black/30">
       <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/40">
-        <ListMusic size={11} /> Up next
-        {hasTaste() && (
+        <ListMusic size={11} className="shrink-0" />
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            aria-pressed={tab === t.id}
+            className={`uppercase tracking-wider transition-colors ${
+              tab === t.id ? 'text-white/80' : 'text-white/30 hover:text-white/60'
+            }`}
+            style={tab === t.id ? { color: accent } : undefined}
+          >
+            {t.label}
+          </button>
+        ))}
+        {tab === 'history' && historyCount > 0 && (
+          <button type="button" onClick={clearWatchHistory} title="Clear watch history"
+            className="ml-auto text-[10px] uppercase tracking-wider text-white/35 hover:text-white/70 transition-colors">
+            Clear
+          </button>
+        )}
+        {tab === 'queue' && hasTaste() && (
           <button
             type="button"
             onClick={() => setForgetOpen((v) => !v)}
@@ -285,7 +323,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
             Your taste
           </button>
         )}
-        {queue.length > 0 && (
+        {tab === 'queue' && queue.length > 0 && (
           <>
             <span className="ml-auto px-1.5 rounded-full text-[9px] font-bold text-black" style={{ background: accent }}>
               {queue.length}
@@ -300,6 +338,9 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
           </>
         )}
       </div>
+      {libraryTab ? (
+        <PlayerLibrary tab={tab} accent={accent} compact={compact} />
+      ) : (
       <div className={`overflow-y-auto ${compact ? 'max-h-[min(11rem,26svh)]' : 'max-h-[min(16rem,32svh)]'}`}>
         {queue.length === 0 ? (
           <p className="px-3 py-3 text-[11px] text-white/40">
@@ -321,6 +362,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
           ))
         )}
       </div>
+      )}
       {/* A taste profile you can't delete is a dossier. This wipes the 👍/👎
           the player has learned from — all of which lives in this browser and
           nowhere else. The anonymous platform counters have nothing in them
