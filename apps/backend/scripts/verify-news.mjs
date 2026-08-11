@@ -12,6 +12,8 @@
  * anywhere with normal outbound network:
  *
  *   cd apps/backend && npm run news:test
+ *   # or, with no npm and no node_modules at all:
+ *   node apps/backend/scripts/verify-news.mjs
  *
  * Exit 0 = all three adapters produce usable data.
  * Exit 1 = an upstream ANSWERED but in a shape the adapter can't use. The
@@ -26,8 +28,12 @@
  */
 import { createRequire } from 'node:module';
 
+// services/NewsSources.js requires NOTHING - no express, no winston-backed
+// logger, no search service. That is what lets this run on a machine where
+// `npm install` cannot finish, which is exactly when you most want to know
+// whether the upstreams still answer in the shape the adapters expect.
 const require = createRequire(import.meta.url);
-const { __adapters: adapters } = require('../routes/news.js');
+const adapters = require('../services/NewsSources.js');
 
 const ok = []; const bad = []; const warn = [];
 const check = (c, l, e = '') => (c ? ok : bad).push(`${c ? 'PASS' : 'FAIL'} ${l}${e ? ` — ${e}` : ''}`);
