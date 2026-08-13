@@ -135,8 +135,16 @@ try {
     check(num(q.changePct), `markets: ${label} row has a change %`, String(q.changePct));
     // The sparkline is the "summarized live chart" — a row without one renders
     // an empty box, which is the failure this catches.
-    check(Array.isArray(q.spark) && q.spark.length >= 2,
-      `markets: ${label} row has a sparkline`, `${q.spark?.length ?? 0} points`);
+    //
+    // THIN_SPARK, not 2: out of hours Yahoo's 1d window returns almost nothing
+    // (observed live: gold at 8 points on a partly-closed session, and a fully
+    // closed market can give one or none). yahooQuote widens to 5d when that
+    // happens, so anything still below the threshold means the fallback has
+    // stopped working — which is invisible on a weekday and only shows up as a
+    // blank chart at the weekend.
+    check(Array.isArray(q.spark) && q.spark.length >= adapters.THIN_SPARK,
+      `markets: ${label} row has a usable sparkline`,
+      `${q.spark?.length ?? 0} points (need ${adapters.THIN_SPARK})`);
     check((q.spark || []).every(num), `markets: ${label} sparkline is all numbers`);
   }
 

@@ -187,8 +187,10 @@ const YAHOO = [
   { symbol: 'SI=F', label: 'Silver', kind: 'commodity' },
 ];
 
-async function yahooQuote({ symbol, label, kind }) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=15m`;
+// A chart window, reduced to the two things the feed needs.
+async function yahooChart(symbol, range, interval) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`
+    + `?range=${range}&interval=${interval}`;
   const r = await fetch(url, {
     signal: timeout(8000),
     headers: { 'User-Agent': UA, Accept: 'application/json' },
@@ -197,10 +199,41 @@ async function yahooQuote({ symbol, label, kind }) {
   const j = await r.json();
   const result = j?.chart?.result?.[0];
   if (!result) throw new Error(`yahoo ${symbol} empty`);
-  const meta = result.meta || {};
-  const closes = (result.indicators?.quote?.[0]?.close || []).filter((v) => typeof v === 'number');
-  const price = meta.regularMarketPrice ?? closes[closes.length - 1] ?? null;
-  const prev = meta.chartPreviousClose ?? meta.previousClose ?? closes[0] ?? null;
+  return {
+    meta: result.meta || {},
+    closes: (result.indicators?.quote?.[0]?.close || []).filter((v) => typeof v === 'number'),
+  };
+}
+
+// Below this many intraday points the line is a stub rather than a chart, and
+// under 2 the UI draws nothing at all.
+const THIN_SPARK = 8;
+
+async function yahooQuote({ symbol, label, kind }) {
+  // Today, at fifteen-minute resolution — the right window while a market is
+  // open, and where the day's own price and previous close come from.
+  const day = await yahooChart(symbol, '1d', '15m');
+  const meta = day.meta;
+
+  // OUT OF HOURS THAT WINDOW IS NEARLY EMPTY. Verified against the live
+  // endpoint on a partly-closed session: crypto came back with 40 points,
+  // the S&P with 27 and gold with 8 — and a fully closed market can return one
+  // point or none, which the sparkline renders as a blank box. So when today
+  // is too thin to draw, widen to the last five days and chart that instead.
+  //
+  // Only the SPARKLINE widens. Price and change stay on the day's meta, or the
+  // percentage would silently become "since five days ago" — a wrong number is
+  // worse than a short line.
+  let spark = day.closes;
+  if (spark.length < THIN_SPARK) {
+    try {
+      const week = await yahooChart(symbol, '5d', '1h');
+      if (week.closes.length > spark.length) spark = week.closes;
+    } catch { /* keep the thin series — still better than nothing */ }
+  }
+
+  const price = meta.regularMarketPrice ?? day.closes[day.closes.length - 1] ?? spark[spark.length - 1] ?? null;
+  const prev = meta.chartPreviousClose ?? meta.previousClose ?? day.closes[0] ?? null;
   if (price == null) throw new Error(`yahoo ${symbol} no price`);
   return {
     id: symbol,
@@ -211,7 +244,7 @@ async function yahooQuote({ symbol, label, kind }) {
     change: prev == null ? 0 : price - prev,
     changePct: prev == null ? 0 : pct(prev, price),
     currency: meta.currency || 'USD',
-    spark: downsample(closes),
+    spark: downsample(spark),
   };
 }
 
@@ -230,6 +263,6 @@ async function markets() {
 }
 
 module.exports = {
-  printHeadlines, markets, cryptoRow, yahooQuote,
-  parseRss, splitSource, decode, downsample, editionFor, COUNTRY,
+  printHeadlines, markets, cryptoRow, yahooQuote, yahooChart,
+  parseRss, splitSource, decode, downsample, editionFor, COUNTRY, THIN_SPARK,
 };
