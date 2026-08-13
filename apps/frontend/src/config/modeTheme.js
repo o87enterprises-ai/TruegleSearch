@@ -31,6 +31,9 @@ export const MODE_COLORS = {
   yellow: '#eab308',
   black: '#e5e7eb',
   tube: '#9aa7b8',
+  // Unhinged is a REGISTER, not a research lens — it gets its own colour so a
+  // selector makes that obvious at a glance.
+  unhinged: '#f43f5e',
 };
 
 // The Truegle rainbow, for surfaces that belong to no single mode (landing,
@@ -49,6 +52,7 @@ export const MODE_LABELS = {
   yellow: 'Transcripts',
   black: 'Chat',
   tube: 'Tube',
+  unhinged: 'Unhinged',
 };
 
 // Optional metallic finish per mode, for surfaces that fill with the mode
@@ -98,6 +102,9 @@ export const MODE_TO_CONTEXT = {
   // MODE_PROMPTS doesn't define (an unknown key silently falls back to the
   // generic assistant, which reads as a bug with no error).
   tube: 'search_results',
+  // Its own backend prompt key — picked alone it is a conversation, not a
+  // search, so it must not resolve to the search context.
+  unhinged: 'unhinged',
 };
 
 export function getModeAccent(mode) {

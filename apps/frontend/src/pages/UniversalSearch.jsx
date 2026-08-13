@@ -55,6 +55,7 @@ import LanguageSelector from '../components/ui/LanguageSelector';
 import { osintHintPrefix } from '../components/search/OsintClassRow';
 import PillModeRow from '../components/landing/PillModeRow';
 import ChatModeRow from '../components/landing/ChatModeRow';
+import { useUnhingedGate } from '../hooks/useUnhingedGate';
 import CreatorHeader, { CreatorPill } from '../components/creator/CreatorHeader';
 import { recordRef } from '../utils/creatorRef';
 
@@ -193,10 +194,15 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     return ['blue'];
   });
   const [chatModesOpen, setChatModesOpen] = useState(false);
-  const toggleChatMode = (id) => setChatModes((prev) => {
-    if (prev.includes(id)) return prev.length === 1 ? prev : prev.filter((x) => x !== id);
-    return [...prev, id];
-  });
+  // Same gate as the landing row and /chat — one definition, three selectors.
+  const { unhingedAllowed, onLockedUnhinged } = useUnhingedGate(chatModes, setChatModes);
+  const toggleChatMode = (id) => {
+    if (id === 'unhinged' && !unhingedAllowed) { onLockedUnhinged(); return; }
+    setChatModes((prev) => {
+      if (prev.includes(id)) return prev.length === 1 ? prev : prev.filter((x) => x !== id);
+      return [...prev, id];
+    });
+  };
   useEffect(() => {
     try {
       localStorage.setItem('truegle_modes_pref', JSON.stringify(chatModes));
@@ -208,16 +214,11 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   useEffect(() => { if (pillMode === 'black') setChatModesOpen(true); }, [pillMode]);
   useEffect(() => { setPillMode(mode); }, [mode]);
 
-  // Nephesh mode (opt-in Null-Prime dual-audit protocol) and verbosity
-  // (default succinct) — persistent, off by default. Purple/ocean keep their
-  // own dedicated framing regardless; this layers the audit protocol on top
-  // of whichever mode is active when turned on.
-  const [nepheshMode, setNepheshMode] = useState(
-    () => localStorage.getItem('truegle_nephesh_mode') === 'true'
-  );
-  useEffect(() => {
-    localStorage.setItem('truegle_nephesh_mode', String(nepheshMode));
-  }, [nepheshMode]);
+  // The "TrueGLE Mode" pill was REMOVED here (owner's call, 2026-08-13) along
+  // with the landing page's "vs. TrueGLE" toggle. The Null-Prime dual-audit
+  // protocol is not gone — it is part of how the backend frames contested
+  // claims — it just is not a user-facing switch any more. The backend still
+  // accepts `nepheshMode`, so nothing on that side had to change.
   // Search-page AI (summary + follow-up chat) is always CONCISE — "Summarize"
   // is the fixed default here, so there's no verbosity toggle (the old
   // "Feeling chat-e?" control was removed). Chat gets the opposite default
@@ -905,7 +906,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
             modes: activeModes.length > 1 ? activeModes.map((m) => MODE_TO_BACKEND[m]) : undefined,
             perspectives: selectedPerspectives,
             isQuestion: isQuestionQuery(query),
-            nepheshMode,
             verbose: SEARCH_VERBOSE,
           }),
         }
@@ -1551,6 +1551,8 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                 onToggle={toggleChatMode}
                 open={chatModesOpen}
                 onToggleOpen={() => setChatModesOpen((v) => !v)}
+                unhingedAllowed={unhingedAllowed}
+                onLockedUnhinged={onLockedUnhinged}
               />
             )}
             {/* (Ocean/OSINT: the investigation-class row and the "TrueGLE vs"
@@ -1558,26 +1560,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                 bar now owns tool selection and the AI. Other modes keep them.) */}
             {/* Language selector — synced to browser language by default */}
             <div className="flex justify-end items-center gap-3 mt-2">
-              {/* TrueGLE Mode (opt-in Null-Prime dual-audit) only affects the AI
-                  summary, so it's shown ONLY once the summary is actually in use
-                  — never on a plain results page (where it's meaningless and
-                  misleading) or on OSINT/Summarize modes that have no summary. */}
-              {mode !== 'ocean' && !isAiFree(mode) && sessionSummaryChoice === 'show' && (
-                <button
-                  type="button"
-                  onClick={() => setNepheshMode((v) => !v)}
-                  title="TrueGLE Mode: layer the Null-Prime dual-audit protocol onto contested claims"
-                  aria-pressed={nepheshMode}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-                    nepheshMode
-                      ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-200'
-                      : 'bg-white/5 border-white/10 text-white/40 hover:text-white/60'
-                  }`}
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${nepheshMode ? 'bg-cyan-300' : 'bg-white/20'}`} />
-                  TrueGLE Mode
-                </button>
-              )}
               <LanguageSelector />
             </div>
           </div>
@@ -1955,7 +1937,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                                 query={lastSearchedQuery}
                                 summary={aiSummary.summary}
                                 primaryMode={mode}
-                                nepheshMode={nepheshMode}
                               />
                             ) : (
                               <button

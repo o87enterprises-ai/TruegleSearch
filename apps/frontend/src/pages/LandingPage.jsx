@@ -22,7 +22,7 @@ import ChatModeRow from '../components/landing/ChatModeRow';
 import CategoryModeRow from '../components/landing/CategoryModeRow';
 import PillModeRow from '../components/landing/PillModeRow';
 import { MODE_COLORS, searchThemeFor, searchGradientFor, searchIconFor } from '../config/modeTheme';
-import VsToggleRow from '../components/landing/VsToggleRow';
+import { useUnhingedGate } from '../hooks/useUnhingedGate';
 import ThreeCards from '../components/landing/ThreeCards';
 import PlayerFeatureCard from '../components/landing/PlayerFeatureCard';
 import TruegleLogo from '../components/ui/TruegleLogo';
@@ -89,7 +89,12 @@ export default function LandingPage() {
   // Once the user has touched it themselves, we stop auto-opening it for them.
   const [chatModesOpen, setChatModesOpen] = useState(false);
   const [chatModeTouched, setChatModeTouched] = useState(false);
+  // Unhinged is one of the chips in this row, so the landing page needs the
+  // same gate /chat has — including snapping it back off if the user signs out
+  // or turns Safe Search back on with the preference already stored.
+  const { unhingedAllowed, onLockedUnhinged } = useUnhingedGate(chatModes, setChatModes);
   const toggleChatMode = (id) => {
+    if (id === 'unhinged' && !unhingedAllowed) { onLockedUnhinged(); return; }
     setChatModeTouched(true);
     setChatModes((prev) => {
       if (prev.includes(id)) return prev.length === 1 ? prev : prev.filter((x) => x !== id);
@@ -122,12 +127,10 @@ export default function LandingPage() {
     }
   }, [searchQuery, pillMode, searchCatTouched]);
 
-  // vs. TrueGLE (Null-Prime dual-audit) — same localStorage key TruegleChat.jsx
-  // reads on mount, so a preference set here carries silently into the first
-  // /chat visit. (Verbosity is no longer a toggle: chat is verbose by default,
-  // and the "Summarize" mode makes it concise.)
-  const [nepheshMode, setNepheshMode] = useState(() => localStorage.getItem('truegle_nephesh_mode') === 'true');
-  useEffect(() => { localStorage.setItem('truegle_nephesh_mode', String(nepheshMode)); }, [nepheshMode]);
+  // The "vs. TrueGLE" toggle was REMOVED here (owner's call, 2026-08-13). It
+  // staged the Null-Prime dual-audit for /chat, and chat's register selector is
+  // Unhinged now. The protocol itself is untouched in the backend — only the
+  // control is gone, so re-surfacing it later is a UI change, not a rebuild.
 
   // Backwards-compat derived value for JSX that used isRedPillMode
   const isRedPillMode = pillMode === 'red';
@@ -364,6 +367,8 @@ export default function LandingPage() {
                 onToggle={toggleChatMode}
                 open={chatModesOpen}
                 onToggleOpen={() => setChatModesOpen((v) => !v)}
+                unhingedAllowed={unhingedAllowed}
+                onLockedUnhinged={onLockedUnhinged}
               />
             )}
 
@@ -380,16 +385,7 @@ export default function LandingPage() {
               />
             )}
 
-            {/* vs. TrueGLE toggle — a Chat-only feature (the Null-Prime
-                dual-audit layers onto chat answers), so it disappears the
-                same way chat modes do the moment the pill switches to a
-                search color. */}
-            {pillMode === 'black' && (
-              <VsToggleRow
-                nepheshMode={nepheshMode}
-                onToggleNephesh={() => setNepheshMode((v) => !v)}
-              />
-            )}
+
 
             {/* Player introduction — BELOW the mode rows, not above them.
                 The chat modes and search categories qualify the box you are

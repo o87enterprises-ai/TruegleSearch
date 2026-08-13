@@ -7,15 +7,18 @@ import { useNavigate } from 'react-router-dom';
 const MODE_LIST = 'Mainstream, Summarize, Rabbit Hole, Perspectives, Privacy/OSINT';
 
 // Three brief explainer cards beneath the "Why Truegle?" promise card — what
-// the chat modes, search modes, and the TrueGLE 1.3 model / GLE vs. mode
-// actually are, for anyone who wants the detail without it cluttering the hero.
+// the chat modes, search modes, and the TrueGLE 1.3 model / GLE actually are,
+// for anyone who wants the detail without it cluttering the hero.
 const CARDS = [
   {
     icon: MessageCircle,
     title: 'Chat Modes',
     color: 'from-cyan-500 to-blue-500',
     border: 'border-cyan-500/30 hover:border-cyan-400/50',
-    description: `Blend lenses — ${MODE_LIST} — to shape how TrueGLE frames its answer. Pick one or stack several.`,
+    description: [
+      `Blend lenses — ${MODE_LIST} — to shape how TrueGLE frames its answer. Pick one or stack several.`,
+      'Unhinged is the off-the-record register: blunt, sweary, no lectures. On its own it is a casual conversation; stacked on a lens it changes the voice, not the research. Unlocks with a verified sign-in and Safe Search off.',
+    ],
     path: '/chat',
   },
   {
@@ -30,16 +33,17 @@ const CARDS = [
     path: '/search',
   },
   {
-    // Model card: introduces the TrueGLE 1.3 model itself, then its signature
-    // vs. mode (GLE). Two short paragraphs instead of one-liner, since it's
-    // doing double duty as both a model card and a feature explainer.
+    // Model card: introduces the TrueGLE 1.3 model itself, then GLE. GLE used
+    // to be a user-facing "vs. mode" toggle; that control was removed on
+    // 2026-08-13, so the copy describes it as how the model reasons about
+    // contested claims rather than as a button to go and find.
     icon: Brain,
     title: 'TrueGLE 1.3',
     color: 'from-purple-500 to-fuchsia-500',
     border: 'border-purple-500/30 hover:border-purple-400/50',
     description: [
       'A locally self-hosted LLM built for privacy and transparency — a 100% unbiased, indifferent investigative agent capable of deep dives into every perspective without imposing an opinion.',
-      "Introducing GLE (Grand Logic Equation) — TrueGLE's vs. mode weighs a theory's claimed probability against its actual statistical odds. If they don't match the results, it finds the circumstances that would.",
+      "GLE (Grand Logic Equation) weighs a theory's claimed probability against its actual statistical odds. If they don't match the results, it finds the circumstances that would — applied automatically to contested claims, with no toggle to hunt for.",
     ],
     path: '/chat',
   },

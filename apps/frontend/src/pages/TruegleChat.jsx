@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2, X, Copy, Pencil, Check, Plus, Flame, Lock } from 'lucide-react';
+import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2, X, Copy, Pencil, Check, Plus, Lock } from 'lucide-react';
 import LandingBackground from '../components/LandingBackground';
 import VoiceRecognition from '../components/ui/VoiceRecognition';
 import CameraInput from '../components/ui/CameraInput';
@@ -10,8 +10,8 @@ import FileInput from '../components/ui/FileInput';
 import CursorGlow from '../components/ui/CursorGlow';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import api, { aiAPI, shareAPI } from '../services/api';
-import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
+import { useUnhingedGate } from '../hooks/useUnhingedGate';
 import { FREE_ACCESS_MODE } from '../config/access';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent, solidTextClass } from '../config/modeTheme';
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
@@ -30,7 +30,10 @@ import CategoryModeRow from '../components/landing/CategoryModeRow';
 // inline. Deliberately no ads, no filters, no results grid — "Truegle in a
 // nutshell with less clutter."
 
-const MODES = ['blue', 'green', 'red', 'purple', 'ocean'];
+// Unhinged is in the list because it is one of the things you pick — alone for
+// a casual conversation, or on top of a lens as a register. The backend treats
+// it as a mode key OR a flag; both are gated identically (routes/ai.js).
+const MODES = ['blue', 'green', 'red', 'purple', 'ocean', 'unhinged'];
 
 // Persisted thread — so navigating away and coming back continues the same
 // conversation instead of resetting to a cold welcome message.
@@ -42,6 +45,7 @@ const MODE_INFO = {
   green: 'Summarize — concise, plain-English answers with no jargon. Short and to the point.',
   red: 'Rabbit Hole — independent and suppressed perspectives that question the official narrative.',
   purple: 'Perspectives — lays out multiple viewpoints side by side with skeptical, accountability-first framing.',
+  unhinged: 'Unhinged — off the record. Crude, sweary, no lectures. On its own it is a casual conversation; on top of another lens it changes the voice, not the research.',
   ocean: 'Privacy / OSINT — digital-investigation assistant. Name an entity (domain, email, username, phone, or person) and it runs public-records lookups automatically.',
 };
 
@@ -72,6 +76,7 @@ const MODE_WELCOME = {
   red: 'Rabbit Hole — independent and suppressed perspectives. What do you want to dig into?',
   purple: 'Perspectives mode — I lay out multiple viewpoints with skeptical, accountability-first framing. What would you like to explore?',
   ocean: 'OSINT assistant ready — ask about digital investigation or research.',
+  unhinged: "Off the record. Say what you actually want to say — I'm not going to lecture you.",
 };
 
 function extractContent(chatResponse) {
@@ -335,41 +340,18 @@ export default function TruegleChat() {
   // background tint, citation sourcing, and OSINT routing.
   const [modes, setModes] = useState(loadModes);
   const primaryMode = modes[0] || 'blue';
-  // UNHINGED replaces the old "vs. TrueGLE" toggle here. The Null-Prime audit
-  // still has its own toggle on the search page (UniversalSearch) — it belongs
-  // with contested search results far more than with a chat register.
-  //
-  // Gated exactly like Safe Search "off", because it unlocks the same class of
-  // content: a signed-in account (the passwordless email-code flow proves
-  // control of an inbox) AND Safe Search actually switched off. The backend
-  // re-checks the session, so this is UI, not security.
-  const { settings } = useSettings();
-  const { isAuthenticated, loading: authLoading } = useAuth();
-  const unhingedAllowed = isAuthenticated && settings.safeSearch === 'off';
-  const [unhinged, setUnhinged] = useState(() => localStorage.getItem('truegle_unhinged_mode') === 'true');
-  // The gate can close underneath a stored preference — sign out, or turn Safe
-  // Search back on — and a mode that stayed on through that would be the same
-  // stale-localStorage hole SettingsContext already closes for safeSearch.
-  //
-  // WAIT FOR AUTH FIRST. isAuthenticated is false until the session check comes
-  // back, so without this guard every reload switched the mode off before it
-  // had been established whether the user was signed in — the preference never
-  // survived a refresh. SettingsContext guards its own safeSearch snap-back the
-  // same way, for the same reason.
-  useEffect(() => {
-    if (authLoading) return;
-    if (unhinged && !unhingedAllowed) setUnhinged(false);
-  }, [authLoading, unhinged, unhingedAllowed]);
-  useEffect(() => { localStorage.setItem('truegle_unhinged_mode', String(unhinged)); }, [unhinged]);
+  // UNHINGED replaces the old "vs. TrueGLE" toggle here (and the matching
+  // "TrueGLE Mode" pill on the search page — both are gone as of 2026-08-13).
+  const { isAuthenticated } = useAuth();
+  // The gate itself (allowed? locked-tap handler? snap off when it closes?)
+  // lives in useUnhingedGate, because the landing row and the search page's
+  // row need exactly the same three behaviours. `unhinged` is DERIVED from
+  // `modes`, not a second source of truth — it used to be its own useState and
+  // its own button beside the lens row, which is precisely why it read as a
+  // bolt-on: two selectors, two states, and the lens row silently outweighing
+  // it. It is one of the modes now.
+  const { unhingedAllowed, unhinged, onLockedUnhinged } = useUnhingedGate(modes, setModes);
 
-  const toggleUnhinged = () => {
-    if (unhingedAllowed) { setUnhinged((v) => !v); return; }
-    // Same modal, same flow as Safe Search — it just needs to know which of the
-    // two gates stopped you, or a signed-in user gets sent to a login page.
-    window.dispatchEvent(new CustomEvent('truegle:safesearch-locked', {
-      detail: { reason: isAuthenticated ? 'safesearch' : 'signin', feature: 'Unhinged mode' },
-    }));
-  };
   // Pill mode (search selector) — sits at the top, below the logo, exactly like
   // the landing page. Defaults to 'black' (Chat) on every /chat load: you're on
   // the chat page, so you chat by default and only leave to a /search page by
@@ -411,6 +393,10 @@ export default function TruegleChat() {
 
   // Toggle a mode on/off, but never let the selection go empty.
   const toggleMode = (m) => {
+    if (m === 'unhinged' && !unhingedAllowed) {
+      onLockedUnhinged();
+      return;
+    }
     setModes((prev) => {
       if (prev.includes(m)) return prev.length === 1 ? prev : prev.filter((x) => x !== m);
       return [...prev, m];
@@ -647,7 +633,9 @@ export default function TruegleChat() {
               type="button"
               onClick={() => toggleMode(m)}
               aria-pressed={active}
-              title={active ? `${MODE_LABELS[m]} active — tap to remove` : `Add ${MODE_LABELS[m]} lens`}
+              title={m === 'unhinged' && !unhingedAllowed
+                ? (isAuthenticated ? 'Unhinged is locked — turn Safe Search off in Settings' : 'Unhinged is locked — sign in, then turn Safe Search off')
+                : active ? `${MODE_LABELS[m]} active — tap to remove` : `Add ${MODE_LABELS[m]} lens`}
               className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
                 active
                   ? solidTextClass(m)
@@ -655,39 +643,11 @@ export default function TruegleChat() {
               } ${isPrimary ? 'ring-2 ring-white/60' : ''}`}
               style={active ? { backgroundColor: MODE_COLORS[m], borderColor: MODE_COLORS[m] } : undefined}
             >
+              {m === 'unhinged' && !unhingedAllowed && <Lock size={10} className="inline mr-1 -mt-0.5" />}
               {MODE_LABELS[m]}
             </button>
           );
         })}
-
-        {/* UNHINGED — replaced "vs. TrueGLE" here (the Null-Prime audit kept its
-            own toggle on the search page, where contested claims actually live).
-            Shows a padlock until BOTH gates are open, and says which one is
-            shut rather than just refusing to light up. */}
-        <button
-          type="button"
-          onClick={toggleUnhinged}
-          title={
-            unhingedAllowed
-              ? 'Unhinged: off the record — crude, sweary, no lectures'
-              : isAuthenticated
-                ? 'Unhinged is locked — turn Safe Search off in Settings'
-                : 'Unhinged is locked — sign in, then turn Safe Search off'
-          }
-          aria-pressed={unhinged}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
-            unhinged
-              ? 'bg-rose-500 border-rose-500 text-white'
-              : unhingedAllowed
-                ? 'bg-white/5 border-white/10 text-white/40 hover:text-white/60'
-                : 'bg-white/5 border-white/10 text-white/25 hover:text-white/45'
-          }`}
-        >
-          {unhingedAllowed
-            ? <Flame size={11} className={unhinged ? 'text-white' : ''} />
-            : <Lock size={11} />}
-          Unhinged
-        </button>
 
         {/* Modes tutorial — explains the lenses; lives with them at the bottom. */}
         <div
@@ -908,12 +868,15 @@ export default function TruegleChat() {
                   type="button"
                   onClick={() => toggleMode(m)}
                   aria-pressed={active}
-                  title={active ? `${MODE_LABELS[m]} active — tap to remove` : `Add ${MODE_LABELS[m]} lens`}
+                  title={m === 'unhinged' && !unhingedAllowed
+                ? (isAuthenticated ? 'Unhinged is locked — turn Safe Search off in Settings' : 'Unhinged is locked — sign in, then turn Safe Search off')
+                : active ? `${MODE_LABELS[m]} active — tap to remove` : `Add ${MODE_LABELS[m]} lens`}
                   className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition-colors ${
                     active ? solidTextClass(m) : 'bg-white/5 border-white/10 text-white/40 hover:text-white/70'
                   } ${isPrimary ? 'ring-2 ring-white/60' : ''}`}
                   style={active ? { backgroundColor: MODE_COLORS[m], borderColor: MODE_COLORS[m] } : undefined}
                 >
+                  {m === 'unhinged' && !unhingedAllowed && <Lock size={9} className="inline mr-1 -mt-0.5" />}
                   {MODE_LABELS[m]}
                 </button>
               );

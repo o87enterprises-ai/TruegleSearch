@@ -1354,6 +1354,22 @@
         "body": "LandingPage hardcoded themeColor='green' + green gradient + green icon on <SearchBar> regardless of pillMode, so picking Privacy/OSINT lit a teal pill above a green bar. Added MODE_SEARCH_THEME / MODE_SEARCH_GRADIENT / MODE_SEARCH_ICON maps + searchThemeFor/searchGradientFor/searchIconFor helpers in config/modeTheme.js, and wired them into the SearchBar props. SearchBar's palettes are keyed by TAILWIND HUE not mode name (they must be - Tailwind only sees literal class names), hence the translation layer: ocean->cyan, black->neutral, tube->slate. Added 4 new palettes to SearchBar's colorMap (orange, yellow, slate, neutral) and the matching cases to FilterDropdown's getBorderColors, which otherwise silently falls back to blue. Verified in Chromium by cycling the pill: border hue and search-icon hue both track the mode for every mode reached.",
         "ts": "2026-08-13",
         "created": "2026-08-13"
+      },
+      "unhinged-mode": {
+        "Id": "unhinged-mode",
+        "Type": "decision",
+        "Label": "Unhinged is a mode, not a bolt-on toggle",
+        "body": "Unhinged appears as a gated chip in EVERY chat-mode selector (landing ChatModeRow, search ChatModeRow, both /chat pill rows). Gate = verified sign-in AND Safe Search off, defined once in apps/frontend/src/hooks/useUnhingedGate.js and re-derived server-side in routes/ai.js (which strips 'unhinged' from modes for unauthorised callers). Standalone = UNHINGED_STANDALONE (no research scaffolding); as a lens it appends UNHINGED_PROTOCOL last with a clause that outranks earlier tone instructions, which is what stopped Mainstream diluting it.",
+        "ts": "2026-08-13",
+        "created": "2026-08-13"
+      },
+      "vs-gle-removed": {
+        "Id": "vs-gle-removed",
+        "Type": "decision",
+        "Label": "vs. TrueGLE / TrueGLE Mode toggles removed",
+        "body": "Removed 2026-08-13 at the owner's request: VsToggleRow.jsx deleted, the 'TrueGLE Mode' pill and nepheshMode state removed from UniversalSearch, and the landing ThreeCards copy no longer advertises a 'vs. mode'. GLE still runs on contested claims; it is simply not a user-facing switch. The backend still accepts nepheshMode, so nothing server-side changed.",
+        "ts": "2026-08-13",
+        "created": "2026-08-13"
       }
     },
     "entity": {

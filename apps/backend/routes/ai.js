@@ -71,7 +71,17 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
     // control of an inbox, which is the same bar Safe Search "off" is held to
     // (see SettingsContext.canDisableSafeSearch and search.js's identical
     // downgrade of safeSearch for anonymous callers).
-    const unhinged = !!unhingedReq && !!req.user;
+    // Unhinged now also arrives as a MODE (it is a chip in every chat-mode
+    // selector, so it can be picked on its own or stacked on a lens). Both
+    // routes are gated identically, and an unauthorised request has it STRIPPED
+    // from the modes array rather than merely ignored as a flag — otherwise the
+    // gate could be walked straight past by sending it as a lens instead.
+    const askedUnhinged = !!unhingedReq
+      || (Array.isArray(modes) && modes.some((m) => String(m).toLowerCase() === 'unhinged'));
+    const unhinged = askedUnhinged && !!req.user;
+    const safeModes = Array.isArray(modes)
+      ? modes.filter((m) => unhinged || String(m).toLowerCase() !== 'unhinged')
+      : modes;
 
     // An attached image is a valid turn on its own ("what does this say?") —
     // only require non-empty text when there's no image to fall back on.
@@ -106,7 +116,7 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
     // Mode-specific system prompt, with Nephesh mode (dual-audit protocol)
     // and verbosity layered on per the caller's toggles. When the user
     // multi-selected flows, blend them; otherwise use the single context.
-    const promptTarget = Array.isArray(modes) && modes.length > 1 ? modes : context;
+    const promptTarget = Array.isArray(safeModes) && safeModes.length > 0 ? safeModes : context;
     const systemOverride = getModePrompt(promptTarget, { nepheshMode, verbose, unhinged });
     const response = await aiClient.chat(message || '', context, {
       ...options,

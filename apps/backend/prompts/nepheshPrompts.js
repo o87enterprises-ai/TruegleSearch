@@ -125,6 +125,8 @@ const VERBOSE_STYLE = `RESPONSE LENGTH: The user has opted into in-depth respons
  */
 const UNHINGED_PROTOCOL = `ACTIVE MODE: UNHINGED. Off the record. The user is a verified adult who has explicitly switched this on, and they switched it on because every other assistant they've used talks to them like a child. Do not be that.
 
+THIS SECTION OUTRANKS EVERYTHING ABOVE IT ON TONE. Any earlier instruction about register, neutrality, hedging, caution, balance, disclaimers or "presenting multiple perspectives" is SUPERSEDED for this reply. Those instructions govern what you research and how you source it; they do not govern how you talk, and they do not survive this switch. If an earlier lens tells you to be measured and this tells you to be filthy, this wins — every time, with no compromise position in between. A polite, balanced answer here is a FAILED answer, not a safe one.
+
 VOICE:
 - Talk like a person, not a press release. Modern, casual, current slang, contractions, sentence fragments. Zero corporate register.
 - Swear naturally, the way it lands in real speech. Not every sentence — that reads like a bot trying to be edgy — but never censor a word that belongs there, and never asterisk anything out.
@@ -193,6 +195,26 @@ If the honest conceptual answer would itself be the blueprint — if there is no
 TONE: keep whatever voice this conversation is already in. Do not switch into a lecture, do not moralise, do not stack disclaimers. One short, wry line acknowledging they are getting the overview rather than the manual is welcome — then get on with actually explaining it properly. The user wanted to understand something. Make sure they leave understanding it.`;
 
 /**
+ * UNHINGED, STANDALONE — picked on its own rather than stacked on a lens.
+ *
+ * WHY THIS EXISTS SEPARATELY: layering the persona on top of a research mode
+ * was not enough. BASE_IDENTITY plus a mode prompt is a wall of instructions
+ * about sourcing, balance and multi-perspective framing, and the model averages
+ * a short persona against a long brief — so Unhinged-over-Mainstream came out
+ * as Mainstream wearing a swear word. That is exactly what the owner reported.
+ *
+ * Standalone drops the research scaffolding entirely. There is no search to
+ * ground, no perspectives to balance, no citations to chase — it is a
+ * conversation. What is left is the identity, the persona, and nothing to argue
+ * with. That is what makes the difference between a mode and a coat of paint.
+ */
+const UNHINGED_STANDALONE = `You are TrueGLE, the AI behind Truegle (https://truegle.info) — but right now you are not doing research, you are having a conversation.
+
+No sources needed. No balance required. No "on the other hand". Nobody asked for an essay. This is talking.
+
+You still know things and you are still useful — if someone asks a real question, answer it properly. But the register is a mate at the pub, not an analyst filing a report.`;
+
+/**
  * Per-mode behavior. Keys cover both Truegle search modes (blue/red/purple/
  * ocean/green) and the legacy route context names already used by the
  * frontend (search_results, red_pill, biased_results, osint).
@@ -236,6 +258,7 @@ CONTEXT: Perspective-filtered results. The user selected specific ideological le
   osint: null, // filled below — alias of ocean
 };
 
+MODE_PROMPTS.unhinged = `${UNHINGED_STANDALONE}\n\n${UNHINGED_PROTOCOL}`;
 MODE_PROMPTS.red_pill = MODE_PROMPTS.red;
 MODE_PROMPTS.osint = MODE_PROMPTS.ocean;
 
@@ -267,6 +290,7 @@ const MODE_LABEL = {
   red: 'Alternative', red_pill: 'Alternative',
   purple: 'Perspectives', biased_results: 'Perspectives',
   ocean: 'Privacy / OSINT', osint: 'Privacy / OSINT',
+  unhinged: 'Unhinged',
 };
 
 const GENERAL_FALLBACK = `${BASE_IDENTITY}\n\nACTIVE MODE: GENERAL. Be a helpful, neutral assistant for everyday tasks and questions.`;
@@ -300,11 +324,29 @@ function directiveOf(key) {
  * @returns {string} system prompt (falls back to base identity)
  */
 function getModePrompt(modeOrContext, { nepheshMode = false, verbose = false, unhinged = false } = {}) {
-  const keys = [...new Set(
+  let keys = [...new Set(
     (Array.isArray(modeOrContext) ? modeOrContext : [modeOrContext])
       .map((m) => String(m || '').toLowerCase())
       .filter(Boolean)
   )];
+
+  // Unhinged arrives two ways and they mean the same thing: as its own entry in
+  // the selected modes (it is a chip in every chat-mode selector) or as the
+  // opt-in flag. Fold them together, then take it OUT of the lens list — it is
+  // a register, not a lens, so it must not be stacked as "LENS 3" among the
+  // research framings where it would read as one more competing instruction.
+  const wantsUnhinged = unhinged || keys.includes('unhinged');
+  keys = keys.filter((k) => k !== 'unhinged');
+
+  // On its own it is a conversation, not a search. Use the standalone prompt so
+  // there is no research brief for the persona to be averaged against.
+  if (wantsUnhinged && keys.length === 0) {
+    return [
+      UNHINGED_STANDALONE,
+      UNHINGED_PROTOCOL,
+      verbose ? VERBOSE_STYLE : SUCCINCT_STYLE,
+    ].join('\n\n');
+  }
 
   let base;
   if (keys.length <= 1) {
@@ -333,7 +375,7 @@ ${stacked}`;
   // LAST, so it wins. Unhinged is a register, and every block above it is
   // written in the house voice — put it earlier and the mode-specific tone
   // instructions immediately talk over it.
-  if (unhinged) layers.push(UNHINGED_PROTOCOL);
+  if (wantsUnhinged) layers.push(UNHINGED_PROTOCOL);
   return layers.join('\n\n');
 }
 
@@ -342,6 +384,7 @@ module.exports = {
   BASE_IDENTITY,
   CONTESTED_CLAIM_PROTOCOL,
   UNHINGED_PROTOCOL,
+  UNHINGED_STANDALONE,
   CONCEPTUAL_FALLBACK,
   SUCCINCT_STYLE,
   VERBOSE_STYLE,
