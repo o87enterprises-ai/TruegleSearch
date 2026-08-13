@@ -488,6 +488,14 @@
         "body": "The only index.html in the repo is apps/frontend/index.html — Vite's SPA shell. The 404 is a React ROUTE (App.jsx <Route path=\"*\">), not a static page, so there is nothing to drop an HTML file onto; it would need an iframe inside the React page. The 'no library' rule was about the GAME and is already satisfied: src/games/trail/* imports nothing but its own files and content JSON — zero dependencies, plain canvas 2D. React is the host page that already exists, not part of the game. A standalone copy would duplicate the rules, the content and the drawing, and lose the lazy chunk, the balance test, the ESLint pass and the offline story. RESOLVED by giving the real benefit without the duplication: 'npm run trail' (apps/frontend) serves dev/trail.html via esbuild --servedir with instant rebuilds, importing the SHIPPED modules. 'npm run trail:test' runs the 32-check balance sim. No React, no Vite, no build step in that loop.",
         "ts": "2026-08-10",
         "created": "2026-08-10"
+      },
+      "news-upstreams-verified": {
+        "Id": "news-upstreams-verified",
+        "Type": "fact",
+        "Label": "News feed upstreams verified live 2026-08-11 — all 28 checks pass",
+        "body": "Ran 'node apps/backend/scripts/verify-news.mjs' on the owner's Termux device (network works there; the Claude sandbox 403s all outbound). ALL 28 PASS: Google News RSS returns 10 local + 10 world, DE edition shares 0 of 10 URLs with US (country scoping is real), publisher suffix strips correctly. CoinGecko 3 coins (BTC ~63861, 40-pt sparkline). Yahoo 3 indices (S&P 7748.5) + 3 commodities (Gold 4455.3). So the adapter SHAPES in services/NewsSources.js are confirmed against reality, not just unit-tested. OBSERVED GAP: sparkline length varies with session state — crypto 40 pts, S&P 27, Gold 8 (Yahoo range=1d&interval=15m gives few bars when a market is closed/partly closed). A fully closed market can yield 0-1 points and NewsFeed.jsx's Sparkline renders an empty div below 2 points. Fix if it bothers: fall back to range=5d in yahooQuote when closes.length < ~8. Not yet done.",
+        "ts": "2026-08-13",
+        "created": "2026-08-13"
       }
     },
     "decision": {
@@ -1617,5 +1625,5 @@
       }
     }
   },
-  "updated": "2026-08-11"
+  "updated": "2026-08-13"
 }
