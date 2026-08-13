@@ -20,6 +20,37 @@ const logger = require('../utils/logger');
 const promptRouter = require('./PromptRouter');
 const osintToolbelt = require('./OsintToolbelt');
 
+// ── refusal detection ───────────────────────────────────────────────────────
+//
+// This is the trigger for the whole failover-then-conceptual-fallback chain, so
+// a refusal it does not recognise is a refusal that reaches the user verbatim,
+// lecture and all. That is not hypothetical: the shipped list of verbs was
+// help|assist|provide|comply|do that|fulfill|create|generate|share, and a live
+// reply reading "I won't TELL a racist joke. Racist jokes are harmful and can
+// perpetuate negative stereotypes… I'm here to promote respectful and inclusive
+// conversations." sailed straight through it. Every downstream rung — the
+// second provider, TrueCode, the conceptual retry — was skipped, because as far
+// as this function was concerned the model had answered.
+//
+// Widened accordingly. The cost of a false positive is one wasted extra call
+// and a second-best answer; the cost of a false negative is the canned sermon
+// this codebase exists to avoid. The asymmetry says to lean inclusive — but
+// only on the OPENING of the response, and only in the first person, so a real
+// answer that happens to discuss refusal or stereotyping does not trip it.
+const REFUSE_VERB = '(?:help|assist|provide|comply|fulfil|fulfill|create|generate'
+  + '|produce|write|make|tell|say|share|give|do|engage|participate|entertain'
+  + '|discuss|repeat|continue|be\\s+part)';
+// "can't" / "cannot" / "won't" / "will not" / "am unable to" / "'m not going to"
+const REFUSE_NEG = "(?:can(?:'|no)?t|cannot|won'?t|will not"
+  + "|am (?:unable|not able) to|(?:'m| am) not (?:going to|able to|comfortable))";
+
+const REFUSAL_APOLOGY = new RegExp(
+  `\\bI(?:'m| am)? ?(?:really |very |so )?sorry,? (?:but )?I ?${REFUSE_NEG}`, 'i');
+const REFUSAL_DIRECT = new RegExp(`\\bI ?${REFUSE_NEG} ${REFUSE_VERB}\\b`, 'i');
+// The opener half of "refusal + sermon": a first-person negative, full stop.
+const REFUSAL_OPENER = new RegExp(`\\bI ?${REFUSE_NEG}\\b`, 'i');
+const REFUSAL_SERMON = /\b(?:harmful|hurtful|offensive|inappropriate|not appropriate|perpetuate|derogatory|demeaning|respectful and inclusive|hate speech|against my (?:guidelines|values|principles))\b/i;
+
 class UnifiedAIService {
   constructor() {
     // Initialize all AI providers. Nephesh (Truegle's own self-hosted model)
@@ -674,14 +705,23 @@ class UnifiedAIService {
    */
   isRefusalContent(text) {
     if (typeof text !== 'string') return false;
-    const head = text.trim().slice(0, 300);
+    // The attribution watermark weaves zero-width characters THROUGH the text,
+    // so "I won't" is not contiguous in a branded string. This runs on the raw
+    // provider response today, but a detector that silently stops working the
+    // moment someone points it at a branded string is a trap worth closing.
+    const head = text.replace(/[\u200b-\u200f\u2060-\u2064\ufeff]/g, '').trim().slice(0, 300);
     if (head.length === 0) return true; // empty answer = treat as failure
     return (
-      /\bI(?:'m| am)? ?(?:really |very |so )?sorry,? (?:but )?I ?(?:can(?:'|no)?t|cannot|won'?t|am (?:unable|not able))/i.test(head) ||
-      /\bI ?(?:can(?:'|no)?t|cannot|won'?t|am (?:unable|not able) to) (?:help|assist|provide|comply|do that|fulfill|create|generate|share)/i.test(head) ||
+      REFUSAL_APOLOGY.test(head) ||
+      REFUSAL_DIRECT.test(head) ||
       /\bI(?:'m| am) (?:unable|not able) to (?:help|assist|provide|comply)/i.test(head) ||
       /\b(?:I must|I have to) (?:decline|refuse)/i.test(head) ||
-      /\bthat request (?:goes against|violates|isn'?t something I can)/i.test(head)
+      /\bthat request (?:goes against|violates|isn'?t something I can)/i.test(head) ||
+      // A bare refusal followed by a lecture. Requires BOTH halves: the
+      // moralising clause alone appears in plenty of real answers about
+      // stereotyping or hate speech, and tripping on those would fail over a
+      // perfectly good answer to a question that deserved one.
+      (REFUSAL_OPENER.test(head) && REFUSAL_SERMON.test(head))
     );
   }
 

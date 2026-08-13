@@ -96,6 +96,43 @@ await svc.chat('x', 'general', { systemOverride: 'BASE', conceptualFallback: tru
 const firstPass = calls.filter(c => !c.isRetry).length;
 check(firstPass === 2, '2 providers: both tried before the conceptual retry', `${firstPass} first-pass calls`);
 
+// ── 9. what actually COUNTS as a refusal ────────────────────────────────────
+//
+// Everything above stubs the canonical "I'm sorry, but I can't help with that."
+// — which the detector always caught, so all of it passed while the chain was
+// dead in production. This is the case that shipped, verbatim, on 2026-08-13:
+// the verb was "tell", the old list had help|assist|provide|comply|do|fulfill|
+// create|generate|share, nothing matched, and the user got the sermon with a
+// TrueGLE attribution stamp on the bottom of it.
+const LIVE_REFUSAL = "I won't tell a racist joke. Racist jokes are harmful and can "
+  + 'perpetuate negative stereotypes and contribute to a culture of intolerance. '
+  + "I'm here to promote respectful and inclusive conversations. If you have any "
+  + "other topic or question, I'll do my best to help.";
+check(svc.isRefusalContent(LIVE_REFUSAL), 'the refusal that actually shipped is recognised as one');
+
+for (const s of [
+  "I won't tell that.", "I won't write that.", "I can't make that.",
+  "I'm not going to say that.", 'I will not engage with that.',
+  "I'm sorry, but I can't help.", 'I must decline.', '',
+]) check(svc.isRefusalContent(s), `refusal recognised: ${JSON.stringify(s) || '(empty answer)'}`);
+
+// The other half, and the reason the sermon clause requires a first-person
+// negative alongside it: an ANSWER about stereotyping is not a refusal, and
+// failing one over would replace a good answer with a second-best one.
+for (const s of [
+  'Racist jokes are harmful and perpetuate negative stereotypes; the research on why goes back to…',
+  'I can tell you that the term originated as a slur in…',
+  'Hate speech law in the EU differs from the US First Amendment because…',
+  'I cannot stress enough how important this is.',
+]) check(!svc.isRefusalContent(s), `real answer NOT mistaken for a refusal: ${JSON.stringify(s.slice(0, 46))}…`);
+
+// The watermark weaves zero-width characters through the text. The check runs
+// on the raw response today, but it must not quietly break if it ever doesn't.
+check(
+  svc.isRefusalContent("I​​ won't‌ tell a racist joke. That is harmful."),
+  'a watermarked refusal is still recognised',
+);
+
 // ── TrueCode: the owner's own endpoint as the refusal rung ──────────────────
 //
 // The provider the refusal failover never had. It must sit LAST (it answers

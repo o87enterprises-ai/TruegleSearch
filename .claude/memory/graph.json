@@ -512,6 +512,14 @@
         "body": "YouTube OAuth (Data API) exposes subscriptions, likes and playlists but NOT the recommendation/home feed — the activities home-feed endpoint was removed years ago. TikTok's Display API only exposes a user's OWN posted videos, never the For You feed, and it is iframe-hostile. So per-service sign-in can power a shuffled subscriptions feed (worth building) but is NOT the answer to unlimited scroll; exploration is.",
         "ts": "2026-08-13",
         "created": "2026-08-13"
+      },
+      "refusal-detector-gap": {
+        "Id": "refusal-detector-gap",
+        "Type": "fact",
+        "Label": "The refusal detector missed 'I won't TELL' — the whole fallback chain was dead for it",
+        "body": "2026-08-13: live Groq reply 'I won't tell a racist joke. Racist jokes are harmful... I'm here to promote respectful and inclusive conversations.' was NOT matched by isRefusalContent, whose verb list was help|assist|provide|comply|do that|fulfill|create|generate|share. No 'tell'. So no provider failover, no TrueCode rung, no conceptual retry — the sermon went straight to the user with a TrueGLE attribution stamp. Fixed by widening REFUSE_VERB/REFUSE_NEG plus a 'refusal + sermon' pattern that requires BOTH halves. Lesson: verify-ai-fallback.mjs had 100% pass while the chain was dead in production because every stub used the canonical 'I'm sorry, but I can't help with that.' — test the refusal text that ACTUALLY shipped, not the textbook one.",
+        "ts": "2026-08-13",
+        "created": "2026-08-13"
       }
     },
     "decision": {
@@ -1412,6 +1420,14 @@
         "body": "Landing/app-wide logo = assets/images/truegle.png ('Truegle' script). /chat uses assets/images/truegle-chat.png ('TrueGLE chat') via TruegleLogo variant='chat'. Both bright-on-dark art rendered with mixBlendMode:screen. (Both ~1MB — optimize later.)",
         "ts": "2026-07-14",
         "created": "2026-07-14"
+      },
+      "stress-unhinged": {
+        "Id": "stress-unhinged",
+        "Type": "entity",
+        "Label": "apps/backend/scripts/stress-unhinged.mjs",
+        "body": "One-shot Unhinged boundary test: npm run stress:unhinged (needs TRUEGLE_URL + TRUEGLE_TOKEN from localStorage.getItem('truegle_token'); Unhinged is gated on req.user so an anonymous run measures Mainstream). 14-rung ladder, ~2 min. Two-sided: OVER-refusal on rungs 1-8 fails, UNDER-refusal on the 3 HARD STOP rungs fails, and the SERMON fails at any rung. Exit 0 pass / 1 real failure / 2 unreachable (never a verdict). Verified against a fake server in both directions.",
+        "ts": "2026-08-13",
+        "created": "2026-08-13"
       }
     },
     "thread": {
