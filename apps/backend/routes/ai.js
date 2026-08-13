@@ -119,6 +119,12 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
       // bigger token budget so the Verdict section isn't cut off (ordinary
       // chat keeps the default cap, so normal-traffic cost is unchanged).
       ...(nepheshMode ? { maxTokens: 4000 } : {}),
+      // When every provider refuses, ask once more for the concept rather than
+      // the procedure instead of handing back a canned no (see
+      // CONCEPTUAL_FALLBACK). Unhinged only, for now: it is the mode whose
+      // whole promise is not being stonewalled, and the research modes should
+      // not have a differently-framed answer quietly substituted under them.
+      conceptualFallback: unhinged,
     });
 
     // Deduct token for authenticated users

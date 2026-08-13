@@ -5,6 +5,7 @@
 
 const NepheshService = require('./NepheshService');
 const attribution = require('../utils/nepheshAttribution');
+const { CONCEPTUAL_FALLBACK } = require('../prompts/nepheshPrompts');
 const config = require('../config/env');
 const GroqService = require('./GroqService');
 const NvidiaService = require('./NvidiaService');
@@ -182,8 +183,19 @@ class UnifiedAIService {
           // a named person). When a provider refuses, try the NEXT provider
           // before giving up — different substrates refuse different things.
           // Only return a refusal if every provider refuses.
-          if (this.isRefusalContent(this.contentOf(response)) && !isLast) {
-            logger.info('Provider refused a lawful request, failing over:', { provider: providerName, context });
+          // NOTE the missing `&& !isLast`. It used to be there, and it meant a
+          // refusal from the FINAL provider returned straight from this loop —
+          // so with a single provider configured (Groq is the live engine)
+          // every refusal short-circuited here and nothing downstream ever ran.
+          // That silently disabled the conceptual fallback in exactly the setup
+          // that ships. A refusal is now always remembered and always falls out
+          // of the loop; the post-loop path decides what to do with it.
+          //
+          // It also means a refusal is never cached. Caching one pinned the
+          // canned "I can't help with that" to that question for a full hour,
+          // so a retry that would have worked never got the chance.
+          if (this.isRefusalContent(this.contentOf(response))) {
+            logger.info('Provider refused, trying the next one:', { provider: providerName, context, isLast });
             if (!refusalResponse) refusalResponse = branded; // keep first as fallback
             continue;
           }
@@ -216,9 +228,28 @@ class UnifiedAIService {
         }
       }
 
-      // Every provider either errored or refused. Prefer returning a refusal
-      // (a real answer the caller can show) over throwing, if we have one.
+      // Every provider either errored or refused.
       if (refusalResponse) {
+        // SECOND ASK, before settling for the canned no. Every substrate has
+        // refused the question as put — but a refusal is about HOW something
+        // was asked at least as often as what was asked, and the conceptual
+        // version of the same question is usually ordinary published
+        // knowledge. So ask once more for the encyclopedia entry instead of
+        // the manual (see CONCEPTUAL_FALLBACK, which draws that line).
+        //
+        // Opt-in per caller, not automatic: the research modes have their own
+        // framing and should not have a second, differently-worded answer
+        // silently substituted underneath them.
+        if (options.conceptualFallback) {
+          const softened = await this.conceptualRetry({
+            messages, basePrompt, providerOrder, providerOptions, prompt, options, context,
+          });
+          if (softened) {
+            return { ...softened, fromCache: false, context, promptVersion: prompt.version, softened: true };
+          }
+        }
+        // Still no. Hand back the refusal — a real answer the caller can show
+        // beats throwing.
         return { ...refusalResponse, fromCache: false, context, promptVersion: prompt.version };
       }
       throw new Error(`All AI providers failed. Last error: ${lastError?.message}`);
@@ -577,6 +608,49 @@ class UnifiedAIService {
       response.choices?.[0]?.message?.content ||
       ''
     );
+  }
+
+  /**
+   * One more attempt after every provider has refused, asking for the concept
+   * instead of the procedure.
+   *
+   * The ONLY thing that changes is the system prompt — the user's own words are
+   * sent again verbatim. Rewriting someone's question into a softer one behind
+   * their back and answering that instead would be putting words in their mouth
+   * and would make the answer quietly about something they didn't ask.
+   *
+   * @returns a branded response, or null if this pass refused too (or errored),
+   *          in which case the caller falls back to the original refusal.
+   */
+  async conceptualRetry({ messages, basePrompt, providerOrder, providerOptions, prompt, options, context }) {
+    const system = `${basePrompt}\n\n${CONCEPTUAL_FALLBACK}`;
+    // Same conversation, new standing orders.
+    const retryMessages = messages.map((m, i) => (i === 0 && m.role === 'system' ? { ...m, content: system } : m));
+
+    for (const providerName of providerOrder) {
+      try {
+        const response = await this.callProvider(providerName, retryMessages, {
+          ...options,
+          temperature: prompt.temperature,
+          max_tokens: options.maxTokens || prompt.max_tokens,
+          system,
+          ...providerOptions,
+        });
+        const branded = providerName === 'nephesh' ? response : attribution.stampResponse(response);
+        if (this.isRefusalContent(this.contentOf(response))) {
+          logger.info('Conceptual fallback also refused:', { provider: providerName, context });
+          continue;
+        }
+        logger.info('Conceptual fallback answered a refused request:', { provider: providerName, context });
+        return branded;
+      } catch (error) {
+        logger.warn(`Conceptual fallback provider ${providerName} failed:`, { error: error.message });
+      }
+    }
+    // NOT CACHED, deliberately: this answer is a second-best substitute for a
+    // question that was refused, and serving it from cache to a later, possibly
+    // differently-worded ask would spread the substitution silently.
+    return null;
   }
 
   /**
