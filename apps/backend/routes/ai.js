@@ -52,7 +52,7 @@ logger.info('✅ Unified AI services initialized: OpenRouter + OpenAI + Anthropi
  * @route   POST /api/ai/chat
  * @desc    Get AI response for a user query with context-aware prompts
  * @access  Private (requires authentication)
- * @body    { message: string, context?: string, nepheshMode?: boolean, verbose?: boolean, options?: object }
+ * @body    { message: string, context?: string, nepheshMode?: boolean, verbose?: boolean, unhinged?: boolean, options?: object }
  */
 // Mode-specific system prompts (versioned, shared with the self-hosted
 // Nephesh model) — see prompts/nepheshPrompts.js for the source of truth.
@@ -62,7 +62,16 @@ const { getModePrompt } = require('../prompts/nepheshPrompts');
 
 router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
   try {
-    const { message, context = 'general', modes, nepheshMode = false, verbose = false, history = [], options = {}, image, searchResults } = req.body;
+    const { message, context = 'general', modes, nepheshMode = false, verbose = false, unhinged: unhingedReq = false, history = [], options = {}, image, searchResults } = req.body;
+
+    // UNHINGED IS GATED SERVER-SIDE. The client hides the control behind a
+    // signed-in account with Safe Search off, but a flag posted from a browser
+    // is a suggestion, not a fact — anyone can send `unhinged: true` with curl.
+    // Signing in here means the passwordless email-code flow, i.e. proven
+    // control of an inbox, which is the same bar Safe Search "off" is held to
+    // (see SettingsContext.canDisableSafeSearch and search.js's identical
+    // downgrade of safeSearch for anonymous callers).
+    const unhinged = !!unhingedReq && !!req.user;
 
     // An attached image is a valid turn on its own ("what does this say?") —
     // only require non-empty text when there's no image to fall back on.
@@ -98,7 +107,7 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
     // and verbosity layered on per the caller's toggles. When the user
     // multi-selected flows, blend them; otherwise use the single context.
     const promptTarget = Array.isArray(modes) && modes.length > 1 ? modes : context;
-    const systemOverride = getModePrompt(promptTarget, { nepheshMode, verbose });
+    const systemOverride = getModePrompt(promptTarget, { nepheshMode, verbose, unhinged });
     const response = await aiClient.chat(message || '', context, {
       ...options,
       userName: isAuthed ? (user.name || 'User') : 'Guest',

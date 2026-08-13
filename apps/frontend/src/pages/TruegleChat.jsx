@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2, X, Copy, Pencil, Check, Plus } from 'lucide-react';
+import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2, X, Copy, Pencil, Check, Plus, Flame, Lock } from 'lucide-react';
 import LandingBackground from '../components/LandingBackground';
 import VoiceRecognition from '../components/ui/VoiceRecognition';
 import CameraInput from '../components/ui/CameraInput';
@@ -10,6 +10,8 @@ import FileInput from '../components/ui/FileInput';
 import CursorGlow from '../components/ui/CursorGlow';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import api, { aiAPI, shareAPI } from '../services/api';
+import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 import { FREE_ACCESS_MODE } from '../config/access';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent, solidTextClass } from '../config/modeTheme';
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
@@ -333,7 +335,41 @@ export default function TruegleChat() {
   // background tint, citation sourcing, and OSINT routing.
   const [modes, setModes] = useState(loadModes);
   const primaryMode = modes[0] || 'blue';
-  const [nepheshMode, setNepheshMode] = useState(() => localStorage.getItem('truegle_nephesh_mode') === 'true');
+  // UNHINGED replaces the old "vs. TrueGLE" toggle here. The Null-Prime audit
+  // still has its own toggle on the search page (UniversalSearch) — it belongs
+  // with contested search results far more than with a chat register.
+  //
+  // Gated exactly like Safe Search "off", because it unlocks the same class of
+  // content: a signed-in account (the passwordless email-code flow proves
+  // control of an inbox) AND Safe Search actually switched off. The backend
+  // re-checks the session, so this is UI, not security.
+  const { settings } = useSettings();
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const unhingedAllowed = isAuthenticated && settings.safeSearch === 'off';
+  const [unhinged, setUnhinged] = useState(() => localStorage.getItem('truegle_unhinged_mode') === 'true');
+  // The gate can close underneath a stored preference — sign out, or turn Safe
+  // Search back on — and a mode that stayed on through that would be the same
+  // stale-localStorage hole SettingsContext already closes for safeSearch.
+  //
+  // WAIT FOR AUTH FIRST. isAuthenticated is false until the session check comes
+  // back, so without this guard every reload switched the mode off before it
+  // had been established whether the user was signed in — the preference never
+  // survived a refresh. SettingsContext guards its own safeSearch snap-back the
+  // same way, for the same reason.
+  useEffect(() => {
+    if (authLoading) return;
+    if (unhinged && !unhingedAllowed) setUnhinged(false);
+  }, [authLoading, unhinged, unhingedAllowed]);
+  useEffect(() => { localStorage.setItem('truegle_unhinged_mode', String(unhinged)); }, [unhinged]);
+
+  const toggleUnhinged = () => {
+    if (unhingedAllowed) { setUnhinged((v) => !v); return; }
+    // Same modal, same flow as Safe Search — it just needs to know which of the
+    // two gates stopped you, or a signed-in user gets sent to a login page.
+    window.dispatchEvent(new CustomEvent('truegle:safesearch-locked', {
+      detail: { reason: isAuthenticated ? 'safesearch' : 'signin', feature: 'Unhinged mode' },
+    }));
+  };
   // Pill mode (search selector) — sits at the top, below the logo, exactly like
   // the landing page. Defaults to 'black' (Chat) on every /chat load: you're on
   // the chat page, so you chat by default and only leave to a /search page by
@@ -385,7 +421,6 @@ export default function TruegleChat() {
     localStorage.setItem('truegle_modes_pref', JSON.stringify(modes));
     localStorage.setItem('truegle_mode_pref', primaryMode); // keep single-key in sync for the search pages
   }, [modes, primaryMode]);
-  useEffect(() => { localStorage.setItem('truegle_nephesh_mode', String(nepheshMode)); }, [nepheshMode]);
   // While sending (user's turn just appended, reply pending) scroll to the
   // bottom so the sent message + typing indicator are visible, same as any
   // chat app. Once the ANSWER lands, though, land on its BEGINNING instead of
@@ -538,7 +573,7 @@ export default function TruegleChat() {
       if (!aborted) {
         try {
           const chatRes = await aiAPI.chat(query, {
-            context: MODE_TO_CONTEXT[primaryMode], modes, nepheshMode, verbose, history,
+            context: MODE_TO_CONTEXT[primaryMode], modes, unhinged, verbose, history,
             image: image?.dataUrl, searchResults,
           }, { signal: controller.signal });
           content = extractContent(chatRes);
@@ -625,18 +660,33 @@ export default function TruegleChat() {
           );
         })}
 
-        {/* TrueGLE vs (Null-Prime dual-audit) — lives with the chat modes now. */}
+        {/* UNHINGED — replaced "vs. TrueGLE" here (the Null-Prime audit kept its
+            own toggle on the search page, where contested claims actually live).
+            Shows a padlock until BOTH gates are open, and says which one is
+            shut rather than just refusing to light up. */}
         <button
           type="button"
-          onClick={() => setNepheshMode((v) => !v)}
-          title="TrueGLE vs: layer the Null-Prime dual-audit protocol onto contested claims"
-          aria-pressed={nepheshMode}
+          onClick={toggleUnhinged}
+          title={
+            unhingedAllowed
+              ? 'Unhinged: off the record — crude, sweary, no lectures'
+              : isAuthenticated
+                ? 'Unhinged is locked — turn Safe Search off in Settings'
+                : 'Unhinged is locked — sign in, then turn Safe Search off'
+          }
+          aria-pressed={unhinged}
           className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
-            nepheshMode ? 'bg-cyan-400 border-cyan-400 text-neutral-900' : 'bg-white/5 border-white/10 text-white/40 hover:text-white/60'
+            unhinged
+              ? 'bg-rose-500 border-rose-500 text-white'
+              : unhingedAllowed
+                ? 'bg-white/5 border-white/10 text-white/40 hover:text-white/60'
+                : 'bg-white/5 border-white/10 text-white/25 hover:text-white/45'
           }`}
         >
-          <span className={`w-1.5 h-1.5 rounded-full ${nepheshMode ? 'bg-neutral-900' : 'bg-white/20'}`} />
-          vs. TrueGLE
+          {unhingedAllowed
+            ? <Flame size={11} className={unhinged ? 'text-white' : ''} />
+            : <Lock size={11} />}
+          Unhinged
         </button>
 
         {/* Modes tutorial — explains the lenses; lives with them at the bottom. */}

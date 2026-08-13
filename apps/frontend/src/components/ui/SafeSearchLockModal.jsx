@@ -4,29 +4,54 @@ import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, X } from 'lucide-react';
 
 /*
- * Explains why Safe Search "Off" was blocked and offers the one way to
- * unlock it: signing in. Opens when SettingsContext.updateSetting rejects a
- * safeSearch:'off' change (dispatches 'truegle:safesearch-locked').
+ * The one place a blocked adult-content gate is explained, and the one place it
+ * offers the way out.
  *
- * A verified sign-in is used as a lightweight age-verification signal — it's
- * not a real age check, but it raises the bar above a single click for a
- * child to disable content filtering.
+ * Opened by dispatching 'truegle:safesearch-locked'. The event may carry a
+ * detail describing WHICH gate stopped you, because there are two of them and
+ * they need different exits:
+ *
+ *   { reason: 'signin' }      you are not signed in — the original case, fired
+ *                             by SettingsContext.updateSetting when a
+ *                             safeSearch:'off' change is rejected.
+ *   { reason: 'safesearch' }  you ARE signed in, but Safe Search is still on.
+ *                             Sending you to /auth/login here would be a dead
+ *                             end: you are already logged in, so the button
+ *                             would appear to do nothing.
+ *
+ * `feature` names what you were trying to reach, so the copy says "Unhinged
+ * mode" rather than something generic. No detail at all = the old behaviour.
+ *
+ * A verified sign-in is used as a lightweight age-verification signal — it is
+ * not a real age check, but the passwordless code flow proves control of an
+ * email inbox, which raises the bar above a single click for a child.
  */
 export default function SafeSearchLockModal() {
   const [open, setOpen] = useState(false);
+  const [detail, setDetail] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
-    const handler = () => setOpen(true);
+    const handler = (e) => {
+      setDetail(e?.detail || {});
+      setOpen(true);
+    };
     window.addEventListener('truegle:safesearch-locked', handler);
     return () => window.removeEventListener('truegle:safesearch-locked', handler);
   }, []);
 
   const close = () => setOpen(false);
 
-  const goToSignIn = () => {
+  const needsSafeSearch = detail.reason === 'safesearch';
+  const feature = detail.feature || 'Safe Search "Off"';
+
+  const act = () => {
     close();
-    navigate('/auth/login', { state: { redirectTo: '/settings' } });
+    // Already signed in and only the setting is in the way: go straight to the
+    // setting. Otherwise the sign-in comes first and lands on settings after.
+    navigate(needsSafeSearch ? '/settings' : '/auth/login', {
+      state: needsSafeSearch ? undefined : { redirectTo: '/settings' },
+    });
   };
 
   return (
@@ -49,18 +74,20 @@ export default function SafeSearchLockModal() {
               <button onClick={close} className="text-white/50 hover:text-white p-1"><X size={20} /></button>
             </div>
 
-            <h2 className="text-lg font-bold text-white mb-2">Safe Search "Off" is locked</h2>
+            <h2 className="text-lg font-bold text-white mb-2">
+              {needsSafeSearch ? `${feature} needs Safe Search off` : `${feature} is locked`}
+            </h2>
             <p className="text-sm text-white/70 mb-5">
-              Turning off content filtering requires signing in first. It's a
-              quick way for us to keep this setting out of children's hands —
-              please sign in to continue.
+              {needsSafeSearch
+                ? 'You’re signed in — the last step is turning Safe Search off in Settings. It stays off until you turn it back on.'
+                : 'Turning off content filtering requires signing in first. It’s a quick way for us to keep this setting out of children’s hands — please sign in to continue.'}
             </p>
 
             <button
-              onClick={goToSignIn}
+              onClick={act}
               className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold hover:opacity-90 transition-all"
             >
-              Sign In
+              {needsSafeSearch ? 'Open Settings' : 'Sign In'}
             </button>
 
             <button

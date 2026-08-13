@@ -132,6 +132,9 @@ const aiAPI = {
       // directly off req.body, not off the nested options object.
       nepheshMode: !!options.nepheshMode,
       verbose: !!options.verbose,
+      // Off-the-record chat register. Re-checked against the session on the
+      // backend (routes/ai.js) — sending it is a request, not a grant.
+      unhinged: !!options.unhinged,
       // Multi-select: array of context keys to blend into one answer. Backend
       // uses it only when 2+ are present; single-mode still uses `context`.
       modes: Array.isArray(options.modes) ? options.modes : undefined,
