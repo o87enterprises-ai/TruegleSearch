@@ -21,7 +21,9 @@ const RE = {
   ip: /^(\d{1,3}\.){3}\d{1,3}$/,
   email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   username: /^[a-z0-9_.-]{2,39}$/i,
-  phone: /^\+?[\d][\d\s().-]{6,}$/,
+  // Leading '(' allowed: '(541) 623-0460' is how people actually write it,
+  // and requiring a digit first rejected it outright as 'invalid phone'.
+  phone: /^\+?[\d(][\d\s().-]{6,}$/,
 };
 
 async function whois(domain) {
@@ -96,11 +98,102 @@ async function emailIntel(email) {
   return result;
 }
 
+/**
+ * Gravatar PROFILE, not just the avatar.
+ *
+ * emailIntel already asks whether an avatar exists, which answers "is this
+ * address attached to something" and nothing else. The profile endpoint keyed
+ * on the same md5 hash is the actual find: a display name, a location, a bio,
+ * and — most useful of all — the list of OTHER accounts the owner has linked
+ * to it themselves. Keyless, server-friendly, and entirely self-published by
+ * the account holder, which is exactly the kind of source this toolkit is for.
+ */
+async function gravatarProfile(email) {
+  if (!RE.email.test(email)) return { ok: false, error: 'invalid email' };
+  const hash = crypto.createHash('md5').update(String(email).trim().toLowerCase()).digest('hex');
+  try {
+    const res = await get(`https://gravatar.com/${hash}.json`, { validateStatus: () => true, timeout: 7000 });
+    const entry = res.status === 200 && Array.isArray(res.data?.entry) ? res.data.entry[0] : null;
+    if (!entry) return { ok: true, found: false };
+    return {
+      ok: true,
+      found: true,
+      profileUrl: entry.profileUrl || `https://gravatar.com/${hash}`,
+      displayName: entry.displayName || entry.preferredUsername || null,
+      name: entry.name?.formatted || null,
+      location: entry.currentLocation || null,
+      aboutMe: entry.aboutMe || null,
+      // Self-linked accounts: platform + handle + URL, straight from the owner.
+      accounts: (entry.accounts || []).map((a) => ({
+        platform: a.domain || a.shortname || null,
+        username: a.username || a.display || null,
+        url: a.url || null,
+      })).filter((a) => a.url || a.username),
+      urls: (entry.urls || []).map((u) => u.value).filter(Boolean),
+    };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+/**
+ * Public commits carry the author's email, and GitHub indexes that — so an
+ * address can resolve straight to an account. Keyless (60 requests/hour
+ * unauthenticated, which is plenty behind the investigation cache).
+ */
+async function githubByEmail(email) {
+  if (!RE.email.test(email)) return { ok: false, error: 'invalid email' };
+  try {
+    const res = await get('https://api.github.com/search/users', {
+      params: { q: `${email} in:email` },
+      headers: { Accept: 'application/vnd.github+json' },
+      validateStatus: () => true,
+      timeout: 7000,
+    });
+    if (res.status === 403) return { ok: false, error: 'rate limited' };
+    if (res.status !== 200) return { ok: false, error: `http ${res.status}` };
+    const items = Array.isArray(res.data?.items) ? res.data.items : [];
+    return {
+      ok: true,
+      found: items.length > 0,
+      users: items.slice(0, 5).map((u) => ({ login: u.login, profile: u.html_url, avatar: u.avatar_url })),
+    };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+/**
+ * Normalise whatever the user typed into something libphonenumber can parse.
+ *
+ * THE BUG THIS FIXES: this was called with no `country`, and libphonenumber
+ * cannot parse a bare national number without one — it throws INVALID_COUNTRY.
+ * Every plain US number a user typed ("5416230460", "(541) 623-0460") came back
+ * valid:false, the debrief printed "Not a valid number" about a real, working
+ * phone, and the model went on to infer the user had given false details.
+ * "I could not tell which country this belongs to" is not "this number is fake",
+ * and reporting one as the other is worse than reporting nothing.
+ *
+ * So: digits are extracted (dropping stray brackets the entity matcher leaves
+ * behind), and a 10-digit or 1+10-digit number is treated as North American —
+ * which is what a bare number in that shape overwhelmingly is. Anything with an
+ * explicit + is left exactly as written.
+ */
+function normalizePhone(raw, country) {
+  const s = String(raw || '').trim();
+  if (s.startsWith('+')) return { input: s, region: country ? String(country).toUpperCase() : undefined };
+  const digits = s.replace(/\D/g, '');
+  if (digits.length === 10) return { input: `+1${digits}`, region: undefined, assumedRegion: 'US' };
+  if (digits.length === 11 && digits.startsWith('1')) return { input: `+${digits}`, region: undefined, assumedRegion: 'US' };
+  return { input: s, region: country ? String(country).toUpperCase() : 'US', assumedRegion: country ? undefined : 'US' };
+}
+
 function phoneIntel(phone, country) {
   if (!RE.phone.test(String(phone || '').trim())) return { ok: false, error: 'invalid phone' };
   try {
     const { parsePhoneNumberWithError } = require('libphonenumber-js/max');
-    const parsed = parsePhoneNumberWithError(String(phone).trim(), country ? String(country).toUpperCase() : undefined);
+    const norm = normalizePhone(phone, country);
+    const parsed = parsePhoneNumberWithError(norm.input, norm.region);
     const regionNames = typeof Intl !== 'undefined' && Intl.DisplayNames ? new Intl.DisplayNames(['en'], { type: 'region' }) : null;
     return {
       ok: true,
@@ -110,9 +203,14 @@ function phoneIntel(phone, country) {
       countryName: parsed.country && regionNames ? regionNames.of(parsed.country) : null,
       callingCode: parsed.countryCallingCode ? `+${parsed.countryCallingCode}` : null,
       formats: { e164: parsed.number, international: parsed.formatInternational() },
+      // Surfaced so a report can say "assumed US" rather than pretending the
+      // country was stated.
+      assumedRegion: norm.assumedRegion || null,
     };
   } catch (e) {
-    return { ok: true, valid: false, reason: e.message || 'could not parse' };
+    // NOT `valid: false`. A parse failure means we could not tell, and saying
+    // "invalid" here is what put a false accusation in front of a user.
+    return { ok: true, valid: null, parsed: false, reason: e.message || 'could not parse' };
   }
 }
 
@@ -137,11 +235,36 @@ async function certTransparency(domain) {
 }
 
 // Live username presence check across platforms with clean 200/404 semantics.
+// Sites a SERVER can actually ask. That is the whole selection criterion, and
+// it is why this list looks nothing like a published OSINT bookmark dump: most
+// of the well-known handle checkers are browser-only apps, want their own API
+// key, or block datacenter IPs outright, so wrapping them would produce a
+// toolbelt that mostly returns errors (see OsintToolbelt's header).
+//
+// It used to be four developer sites, which is why an ordinary person's handle
+// came back with nothing at all — the tool was only capable of finding
+// programmers. These are keyless, answer from a datacenter, and give a clean
+// exists/does-not signal.
+//
+// `json` lets a platform judge its own 200: several return HTTP 200 with a
+// null or empty body for a handle that does not exist, and counting that as a
+// hit is how these checkers end up claiming every account on earth.
 const USERNAME_PLATFORMS = [
   { platform: 'GitHub', url: (u) => `https://api.github.com/users/${u}`, profile: (u) => `https://github.com/${u}` },
   { platform: 'Reddit', url: (u) => `https://www.reddit.com/user/${u}/about.json`, profile: (u) => `https://www.reddit.com/user/${u}` },
   { platform: 'GitLab', url: (u) => `https://gitlab.com/api/v4/users?username=${u}`, profile: (u) => `https://gitlab.com/${u}`, isArray: true },
   { platform: 'Dev.to', url: (u) => `https://dev.to/api/users/by_username?url=${u}`, profile: (u) => `https://dev.to/${u}` },
+  // Firebase returns 200 + literal `null` for an unknown user.
+  { platform: 'Hacker News', url: (u) => `https://hacker-news.firebaseio.com/v0/user/${u}.json`, profile: (u) => `https://news.ycombinator.com/user?id=${u}`, json: (d) => d && typeof d === 'object' },
+  { platform: 'Keybase', url: (u) => `https://keybase.io/_/api/1.0/user/lookup.json?username=${u}`, profile: (u) => `https://keybase.io/${u}`, json: (d) => d?.status?.code === 0 && !!d.them },
+  { platform: 'Chess.com', url: (u) => `https://api.chess.com/pub/player/${u}`, profile: (u) => `https://www.chess.com/member/${u}` },
+  { platform: 'Lichess', url: (u) => `https://lichess.org/api/user/${u}`, profile: (u) => `https://lichess.org/@/${u}`, json: (d) => !!d?.id },
+  { platform: 'npm', url: (u) => `https://registry.npmjs.org/-/user/org.couchdb.user:${u}`, profile: (u) => `https://www.npmjs.com/~${u}` },
+  { platform: 'PyPI', url: (u) => `https://pypi.org/user/${u}/`, profile: (u) => `https://pypi.org/user/${u}/` },
+  { platform: 'Codeberg', url: (u) => `https://codeberg.org/api/v1/users/${u}`, profile: (u) => `https://codeberg.org/${u}` },
+  { platform: 'Gravatar', url: (u) => `https://gravatar.com/${u}.json`, profile: (u) => `https://gravatar.com/${u}`, json: (d) => Array.isArray(d?.entry) && d.entry.length > 0 },
+  { platform: 'Wikipedia', url: (u) => `https://en.wikipedia.org/w/api.php?action=query&list=users&ususers=${u}&format=json`, profile: (u) => `https://en.wikipedia.org/wiki/User:${u}`, json: (d) => !!d?.query?.users?.[0]?.userid },
+  { platform: 'Mastodon (mastodon.social)', url: (u) => `https://mastodon.social/api/v1/accounts/lookup?acct=${u}`, profile: (u) => `https://mastodon.social/@${u}`, json: (d) => !!d?.id },
 ];
 
 async function usernameCheck(username) {
@@ -153,6 +276,7 @@ async function usernameCheck(username) {
         const res = await get(p.url(u), { validateStatus: () => true, timeout: 7000 });
         let found = res.status === 200;
         if (found && p.isArray) found = Array.isArray(res.data) && res.data.length > 0;
+        if (found && p.json) found = !!p.json(res.data);
         return { platform: p.platform, found, profile: found ? p.profile(username) : null };
       } catch {
         return { platform: p.platform, found: null, profile: null }; // null = check failed
@@ -256,7 +380,10 @@ module.exports = {
   dns,
   ipGeo,
   emailIntel,
+  gravatarProfile,
+  githubByEmail,
   phoneIntel,
+  normalizePhone,
   certTransparency,
   usernameCheck,
   wayback,

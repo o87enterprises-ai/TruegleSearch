@@ -20,6 +20,12 @@ const logger = require('../utils/logger');
 
 // Pull distinct OSINT entities out of a free-text query. Order matters: email
 // before domain (an email contains a domain), so we strip matched emails first.
+// Punctuation that can sit against an entity in ordinary prose but is never
+// part of it. Applied to every extracted value, because the same class of bug
+// (a captured comma) turns a real address into a fake one and a real name into
+// ", Odin ...".
+const trimEdges = (v) => String(v || '').replace(/^[\s,;:.'"“”‘’()[\]<>]+/, '').replace(/[\s,;:.'"“”‘’()[\]<>]+$/, '');
+
 function detectEntities(query) {
   const q = String(query || '');
   const entities = [];
@@ -28,8 +34,16 @@ function detectEntities(query) {
   let rest = q;
 
   // Emails
-  (rest.match(/[^\s@]+@[^\s@]+\.[^\s@]+/g) || []).forEach((m) => {
-    if (L.RE.email.test(m)) { add('email', m); rest = rest.replace(m, ' '); }
+  //
+  // TRAILING PUNCTUATION IS NOT PART OF THE ADDRESS. `[^\s@]+` happily eats the
+  // comma in "me@gmail.com, 555-1234", which produced the address
+  // "me@gmail.com," — whose DOMAIN is then "gmail.com,", which naturally has no
+  // MX record. The debrief duly reported "No MX" for a Gmail address, and the
+  // model went on to infer the user had supplied false contact details. A
+  // stray comma became an accusation, so trim the edges before validating.
+  (rest.match(/[^\s@]+@[^\s@]+\.[^\s@]+/g) || []).forEach((raw) => {
+    const m = trimEdges(raw);
+    if (L.RE.email.test(m)) { add('email', m); rest = rest.replace(raw, ' '); }
   });
   // IPv4
   (rest.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) || []).forEach((m) => {
@@ -46,7 +60,7 @@ function detectEntities(query) {
   (rest.match(/(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b|\+\d[\d\s().-]{6,}\d/g) || []).forEach((m) => {
     const d = m.replace(/\D/g, '');
     if (d.length === 10 || (d.length === 11 && d.startsWith('1')) || (m.trim().startsWith('+') && d.length >= 8)) {
-      add('phone', m.trim());
+      add('phone', trimEdges(m));
       rest = rest.replace(m, ' ');
     }
   });
@@ -64,7 +78,12 @@ function detectEntities(query) {
   // (the classic people-search context). This keeps "New York Times" etc. from
   // being treated as a person. Public-records people-search is a lawful task.
   const personEntity = detectPerson(q);
-  if (personEntity) add('person', personEntity.name, personEntity);
+  if (personEntity) {
+    const name = trimEdges(personEntity.name);
+    // A name that trims to nothing (or to a single stray letter) was never a
+    // name — it was punctuation the matcher grabbed.
+    if (name.length >= 3) add('person', name, { ...personEntity, name });
+  }
 
   return entities;
 
@@ -157,7 +176,31 @@ async function gather(entities) {
         } else if (ent.type === 'ip') {
           f.data = { ipGeo: await L.ipGeo(ent.value) };
         } else if (ent.type === 'email') {
-          f.data = { emailIntel: await L.emailIntel(ent.value) };
+          // THE LOCAL PART IS A USERNAME. This is the single biggest gap the
+          // toolkit had: an address ran one deliverability check and stopped,
+          // so "therealduckyduck@gmail.com" produced a yes/no about MX records
+          // and nothing a person would call a finding — while the handle sat
+          // right there in front of the @, unchecked, on a dozen sites that
+          // answer for free.
+          //
+          // Gravatar's profile and GitHub's commit-email index are the other
+          // two that a server can genuinely ask. Everything settles
+          // independently so one rate-limit cannot empty the section.
+          const localPart = String(ent.value).split('@')[0];
+          const [intel, grav, gh, handles] = await Promise.all([
+            L.emailIntel(ent.value),
+            L.gravatarProfile(ent.value),
+            L.githubByEmail(ent.value),
+            L.RE.username.test(localPart) ? L.usernameCheck(localPart) : Promise.resolve(null),
+          ]);
+          f.data = {
+            emailIntel: intel,
+            gravatar: grav,
+            githubByEmail: gh,
+            // Labelled as DERIVED so a report never implies the user told us
+            // this handle — it was inferred from the address.
+            usernameCheck: handles ? { ...handles, derivedFrom: 'email local-part', username: localPart } : null,
+          };
         } else if (ent.type === 'phone') {
           f.data = { phoneIntel: L.phoneIntel(ent.value), phoneSearch: L.phoneSearchLinks(ent.value) };
         } else if (ent.type === 'username') {
@@ -185,6 +228,11 @@ function extractArtifacts(findings) {
     if (d.wayback?.archived) push('Wayback snapshot', d.wayback.snapshot);
     (d.usernameCheck?.results || []).filter((r) => r.found && r.profile).forEach((r) => push(`${r.platform} profile`, r.profile));
     if (d.emailIntel?.gravatarUrl) push('Gravatar avatar', d.emailIntel.gravatarUrl);
+    // Self-published profile + the accounts its owner linked to it.
+    if (d.gravatar?.found) push('Gravatar profile', d.gravatar.profileUrl);
+    (d.gravatar?.accounts || []).forEach((a) => push(`${a.platform || 'linked'} (via Gravatar)`, a.url));
+    (d.gravatar?.urls || []).forEach((u) => push('Site listed on Gravatar profile', u));
+    (d.githubByEmail?.users || []).forEach((u) => push(`GitHub: ${u.login}`, u.profile));
     // Public people-search / reverse-phone directory deep links.
     (d.peopleSearch?.links || []).forEach((l) => push(l.name, l.url));
     (d.phoneSearch?.links || []).forEach((l) => push(l.name, l.url));

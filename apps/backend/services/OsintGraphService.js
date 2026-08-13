@@ -126,6 +126,12 @@ function artifactsFor(entityId, data, add) {
   (data.usernameCheck?.results || []).filter((r) => r.found && r.profile).forEach((r) =>
     add(entityId, r.profile, `${r.platform}`, 'profile', 'profile_on'));
   // person / phone — public directory deep links
+  // Gravatar is a person's own profile, so its linked accounts are asserted by
+  // the subject rather than guessed by us — worth their own edge label.
+  if (data.gravatar?.found) add(entityId, data.gravatar.profileUrl, 'Gravatar profile', 'profile', 'has_profile');
+  (data.gravatar?.accounts || []).forEach((a) => add(entityId, a.url, `${a.platform || 'linked account'}${a.username ? ` (${a.username})` : ''}`, 'profile', 'self_linked'));
+  (data.gravatar?.urls || []).forEach((u) => add(entityId, u, 'Site on Gravatar profile', 'site', 'self_linked'));
+  (data.githubByEmail?.users || []).forEach((u) => add(entityId, u.profile, `GitHub: ${u.login}`, 'profile', 'commits_as'));
   (data.peopleSearch?.links || []).forEach((l) => add(entityId, l.url, l.name, 'directory', 'listed_in'));
   (data.phoneSearch?.links || []).forEach((l) => add(entityId, l.url, l.name, 'directory', 'listed_in'));
 }

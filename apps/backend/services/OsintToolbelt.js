@@ -83,27 +83,70 @@ const RENDER = {
     ].filter(Boolean);
   },
 
+  // NOTE the field names. This block used to read e.valid / e.mx / e.disposable
+  // / e.freeProvider — none of which emailIntel has ever returned. Every line
+  // evaluated to undefined and was filtered out, so an email rendered a single
+  // "Mail domain:" line and the section looked empty. Field names here must
+  // match OsintLookups.emailIntel's actual shape: mxFound, mxRecords,
+  // gravatarExists, localPart, domain.
   email(d) {
+    const out = [];
     const e = d.emailIntel;
-    if (!e?.ok) return e ? [`Email check failed: ${trim(e.error, 80)}`] : [];
-    return [
-      e.valid !== undefined && `Address is syntactically valid: ${e.valid ? 'yes' : 'no'}`,
-      e.mx !== undefined && `Domain accepts mail (MX present): ${e.mx ? 'yes' : 'no'}`,
-      e.disposable !== undefined && `Disposable provider: ${e.disposable ? 'yes' : 'no'}`,
-      e.freeProvider !== undefined && `Free provider: ${e.freeProvider ? 'yes' : 'no'}`,
-      e.domain && `Mail domain: ${e.domain}`,
-    ].filter(Boolean);
+    if (e?.ok) {
+      out.push(`Mail domain: ${e.domain}`);
+      out.push(`Domain accepts mail (MX present): ${e.mxFound ? 'yes' : 'no'}`);
+      if (e.mxRecords?.length) out.push(`MX hosts: ${e.mxRecords.slice(0, 3).join(', ')}`);
+      if (e.gravatarExists) out.push(`Gravatar avatar exists for this address: yes`);
+    } else if (e) out.push(`Email check failed: ${trim(e.error, 80)}`);
+
+    // Self-published profile data — the owner linked these themselves.
+    const g = d.gravatar;
+    if (g?.ok && g.found) {
+      out.push(`Gravatar profile: ${g.profileUrl}`);
+      if (g.displayName) out.push(`Gravatar display name: ${g.displayName}`);
+      if (g.name) out.push(`Gravatar real name: ${g.name}`);
+      if (g.location) out.push(`Gravatar location: ${g.location}`);
+      if (g.aboutMe) out.push(`Gravatar bio: ${trim(g.aboutMe, 160)}`);
+      if (g.accounts?.length) {
+        out.push(`Accounts linked on the Gravatar profile: ${g.accounts.map((a) => `${a.platform || '?'}${a.username ? ` (${a.username})` : ''}`).slice(0, 8).join(', ')}`);
+      }
+      if (g.urls?.length) out.push(`Sites listed on that profile: ${g.urls.slice(0, 5).join(', ')}`);
+    } else if (g?.ok) out.push('Gravatar profile: none for this address');
+
+    const gh = d.githubByEmail;
+    if (gh?.ok && gh.found) {
+      out.push(`GitHub account(s) publishing under this email: ${gh.users.map((u) => u.login).join(', ')}`);
+    } else if (gh?.ok) out.push('GitHub: no account publishes commits under this address');
+
+    // The handle in front of the @, checked across the platform list. Flagged
+    // as derived so the report cannot imply the user supplied it.
+    const u = d.usernameCheck;
+    if (u?.ok) {
+      const hits = (u.results || []).filter((r) => r.found);
+      const checked = (u.results || []).length;
+      out.push(hits.length
+        ? `Handle "${u.username}" (derived from the address) exists on: ${hits.map((r) => r.platform).join(', ')} — of ${checked} sites checked`
+        : `Handle "${u.username}" (derived from the address) was not found on any of the ${checked} sites checked`);
+    }
+    return out;
   },
 
   phone(d) {
     const p = d.phoneIntel;
     if (!p?.ok) return p ? [`Phone parse failed: ${trim(p.error, 80)}`] : [];
+    // valid === null means "could not determine", which is NOT "invalid". The
+    // difference matters: reporting the second when you mean the first is how
+    // a real, working number got written up as fake.
+    const validity = p.valid === true ? 'yes'
+      : p.valid === false ? 'no'
+        : `could not be determined (${trim(p.reason, 60) || 'unparsed'})`;
     return [
-      p.valid !== undefined && `Valid number: ${p.valid ? 'yes' : 'no'}`,
-      p.country && `Country: ${p.country}`,
-      p.type && `Line type: ${p.type}`,
+      `Valid number: ${validity}`,
+      p.countryName && `Country: ${p.countryName}${p.assumedRegion ? ' (assumed — no country code was given)' : ''}`,
+      p.type && p.type !== 'unknown' && `Line type: ${p.type}`,
       p.carrier && `Carrier: ${p.carrier}`,
-      p.e164 && `E.164: ${p.e164}`,
+      p.formats?.e164 && `E.164: ${p.formats.e164}`,
+      p.formats?.international && `International format: ${p.formats.international}`,
     ].filter(Boolean);
   },
 
