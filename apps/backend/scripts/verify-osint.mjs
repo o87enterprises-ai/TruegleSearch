@@ -87,6 +87,37 @@ if (!liveOnly) {
   check(lines.some((l) => /derived from the address/.test(l)),
     '   labels the handle as DERIVED, never as user-supplied');
 
+  // THE PERSON BUG, from the second self-test: the subject's own name was
+  // dropped entirely, so no people-search ran. Two causes, both here.
+  //   · the fallback required EVERY word capitalized, so a lowercase middle
+  //     name ("Odin idesae O'Shea") was not a name;
+  //   · hasContext only accepted a TEN-digit number, so the same phone written
+  //     with its country code ("15416230460") supplied no people-search
+  //     context at all.
+  const PEOPLE = [
+    ["Odin idesae O'Shea, 15416230460, therealduckyduck@gmail.com", "Odin Idesae O'Shea"],
+    ['John Smith 555-123-4567', 'John Smith'],
+    ['look up Maria van der Berg', 'Maria Van Der Berg'],
+    ['Ronald McDonald age 45', 'Ronald McDonald'],
+    ['Jane Doe (541) 623-0460', 'Jane Doe'],
+    ['Peter Parker dob 1995', 'Peter Parker'],
+    ['look up leonardo diCaprio 555-123-4567', 'Leonardo DiCaprio'],
+  ];
+  for (const [q, want] of PEOPLE) {
+    const p = INV.detectEntities(q).find((e) => e.type === 'person');
+    check(p?.value === want, `person detected: ${JSON.stringify(want)}`, p ? JSON.stringify(p.value) : 'none');
+  }
+  // Casing must survive — a mangled name goes straight into the search URLs.
+  check(!/O'shea|Mcdonald|Dicaprio/.test(PEOPLE.map(([q]) => INV.detectEntities(q).find((e) => e.type === 'person')?.value || '').join(' ')),
+    'internal capitals survive (O\'Shea, McDonald, DiCaprio)');
+
+  // And the negatives still hold: an ordinary question is not a person.
+  for (const q of ['Please research magnetic moon', 'What is the New York Times', 'how do I bake bread',
+    'investigate example.com', 'Tell me about quantum computing', 'Compare Python Django to Ruby Rails']) {
+    const p = INV.detectEntities(q).find((e) => e.type === 'person');
+    check(!p, `not a person: ${JSON.stringify(q.slice(0, 34))}`, p ? JSON.stringify(p.value) : '');
+  }
+
   // The pivot has to actually be wired into gather(), not just exist.
   const src = require('node:fs').readFileSync(new URL('../services/OsintInvestigationService.js', import.meta.url), 'utf8');
   check(/usernameCheck\(localPart\)/.test(src), 'gather() pivots the email local-part into username checks');

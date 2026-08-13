@@ -102,11 +102,33 @@ const NAME_STOP = /^(the|a|an|his|her|their|any|some|about|on|for|of|to|and|with
 // "Marcus" must not match "mar"). Digit/`+`-leading tokens are handled separately.
 const CONTEXT_KW = /^(age|years?|approx|approximately|dob|born|lives?|resides?|from|in|phone|feb|jan|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december)$/i;
 const isContextToken = (w) => /^[\d+]/.test(w) || CONTEXT_KW.test(w);
-const TITLE = (s) => s.replace(/\b([a-z])([a-z']*)/gi, (_, a, b) => a.toUpperCase() + b.toLowerCase());
+// Normalise sloppy casing ("william james") without destroying real casing.
+// Lowercasing the tail turned O'Shea into O'shea and McDonald into Mcdonald —
+// which then went out in the people-search URLs, so the searches ran for a
+// spelling of the name that does not exist. A word that already carries an
+// internal capital is left alone; only the first letter is ensured.
+const TITLE = (s) => String(s).split(/(\s+)/).map((w) => {
+  if (!w.trim()) return w;
+  const hasInnerCap = /[A-Z]/.test(w.slice(1));
+  return hasInnerCap
+    ? w.charAt(0).toUpperCase() + w.slice(1)
+    : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+}).join('');
 
 function detectPerson(query) {
   const q = String(query || '');
-  const hasContext = /\b(\d{3}[-.\s]?\d{3}[-.\s]?\d{4}|\d{10}|years?\s+of\s+age|age\s+\d|\bdob\b|d\.o\.b|born|lives?\s+in|resides?\s+in)\b/i.test(q);
+  // "Is this a people-search question?" — the signal that lets a bare name
+  // through without an explicit verb.
+  //
+  // TWO THINGS WERE WRONG HERE, and both silently dropped the subject of the
+  // investigation:
+  //   · the number branch only accepted TEN digits, so "15416230460" — the
+  //     same number written with its country code — matched nothing, and a
+  //     query carrying a name AND a phone number was judged to have no
+  //     people-search context at all.
+  //   · `age\s+\d` was followed by \b, which cannot hold between the two
+  //     digits of "age 45"; it matched only single-digit ages.
+  const hasContext = /(\b\+?1?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b|\byears?\s+of\s+age\b|\bage\s+\d+|\bd\.?o\.?b\b|\bborn\b|\blives?\s+in\b|\bresides?\s+in\b)/i.test(q);
 
   // Anchor the name off an intent phrase when present ("...information about NAME ...").
   const anchored = q.match(/\b(?:about|on|for|of|regarding|named|up)\s+([A-Za-z][A-Za-z'.-]*(?:\s+[A-Za-z][A-Za-z'.-]*){0,4})/i);
@@ -118,12 +140,22 @@ function detectPerson(query) {
     words = anchored[1].split(/\s+/).filter(Boolean);
   }
   if (!words) {
-    // Fallback: a run of at least two CAPITALIZED words (classic "First Last").
-    // Requiring each word to be capitalized is what separates a real name from
-    // an ordinary sentence — e.g. "Please research magnetic moon" starts with a
-    // capital ("Please") but the rest are lowercase common nouns, so it is NOT a
-    // name and must fall through to normal chat rather than a people-search.
-    const cap = q.match(/\b([A-Z][a-z'.-]+(?:\s+[A-Z][a-z'.-]+){1,3})\b/);
+    // Fallback: a name is a run of words that STARTS and ENDS capitalized, with
+    // up to two words of any case between them.
+    //
+    // The bookends are what separate a real name from an ordinary sentence:
+    // "Please research magnetic moon" opens with a capital but never closes on
+    // one, so it is not a name and falls through to normal chat.
+    //
+    // The loose middle is what a previous all-words-capitalized rule got wrong.
+    // Real names carry lowercase particles ("van", "de", "della") and real
+    // users type their own middle name in lowercase — "Odin idesae O'Shea" was
+    // rejected outright, so the subject of the investigation was silently
+    // dropped and no people-search ran at all.
+    //
+    // The inner class allows capitals after the first letter, or O'Shea and
+    // McDonald fail on their own second capital.
+    const cap = q.match(/\b([A-Z][A-Za-z'.-]+(?:\s+[A-Za-z][A-Za-z'.-]*){0,2}\s+[A-Z][A-Za-z'.-]+)\b/);
     if (cap) words = cap[1].split(/\s+/);
   }
   if (!words) return null;
