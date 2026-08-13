@@ -3,7 +3,8 @@ import { getPlayable, mediaKey, urlFromKey } from '../utils/videoEmbed';
 import { titleFromUrl } from '../utils/playerLink';
 import { tasteScore, likedChannels, likedWords, tokens, isDisliked } from '../utils/taste';
 import { hasSeen, markSeen, markAllSeen, recentSeen } from '../utils/seen';
-import { scoreCandidates, draw, dedupeScored, POOL } from '../utils/feedDraw';
+import { scoreCandidates, draw, dedupeScored, poolFor, POOL } from '../utils/feedDraw';
+import { shouldExplore, exploreOffset, exploreSeed, EXPLORE_RATE } from '../utils/explore';
 
 // What plays next, and what fills an empty player.
 //
@@ -43,6 +44,25 @@ import { scoreCandidates, draw, dedupeScored, POOL } from '../utils/feedDraw';
 //   BEING SHOWN SOMETHING IS NOW REMEMBERED ACROSS SESSIONS. `seen` was a ref,
 //   so it emptied on every reload and the feed walked you back through the same
 //   clips the next day. It lives in localStorage now (utils/seen.js).
+//
+// AND A THIRD, AFTER THE LOOPING WAS REPORTED AGAIN WITH BOTH OF THOSE IN PLACE:
+// neither of them moves the CANDIDATES. The draw randomises within whatever the
+// three lookups returned, and every one of those lookups is seeded from the
+// current title, the liked channels, or the heaviest words in the profile — so
+// the neighbourhood never changed and no amount of shuffling inside it could
+// leave. Two changes, both here:
+//
+//   1. EXPLORATION. A fixed fraction of picks (utils/explore.js) ignores taste
+//      completely: a random depth into the platform pool, or a random seed word
+//      from a list that has nothing to do with this browser. Explored
+//      candidates are scored FLAT — ranking an exploration by the profile it
+//      exists to escape would put you straight back in the basin.
+//   2. THE POOL WIDENS AS THE HEAD IS EXHAUSTED. The seen-filter runs before
+//      the draw, so deep into a sitting a "top ten" is assembled from a much
+//      thinner survivor list. The share of candidates rejected as already-seen
+//      is measured here and drives both a bigger draw pool (poolFor) and a
+//      deeper page request — asking for page four instead of re-ranking page
+//      one for the fortieth time.
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 const toSource = (r, extra = {}) => {
@@ -78,18 +98,26 @@ export function useUpNext() {
   // Everything the three lookups can offer, already de-duplicated and filtered
   // down to things worth playing. Shared by pick() and fill() so a swipe and a
   // top-up ask the same question the same way.
-  const candidatesFor = useCallback(async (current, { wide = false } = {}) => {
+  const candidatesFor = useCallback(async (current, { wide = false, explore = false } = {}) => {
     const currentKey = mediaKey(current);
     const currentTitle = current?.title || '';
 
+    // How much of what came back had already been shown. This is the signal
+    // that the head of every lookup is exhausted, and it drives both the draw
+    // pool and how deep the next request pages — see poolFor.
+    let offered = 0;
+    let alreadySeen = 0;
     const usable = (s) => {
       if (!s?.src) return false;
       const k = mediaKey(s);
-      if (!k || k === currentKey || hasSeen(k)) return false;
+      if (!k || k === currentKey) return false;
+      offered += 1;
+      if (hasSeen(k)) { alreadySeen += 1; return false; }
       if (isDisliked(s)) return false;
       // A different id for the same upload is still the same upload.
       return !nearDuplicate(currentTitle, s.title);
     };
+    const seenRate = () => (offered ? alreadySeen / offered : 0);
 
     // ── 1. channels this browser keeps thumbing up ──────────────────────────
     const fromChannels = async () => {
@@ -107,12 +135,12 @@ export function useUpNext() {
     };
 
     // ── 2. the platform's anonymous vote pool ───────────────────────────────
-    const fromPlatform = async () => {
+    const fromPlatform = async ({ offset = 0 } = {}) => {
       const exclude = recentSeen(50).join(',');
       // A cold launch asks for more than a single swipe does: it has a whole
       // queue to fill and nothing playing to narrow things down.
       const limit = wide ? 48 : 24;
-      const d = await json(`${BACKEND}/api/media/trending?limit=${limit}&exclude=${encodeURIComponent(exclude)}`);
+      const d = await json(`${BACKEND}/api/media/trending?limit=${limit}&offset=${offset}&exclude=${encodeURIComponent(exclude)}`);
       return (d?.results || []).map((r) => {
         const s = toSource({ ...r, url: r.pageUrl || urlFromKey(r.mediaKey) }, { channel: r.channel });
         // Platform score is already a 0–1-ish confidence bound; scale it into
@@ -128,9 +156,7 @@ export function useUpNext() {
     // immediately. The taste profile's heaviest words are the seed instead, so
     // a launch with an empty viewport asks for more of what this browser
     // already likes rather than asking for nothing.
-    const fromSearch = async () => {
-      const seed = (currentTitle || titleFromUrl(current?.pageUrl || current?.src || '')
-        || likedWords(4).join(' ')).slice(0, 120);
+    const searchFor = async (seed) => {
       if (!seed) return [];
       const d = await json(`${BACKEND}/api/search`, {
         method: 'POST',
@@ -140,15 +166,48 @@ export function useUpNext() {
       return (d?.results || []).map(toSource).filter(Boolean).map((s) => ({ s, boost: 0 }));
     };
 
+    const fromSearch = () => searchFor(
+      (currentTitle || titleFromUrl(current?.pageUrl || current?.src || '')
+        || likedWords(4).join(' ')).slice(0, 120),
+    );
+
+    // ── the exploration path ────────────────────────────────────────────────
+    //
+    // Neither of the sources above is used: liked channels and a title-seeded
+    // search are the basin. A random depth into the pool is organic — real
+    // uploads that real people voted on, just not the ones the score ordering
+    // keeps at the top — and the random seed word is the backstop for when the
+    // pool is too small to have a tail worth reaching.
+    if (explore) {
+      const offset = exploreOffset(wide ? 48 : 24);
+      let found = await fromPlatform({ offset });
+      if (found.length < 4) found = [...found, ...(await searchFor(exploreSeed()))];
+      // FLAT scoring, deliberately: ranking these by tasteScore would sort the
+      // exploration back towards whatever the profile already likes, which is
+      // the exact thing being escaped. The seen/disliked filter still applies —
+      // exploring is not an excuse to replay something or to serve something
+      // this browser has explicitly thumbed down.
+      const scored = scoreCandidates(found, usable, () => 0);
+      return { scored, seenRate: seenRate(), explored: true };
+    }
+
     // Channels and the pool answer fast and are the good candidates; search is
     // the fallback and only worth waiting for if they came back thin. A cold
     // fill needs the breadth, so it asks for all three at once.
-    let raw = (await Promise.all([fromChannels(), fromPlatform()])).flat();
+    const raw = (await Promise.all([fromChannels(), fromPlatform()])).flat();
     let scored = scoreCandidates(raw, usable, tasteScore);
     if (scored.length < (wide ? POOL : 1)) {
       scored = dedupeScored([...scored, ...scoreCandidates(await fromSearch(), usable, tasteScore)]);
     }
-    return scored;
+    // The head is exhausted — most of what came back has already been shown.
+    // Re-ranking the same page again would just produce the same stragglers, so
+    // go and get a page nobody has walked yet.
+    if (seenRate() > 0.6) {
+      const deeper = await fromPlatform({ offset: exploreOffset(wide ? 48 : 24) });
+      scored = dedupeScored([...scored, ...scoreCandidates(deeper, usable, tasteScore)])
+        .sort((a, b) => b.value - a.value);
+    }
+    return { scored, seenRate: seenRate(), explored: false };
   }, []);
 
   /**
@@ -158,8 +217,13 @@ export function useUpNext() {
    */
   const pick = useCallback(async (current) => {
     remember(current);
-    const scored = await candidatesFor(current);
-    const [choice] = draw(scored, 1);
+    const explore = shouldExplore();
+    let { scored, seenRate } = await candidatesFor(current, { explore });
+    // An exploration that came back empty must not cost the swipe — the pool
+    // may simply have no tail yet on a young platform. Fall back to the normal
+    // path rather than handing the caller a null and stalling the feed.
+    if (explore && !scored.length) ({ scored, seenRate } = await candidatesFor(current));
+    const [choice] = draw(scored, 1, Math.random, poolFor(seenRate));
     if (choice) markSeen(choice);
     return choice || null;
   }, [remember, candidatesFor]);
@@ -172,8 +236,28 @@ export function useUpNext() {
    *          `count`, and is empty when the backend has nothing to offer.
    */
   const fill = useCallback(async (current, count = 6) => {
-    const scored = await candidatesFor(current, { wide: true });
-    const chosen = draw(scored, count);
+    const { scored, seenRate } = await candidatesFor(current, { wide: true });
+    // A queue gets its exploration by construction rather than by coin-flip: a
+    // batch of six drawn at a 1-in-5 rate could easily come back with none, and
+    // the launch queue is exactly where a browser stuck in a basin most needs
+    // something it would not have picked for itself.
+    const want = Math.max(0, Math.round(count * EXPLORE_RATE));
+    const chosen = draw(scored, count - want, Math.random, poolFor(seenRate));
+    if (want > 0) {
+      const { scored: wild } = await candidatesFor(current, { wide: true, explore: true });
+      const keys = new Set(chosen.map((s) => mediaKey(s)));
+      const fresh = draw(wild.filter((e) => !keys.has(mediaKey(e.s))), want);
+      chosen.push(...fresh);
+    }
+    // Short of the ask because exploration had nothing to add — top back up
+    // from the ranked list rather than returning a shorter queue.
+    if (chosen.length < count) {
+      const keys = new Set(chosen.map((s) => mediaKey(s)));
+      chosen.push(...draw(
+        scored.filter((e) => !keys.has(mediaKey(e.s))),
+        count - chosen.length, Math.random, poolFor(seenRate),
+      ));
+    }
     markAllSeen(chosen);
     return chosen;
   }, [candidatesFor]);

@@ -504,6 +504,14 @@
         "body": "https://truecode-7l0z.onrender.com speaks POST /chat with a JSON body {prompt: '<flattened conversation>'}. Probed live 2026-08-13: /chat + prompt -> HTTP 200 with the completion; /chat + an OpenAI-shaped body -> HTTP 400 {\"error\":\"No prompt provided\"}; every other path tried (/v1/chat/completions, /chat/completions, /api/chat, /v1/completions, /generate) -> 404; GET / -> 200 HTML (it serves a page), POST / -> 405. No API key needed. These are now the DEFAULTS in TrueCodeService (path /chat, format prompt), so a deployment only has to set TRUECODE_URL. It is a free Render dyno so it SLEEPS - first request after idle takes ~50s, hence the 60s default timeout. Because the shape is prompt-only there is nowhere to put roles: buildBody flattens system + turns into one string with the system prompt PREPENDED (dropping it would make this rung answer as a different assistant). Re-probe any time with 'npm run truecode:probe -- <url>' from apps/backend.",
         "ts": "2026-08-13",
         "created": "2026-08-13"
+      },
+      "tube-signin-limits": {
+        "Id": "tube-signin-limits",
+        "Type": "fact",
+        "Label": "Per-user tube-service sign-ins cannot give an unlimited feed",
+        "body": "YouTube OAuth (Data API) exposes subscriptions, likes and playlists but NOT the recommendation/home feed — the activities home-feed endpoint was removed years ago. TikTok's Display API only exposes a user's OWN posted videos, never the For You feed, and it is iframe-hostile. So per-service sign-in can power a shuffled subscriptions feed (worth building) but is NOT the answer to unlimited scroll; exploration is.",
+        "ts": "2026-08-13",
+        "created": "2026-08-13"
       }
     },
     "decision": {
@@ -1368,6 +1376,14 @@
         "Type": "decision",
         "Label": "vs. TrueGLE / TrueGLE Mode toggles removed",
         "body": "Removed 2026-08-13 at the owner's request: VsToggleRow.jsx deleted, the 'TrueGLE Mode' pill and nepheshMode state removed from UniversalSearch, and the landing ThreeCards copy no longer advertises a 'vs. mode'. GLE still runs on contested claims; it is simply not a user-facing switch. The backend still accepts nepheshMode, so nothing server-side changed.",
+        "ts": "2026-08-13",
+        "created": "2026-08-13"
+      },
+      "feed-exploration": {
+        "Id": "feed-exploration",
+        "Type": "decision",
+        "Label": "True Tube: exploration is what breaks the loop, not more shuffling",
+        "body": "The random draw (feedDraw) and the persistent seen ledger (seen.js) both operate on the candidates they are GIVEN, and every lookup in useUpNext was seeded from the current title / liked channels / heaviest taste words — so the neighbourhood never moved and the looping was reported again with both shipped. Fix: utils/explore.js, EXPLORE_RATE=0.2 of picks ignore taste entirely (random offset into /api/media/trending, or a random seed word from a fixed neutral list), scored FLAT so the profile can't drag them back. Plus poolFor(seenRate) widens the draw pool 10->30 as the head is exhausted, and seenRate>0.6 triggers a deeper page request. Backend: /api/media/trending now takes offset (was ORDER BY score DESC LIMIT n, i.e. the same head rows forever; exclude only carries 60 keys). Verified by scripts/verify-feed.mjs (npm run feed:test): 18.7% of picks reach an unsurfaced page on a fresh ledger, rising to 83% once the ledger fills.",
         "ts": "2026-08-13",
         "created": "2026-08-13"
       }

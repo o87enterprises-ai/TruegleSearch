@@ -13,6 +13,29 @@ import { mediaKey } from './videoEmbed';
 // long sitting while still being the top decile of what came back.
 export const POOL = 10;
 
+// The ceiling on that widening. Past this the pool stops being "the good ones"
+// and starts being "whatever came back", which is a worse feed, not a wider one.
+export const MAX_POOL = 30;
+
+/**
+ * How many candidates the draw should consider, given how much of what came
+ * back had already been seen.
+ *
+ * WHY THIS IS NOT A CONSTANT: the seen-filter runs BEFORE the draw, so a
+ * browser deep into a sitting gets a top-10 assembled from a much thinner
+ * survivor list — the same handful of stragglers, again and again, because the
+ * head of every lookup is now exhausted. A high seen-rate is the feed telling
+ * you it has walked the whole neighbourhood; the answer is to consider more of
+ * what is left (and, in useUpNext, to go and ask for deeper pages), not to keep
+ * drawing from a top-10 that no longer has ten good options in it.
+ *
+ * @param seenRate 0–1, the share of raw candidates rejected as already seen.
+ */
+export function poolFor(seenRate = 0) {
+  const r = Number.isFinite(seenRate) ? Math.min(Math.max(seenRate, 0), 1) : 0;
+  return Math.min(MAX_POOL, Math.round(POOL * (1 + 2 * r)));
+}
+
 /**
  * Keep the usable candidates with their final score, best first.
  * @param candidates [{ s, boost }]
@@ -63,9 +86,11 @@ export function dedupeScored(scored) {
  * same item.
  *
  * @param rand injectable for the test; Math.random in real use.
+ * @param poolSize how many of the best candidates are eligible — see poolFor.
  */
-export function draw(scored, count = 1, rand = Math.random) {
-  const pool = (scored || []).slice(0, POOL);
+export function draw(scored, count = 1, rand = Math.random, poolSize = POOL) {
+  const size = Math.max(1, Math.min(MAX_POOL, Math.round(poolSize) || POOL));
+  const pool = (scored || []).slice(0, size);
   if (!pool.length) return [];
   const min = Math.min(...pool.map((e) => e.value));
   // +1 so an all-equal pool (everyone at 0, the common cold-start case) is a

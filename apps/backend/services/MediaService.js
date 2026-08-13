@@ -370,8 +370,18 @@ const MediaService = {
    * brand-new row should not outrank forty ups and two downs. Recency nudges
    * it so the pool doesn't calcify around whatever was popular in month one.
    */
-  async trending({ limit = 20, exclude = [] } = {}) {
+  /**
+   * @param offset how far down the ranking to start. THIS IS WHAT LETS THE
+   * PLAYER STOP LOOPING: ordered by score with no offset, this returns the
+   * same head rows on every single call, and `exclude` only carries 60 keys —
+   * so once a browser is 60 videos deep, the pool has nothing new to say. The
+   * player's exploration path (utils/explore.js) asks for a random depth
+   * instead, which reaches real, human-voted content that the score ordering
+   * would never surface.
+   */
+  async trending({ limit = 20, exclude = [], offset = 0 } = {}) {
     const capped = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
+    const from = Math.min(Math.max(parseInt(offset, 10) || 0, 0), 500);
     const skip = (Array.isArray(exclude) ? exclude : [])
       .map((k) => clean(k, 200)).filter(Boolean).slice(0, 60);
     try {
@@ -387,8 +397,8 @@ const MediaService = {
             AND (ups > 0 OR plays > 0)
             AND ($2::text[] IS NULL OR NOT (media_key = ANY($2)))
           ORDER BY score DESC, updated_at DESC
-          LIMIT $1`,
-        [capped, skip.length ? skip : null],
+          LIMIT $1 OFFSET $3`,
+        [capped, skip.length ? skip : null, from],
       );
       return rows.map((r) => ({
         mediaKey: r.media_key,

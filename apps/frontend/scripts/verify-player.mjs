@@ -12,7 +12,13 @@
  *      it emptied on every reload and the feed walked you back through the same
  *      clips the next day. The reload is simulated for real — a second,
  *      freshly-evaluated copy of the module reads the same storage.
- *   3. The history and playlist stores keep what they are supposed to keep.
+ *   3. THE FEED CAN LEAVE ITS NEIGHBOURHOOD. Neither of the above moves the
+ *      CANDIDATES — every lookup was seeded from the current title, the liked
+ *      channels or the taste profile, so the looping was reported again with
+ *      both already shipped. Exploration (a fixed fraction of picks that
+ *      ignores taste entirely) and a pool that widens as the head is exhausted
+ *      are what actually get out, and both are checked here.
+ *   4. The history and playlist stores keep what they are supposed to keep.
  *
  * Run it:  npm run player:test
  */
@@ -21,7 +27,10 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { draw, dedupeScored, scoreCandidates, POOL } from '../src/utils/feedDraw.js';
+import { draw, dedupeScored, scoreCandidates, poolFor, POOL, MAX_POOL } from '../src/utils/feedDraw.js';
+import {
+  shouldExplore, exploreOffset, exploreSeed, EXPLORE_RATE, EXPLORE_SEEDS, MAX_OFFSET,
+} from '../src/utils/explore.js';
 import { mediaKey } from '../src/utils/videoEmbed.js';
 import { markSeen, hasSeen, seenCount, forgetSeen, recentSeen } from '../src/utils/seen.js';
 import { recordWatch, watchHistory, removeFromHistory, clearWatchHistory } from '../src/utils/watchHistory.js';
@@ -122,6 +131,58 @@ check(
   scoreCandidates([{ s: yt('hated'), boost: 0 }], () => true, () => -Infinity).length === 0,
   'a thumbed-down candidate is excluded outright',
 );
+
+// ── 1b. escaping the basin ──────────────────────────────────────────────────
+//
+// The looping was reported AGAIN with the random draw and the persistent seen
+// ledger both already shipped, which is the whole reason these two mechanisms
+// exist: neither of those moves the CANDIDATES, and a feed cannot leave a
+// neighbourhood it never stops asking about.
+
+// The draw pool widens as the head is exhausted, and stops widening before it
+// becomes "play anything".
+check(poolFor(0) === POOL, 'a fresh browser draws from the normal pool', `${poolFor(0)}`);
+check(poolFor(0.5) > POOL, 'a half-seen candidate list widens the pool', `${poolFor(0.5)}`);
+check(poolFor(1) === MAX_POOL, 'a fully-seen list widens to the cap, not past it', `${poolFor(1)}`);
+check(poolFor(9) === MAX_POOL && poolFor(-1) === POOL, 'a nonsense rate is clamped, not propagated');
+check(poolFor(undefined) === POOL, 'a missing rate behaves like a fresh browser');
+
+// A wider pool must actually reach further down the ranked list — this is the
+// point of it, and slice(0, POOL) would silently ignore the argument.
+const long = Array.from({ length: 40 }, (_, i) => ({ s: yt(`deep${i}`), value: 40 - i }));
+const reached = new Set();
+for (let i = 0; i < 600; i += 1) reached.add(draw(long, 1, Math.random, poolFor(1))[0]?.src);
+check(reached.size > POOL, 'a widened draw reaches candidates the normal pool never offers', `${reached.size} distinct`);
+check(
+  new Set(Array.from({ length: 600 }, () => draw(long, 1)[0]?.src)).size <= POOL,
+  'while the default draw still stays in the top ten',
+);
+
+// Exploration fires at roughly the stated rate — a fixed fraction, not "some".
+let fired = 0;
+const TRIALS = 20000;
+for (let i = 0; i < TRIALS; i += 1) if (shouldExplore()) fired += 1;
+const rate = fired / TRIALS;
+check(
+  Math.abs(rate - EXPLORE_RATE) < 0.02,
+  `exploration fires at about ${(EXPLORE_RATE * 100).toFixed(0)}% of picks`,
+  `${(rate * 100).toFixed(1)}%`,
+);
+check(!shouldExplore(() => 0.99) && shouldExplore(() => 0), 'and the coin flip is the injectable one');
+
+// The offsets must actually spread — an "exploration" that always asks for
+// offset 0 is the head of the pool again, which is the bug.
+const offsets = new Set(Array.from({ length: 400 }, () => exploreOffset(24)));
+check(offsets.size >= 4, 'exploration reaches several different depths', `${offsets.size} distinct offsets`);
+check([...offsets].every((o) => o % 24 === 0), 'offsets land on page boundaries');
+check([...offsets].every((o) => o >= 0 && o <= MAX_OFFSET), 'and stay inside the pool', `max ${Math.max(...offsets)}`);
+check(exploreOffset(24, () => 0) === 0, 'offset 0 is reachable — the head is not banned, just not guaranteed');
+
+// The seeds are the escape hatch when the pool has no tail, so they must not be
+// derived from anything this browser likes.
+const seeds = new Set(Array.from({ length: 200 }, () => exploreSeed()));
+check(seeds.size > 1, 'the seed word varies between explorations', `${seeds.size} distinct`);
+check([...seeds].every((s) => EXPLORE_SEEDS.includes(s)), 'and every seed comes from the fixed neutral list');
 
 // ── 2. seen, across a reload ────────────────────────────────────────────────
 forgetSeen();

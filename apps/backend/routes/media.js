@@ -77,13 +77,17 @@ router.post('/signal', rateLimitSearch, async (req, res) => {
 });
 
 /**
- * GET /api/media/trending?limit=20&exclude=key1,key2
+ * GET /api/media/trending?limit=20&exclude=key1,key2&offset=0
  * The aggregate pool every visitor draws on before they have a taste of their
- * own. `exclude` drops what they have already seen this session.
+ * own. `exclude` drops what they have already seen this session; `offset`
+ * reaches past the head, which is what the player's exploration path uses to
+ * find organic clips the score ordering would otherwise never surface.
  */
 router.get('/trending', async (req, res) => {
   const exclude = String(req.query.exclude || '').split(',').filter(Boolean);
-  const results = await MediaService.trending({ limit: req.query.limit, exclude });
+  const results = await MediaService.trending({
+    limit: req.query.limit, exclude, offset: req.query.offset,
+  });
   return res.json({ success: true, results });
 });
 

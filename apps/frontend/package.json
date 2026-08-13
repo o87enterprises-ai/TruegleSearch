@@ -19,7 +19,8 @@
     "preview": "vite preview",
     "trail": "esbuild dev/trail.entry.js --bundle --format=esm --outfile=dev/.build/trail.js --servedir=dev --serve=5174",
     "trail:test": "esbuild scripts/verify-trail.mjs --bundle --format=esm --platform=node --outfile=dev/.build/trail-test.mjs --log-level=error && node dev/.build/trail-test.mjs",
-    "player:test": "esbuild scripts/verify-player.mjs --bundle --format=esm --platform=node --outfile=dev/.build/player-test.mjs --external:esbuild --log-level=error && node dev/.build/player-test.mjs"
+    "player:test": "esbuild scripts/verify-player.mjs --bundle --format=esm --platform=node --outfile=dev/.build/player-test.mjs --external:esbuild --log-level=error && node dev/.build/player-test.mjs",
+    "feed:test": "node scripts/verify-feed.mjs"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.16.2",
