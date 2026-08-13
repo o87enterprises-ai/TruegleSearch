@@ -496,6 +496,14 @@
         "body": "Ran 'node apps/backend/scripts/verify-news.mjs' on the owner's Termux device (network works there; the Claude sandbox 403s all outbound). ALL 28 PASS: Google News RSS returns 10 local + 10 world, DE edition shares 0 of 10 URLs with US (country scoping is real), publisher suffix strips correctly. CoinGecko 3 coins (BTC ~63861, 40-pt sparkline). Yahoo 3 indices (S&P 7748.5) + 3 commodities (Gold 4455.3). So the adapter SHAPES in services/NewsSources.js are confirmed against reality, not just unit-tested. OBSERVED GAP: sparkline length varies with session state — crypto 40 pts, S&P 27, Gold 8 (Yahoo range=1d&interval=15m gives few bars when a market is closed/partly closed). A fully closed market can yield 0-1 points and NewsFeed.jsx's Sparkline renders an empty div below 2 points. Fix if it bothers: fall back to range=5d in yahooQuote when closes.length < ~8. Not yet done.",
         "ts": "2026-08-13",
         "created": "2026-08-13"
+      },
+      "truecode-contract": {
+        "Id": "truecode-contract",
+        "Type": "fact",
+        "Label": "TrueCode endpoint contract, measured live",
+        "body": "https://truecode-7l0z.onrender.com speaks POST /chat with a JSON body {prompt: '<flattened conversation>'}. Probed live 2026-08-13: /chat + prompt -> HTTP 200 with the completion; /chat + an OpenAI-shaped body -> HTTP 400 {\"error\":\"No prompt provided\"}; every other path tried (/v1/chat/completions, /chat/completions, /api/chat, /v1/completions, /generate) -> 404; GET / -> 200 HTML (it serves a page), POST / -> 405. No API key needed. These are now the DEFAULTS in TrueCodeService (path /chat, format prompt), so a deployment only has to set TRUECODE_URL. It is a free Render dyno so it SLEEPS - first request after idle takes ~50s, hence the 60s default timeout. Because the shape is prompt-only there is nowhere to put roles: buildBody flattens system + turns into one string with the system prompt PREPENDED (dropping it would make this rung answer as a different assistant). Re-probe any time with 'npm run truecode:probe -- <url>' from apps/backend.",
+        "ts": "2026-08-13",
+        "created": "2026-08-13"
       }
     },
     "decision": {

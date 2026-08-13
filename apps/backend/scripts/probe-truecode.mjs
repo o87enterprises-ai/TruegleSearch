@@ -38,8 +38,12 @@ const apiKey = process.env.TRUECODE_API_KEY || '';
 const model = process.env.TRUECODE_MODEL || '';
 const TIMEOUT = Number(process.env.TRUECODE_TIMEOUT) || 60000;
 
-const PATHS = ['/v1/chat/completions', '/chat/completions', '/api/chat', '/chat', '/v1/completions', '/generate', '/'];
-const FORMATS = ['openai', 'message', 'prompt'];
+// Known-good first: a run against the live service found POST /chat + `prompt`.
+// Ordering it first means a re-probe confirms the working combination in one
+// request instead of waking the dyno with a dozen 404s.
+const PATHS = ['/chat', '/v1/chat/completions', '/chat/completions', '/api/chat', '/v1/completions', '/generate', '/'];
+const FORMAT_ORDER = ['prompt', 'openai', 'message'];
+
 const PROMPT = 'Reply with exactly: TRUECODE OK';
 
 console.log(`Probing ${base}`);
@@ -62,7 +66,7 @@ const build = (format, msgs) => {
 
 let winner = null;
 for (const path of PATHS) {
-  for (const format of FORMATS) {
+  for (const format of FORMAT_ORDER) {
     const body = build(format, [{ role: 'user', content: PROMPT }]);
     try {
       const res = await fetch(base + path, {

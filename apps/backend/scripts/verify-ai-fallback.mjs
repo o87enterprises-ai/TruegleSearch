@@ -107,7 +107,15 @@ check(firstPass === 2, '2 providers: both tried before the conceptual retry', `$
   delete process.env.TRUECODE_URL;
   check(new TrueCodeService().isAvailable() === false, 'truecode: inert until TRUECODE_URL is set');
   process.env.TRUECODE_URL = 'https://stub.invalid';
-  check(new TrueCodeService().isAvailable() === true, 'truecode: available once configured');
+  const cfg = new TrueCodeService();
+  check(cfg.isAvailable() === true, 'truecode: available once configured');
+  // The defaults are what the live probe measured: POST /chat with a `prompt`
+  // body. An OpenAI-shaped body to that path returns 400 "No prompt provided",
+  // so getting these wrong is a silent, total failure of the refusal rung.
+  check(cfg.path === '/chat' && cfg.format === 'prompt',
+    'truecode: defaults match the probed contract (POST /chat, prompt body)', `${cfg.path} ${cfg.format}`);
+  check(cfg.timeout >= 60000,
+    'truecode: timeout allows for a sleeping free dyno (~50s cold start)', String(cfg.timeout));
 
   // Request shapes — configurable because the endpoint's contract could not be
   // observed from the machine that wrote the service.

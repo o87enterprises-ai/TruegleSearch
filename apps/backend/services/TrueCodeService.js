@@ -20,28 +20,42 @@
  * deployment behaves exactly as it does today:
  *
  *   TRUECODE_URL      base URL, e.g. https://truecode-xxxx.onrender.com
- *   TRUECODE_PATH     request path (default /v1/chat/completions)
- *   TRUECODE_FORMAT   openai | message | prompt   (default openai)
+ *                     — the ONLY one that must be set
+ *   TRUECODE_PATH     request path (default /chat)
+ *   TRUECODE_FORMAT   openai | message | prompt   (default prompt)
  *   TRUECODE_MODEL    model name, if the endpoint wants one
  *   TRUECODE_API_KEY  optional bearer token
- *   TRUECODE_TIMEOUT  ms, default 45000 — a cold free-tier dyno is slow to wake
+ *   TRUECODE_TIMEOUT  ms, default 60000 — see the cold-start note below
  *
- * The format is a setting rather than an assumption because this endpoint is
- * the owner's own build and its contract was not observable from the machine
- * that wrote this file. `npm run truecode:probe` asks the live service which
- * shape it speaks and prints the exact settings to paste in.
+ * THE DEFAULTS ARE THE MEASURED CONTRACT, not a guess. `npm run truecode:probe`
+ * was run against the live service and answered definitively: POST /chat with a
+ * `prompt` body returns the completion, while an OpenAI-shaped body to the same
+ * path returns 400 {"error":"No prompt provided"} and every other path 404s. The
+ * settings stay overridable in case the service grows another route, but a
+ * deployment now only has to supply the URL.
+ *
+ * COLD STARTS. It is a free Render dyno, so it sleeps, and the first request
+ * after an idle period takes roughly fifty seconds to come back. Hence the
+ * sixty-second default: this is the LAST rung of the failover chain and only
+ * sees questions everything else refused, so waiting beats returning nothing.
+ *
+ * SINGLE-STRING SHAPE. `prompt` has nowhere to put roles, so the conversation
+ * and the system prompt are flattened into one string (see buildBody). The
+ * system prompt is prepended rather than dropped — it is what carries the mode
+ * and the identity, and losing it would make this rung answer as a different
+ * assistant than the one the user was talking to.
  */
 
 const axios = require('axios');
 const logger = require('../utils/logger');
 
-const DEFAULT_TIMEOUT = 45000;
+const DEFAULT_TIMEOUT = 60000;
 
 class TrueCodeService {
   constructor() {
     this.baseUrl = (process.env.TRUECODE_URL || '').replace(/\/+$/, '');
-    this.path = process.env.TRUECODE_PATH || '/v1/chat/completions';
-    this.format = (process.env.TRUECODE_FORMAT || 'openai').toLowerCase();
+    this.path = process.env.TRUECODE_PATH || '/chat';
+    this.format = (process.env.TRUECODE_FORMAT || 'prompt').toLowerCase();
     this.model = process.env.TRUECODE_MODEL || '';
     this.apiKey = process.env.TRUECODE_API_KEY || '';
     this.timeout = Number(process.env.TRUECODE_TIMEOUT) || DEFAULT_TIMEOUT;
