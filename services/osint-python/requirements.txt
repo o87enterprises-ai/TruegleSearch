@@ -1,0 +1,12 @@
+# Pinned loosely on purpose: these libraries track the sites they check, so a
+# stale pin means stale coverage. Re-deploy occasionally to pick up new sites.
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
+httpx>=0.27
+
+# The reason this service exists — none of these have a usable Node equivalent.
+holehe>=1.61          # email -> account existence, ~120 sites
+maigret>=0.4.4        # username -> hundreds of sites
+dnstwist>=20240116    # lookalike / typosquat domains
+phonenumbers>=8.13    # carrier + geocoding, which libphonenumber-js omits

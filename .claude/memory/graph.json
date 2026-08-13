@@ -1652,6 +1652,15 @@
         "status": "done",
         "ts": "2026-08-09",
         "created": "2026-08-09"
+      },
+      "osint-python-service": {
+        "Id": "osint-python-service",
+        "Type": "thread",
+        "Label": "OSINT Tier 1: Python service on HF Spaces (scoped + built, deploy pending)",
+        "body": "PLAN: docs/OSINT-SERVICE-PLAN.md. CODE: services/osint-python/ (app.py + Dockerfile + requirements.txt + Space README with frontmatter). Two tiers. TIER 1 = free cloud, always-on, Python libs Node cannot match: holehe (email -> ~120 sites), maigret (username -> hundreds), dnstwist (typosquats), phonenumbers (CARRIER + CITY GEOCODING, which libphonenumber-js omits entirely - verified locally returning 'Oregon' for the 541 number and 'London' for a +44). HOST = Hugging Face Spaces free CPU (~2vCPU/16GB, Docker, NO CARD). Rejected: Render free (512MB, sleeps), Fly/CloudRun (card on file = risk vs $0 budget), PythonAnywhere (outbound whitelist-only kills OSINT), Oracle (used up). TIER 2 = owner's spare PC, RESIDENTIAL IP - the only thing that unblocks TruePeopleSearch/FastPeopleSearch/ThatsThem, which block DATACENTER IPs not scrapers. Reached via Cloudflare Tunnel (outbound-only, never port-forward, solves dynamic IP). PC is up 'most of the time' + NO discrete GPU => Tier 2 is OPPORTUNISTIC (backend may try, must never depend) and local-model hosting stays DEFERRED (8B on CPU = batch only, not chat). NOT DOING: Kali on free hosting (every free host's ToS forbids scanning tooling; tools are pip-installable anyway; active scanning belongs on own hardware in the pentest phase). VERIFIED LOCALLY: boots, /health honestly reports which libs imported, 401 without token, 503 when OSINT_SERVICE_TOKEN unset (refuses to run as an open public OSINT API), missing libs degrade to {ok:false,error} not a crash, pydantic 422s an out-of-range budget. NEXT: create private Space (Docker SDK), push services/osint-python/, set OSINT_SERVICE_TOKEN secret, smoke-test /phone, THEN write the Node OsintServiceClient (inert until OSINT_SERVICE_URL set, same proven pattern as TrueCodeService) and wire into gather() as more settled promises.",
+        "status": "open",
+        "ts": "2026-08-13",
+        "created": "2026-08-13"
       }
     }
   },
