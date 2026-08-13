@@ -21,7 +21,7 @@ import ModesAndTrending from '../components/landing/ModesAndTrending';
 import ChatModeRow from '../components/landing/ChatModeRow';
 import CategoryModeRow from '../components/landing/CategoryModeRow';
 import PillModeRow from '../components/landing/PillModeRow';
-import { MODE_COLORS } from '../config/modeTheme';
+import { MODE_COLORS, searchThemeFor, searchGradientFor, searchIconFor } from '../config/modeTheme';
 import VsToggleRow from '../components/landing/VsToggleRow';
 import ThreeCards from '../components/landing/ThreeCards';
 import PlayerFeatureCard from '../components/landing/PlayerFeatureCard';
@@ -311,10 +311,13 @@ export default function LandingPage() {
                 singleLine={pillMode === 'tube'}
                 showCameraInput={pillMode !== 'tube'}
                 showFileInput={pillMode !== 'tube'}
-                themeColor="green"
-                searchButtonGradient="from-green-600 to-emerald-600"
+                // The bar wears the colour of the pill above it. These were
+                // hardcoded to green, so every mode but Green showed a bar that
+                // disagreed with the selector.
+                themeColor={searchThemeFor(pillMode)}
+                searchButtonGradient={searchGradientFor(pillMode)}
                 biasedButtonGradient="from-red-600 to-red-800"
-                searchIconColor="text-green-500/80"
+                searchIconColor={searchIconFor(pillMode)}
                 showSearchButton={false}
                 onSearch={() => {
                   // Navigation happens here, on actual submit — honoring

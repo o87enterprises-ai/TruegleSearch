@@ -103,3 +103,53 @@ export const MODE_TO_CONTEXT = {
 export function getModeAccent(mode) {
   return MODE_ACCENT[mode] || MODE_ACCENT.blue;
 }
+
+// Which SearchBar theme belongs to which pill mode.
+//
+// The landing page used to hardcode themeColor="green" no matter what was
+// selected, so picking Privacy/OSINT lit a teal pill above a green search bar.
+// SearchBar's palettes are keyed by Tailwind hue rather than by mode name (they
+// have to be — Tailwind only sees literal class names), so this is the
+// translation between the two vocabularies. Keep it in step with MODE_COLORS.
+export const MODE_SEARCH_THEME = {
+  blue: 'blue',
+  red: 'red',
+  purple: 'purple',
+  ocean: 'cyan',      // teal pill, cyan bar — the closest hue Tailwind gives us
+  green: 'green',
+  orange: 'orange',
+  yellow: 'yellow',
+  black: 'neutral',   // Chat: the pill is near-white
+  tube: 'slate',
+};
+
+export const searchThemeFor = (mode) => MODE_SEARCH_THEME[mode] || 'blue';
+
+// The submit button's gradient and the magnifier, per mode — same reason as
+// above: literal classes only.
+export const MODE_SEARCH_GRADIENT = {
+  blue: 'from-blue-600 to-blue-700',
+  red: 'from-red-600 to-red-800',
+  purple: 'from-purple-600 to-violet-700',
+  ocean: 'from-cyan-600 to-teal-600',
+  green: 'from-green-600 to-emerald-600',
+  orange: 'from-orange-500 to-amber-600',
+  yellow: 'from-yellow-500 to-amber-600',
+  black: 'from-neutral-300 to-neutral-500',
+  tube: 'from-slate-400 to-slate-600',
+};
+
+export const MODE_SEARCH_ICON = {
+  blue: 'text-blue-500/80',
+  red: 'text-red-500/80',
+  purple: 'text-purple-500/80',
+  ocean: 'text-cyan-500/80',
+  green: 'text-green-500/80',
+  orange: 'text-orange-500/80',
+  yellow: 'text-yellow-500/80',
+  black: 'text-neutral-300/80',
+  tube: 'text-slate-400/80',
+};
+
+export const searchGradientFor = (mode) => MODE_SEARCH_GRADIENT[mode] || MODE_SEARCH_GRADIENT.blue;
+export const searchIconFor = (mode) => MODE_SEARCH_ICON[mode] || MODE_SEARCH_ICON.blue;

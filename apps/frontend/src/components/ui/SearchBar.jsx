@@ -472,6 +472,26 @@ function FilterDropdown({ label, value, options, onChange, compact = false, isRe
           hover: 'hover:border-cyan-500/40',
           focus: 'focus:ring-cyan-500/40 focus:border-cyan-500/40'
         };
+      case 'orange':
+        return {
+          hover: 'hover:border-orange-500/40',
+          focus: 'focus:ring-orange-500/40 focus:border-orange-500/40'
+        };
+      case 'yellow':
+        return {
+          hover: 'hover:border-yellow-500/40',
+          focus: 'focus:ring-yellow-500/40 focus:border-yellow-500/40'
+        };
+      case 'slate':
+        return {
+          hover: 'hover:border-slate-500/40',
+          focus: 'focus:ring-slate-500/40 focus:border-slate-500/40'
+        };
+      case 'neutral':
+        return {
+          hover: 'hover:border-neutral-400/40',
+          focus: 'focus:ring-neutral-400/40 focus:border-neutral-400/40'
+        };
       default: // 'blue'
         return {
           hover: 'hover:border-blue-500/40',
@@ -930,6 +950,85 @@ export default function SearchBar({
   // Theme color mappings - comprehensive color system for the search bar
   const getThemeColors = useCallback(() => {
     const colorMap = {
+      // Added so every pill mode has a matching bar. Tailwind needs literal
+      // class names, so these are spelled out rather than built from the hex
+      // in modeTheme — a template string would compile to nothing.
+      orange: {
+        borderFocused: 'bg-gradient-to-r from-orange-400 via-amber-500 to-orange-400',
+        borderHovered: 'bg-gradient-to-r from-orange-500 via-amber-600 to-orange-500',
+        borderDefault: 'bg-orange-700/40',
+        iconFocused: 'text-orange-300',
+        iconHovered: 'text-orange-400',
+        iconDefault: 'text-orange-500/80',
+        shadowFocused: '0_0_40px_rgba(249,115,22,0.4),0_0_80px_rgba(249,115,22,0.15),inset_0_0_30px_rgba(249,115,22,0.08)',
+        shadowHovered: '0_0_25px_rgba(249,115,22,0.25),inset_0_0_15px_rgba(249,115,22,0.05)',
+        shadowDefault: '0_0_15px_rgba(249,115,22,0.12)',
+        focusRing: 'focus-visible:ring-orange-400/60',
+        selection: 'selection:bg-orange-500/30',
+        spinner: 'text-orange-400',
+        suggestionBorder: 'border-orange-500/30',
+        suggestionActive: 'bg-orange-500/20 text-orange-300',
+        suggestionIcon: 'text-orange-500',
+        suggestionHighlight: 'text-orange-400',
+        suggestionBadge: 'bg-orange-500/20 text-orange-400',
+      },
+      yellow: {
+        borderFocused: 'bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-400',
+        borderHovered: 'bg-gradient-to-r from-yellow-500 via-amber-600 to-yellow-500',
+        borderDefault: 'bg-yellow-700/40',
+        iconFocused: 'text-yellow-300',
+        iconHovered: 'text-yellow-400',
+        iconDefault: 'text-yellow-500/80',
+        shadowFocused: '0_0_40px_rgba(234,179,8,0.4),0_0_80px_rgba(234,179,8,0.15),inset_0_0_30px_rgba(234,179,8,0.08)',
+        shadowHovered: '0_0_25px_rgba(234,179,8,0.25),inset_0_0_15px_rgba(234,179,8,0.05)',
+        shadowDefault: '0_0_15px_rgba(234,179,8,0.12)',
+        focusRing: 'focus-visible:ring-yellow-400/60',
+        selection: 'selection:bg-yellow-500/30',
+        spinner: 'text-yellow-400',
+        suggestionBorder: 'border-yellow-500/30',
+        suggestionActive: 'bg-yellow-500/20 text-yellow-300',
+        suggestionIcon: 'text-yellow-500',
+        suggestionHighlight: 'text-yellow-400',
+        suggestionBadge: 'bg-yellow-500/20 text-yellow-400',
+      },
+      slate: {
+        borderFocused: 'bg-gradient-to-r from-slate-400 via-slate-500 to-slate-400',
+        borderHovered: 'bg-gradient-to-r from-slate-500 via-slate-600 to-slate-500',
+        borderDefault: 'bg-slate-700/40',
+        iconFocused: 'text-slate-300',
+        iconHovered: 'text-slate-400',
+        iconDefault: 'text-slate-500/80',
+        shadowFocused: '0_0_40px_rgba(154,167,184,0.4),0_0_80px_rgba(154,167,184,0.15),inset_0_0_30px_rgba(154,167,184,0.08)',
+        shadowHovered: '0_0_25px_rgba(154,167,184,0.25),inset_0_0_15px_rgba(154,167,184,0.05)',
+        shadowDefault: '0_0_15px_rgba(154,167,184,0.12)',
+        focusRing: 'focus-visible:ring-slate-400/60',
+        selection: 'selection:bg-slate-500/30',
+        spinner: 'text-slate-400',
+        suggestionBorder: 'border-slate-500/30',
+        suggestionActive: 'bg-slate-500/20 text-slate-300',
+        suggestionIcon: 'text-slate-500',
+        suggestionHighlight: 'text-slate-400',
+        suggestionBadge: 'bg-slate-500/20 text-slate-400',
+      },
+      neutral: {
+        borderFocused: 'bg-gradient-to-r from-neutral-400 via-neutral-500 to-neutral-400',
+        borderHovered: 'bg-gradient-to-r from-neutral-500 via-neutral-600 to-neutral-500',
+        borderDefault: 'bg-neutral-700/40',
+        iconFocused: 'text-neutral-300',
+        iconHovered: 'text-neutral-400',
+        iconDefault: 'text-neutral-500/80',
+        shadowFocused: '0_0_40px_rgba(229,231,235,0.4),0_0_80px_rgba(229,231,235,0.15),inset_0_0_30px_rgba(229,231,235,0.08)',
+        shadowHovered: '0_0_25px_rgba(229,231,235,0.25),inset_0_0_15px_rgba(229,231,235,0.05)',
+        shadowDefault: '0_0_15px_rgba(229,231,235,0.12)',
+        focusRing: 'focus-visible:ring-neutral-400/60',
+        selection: 'selection:bg-neutral-500/30',
+        spinner: 'text-neutral-400',
+        suggestionBorder: 'border-neutral-500/30',
+        suggestionActive: 'bg-neutral-500/20 text-neutral-300',
+        suggestionIcon: 'text-neutral-500',
+        suggestionHighlight: 'text-neutral-400',
+        suggestionBadge: 'bg-neutral-500/20 text-neutral-400',
+      },
       green: {
         // Border gradients
         borderFocused: 'bg-gradient-to-r from-green-400 via-emerald-500 to-green-400',

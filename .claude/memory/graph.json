@@ -1330,6 +1330,22 @@
         "body": "SECOND self-test debrief (query 'Odin idesae O'Shea, 15416230460, therealduckyduck@gmail.com') exposed a THIRD class of bug on top of the email/phone/render ones: the SUBJECT'S OWN NAME was dropped, so no people-search ran and the report had 4 findings. Two causes in detectPerson: (1) the fallback regex required EVERY word capitalized, so a lowercase middle name was not a name - relaxed to 'starts AND ends capitalized, up to 2 words of any case between', with the inner class allowing later capitals so O'Shea/McDonald survive; the existing hasCapital + intent/hasContext gates still block ordinary sentences. (2) hasContext only matched a TEN-digit number, so '15416230460' (same number WITH country code) supplied no people-search context at all; also 'age\\\\s+\\\\d' was followed by \\\\b which cannot hold between the digits of 'age 45', so only single-digit ages matched. Both fixed. ALSO: TITLE() lowercased everything after the first letter, turning O'Shea into O'shea and McDonald into Mcdonald - that mangled spelling went straight into the people-search URLs, so the searches ran for a name that does not exist. TITLE now preserves a word that already carries an internal capital. NOTE the deployed site still shows the OLD behaviour until the branch is merged AND redeployed - the second debrief was generated pre-deploy, which is why it still said 'Not a valid number' and still inferred 'intentional misdirection'. verify-osint.mjs now carries 33 offline checks including 7 positive and 6 negative person-detection cases.",
         "ts": "2026-08-13",
         "created": "2026-08-13"
+      },
+      "truecode-provider-2026-08-13": {
+        "Id": "truecode-provider-2026-08-13",
+        "Type": "decision",
+        "Label": "AI: owner-built TrueCode endpoint registered as the LAST provider (the refusal rung)",
+        "body": "Owner has their own model at https://truecode-7l0z.onrender.com (reports 0 refusals to date). Registered as services/TrueCodeService.js in UnifiedAIService.providers, forced LAST in getProviderOrder (and appended to the hardcoded fallback list). This is the rung the refusal-aware failover never had - permanent fact says 3 Groq keys rotate to the SAME model so a refusal from one is a refusal from all; a DIFFERENT provider is required, and this is it. Being last means it only sees questions the others refused, and it runs BEFORE CONCEPTUAL_FALLBACK ever has to soften anything. INERT until TRUECODE_URL is set, so an unconfigured deploy is unchanged. Env: TRUECODE_URL, TRUECODE_PATH (default /v1/chat/completions), TRUECODE_FORMAT (openai|message|prompt, default openai), TRUECODE_MODEL, TRUECODE_API_KEY, TRUECODE_TIMEOUT (default 45000 - free Render dynos sleep and take ~50s to wake). The REQUEST shape is configurable because the sandbox blocks all outbound hosts so the contract could not be observed; the RESPONSE shape is auto-detected (choices[0].message.content / content / response / answer / output / text / message / raw string). Run 'npm run truecode:probe -- <base-url>' from apps/backend where network works: it tries 7 paths x 3 formats and prints the exact env to paste. Covered by 'npm run ai:test' (23 checks now, 9 of them truecode).",
+        "ts": "2026-08-13",
+        "created": "2026-08-13"
+      },
+      "searchbar-pill-theme-2026-08-13": {
+        "Id": "searchbar-pill-theme-2026-08-13",
+        "Type": "decision",
+        "Label": "Landing: search bar now wears the selected pill mode colour",
+        "body": "LandingPage hardcoded themeColor='green' + green gradient + green icon on <SearchBar> regardless of pillMode, so picking Privacy/OSINT lit a teal pill above a green bar. Added MODE_SEARCH_THEME / MODE_SEARCH_GRADIENT / MODE_SEARCH_ICON maps + searchThemeFor/searchGradientFor/searchIconFor helpers in config/modeTheme.js, and wired them into the SearchBar props. SearchBar's palettes are keyed by TAILWIND HUE not mode name (they must be - Tailwind only sees literal class names), hence the translation layer: ocean->cyan, black->neutral, tube->slate. Added 4 new palettes to SearchBar's colorMap (orange, yellow, slate, neutral) and the matching cases to FilterDropdown's getBorderColors, which otherwise silently falls back to blue. Verified in Chromium by cycling the pill: border hue and search-icon hue both track the mode for every mode reached.",
+        "ts": "2026-08-13",
+        "created": "2026-08-13"
       }
     },
     "entity": {

@@ -96,6 +96,56 @@ await svc.chat('x', 'general', { systemOverride: 'BASE', conceptualFallback: tru
 const firstPass = calls.filter(c => !c.isRetry).length;
 check(firstPass === 2, '2 providers: both tried before the conceptual retry', `${firstPass} first-pass calls`);
 
+// ── TrueCode: the owner's own endpoint as the refusal rung ──────────────────
+//
+// The provider the refusal failover never had. It must sit LAST (it answers
+// what the others refused; it should not take ordinary traffic) and it must get
+// its turn BEFORE the conceptual fallback softens anything.
+{
+  const TrueCodeService = require('../services/TrueCodeService.js');
+
+  delete process.env.TRUECODE_URL;
+  check(new TrueCodeService().isAvailable() === false, 'truecode: inert until TRUECODE_URL is set');
+  process.env.TRUECODE_URL = 'https://stub.invalid';
+  check(new TrueCodeService().isAvailable() === true, 'truecode: available once configured');
+
+  // Request shapes — configurable because the endpoint's contract could not be
+  // observed from the machine that wrote the service.
+  const body = (fmt) => {
+    const t = new TrueCodeService();
+    t.baseUrl = 'https://stub.invalid'; t.format = fmt;
+    return t.buildBody([{ role: 'user', content: 'hi' }], { system: 'SYS', temperature: 0.2, max_tokens: 8 });
+  };
+  check(Array.isArray(body('openai').messages) && body('openai').messages[0].role === 'system',
+    'truecode: openai shape sends a messages array carrying the system prompt');
+  check(typeof body('message').message === 'string' && body('message').message.includes('SYS'),
+    'truecode: flat shapes keep the system prompt rather than dropping it');
+  check(typeof body('prompt').prompt === 'string' && body('prompt').prompt.includes('SYS'),
+    'truecode: prompt shape likewise');
+
+  const shapes = [
+    [{ choices: [{ message: { content: 'A' } }] }, 'A'],
+    [{ content: 'B' }, 'B'], [{ response: 'C' }, 'C'], [{ message: 'D' }, 'D'],
+    [{ text: 'E' }, 'E'], ['F', 'F'], [{}, ''],
+  ];
+  check(shapes.every(([inp, want]) => TrueCodeService.extract(inp) === want),
+    'truecode: an answer is found in any of the usual response shapes');
+
+  const tcCalls = [];
+  svc.cache = new Map();
+  svc.getProviderOrder = async () => ['groq', 'truecode'];
+  svc.callProvider = async (name) => {
+    tcCalls.push(name);
+    return name === 'truecode'
+      ? { content: 'The answer groq would not give.', model: 'tc' }
+      : { content: "I'm sorry, but I can't help with that.", model: 'm' };
+  };
+  const tcRes = await svc.chat('x', 'general', { systemOverride: 'BASE', conceptualFallback: true });
+  check(tcCalls.join('>') === 'groq>truecode', 'truecode: a refusal fails over to it', tcCalls.join(' > '));
+  check(/would not give/.test(plain(tcRes.content)), 'truecode: its answer is what the user gets');
+  check(!tcRes.softened, 'truecode: answering means the conceptual fallback never runs');
+}
+
 ok.forEach(l => console.log(l));
 if (bad.length) { console.log(''); bad.forEach(l => console.log(l)); console.log(`\n${bad.length} failed, ${ok.length} passed`); process.exit(1); }
 console.log(`\nall ${ok.length} passed`);

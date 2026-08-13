@@ -13,6 +13,7 @@ const OpenAIService = require('./OpenAIService');
 const AnthropicService = require('./AnthropicService');
 const GeminiService = require('./GeminiService');
 const OllamaService = require('./OllamaService');
+const TrueCodeService = require('./TrueCodeService');
 const PromptService = require('./PromptService');
 const { query } = require('../db/connection');
 const logger = require('../utils/logger');
@@ -31,6 +32,9 @@ class UnifiedAIService {
       openai: new OpenAIService(),
       anthropic: new AnthropicService(),
       ollama: new OllamaService(),
+      // The owner's own endpoint — the refusal fallback the substrate
+      // providers cannot be. Inert until TRUECODE_URL is set.
+      truecode: new TrueCodeService(),
     };
 
     this.promptService = PromptService;
@@ -501,6 +505,14 @@ class UnifiedAIService {
         availableProviders = ['nephesh', ...availableProviders.filter((n) => n !== 'nephesh')];
       }
 
+      // TrueCode goes LAST, always. It exists to answer what the others
+      // refused, so it must sit at the end of the failover chain rather than
+      // take ordinary traffic — and being last is what puts it in front of the
+      // conceptual fallback, which only runs once every provider has refused.
+      if (availableProviders.includes('truecode')) {
+        availableProviders = [...availableProviders.filter((n) => n !== 'truecode'), 'truecode'];
+      }
+
       if (availableProviders.length === 0) {
         throw new Error('No AI providers available');
       }
@@ -512,7 +524,7 @@ class UnifiedAIService {
       logger.error('Error determining provider order:', { error: error.message });
 
       // Fallback to hardcoded priority (Nephesh first, then interim providers)
-      return ['nephesh', 'groq', 'gemini', 'nvidia', 'openai', 'anthropic', 'ollama'].filter(name => {
+      return ['nephesh', 'groq', 'gemini', 'nvidia', 'openai', 'anthropic', 'ollama', 'truecode'].filter(name => {
         const provider = this.providers[name];
         return provider && provider.isAvailable && provider.isAvailable();
       });
