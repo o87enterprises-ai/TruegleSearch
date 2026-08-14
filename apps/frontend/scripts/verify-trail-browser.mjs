@@ -140,6 +140,64 @@ check(firstLit >= 0, 'the countdown warning appears', `after ${firstLit} samples
 check(lit >= 6 && dark >= 6, 'and it FLASHES rather than just turning red and staying red',
   `${lit} on / ${dark} off across ${after.length} samples once it started`);
 
+// ── 3. a mini-game is reachable and playable ───────────────────────────────
+// The balance simulation drives all three thousands of times, but it feeds
+// them input objects directly. Nothing there proves a key press or a finger
+// reaches them, that they paint anything, or that the run comes back out the
+// other side — which is the entire question a player has.
+async function phase() {
+  return page.evaluate(() => document.getElementById('c').__trailRun?.phase || 'unknown');
+}
+
+// Fast-forward: keep answering encounters until one offers a mini-game, then
+// take it. Held Enter dismisses cards and commits; the arrow keys move the
+// highlight onto the first option, which is always the door in.
+let entered = null;
+for (let i = 0; i < 900 && !entered; i += 1) {
+  const st = await page.evaluate(() => {
+    const r = document.getElementById('c').__trailRun;
+    if (!r) return null;
+    return { phase: r.phase, mgId: r.mgId, game: r.event?.choices?.findIndex((c) => c.game) ?? -1 };
+  });
+  if (!st) break;
+  if (st.phase === 'minigame') { entered = st.mgId; break; }
+  if (st.phase === 'event' && st.game >= 0) await page.keyboard.press(String(st.game + 1));
+  else if (st.phase === 'event') await page.keyboard.press('1');
+  else if (st.phase === 'outcome' || st.phase === 'over') await page.keyboard.press('Enter');
+  await page.waitForTimeout(80);
+}
+
+check(!!entered, 'an encounter opens a mini-game, and the game switches into it', entered || 'never entered');
+
+if (entered) {
+  // It has to PAINT. Count distinct colours in the play area: the road scene
+  // it replaced had a sky, a ground and a vehicle, so a blank or a stuck frame
+  // shows up as a collapse in variety rather than needing a screenshot diff.
+  const colours = await page.evaluate(() => {
+    const c = document.getElementById('c');
+    const g = c.getContext('2d');
+    const px = g.getImageData(0, Math.floor(c.height * 0.25), c.width, Math.floor(c.height * 0.5)).data;
+    const seen = new Set();
+    for (let i = 0; i < px.length; i += 4) seen.add((px[i] << 16) | (px[i + 1] << 8) | px[i + 2]);
+    return seen.size;
+  });
+  check(colours > 3, `the ${entered} mini-game draws a scene`, `${colours} distinct colours`);
+
+  // And it has to END, back into the run, without a reload.
+  const before = Date.now();
+  let out = false;
+  for (let i = 0; i < 300; i += 1) {
+    await page.keyboard.press('e');                  // every mini-game takes E to leave
+    await page.waitForTimeout(120);
+    if ((await phase()) !== 'minigame') { out = true; break; }
+  }
+  check(out, '…and pressing E leaves it, handing control back to the run',
+    `${((Date.now() - before) / 1000).toFixed(1)}s`);
+  check(await page.evaluate(() => !!document.getElementById('c').__trailRun?.outcome?.lesson),
+    '…leaving a result card that states the lesson it just taught',
+    await page.evaluate(() => document.getElementById('c').__trailRun?.outcome?.lesson || 'none'));
+}
+
 console.log([...ok, ...bad].join('\n'));
 console.log(`\n${ok.length} passed, ${bad.length} failed`);
 await browser.close();

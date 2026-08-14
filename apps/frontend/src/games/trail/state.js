@@ -2,14 +2,20 @@ import BIOMES from './content/biomes.json';
 import EVENTS from './content/events.json';
 import ENDINGS from './content/endings.json';
 import ITEMS from './content/items.json';
+import { MINIGAMES } from './minigames';
 
 // The rules. No drawing in here, so the whole game is testable without a
 // canvas — which is the only reason a game this small gets tested at all.
 
 export const TOTAL = 500;
-export const START = { fuel: 20, water: 12, food: 15, meds: 5 };
+// SCRAP is money and PROTECTION is the thing that survives a raid gone wrong.
+// Neither drains: they are only moved by encounters and by the mini-games, so
+// they sit outside the four consumables the road eats.
+export const START = { fuel: 20, water: 12, food: 15, meds: 5, scrap: 6, protection: 0 };
 export const MAX_HP = 10;
 export const RESOURCES = ['fuel', 'water', 'food', 'meds'];
+export const KIT = ['scrap', 'protection'];
+export const DRAINS = ['fuel', 'water', 'food'];
 export const MAX_SPEED = 10;
 export const BASE_SPEED = 0.5;      // distance units per second, per point of speed
 export const CRAWL = 2;             // speed the vehicle is held to during an encounter
@@ -78,7 +84,9 @@ export function newRun(seed = Date.now()) {
     biome: 0,
     speed: 0,
     targetSpeed: 0,
-    phase: 'travel',       // travel | event | outcome | over
+    phase: 'travel',       // travel | event | minigame | outcome | over
+    mg: null,              // live mini-game state, when phase is 'minigame'
+    mgId: null,
     event: null,
     outcome: null,
     ending: null,
@@ -147,7 +155,14 @@ export function travel(run, dt) {
   // During an encounter the vehicle is held to a crawl rather than frozen.
   // The brief asked for real time, and a hard pause is what makes a "choose
   // quickly" prompt feel like a lie.
-  const wanted = run.phase === 'event' ? Math.min(run.targetSpeed, CRAWL) : run.targetSpeed;
+  //
+  // A MINI-GAME is different: you have stopped and got out. The road does not
+  // move, and neither do you. The cost of the detour is the reduced drain
+  // below plus whatever the mini-game itself does to you — not lost ground,
+  // because a supermarket you have to sprint through is not a supermarket.
+  const parked = run.phase === 'minigame';
+  if (parked) run.speed = 0;
+  const wanted = parked ? 0 : (run.phase === 'event' ? Math.min(run.targetSpeed, CRAWL) : run.targetSpeed);
   // Braking bites harder than the throttle. A vehicle that stops as slowly as
   // it starts cannot be used to avoid anything.
   const rate = wanted < run.speed ? 7 : 3.2;
@@ -162,7 +177,7 @@ export function travel(run, dt) {
   run.res.fuel = Math.max(0, run.res.fuel - b.drain.fuel * moved * fuelMultiplier(run.speed));
   // Per second, whether or not you are moving — but idling through an
   // encounter is cheaper than driving through the same seconds.
-  const per = dt * (run.phase === 'event' ? ENCOUNTER_DRAIN : 1);
+  const per = dt * (run.phase === 'event' || parked ? ENCOUNTER_DRAIN : 1);
   run.res.water = Math.max(0, run.res.water - b.drain.water * per);
   run.res.food = Math.max(0, run.res.food - b.drain.food * per);
 
@@ -170,7 +185,7 @@ export function travel(run, dt) {
   // which an encounter can still save you. Instant death on an empty tank
   // makes the last stretch of a good run unwinnable with no warning.
   let out = null;
-  for (const k of ['fuel', 'water', 'food']) if (run.res[k] <= 0) out = k;
+  for (const k of DRAINS) if (run.res[k] <= 0) out = k;
   // 0.35/s is roughly half a minute from full — about eighty miles at a
   // middling pace. Long enough that an encounter can still rescue you,
   // short enough that an empty tank is a crisis rather than a footnote.
@@ -191,6 +206,9 @@ export function travel(run, dt) {
     run.ending = 'arrive';
     return run;
   }
+
+  // The mini-game owns its own clock from here; stepMinigame drives it.
+  if (parked) return run;
 
   if (run.phase === 'event') {
     run.eventLeft -= dt;
@@ -266,12 +284,18 @@ export function choiceValue(c, run) {
 /** The option taken when the timer runs out: the one worth least to the run. */
 export function defaultChoice(event, run) {
   if (!event) return 0;
-  let worstIdx = 0; let worstVal = Infinity;
+  let worstIdx = -1; let worstVal = Infinity;
   event.choices.forEach((c, i) => {
+    // NOBODY IS VOLUNTEERED INTO A MINI-GAME. Being slow to read a card is not
+    // consent to a stealth section that can end the run, and dropping someone
+    // into one is an ambush rather than a difficulty curve. Every encounter
+    // that opens a mini-game therefore also offers a way past it, and that is
+    // what the clock takes.
+    if (c.game) return;
     const v = choiceValue(c, run);
     if (v < worstVal) { worstVal = v; worstIdx = i; }
   });
-  return worstIdx;
+  return worstIdx >= 0 ? worstIdx : 0;
 }
 
 // Weighted pick from the events that apply here, skipping the last few so a
@@ -297,18 +321,9 @@ function rand(run) {
   return run.seed / 0x7fffffff;
 }
 
-/** Apply a choice. Sets run.outcome for the UI to show. */
-export function choose(run, index) {
-  if (run.phase !== 'event' || !run.event) return run;
-  const c = run.event.choices[index];
-  if (!c) return run;
-
-  const failed = typeof c.risk === 'number' && rand(run) < c.risk;
-  const deltas = { ...(c.cost ? negate(c.cost) : {}) };
-  for (const [k, v] of Object.entries((failed ? c.fail : c.win) || {})) {
-    deltas[k] = (deltas[k] || 0) + v;
-  }
-
+/** Move health, ground and stores by a bag of deltas. One place, so an
+ *  encounter and a mini-game cannot disagree about what a number means. */
+function applyDeltas(run, deltas) {
   for (const [k, v] of Object.entries(deltas)) {
     if (k === 'hp') run.hp = clamp(run.hp + v, 0, MAX_HP);
     // Ground lost. Braking hard for a boulder puts you behind, which is what
@@ -316,6 +331,72 @@ export function choose(run, index) {
     else if (k === 'distance') run.dist = Math.max(0, run.dist + v);
     else if (k in run.res) run.res[k] = Math.max(0, run.res[k] + v);
   }
+}
+
+// ── mini-games ─────────────────────────────────────────────────────────────
+
+/** Stop the vehicle and hand control to a mini-game. */
+export function startMinigame(run, id) {
+  const m = MINIGAMES[id];
+  if (!m) return run;
+  run.phase = 'minigame';
+  run.mgId = id;
+  run.eventLeft = 0;
+  // The RNG is the run's own, so a seed still replays exactly — including the
+  // shelves in the supermarket and the trader's temper.
+  run.mg = m.create(run, () => rand(run), run.res);
+  return run;
+}
+
+/** Advance the live mini-game, and resolve it the moment it says it is done. */
+export function stepMinigame(run, dt, input) {
+  if (run.phase !== 'minigame' || !run.mg) return run;
+  MINIGAMES[run.mgId].step(run.mg, dt, input);
+  if (run.mg.done) endMinigame(run);
+  return run;
+}
+
+/** Bank the result and put the outcome card up. */
+export function endMinigame(run) {
+  if (!run.mg) return run;
+  const result = MINIGAMES[run.mgId].finish(run.mg, run.res.protection || 0);
+  applyDeltas(run, result.deltas);
+  run.mg = null;
+  run.outcome = {
+    text: result.text, deltas: result.deltas, failed: result.failed, lesson: result.lesson,
+  };
+  // `fatal` is the raid, and only the raid. Everything else costs you something
+  // you can carry on without.
+  if (result.fatal) { run.phase = 'over'; run.ending = result.fatal; return run; }
+  run.phase = 'outcome';
+  // A beat longer than an ordinary result: there is a lesson line under it.
+  run.outcomeLeft = OUTCOME_SECONDS + 2;
+  if (run.hp <= 0) { run.phase = 'over'; run.ending = 'hp'; }
+  return run;
+}
+
+/** Apply a choice. Sets run.outcome for the UI to show. */
+export function choose(run, index) {
+  if (run.phase !== 'event' || !run.event) return run;
+  const c = run.event.choices[index];
+  if (!c) return run;
+
+  // A choice can open a mini-game instead of resolving to numbers. Reusing the
+  // encounter card as the door means the pacing, the biome filter and the
+  // no-repeats log all keep working, and a mini-game is a KIND of encounter
+  // rather than a second system bolted alongside the first.
+  if (c.game) {
+    run.log.push(run.event.id);
+    return startMinigame(run, c.game);
+  }
+
+  const failed = typeof c.risk === 'number' && rand(run) < c.risk;
+  const deltas = { ...(c.cost ? negate(c.cost) : {}) };
+  for (const [k, v] of Object.entries((failed ? c.fail : c.win) || {})) {
+    deltas[k] = (deltas[k] || 0) + v;
+  }
+
+  applyDeltas(run, deltas);
 
   run.log.push(run.event.id);
   run.outcome = { text: (failed ? c.failText : c.text) || c.text || '', deltas, failed };

@@ -2,10 +2,11 @@ import { createScreen, text, wrap, W, H, PAL, UI } from './engine';
 import { scene, drawVehicle, drawObstacle, drawParticle, icon } from './draw';
 import {
   newRun, travel, choose, resume, readStats, writeStats, setThrottle, defaultChoice,
-  biomeAt, biomeStart, fuelMultiplier,
-  BIOMES, ENDINGS, ITEMS, RESOURCES, TOTAL, MAX_HP, MAX_SPEED,
+  stepMinigame, biomeAt, biomeStart, fuelMultiplier,
+  BIOMES, ENDINGS, ITEMS, RESOURCES, KIT, TOTAL, MAX_HP, MAX_SPEED,
   EVENT_SECONDS, WARN_AT, URGENT_AT,
 } from './state';
+import { MINIGAMES } from './minigames';
 
 // The loop, the screens and the input. Everything that needs a browser lives
 // here; the rules live in state.js and the pixels in draw.js.
@@ -34,6 +35,13 @@ export function mount(canvas, { onExit } = {}) {
 
   const s = createScreen(canvas);
   let run = newRun();
+  // A read-only handle on the current run, hung off the canvas the same way
+  // the unmount guard is. Debugging a canvas game otherwise means printf, and
+  // the browser test needs to know which phase it is looking at without the
+  // frame loop growing a callback that only exists for tests. Reassigned
+  // whenever the run is; the object itself is mutated in place.
+  const publish = () => { canvas.__trailRun = run; };
+  publish();
   let stats = readStats();
   let raf = 0;
   let last = performance.now();
@@ -43,6 +51,20 @@ export function mount(canvas, { onExit } = {}) {
   let choiceBoxes = [];
   let held = null;          // 'gas' | 'brake' while a pad is pressed
   const dust = [];
+  // Mini-game input. Edges are latched here and consumed by the next frame,
+  // because a key press is an instant and a frame is a span: reading the key
+  // set directly would fire "buy" once per frame for as long as a finger
+  // rested on Enter.
+  let ptr = null;           // { x, y } in world units while pressed
+  let tap = null;           // ...and the same, for exactly one frame on press
+  let mgAct = false;
+  let mgLeave = false;
+  let mgStepX = 0;
+  let mgStepY = 0;
+  // Where hud() PUT the first kit icon. It used to be the cursor the icon loop
+  // walked, so by the time the text layer read it the numbers were two slots
+  // to the right of the things they counted.
+  let kitX = 0;
 
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => s.resize()) : null;
   ro?.observe(canvas.parentElement || canvas);
@@ -53,7 +75,9 @@ export function mount(canvas, { onExit } = {}) {
     if (titleScreen) { titleScreen = false; setThrottle(run, 4); return; }
     if (run.phase === 'event') { choose(run, i); hover = 0; }
     else if (run.phase === 'outcome') resume(run);
-    else if (run.phase === 'over') { writeStats(run); stats = readStats(); run = newRun(); dust.length = 0; }
+    else if (run.phase === 'over') {
+      writeStats(run); stats = readStats(); run = newRun(); dust.length = 0; publish();
+    }
   };
 
   const keys = new Set();
@@ -83,6 +107,22 @@ export function mount(canvas, { onExit } = {}) {
     // The title says PRESS ANY KEY, so any key has to work — it used to mean
     // "press one of four keys", which is a different sentence.
     if (titleScreen) { commit(0); e.preventDefault(); return; }
+
+    // Inside a mini-game the same keys mean different things: W/S drive a
+    // cursor rather than the throttle, and Enter commits rather than dismissing
+    // a card. Branching here keeps that switch in ONE place instead of leaving
+    // every downstream reader to work out which mode it is in.
+    if (run.phase === 'minigame') {
+      if (k === 'e') mgLeave = true;
+      else if (k === 'enter' || k === ' ') mgAct = true;
+      else if (k === 'arrowleft' || k === 'a') mgStepX = -1;
+      else if (k === 'arrowright' || k === 'd') mgStepX = 1;
+      else if (k === 'arrowup' || k === 'w') mgStepY = -1;
+      else if (k === 'arrowdown' || k === 's') mgStepY = 1;
+      else if (!/^[1-9]$/.test(k)) return;
+      e.preventDefault();
+      return;
+    }
     // W/S are the throttle; the arrows move between choices. Overloading the
     // arrows onto both would mean picking an option nudges the accelerator.
     if (k === 'arrowup') hover = Math.max(0, hover - 1);
@@ -115,6 +155,7 @@ export function mount(canvas, { onExit } = {}) {
     ev.preventDefault();
     const { x, y } = pointAt(ev);
     if (titleScreen) { commit(0); return; }
+    if (run.phase === 'minigame') { ptr = { x, y }; tap = { x, y }; return; }
     if (run.phase === 'outcome' || run.phase === 'over') { commit(0); return; }
     if (run.phase === 'event') {
       const hit = choiceBoxes.findIndex((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
@@ -123,8 +164,12 @@ export function mount(canvas, { onExit } = {}) {
     if (inPad(GAS, x, y)) held = 'gas';
     else if (inPad(BRAKE, x, y)) held = 'brake';
   };
-  const onUp = () => { held = null; };
+  const onUp = () => { held = null; ptr = null; };
   const onMove = (ev) => {
+    if (run.phase === 'minigame') {
+      if (ptr) { const p = pointAt(ev); ptr.x = p.x; ptr.y = p.y; }
+      return;
+    }
     if (run.phase !== 'event') return;
     const { x, y } = pointAt(ev);
     const hit = choiceBoxes.findIndex((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
@@ -140,6 +185,7 @@ export function mount(canvas, { onExit } = {}) {
   canvas.addEventListener('touchend', onUp);
   canvas.addEventListener('touchcancel', onUp);
   canvas.addEventListener('mousemove', onMove);
+  canvas.addEventListener('touchmove', onMove, { passive: false });
 
   // ── throttle ────────────────────────────────────────────────────────────
   // Held input nudges a TARGET; state.js interpolates the real speed toward
@@ -167,6 +213,28 @@ export function mount(canvas, { onExit } = {}) {
     }
   }
 
+  // ── mini-games ──────────────────────────────────────────────────────────
+  // One input shape for all three. The games differ in how they read it —
+  // `axis: 'step'` wants a cursor nudge per press, `axis: 'analog'` wants a
+  // direction held — and declaring that in the game's own meta beats teaching
+  // this function the difference between a supermarket and a stealth section.
+  function mgInput(m) {
+    const ax = (a, b) => (keys.has(a) ? -1 : 0) + (keys.has(b) ? 1 : 0);
+    const analog = m.meta.axis === 'analog';
+    const inp = {
+      dx: analog ? ax('arrowleft', 'arrowright') + ax('a', 'd') : mgStepX,
+      dy: analog ? ax('arrowup', 'arrowdown') + ax('w', 's') : mgStepY,
+      hold: keys.has('enter') || keys.has(' '),
+      alt: keys.has('shift'),
+      act: mgAct,
+      leave: mgLeave,
+      at: ptr,
+      tap,
+    };
+    mgStepX = 0; mgStepY = 0; mgAct = false; mgLeave = false; tap = null;
+    return inp;
+  }
+
   // ── frame ───────────────────────────────────────────────────────────────
   const frame = (now) => {
     // Clamped: a backgrounded tab must not teleport you down the road, and a
@@ -175,10 +243,35 @@ export function mount(canvas, { onExit } = {}) {
     last = now;
     t = now;
 
+    const mgMod = run.phase === 'minigame' ? MINIGAMES[run.mgId] : null;
+
     if (!titleScreen && run.phase !== 'over') {
-      throttle(dt);
+      // No throttle while parked — the same keys are the mini-game's now.
+      if (!mgMod) throttle(dt);
       travel(run, dt);
-      spawnDust(dt);
+      if (mgMod) stepMinigame(run, dt, mgInput(mgMod));
+      else spawnDust(dt);
+    }
+
+    // A mini-game owns the whole picture; the road does not show through it.
+    if (mgMod && run.phase === 'minigame') {
+      mgMod.draw(s, run.mg, t);
+      hud(true);
+      const mgView = s.present();
+      hudText(mgView);
+      mgMod.overlay(mgView, run.mg, t, text, PAL);
+      // Name it, then tell them how to play it — for six seconds, then get out
+      // of the way. A mini-game nobody has seen before with no controls listed
+      // is a puzzle about the keyboard rather than about the supermarket.
+      const elapsed = mgMod.meta.seconds - run.mg.left;
+      text(mgView, mgMod.meta.title, 160, 164, {
+        size: 7, align: 'center', col: elapsed < 6 ? PAL[10] : PAL[5],
+      });
+      if (elapsed < 6) {
+        text(mgView, mgMod.meta.hint, 160, 173, { size: 6, align: 'center', col: PAL[6] });
+      }
+      raf = requestAnimationFrame(frame);
+      return;
     }
 
     const bi = biomeAt(run.dist);
@@ -212,6 +305,7 @@ export function mount(canvas, { onExit } = {}) {
     if (!titleScreen && run.phase !== 'over') pads();
 
     const view = s.present();
+    if (!titleScreen) hudText(view);
     if (titleScreen) drawTitle(view);
     else if (run.phase === 'event') drawEvent(view);
     else if (run.phase === 'outcome') drawOutcome(view);
@@ -222,20 +316,27 @@ export function mount(canvas, { onExit } = {}) {
   };
 
   // ── the pixel layer of the HUD ──────────────────────────────────────────
-  function hud() {
+  function hud(parked = false) {
     s.rect(0, 0, W, 22, 0);
     s.rect(0, 22, W, 1, 5);
     let x = 4;
     for (const k of RESOURCES) {
       icon(s, k, x, 3);
-      s.rect(x, 13, 30, 4, 1);
-      s.rect(x, 13, Math.round(30 * Math.max(0, Math.min(1, run.res[k] / 20))), 4, ITEMS[k].colour);
-      x += 38;
+      s.rect(x, 13, 26, 4, 1);
+      s.rect(x, 13, Math.round(26 * Math.max(0, Math.min(1, run.res[k] / 20))), 4, ITEMS[k].colour);
+      x += 34;
     }
-    icon(s, 'heart', x + 6, 3);
-    s.rect(x + 6, 13, 30, 4, 1);
-    s.rect(x + 6, 13, Math.round(30 * (run.hp / MAX_HP)), 4, 8);
+    icon(s, 'heart', x, 3);
+    s.rect(x, 13, 26, 4, 1);
+    s.rect(x, 13, Math.round(26 * (run.hp / MAX_HP)), 4, 8);
+    // Scrap and protection are COUNTS, not levels — there is no "full" to draw
+    // a bar against, and a two-pixel bar for a number between nought and two
+    // says less than the number does.
+    kitX = x + 34;
+    let kx = kitX;
+    for (const k of KIT) { icon(s, k, kx, 3); kx += 30; }
 
+    if (parked) return;
     // Progress, and the speed gauge directly above it. Both live at the
     // bottom so everything about the journey is in one place instead of
     // making the eye cross the screen to assemble it.
@@ -248,6 +349,11 @@ export function mount(canvas, { onExit } = {}) {
       s.rect(6 + Math.round(bar * (acc / TOTAL)), H - 9, 1, 7, 6);
     }
 
+    // Parked in a mini-game the journey furniture is meaningless — a speed dial
+    // reading zero and a progress bar that cannot move — and the strip it sits
+    // in is the only clear place to put the mini-game's name and its controls.
+    // So it is the mini-game's, and the games draw nothing below y=160.
+    if (parked) return;
     const gw = 60;
     s.rect(6, H - 16, gw, 5, 1);
     const lit = Math.round(gw * (run.speed / MAX_SPEED));
@@ -274,6 +380,18 @@ export function mount(canvas, { onExit } = {}) {
     s.rect(bx - 3, by + 4, 6, 2, 8);
   }
 
+  /** The numbers that go with hud()'s pixels. Text lives at device resolution,
+   *  so it cannot be drawn into the world buffer with everything else. */
+  function hudText(view) {
+    let x = kitX;
+    for (const k of KIT) {
+      text(view, `${Math.round(run.res[k])}`, x + 9, 4, {
+        size: 7, col: run.res[k] > 0 ? PAL[ITEMS[k].colour] : PAL[5],
+      });
+      x += 30;
+    }
+  }
+
   // ── text layers ─────────────────────────────────────────────────────────
   function panel(view, top, height) {
     const { ctx, scale, ox, oy } = view;
@@ -286,18 +404,24 @@ export function mount(canvas, { onExit } = {}) {
   function drawTitle(view) {
     panel(view, 40, 104);
     text(view, 'TRAIL', W / 2, 48, { size: 20, align: 'center', col: PAL[10] });
-    text(view, '500 miles. One life. No saves.', W / 2, 72, { size: 7, align: 'center', col: PAL[6] });
-    text(view, 'W / S or the pads to drive', W / 2, 84, { size: 6, align: 'center', col: PAL[13] });
+    text(view, '500 miles. One life. No saves.', W / 2, 70, { size: 7, align: 'center', col: PAL[6] });
+    // The road will not feed you. Saying so on the title screen is not a spoiler
+    // — it is the strategy, and a player who works it out on run four has spent
+    // three runs losing to a rule nobody mentioned.
+    text(view, 'Sweep the shops. Haggle at the post. Raid, if you dare.', W / 2, 82, {
+      size: 6, align: 'center', col: PAL[11],
+    });
+    text(view, 'W / S or the pads to drive', W / 2, 92, { size: 6, align: 'center', col: PAL[13] });
     // Stated up front, because a rule you only discover by losing to it is a
     // trick. The encounter clock is generous now; what it does at zero is not.
-    text(view, 'Run the clock out and it chooses the worst for you', W / 2, 94, {
+    text(view, 'Run the clock out and it chooses the worst for you', W / 2, 101, {
       size: 6, align: 'center', col: PAL[9],
     });
     if (stats.runs > 0) {
-      text(view, `Best ${stats.best} mi  ·  Runs ${stats.runs}`, W / 2, 106, { size: 6, align: 'center', col: PAL[13] });
+      text(view, `Best ${stats.best} mi  ·  Runs ${stats.runs}`, W / 2, 111, { size: 6, align: 'center', col: PAL[13] });
     }
-    text(view, blink() ? 'PRESS ANY KEY OR TAP' : '', W / 2, 120, { size: 7, align: 'center', col: UI });
-    text(view, 'Esc to leave', W / 2, 132, { size: 6, align: 'center', col: PAL[5] });
+    text(view, blink() ? 'PRESS ANY KEY OR TAP' : '', W / 2, 123, { size: 7, align: 'center', col: UI });
+    text(view, 'Esc to leave', W / 2, 134, { size: 6, align: 'center', col: PAL[5] });
   }
 
   function drawTravel(view, b) {
@@ -372,7 +496,7 @@ export function mount(canvas, { onExit } = {}) {
     const o = run.outcome;
     const lines = wrap(view, o.text, W - 24, 7);
     const deltas = Object.entries(o.deltas).filter(([, v]) => v);
-    const boxH = 34 + lines.length * 10 + (deltas.length ? 12 : 0);
+    const boxH = 34 + lines.length * 10 + (deltas.length ? 12 : 0) + (o.lesson ? 12 : 0);
     const top = H - boxH - 10;
     panel(view, top, boxH);
 
@@ -390,6 +514,12 @@ export function mount(canvas, { onExit } = {}) {
         text(view, str, x, y, { size: 6, col: v > 0 ? PAL[11] : PAL[8] });
         x += str.length * 4 + 10;
       }
+    }
+    // The lesson, stated once, under the thing that just taught it. A mini-game
+    // that punishes you without naming why is a puzzle; naming it is the whole
+    // reason these exist.
+    if (o.lesson) {
+      text(view, o.lesson, 12, top + boxH - 22, { size: 6, col: PAL[9] });
     }
     text(view, blink() ? 'TAP OR PRESS ENTER' : '', W - 8, H - 20, { size: 6, align: 'right', col: PAL[13] });
   }
@@ -414,6 +544,7 @@ export function mount(canvas, { onExit } = {}) {
 
   function unmount() {
     if (canvas.__trailUnmount === unmount) delete canvas.__trailUnmount;
+    delete canvas.__trailRun;
     cancelAnimationFrame(raf);
     ro?.disconnect();
     window.removeEventListener('keydown', onKey);
@@ -425,6 +556,7 @@ export function mount(canvas, { onExit } = {}) {
     canvas.removeEventListener('touchend', onUp);
     canvas.removeEventListener('touchcancel', onUp);
     canvas.removeEventListener('mousemove', onMove);
+    canvas.removeEventListener('touchmove', onMove);
     if (!titleScreen && run.dist > 0 && run.phase !== 'over') writeStats(run);
   }
 

@@ -12,8 +12,11 @@
  */
 import {
   newRun, travel, choose, resume, setThrottle, defaultChoice, choiceValue, fuelMultiplier, eventGap,
+  startMinigame, stepMinigame,
   TOTAL, MAX_HP, START, BIOMES, EVENTS, ENDINGS, MAX_SPEED, EVENT_SECONDS, WARN_AT,
 } from '../src/games/trail/state.js';
+import { MINIGAMES } from '../src/games/trail/minigames/index.js';
+import { makeBots } from './trail-bots.mjs';
 
 const DT = 1 / 30; // the slice the sim advances by, ~a frame
 
@@ -48,13 +51,20 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {} };
  */
 function play(seed, pick, pace = 6, think = THINK) {
   const run = newRun(seed);
+  const bots = makeBots();
   const setPace = () => setThrottle(run, typeof pace === 'function' ? pace(run) : pace);
   setPace();
   let guard = 0;
   while (run.phase !== 'over' && guard < 400000) {
     guard += 1;
     if (run.phase === 'outcome') resume(run);
-    else if (run.phase === 'event' && run.eventLeft <= EVENT_SECONDS - think) choose(run, pick(run));
+    else if (run.phase === 'minigame') {
+      // The world still drains while you are parked in one, so travel() runs
+      // too — the mini-game is a detour, not a pocket outside time.
+      travel(run, DT);
+      if (run.phase === 'minigame') stepMinigame(run, DT, bots[run.mgId](run.mg, DT));
+      if (run.phase !== 'minigame') bots.reset();
+    } else if (run.phase === 'event' && run.eventLeft <= EVENT_SECONDS - think) choose(run, pick(run));
     else travel(run, DT);
     setPace();
   }
@@ -79,11 +89,18 @@ const adaptive = (run) => {
 
 const first = () => 0;
 const greedy = (run) => {
-  // Take the choice that adds the most of whatever is scarcest.
+  // Take the choice that adds the most of whatever is scarcest. A mini-game is
+  // scored as a flat, modest opportunity: this bot cannot know what is behind
+  // the door, which is exactly the position the player is in.
   const need = ['fuel', 'water', 'food'].sort((a, b) => run.res[a] - run.res[b])[0];
   let best = 0; let bestScore = -Infinity;
   run.event.choices.forEach((c, i) => {
-    const gain = (c.win?.[need] || 0) - (c.cost?.[need] || 0) - (c.risk || 0) * 2 + (c.win?.hp || 0);
+    // The raid is skipped unless it is worth dying for — no protection means
+    // being caught ends the run, and no sensible player takes that trade.
+    if (c.game === 'raid' && !run.res.protection) return;
+    const gain = c.game
+      ? 1.5
+      : (c.win?.[need] || 0) - (c.cost?.[need] || 0) - (c.risk || 0) * 2 + (c.win?.hp || 0);
     if (gain > bestScore) { bestScore = gain; best = i; }
   });
   return best;
@@ -165,11 +182,17 @@ check(outcomes.arrive > fixedWins,
 check(outcomes.arrive > 0, 'a good player CAN arrive', `${outcomes.arrive}/120 wins`);
 check(outcomes.dead > 0, 'a good player can still die — it is not a walk', `${outcomes.dead}/120 losses`);
 const winRate = outcomes.arrive / 120;
-check(winRate >= 0.15 && winRate <= 0.7,
-  'the win rate sits in a band where arriving means something',
-  `${Math.round(winRate * 100)}% — want 15-70%`);
+// THE BAND MOVED, on the owner's call: 15-70% was set when difficulty came
+// from attrition, and a game you lose to subtraction four times in five is not
+// hard, it is a tax. Difficulty now lives in the mini-games — things you do
+// and can get better at — so the floor is a bot that plays them competently
+// and never brilliantly. If a change drops this back under 40% the game has
+// quietly gone back to grinding people down, and that is a failure.
+check(winRate >= 0.4 && winRate <= 0.8,
+  'the win rate sits in a band where arriving means something WITHOUT being a slog',
+  `${Math.round(winRate * 100)}% — want 40-80%`);
 const avg = Math.round(reached.reduce((a, b) => a + b, 0) / reached.length);
-check(avg > 120, 'the average run gets meaningfully down the road', `avg ${avg} mi`);
+check(avg > 300, 'the average run gets a long way down the road', `avg ${avg} of ${TOTAL} mi`);
 
 // The window is forty seconds now, and the bot above answers in under one.
 // Somebody who actually READS the prompt spends eight, at a crawl, with the
@@ -182,7 +205,7 @@ for (let seed = 1; seed <= 120; seed += 1) {
   if (r.ending === 'arrive') slowWins += 1;
 }
 const slowRate = slowWins / 120;
-check(slowRate >= 0.1 && slowRate <= 0.7,
+check(slowRate >= 0.3 && slowRate <= 0.8,
   'a player who READS every prompt can still arrive — the long window has not broken the economy',
   `${Math.round(slowRate * 100)}% at ${DELIBERATE}s/decision vs ${Math.round(winRate * 100)}% at ${THINK}s`);
 check(slowWins <= outcomes.arrive,
@@ -287,12 +310,26 @@ if (brakeIdx >= 0) {
   check(true, 'a distance cost moves you backwards (no braking option in this seed)');
 }
 
+// Roll a run forward to its first ORDINARY encounter — one that resolves to
+// numbers rather than opening a mini-game. The checks below are about the
+// card, and landing on a supermarket instead means they measure nothing.
+function toPlainEvent(seed, pace = 5) {
+  const run = newRun(seed);
+  setThrottle(run, pace);
+  let guard = 0;
+  for (;;) {
+    while (run.phase !== 'event' && guard < 400000) { travel(run, DT); setThrottle(run, pace); guard += 1; }
+    if (guard >= 400000) return run;
+    if (!run.event.choices.some((c) => c.game)) return run;
+    choose(run, run.event.choices.findIndex((c) => !c.game));
+    while (run.phase === 'outcome') travel(run, DT);
+  }
+}
+
 // The RESULT card must clear itself too. Waiting for a press there parks an
 // inattentive player on a results screen forever, in a game that is supposed
 // not to stop.
-const oRun = newRun(13);
-setThrottle(oRun, 5);
-while (oRun.phase !== 'event') travel(oRun, DT);
+const oRun = toPlainEvent(13);
 choose(oRun, 0);
 let oSpins = 0;
 while (oRun.phase === 'outcome' && oSpins < 1000) { travel(oRun, DT); oSpins += 1; }
@@ -302,20 +339,153 @@ check(oRun.phase !== 'outcome', 'the result card clears itself after a beat', `$
 // The guard is derived from the window rather than hard-coded, so lengthening
 // the window cannot turn this into a false failure.
 const LIMIT = Math.ceil(EVENT_SECONDS / DT) + 100;
-const tRun = newRun(11);
-setThrottle(tRun, 5);
-while (tRun.phase !== 'event') travel(tRun, DT);
-const thirstBefore = tRun.res.water;
+const tRun = toPlainEvent(11);
 let spins = 0;
 while (tRun.phase === 'event' && spins < LIMIT) { travel(tRun, DT); spins += 1; }
 check(tRun.phase !== 'event', 'an ignored encounter resolves itself when the clock runs out', `${spins} frames`);
 check(spins * DT > 30, '…but not before the player has had time to read it', `${(spins * DT).toFixed(1)}s`);
 check(!!tRun.outcome?.text, '…and it leaves an outcome card to read', tRun.outcome?.text || 'none');
+
 // Dithering is not free even before the worst option lands: the vehicle is
 // held to a crawl for the whole window and the canteen drains per second.
-check(tRun.res.water < thirstBefore - 1,
+//
+// Measured over a FIXED twenty seconds inside the window, so it is the sitting
+// being priced. An earlier version spun until the event resolved and then read
+// the water — which quietly included whatever the timed-out choice itself
+// cost, and passed on a seed where that choice happened to be "push on through
+// the afternoon, -3 water".
+const sitRun = toPlainEvent(11);
+const thirstBefore = sitRun.res.water;
+for (let i = 0; i < Math.round(20 / DT); i += 1) travel(sitRun, DT);
+check(sitRun.phase === 'event', 'twenty seconds in, the window is still open', sitRun.phase);
+check(sitRun.res.water < thirstBefore - 0.2,
   'sitting on the decision costs real supplies, not just the clock',
-  `water ${thirstBefore.toFixed(1)} -> ${tRun.res.water.toFixed(1)}`);
+  `water ${thirstBefore.toFixed(2)} -> ${sitRun.res.water.toFixed(2)} over 20s`);
+
+// ── 8. the mini-games ──────────────────────────────────────────────────────
+// This is where the difficulty lives now. The road used to win by subtraction,
+// which is a tax rather than a game; these are things you DO and can get
+// better at, so the economy underneath them was loosened to make room.
+
+const mgEvents = EVENTS.filter((e) => e.type === 'minigame');
+check(mgEvents.length >= 3, 'there are mini-game encounters', `${mgEvents.length}`);
+check(mgEvents.every((e) => e.choices.some((c) => MINIGAMES[c.game])),
+  'every mini-game encounter names a game that exists',
+  mgEvents.filter((e) => !e.choices.some((c) => MINIGAMES[c.game])).map((e) => e.id).join(',') || 'all ok');
+check(mgEvents.every((e) => e.choices.some((c) => !c.game)),
+  'every mini-game encounter also offers a way PAST it — entering is always a choice');
+check(EVENTS.every((e) => !e.choices[defaultChoice(e)]?.game),
+  'the clock never volunteers you into a mini-game',
+  EVENTS.filter((e) => e.choices[defaultChoice(e)]?.game).map((e) => e.id).join(',') || 'all ok');
+check(Object.keys(MINIGAMES).every((id) => mgEvents.some((e) => e.choices.some((c) => c.game === id))),
+  'every mini-game is reachable from an encounter — none is built and orphaned');
+
+/** The other sweep policy: force every shelf and never leave. It walks to the
+ *  first unopened unit rather than marching along one column — an earlier
+ *  version did the latter, only ever reached eight of the eighteen shelves,
+ *  and "reckless" therefore measured as "cautious with extra steps". */
+function grind() {
+  let cool = 0;
+  return (mg, dt) => {
+    if (!mg.cells[mg.cur].open) return { hold: true };
+    cool -= dt;
+    if (cool > 0) return {};
+    cool = 0.14;
+    const next = mg.cells.findIndex((c) => !c.open);
+    if (next < 0) return {};
+    const cx = mg.cur % 6; const cy = Math.floor(mg.cur / 6);
+    const nx = next % 6; const ny = Math.floor(next / 6);
+    return nx !== cx ? { dx: Math.sign(nx - cx) } : { dy: Math.sign(ny - cy) };
+  };
+}
+
+/** Play one mini-game to its end, headlessly. Returns the result. */
+function playMini(id, seed, policy) {
+  const run = newRun(seed);
+  startMinigame(run, id);
+  const bots = makeBots();
+  let guard = 0;
+  while (run.phase === 'minigame' && guard < 20000) {
+    guard += 1;
+    stepMinigame(run, DT, (policy || bots[id])(run.mg, DT));
+  }
+  return { run, stalled: guard >= 20000 };
+}
+
+// TERMINATION. A mini-game that can deadlock strands the whole run, and
+// finding that out by playing one in a browser for a minute is not a plan.
+for (const id of Object.keys(MINIGAMES)) {
+  let stalls = 0;
+  for (let seed = 1; seed <= 40; seed += 1) if (playMini(id, seed * 7919, null).stalled) stalls += 1;
+  check(stalls === 0, `${id} always reaches an ending`, `${stalls}/40 stalled`);
+}
+
+// THE SWEEP — "noise brings company" has to be TRUE, not printed. A bot that
+// never leaves must do measurably worse than one that watches the meter.
+const worth = (d) => Object.entries(d).reduce((a, [k, v]) => a + v * (k === 'hp' ? 10 : k === 'scrap' ? 1.5 : 6), 0);
+let disciplined = 0; let greedyHaul = 0; let caughtCount = 0;
+for (let seed = 1; seed <= 60; seed += 1) {
+  const a = playMini('scavenge', seed * 104729, null);
+  disciplined += worth(a.run.outcome.deltas);
+  const b = playMini('scavenge', seed * 104729, grind());
+  greedyHaul += worth(b.run.outcome.deltas);
+  if (b.run.outcome.failed) caughtCount += 1;
+}
+check(disciplined > greedyHaul,
+  'THE SWEEP: leaving while it is quiet beats emptying the place — the noise meter is a real decision',
+  `disciplined ${Math.round(disciplined)} vs greedy ${Math.round(greedyHaul)}`);
+check(caughtCount > 30, '…and grinding every shelf does get you caught', `${caughtCount}/60`);
+
+// THE RAID — the whole point of protection. Same mini-game state, resolved
+// twice with a different number in the holster.
+const caughtMg = { how: 'caught', caches: [{ taken: true }, { taken: false }, { taken: false }], haul: { scrap: 8, fuel: 2 } };
+const bare = MINIGAMES.raid.finish(caughtMg, 0);
+const armed = MINIGAMES.raid.finish(caughtMg, 1);
+check(bare.fatal === 'caught', 'THE RAID: caught with nothing to argue with ends the run');
+check(!armed.fatal && armed.deltas.protection === -1,
+  '…but caught while carrying protection spends it and lets you go',
+  JSON.stringify(armed.deltas));
+check(ENDINGS.caught?.title && ENDINGS.caught.lines.some((l) => /protection/i.test(l)),
+  '…and the death screen says WHY, so the lesson is learnable in one run');
+check((armed.deltas.scrap || 0) < caughtMg.haul.scrap,
+  '…while still costing you half of what you went in for', `${armed.deltas.scrap} of ${caughtMg.haul.scrap}`);
+
+// THE POST — protection has to be buyable somewhere or the raid lesson is a
+// dead end, and inspecting has to actually reveal something.
+let stocked = 0; let scams = 0; let revealed = 0;
+for (let seed = 1; seed <= 60; seed += 1) {
+  const run = newRun(seed * 7919);
+  const mg = MINIGAMES.trade.create(run, () => { run.seed = (run.seed * 1103515245 + 12345) & 0x7fffffff; return run.seed / 0x7fffffff; }, run.res);
+  if (mg.offers.some((o) => o.kind === 'protection')) stocked += 1;
+  const scam = mg.offers.find((o) => o.scam);
+  if (scam) {
+    scams += 1;
+    const i = mg.offers.indexOf(scam);
+    MINIGAMES.trade.step(mg, DT, { row: i, col: 0, act: true });
+    if (scam.inspected) revealed += 1;
+  }
+}
+check(stocked === 60, 'THE POST always stocks protection — the raid lesson has somewhere to be learned', `${stocked}/60`);
+check(scams > 5, '…and some of the stock is not what the label says', `${scams}/60 stalls had a scam`);
+check(revealed === scams, '…which inspecting always reveals', `${revealed}/${scams}`);
+
+// Buying a scam blind delivers short, and that has to be visible in the
+// numbers rather than only in the prose.
+const sRun = newRun(3);
+const sMg = MINIGAMES.trade.create(sRun, () => 0.9, sRun.res);   // rand high: no scams from the roll
+sMg.offers[1].scam = true; sMg.offers[1].price = 1;
+MINIGAMES.trade.step(sMg, DT, { row: 1, col: 2, act: true });
+check(sMg.bought[0] && sMg.bought[0].n < sMg.offers[1].n,
+  '…and paying without looking gets you short measure',
+  `${sMg.bought[0]?.n} of ${sMg.offers[1].n}`);
+
+// Scrap is money, not a consumable: the road must never eat it.
+const moneyRun = newRun(21);
+setThrottle(moneyRun, 6);
+const purse = moneyRun.res.scrap;
+for (let i = 0; i < 3000; i += 1) { travel(moneyRun, DT); setThrottle(moneyRun, 6); if (moneyRun.phase !== 'travel') break; }
+check(moneyRun.res.scrap === purse, 'driving never spends scrap — it is money, not a supply',
+  `${purse} -> ${moneyRun.res.scrap}`);
 
 check(MAX_SPEED === 10, 'speed range matches the brief');
 

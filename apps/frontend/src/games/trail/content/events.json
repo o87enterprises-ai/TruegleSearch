@@ -514,5 +514,89 @@
         "failText": "Sand in the intake. It costs you fuel and skin."
       }
     ]
+  },
+  {
+    "id": "supermarket",
+    "biome": "*",
+    "type": "minigame",
+    "weight": 6,
+    "text": "A supermarket with the doors off. Most of it went years ago, but most is not all.",
+    "choices": [
+      {
+        "label": "Sweep it",
+        "game": "scavenge",
+        "text": "You leave the engine running and go in."
+      },
+      {
+        "label": "Drive on",
+        "cost": {
+          "distance": 1
+        },
+        "text": "Somebody has already spray-painted EMPTY across the front. You believe them."
+      }
+    ]
+  },
+  {
+    "id": "warehouse",
+    "biome": "highway",
+    "type": "minigame",
+    "weight": 5,
+    "text": "A distribution warehouse off the slip road. The roller doors are down but one is buckled.",
+    "choices": [
+      {
+        "label": "Get inside",
+        "game": "scavenge",
+        "text": "You squeeze under the door into the dark."
+      },
+      {
+        "label": "Not worth the noise",
+        "text": "You keep rolling.",
+        "cost": {
+          "distance": 1
+        }
+      }
+    ]
+  },
+  {
+    "id": "settlement-raid",
+    "biome": "*",
+    "type": "minigame",
+    "weight": 4,
+    "text": "Lights behind a fence, and a lot of full drums stacked where anyone can see them. They have more than they need. They also have people on the wire.",
+    "choices": [
+      {
+        "label": "Go over the wire after dark",
+        "game": "raid",
+        "text": "You wait for the moon to go in."
+      },
+      {
+        "label": "Keep driving",
+        "text": "Not tonight, and probably not ever.",
+        "cost": {
+          "distance": 1
+        }
+      }
+    ]
+  },
+  {
+    "id": "trading-post",
+    "biome": "*",
+    "type": "minigame",
+    "weight": 6,
+    "text": "A trading post built into a filling station. Somebody has hung a scale over the counter, which is either honesty or theatre.",
+    "choices": [
+      {
+        "label": "Do business",
+        "game": "trade",
+        "text": "You count out what you are carrying."
+      },
+      {
+        "label": "Drive on",
+        "text": "You have nothing you feel like losing today.",
+        "cost": {
+          "distance": 1
+        }
+      }
+    ]
   }
 ]

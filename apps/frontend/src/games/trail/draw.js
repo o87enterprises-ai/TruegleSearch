@@ -221,6 +221,14 @@ export function icon(s, kind, x, y) {
       s.rect(x + 2, y + 1, 4, 6, 11); s.rect(x + 1, y + 3, 6, 3, 11); s.rect(x + 3, y, 1, 2, 3); break;
     case 'meds':
       s.rect(x + 3, y + 1, 2, 6, 8); s.rect(x + 1, y + 3, 6, 2, 8); break;
+    case 'scrap':
+      // A bolt and a washer: the universal currency of things pulled off other
+      // things.
+      s.rect(x + 1, y + 1, 4, 2, 6); s.rect(x + 4, y + 2, 3, 4, 6); s.rect(x + 1, y + 4, 3, 3, 13); break;
+    case 'protection':
+      // Deliberately not a gun. It reads at 8 pixels and it is the idea that
+      // matters — something between you and the next person.
+      s.rect(x + 2, y, 4, 1, 7); s.rect(x + 1, y + 1, 6, 3, 7); s.rect(x + 2, y + 4, 4, 2, 7); s.rect(x + 3, y + 6, 2, 1, 7); break;
     case 'heart':
       s.rect(x + 1, y + 1, 2, 2, 8); s.rect(x + 5, y + 1, 2, 2, 8);
       s.rect(x + 1, y + 2, 6, 2, 8); s.rect(x + 2, y + 4, 4, 1, 8); s.rect(x + 3, y + 5, 2, 1, 8); break;

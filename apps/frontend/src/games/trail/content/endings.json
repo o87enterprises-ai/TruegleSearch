@@ -9,7 +9,9 @@
   },
   "hp": {
     "title": "YOU DON'T GET UP",
-    "lines": ["It wasn't one thing. It never is."]
+    "lines": [
+      "It wasn't one thing. It never is."
+    ]
   },
   "fuel": {
     "title": "STRANDED",
@@ -20,10 +22,22 @@
   },
   "water": {
     "title": "THIRST",
-    "lines": ["Three days is the number people quote. It is optimistic."]
+    "lines": [
+      "Three days is the number people quote. It is optimistic."
+    ]
   },
   "food": {
     "title": "HUNGER",
-    "lines": ["You stop feeling it near the end, which is the worst part."]
+    "lines": [
+      "You stop feeling it near the end, which is the worst part."
+    ]
+  },
+  "caught": {
+    "title": "CAUGHT",
+    "lines": [
+      "A torch, then three more, and no way back to the fence.",
+      "You went in without anything to argue with.",
+      "The post sells protection. That is what it is for."
+    ]
   }
 }

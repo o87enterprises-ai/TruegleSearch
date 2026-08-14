@@ -520,6 +520,14 @@
         "body": "apps/frontend/scripts/verify-trail-browser.mjs self-serves the dev harness via esbuild context() on :5179 and checks (a) w/s are preventDefault'd so browser find-as-you-type cannot eat them, (b) Tab is NOT swallowed, (c) the countdown actually flashes — all read off canvas pixels. eslint.config.js has a **/verify-*-browser.mjs block granting browser globals for page.evaluate callbacks.",
         "ts": "2026-08-14",
         "created": "2026-08-14"
+      },
+      "trail-minigame-tuning": {
+        "Id": "trail-minigame-tuning",
+        "Type": "fact",
+        "Label": "TRAIL tuning numbers that matter",
+        "body": "ENCOUNTER_DRAIN 0.35 (water/food while parked). NOISE_PER_SEARCH 0.105 sized against 18 shelves so ~11 is the cap — at 0.075 the meter could never fill and 'noise brings company' was decorative. BASE.protection 6 (was 9: after markup that was 11-15 scrap vs a 6-scrap starting purse, so the raid was entered 28/120 runs instead of 103). Fuel is what kills most runs; scavenge fuel yield w9 lo1 hi3. Diagnose with endings histogram, not guesses.",
+        "ts": "2026-08-14",
+        "created": "2026-08-14"
       }
     },
     "decision": {
@@ -1408,6 +1416,14 @@
         "Type": "decision",
         "Label": "TRAIL: water/food drain x0.35 during the event phase",
         "body": "ENCOUNTER_DRAIN=0.35. The economy had been tuned against a sim bot answering in 0.8s; at full drain, 8s of reading per encounter cut wins 18%->8%. Now 120-seed sim gives 21% at 0.8s, 16% at 8s, 0% if the clock always runs out. Fuel still drains per mile (unchanged) so the crawl is still a progress cost.",
+        "ts": "2026-08-14",
+        "created": "2026-08-14"
+      },
+      "trail-minigames": {
+        "Id": "trail-minigames",
+        "Type": "decision",
+        "Label": "TRAIL difficulty moved from attrition to three mini-games",
+        "body": "Owner's call: 'not rigged against the players'. Difficulty now lives in THE SWEEP (scavenge/noise meter), THE RAID (stealth, caught=death unless protection) and THE POST (haggle/inspect/sell). src/games/trail/minigames/{scavenge,raid,trade}.js — each exports meta/create/step/finish/draw/overlay; create+step are DOM-free so scripts/trail-bots.mjs can play them in the balance sim. Entered via events.json entries with type:'minigame' and a choice carrying .game; defaultChoice() never picks a game choice (no ambushes). New resources: scrap (currency) + protection (bought at the post, spent surviving a raid). Win band raised 15-70% -> 40-80%; sim now 57% decisive / 46% deliberate.",
         "ts": "2026-08-14",
         "created": "2026-08-14"
       }
