@@ -512,6 +512,14 @@
         "body": "YouTube OAuth (Data API) exposes subscriptions, likes and playlists but NOT the recommendation/home feed — the activities home-feed endpoint was removed years ago. TikTok's Display API only exposes a user's OWN posted videos, never the For You feed, and it is iframe-hostile. So per-service sign-in can power a shuffled subscriptions feed (worth building) but is NOT the answer to unlimited scroll; exploration is.",
         "ts": "2026-08-13",
         "created": "2026-08-13"
+      },
+      "trail-browser-test": {
+        "Id": "trail-browser-test",
+        "Type": "fact",
+        "Label": "npm run trail:browser — Playwright test for TRAIL's DOM-only behaviour",
+        "body": "apps/frontend/scripts/verify-trail-browser.mjs self-serves the dev harness via esbuild context() on :5179 and checks (a) w/s are preventDefault'd so browser find-as-you-type cannot eat them, (b) Tab is NOT swallowed, (c) the countdown actually flashes — all read off canvas pixels. eslint.config.js has a **/verify-*-browser.mjs block granting browser globals for page.evaluate callbacks.",
+        "ts": "2026-08-14",
+        "created": "2026-08-14"
       }
     },
     "decision": {
@@ -1386,6 +1394,22 @@
         "body": "The random draw (feedDraw) and the persistent seen ledger (seen.js) both operate on the candidates they are GIVEN, and every lookup in useUpNext was seeded from the current title / liked channels / heaviest taste words — so the neighbourhood never moved and the looping was reported again with both shipped. Fix: utils/explore.js, EXPLORE_RATE=0.2 of picks ignore taste entirely (random offset into /api/media/trending, or a random seed word from a fixed neutral list), scored FLAT so the profile can't drag them back. Plus poolFor(seenRate) widens the draw pool 10->30 as the head is exhausted, and seenRate>0.6 triggers a deeper page request. Backend: /api/media/trending now takes offset (was ORDER BY score DESC LIMIT n, i.e. the same head rows forever; exclude only carries 60 keys). Verified by scripts/verify-feed.mjs (npm run feed:test): 18.7% of picks reach an unsurfaced page on a fresh ledger, rising to 83% once the ledger fills.",
         "ts": "2026-08-13",
         "created": "2026-08-13"
+      },
+      "trail-decision-timer": {
+        "Id": "trail-decision-timer",
+        "Type": "decision",
+        "Label": "TRAIL encounter timer: 40s, flash at halfway, timeout takes WORST option",
+        "body": "EVENT_SECONDS=40 (owner asked 30-60s; 5s was too short to read the prompt). WARN_AT=0.5 / URGENT_AT=0.2 drive a flashing countdown bar + 'DECIDING FOR YOU IN n'. defaultChoice() INVERTED: was brake/safest, now the option worth least to the run (choiceValue = expected miles-of-progress, risk-weighted, scaled by scarcity). Obstacle sprite closes on the CLOCK, appearing at the horizon when the flash starts. Title screen states the rule.",
+        "ts": "2026-08-14",
+        "created": "2026-08-14"
+      },
+      "trail-encounter-drain": {
+        "Id": "trail-encounter-drain",
+        "Type": "decision",
+        "Label": "TRAIL: water/food drain x0.35 during the event phase",
+        "body": "ENCOUNTER_DRAIN=0.35. The economy had been tuned against a sim bot answering in 0.8s; at full drain, 8s of reading per encounter cut wins 18%->8%. Now 120-seed sim gives 21% at 0.8s, 16% at 8s, 0% if the clock always runs out. Fuel still drains per mile (unchanged) so the crawl is still a progress cost.",
+        "ts": "2026-08-14",
+        "created": "2026-08-14"
       }
     },
     "entity": {
@@ -1722,5 +1746,5 @@
       }
     }
   },
-  "updated": "2026-08-13"
+  "updated": "2026-08-14"
 }
