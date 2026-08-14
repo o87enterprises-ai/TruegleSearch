@@ -50,4 +50,15 @@ export default [
     },
     rules: { 'no-unused-vars': 'off' },
   },
+  {
+    // Playwright verifiers are Node programs that also SHIP code into a page:
+    // everything inside a `page.evaluate` callback runs in the browser, so
+    // `window` and `document` are legitimate there even though the file itself
+    // never touches a DOM. Without this they are six no-undef errors that are
+    // all false.
+    files: ['**/verify-*-browser.mjs'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
+    },
+  },
 ];

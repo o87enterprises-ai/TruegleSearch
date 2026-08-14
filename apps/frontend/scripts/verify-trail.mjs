@@ -11,11 +11,24 @@
  *     --outfile=/tmp/trail-test.mjs && node /tmp/trail-test.mjs
  */
 import {
-  newRun, travel, choose, resume, setThrottle, defaultChoice, fuelMultiplier, eventGap,
-  TOTAL, MAX_HP, START, BIOMES, EVENTS, ENDINGS, MAX_SPEED,
+  newRun, travel, choose, resume, setThrottle, defaultChoice, choiceValue, fuelMultiplier, eventGap,
+  TOTAL, MAX_HP, START, BIOMES, EVENTS, ENDINGS, MAX_SPEED, EVENT_SECONDS, WARN_AT,
 } from '../src/games/trail/state.js';
 
 const DT = 1 / 30; // the slice the sim advances by, ~a frame
+
+// How long the bot spends on an encounter before committing, in seconds.
+//
+// This has to be a DURATION rather than a threshold on the clock, or the sim
+// silently re-tunes itself every time the decision window changes: the old
+// test decided at `eventLeft < 4.2`, which meant 0.8 s of thought at a 5 s
+// window and would have meant 35.8 s of it at 40 s — measuring a player who
+// dithers to the buzzer every single time and calling it the balance.
+const THINK = 0.8;
+// …and a second, slower bot. A real person reads the prose before choosing,
+// and every one of those seconds is water. If the game only balances for
+// somebody who answers instantly, it does not balance.
+const DELIBERATE = 8;
 
 const ok = []; const bad = [];
 const check = (c, l, e = '') => (c ? ok : bad).push(`${c ? 'PASS' : 'FAIL'} ${l}${e ? ` — ${e}` : ''}`);
@@ -33,7 +46,7 @@ globalThis.localStorage = { getItem: () => null, setItem: () => {} };
  * bot shows what ignoring the dial costs, the adaptive one stands in for
  * somebody who is paying attention.
  */
-function play(seed, pick, pace = 6) {
+function play(seed, pick, pace = 6, think = THINK) {
   const run = newRun(seed);
   const setPace = () => setThrottle(run, typeof pace === 'function' ? pace(run) : pace);
   setPace();
@@ -41,7 +54,7 @@ function play(seed, pick, pace = 6) {
   while (run.phase !== 'over' && guard < 400000) {
     guard += 1;
     if (run.phase === 'outcome') resume(run);
-    else if (run.phase === 'event' && run.eventLeft < 4.2) choose(run, pick(run));
+    else if (run.phase === 'event' && run.eventLeft <= EVENT_SECONDS - think) choose(run, pick(run));
     else travel(run, DT);
     setPace();
   }
@@ -158,6 +171,24 @@ check(winRate >= 0.15 && winRate <= 0.7,
 const avg = Math.round(reached.reduce((a, b) => a + b, 0) / reached.length);
 check(avg > 120, 'the average run gets meaningfully down the road', `avg ${avg} mi`);
 
+// The window is forty seconds now, and the bot above answers in under one.
+// Somebody who actually READS the prompt spends eight, at a crawl, with the
+// canteen draining per second — so the game has to still be winnable for them
+// or the generous timer has quietly made it unwinnable.
+let slowWins = 0; const slowReached = [];
+for (let seed = 1; seed <= 120; seed += 1) {
+  const r = play(seed * 7919, greedy, adaptive, DELIBERATE);
+  slowReached.push(r.dist);
+  if (r.ending === 'arrive') slowWins += 1;
+}
+const slowRate = slowWins / 120;
+check(slowRate >= 0.1 && slowRate <= 0.7,
+  'a player who READS every prompt can still arrive — the long window has not broken the economy',
+  `${Math.round(slowRate * 100)}% at ${DELIBERATE}s/decision vs ${Math.round(winRate * 100)}% at ${THINK}s`);
+check(slowWins <= outcomes.arrive,
+  'taking longer over a decision costs something, so the clock is not decoration',
+  `deliberate ${slowWins} vs decisive ${outcomes.arrive}`);
+
 // Careless play should do clearly worse than considered play. If it does not,
 // the choices are decoration.
 let carelessWins = 0;
@@ -211,8 +242,36 @@ check(obstacles.length >= 3, 'there are obstacle events to draw', `${obstacles.l
 check(obstacles.every((e) => e.obstacleSprite), 'every obstacle names a sprite to draw');
 check(obstacles.every((e) => e.choices.some((c) => c.cost?.distance)),
   'every obstacle offers a BRAKE that costs ground — the safe option must cost something');
-check(obstacles.every((e) => defaultChoice(e) === e.choices.findIndex((c) => c.cost?.distance)),
-  'letting the timer run out brakes, rather than picking whatever is first');
+
+// ── the decision window, and what running it out costs ─────────────────────
+check(EVENT_SECONDS >= 30 && EVENT_SECONDS <= 60,
+  'the decision window is long enough to READ the prompt before answering it',
+  `${EVENT_SECONDS}s — want 30-60`);
+check(WARN_AT > 0 && WARN_AT < 1, 'the warning starts partway through, not at the buzzer', `${WARN_AT * 100}%`);
+
+// The reversal. This used to assert the opposite — that timing out braked for
+// you — which was right at five seconds and wrong at forty: a generous window
+// plus a safe default means never choosing is a viable strategy.
+check(EVENTS.every((e) => {
+  const vals = e.choices.map((c) => choiceValue(c));
+  return vals.every((v) => v >= vals[defaultChoice(e)] - 1e-9);
+}), 'the timer takes the option worth LEAST to the run — the worst one on the board');
+check(obstacles.every((e) => defaultChoice(e) !== e.choices.findIndex((c) => c.cost?.distance)),
+  '…so it never hands you the cautious option for free',
+  obstacles.filter((e) => defaultChoice(e) === e.choices.findIndex((c) => c.cost?.distance)).map((e) => e.id).join(',') || 'all ok');
+
+// Every event has to have a worst answer worth avoiding, or the penalty for
+// running out of time is nothing on that event and the clock is a bluff.
+check(EVENTS.every((e) => Math.max(...e.choices.map((c) => choiceValue(c))) > choiceValue(e.choices[defaultChoice(e)])),
+  'on every event there is something better than the default, so the clock always matters',
+  EVENTS.filter((e) => Math.max(...e.choices.map((c) => choiceValue(c))) <= choiceValue(e.choices[defaultChoice(e)])).map((e) => e.id).join(',') || 'all ok');
+
+// And the price of a thing depends on how much of it you have left.
+const dry = newRun(3); dry.res.water = 1;
+const pump = EVENTS.find((e) => e.id === 'dry-well').choices[0];
+check(choiceValue(pump, dry) > choiceValue(pump, newRun(3)),
+  'the default is state-aware: water is worth more when the canteen is nearly empty',
+  `${Math.round(choiceValue(pump, dry))} thirsty vs ${Math.round(choiceValue(pump, newRun(3)))} full`);
 
 // Losing ground has to actually lose ground.
 const dRun = newRun(9);
@@ -240,12 +299,23 @@ while (oRun.phase === 'outcome' && oSpins < 1000) { travel(oRun, DT); oSpins += 
 check(oRun.phase !== 'outcome', 'the result card clears itself after a beat', `${oSpins} frames`);
 
 // The timer must resolve on its own, or "real time" is a claim rather than a rule.
+// The guard is derived from the window rather than hard-coded, so lengthening
+// the window cannot turn this into a false failure.
+const LIMIT = Math.ceil(EVENT_SECONDS / DT) + 100;
 const tRun = newRun(11);
 setThrottle(tRun, 5);
 while (tRun.phase !== 'event') travel(tRun, DT);
+const thirstBefore = tRun.res.water;
 let spins = 0;
-while (tRun.phase === 'event' && spins < 1000) { travel(tRun, DT); spins += 1; }
+while (tRun.phase === 'event' && spins < LIMIT) { travel(tRun, DT); spins += 1; }
 check(tRun.phase !== 'event', 'an ignored encounter resolves itself when the clock runs out', `${spins} frames`);
+check(spins * DT > 30, '…but not before the player has had time to read it', `${(spins * DT).toFixed(1)}s`);
+check(!!tRun.outcome?.text, '…and it leaves an outcome card to read', tRun.outcome?.text || 'none');
+// Dithering is not free even before the worst option lands: the vehicle is
+// held to a crawl for the whole window and the canteen drains per second.
+check(tRun.res.water < thirstBefore - 1,
+  'sitting on the decision costs real supplies, not just the clock',
+  `water ${thirstBefore.toFixed(1)} -> ${tRun.res.water.toFixed(1)}`);
 
 check(MAX_SPEED === 10, 'speed range matches the brief');
 

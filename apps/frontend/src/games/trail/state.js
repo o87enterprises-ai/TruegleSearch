@@ -12,9 +12,39 @@ export const MAX_HP = 10;
 export const RESOURCES = ['fuel', 'water', 'food', 'meds'];
 export const MAX_SPEED = 10;
 export const BASE_SPEED = 0.5;      // distance units per second, per point of speed
-export const EVENT_SECONDS = 5;     // decide inside this or the vehicle brakes for you
 export const CRAWL = 2;             // speed the vehicle is held to during an encounter
+// Water and food burn slower while an encounter is on screen: the vehicle is
+// crawling, the engine is barely turning and nobody is driving hard in the sun.
+//
+// This number exists because of the longer window below. The old economy was
+// tuned against a bot that answered in 0.8 s, and at full drain every second
+// spent READING was charged at highway rates — a player who took eight seconds
+// to weigh a prompt lost more than half their chances, which made "here is
+// time to think" a trap rather than a fix. The ground you give up crawling is
+// still yours to lose, and it still costs supplies to make back, so hesitating
+// is not free; it is just no longer punished twice.
+export const ENCOUNTER_DRAIN = 0.35;
 export const OUTCOME_SECONDS = 3.5; // how long the result card holds before clearing itself
+
+// ── THE DECISION WINDOW ────────────────────────────────────────────────────
+//
+// This was five seconds, and five seconds was wrong. An encounter is two lines
+// of prose and up to three priced options; five seconds is not enough to READ
+// that, let alone weigh it, so the timer was not creating tension — it was
+// deciding for people before they knew what the choice was. A clock you cannot
+// beat is not a clock, it is a coin toss.
+//
+// Forty seconds is long enough to read, weigh and pick, and still short enough
+// that the world does not feel parked. The cost of dithering is paid in the
+// economy instead: the vehicle is held to CRAWL for the whole window, so every
+// second of hesitation is ground you are not covering — and ground has to be
+// made back in fuel and water. Simulated across 120 seeds, answering in eight
+// seconds wins 16% against 21% for answering instantly, and letting the clock
+// run out every time wins nothing at all.
+export const EVENT_SECONDS = 40;
+// Halfway, the countdown starts flashing. Below this it flashes faster still.
+export const WARN_AT = 0.5;
+export const URGENT_AT = 0.2;
 export { BIOMES, EVENTS, ENDINGS, ITEMS };
 
 // ── THE ECONOMY ────────────────────────────────────────────────────────────
@@ -55,7 +85,6 @@ export function newRun(seed = Date.now()) {
     log: [],
     eventLeft: 0,          // seconds remaining on the current encounter
     outcomeLeft: 0,        // …and on the result card, which clears itself
-    obstacleAt: 0,         // distance at which the obstacle sits
     nextEventAt: 18 + (seed % 14),
     elapsed: 0,
   };
@@ -131,9 +160,11 @@ export function travel(run, dt) {
 
   // Per mile, penalised by pace.
   run.res.fuel = Math.max(0, run.res.fuel - b.drain.fuel * moved * fuelMultiplier(run.speed));
-  // Per second, whether or not you are moving.
-  run.res.water = Math.max(0, run.res.water - b.drain.water * dt);
-  run.res.food = Math.max(0, run.res.food - b.drain.food * dt);
+  // Per second, whether or not you are moving — but idling through an
+  // encounter is cheaper than driving through the same seconds.
+  const per = dt * (run.phase === 'event' ? ENCOUNTER_DRAIN : 1);
+  run.res.water = Math.max(0, run.res.water - b.drain.water * per);
+  run.res.food = Math.max(0, run.res.food - b.drain.food * per);
 
   // Running out is a bleed, not a guillotine: there has to be a window in
   // which an encounter can still save you. Instant death on an empty tank
@@ -163,9 +194,8 @@ export function travel(run, dt) {
 
   if (run.phase === 'event') {
     run.eventLeft -= dt;
-    // Time ran out. The vehicle brakes for you — the safe option, and the one
-    // that costs ground, which is the right default for indecision.
-    if (run.eventLeft <= 0) return choose(run, defaultChoice(run.event));
+    // Time ran out. Whatever is worst for this run happens to you.
+    if (run.eventLeft <= 0) return choose(run, defaultChoice(run.event, run));
     return run;
   }
 
@@ -173,21 +203,75 @@ export function travel(run, dt) {
     run.phase = 'event';
     run.event = pickEvent(run);
     run.eventLeft = EVENT_SECONDS;
-    // The obstacle sits a little way ahead so it can be seen coming.
-    run.obstacleAt = run.dist + 14;
     run.outcome = null;
   }
   return run;
 }
 
-/** The option taken when the timer runs out: braking, or failing that the safest. */
-export function defaultChoice(event) {
+// ── WHAT INDECISION COSTS ──────────────────────────────────────────────────
+//
+// The timer used to brake for you: the safe option, chosen deliberately so
+// that running out of time cost ground rather than blood. With a five-second
+// window that was mercy. With forty seconds it is a strategy — you could
+// simply never choose, and the game would keep handing you the cautious play.
+//
+// So it is inverted. Run the clock out and the run takes the option worth
+// LEAST to it. Not the riskiest, and not the first: the least valuable, which
+// is a different and better question, because a 70% chance of losing three
+// health can still beat burning three litres of fuel you cannot replace.
+//
+// Everything below is priced in MILES OF PROGRESS, which is the only currency
+// the player is actually spending:
+//   fuel   ~0.05 per mile at a working pace, so a litre is roughly 20 miles;
+//          it is also the binding constraint — you start with less than the
+//          journey needs.
+//   water  drains per second, and the canteen is tighter than the tank.
+//   food   drains per second too, but you start with nearly twice what the
+//          road asks for, so a kilo is worth less than it looks.
+//   meds   only matter at the moment they matter.
+//   hp     regenerates at 0.06/s while you are not starving, which makes a
+//          single point cheaper than it feels — until you are low, and the
+//          scarcity multiplier below takes over.
+const WORTH = { fuel: 15, water: 12, food: 5, meds: 3, hp: 10, distance: 1 };
+
+/**
+ * What one unit of something is worth TO THIS RUN.
+ *
+ * Scarcity is the whole point: the last litre of water is not worth the same
+ * as the twelfth. Without `run` this falls back to the flat prices, which is
+ * what the content tests use to reason about an event on its own.
+ */
+function worth(kind, run) {
+  const base = WORTH[kind] ?? 1;
+  if (!run) return base;
+  const left = kind === 'hp'
+    ? run.hp / MAX_HP
+    : (kind in START ? run.res[kind] / START[kind] : 1);
+  return base * (1 + 3 * (1 - clamp(left, 0, 1)));
+}
+
+/**
+ * Expected value of a choice, in miles. Costs are certain; wins and failures
+ * are weighted by the risk, because a choice is its odds and not its best case.
+ */
+export function choiceValue(c, run) {
+  const risk = typeof c.risk === 'number' ? c.risk : 0;
+  let v = 0;
+  for (const [k, n] of Object.entries(c.cost || {})) v -= n * worth(k, run);
+  for (const [k, n] of Object.entries(c.win || {})) v += n * (1 - risk) * worth(k, run);
+  for (const [k, n] of Object.entries(c.fail || {})) v += n * risk * worth(k, run);
+  return v;
+}
+
+/** The option taken when the timer runs out: the one worth least to the run. */
+export function defaultChoice(event, run) {
   if (!event) return 0;
-  const brake = event.choices.findIndex((c) => c.cost?.distance);
-  if (brake >= 0) return brake;
-  let safest = 0; let lowest = Infinity;
-  event.choices.forEach((c, i) => { const r = c.risk || 0; if (r < lowest) { lowest = r; safest = i; } });
-  return safest;
+  let worstIdx = 0; let worstVal = Infinity;
+  event.choices.forEach((c, i) => {
+    const v = choiceValue(c, run);
+    if (v < worstVal) { worstVal = v; worstIdx = i; }
+  });
+  return worstIdx;
 }
 
 // Weighted pick from the events that apply here, skipping the last few so a
@@ -248,7 +332,6 @@ export function resume(run) {
   if (run.phase !== 'outcome') return run;
   run.phase = 'travel';
   run.event = null;
-  run.obstacleAt = 0;
   // Measured from the speed you were carrying: press on and the next one
   // arrives sooner, which is the cost of hurrying that is not fuel.
   run.nextEventAt = run.dist + eventGap(run.speed) + Math.floor(rand(run) * 8);

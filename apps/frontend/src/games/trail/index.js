@@ -3,7 +3,8 @@ import { scene, drawVehicle, drawObstacle, drawParticle, icon } from './draw';
 import {
   newRun, travel, choose, resume, readStats, writeStats, setThrottle, defaultChoice,
   biomeAt, biomeStart, fuelMultiplier,
-  BIOMES, ENDINGS, ITEMS, RESOURCES, TOTAL, MAX_HP, MAX_SPEED, EVENT_SECONDS,
+  BIOMES, ENDINGS, ITEMS, RESOURCES, TOTAL, MAX_HP, MAX_SPEED,
+  EVENT_SECONDS, WARN_AT, URGENT_AT,
 } from './state';
 
 // The loop, the screens and the input. Everything that needs a browser lives
@@ -56,18 +57,48 @@ export function mount(canvas, { onExit } = {}) {
   };
 
   const keys = new Set();
+
+  // What a key press MEANS, resolved once so keydown and keyup can never
+  // disagree about it.
+  //
+  // `code` is checked before `key` because `key` is the character the layout
+  // produced: on AZERTY the throttle key is physically where W is but reports
+  // "z", and holding shift reports "W". `code` is the physical key, which is
+  // what a driving control should be.
+  const bind = (e) => {
+    if (e.code === 'KeyW' || e.key?.toLowerCase() === 'w') return 'w';
+    if (e.code === 'KeyS' || e.key?.toLowerCase() === 's') return 's';
+    return e.key?.toLowerCase() || '';
+  };
+
+  // Keys the page needs more than the game does. Tab in particular: swallowing
+  // it would trap a keyboard user inside a 404 page.
+  const PASS_THROUGH = new Set(['tab', 'shift', 'control', 'alt', 'meta', 'escape', 'f5']);
+
   const onKey = (e) => {
     if (e.key === 'Escape') { onExit?.(); return; }
-    const k = e.key.toLowerCase();
+    const k = bind(e);
     keys.add(k);
+    if (PASS_THROUGH.has(k)) return;
+    // The title says PRESS ANY KEY, so any key has to work — it used to mean
+    // "press one of four keys", which is a different sentence.
+    if (titleScreen) { commit(0); e.preventDefault(); return; }
     // W/S are the throttle; the arrows move between choices. Overloading the
     // arrows onto both would mean picking an option nudges the accelerator.
-    if (k === 'arrowup') { hover = Math.max(0, hover - 1); e.preventDefault(); }
-    else if (k === 'arrowdown') { hover += 1; e.preventDefault(); }
-    else if (k === 'enter' || k === ' ') { commit(hover); e.preventDefault(); }
+    if (k === 'arrowup') hover = Math.max(0, hover - 1);
+    else if (k === 'arrowdown') hover += 1;
+    else if (k === 'enter' || k === ' ') commit(hover);
     else if (/^[1-4]$/.test(k)) commit(Number(k) - 1);
+    else if (k !== 'w' && k !== 's') return;   // not ours — leave it alone
+    // EVERY key the game claims must be swallowed, including the letters.
+    //
+    // W and S used to fall through, and in a browser with find-as-you-type on
+    // that is not a small bug: every press opened the quick-find bar, ate the
+    // key, and left the accelerator dead. The game looked broken and the fault
+    // was one missing call. A key you act on is a key you have to consume.
+    e.preventDefault();
   };
-  const onKeyUp = (e) => keys.delete(e.key.toLowerCase());
+  const onKeyUp = (e) => keys.delete(bind(e));
 
   const pointAt = (ev) => {
     const r = canvas.getBoundingClientRect();
@@ -157,9 +188,18 @@ export function mount(canvas, { onExit } = {}) {
     // The obstacle, closing. Rendered before the vehicle so the vehicle can
     // pass in front of it, which is the only cue that says "this is on the
     // road with you" rather than "this is a picture in a box".
+    //
+    // It closes on the CLOCK rather than on distance, and it appears at the
+    // horizon exactly when the countdown starts flashing. Two things then say
+    // the same thing at the same time — the bar and the boulder — and the
+    // moment it arrives is the moment the run decides for you.
+    //
+    // Measured in miles it could not do that: the vehicle is held to a crawl
+    // during an encounter, so a fixed distance ahead was covered in a third of
+    // the window and the obstacle then sat on the bumper for the rest of it.
     if (run.phase === 'event' && run.event?.obstacleSprite) {
-      const near = Math.max(0, Math.min(1, 1 - (run.obstacleAt - run.dist) / 14));
-      drawObstacle(s, run.event.obstacleSprite, near);
+      const frac = Math.max(0, run.eventLeft / EVENT_SECONDS);
+      if (frac <= WARN_AT) drawObstacle(s, run.event.obstacleSprite, 1 - frac / WARN_AT);
     }
 
     drawVehicle(s, t, {
@@ -246,12 +286,17 @@ export function mount(canvas, { onExit } = {}) {
   function drawTitle(view) {
     panel(view, 40, 104);
     text(view, 'TRAIL', W / 2, 48, { size: 20, align: 'center', col: PAL[10] });
-    text(view, '500 miles. One life. No saves.', W / 2, 74, { size: 7, align: 'center', col: PAL[6] });
-    text(view, 'W / S or the pads to drive', W / 2, 88, { size: 6, align: 'center', col: PAL[13] });
+    text(view, '500 miles. One life. No saves.', W / 2, 72, { size: 7, align: 'center', col: PAL[6] });
+    text(view, 'W / S or the pads to drive', W / 2, 84, { size: 6, align: 'center', col: PAL[13] });
+    // Stated up front, because a rule you only discover by losing to it is a
+    // trick. The encounter clock is generous now; what it does at zero is not.
+    text(view, 'Run the clock out and it chooses the worst for you', W / 2, 94, {
+      size: 6, align: 'center', col: PAL[9],
+    });
     if (stats.runs > 0) {
-      text(view, `Best ${stats.best} mi  ·  Runs ${stats.runs}`, W / 2, 100, { size: 6, align: 'center', col: PAL[13] });
+      text(view, `Best ${stats.best} mi  ·  Runs ${stats.runs}`, W / 2, 106, { size: 6, align: 'center', col: PAL[13] });
     }
-    text(view, blink() ? 'PRESS ANY KEY OR TAP' : '', W / 2, 118, { size: 7, align: 'center', col: UI });
+    text(view, blink() ? 'PRESS ANY KEY OR TAP' : '', W / 2, 120, { size: 7, align: 'center', col: UI });
     text(view, 'Esc to leave', W / 2, 132, { size: 6, align: 'center', col: PAL[5] });
   }
 
@@ -276,12 +321,28 @@ export function mount(canvas, { onExit } = {}) {
     const top = H - boxH - 10;
     panel(view, top, boxH);
 
-    // The countdown is the whole reason this is real time. Drawn as a bar
-    // because a number would be one more thing to read under time pressure.
+    // The countdown is the whole reason this is real time. A bar for the first
+    // half — quiet, so reading is not done under a strobe — and then a warning
+    // for the second, because forty seconds is long enough that a player who
+    // has stopped watching the clock deserves to be told.
     const { ctx, scale, ox, oy } = view;
     const frac = Math.max(0, run.eventLeft / EVENT_SECONDS);
-    ctx.fillStyle = frac < 0.35 ? PAL[8] : PAL[10];
-    ctx.fillRect(ox, oy + top * scale, W * scale * frac, 2 * scale);
+    const warn = frac < WARN_AT;
+    const urgent = frac < URGENT_AT;
+    // Faster as it gets worse. A flash at a constant rate reads as decoration
+    // after the second one; a flash that accelerates reads as a countdown.
+    const on = !warn || flash(urgent ? 160 : 400);
+    ctx.fillStyle = warn ? (on ? PAL[8] : PAL[2]) : PAL[10];
+    ctx.fillRect(ox, oy + top * scale, W * scale * frac, (warn ? 3 : 2) * scale);
+
+    if (warn) {
+      // Says what is about to happen, not just that time is short. The penalty
+      // for running out is the WORST option on the board, and a player who has
+      // not been told that will read it as the game misfiring.
+      text(view, on ? `DECIDING FOR YOU IN ${Math.ceil(run.eventLeft)}` : '', W / 2, top - 12, {
+        size: 7, align: 'center', col: urgent ? PAL[8] : PAL[9],
+      });
+    }
 
     lines.forEach((l, i) => text(view, l, 12, top + 6 + i * 10, { size: 7, col: PAL[7] }));
 
@@ -346,7 +407,8 @@ export function mount(canvas, { onExit } = {}) {
     text(view, blink() ? 'TAP TO GO AGAIN' : '', W / 2, 138, { size: 7, align: 'center', col: UI });
   }
 
-  const blink = () => Math.floor(t / 500) % 2 === 0;
+  const flash = (period) => Math.floor(t / period) % 2 === 0;
+  const blink = () => flash(500);
 
   raf = requestAnimationFrame(frame);
 
