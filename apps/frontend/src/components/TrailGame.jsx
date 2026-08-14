@@ -13,7 +13,7 @@ import { X } from 'lucide-react';
  * download a game. The import only fires once the player opens it, which is
  * also why the chunk can afford to be as big as it needs to be.
  */
-export default function TrailGame({ onClose }) {
+export default function TrailGame({ onClose, onFound }) {
   const canvasRef = useRef(null);
   const [failed, setFailed] = useState(false);
 
@@ -33,6 +33,11 @@ export default function TrailGame({ onClose }) {
   // at the menu with no idea why.
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  // Same reason, same trick: a callback identity must never reach the effect
+  // deps, or arriving at the settlement would remount the game and throw away
+  // the run that earned it.
+  const foundRef = useRef(onFound);
+  foundRef.current = onFound;
 
   useEffect(() => {
     let unmount = null;
@@ -41,7 +46,10 @@ export default function TrailGame({ onClose }) {
     import('../games/trail/index.js')
       .then(({ mount }) => {
         if (!live || !canvasRef.current) return;
-        unmount = mount(canvasRef.current, { onExit: () => closeRef.current?.() });
+        unmount = mount(canvasRef.current, {
+          onExit: () => closeRef.current?.(),
+          onFound: () => foundRef.current?.(),
+        });
       })
       .catch(() => setFailed(true));
 

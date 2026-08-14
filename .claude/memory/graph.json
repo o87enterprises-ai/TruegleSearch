@@ -528,6 +528,14 @@
         "body": "ENCOUNTER_DRAIN 0.35 (water/food while parked). NOISE_PER_SEARCH 0.105 sized against 18 shelves so ~11 is the cap — at 0.075 the meter could never fill and 'noise brings company' was decorative. BASE.protection 6 (was 9: after markup that was 11-15 scrap vs a 6-scrap starting purse, so the raid was entered 28/120 runs instead of 103). Fuel is what kills most runs; scavenge fuel yield w9 lo1 hi3. Diagnose with endings histogram, not guesses.",
         "ts": "2026-08-14",
         "created": "2026-08-14"
+      },
+      "vault-offline-decision": {
+        "Id": "vault-offline-decision",
+        "Type": "fact",
+        "Label": "Offline = a downloaded file, NOT a service worker",
+        "body": "Deliberate: toDocument() emits one self-contained HTML file (no script/link/url()/http anywhere — asserted). A file on the reader's disk survives cache eviction, 'clear browsing data' and the site going away; a SW cache survives none. ALSO: src/utils/performance.js setupResourceCaching() used to call navigator.serviceWorker.register('/sw.js') — /sw.js is the 2026-06-15 self-destructing KILL SWITCH, so wiring that fn up would have wiped caches + navigated every tab on every load. Now a no-op with the reasoning in-file. Any future real SW must first decide what to do about the kill switch: two registrations cannot share scope '/'.",
+        "ts": "2026-08-14",
+        "created": "2026-08-14"
       }
     },
     "decision": {
@@ -1424,6 +1432,14 @@
         "Type": "decision",
         "Label": "TRAIL difficulty moved from attrition to three mini-games",
         "body": "Owner's call: 'not rigged against the players'. Difficulty now lives in THE SWEEP (scavenge/noise meter), THE RAID (stealth, caught=death unless protection) and THE POST (haggle/inspect/sell). src/games/trail/minigames/{scavenge,raid,trade}.js — each exports meta/create/step/finish/draw/overlay; create+step are DOM-free so scripts/trail-bots.mjs can play them in the balance sim. Entered via events.json entries with type:'minigame' and a choice carrying .game; defaultChoice() never picks a game choice (no ambushes). New resources: scrap (currency) + protection (bought at the post, spent surviving a raid). Win band raised 15-70% -> 40-80%; sim now 57% decisive / 46% deliberate.",
+        "ts": "2026-08-14",
+        "created": "2026-08-14"
+      },
+      "vault-encyclopedia": {
+        "Id": "vault-encyclopedia",
+        "Type": "decision",
+        "Label": "404 easter egg: The Survivor's Encyclopedia, unlocked by winning TRAIL",
+        "body": "Content in apps/frontend/src/content/survival-encyclopedia.md (### letter, #### entry, **bold** subheading — h4 makes the parser deterministic, no heuristics). Parsed by src/utils/encyclopedia.js; reader src/components/Encyclopedia.jsx (lazy, own 42.6KB chunk, ZERO bytes in the entry bundle). 63 entries / 24 letters / 11 xrefs. Unlock: arrive in TRAIL -> findVault() writes truegle_vault_v1, arrival screen shows THEY KEPT THE LIBRARY (V or tap). Once found the 404 page shows a permanent quiet link — discovery earned once, access permanent. Tests: npm run vault:test (37) + vault:browser (14).",
         "ts": "2026-08-14",
         "created": "2026-08-14"
       }

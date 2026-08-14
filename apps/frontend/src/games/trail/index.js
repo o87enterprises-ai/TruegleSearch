@@ -7,6 +7,7 @@ import {
   EVENT_SECONDS, WARN_AT, URGENT_AT,
 } from './state';
 import { MINIGAMES } from './minigames';
+import { findVault } from '../../utils/vault';
 
 // The loop, the screens and the input. Everything that needs a browser lives
 // here; the rules live in state.js and the pixels in draw.js.
@@ -15,9 +16,11 @@ import { MINIGAMES } from './minigames';
 // DOM, so they scale with the game and cannot drift out of alignment with it.
 const GAS = { x: W - 44, y: 116, w: 38, h: 26 };
 const BRAKE = { x: W - 44, y: 146, w: 38, h: 26 };
+// Only ever drawn, and only ever live, on the arrival screen.
+const VAULT = { x: 90, y: 130, w: 140, h: 16 };
 const inPad = (p, x, y) => x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h;
 
-export function mount(canvas, { onExit } = {}) {
+export function mount(canvas, { onExit, onFound } = {}) {
   // ONE INSTANCE PER CANVAS, enforced here rather than trusted to the caller.
   //
   // React 18's StrictMode double-invokes effects in development, and this
@@ -71,12 +74,22 @@ export function mount(canvas, { onExit } = {}) {
   s.resize();
 
   // ── input ───────────────────────────────────────────────────────────────
+  // Arriving is how you find out the encyclopedia exists. The settlement at
+  // the end of five hundred miles kept its library, which is the only prize
+  // this game has to give that is worth anything off the screen.
+  let found = false;
+  const arrive = () => {
+    if (found || run.ending !== 'arrive') return;
+    found = true;
+    findVault();
+  };
+
   const commit = (i) => {
     if (titleScreen) { titleScreen = false; setThrottle(run, 4); return; }
     if (run.phase === 'event') { choose(run, i); hover = 0; }
     else if (run.phase === 'outcome') resume(run);
     else if (run.phase === 'over') {
-      writeStats(run); stats = readStats(); run = newRun(); dust.length = 0; publish();
+      writeStats(run); stats = readStats(); run = newRun(); dust.length = 0; publish(); found = false;
     }
   };
 
@@ -112,6 +125,12 @@ export function mount(canvas, { onExit } = {}) {
     // cursor rather than the throttle, and Enter commits rather than dismissing
     // a card. Branching here keeps that switch in ONE place instead of leaving
     // every downstream reader to work out which mode it is in.
+    // On the arrival screen V opens what the settlement kept. Checked before
+    // the generic "any key restarts" so the one key that matters is not eaten
+    // by a new run.
+    if (run.phase === 'over' && run.ending === 'arrive' && k === 'v') {
+      onFound?.(); e.preventDefault(); return;
+    }
     if (run.phase === 'minigame') {
       if (k === 'e') mgLeave = true;
       else if (k === 'enter' || k === ' ') mgAct = true;
@@ -156,6 +175,7 @@ export function mount(canvas, { onExit } = {}) {
     const { x, y } = pointAt(ev);
     if (titleScreen) { commit(0); return; }
     if (run.phase === 'minigame') { ptr = { x, y }; tap = { x, y }; return; }
+    if (run.phase === 'over' && run.ending === 'arrive' && inPad(VAULT, x, y)) { onFound?.(); return; }
     if (run.phase === 'outcome' || run.phase === 'over') { commit(0); return; }
     if (run.phase === 'event') {
       const hit = choiceBoxes.findIndex((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
@@ -245,6 +265,7 @@ export function mount(canvas, { onExit } = {}) {
 
     const mgMod = run.phase === 'minigame' ? MINIGAMES[run.mgId] : null;
 
+    if (run.phase === 'over') arrive();
     if (!titleScreen && run.phase !== 'over') {
       // No throttle while parked — the same keys are the mini-game's now.
       if (!mgMod) throttle(dt);
@@ -531,10 +552,20 @@ export function mount(canvas, { onExit } = {}) {
     text(view, e.title, W / 2, 44, { size: 14, align: 'center', col: win ? PAL[11] : PAL[8] });
     e.lines.forEach((l, i) => text(view, l, W / 2, 70 + i * 11, { size: 7, align: 'center', col: PAL[6] }));
     text(view, `${Math.round(run.dist)} of ${TOTAL} miles`, W / 2, 112, { size: 7, align: 'center', col: PAL[10] });
-    text(view, `Best ${Math.max(stats.best, Math.round(run.dist))} mi  ·  Run ${stats.runs + 1}`, W / 2, 124, {
+    text(view, `Best ${Math.max(stats.best, Math.round(run.dist))} mi  ·  Run ${stats.runs + 1}`, W / 2, 122, {
       size: 6, align: 'center', col: PAL[13],
     });
-    text(view, blink() ? 'TAP TO GO AGAIN' : '', W / 2, 138, { size: 7, align: 'center', col: UI });
+    if (win) {
+      // The prize. Drawn as a button because on a phone there is no V key, and
+      // a reward you cannot reach is not a reward.
+      const { ctx, scale, ox, oy } = view;
+      ctx.fillStyle = PAL[3];
+      ctx.fillRect(ox + VAULT.x * scale, oy + VAULT.y * scale, VAULT.w * scale, VAULT.h * scale);
+      text(view, 'THEY KEPT THE LIBRARY', W / 2, VAULT.y + 5, { size: 7, align: 'center', col: PAL[7] });
+      text(view, blink() ? 'PRESS V OR TAP IT' : '', W / 2, 152, { size: 6, align: 'center', col: PAL[11] });
+    } else {
+      text(view, blink() ? 'TAP TO GO AGAIN' : '', W / 2, 138, { size: 7, align: 'center', col: UI });
+    }
   }
 
   const flash = (period) => Math.floor(t / period) % 2 === 0;

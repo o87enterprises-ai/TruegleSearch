@@ -127,21 +127,26 @@ export const measureCoreWebVitals = () => {
   }
 };
 
-// Function to implement resource caching
-export const setupResourceCaching = () => {
-  // Service worker registration for caching
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(registration => {
-          console.log('SW registered: ', registration);
-        })
-        .catch(registrationError => {
-          console.log('SW registration failed: ', registrationError);
-        });
-    });
-  }
-};
+// Resource caching: DELIBERATELY NOT A SERVICE WORKER.
+//
+// This used to call navigator.serviceWorker.register('/sw.js'), and nothing
+// called it — which is the only reason it never fired. /sw.js is not a cache;
+// it is the SELF-DESTRUCTING KILL SWITCH left behind after a third-party ad
+// worker was served from that path on 2026-06-15. It claims control, deletes
+// every cache, unregisters itself and navigates every open tab. Wiring this
+// function up would have registered that, on every page load, for everyone.
+//
+// The function is kept as a marker rather than deleted so the next person to
+// reach for offline caching reads this first. If Truegle ever does want a real
+// worker, it needs a deliberate decision about the kill switch — two workers
+// cannot share a scope, so registering a new one at '/' REPLACES the cleanup
+// for any browser that has not yet been cleaned.
+//
+// The encyclopedia on the 404 page solves offline a different way: it hands
+// the reader a self-contained file. A file on their disk survives cache
+// eviction, "clear browsing data" and this site disappearing. A cache entry
+// survives none of those.
+export const setupResourceCaching = () => {};
 
 // Main function to run all optimizations
 export const optimizePerformance = () => {
@@ -150,7 +155,6 @@ export const optimizePerformance = () => {
   optimizeCriticalCSS();
   optimizeScripts();
   measureCoreWebVitals();
-  setupResourceCaching();
   
   console.log('Performance optimizations applied');
 };
