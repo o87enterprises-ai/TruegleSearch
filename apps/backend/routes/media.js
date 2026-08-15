@@ -34,10 +34,27 @@ router.get('/search', async (req, res) => {
   }
 });
 
-/** GET /api/media — newest submissions. Public, same reasoning as above. */
+/**
+ * GET /api/media?limit=24&offset=0&sort=new|played
+ *
+ * THE ANONYMOUS FEED. Everything anyone has submitted, browsable by anybody,
+ * with no account and nothing to type.
+ *
+ * Submitting requires a signed-in account (see POST below) because a write
+ * every visitor can then play is an open door for spam. READING requires
+ * nothing, and that asymmetry is the whole point: participation never depends
+ * on being identifiable.
+ *
+ * This endpoint existed and no client called it, so a submitted link was
+ * invisible until somebody guessed its title into the search box — the pool
+ * was write-only in practice. `offset` is what makes it a feed rather than a
+ * single page of samples.
+ */
 router.get('/', async (req, res) => {
   try {
-    const results = await MediaService.list({ limit: req.query.limit });
+    const results = await MediaService.list({
+      limit: req.query.limit, offset: req.query.offset, sort: req.query.sort,
+    });
     return res.json({ success: true, results });
   } catch (err) {
     return mapError(err, res);

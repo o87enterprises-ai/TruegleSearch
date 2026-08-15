@@ -193,6 +193,10 @@ const toSource = (row) => ({
   poster: row.thumbnail,
   platform: row.platform,
   ...(row.vertical ? { vertical: true } : {}),
+  // Only present where the query asked for it (the feed). Undefined elsewhere
+  // rather than 0, so a card can tell "nobody has played this" apart from
+  // "this endpoint does not report plays".
+  ...(row.plays === undefined || row.plays === null ? {} : { plays: Number(row.plays) }),
   community: true,
 });
 
@@ -257,15 +261,25 @@ const MediaService = {
   },
 
   /** Newest visible submissions. */
-  async list({ limit = 24 } = {}) {
+  async list({ limit = 24, offset = 0, sort = 'new' } = {}) {
     const capped = Math.min(Math.max(parseInt(limit, 10) || 24, 1), 100);
+    // Paging matters here in a way it does not for search: this is a POOL, and
+    // a pool you can only see the first page of is a teaser. The feed scrolls.
+    const from = Math.min(Math.max(parseInt(offset, 10) || 0, 0), 5000);
+    // Two orderings, both defensible, and an allow-list rather than string
+    // interpolation — `sort` arrives from a query string.
+    const ORDER = {
+      new: 'created_at DESC, id DESC',
+      played: 'plays DESC, created_at DESC',
+    };
+    const order = ORDER[String(sort)] || ORDER.new;
     const { rows } = await query(
-      `SELECT id, url, kind, platform, title, thumbnail, created_at
+      `SELECT id, url, kind, platform, title, thumbnail, created_at, plays
          FROM community_media
         WHERE hidden = FALSE
-        ORDER BY created_at DESC
-        LIMIT $1`,
-      [capped],
+        ORDER BY ${order}
+        LIMIT $1 OFFSET $2`,
+      [capped, from],
     );
     return rows.map((row) => {
       try {
