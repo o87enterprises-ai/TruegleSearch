@@ -69,7 +69,7 @@ function burnState(state, provider) {
 const sweep = setInterval(() => {
   const cutoff = Date.now() - STATE_TTL_MS;
   for (const [k, v] of pending) if (v.at < cutoff) pending.delete(k);
-}, 60_000);
+}, 60000);   // not 60_000 — eslint here is ecmaVersion 2020, no numeric separators
 sweep.unref?.();
 
 const FRONTEND = () => process.env.FRONTEND_URL || 'http://localhost:5173';
