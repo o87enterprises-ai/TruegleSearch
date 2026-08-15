@@ -6,7 +6,7 @@ const morgan = require('morgan');
 require('dotenv').config();
 
 const config = require('./config/env');
-const { generalLimiter, authLimiter, mapsLimiter, suspiciousBotLimiter } = require('./middleware/rateLimit');
+const { generalLimiter, authLimiter, mapsLimiter, suspiciousBotLimiter, searchLimiter } = require('./middleware/rateLimit');
 const { botDetection, blockBadBots } = require('./middleware/botDetection');
 const { privacyMiddleware, noTrackMiddleware, searchPrivacyMiddleware } = require('./middleware/privacy');
 const { securityHeaders, contentPolicyMiddleware } = require('./middleware/security');
@@ -269,7 +269,13 @@ app.use('/api/weather', require('./routes/weather'));
 app.use('/api/radar', [mapsLimiter, require('./routes/radar')]);
 app.use('/api/maps', [mapsLimiter, require('./routes/maps')]);
 app.use('/api/shopping', require('./routes/shopping'));
-app.use('/api/social', require('./routes/social'));
+// An endless feed hammers this, and it was mounted bare — no limiter, no bot
+// blocking, unlike /api/search. GitHub's unauthenticated search allows 10
+// requests a minute for the whole server, so one scroller could exhaust it for
+// everyone. `searchLimiter` (not `rateLimitSearch`, which only writes a field
+// and enforces nothing) keys on user-or-IP at 30/min.
+app.use('/api/social', [searchLimiter, require('./routes/social')]);
+app.use('/api/social-auth', require('./routes/socialAuth'));
 app.use('/api/osint', require('./routes/osint'));
 app.use('/api/contact', require('./routes/contact'));
 app.use('/api/shodan', require('./routes/shodan'));

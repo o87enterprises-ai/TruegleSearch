@@ -312,62 +312,114 @@ function normaliseGitHub(repos) {
   }));
 }
 
-async function fetchReddit(query, limit) {
-  const params = new URLSearchParams({ q: query, sort: 'hot', limit, type: 'link', t: 'week' });
-  const url = `https://www.reddit.com/search.json?${params}`;
-  const res = await axios.get(url, {
+// ── PAGING ────────────────────────────────────────────────────────────────
+//
+// Every one of these three upstreams has always supported paging and none of
+// it was ever used: Reddit hands back an `after` cursor on every response and
+// it was fetched and thrown away, HN and GitHub both take a `page`. Without
+// them a "feed" is one page of twenty and then nothing, which is a sample, not
+// a feed.
+//
+// Each fetcher returns { items, next } — `next` is whatever that platform
+// wants back to continue, or null at the end. The shapes differ on purpose
+// (Reddit's is an opaque token, the other two are page numbers); the route
+// carries them per-platform rather than pretending one cursor fits all.
+//
+// AN EMPTY QUERY IS THE HOME FEED, and it goes to different endpoints. This
+// matters and it is worth being straight about: without OAuth there is no
+// "your" feed on any of these — Reddit's personal front page needs a token we
+// do not have yet. What an unauthenticated home feed can honestly be is
+// "what's popular right now", so that is exactly what these ask for.
+
+const UA = 'TruegleSearch/1.0 (social-feed)';
+
+async function fetchReddit(query, limit, after) {
+  const params = query
+    ? new URLSearchParams({ q: query, sort: 'hot', limit, type: 'link', t: 'week' })
+    : new URLSearchParams({ limit });
+  if (after) params.set('after', after);
+  // /hot.json is the keyless popular listing — the honest stand-in for a home
+  // feed until a token can ask for the real one.
+  const path = query ? 'search.json' : 'hot.json';
+  const res = await axios.get(`https://www.reddit.com/${path}?${params}`, {
     timeout: FEED_TIMEOUT,
-    headers: { 'User-Agent': 'TruegleSearch/1.0 (social-feed)' },
+    // Reddit 429s a default user agent almost immediately. This header is the
+    // only reason any of this works unauthenticated.
+    headers: { 'User-Agent': UA },
   });
-  return normaliseReddit(res.data?.data?.children?.map((c) => c.data) || [], query);
+  return {
+    items: normaliseReddit(res.data?.data?.children?.map((c) => c.data) || [], query),
+    next: res.data?.data?.after || null,
+  };
 }
 
-async function fetchHackerNews(query, limit) {
-  const params = new URLSearchParams({ query, tags: 'story', hitsPerPage: limit });
-  const url = `https://hn.algolia.com/api/v1/search?${params}`;
-  const res = await axios.get(url, { timeout: FEED_TIMEOUT });
-  return normaliseHN(res.data?.hits || []);
+async function fetchHackerNews(query, limit, page = 0) {
+  const params = new URLSearchParams({ tags: query ? 'story' : 'front_page', hitsPerPage: limit, page });
+  if (query) params.set('query', query);
+  const res = await axios.get(`https://hn.algolia.com/api/v1/search?${params}`, { timeout: FEED_TIMEOUT });
+  const { hits = [], nbPages = 0, page: got = 0 } = res.data || {};
+  return { items: normaliseHN(hits), next: got + 1 < nbPages ? got + 1 : null };
 }
 
-async function fetchGitHub(query, limit) {
-  const params = new URLSearchParams({ q: query, sort: 'stars', order: 'desc', per_page: limit });
-  const url = `https://api.github.com/search/repositories?${params}`;
-  const res = await axios.get(url, {
-    timeout: FEED_TIMEOUT,
-    headers: { Accept: 'application/vnd.github.v3+json', 'User-Agent': 'TruegleSearch/1.0' },
+async function fetchGitHub(query, limit, page = 1) {
+  // GitHub's search REQUIRES a q, so the home feed asks a question that means
+  // "things people care about, recently touched" rather than sending nothing.
+  const params = new URLSearchParams({
+    q: query || 'stars:>1000',
+    sort: query ? 'stars' : 'updated',
+    order: 'desc',
+    per_page: limit,
+    page,
   });
-  return normaliseGitHub(res.data?.items || []);
+  const res = await axios.get(`https://api.github.com/search/repositories?${params}`, {
+    timeout: FEED_TIMEOUT,
+    headers: { Accept: 'application/vnd.github.v3+json', 'User-Agent': UA },
+  });
+  const items = normaliseGitHub(res.data?.items || []);
+  // Unauthenticated search caps out at 1000 results; asking past that 422s.
+  const more = items.length === Number(limit) && page * limit < 1000;
+  return { items, next: more ? page + 1 : null };
 }
 
 /**
  * POST /api/social/feed
- * body: { query: string, platforms?: string[] }
+ * body: { query?: string, platforms?: string[], cursor?: {…}, limit?: number }
+ *
  * platforms defaults to ['reddit','hackernews','github'] when omitted or ['all'].
- * Returns: { results: [...], platforms: { reddit: [...], hackernews: [...], github: [...] } }
+ * QUERY IS OPTIONAL: with one this searches, without one it returns the
+ * popular listing — which is what an unauthenticated "home feed" honestly is.
+ * `cursor` is the previous response's `nextCursor`, per platform.
+ *
+ * Returns: { query, results, platforms: {…}, nextCursor: {…}, errors: {…} }
  */
 router.post('/feed', async (req, res) => {
   try {
-    const { query, platforms: requestedPlatforms } = req.body;
-    if (!query || typeof query !== 'string' || !query.trim()) {
-      return res.status(400).json({ error: 'query is required' });
+    const { query, platforms: requestedPlatforms, cursor, limit: rawLimit } = req.body || {};
+    // An empty query used to be a 400. It is the home feed now, so the only
+    // bad input left is a non-string that is not absent.
+    const q = typeof query === 'string' ? query.trim() : '';
+    if (query !== undefined && typeof query !== 'string') {
+      return res.status(400).json({ error: 'query must be a string' });
     }
 
-    const q = query.trim();
-    const limit = 20;
+    const limit = Math.min(Math.max(parseInt(rawLimit, 10) || 20, 1), 50);
+    const cur = cursor && typeof cursor === 'object' ? cursor : {};
     const all = !requestedPlatforms || requestedPlatforms.includes('all');
     const want = (p) => all || requestedPlatforms.includes(p);
+    const NONE = { items: [], next: null };
 
     // Kick off all requested platform fetches in parallel; each is
     // independently fault-tolerant — a single failure doesn't kill the rest.
     const [redditResult, hnResult, ghResult] = await Promise.allSettled([
-      want('reddit') ? fetchReddit(q, limit) : Promise.resolve([]),
-      want('hackernews') ? fetchHackerNews(q, limit) : Promise.resolve([]),
-      want('github') ? fetchGitHub(q, limit) : Promise.resolve([]),
+      want('reddit') ? fetchReddit(q, limit, cur.reddit) : Promise.resolve(NONE),
+      want('hackernews') ? fetchHackerNews(q, limit, cur.hackernews) : Promise.resolve(NONE),
+      want('github') ? fetchGitHub(q, limit, cur.github) : Promise.resolve(NONE),
     ]);
 
-    const reddit = redditResult.status === 'fulfilled' ? redditResult.value : [];
-    const hackernews = hnResult.status === 'fulfilled' ? hnResult.value : [];
-    const github = ghResult.status === 'fulfilled' ? ghResult.value : [];
+    const settle = (r) => (r.status === 'fulfilled' ? r.value : NONE);
+    const reddit = settle(redditResult).items;
+    const hackernews = settle(hnResult).items;
+    const github = settle(ghResult).items;
 
     if (redditResult.status === 'rejected') logger.warn('Reddit feed failed:', redditResult.reason?.message);
     if (hnResult.status === 'rejected') logger.warn('HN feed failed:', hnResult.reason?.message);
@@ -385,6 +437,14 @@ router.post('/feed', async (req, res) => {
       query: q,
       results: all_results,
       platforms: { reddit, hackernews, github },
+      // What to send back to continue. A platform that has run out reports
+      // null, which is how the client knows to stop asking rather than
+      // spinning on an endpoint that will keep returning the same page.
+      nextCursor: {
+        reddit: settle(redditResult).next,
+        hackernews: settle(hnResult).next,
+        github: settle(ghResult).next,
+      },
       errors: {
         reddit: redditResult.status === 'rejected' ? 'unavailable' : null,
         hackernews: hnResult.status === 'rejected' ? 'unavailable' : null,

@@ -171,6 +171,11 @@ const envVarsSchema = Joi.object({
   // only a last-resort fallback. Same decentralized pathway SearXNG uses for YT.
   TRANSCRIPT_INVIDIOUS_INSTANCES: Joi.string().optional().description('Comma-separated Invidious instance base URLs for transcript fetching'),
 
+  // Reddit — the only social provider that can serve a real home feed for
+  // free. Absent by default: the adapter runs in demo mode until both are set.
+  REDDIT_CLIENT_ID: Joi.string().optional().description('Reddit OAuth client id'),
+  REDDIT_CLIENT_SECRET: Joi.string().optional().description('Reddit OAuth client secret'),
+
   // Google OAuth
 
   // Bright Data (web scraping proxy)
@@ -405,6 +410,10 @@ const config = {
     clientId: envVars.PAYPAL_CLIENT_ID,
     secret: envVars.PAYPAL_SECRET,
   },
+  reddit: {
+    clientId: envVars.REDDIT_CLIENT_ID,
+    clientSecret: envVars.REDDIT_CLIENT_SECRET,
+  },
 
   // Unsplash API
   unsplash: {
@@ -550,6 +559,10 @@ config.getSafeConfig = () => {
     if (safeConfig.paypal.secret) {
       safeConfig.paypal.secret = '***MASKED***';
     }
+  }
+  if (safeConfig.reddit) {
+    if (safeConfig.reddit.clientId) { safeConfig.reddit.clientId = '***MASKED***'; }
+    if (safeConfig.reddit.clientSecret) { safeConfig.reddit.clientSecret = '***MASKED***'; }
   }
 
   if (safeConfig.unsplash) {
