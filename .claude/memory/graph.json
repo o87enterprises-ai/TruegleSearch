@@ -544,6 +544,14 @@
         "body": "Every path change remounts the whole route tree. Any two routes sharing one component will remount it on the hop between them - this silently double-fetched the feed until /feed/callback got its own component (FeedCallback).",
         "ts": "2026-08-15",
         "created": "2026-08-15"
+      },
+      "maps-envelope-bug": {
+        "Id": "maps-envelope-bug",
+        "Type": "fact",
+        "Label": "Map providers were all falling through to OSM",
+        "body": "mapApi.js validated the {success,data} envelope with questions about the payload, so Mapbox/Radar/TomTom were rejected as invalid on every call and the ladder always fell to Nominatim. Also: OSRM was called with start/end query params instead of path coords (directions never worked), Nominatim 'near me' passed lat/lon/radius which it ignores (searches were global), DirectionsPanel was hard-wired to Radar-only, and MapViewWrapper had the nearby-business fetch commented out.",
+        "ts": "2026-08-15",
+        "created": "2026-08-15"
       }
     },
     "decision": {

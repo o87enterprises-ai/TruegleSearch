@@ -4,8 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import LocationAutocomplete from './LocationAutocomplete';
 import { useMap } from './context/MapContext';
 import { fetchCamerasAlongRoute } from './services/dotCameraService';
+import MapApiService from './services/mapApi';
+import { useLiveNavigation } from './hooks/useLiveNavigation';
 
-const getBackendUrl = () => import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+// The panel's travel modes, in the vocabulary the routers use. OSRM profiles
+// are driving/walking/cycling; sending it "car" routes nothing.
+const PROFILE_BY_MODE = { car: 'driving', foot: 'walking', bike: 'cycling' };
 
 /**
  * DirectionsPanel Component
@@ -28,6 +32,21 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
   const [camerasAlongRoute, setCamerasAlongRoute] = useState([]);
   const [loadingCameras, setLoadingCameras] = useState(false);
   const [imageRefreshTimestamp, setImageRefreshTimestamp] = useState(Date.now());
+
+  // Live GPS navigation over whatever route is currently on screen. A re-route
+  // replaces the line in place, so the map and the panel stay in step without
+  // the user having to press anything.
+  const nav = useLiveNavigation({
+    route,
+    destination: destCoords || (route?.destCoords
+      ? { lat: route.destCoords.latitude, lng: route.destCoords.longitude }
+      : null),
+    profile: PROFILE_BY_MODE[travelMode] || 'driving',
+    onReroute: useCallback((fresh) => {
+      setRoute((prev) => (prev ? { ...prev, ...fresh } : fresh));
+      onRouteCalculated?.(fresh);
+    }, [onRouteCalculated]),
+  });
 
   // Set origin to user location when available
   useEffect(() => {
@@ -52,28 +71,20 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
     }
   }, [camerasAlongRoute.length]);
 
+  // Through the provider ladder, not straight at Radar.
+  //
+  // This panel used to fetch /api/radar/geocode and /api/radar/directions
+  // directly, so directions worked only for an account with a Radar key — and
+  // the keys this project actually holds are Mapbox and TomTom. Nothing
+  // reported the mismatch; the panel just said "Failed to calculate route".
+  // MapApiService tries Mapbox → Radar → TomTom → OSRM and normalises whatever
+  // answers, so routing now works with the keys that exist and keeps working
+  // with none at all.
   const geocodeAddress = async (address) => {
-    const response = await fetch(`${getBackendUrl()}/api/radar/geocode`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: address })
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to geocode address');
-    }
-
-    const data = await response.json();
-    if (data.data && data.data.length > 0) {
-      const address = data.data[0];
-
-      // Handle Radar's actual response structure
-      return {
-        latitude: address.latitude || address.geometry?.coordinates?.[1] || address.position?.lat,
-        longitude: address.longitude || address.geometry?.coordinates?.[0] || address.position?.lng
-      };
-    }
-    throw new Error('Address not found');
+    const result = await MapApiService.geocode(address, { limit: 1 });
+    const best = result?.data?.[0];
+    if (!best?.position) throw new Error('Address not found');
+    return { latitude: best.position.lat, longitude: best.position.lng };
   };
 
   /**
@@ -205,40 +216,26 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
         }
       }
 
-      // Get directions from backend
-      const response = await fetch(`${getBackendUrl()}/api/radar/directions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          origin: finalOriginCoords,
-          destination: finalDestCoords,
-          options: {
-            mode: travelMode,
-            units: 'imperial'
-          }
-        })
-      });
+      // Whichever provider can answer. The service normalises to metres and
+      // SECONDS, so the ×60 that used to live here — correct only for Radar,
+      // and an hour-long lie for everyone else — is gone.
+      const result = await MapApiService.getDirections(
+        { lat: finalOriginCoords.latitude, lng: finalOriginCoords.longitude },
+        { lat: finalDestCoords.latitude, lng: finalDestCoords.longitude },
+        { mode: travelMode, profile: PROFILE_BY_MODE[travelMode] || 'driving', units: 'imperial' },
+      );
 
-      if (!response.ok) {
-        throw new Error('Failed to calculate route');
-      }
-
-      const data = await response.json();
-
-      // Handle Radar's actual response structure (routes at top level)
-      if (data.routes && data.routes.length > 0) {
-        const routeData = data.routes[0];
-
+      const routeData = result?.data;
+      if (routeData?.geometry) {
         const calculatedRoute = {
-          // Extract numeric values from distance/duration objects
-          // Distance is in meters, duration is in MINUTES (convert to seconds for formatDuration)
-          distance: routeData.distance?.value || routeData.distance,
-          duration: (routeData.duration?.value || routeData.duration) * 60, // Convert minutes to seconds
+          distance: routeData.distance,
+          duration: routeData.duration,
           // Filter out steps that have no distance data (usually the last "arrived" step)
-          steps: (routeData.legs?.[0]?.steps || []).filter(step =>
+          steps: (routeData.steps || []).filter(step =>
             step.distance?.value !== undefined || step.distance !== undefined
           ),
           geometry: routeData.geometry,
+          provider: result.provider,
           originCoords: finalOriginCoords,
           destCoords: finalDestCoords
         };
@@ -255,7 +252,7 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
 
         // ✅ FIND TRAFFIC CAMERAS ALONG ROUTE
         console.log('🎥 Searching for traffic cameras along route');
-        findCamerasAlongRoute(finalOriginCoords, finalDestCoords, routeData.geometry);
+        findCamerasAlongRoute(finalOriginCoords, finalDestCoords, routeData.geometry.coordinates);
 
         // ✅ FLY TO ROUTE BOUNDS
         // Calculate center point between origin and destination
@@ -467,6 +464,38 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
                   </div>
                 </div>
               </div>
+
+              {/* Live navigation. The route above is a static line; this is the
+                  part that follows you along it and notices when you leave. */}
+              <button
+                type="button"
+                onClick={nav.active ? nav.stop : nav.start}
+                className={`mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                  nav.active
+                    ? 'bg-red-500/20 text-red-200 border border-red-500/40 hover:bg-red-500/30'
+                    : 'bg-blue-500/25 text-blue-100 border border-blue-400/40 hover:bg-blue-500/35'
+                }`}
+              >
+                <Navigation size={14} />
+                {nav.active ? 'Stop navigation' : 'Start navigation'}
+              </button>
+
+              {nav.active && (
+                <div className="mt-2 text-xs space-y-1">
+                  {nav.arrived && <p className="text-emerald-300">You have arrived.</p>}
+                  {nav.rerouting && <p className="text-amber-300">Off route — finding a new way…</p>}
+                  {!nav.arrived && !nav.rerouting && nav.offRoute && <p className="text-amber-300">Off route.</p>}
+                  {!nav.arrived && !nav.rerouting && !nav.offRoute && nav.position && (
+                    <p className="text-white/50">
+                      Following your position{nav.position.speed != null ? ` · ${Math.round(nav.position.speed * 2.237)} mph` : ''}
+                    </p>
+                  )}
+                  {nav.error && <p className="text-red-300/80">{nav.error}</p>}
+                  {/* Said plainly: this is the one part of the map that reads
+                      the GPS continuously, and it stops when you stop it. */}
+                  <p className="text-white/25">Your position stays on this device. Nothing is sent or stored.</p>
+                </div>
+              )}
             </div>
 
             {/* Traffic Cameras Along Route */}

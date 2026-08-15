@@ -5,7 +5,7 @@ import { X, Minimize2, Layers, Navigation, Camera, MapPin, Navigation as Navigat
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMap } from './context/MapContext';
 import { getMarkerColor, formatAddress, generateMarkerId } from './utils/helpers';
-import { MAP_STYLES, MAP_CONTROLS, MAP_VIEW_MODES, AZIMUTHAL_FLAT_CONFIG } from './config/constants';
+import { MAP_STYLES, MAP_CONTROLS, MAP_VIEW_MODES, AZIMUTHAL_FLAT_CONFIG, USER_LOCATION_ZOOM, GEOLOCATION_OPTIONS } from './config/constants';
 import { defaultLogoConfig, getLogoPosition, getLogoSize } from './config/logoConfig';
 import TrafficCameras from './TrafficCameras';
 import DirectionsPanel from './DirectionsPanel';
@@ -33,6 +33,7 @@ export default function TruegleMap({
   onMapClick = null,
   onMarkerClick = null,
   onClose = null,
+  userLocation: initialUserLocation = null,
   children,
   className = '',
 }) {
@@ -368,7 +369,7 @@ export default function TruegleMap({
       ...prev,
       longitude: location.lng,
       latitude: location.lat,
-      zoom: 15  // Increased zoom level for better focus
+      zoom: USER_LOCATION_ZOOM
     }));
 
     // Add current location marker
@@ -382,7 +383,7 @@ export default function TruegleMap({
     });
 
     // Ensure the map centers and zooms to the user's location
-    actions.flyTo(location, 15);
+    actions.flyTo(location, USER_LOCATION_ZOOM);
   }, [actions]);
 
   const handleLocationDenied = useCallback((error) => {
@@ -466,22 +467,29 @@ export default function TruegleMap({
   }, [actions]);
 
   // Get user location for traffic cameras (whenever the map is mounted, not
-  // just fullscreen — the cameras/directions panels work in windowed mode too)
+  // just fullscreen — the cameras/directions panels work in windowed mode too).
+  //
+  // `initialUserLocation` is the wrapper's fix, handed down. Without it this
+  // fired a SECOND permission request for a position the parent had already
+  // obtained, and it passed no options at all — the browser's default timeout
+  // is Infinity, so a prompt the user ignored left this callback pending for
+  // the life of the page.
   useEffect(() => {
-    if (!userLocation && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.log('Geolocation error:', error.message);
-        }
-      );
-    }
-  }, [userLocation]);
+    if (initialUserLocation) { setUserLocation(initialUserLocation); return; }
+    if (userLocation || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+      },
+      (error) => {
+        console.warn('Geolocation unavailable:', error.message);
+      },
+      GEOLOCATION_OPTIONS
+    );
+  }, [userLocation, initialUserLocation]);
 
   const MarkerElement = ({ marker }) => {
     // Special rendering for current location
@@ -561,21 +569,30 @@ export default function TruegleMap({
     );
   };
 
-  const handleZoomIn = useCallback(() => {
+  // A state updater must be pure — React is free to call it twice, and does in
+  // development. Calling actions.setZoom() inside one meant the shared map zoom
+  // could be advanced twice for a single click, so the buttons jumped two
+  // levels. The new zoom is computed from current state and pushed once.
+  const stepZoom = useCallback((delta) => {
     setViewState(prev => {
-      const newZoom = Math.min(prev.zoom + 1, MAP_CONTROLS.ZOOM.max);
-      actions.setZoom(newZoom);
+      const newZoom = Math.min(
+        MAP_CONTROLS.ZOOM.max,
+        Math.max(MAP_CONTROLS.ZOOM.min, prev.zoom + delta),
+      );
+      if (newZoom === prev.zoom) return prev;
       return { ...prev, zoom: newZoom };
     });
-  }, [actions]);
+  }, []);
 
-  const handleZoomOut = useCallback(() => {
-    setViewState(prev => {
-      const newZoom = Math.max(prev.zoom - 1, MAP_CONTROLS.ZOOM.min);
-      actions.setZoom(newZoom);
-      return { ...prev, zoom: newZoom };
-    });
-  }, [actions]);
+  const handleZoomIn = useCallback(() => stepZoom(1), [stepZoom]);
+  const handleZoomOut = useCallback(() => stepZoom(-1), [stepZoom]);
+
+  // Mirror the local viewport zoom back into shared state, once, after it has
+  // actually changed. This is also what keeps pinch-zoom and the Mapbox
+  // controls in step with the context, which the button-only path never did.
+  useEffect(() => {
+    if (viewState.zoom !== state.zoom) actions.setZoom(viewState.zoom);
+  }, [viewState.zoom]);
 
   return (
     <div

@@ -9,6 +9,8 @@ import DirectionsPanel from './DirectionsPanel';
 import LocationPermissionModal from './LocationPermissionModal';
 import AdBanner from './AdBanner';
 import { useMap } from './context/MapContext';
+import { USER_LOCATION_ZOOM, GEOLOCATION_OPTIONS } from './config/constants';
+import MapApiService from './services/mapApi';
 import truegleLogo from '../../assets/images/truegle.webp';
 import LogoOverlay from './LogoOverlay';
 
@@ -44,9 +46,9 @@ export default function MapViewWrapper({
       if (typeof lat !== 'number' || typeof lng !== 'number') return;
 
       setMapCenter([lng, lat]);
-      setMapZoom(15);
+      setMapZoom(USER_LOCATION_ZOOM);
       setUserLocation({ lat, lng });
-      actions.flyTo({ lat, lng }, 15);
+      actions.flyTo({ lat, lng }, USER_LOCATION_ZOOM);
 
       // For a named place/business, drop a marker and pop its contact card open.
       if (detectedLocation.type === 'place' || detectedLocation.type === 'location') {
@@ -88,8 +90,8 @@ export default function MapViewWrapper({
             // Match the zoom level used by the explicit "allow location" flow
             // (SearchPortal) so the two redundant geolocation requests converge
             // on the same end state instead of fighting over the zoom level.
-            setMapZoom(15);
-            actions.flyTo(location, 15);
+            setMapZoom(USER_LOCATION_ZOOM);
+            actions.flyTo(location, USER_LOCATION_ZOOM);
             actions.addMarker({
               id: 'current-location',
               lat: location.lat,
@@ -103,7 +105,7 @@ export default function MapViewWrapper({
         (error) => {
           console.log('Geolocation error:', error.message);
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        GEOLOCATION_OPTIONS
       );
     }
   }, [isOpen, detectedLocation, userLocation]); // actions.flyTo is stable, no need to include in deps
@@ -128,9 +130,12 @@ export default function MapViewWrapper({
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.data && data.data.businesses && data.data.businesses.length > 0) {
-            // Clear existing markers before adding new ones
-            actions.clearMarkers?.();
-            
+            // Additive, never clearMarkers(). Wiping the map first also wiped
+            // the "Your Location" pin and whatever the user had just searched
+            // for — the marker they were actually looking at vanished the
+            // moment nearby places loaded. addMarker() already updates in
+            // place on an id collision, so repeats cannot pile up.
+
             // Add markers for nearby businesses with enriched data
             data.data.businesses.forEach((business) => {
               actions.addMarker({
@@ -155,11 +160,35 @@ export default function MapViewWrapper({
               });
             });
 
-            console.log(`✅ Loaded ${data.data.businesses.length} local businesses`);
+            return true;
           }
         }
       } catch (error) {
-        console.error('Error fetching local businesses:', error);
+        console.warn('Local business lookup unavailable:', error.message);
+      }
+      return false;
+    };
+
+    // The enriched endpoint above is Radar-only, and Radar is optional — with
+    // Mapbox/TomTom keys and no Radar key it returns nothing at all, which is
+    // why the map showed no local businesses. This is the same question asked
+    // through the provider ladder: fewer fields, but it works with the keys
+    // that actually exist, and with none at all via OpenStreetMap.
+    const fetchNearbyFallback = async (location) => {
+      try {
+        const result = await MapApiService.searchPlaces(location, { query: 'restaurant cafe shop', radius: 5000, limit: 20 });
+        for (const place of result?.data || []) {
+          actions.addMarker({
+            id: `place-${place.position.lat.toFixed(5)}-${place.position.lng.toFixed(5)}`,
+            lat: place.position.lat,
+            lng: place.position.lng,
+            name: place.name,
+            address: place.address,
+            category: 'BUSINESS',
+          });
+        }
+      } catch (error) {
+        console.warn('Nearby places unavailable:', error.message);
       }
     };
                 
@@ -180,7 +209,14 @@ export default function MapViewWrapper({
     if (lastLocationRef.current !== locationKey) {
       lastLocationRef.current = locationKey;
       hasFetchedPlacesRef.current = true;
-      // fetchNearbyPlaces(location); // Disabled auto-open
+      // Enriched first; the ladder if that endpoint has nothing to give. This
+      // whole call was commented out with "Disabled auto-open", which is why
+      // no local business ever appeared on the map — the reason it was
+      // disabled (it cleared every existing marker) is fixed above rather
+      // than worked around by not calling it.
+      fetchNearbyPlaces(location).then((served) => {
+        if (!served) fetchNearbyFallback(location);
+      });
     }
   }, [isOpen, userLocation, detectedLocation]);
       
@@ -204,9 +240,9 @@ export default function MapViewWrapper({
     
   const handleLocationGranted = (location) => {
     setUserLocation(location);
-    setMapCenter([location.lng, location.lat]);   
-    setMapZoom(13);
-    actions.flyTo(location, 13);
+    setMapCenter([location.lng, location.lat]);
+    setMapZoom(USER_LOCATION_ZOOM);
+    actions.flyTo(location, USER_LOCATION_ZOOM);
       
     // Add current location marker
     setCurrentLocationMarker({
@@ -306,6 +342,7 @@ export default function MapViewWrapper({
             center={mapCenter}
             zoom={mapZoom}
             showTraffic={showTraffic}
+            userLocation={userLocation}
             onClose={handleClose}
           />
         </div>

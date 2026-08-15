@@ -128,6 +128,25 @@ export const DEFAULT_CENTER = {
   zoom: 4,
 };
 
+/**
+ * Where the map settles when it has found you.
+ *
+ * There were three of these, hard-coded: 15 in TruegleMap's grant handler, 15
+ * in MapViewWrapper's silent request, and 13 in MapViewWrapper's grant handler.
+ * Whichever fired last won, so "zoom to my location" landed on a street or on a
+ * whole city depending on which path got there first. One number, one result.
+ */
+export const USER_LOCATION_ZOOM = 15;
+
+/** Standard geolocation options. The browser default timeout is Infinity: a
+ *  request made without one never calls back at all if the user ignores the
+ *  prompt, so the map waits forever with no way to know it is waiting. */
+export const GEOLOCATION_OPTIONS = {
+  enableHighAccuracy: true,
+  timeout: 10000,
+  maximumAge: 60000,
+};
+
 export const MAP_VIEW_MODES = {
   STANDARD: 'standard',
   AZIMUTHAL_FLAT: 'azimuthal_flat',
