@@ -675,7 +675,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     if (!q) return;
     if (pillMode === 'black') { navigate(`/chat?q=${encodeURIComponent(q)}`); return; }
     if (pillMode === 'orange') { navigate('/rewards'); return; }
-    if (pillMode === 'yellow') { navigate('/extract'); return; }
+    if (pillMode === 'yellow') { navigate('/feed'); return; }
     // Tube stays on this page — it is a mode of the search page, not a
     // separate route, which is what keeps its layout identical by construction.
     if (pillMode !== mode) {

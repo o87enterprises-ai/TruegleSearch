@@ -536,6 +536,14 @@
         "body": "Deliberate: toDocument() emits one self-contained HTML file (no script/link/url()/http anywhere — asserted). A file on the reader's disk survives cache eviction, 'clear browsing data' and the site going away; a SW cache survives none. ALSO: src/utils/performance.js setupResourceCaching() used to call navigator.serviceWorker.register('/sw.js') — /sw.js is the 2026-06-15 self-destructing KILL SWITCH, so wiring that fn up would have wiped caches + navigated every tab on every load. Now a no-op with the reasoning in-file. Any future real SW must first decide what to do about the kill switch: two registrations cannot share scope '/'.",
         "ts": "2026-08-14",
         "created": "2026-08-14"
+      },
+      "routes-remount-on-path": {
+        "Id": "routes-remount-on-path",
+        "Type": "fact",
+        "Label": "App.jsx keys <Routes> on location.pathname",
+        "body": "Every path change remounts the whole route tree. Any two routes sharing one component will remount it on the hop between them - this silently double-fetched the feed until /feed/callback got its own component (FeedCallback).",
+        "ts": "2026-08-15",
+        "created": "2026-08-15"
       }
     },
     "decision": {
@@ -1442,6 +1450,14 @@
         "body": "Content in apps/frontend/src/content/survival-encyclopedia.md (### letter, #### entry, **bold** subheading — h4 makes the parser deterministic, no heuristics). Parsed by src/utils/encyclopedia.js; reader src/components/Encyclopedia.jsx (lazy, own 42.6KB chunk, ZERO bytes in the entry bundle). 63 entries / 24 letters / 11 xrefs. Unlock: arrive in TRAIL -> findVault() writes truegle_vault_v1, arrival screen shows THEY KEPT THE LIBRARY (V or tap). Once found the 404 page shows a permanent quiet link — discovery earned once, access permanent. Tests: npm run vault:test (37) + vault:browser (14).",
         "ts": "2026-08-14",
         "created": "2026-08-14"
+      },
+      "feed-page-yellow": {
+        "Id": "feed-page-yellow",
+        "Type": "decision",
+        "Label": "Yellow pill = Feed; /extract parked",
+        "body": "The /extract route was rebuilt as /feed on a shared SearchPageShell. Yellow slot relabelled Extract -> Feed. ExtractPage stays routed but unlinked, pending the Tube fold. Demo auth accepts anything; real OAuth redirect shape (start -> /feed/callback -> server-side exchange). No Truegle account needed; connections live in localStorage.",
+        "ts": "2026-08-15",
+        "created": "2026-08-15"
       }
     },
     "entity": {
@@ -1749,6 +1765,15 @@
         "status": "open",
         "ts": "2026-08-13",
         "created": "2026-08-13"
+      },
+      "maps-overhaul": {
+        "Id": "maps-overhaul",
+        "Type": "thread",
+        "Label": "Maps: fix components + add live GPS navigation",
+        "body": "Owner-requested, queued after the Feed page. TWO PARTS. (1) FIX: cameras, user-location zoom-in, local-businesses + location logic, and the 'type a business or location near me' map-find feature — plus the map UI generally. (2) ADD: live GPS turn-by-turn navigation via TomTom or Mapbox, using the API keys already configured in the project-root env. Relevant existing surface: apps/backend/routes/maps.js + routes/radar.js (both behind mapsLimiter), PlacePanelService, usePlacePanel, MapViewWrapper in UniversalSearch. Check which of TOMTOM/MAPBOX keys are actually present before choosing the provider.",
+        "status": "open",
+        "ts": "2026-08-15",
+        "created": "2026-08-15"
       }
     }
   },
@@ -1778,5 +1803,5 @@
       }
     }
   },
-  "updated": "2026-08-14"
+  "updated": "2026-08-15"
 }

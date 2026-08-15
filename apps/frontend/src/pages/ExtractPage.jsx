@@ -1,3 +1,11 @@
+// PARKED — kept, not deleted, and no longer linked from anywhere.
+//
+// The yellow pill and the hamburger drawer point at /feed now; this page's
+// route still resolves so an old direct link does not 404. The extraction tool
+// itself is waiting to be folded into Tube rather than living on its own page
+// (docs/PRE-PRODUCTION-BACKLOG.md), which is also why nothing here has been
+// brought onto the house layout — it is going somewhere else.
+//
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';

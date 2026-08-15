@@ -38,6 +38,8 @@ import WatchPage from './pages/WatchPage';
 import LinkPage from './pages/LinkPage';
 import FeelingBiasedPage from './pages/FeelingBiasedPage';
 import ExtractPage from './pages/ExtractPage';
+import FeedPage from './pages/FeedPage';
+import FeedCallback from './pages/FeedCallback';
 import CreatorPage from './pages/CreatorPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
@@ -325,6 +327,21 @@ const AppContent = () => {
 
         {/* Feeling Biased Page - Keep as entry point */}
         <Route path="/feeling-biased" element={<RouteBoundary><FeelingBiasedPage /></RouteBoundary>} />
+        {/* The feed. /feed/callback is where a provider (or, in demo, our own
+            start route) returns to.
+
+            SEPARATE COMPONENTS, deliberately. <Routes> above is keyed on
+            location.pathname, so every navigation remounts the tree. When one
+            component served both paths, cleaning the spent code out of the URL
+            remounted the page it had just filled — the feed was discarded and
+            page one refetched on every connect. FeedCallback owns the
+            handshake; FeedPage mounts once, on /feed, already connected. */}
+        <Route path="/feed" element={<RouteBoundary><FeedPage /></RouteBoundary>} />
+        <Route path="/feed/callback" element={<RouteBoundary><FeedCallback /></RouteBoundary>} />
+        {/* PARKED, not deleted. The yellow pill and the hamburger point at
+            /feed now, so nothing links here, but a direct link should still
+            work rather than 404 — the extraction tool is waiting to be folded
+            into Tube (docs/PRE-PRODUCTION-BACKLOG.md). */}
         <Route path="/extract" element={<RouteBoundary><ExtractPage /></RouteBoundary>} />
 
         {/* Legal / Info Pages (required for OAuth publishing + AdSense) */}

@@ -29,6 +29,8 @@
 /tube             /_index  200
 /l                /_index  200
 /extract          /_index  200
+/feed             /_index  200
+/feed/callback    /_index  200
 # /blog and /blog/* are intentionally NOT here — all blog routes are
 # prerendered (dist/blog/index.html + dist/blog/<slug>/index.html).
 # Adding them here would cause the 200 rewrite to override the static files.

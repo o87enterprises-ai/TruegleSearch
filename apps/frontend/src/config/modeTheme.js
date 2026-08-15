@@ -49,7 +49,7 @@ export const MODE_LABELS = {
   ocean: 'Privacy / OSINT',
   green: 'Summarize',
   orange: 'Rewards',
-  yellow: 'Transcripts',
+  yellow: 'Feed',
   black: 'Chat',
   tube: 'Tube',
   unhinged: 'Unhinged',

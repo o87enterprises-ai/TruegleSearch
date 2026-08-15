@@ -490,7 +490,7 @@ export default function TruegleChat() {
     // color, sending leaves chat and opens that /search page instead of chatting.
     if (pillMode !== 'black') {
       if (pillMode === 'orange') { navigate('/rewards'); return; }
-      if (pillMode === 'yellow') { navigate('/extract'); return; }
+      if (pillMode === 'yellow') { navigate('/feed'); return; }
       const catParam = searchCategory && searchCategory !== 'all' ? `&category=${searchCategory}` : '';
       navigate(`/search?q=${encodeURIComponent(text)}&mode=${pillMode}${catParam}`);
       return;

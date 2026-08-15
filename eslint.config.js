@@ -56,7 +56,10 @@ export default [
     // `window` and `document` are legitimate there even though the file itself
     // never touches a DOM. Without this they are six no-undef errors that are
     // all false.
-    files: ['**/verify-*-browser.mjs'],
+    // Matched by intent, not by one filename shape: verify-feed-page.mjs is a
+    // Playwright verifier too and was being linted as pure Node, which is how
+    // eight false no-undefs appeared for `document` inside page.evaluate.
+    files: ['**/verify-*-browser.mjs', '**/verify-feed-page.mjs'],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },
     },

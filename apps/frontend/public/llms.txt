@@ -45,9 +45,9 @@ Results are powered by our own self-hosted SearXNG metasearch instance — no co
 - No fingerprinting, no cookies, no user profiling
 
 ### Tools
-- **Content Transcriber** (`/extract`): paste any YouTube URL and get the full transcript; also extracts images from any public page. 3 free uses per 24 hours; watch a short ad for 3 bonus uses.
+- **Feed** (`/feed`): connect the social accounts you already use and read them in one place, on the search layout. Truegle reads only — it never posts, never votes, and never asks for a password. Sign-in happens on the provider's own site; no Truegle account is required. Typing in the search bar searches only the accounts you connected.
 - **OSINT Intelligence**: email intel (MX records, role/disposable flags, Gravatar), phone intel (line type, country, formats), username and domain lookup — all from within the search page.
-- **Social Feed Aggregator**: Reddit, Hacker News, GitHub trending, and YouTube feeds unified in a single tab — no login required, no algorithm.
+- **Social Feed Aggregator**: Reddit, Hacker News, and GitHub trending unified into one endlessly scrolling feed — no algorithm, no profiling.
 
 ### Rewards
 - **Ad Rewards Program** (`/rewards`): opt in to earn real cash for ads you genuinely watch while waiting on search results. Duration measured server-side only. PayPal cashout when balance reaches minimum. Opt out at any time.
@@ -106,7 +106,7 @@ For each query, Truegle generates an AI summary that explicitly presents mainstr
 
 - https://truegle.info/ — Homepage and main search
 - https://truegle.info/green — AI-free clean search mode (human-authored sources only)
-- https://truegle.info/extract — Content transcriber and image extractor tool
+- https://truegle.info/feed — Your social feeds (Reddit, Hacker News, GitHub) in one place
 - https://truegle.info/about/ — About Truegle and our mission
 - https://truegle.info/advertise/ — Advertising information and media kit
 - https://truegle.info/blog — Editorial content: search bias, privacy, independent research

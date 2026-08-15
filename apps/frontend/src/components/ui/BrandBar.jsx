@@ -43,7 +43,7 @@ export default function BrandBar() {
 
   const isActive = (item) => {
     if (item.path === '/chat') return location.pathname === '/chat';
-    if (item.path === '/extract') return location.pathname === '/extract';
+    if (item.path === '/feed') return location.pathname.startsWith('/feed');
     if (item.path === '/rewards') return location.pathname === '/rewards';
     // Modes that own a route of their own, rather than a ?mode= on /search.
     if (item.path === '/tube') return location.pathname === '/tube';

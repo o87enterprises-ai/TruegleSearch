@@ -42,6 +42,12 @@
   X-Robots-Tag: noindex, follow
 /extract
   Content-Type: text/html; charset=utf-8
+
+/feed
+  Content-Type: text/html; charset=utf-8
+
+/feed/callback
+  Content-Type: text/html; charset=utf-8
 /blog
   Content-Type: text/html; charset=utf-8
 /blog/*
