@@ -70,6 +70,29 @@ const alone = parseLocalQuery('near me');
 check(alone?.type === 'geolocation' && alone.subject === '',
   '"near me" alone asks for your position and searches for nothing', describe(alone));
 
+// ── 8. a shared pin comes back as a place ───────────────────────────────────
+// The map's share menu writes /search?q=<lat>,<lng>, so that has to parse back
+// into the point it came from. The trap is ZIPCODE: `\b(\d{5})\b` happily
+// matches five digits out of the middle of "43.752413", so without the
+// coordinate pattern running FIRST a shared pin geocodes as a postcode
+// somewhere else entirely.
+const pin = parseLocalQuery('43.752413, -123.070256');
+check(pin?.type === 'coords', 'a coordinate pair is recognised as a point', describe(pin));
+check(pin?.lat === 43.752413 && pin?.lng === -123.070256,
+  '…with both numbers intact', `${pin?.lat}, ${pin?.lng}`);
+check(parseLocalQuery('43.752413,-123.070256')?.type === 'coords',
+  '…with or without the space');
+check(parseLocalQuery('-33.8688, 151.2093')?.type === 'coords',
+  '…south and east of zero too');
+
+// Not everything with a comma and digits is a location.
+check(parseLocalQuery('91.5, 0')?.type !== 'coords',
+  'an impossible latitude is not a point', describe(parseLocalQuery('91.5, 0')));
+check(parseLocalQuery('0, 181')?.type !== 'coords',
+  'nor an impossible longitude', describe(parseLocalQuery('0, 181')));
+check(parseLocalQuery('catch 22, revisited')?.type !== 'coords',
+  'nor a sentence that merely contains a comma');
+
 console.log([...ok, ...bad].join('\n'));
 console.log(`\n${ok.length} passed, ${bad.length} failed`);
 process.exit(bad.length ? 1 : 0);

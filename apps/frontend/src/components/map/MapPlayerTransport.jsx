@@ -43,7 +43,14 @@ export default function MapPlayerTransport({ className = '' }) {
   return (
     <div
       data-map-player-transport=""
-      className={`absolute bottom-20 left-4 z-40 max-w-[calc(100%-32px)] ${className}`}
+      // Stacked off the floor rather than pinned at a guessed offset. The
+      // function bar wraps onto a second row when the map is narrow, and a
+      // fixed `bottom-20` put this straight through it; the container
+      // publishes how much room the bar is taking (see TruegleMap) and the
+      // scale bar and attribution already sit at that mark, so this clears
+      // both. The fallback covers a single-row bar.
+      style={{ bottom: 'calc(var(--truegle-map-bottom-clearance, 62px) + 30px)' }}
+      className={`absolute left-4 z-40 max-w-[calc(100%-32px)] ${className}`}
     >
       <div className="flex items-center gap-1 pl-3 pr-1 py-1 rounded-xl border border-neutral-700/50 shadow-2xl backdrop-blur-xl bg-gradient-to-r from-neutral-900/95 to-neutral-800/95">
         <span

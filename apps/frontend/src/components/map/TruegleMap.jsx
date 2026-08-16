@@ -7,7 +7,15 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 // map stylesheet before it could paint.
 import { Map as BaseMap, Marker, Popup, NavigationControl, ScaleControl, Source, Layer } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { X, Minimize2, Layers, Navigation, Camera, MapPin, Navigation as NavigationIcon, Globe, Map as MapIcon, Target, Plus, Minus, Maximize2, Search, PictureInPicture2 } from 'lucide-react';
+// TrafficCone for traffic, Navigation for directions. Both buttons used to
+// import the SAME lucide glyph — `Navigation` once plainly and once as
+// `Navigation as NavigationIcon` — so Traffic and Directions were pixel
+// identical and the alias made it look deliberate.
+import {
+  X, Minimize2, Layers, TrafficCone, Camera, MapPin, Navigation as DirectionsIcon,
+  Globe, Map as MapIcon, Target, Minus, Maximize2, Search, PictureInPicture2,
+  Share2, Check, Copy, LocateFixed,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMap } from './context/MapContext';
 import { getMarkerColor, formatAddress, generateMarkerId } from './utils/helpers';
@@ -23,6 +31,7 @@ import AzimuthalFlat from './AzimuthalFlat';
 import WebGLErrorBoundary from '../ui/WebGLErrorBoundary';
 import EnhancedCameraSearch from './EnhancedCameraSearch';
 import { searchMapQuery, formatDistance } from './utils/mapSearch';
+import MapApiService from './services/mapApi';
 import backgroundImage from '../../assets/images/Azimuthal-satellite-view.png';
 import './styles/TruegleMap.css';
 
@@ -78,6 +87,67 @@ export default function TruegleMap({
   const [showPlaceResults, setShowPlaceResults] = useState(false);
   // "near me", asked before we know where "me" is.
   const [placeNeedsLocation, setPlaceNeedsLocation] = useState(false);
+
+  // ── the map knows how much room it has ──────────────────────────────────
+  //
+  // Every responsive decision here used to be a VIEWPORT breakpoint
+  // (`hidden lg:inline`), which says nothing useful once the map can be a
+  // 320px floating window on a 2560px monitor — the labels stayed on and the
+  // row ran off the end of its own frame. These are measured against the BAR.
+  // Is a full-height panel covering the map? The floating controls step aside
+  // when one is, instead of hovering on top of it — the zoom stack sitting
+  // over the open Directions panel is exactly what "not screen-element aware"
+  // looked like. Declared before the measuring effect below, which depends
+  // on it: the layout changes when a panel opens.
+  const panelOpen = showCamerasFS || showEnhancedCameraSearch || showDirectionsFS;
+
+  const functionBarRef = useRef(null);
+  const mapAreaRef = useRef(null);
+  // AVAILABLE width, not the bar's own. Measuring the bar is circular — its
+  // width depends on whether the labels are showing, and whether the labels
+  // show depends on its width — so it settles wherever it started and the row
+  // still runs off the end. The map area is the fixed quantity.
+  const [areaWidth, setAreaWidth] = useState(9999);
+  const [barHeight, setBarHeight] = useState(44);
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observers = [];
+    const area = mapAreaRef.current;
+    if (area) {
+      const ro = new ResizeObserver(([e]) => setAreaWidth(e.contentRect.width));
+      ro.observe(area);
+      setAreaWidth(area.getBoundingClientRect().width);
+      observers.push(ro);
+    }
+    const bar = functionBarRef.current;
+    if (bar) {
+      const ro = new ResizeObserver(([e]) => setBarHeight(e.contentRect.height));
+      ro.observe(bar);
+      setBarHeight(bar.getBoundingClientRect().height);
+      observers.push(ro);
+    }
+    return () => observers.forEach((o) => o.disconnect());
+  }, [isFullscreen, poppedOut, panelOpen]);
+  const showBarLabels = areaWidth >= 900;
+  const labelClass = showBarLabels ? '' : 'hidden';
+  // How much room the bottom edge owes the function bar. The renderer pins its
+  // attribution and scale to that edge, and attribution is a licence condition
+  // of OSM, CARTO and Esri — it cannot sit under our chrome. Derived from the
+  // bar's measured height so a wrapped two-row bar pushes it further up rather
+  // than hiding behind a guessed constant.
+  const bottomClearance = `${Math.round(barHeight) + 26}px`;
+
+  // The user's own position: is it currently in view? The Location button
+  // lights up only when it is (and only when we actually have a position),
+  // so the button reports a state instead of just offering an action.
+  const [locationOnScreen, setLocationOnScreen] = useState(false);
+  // Their address, looked up once, for the hover label on the blue dot.
+  const [userAddress, setUserAddress] = useState('');
+
+  // Right-click / long-press menu: { lng, lat, x, y, address }.
+  const [locationMenu, setLocationMenu] = useState(null);
+  const [shareState, setShareState] = useState('idle');
+  const longPressRef = useRef(null);
 
   useEffect(() => {
     setMapStyleLocal(getBasemapStyle(style));
@@ -255,20 +325,57 @@ export default function TruegleMap({
     }
   }, [actions, onMapLoad]);
 
-  const handleZoom = useCallback((evt) => {
-    const newZoom = evt.viewState.zoom;
-    setViewState(prev => ({ ...prev, zoom: newZoom }));
-    actions.setZoom(newZoom);
+  // THE WHOLE viewState, every frame. This is the scroll-zoom hiccup.
+  //
+  // The map is a CONTROLLED component: what it draws is whatever `viewState`
+  // says. This handler used to write back only the zoom —
+  // `setViewState(prev => ({ ...prev, zoom }))` — and drop the longitude and
+  // latitude the renderer had just computed. A wheel zoom is anchored to the
+  // POINTER, so every notch moves the centre as well as the zoom; keeping the
+  // old centre shoved the map back to where it had been a frame earlier. Zoom,
+  // snap, zoom, snap. Same for a pinch, and for any zoom not aimed at the
+  // exact middle of the map.
+  const handleMove = useCallback((evt) => {
+    setViewState(evt.viewState);
+  }, []);
 
-    // If zooming out to level 3 or below in standard mode, switch to azimuthal
-    if (state.mapViewMode === MAP_VIEW_MODES.STANDARD && newZoom <= 3) {
+  // Shared state is updated at the END of a gesture, not during it.
+  //
+  // The old handler pushed a zoom into MapContext on every frame of the
+  // gesture, so every consumer of that context re-rendered dozens of times per
+  // scroll — the other half of the stutter. Nothing outside this component
+  // needs to watch a zoom mid-flick; it needs to know where it landed.
+  const handleMoveEnd = useCallback((evt) => {
+    const { zoom, latitude, longitude } = evt.viewState;
+    actions.setZoom(zoom);
+
+    // Zoomed all the way out: offer the azimuthal projection.
+    //
+    // This used to run inside the per-frame handler, so scrolling out past
+    // zoom 3 swapped the projection MID-GESTURE — the map you were still
+    // scrolling on was replaced under your finger. At the end of the gesture
+    // it is a result rather than an interruption.
+    if (state.mapViewMode === MAP_VIEW_MODES.STANDARD && zoom <= 3) {
       actions.setMapViewMode(MAP_VIEW_MODES.AZIMUTHAL_FLAT);
-      actions.setAzimuthalFlatCenter({ lat: evt.viewState.latitude, lng: evt.viewState.longitude });
+      actions.setAzimuthalFlatCenter({ lat: latitude, lng: longitude });
       actions.setAzimuthalFlatZoom(2);
     }
   }, [actions, state.mapViewMode]);
 
   const handleMapClick = useCallback((e) => {
+    // A long press ends in a click event too. Without this, lifting your
+    // finger off a long press would fly the map to zoom 15 underneath the
+    // menu that press had just opened.
+    if (longPressRef.current?.fired) {
+      longPressRef.current = null;
+      return;
+    }
+    // An open menu is dismissed by the click, not acted on by it.
+    if (locationMenu) {
+      setLocationMenu(null);
+      return;
+    }
+
     // Always center and zoom to clicked location
     const clickedLocation = {
       lat: e.lngLat.lat,
@@ -293,7 +400,7 @@ export default function TruegleMap({
       setSelectedMarker(null);
       actions.setSelectedMarker(null);
     }
-  }, [actions, onMapClick, selectedMarker]);
+  }, [actions, onMapClick, selectedMarker, locationMenu]);
 
   const handleMarkerClick = useCallback((marker, e) => {
     e.originalEvent.stopPropagation();
@@ -395,6 +502,134 @@ export default function TruegleMap({
   const handleLocationDenied = useCallback((error) => {
     console.log('Location denied:', error);
   }, []);
+
+  // ── is your position on screen? ─────────────────────────────────────────
+  //
+  // What makes the Location button light up. Asked of the map's real bounds
+  // rather than guessed from the centre, because a viewport is a rectangle
+  // and "near the centre" is not the same question. Recomputed on move, so
+  // the light goes out as you pan away from yourself and comes back when you
+  // pan home — which is the whole point of it being a state and not a label.
+  useEffect(() => {
+    let map = mapRef.current;
+    if (map && typeof map.getMap === 'function') map = map.getMap();
+    if (!map || !userLocation || typeof map.getBounds !== 'function') {
+      setLocationOnScreen(false);
+      return undefined;
+    }
+    const check = () => {
+      try {
+        setLocationOnScreen(map.getBounds().contains([userLocation.lng, userLocation.lat]));
+      } catch {
+        setLocationOnScreen(false);   // between styles the bounds can be unset
+      }
+    };
+    check();
+    map.on('move', check);
+    return () => { map.off('move', check); };
+  }, [userLocation, mapLoaded, state.mapViewMode]);
+
+  // The address behind the blue dot, resolved once per position.
+  //
+  // A dot that says nothing is just a dot; hovering it should answer "where
+  // does the map think I am?", which is also the fastest way to notice that
+  // the answer is wrong.
+  useEffect(() => {
+    if (!userLocation) { setUserAddress(''); return undefined; }
+    let cancelled = false;
+    MapApiService.reverseGeocode(userLocation.lat, userLocation.lng)
+      .then((r) => { if (!cancelled) setUserAddress(r?.data?.address || ''); })
+      .catch(() => { /* offline, or every provider down — the dot still works */ });
+    return () => { cancelled = true; };
+  }, [userLocation?.lat, userLocation?.lng]);
+
+  // ── share a place ───────────────────────────────────────────────────────
+  //
+  // Right-click on a desktop, long-press on a touch screen. Both land here.
+  const openLocationMenu = useCallback((lngLat, point) => {
+    setShareState('idle');
+    setLocationMenu({ lng: lngLat.lng, lat: lngLat.lat, x: point.x, y: point.y, address: '' });
+    // The address arrives after the menu does. Waiting for a round trip
+    // before showing anything would make a right-click feel broken.
+    MapApiService.reverseGeocode(lngLat.lat, lngLat.lng)
+      .then((r) => {
+        const address = r?.data?.address || '';
+        setLocationMenu((m) => (m && m.lat === lngLat.lat && m.lng === lngLat.lng ? { ...m, address } : m));
+      })
+      .catch(() => { /* a place can still be shared as coordinates */ });
+  }, []);
+
+  const handleContextMenu = useCallback((e) => {
+    e.originalEvent?.preventDefault();
+    openLocationMenu(e.lngLat, e.point);
+  }, [openLocationMenu]);
+
+  // A long press is a press that STAYS PUT. Tracking movement matters: without
+  // it, dragging the map for half a second opens a menu on the spot you
+  // started panning from.
+  const handleTouchStart = useCallback((e) => {
+    const { lngLat, point } = e;
+    longPressRef.current = {
+      fired: false,
+      timer: setTimeout(() => {
+        if (longPressRef.current) longPressRef.current.fired = true;
+        openLocationMenu(lngLat, point);
+      }, 550),
+    };
+  }, [openLocationMenu]);
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressRef.current?.timer) clearTimeout(longPressRef.current.timer);
+  }, []);
+
+  /** The link that reopens this exact spot. Coordinates are a query Truegle
+   *  understands (see parseLocalQuery), so the shared URL lands on the map
+   *  rather than on a search for a string of digits. */
+  const locationUrl = useCallback((lat, lng) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${origin}/search?q=${encodeURIComponent(`${lat.toFixed(6)},${lng.toFixed(6)}`)}`;
+  }, []);
+
+  const shareLocation = useCallback(async () => {
+    if (!locationMenu) return;
+    const { lat, lng, address } = locationMenu;
+    const url = locationUrl(lat, lng);
+    const title = address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    try {
+      // The OS sheet where there is one — that is what "share" means on a
+      // phone. The clipboard is the desktop fallback, not the first choice.
+      if (navigator.share) {
+        await navigator.share({ title: 'Location on Truegle', text: title, url });
+        setShareState('done');
+      } else {
+        await navigator.clipboard.writeText(url);
+        setShareState('copied');
+      }
+    } catch (err) {
+      // AbortError = the user dismissed the sheet. That is not a failure and
+      // must not be reported as one.
+      if (err?.name !== 'AbortError') setShareState('failed');
+    }
+  }, [locationMenu, locationUrl]);
+
+  const copyCoordinates = useCallback(async () => {
+    if (!locationMenu) return;
+    try {
+      await navigator.clipboard.writeText(`${locationMenu.lat.toFixed(6)}, ${locationMenu.lng.toFixed(6)}`);
+      setShareState('copied');
+    } catch {
+      setShareState('failed');
+    }
+  }, [locationMenu]);
+
+  // Any press elsewhere, any pan, any Escape closes the menu.
+  useEffect(() => {
+    if (!locationMenu) return undefined;
+    const close = () => setLocationMenu(null);
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('keydown', onKey); };
+  }, [locationMenu]);
 
   // Draw the calculated route on the map and frame it Google-Earth-style.
   const handleRouteCalculated = useCallback((route) => {
@@ -539,12 +774,56 @@ export default function TruegleMap({
     );
   }, [userLocation, initialUserLocation]);
 
+  // The Location button's three honest states.
+  //
+  //   lit      — we have your position AND it is inside the current viewport
+  //   located  — we have it, but you have panned away from yourself
+  //   unknown  — no position (never granted, denied, or not asked yet)
+  //
+  // Pressing it does the same thing throughout; what changes is what it TELLS
+  // you. A button that looks identical whether or not the map has found you is
+  // the reason "is my location even on?" is a question people have to answer
+  // by squinting for a blue dot.
+  const locationState = !userLocation ? 'unknown' : (locationOnScreen ? 'lit' : 'located');
+  const locationBtnClass = {
+    lit: 'bg-blue-500/25 text-blue-300 ring-1 ring-blue-400/70 shadow-lg shadow-blue-500/40',
+    located: 'bg-neutral-800 text-blue-400/70 hover:bg-neutral-700',
+    unknown: 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-blue-400',
+  }[locationState];
+  const locationBtnTitle = {
+    lit: userAddress ? `Your location — ${userAddress}` : 'Your location is on screen',
+    located: 'Your location is off screen — press to go back to it',
+    unknown: 'Find my location',
+  }[locationState];
+
+  // Pressing it when we already know where you are should GO there, not ask
+  // again. The permission modal is only for the case where we do not know.
+  const handleLocationButton = useCallback(() => {
+    if (userLocation) {
+      setViewState((prev) => ({
+        ...prev, longitude: userLocation.lng, latitude: userLocation.lat, zoom: USER_LOCATION_ZOOM,
+      }));
+      actions.flyTo(userLocation, USER_LOCATION_ZOOM);
+      return;
+    }
+    setShowLocationModalFS(true);
+  }, [userLocation, actions]);
+
   const MarkerElement = ({ marker }) => {
     // Special rendering for current location
     if (marker.category === 'CURRENT_LOCATION') {
+      // The dot, and what it is standing on. Hovering (or tabbing to) it
+      // shows the reverse-geocoded address — the fastest way to check the map
+      // has actually found you, and to read off where "here" is without
+      // clicking anything. Until the lookup returns it falls back to the
+      // coordinates, which is still an answer.
+      const here = userAddress || `${marker.lat.toFixed(5)}, ${marker.lng.toFixed(5)}`;
       return (
         <div
-          className="current-location-marker"
+          className="current-location-marker group"
+          tabIndex={0}
+          role="img"
+          aria-label={`Your location: ${here}`}
           style={{
             transform: `translate(-50%, -50%)`,
           }}
@@ -590,6 +869,20 @@ export default function TruegleMap({
               top: '50%',
             }}
           />
+          {/* The address label. Hidden until hover or keyboard focus, and
+              pointer-events-none so it can never intercept a map drag that
+              happens to pass over it. */}
+          <div
+            data-location-address=""
+            className="pointer-events-none absolute left-1/2 bottom-full mb-3 -translate-x-1/2 opacity-0
+                       group-hover:opacity-100 group-focus:opacity-100 transition-opacity duration-150"
+          >
+            <div className="whitespace-nowrap max-w-[16rem] truncate rounded-lg px-2.5 py-1.5
+                            bg-neutral-900/95 backdrop-blur-md border border-blue-400/40
+                            text-[11px] font-medium text-white shadow-lg shadow-blue-500/20">
+              {here}
+            </div>
+          </div>
         </div>
       );
     }
@@ -617,30 +910,19 @@ export default function TruegleMap({
     );
   };
 
-  // A state updater must be pure — React is free to call it twice, and does in
-  // development. Calling actions.setZoom() inside one meant the shared map zoom
-  // could be advanced twice for a single click, so the buttons jumped two
-  // levels. The new zoom is computed from current state and pushed once.
-  const stepZoom = useCallback((delta) => {
-    setViewState(prev => {
-      const newZoom = Math.min(
-        MAP_CONTROLS.ZOOM.max,
-        Math.max(MAP_CONTROLS.ZOOM.min, prev.zoom + delta),
-      );
-      if (newZoom === prev.zoom) return prev;
-      return { ...prev, zoom: newZoom };
-    });
-  }, []);
-
-  const handleZoomIn = useCallback(() => stepZoom(1), [stepZoom]);
-  const handleZoomOut = useCallback(() => stepZoom(-1), [stepZoom]);
-
-  // Mirror the local viewport zoom back into shared state, once, after it has
-  // actually changed. This is also what keeps pinch-zoom and the Mapbox
-  // controls in step with the context, which the button-only path never did.
-  useEffect(() => {
-    if (viewState.zoom !== state.zoom) actions.setZoom(viewState.zoom);
-  }, [viewState.zoom]);
+  // The custom zoom buttons are gone, and with them stepZoom and the effect
+  // that mirrored every zoom change into shared state.
+  //
+  // There were TWO zoom controls on one map: a hand-rolled +/- stack pinned to
+  // the top-left, and the renderer's own NavigationControl with +/- AND a
+  // compass at the top-right. Only one of them could ever have been the one to
+  // press. The hand-rolled stack was also 3 buttons tall in the same band as
+  // the search field, and at z-index 150 it floated on top of the Directions
+  // and Location panels when either was open.
+  //
+  // NavigationControl is now the only zoom, and shared state is updated in
+  // handleMoveEnd — which covers the buttons, the wheel, and pinch alike,
+  // rather than the buttons only.
 
   return (
     <div
@@ -655,16 +937,35 @@ export default function TruegleMap({
           fold. The wrapper owns the chrome; this owns the map. */}
 
       {/* Map Content */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+      <div
+        ref={mapAreaRef}
+        style={{
+          flex: 1,
+          position: 'relative',
+          overflow: 'hidden',
+          // Read by the stylesheet to lift the renderer's attribution and
+          // scale bar clear of the function bar. See TruegleMap.css.
+          '--truegle-map-bottom-clearance': bottomClearance,
+        }}
+      >
       {state.mapViewMode === MAP_VIEW_MODES.STANDARD ? (
         <BaseMap
           ref={mapRef}
           {...viewState}
-          onMove={handleZoom}
+          onMove={handleMove}
+          onMoveEnd={handleMoveEnd}
           mapStyle={mapStyle}
           style={{ width: '100%', height: '100%' }}
           onLoad={handleMapLoad}
           onClick={handleMapClick}
+          // Right-click on a desktop; press-and-hold on a touch screen. Both
+          // open the same menu — see openLocationMenu.
+          onContextMenu={handleContextMenu}
+          onTouchStart={handleTouchStart}
+          onTouchMove={cancelLongPress}
+          onTouchEnd={cancelLongPress}
+          onTouchCancel={cancelLongPress}
+          onDragStart={cancelLongPress}
           attributionControl={true}
           navigationControl={false}
           scaleControl={false}
@@ -867,26 +1168,12 @@ export default function TruegleMap({
       {/* Non-Fullscreen Controls */}
       {!isFullscreen && (
         <>
-          {/* Traditional Map Controls - Top Left */}
+          {/* One button, not a stack of three. Zoom lives in the renderer's
+              own control at the top-right; this corner is the search field's
+              band and a 3-button column crowded it. Hidden while a panel is
+              open — see panelOpen. */}
+          {!panelOpen && (
           <div className="truegle-traditional-controls">
-            {/* Zoom In Button */}
-            <button
-              className="truegle-control-btn truegle-control-zoom-in"
-              onClick={handleZoomIn}
-              title="Zoom In"
-            >
-              <Plus size={18} />
-            </button>
-
-            {/* Zoom Out Button */}
-            <button
-              className="truegle-control-btn truegle-control-zoom-out"
-              onClick={handleZoomOut}
-              title="Zoom Out"
-            >
-              <Minus size={18} />
-            </button>
-
             {/* Fullscreen Toggle */}
             <button
               className="truegle-control-btn truegle-control-fullscreen"
@@ -896,6 +1183,7 @@ export default function TruegleMap({
               <Maximize2 size={18} />
             </button>
           </div>
+          )}
 
           {/* Function Bar — BOTTOM centre, not top.
               It was `absolute top-4 left-1/2` with no width bound and no
@@ -904,11 +1192,22 @@ export default function TruegleMap({
               and "Close" off the right. It also shared the top band with the
               search field and the zoom stack, so all three overlapped.
               The top band is now search only; modes and layers sit along the
-              bottom the way every other map app arranges them, bounded to the
-              container and scrollable rather than clipped. */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100%-32px)]">
-            <div className="bg-gradient-to-r from-neutral-900/95 to-neutral-800/95 backdrop-blur-xl rounded-xl border border-neutral-700/50 shadow-2xl overflow-x-auto no-scrollbar">
-              <div className="flex items-center gap-2 px-4 py-2 w-max">
+              bottom the way every other map app arranges them.
+
+              IT WRAPS. Bounding it and letting it scroll horizontally stopped
+              the row being CLIPPED, but it still ended mid-word — the live
+              screenshot shows "✕ Clos" against the right edge, which reads as
+              broken however scrollable it is. A control you have to discover
+              by dragging is barely better than one you cannot see. Below the
+              measured threshold the row wraps onto a second line and the
+              labels drop, so every button stays whole and reachable. Same
+              idiom, and the same reason, as PlayerTransport's row. */}
+          <div
+            ref={functionBarRef}
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100%-24px)]"
+          >
+            <div className="bg-gradient-to-r from-neutral-900/95 to-neutral-800/95 backdrop-blur-xl rounded-xl border border-neutral-700/50 shadow-2xl">
+              <div className="flex flex-wrap items-center justify-center gap-1.5 px-3 py-2">
                 {/* View Mode Selector */}
                 <button
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -920,7 +1219,7 @@ export default function TruegleMap({
                   title="Standard Map View"
                 >
                   <MapIcon size={14} />
-                  <span className="hidden sm:inline">Map</span>
+                  <span className={labelClass}>Map</span>
                 </button>
                 <button
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -932,7 +1231,7 @@ export default function TruegleMap({
                   title="Azimuthal Flat View"
                 >
                   <Target size={14} />
-                  <span className="hidden sm:inline">Azimuthal</span>
+                  <span className={labelClass}>Azimuthal</span>
                 </button>
                 <button
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -944,7 +1243,7 @@ export default function TruegleMap({
                   title="3D Globe View"
                 >
                   <Globe size={14} />
-                  <span className="hidden sm:inline">Globe</span>
+                  <span className={labelClass}>Globe</span>
                 </button>
 
                 <div className="w-px h-6 bg-neutral-700 mx-1"></div>
@@ -960,7 +1259,7 @@ export default function TruegleMap({
                   title={fullscreenMapStyle === 'satellite' ? 'Satellite View' : 'Street View'}
                 >
                   <Layers size={14} />
-                  <span className="hidden md:inline">{fullscreenMapStyle === 'satellite' ? 'Satellite' : 'Street'}</span>
+                  <span className={labelClass}>{fullscreenMapStyle === 'satellite' ? 'Satellite' : 'Street'}</span>
                 </button>
 
                 {/* Traffic Toggle — only when there is a traffic source to
@@ -976,8 +1275,8 @@ export default function TruegleMap({
                   }`}
                   title="Toggle Traffic"
                 >
-                  <Navigation size={14} />
-                  <span className="hidden md:inline">Traffic</span>
+                  <TrafficCone size={14} />
+                  <span className={labelClass}>Traffic</span>
                 </button>
                 )}
 
@@ -992,7 +1291,7 @@ export default function TruegleMap({
                   title="Traffic Cameras"
                 >
                   <Camera size={14} />
-                  <span className="hidden lg:inline">Cameras</span>
+                  <span className={labelClass}>Cameras</span>
                 </button>
 
                 {/* Search Cameras Toggle */}
@@ -1006,7 +1305,7 @@ export default function TruegleMap({
                   title="Search Cameras"
                 >
                   <Search size={14} />
-                  <span className="hidden lg:inline">Search</span>
+                  <span className={labelClass}>Search</span>
                 </button>
 
                 {/* Directions Toggle */}
@@ -1019,18 +1318,20 @@ export default function TruegleMap({
                   }`}
                   title="Directions"
                 >
-                  <NavigationIcon size={14} />
-                  <span className="hidden lg:inline">Directions</span>
+                  <DirectionsIcon size={14} />
+                  <span className={labelClass}>Directions</span>
                 </button>
 
-                {/* My Location */}
+                {/* My Location — lit when your position is on screen. */}
                 <button
-                  onClick={() => setShowLocationModalFS(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-blue-400"
-                  title="My Location"
+                  onClick={handleLocationButton}
+                  data-location-state={locationState}
+                  aria-pressed={locationState === 'lit'}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${locationBtnClass}`}
+                  title={locationBtnTitle}
                 >
-                  <MapPin size={14} />
-                  <span className="hidden lg:inline">Location</span>
+                  {locationState === 'unknown' ? <MapPin size={14} /> : <LocateFixed size={14} />}
+                  <span className={labelClass}>Location</span>
                 </button>
 
                 {/* Pop out / dock back. The map was a mode you got stuck in:
@@ -1044,7 +1345,7 @@ export default function TruegleMap({
                     title={poppedOut ? 'Put the map back in the page' : 'Pop the map out so you can keep browsing'}
                   >
                     {poppedOut ? <Minimize2 size={14} /> : <PictureInPicture2 size={14} />}
-                    <span className="hidden lg:inline">{poppedOut ? 'Dock' : 'Pop out'}</span>
+                    <span className={labelClass}>{poppedOut ? 'Dock' : 'Pop out'}</span>
                   </button>
                 )}
 
@@ -1058,7 +1359,7 @@ export default function TruegleMap({
                       title="Close Map"
                     >
                       <X size={14} />
-                      <span className="hidden sm:inline">Close</span>
+                      <span className={labelClass}>Close</span>
                     </button>
                   </>
                 )}
@@ -1168,7 +1469,7 @@ export default function TruegleMap({
                     }`}
                     title="Toggle Traffic"
                   >
-                    <Navigation size={14} />
+                    <TrafficCone size={14} />
                     <span className="hidden md:inline">Traffic</span>
                   </button>
                   )}
@@ -1211,17 +1512,19 @@ export default function TruegleMap({
                     }`}
                     title="Directions"
                   >
-                    <NavigationIcon size={14} />
+                    <DirectionsIcon size={14} />
                     <span className="hidden lg:inline">Directions</span>
                   </button>
 
-                  {/* My Location */}
+                  {/* My Location — same three states as the windowed bar. */}
                   <button
-                    onClick={() => setShowLocationModalFS(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-blue-400"
-                    title="My Location"
+                    onClick={handleLocationButton}
+                    data-location-state={locationState}
+                    aria-pressed={locationState === 'lit'}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${locationBtnClass}`}
+                    title={locationBtnTitle}
                   >
-                    <MapPin size={14} />
+                    {locationState === 'unknown' ? <MapPin size={14} /> : <LocateFixed size={14} />}
                     <span className="hidden lg:inline">Location</span>
                   </button>
                 </div>
@@ -1274,7 +1577,7 @@ export default function TruegleMap({
       {/* Traffic Cameras Panel - works in windowed and fullscreen mode */}
       <AnimatePresence>
         {showCamerasFS && (
-          <div className="absolute top-16 left-0 right-0 bottom-0 z-30 pointer-events-none">
+          <div className="absolute top-16 left-0 right-0 bottom-20 z-30 pointer-events-none">
             <div className="pointer-events-auto">
               <TrafficCameras
                 userLocation={userLocation}
@@ -1289,7 +1592,7 @@ export default function TruegleMap({
       {/* Enhanced Camera Search Modal - Positioned below top bar */}
       <AnimatePresence>
         {showEnhancedCameraSearch && (
-          <div className="absolute top-16 left-0 right-0 bottom-0 z-40 pointer-events-none">
+          <div className="absolute top-16 left-0 right-0 bottom-20 z-30 pointer-events-none">
             <div className="pointer-events-auto">
               <EnhancedCameraSearch
                 userLocation={userLocation}
@@ -1320,7 +1623,7 @@ export default function TruegleMap({
       {/* Directions Panel - works in windowed and fullscreen mode */}
       <AnimatePresence>
         {showDirectionsFS && (
-          <div className="absolute top-16 left-0 right-0 bottom-0 z-30 pointer-events-none">
+          <div className="absolute top-16 left-0 right-0 bottom-20 z-30 pointer-events-none">
             <div className="pointer-events-auto">
               <DirectionsPanel
                 isOpen={showDirectionsFS}
@@ -1340,6 +1643,70 @@ export default function TruegleMap({
         onLocationGranted={handleLocationGranted}
         onLocationDenied={handleLocationDenied}
       />
+
+      {/* Share this spot. Opened by a right-click or a long press; positioned
+          at the point that was pressed, then nudged back inside the container
+          so a press near an edge does not open a menu that is half off it. */}
+      {locationMenu && (
+        <div
+          data-location-menu=""
+          className="absolute z-50 w-60 max-w-[calc(100%-16px)] rounded-xl overflow-hidden
+                     border border-neutral-700/60 shadow-2xl backdrop-blur-xl
+                     bg-gradient-to-b from-neutral-900/97 to-neutral-800/97"
+          style={{
+            left: Math.max(8, Math.min(locationMenu.x, (mapRef.current?.getMap?.()?.getContainer?.()?.clientWidth || 9999) - 248)),
+            top: Math.max(8, locationMenu.y),
+          }}
+          onClick={(e) => e.stopPropagation()}
+          role="menu"
+        >
+          <div className="px-3 py-2 border-b border-neutral-700/50">
+            <div className="text-xs font-medium text-white truncate">
+              {locationMenu.address || 'Dropped pin'}
+            </div>
+            <div className="text-[10px] text-neutral-400 tabular-nums">
+              {locationMenu.lat.toFixed(5)}, {locationMenu.lng.toFixed(5)}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={shareLocation}
+            role="menuitem"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-white/80 hover:bg-white/10 transition-colors"
+          >
+            {shareState === 'done' || shareState === 'copied'
+              ? <Check size={14} className="text-green-400 shrink-0" />
+              : <Share2 size={14} className="shrink-0" />}
+            <span>
+              {shareState === 'copied' ? 'Link copied'
+                : shareState === 'done' ? 'Shared'
+                  : shareState === 'failed' ? "Couldn't share — try again"
+                    : 'Share this location'}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={copyCoordinates}
+            role="menuitem"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-white/80 hover:bg-white/10 border-t border-neutral-700/50 transition-colors"
+          >
+            <Copy size={14} className="shrink-0" />
+            <span>Copy coordinates</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowDirectionsFS(true);
+              setLocationMenu(null);
+            }}
+            role="menuitem"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left text-white/80 hover:bg-white/10 border-t border-neutral-700/50 transition-colors"
+          >
+            <DirectionsIcon size={14} className="shrink-0" />
+            <span>Directions</span>
+          </button>
+        </div>
+      )}
 
       {/* What's playing, reachable without leaving the map. Renders nothing
           when the player is empty. See MapPlayerTransport. */}

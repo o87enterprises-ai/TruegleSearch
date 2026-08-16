@@ -42,6 +42,16 @@ const DIRECTIONS = /^\s*(?:directions?|route|navigate|how\s+do\s+i\s+get)\s+to\s
 
 const ZIPCODE = /\b(\d{5})\b/;
 
+/**
+ * "43.752413, -123.070256" — a pair of coordinates and nothing else.
+ *
+ * This is what the map's share menu puts in a link, so it has to come back in
+ * as a place. It is checked BEFORE the zipcode pattern, which would otherwise
+ * grab five digits out of the middle of a decimal and geocode them as a
+ * postcode on the other side of the country.
+ */
+const COORDS = /^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
+
 /** Words that are not the thing being looked for. */
 const FILLER = /^(?:the|a|an|some|any|best|good|cheap|open|find|show|me|my|is|are|there)$/i;
 
@@ -66,6 +76,19 @@ export function parseLocalQuery(query) {
 
   const directions = q.match(DIRECTIONS);
   if (directions) return { type: 'directions', subject: '', place: directions[1].trim() };
+
+  // A shared pin. No geocoder involved — the point IS the answer, and asking
+  // a geocoder to turn coordinates back into coordinates can only lose
+  // precision or fail.
+  const coords = q.match(COORDS);
+  if (coords) {
+    const lat = parseFloat(coords[1]);
+    const lng = parseFloat(coords[2]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)
+      && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      return { type: 'coords', subject: '', lat, lng };
+    }
+  }
 
   // Specific before generic: this is what stops "near me" being read as the
   // place "me".
@@ -117,6 +140,30 @@ export function useLocationDetection(query = '') {
         // centre on the right spot and still be unable to answer the question
         // that was asked — which is exactly what "coffee near me" used to do.
         const base = { query: searchQuery, type: parsed.type, subject: parsed.subject || '' };
+
+        // A shared pin resolves with no round trip at all.
+        if (parsed.type === 'coords') {
+          const coords = { lat: parsed.lat, lng: parsed.lng };
+          setDetectedLocation({
+            ...base,
+            coordinates: coords,
+            locationName: `${parsed.lat.toFixed(5)}, ${parsed.lng.toFixed(5)}`,
+          });
+          setIsLocationQuery(true);
+          // The street address is a nicety here, not a blocker — fill it in
+          // when it arrives so a shared pin reads as a place rather than as
+          // two numbers.
+          MapApiService.reverseGeocode(parsed.lat, parsed.lng)
+            .then((r) => {
+              const address = r?.data?.address;
+              if (address) {
+                setDetectedLocation((prev) => (prev && prev.query === searchQuery
+                  ? { ...prev, address, locationName: address } : prev));
+              }
+            })
+            .catch(() => { /* two numbers is still a usable answer */ });
+          return coords;
+        }
 
         if (parsed.type === 'geolocation') {
           const position = await getUserLocation();

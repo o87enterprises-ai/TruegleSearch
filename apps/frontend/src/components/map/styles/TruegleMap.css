@@ -410,11 +410,34 @@
 }
 
 /* Traditional Map Controls - Top Left */
+/* The renderer's own controls, kept clear of ours.
+ *
+ * maplibre pins its attribution and scale bar to the bottom edge, which is
+ * where the function bar sits — the live screenshot shows "Imagery © Esri,
+ * Maxar, Earthstar Geographics" running underneath it. Attribution is not
+ * decoration: OSM, CARTO and Esri all require it to be legible, so it moves
+ * ABOVE the bar rather than the bar moving off the bottom. */
+.truegle-map-container .maplibregl-ctrl-bottom-right,
+.truegle-map-container .maplibregl-ctrl-bottom-left {
+  /* Set from the function bar's MEASURED height (see TruegleMap.jsx), so a
+   * bar that has wrapped onto two rows pushes the credit further up instead
+   * of disappearing behind it. The fallback covers a single row. */
+  bottom: var(--truegle-map-bottom-clearance, 62px);
+}
+
+/* And the top-right stack clears the search field's band. */
+.truegle-map-container .maplibregl-ctrl-top-right {
+  top: 8px;
+}
+
 .truegle-traditional-controls {
   position: absolute;
   top: 16px;
   left: 16px;
-  z-index: 150;
+  /* Below the search field's dropdown (z-50) and below the function bar.
+   * At 150 it floated over the open Directions and Location panels — a
+   * control stack hovering on top of the panel it had nothing to do with. */
+  z-index: 30;
   display: flex;
   flex-direction: column;
   gap: 2px;

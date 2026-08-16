@@ -53,15 +53,21 @@ const ctx = await browser.newContext({
 
 // Every outbound call, so the test can assert on what was ASKED for.
 const calls = [];
-await ctx.route('**/api/**', (route) => {
+const apiStub = (route) => {
   const req = route.request();
   const u = new URL(req.url());
-  const body = req.postData() ? JSON.parse(req.postData()) : null;
+  let body = null;
+  try { body = req.postData() ? JSON.parse(req.postData()) : null; } catch { /* not JSON */ }
   calls.push({ path: u.pathname, body });
   const json = (b) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
   if (u.pathname.includes('/maps/geocode')) {
     return json({ success: true, provider: 'mapbox', data: [
       { address: 'Los Angeles, California', position: { lon: -118.2437, lat: 34.0522 }, type: 'place', relevance: 0.99 },
+    ] });
+  }
+  if (u.pathname.includes('/maps/reverse-geocode')) {
+    return json({ success: true, provider: 'mapbox', data: [
+      { address: '742 Evergreen Terrace, Los Angeles, CA', position: { lon: -118.2437, lat: 34.0522 } },
     ] });
   }
   if (u.pathname.includes('/maps/places')) {
@@ -70,7 +76,8 @@ await ctx.route('**/api/**', (route) => {
     ] });
   }
   return json({ success: true, data: [], results: [] });
-});
+};
+await ctx.route('**/api/**', apiStub);
 // TILES ARE SERVED, not blocked. The style is built in the app now
 // (config/basemap.js) rather than fetched, so the only thing standing between
 // "mounted" and "drawn" is whether the raster source resolves — which is
@@ -201,8 +208,20 @@ check(!!bar, 'the function bar is on screen');
 check(bar?.fits, 'it fits inside the map instead of being sliced off at both ends',
   `left ${bar?.leftGap}px · right ${bar?.rightGap}px`);
 check(bar?.buttons >= 8, '…with every control present', `${bar?.buttons} buttons`);
-// It must be reachable when it does not fit — scrollable, never clipped away.
-check(bar?.scrolls !== null, '…and scrolls horizontally rather than clipping', `scrollable: ${bar?.scrolls}`);
+// EVERY BUTTON WHOLE. Bounding the row and letting it scroll stopped it being
+// clipped by the container, but the live screenshot still showed "✕ Clos"
+// against the right edge — a control you can only finish reading by dragging.
+// Nothing in the row may be cut off by the row's own box.
+const cutOff = await page.evaluate(() => {
+  const el = document.querySelector('#truegle-map-container .absolute.bottom-4');
+  const b = el.getBoundingClientRect();
+  return [...el.querySelectorAll('button')]
+    .map((n) => ({ n, r: n.getBoundingClientRect() }))
+    .filter(({ r }) => r.width > 0 && (r.left < b.left - 1 || r.right > b.right + 1))
+    .map(({ n }) => (n.innerText || n.title || 'button').replace(/\s+/g, ' ').trim());
+});
+check(cutOff.length === 0, '…with every button whole, not half-scrolled off the end',
+  cutOff.join(' | ') || 'all whole');
 
 // ── 3. nothing floating over anything else ──────────────────────────────────
 const collisions = await page.evaluate(() => {
@@ -214,28 +233,54 @@ const collisions = await page.evaluate(() => {
     .filter((n) => !el.contains(n))
     .map((n) => ({ n, r: n.getBoundingClientRect() }))
     .filter(({ r }) => r.width > 0 && r.height > 0 && hits(r))
-    .map(({ n }) => (n.innerText || n.className || n.tagName).toString().replace(/\s+/g, ' ').slice(0, 40));
+    .map(({ n }) => `${n.tagName}[${n.getAttribute('title') || n.getAttribute('aria-label') || n.innerText || n.className}]`.replace(/\s+/g, ' ').slice(0, 70));
 });
 check(collisions.length === 0, 'no other control overlaps the function bar', collisions.join(' | ') || 'clear');
 
-// The search field owns the top band now; the zoom stack must not sit on it.
-const topBand = await page.evaluate(() => {
+// ONE zoom control on the map, and the top band belongs to the search field.
+// There were two: a hand-rolled +/- stack at the top-left AND the renderer's
+// own NavigationControl (+/- and a compass) at the top-right. Only one of them
+// could ever be the one to press, and the hand-rolled one was three buttons
+// tall in the same band as the search input.
+const zoomControls = await page.evaluate(() => {
   const box = document.querySelector('#truegle-map-container');
   const input = box.querySelector('input');
-  const zoom = box.querySelector('.truegle-traditional-controls');
-  if (!input || !zoom) return null;
-  const a = input.getBoundingClientRect(); const z = zoom.getBoundingClientRect();
-  return { overlap: !(a.right <= z.left || a.left >= z.right || a.bottom <= z.top || a.top >= z.bottom) };
+  const own = box.querySelector('.truegle-traditional-controls');
+  const rendererZoom = box.querySelectorAll('.maplibregl-ctrl-zoom-in').length;
+  const hit = (a, b) => !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+  const a = input?.getBoundingClientRect();
+  return {
+    rendererZoom,
+    ourZoomButtons: own ? own.querySelectorAll('button').length : 0,
+    overlapsSearch: own && a ? hit(a, own.getBoundingClientRect()) : false,
+    // The attribution is a licence condition of OSM, CARTO and Esri alike —
+    // it may not hide behind the function bar.
+    attributionClear: (() => {
+      const attr = box.querySelector('.maplibregl-ctrl-attrib');
+      const barEl = box.querySelector('.absolute.bottom-4');
+      if (!attr || !barEl) return true;
+      return !hit(attr.getBoundingClientRect(), barEl.getBoundingClientRect());
+    })(),
+  };
 });
-check(topBand && !topBand.overlap, 'the search field and the zoom controls do not overlap',
-  JSON.stringify(topBand));
+check(zoomControls.rendererZoom === 1, 'the map has exactly one zoom control',
+  `${zoomControls.rendererZoom} renderer + ${zoomControls.ourZoomButtons} of our own`);
+check(zoomControls.ourZoomButtons <= 1,
+  '…and the top-left stack is no longer a second one', `${zoomControls.ourZoomButtons} buttons`);
+check(!zoomControls.overlapsSearch, 'nothing sits on the search field');
+check(zoomControls.attributionClear,
+  'the tile attribution is not buried under the function bar');
 
 // ── 4. a local question opens a local map ───────────────────────────────────
 // Not the azimuthal projection of the northern hemisphere.
 const mode = await page.evaluate(() => {
+  // By TITLE, not by label text. The bar drops its labels when the map is
+  // too narrow to hold them (it is, in the results column), so reading
+  // innerText finds an empty string on every button and reports "none
+  // active" about a bar that is working correctly.
   const active = [...document.querySelectorAll('#truegle-map-container button')]
-    .find((b) => /bg-cyan-600/.test(b.className) && /Map|Azimuthal|Globe/.test(b.innerText));
-  return active?.innerText.trim() || null;
+    .find((b) => /bg-cyan-600/.test(b.className) && /View$/.test(b.getAttribute('title') || ''));
+  return (active?.getAttribute('title') || '').replace(/ View$/, '').replace('Standard Map', 'Map') || null;
 });
 check(mode === 'Map', 'the map opens on the street map, not a polar projection', mode || '(none active)');
 
@@ -371,10 +416,7 @@ const ctx2 = await browser.newContext({
   permissions: ['geolocation'],
   geolocation: { latitude: 34.0522, longitude: -118.2437 },
 });
-await ctx2.route('**/api/**', (r) => r.fulfill({
-  status: 200, contentType: 'application/json',
-  body: JSON.stringify({ success: true, data: [], results: [] }),
-}));
+await ctx2.route('**/api/**', apiStub);
 for (const pattern of TILE_HOSTS) {
   await ctx2.route(pattern, (r) => r.fulfill({ status: 200, contentType: 'image/png', body: PIXEL }));
 }
@@ -443,6 +485,112 @@ await page2.locator('#truegle-map-container [data-map-player-transport] button[a
 await page2.waitForTimeout(800);
 check(await page2.locator('#truegle-map-container [data-map-player-transport]').count() === 0,
   'stopping clears the transport rather than leaving a dead bar on the map');
+
+// ── 9. the icons say different things ───────────────────────────────────────
+// Traffic and Directions imported the SAME lucide glyph — `Navigation` once
+// plainly and once aliased to `NavigationIcon`, which made the duplication
+// look deliberate. Two buttons, one picture, no way to tell them apart.
+const iconPaths = await page2.evaluate(() => {
+  const pick = (t) => {
+    const b = [...document.querySelectorAll('#truegle-map-container button')]
+      .find((n) => (n.getAttribute('title') || '').toLowerCase().includes(t));
+    return b?.querySelector('svg')?.innerHTML || null;
+  };
+  return { traffic: pick('traffic'), directions: pick('directions') };
+});
+// Traffic is hidden without a Mapbox token, so only assert when it is drawn.
+if (iconPaths.traffic) {
+  check(iconPaths.traffic !== iconPaths.directions,
+    'Traffic and Directions no longer draw the identical icon');
+} else {
+  check(!!iconPaths.directions, 'Directions has an icon (Traffic is hidden without a key)');
+}
+
+// ── 10. the Location button reports a state ─────────────────────────────────
+// It looked identical whether or not the map had found you, so "is my location
+// even on?" was a question you answered by squinting for a blue dot.
+const locBtn = await page2.evaluate(() => {
+  const b = document.querySelector('#truegle-map-container button[data-location-state]');
+  return b ? { state: b.dataset.locationState, cls: b.className, title: b.title } : null;
+});
+check(!!locBtn, 'the Location button is present');
+check(locBtn?.state === 'lit',
+  'it is lit when your position is granted and on screen', `state: ${locBtn?.state}`);
+check(/ring-blue|shadow-blue/.test(locBtn?.cls || ''),
+  '…and actually glows rather than just claiming to', locBtn?.cls?.slice(0, 60));
+
+// Pan far away from yourself and the light goes out — it is a state, not a
+// label that gets set once.
+await page2.evaluate(() => {
+  const el = document.querySelector('#truegle-map-container [data-map-player-transport]');
+  return el;   // no-op; keeps the evaluate above from being optimised away
+});
+await page2.mouse.move(640, 500);
+await page2.mouse.down();
+await page2.mouse.move(60, 120, { steps: 12 });
+await page2.mouse.up();
+await page2.waitForTimeout(1200);
+const afterPan = await page2.evaluate(
+  () => document.querySelector('#truegle-map-container button[data-location-state]')?.dataset.locationState,
+);
+check(afterPan === 'located',
+  '…and goes out when you pan away from yourself', `state: ${afterPan}`);
+
+// ── 11. the blue dot says where it thinks you are ───────────────────────────
+const dot = await page2.evaluate(() => {
+  const el = document.querySelector('#truegle-map-container .current-location-marker');
+  if (!el) return null;
+  const label = el.querySelector('[data-location-address]');
+  return {
+    hasLabel: !!label,
+    text: label?.innerText.trim() || '',
+    // Hidden until hover, and never able to swallow a drag that crosses it.
+    hiddenAtRest: label ? getComputedStyle(label).opacity === '0' : false,
+    clicks: label ? getComputedStyle(label).pointerEvents : null,
+    described: el.getAttribute('aria-label') || '',
+  };
+});
+check(!!dot, 'the current-location dot is on the map');
+check(dot?.hasLabel, '…carrying an address label');
+check(/Evergreen Terrace/.test(dot?.text || ''),
+  '…which is the reverse-geocoded address, not the coordinates', dot?.text);
+check(dot?.hiddenAtRest, '…hidden until you hover it');
+check(dot?.clicks === 'none', '…and never eating a map drag that passes over it');
+check(/Evergreen Terrace/.test(dot?.described || ''),
+  '…and readable without a mouse', dot?.described);
+
+// ── 12. right-click shares a place ──────────────────────────────────────────
+await page2.mouse.click(640, 480, { button: 'right' });
+await page2.waitForTimeout(1800);
+const menu = await page2.evaluate(() => {
+  const m = document.querySelector('#truegle-map-container [data-location-menu]');
+  if (!m) return null;
+  const box = document.querySelector('#truegle-map-container').getBoundingClientRect();
+  const r = m.getBoundingClientRect();
+  return {
+    text: m.innerText.replace(/\s+/g, ' ').trim(),
+    items: [...m.querySelectorAll('button')].map((b) => b.innerText.trim()),
+    inside: r.left >= box.left - 1 && r.right <= box.right + 1,
+  };
+});
+check(!!menu, 'right-clicking the map opens a location menu');
+check(/Evergreen Terrace/.test(menu?.text || ''),
+  '…naming the place, not just the pixel', menu?.text?.slice(0, 60));
+check((menu?.items || []).some((t) => /share/i.test(t)),
+  '…with a way to share it', (menu?.items || []).join(' · '));
+check(menu?.inside, '…and stays inside the map even near an edge');
+
+// What it puts on the clipboard has to come back as a place — see
+// verify-local-query.mjs section 8, which pins the parser end of that deal.
+await page2.evaluate(() => {
+  navigator.clipboard.writeText = (t) => { window.__copied = t; return Promise.resolve(); };
+  window.__share = navigator.share; delete navigator.share;
+});
+await page2.locator('#truegle-map-container [data-location-menu] button', { hasText: /share/i }).first().click();
+await page2.waitForTimeout(600);
+const copied = await page2.evaluate(() => window.__copied || '');
+check(/\/search\?q=-?\d+\.\d+%2C-?\d+\.\d+/.test(copied),
+  'sharing copies a Truegle link to that exact point', copied || '(nothing copied)');
 
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 

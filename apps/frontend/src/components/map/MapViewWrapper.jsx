@@ -99,7 +99,28 @@ export default function MapViewWrapper({
             lng: position.coords.longitude
           };
           setUserLocation(location);
-          // Only update map if no detected location
+
+          // THE DOT IS DRAWN WHENEVER WE KNOW WHERE YOU ARE.
+          //
+          // It used to be inside the `if (!detectedLocation)` branch below,
+          // together with the decision about where to centre the map. Those
+          // are two different questions, and tying them together meant the
+          // one journey that most needs the dot never got it: "coffee near
+          // me" IS a detectedLocation, so the map centred on you, scattered
+          // cafes around you, and marked everything on screen except you.
+          // Nothing could then hover the dot for an address, and the Location
+          // button had nothing to light up about.
+          actions.addMarker({
+            id: 'current-location',
+            lat: location.lat,
+            lng: location.lng,
+            name: 'Your Location',
+            category: 'CURRENT_LOCATION',
+            address: 'Current Location',
+          });
+
+          // Where to LOOK, on the other hand, is only ours to decide when the
+          // query did not already say.
           if (!detectedLocation) {
             setMapCenter([location.lng, location.lat]);
             // Match the zoom level used by the explicit "allow location" flow
@@ -107,14 +128,6 @@ export default function MapViewWrapper({
             // on the same end state instead of fighting over the zoom level.
             setMapZoom(USER_LOCATION_ZOOM);
             actions.flyTo(location, USER_LOCATION_ZOOM);
-            actions.addMarker({
-              id: 'current-location',
-              lat: location.lat,
-              lng: location.lng,
-              name: 'Your Location',
-              category: 'CURRENT_LOCATION',
-              address: 'Current Location',
-            });
           }
         },
         (error) => {
