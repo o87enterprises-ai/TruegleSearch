@@ -1259,22 +1259,24 @@ export default function TruegleMap({
         Reset View
       </button>
 
+      {/* The map's ONE watermark — the legacy Truegle mark, drawn here and
+          nowhere else. It lives inside #truegle-map-container so it survives
+          native fullscreen, which targets that element.
+
+          The bottom-right corner is a single column, read from the floor up:
+          the function bar at bottom-4, Reset View at bottom-24, the mark above
+          both. It used to sit at bottom 72px / right 80px, which put it
+          straight through the Reset View button. */}
       <img
+        data-truegle-watermark=""
         src={defaultLogoConfig.src}
         alt={defaultLogoConfig.alt}
         style={{
-          position: 'absolute',
-          right: '80px',
           ...getLogoPosition('bottomRight'),
           ...defaultLogoConfig.style,
-          // Last word on the vertical position, after the spreads. The
-          // function bar now runs along the bottom and the watermark sat
-          // underneath it; a measured overlap, not a guess.
-          bottom: '72px',
-          // Decoration must never eat a click meant for the map.
-          pointerEvents: 'none',
+          ...getLogoSize(defaultLogoConfig.size),
+          bottom: '144px',
         }}
-        {...getLogoSize(defaultLogoConfig.size)}
       />
       </div>
 

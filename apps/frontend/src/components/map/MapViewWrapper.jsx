@@ -11,8 +11,12 @@ import AdBanner from './AdBanner';
 import { useMap } from './context/MapContext';
 import { USER_LOCATION_ZOOM, GEOLOCATION_OPTIONS } from './config/constants';
 import MapApiService from './services/mapApi';
-import truegleLogo from '../../assets/images/truegle.webp';
-import LogoOverlay from './LogoOverlay';
+// No logo here. TruegleMap — the only thing this mounts — draws the single
+// Truegle watermark inside the map container. This file used to draw it twice
+// more (an inline <img> in the card and a <LogoOverlay/> over the wrapper), so
+// an open map carried THREE marks in one corner, in three different sizes and
+// treatments. Same lesson as the four ad slots: the wrapper owns the chrome,
+// the map owns what sits on the map.
 
 const getBackendUrl = () => import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -392,17 +396,8 @@ export default function MapViewWrapper({
               </div>
             </motion.div>
           )}
-        </AnimatePresence>                                                   
-  {/* Truegle Logo */}
-        <div className="absolute bottom-4 right-4 z-10"> 
-          <img
-            src={truegleLogo}
-            alt="Truegle"
-            className="h-8 w-auto opacity-80 hover:opacity-100 
-transition-opacity"
-          />
-        </div>
-      </motion.div>   
+        </AnimatePresence>
+      </motion.div>
                 
       {/* Traffic Cameras Panel */}
       <AnimatePresence>
@@ -438,7 +433,6 @@ transition-opacity"
         onLocationGranted={handleLocationGranted}
         onLocationDenied={handleLocationDenied}
       />
-        <LogoOverlay />                                                      
-   </div>
+    </div>
   );
 }

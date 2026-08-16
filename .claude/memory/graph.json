@@ -1506,6 +1506,14 @@
         "body": "The /extract route was rebuilt as /feed on a shared SearchPageShell. Yellow slot relabelled Extract -> Feed. ExtractPage stays routed but unlinked, pending the Tube fold. Demo auth accepts anything; real OAuth redirect shape (start -> /feed/callback -> server-side exchange). No Truegle account needed; connections live in localStorage.",
         "ts": "2026-08-15",
         "created": "2026-08-15"
+      },
+      "map-watermark-single": {
+        "Id": "map-watermark-single",
+        "Type": "decision",
+        "Label": "Map view carries ONE watermark: the legacy mark",
+        "body": "The open map used to draw three Truegle logos in the bottom-right: TruegleMap drew /og-image.png (the 1200x630 share card) squashed to 120x40 and through the Reset View button; MapViewWrapper drew truegle.webp at h-8; LogoOverlay drew it again at 100px in a rounded shadowed card with no blend. Now exactly one, in TruegleMap (inside #truegle-map-container so it survives fullscreen), sourced from assets/images/truegle.webp — the same legacy mark TruegleLogo's default variant uses — with mixBlendMode:screen, square aspect, pointer-events:none, at bottom 144px/right 16px so the corner reads as one column: function bar (bottom-4), Reset View (bottom-24), mark. LogoOverlay.jsx/.css deleted. Pinned by six assertions in verify-map-ui.mjs (count, not og-image, screen blend, 1:1 ratio, no pointer events, no control collision).",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
       }
     },
     "entity": {

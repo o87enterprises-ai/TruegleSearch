@@ -15,6 +15,12 @@
  *   THE MAP OPENED ON A POLAR PROJECTION. DEFAULT_MAP_VIEW_MODE was
  *     AZIMUTHAL_FLAT, so "coffee near me" landed on an azimuthal view of the
  *     northern hemisphere.
+ *   THREE TRUEGLE LOGOS IN ONE CORNER, in three different treatments.
+ *     TruegleMap drew the 1200x630 og-image SHARE CARD squashed into a 120x40
+ *     box and straight through the Reset View button; MapViewWrapper drew the
+ *     real mark again at h-8; LogoOverlay drew it a third time at 100px inside
+ *     a rounded, shadowed card with no mixBlendMode, so its black backdrop sat
+ *     on the map as a grey tile.
  *
  * Geometry, not pixels: Mapbox tiles are blocked in this sandbox and a
  * screenshot diff would fail on a starfield that is different every frame.
@@ -165,6 +171,45 @@ const mode = await page.evaluate(() => {
   return active?.innerText.trim() || null;
 });
 check(mode === 'Map', 'the map opens on the street map, not a polar projection', mode || '(none active)');
+
+// ── 4b. ONE logo, the legacy mark, clear of everything ──────────────────────
+// Counted over the whole map view — the wrapper AND the container — because the
+// duplicates were spread across both, which is exactly why nobody noticed.
+const marks = await page.evaluate(() => {
+  const box = document.querySelector('#truegle-map-container');
+  const view = box.closest('.rounded-2xl')?.parentElement || document.body;
+  const logos = [...view.querySelectorAll('img')].filter((n) => {
+    const r = n.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && /truegle|logo/i.test(`${n.getAttribute('src')} ${n.alt}`);
+  });
+  const hit = (a, b) => !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+  const one = logos[0];
+  const r = one?.getBoundingClientRect();
+  const over = one
+    ? [...box.querySelectorAll('button, input, .truegle-traditional-controls')]
+      .filter((n) => { const q = n.getBoundingClientRect(); return q.width > 0 && q.height > 0 && hit(r, q); })
+      .map((n) => (n.innerText || n.className || n.tagName).toString().replace(/\s+/g, ' ').slice(0, 30))
+    : [];
+  return {
+    count: logos.length,
+    srcs: logos.map((n) => n.getAttribute('src')),
+    blend: one ? getComputedStyle(one).mixBlendMode : null,
+    // 1024x1024 art. A letterboxed box means somebody set width AND height again.
+    ratio: r ? +(r.width / r.height).toFixed(2) : null,
+    clicks: one ? getComputedStyle(one).pointerEvents : null,
+    over,
+  };
+});
+check(marks.count === 1, 'the map view carries exactly one Truegle logo, not three',
+  `${marks.count} · ${marks.srcs.join(' | ') || 'none'}`);
+check(marks.srcs.every((s) => !/og-image/.test(s || '')),
+  '…and it is the legacy brand mark, not the social share card', marks.srcs.join(' | '));
+check(marks.blend === 'screen', '…blended like every other Truegle mark on black', marks.blend);
+check(marks.ratio !== null && Math.abs(marks.ratio - 1) < 0.1,
+  '…at its own aspect ratio, not stretched into a letterbox', `${marks.ratio}:1`);
+check(marks.clicks === 'none', '…and never eating a click meant for the map', marks.clicks);
+check(marks.over.length === 0, '…sitting on top of no control at all',
+  marks.over.join(' | ') || 'clear');
 
 // ── 5. the map answers the question that was asked ──────────────────────────
 // "coffee near me" must search for COFFEE. The subject used to be discarded
