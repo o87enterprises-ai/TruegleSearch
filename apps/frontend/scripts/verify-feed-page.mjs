@@ -17,7 +17,7 @@
  * Run it:  npm run feedpage:test
  */
 import { createServer } from 'vite';
-import { chromium } from 'playwright';
+import { launchChromium } from './lib/browser.mjs';
 
 const ok = []; const bad = [];
 const check = (c, l, e = '') => (c ? ok : bad).push(`${c ? 'PASS' : 'FAIL'} ${l}${e ? ` — ${e}` : ''}`);
@@ -26,7 +26,7 @@ const server = await createServer({ server: { port: 5173, strictPort: true }, lo
 await server.listen();
 const BASE = 'http://localhost:5173';
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const browser = await launchChromium();
 
 // Every /api/social* call, so the test can assert on what was ASKED rather
 // than only on what appeared.

@@ -25,7 +25,7 @@
  * Run it:  npm run cameraview:test
  */
 import { createServer } from 'vite';
-import { chromium } from 'playwright';
+import { launchChromium } from './lib/browser.mjs';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 
 const ok = []; const bad = [];
@@ -60,7 +60,7 @@ writeFileSync(HARNESS, `<!doctype html><html><body><div id="root"></div>
 const server = await createServer({ server: { port: 5188, strictPort: true }, logLevel: 'error' });
 await server.listen();
 const BASE = 'http://localhost:5188';
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const browser = await launchChromium();
 const ctx = await browser.newContext();
 
 // Never let the fake camera URLs actually leave. A REAL 1x1 GIF, not an empty

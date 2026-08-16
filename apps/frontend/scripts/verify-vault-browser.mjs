@@ -15,7 +15,7 @@
  * Run it:  npm run vault:browser
  */
 import { createServer } from 'vite';
-import { chromium } from 'playwright';
+import { launchChromium } from './lib/browser.mjs';
 import { readFileSync } from 'node:fs';
 
 const ok = []; const bad = [];
@@ -25,7 +25,7 @@ const server = await createServer({ server: { port: 5183, strictPort: true }, lo
 await server.listen();
 const base = 'http://localhost:5183';
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const browser = await launchChromium();
 const ctx = await browser.newContext({
   viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, acceptDownloads: true,
 });

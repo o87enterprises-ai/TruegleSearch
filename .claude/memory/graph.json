@@ -576,6 +576,14 @@
         "body": "Fixed 2026-08-16. AdBanner rendered in BOTH MapViewWrapper and TruegleMap (wrapper mounts the map) = 4 ad slots per map; TruegleMap's were removed, wrapper owns chrome. Function bar moved from top-4 (unbounded single row, clipped both edges by overflow-hidden, colliding with search + zoom stack) to bottom-4, max-w-[calc(100%-32px)], overflow-x-auto .no-scrollbar. Watermark logo raised to bottom:72px + pointerEvents none. DEFAULT_MAP_VIEW_MODE azimuthal_flat -> standard. Guard: apps/frontend npm run mapui:test.",
         "ts": "2026-08-16",
         "created": "2026-08-16"
+      },
+      "verifiers-cross-platform": {
+        "Id": "verifiers-cross-platform",
+        "Type": "fact",
+        "Label": "Verifiers must not hardcode the container's browser path",
+        "body": "The cloud container has Chromium at /opt/pw-browsers/chromium; a normal checkout (Windows/macOS/Linux) does not, and Playwright does not fall back. All Playwright verifiers now go through apps/frontend/scripts/lib/browser.mjs (launchChromium), which uses the preinstalled binary only if it exists. Devs need Downloading Chrome for Testing 149.0.7827.55 (playwright chromium v1228)\u001b[2m from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-linux64.zip\u001b[22m\nDownloading Chrome for Testing 149.0.7827.55 (playwright chromium v1228)\u001b[2m from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-linux64.zip\u001b[22m\nDownloading Chrome for Testing 149.0.7827.55 (playwright chromium v1228)\u001b[2m from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-linux64.zip\u001b[22m\nDownloading Chrome for Testing 149.0.7827.55 (playwright chromium v1228)\u001b[2m from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-linux64.zip\u001b[22m\nDownloading Chrome for Testing 149.0.7827.55 (playwright chromium v1228)\u001b[2m from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-linux64.zip\u001b[22m\nFailed to install browsers\nError: Failed to download Chrome for Testing 149.0.7827.55 (playwright chromium v1228), caused by\nError: Download failure, code=1\n    at ChildProcess.<anonymous> (/home/user/TruegleSearch/node_modules/playwright-core/lib/coreBundle.js:27793:32)\n    at ChildProcess.emit (node:events:519:28)\n    at ChildProcess._handle.onexit (node:internal/child_process:293:12) once. Likewise the build: NODE_OPTIONS='...' vite build is POSIX-only and fails on cmd.exe, so build/vercel-build now run scripts/build.mjs which sets the heap flag from inside Node.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
       }
     },
     "decision": {

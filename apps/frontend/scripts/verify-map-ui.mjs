@@ -22,7 +22,7 @@
  * Run it:  npm run mapui:test
  */
 import { createServer } from 'vite';
-import { chromium } from 'playwright';
+import { launchChromium } from './lib/browser.mjs';
 
 const ok = []; const bad = [];
 const check = (c, l, e = '') => (c ? ok : bad).push(`${c ? 'PASS' : 'FAIL'} ${l}${e ? ` — ${e}` : ''}`);
@@ -30,7 +30,7 @@ const check = (c, l, e = '') => (c ? ok : bad).push(`${c ? 'PASS' : 'FAIL'} ${l}
 const server = await createServer({ server: { port: 5194, strictPort: true }, logLevel: 'error' });
 await server.listen();
 const BASE = 'http://localhost:5194';
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const browser = await launchChromium();
 const ctx = await browser.newContext({
   viewport: { width: 1280, height: 1000 },
   permissions: ['geolocation'],

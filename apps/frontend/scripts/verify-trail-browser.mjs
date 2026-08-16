@@ -19,7 +19,7 @@
  * Run it:  npm run trail:browser
  */
 import { context } from 'esbuild';
-import { chromium } from 'playwright';
+import { launchChromium } from './lib/browser.mjs';
 
 const ok = []; const bad = [];
 const check = (c, l, e = '') => (c ? ok : bad).push(`${c ? 'PASS' : 'FAIL'} ${l}${e ? ` — ${e}` : ''}`);
@@ -35,7 +35,7 @@ const ctx = await context({
 await ctx.rebuild();
 await ctx.serve({ servedir: 'dev', port: PORT, host: '127.0.0.1' });
 
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
+const browser = await launchChromium();
 const page = await browser.newPage({ viewport: { width: 900, height: 600 } });
 page.on('pageerror', (e) => bad.push(`FAIL the game threw — ${e.message}`));
 await page.goto(`http://127.0.0.1:${PORT}/trail.html`, { waitUntil: 'load' });
