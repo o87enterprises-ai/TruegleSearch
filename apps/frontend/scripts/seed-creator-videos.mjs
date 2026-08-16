@@ -25,7 +25,10 @@ function write(){const banner=`// Build-time snapshot of each creator's latest u
 for(const [cid,slug] of creators){
   for(let a=1;a<=4 && out[cid].length===0;a++){
     try{const r=await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${cid}`,{headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/122.0','Accept-Language':'en-US,en;q=0.9'}});
-      if(r.status===200) out[cid]=parse(await r.text()).slice(0,6);}catch{}
+      if(r.status===200) out[cid]=parse(await r.text()).slice(0,6);}
+    // Best-effort: a channel that refuses is retried by the loop and then
+    // left empty. Nothing to handle, and nothing to report per attempt.
+    catch{ /* try the next attempt */ }
     if(out[cid].length===0) await sleep(5000);
   }
   console.error(`${slug}: ${out[cid].length}`); write(); await sleep(2000);

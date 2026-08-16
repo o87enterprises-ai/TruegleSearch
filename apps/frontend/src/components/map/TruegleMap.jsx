@@ -1032,7 +1032,14 @@ export default function TruegleMap({
               actions.setSelectedMarker(null);
             }}
             closeOnClick={false}
-            anchor="top"
+            // NO FIXED ANCHOR. `anchor="top"` forced the card to open BELOW
+            // the pin every time, so a pin anywhere near the bottom edge —
+            // which is most of them, since "near me" centres on you and the
+            // function bar occupies the floor — opened its card half outside
+            // the map, clipped by overflow-hidden. Letting the renderer pick
+            // the anchor is what makes it flip above or beside the pin
+            // instead. The offset keeps it clear of the 32px marker.
+            offset={16}
             maxWidth="300px"
             className="truegle-popup"
           >

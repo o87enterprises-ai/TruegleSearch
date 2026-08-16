@@ -50,7 +50,13 @@ export default function BiasedResults() {
   });
   const [showPaywall, setShowPaywall] = useState(false);
 
-  const useToken = () => {
+  // spendToken, NOT useToken. This is a plain helper that decrements a
+  // counter — it is not a React hook and never was. The `use` prefix made
+  // eslint's rules-of-hooks read every call site as a hook called from a
+  // non-component, which is two permanent errors in the lint run about code
+  // that is not wrong. The convention exists precisely so that `use*` means
+  // "hook"; borrowing the prefix for something else is what broke the signal.
+  const spendToken = () => {
     const next = tokens - 1;
     setTokens(next);
     sessionStorage.setItem('redPillTokens', String(next));
@@ -300,7 +306,7 @@ export default function BiasedResults() {
   const handleSearch = async () => {
     if (!searchValue.trim()) return;
     if (tokens <= 0) { setShowPaywall(true); return; }
-    if (!useToken()) return;
+    if (!spendToken()) return;
 
     // Build query params with search value and selected perspectives
     const params = new URLSearchParams();
@@ -408,7 +414,7 @@ export default function BiasedResults() {
       alert('Please select at least one bias perspective first!');
       return;
     }
-    if (!useToken()) return;
+    if (!spendToken()) return;
     setChatMessage('');
   };
 

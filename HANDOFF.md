@@ -1,8 +1,126 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-08-03. Supersedes all prior handoff docs._
+_Last updated: 2026-08-16. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ SESSION LOG 2026-08-16 — Map: it draws now. Plus Trail's layout and an honest social feed
+
+**Shipped (branch `claude/truegle-sharing-player-ux-t3hi43`):**
+
+- **🔴 THE MAP NEVER DREW, AND THE REASON WAS THE TOKEN.** Every style was a
+  `mapbox://` URL and `VITE_MAPBOX_ACCESS_TOKEN` is blank/unset, so mapbox-gl
+  threw on the first style resolve and painted nothing — what showed through
+  was the page background (a starfield in one screenshot, a bare dark panel in
+  the others). The renderer is **MapLibre** now (`react-map-gl/maplibre`) over
+  hand-built **raster** styles on keyless tiles: OSM standard, CARTO
+  light_all/dark_all, Esri World Imagery, each carrying its required credit.
+  See `components/map/config/basemap.js`.
+  **Why not just get a Mapbox token:** Mapbox GL JS v2+ is licensed for use
+  *with Mapbox services*, so aiming it at other tiles is a licence breach, not
+  a workaround; MapLibre is the BSD-3 fork with no such condition. A token is
+  also a metered account against a $0 budget. `hasMapboxToken` is the single
+  switch if one is ever configured.
+  `index.html`'s render-blocking CDN `<link>` to mapbox-gl.css is gone — the
+  stylesheet is a module import, so it ships in the bundle instead of being
+  fetched on every page whether or not a map is opened.
+  New CSP `connect-src` entries in `public/_headers`: tile.openstreetmap.org,
+  *.basemaps.cartocdn.com, server.arcgisonline.com, overpass-api.de.
+- **🔴 "coffee near me" found nothing because Nominatim is a GEOCODER.** Ask it
+  for "coffee" and it looks for a place *named* coffee. Every rung above it
+  (Mapbox/Radar/TomTom) needs a key the deployment lacks, so the keyless floor
+  IS the search. `mapApi.searchPlacesWithOSM` now asks **Overpass** first —
+  OSM's own query engine, keyless — with a word→tag table (coffee →
+  `amenity=cafe`), matched as both node and way, nearest-first, falling back to
+  a name regex for unlisted subjects and then to bounded Nominatim.
+- **The map search bar takes more than addresses.** `utils/mapSearch.js` reads
+  intent first: "near me" searches around you, "coffee in austin" resolves the
+  where then the what, an address still geocodes, a bare name looks nearby
+  before globally. "Near me" with no position says so rather than returning an
+  empty list.
+- **Map pop-out + a mini player transport.** The map is no longer a mode you
+  get stuck in: one `TruegleMap` element renders either in the results column
+  or in `MapPopOutFrame` — a draggable, resizable window **portalled to
+  document.body** (a transformed ancestor would make `position: fixed` resolve
+  against the results column). `MapPlayerTransport` docks inside
+  `#truegle-map-container` (so it survives native fullscreen) whenever the
+  player has something: title, prev, play/pause, next, stop, nothing more.
+  Skip rather than seek — scrubbing a cross-origin embed needs four vendor SDKs.
+- **🔴 Scroll-to-zoom hiccup:** `onMove` wrote back only the zoom and dropped
+  the lng/lat the renderer had computed. A wheel zoom is pointer-anchored, so
+  every notch moves the centre; keeping the old centre shoved the map back a
+  frame later. Now takes the whole viewState, pushes to shared state on
+  `moveEnd` (it was re-rendering every context consumer dozens of times per
+  flick), and the zoom≤3 azimuthal switch moved to moveEnd too — it was
+  swapping the projection mid-gesture.
+- **Map overlays now know about each other.** There were TWO zoom controls (a
+  hand-rolled top-left stack at z-index 150 — which floated over the open
+  Directions panel — plus the renderer's own +/- and compass top-right); the
+  hand-rolled one is gone. The function bar wraps instead of ending on
+  "✕ Clos", and drops labels based on the **map area's** measured width, not a
+  viewport breakpoint (the map can be a 320px window on a 2560px monitor). The
+  bar publishes its measured height as `--truegle-map-bottom-clearance`, and
+  the tile attribution (a licence condition of OSM/CARTO/Esri), the scale bar
+  and the mini transport all stack off it. Panels stop above the bar rather
+  than running under the one row that closes them.
+- **Traffic and Directions were literally the same icon** — lucide `Navigation`
+  imported twice, once aliased as `NavigationIcon`, which made it look
+  deliberate. Traffic is a `TrafficCone` now.
+- **The Location button reports a state** (lit / located / unknown) and the
+  blue dot shows its reverse-geocoded address on hover or focus. Fixing that
+  surfaced a related bug: the dot was created inside the branch deciding where
+  to *centre* the map, so "coffee near me" — the journey that most needs it —
+  marked every cafe and never marked you.
+- **Share a place: right-click, or press and hold.** The link is
+  `/search?q=<lat>,<lng>`, and `parseLocalQuery` now understands coordinates,
+  so a shared pin reopens the map on the pin. **Coordinates are matched BEFORE
+  the postcode pattern** — `\b(\d{5})\b` otherwise pulls five digits out of
+  "43.752413" and geocodes them somewhere else entirely.
+- **Tube Reddit search asks Reddit.** The chip went to `/api/search` category
+  `social`, served only by an optional SearXNG box and an optional Google CSE;
+  with neither configured the backend queues no providers and answers empty.
+  `usePlayerSearch` now calls `POST /api/social/feed` with
+  `platforms: ['reddit']` first, keeping the index path as fallback. **Read
+  `permalink`, never `url`** — `url` is whatever the post links to (i.redd.it,
+  a news site) and `getPlayable` only accepts `/r/<sub>/comments/<id>`.
+- **TRAIL was a different product wearing Truegle's URL.** Full-window black,
+  a lone "TRAIL" wordmark, no route home. It renders through
+  `SearchPageShell` now — logo (which goes to the landing page), mode
+  background, game in a results-card container, **no search bar and no pill
+  row** (the shell draws each only when handed one). A new `embedded`
+  presentation keeps the full-screen one and stops locking the page scroll.
+- **🔴 The social feed could not say why it was empty** — this is why "reddit
+  still isn't working" and "feed won't load" were one bug. The route answers
+  200 with `results: []` and the reason in `errors`; `useSocialFeed` fetched
+  that field and dropped it, so a BLOCKED platform and a platform with nothing
+  to show rendered identically. Worse, a failed platform reports a null cursor
+  exactly like an exhausted one, so one refusal set `done` on page ONE — the
+  feed declared itself finished having shown nothing and the sentinel never
+  asked again. The route now reports the upstream's own words (HTTP 403 —
+  commonly a blocked datacenter IP / 429 / timeout, and which host said it)
+  and tries www., old. and bare reddit.com in turn; the hook surfaces
+  `platformErrors` and no longer treats an all-failed page as the end.
+
+**Verification:** `mapui` 60, `feedpage` 38, `localquery` 23, `map` 30,
+`trailpage` 12 (new), `reddit` 9 (new), plus player/feed/nav/vault/trail all
+green. `npm run build` and `npm run check:ads` pass.
+
+**🔴 UNVERIFIED / OPEN:**
+- **The production cause of the Reddit failure is still unconfirmed.** The
+  agent sandbox proxy 403s every outbound host — `backend-seven-khaki-60`
+  and reddit.com included — so nothing here reached the live stack. Leading
+  suspect is Reddit blocking Vercel datacenter IPs; the new `errors` field
+  will name it on the next real load. If it says 403, the fix is a Reddit
+  OAuth app, not more retries.
+- **Nothing on this branch is deployed.** The Radar `/local-businesses` call
+  signature + return shape, the camera URL sanitising, and these social-route
+  changes are all branch-only. The map fixes are frontend and take effect on
+  the next frontend deploy.
+- Real tiles/places have never been seen from here — every map host is denied
+  by the sandbox's network policy, so browser tests stub them. The tests prove
+  the map ASKS for tiles and draws a sized canvas; only `npm run dev` shows
+  actual streets.
+
+---
 ## 🗓️ SESSION LOG 2026-08-03 — Truegle player: share links + mobile UX + queue sources
 
 **Shipped (branch `claude/truegle-sharing-player-ux-t3hi43`):**

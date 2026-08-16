@@ -63,49 +63,11 @@ export const getAnimationSettings = () => {
 // Note: JSX components have been removed from this utility file to avoid parsing errors.
 // These would need to be in a separate .jsx file if needed.
 
-// Fallback animation settings
-export const getAnimationSettings = () => {
-  const reducedMotion = prefersReducedMotion();
-  const lowPerformance = isLowPerformanceDevice();
-
-  if (reducedMotion && lowPerformance) {
-    return {
-      type: 'minimal',
-      duration: 300,
-      effects: ['fade'],
-      disable: ['transform', 'filter', 'animation'],
-      complexity: 'minimal',
-      fps: 30
-    };
-  } else if (reducedMotion) {
-    return {
-      type: 'reduced',
-      duration: 500,
-      effects: ['fade', 'simple-transform'],
-      disable: ['complex-animation', 'filter'],
-      complexity: 'low',
-      fps: 60
-    };
-  } else if (lowPerformance) {
-    return {
-      type: 'performance-optimized',
-      duration: 1000,
-      effects: ['fade', 'transform'],
-      disable: ['complex-filter', 'heavy-animation'],
-      complexity: 'medium',
-      fps: 30
-    };
-  } else {
-    return {
-      type: 'full',
-      duration: 1000,
-      effects: ['fade', 'transform', 'filter', 'animation'],
-      disable: [],
-      complexity: 'high',
-      fps: 60
-    };
-  }
-};
+// getAnimationSettings was DECLARED TWICE in this file — the second a
+// verbatim copy of the first, differing only in trailing whitespace. That
+// is a syntax error, not a style problem: the module did not parse at all,
+// so every lint run reported it and nobody could tell which errors in the
+// run were real. The duplicate is gone; the original above is unchanged.
 
 // Fallback animation controller
 export class FallbackAnimationController {

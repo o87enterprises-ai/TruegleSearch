@@ -127,7 +127,11 @@ function escapeAttr(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
-    // Control characters have no business in a preview title.
+    // Control characters have no business in a preview title. Matching them
+    // is the POINT here, so no-control-regex is suppressed rather than worked
+    // around — stripping them is what stops a crafted title smuggling a
+    // newline or a NUL into the meta tags this builds.
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f\u007f]/g, ' ');
 }
 

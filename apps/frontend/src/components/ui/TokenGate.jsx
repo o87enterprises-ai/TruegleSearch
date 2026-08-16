@@ -18,6 +18,19 @@ const TokenGate = ({
 }) => {
   // Pre-production: paywalls removed — the gate never blocks. Returned before
   // any hooks so hook order stays consistent (FREE_ACCESS_MODE is a constant).
+  //
+  // The rule this suppresses is a good one and this is a genuine exception,
+  // not a shortcut: hook order only has to be stable ACROSS RENDERS OF ONE
+  // INSTANCE, and FREE_ACCESS_MODE is a build-time constant, so every render
+  // of this component takes the same branch for the life of the page. eslint
+  // cannot see that a condition is invariant, so it flags all seven hooks
+  // below. Suppressed HERE with the reason rather than left permanently red —
+  // seven standing errors in a lint run is how a lint run stops being read.
+  //
+  // IF THE PAYWALL EVER COMES BACK: delete this disable and hoist the hooks
+  // above the early return instead. The moment FREE_ACCESS_MODE stops being a
+  // constant, this is a real bug.
+  /* eslint-disable react-hooks/rules-of-hooks */
   if (FREE_ACCESS_MODE) return <>{children}</>;
 
   const { isAuthenticated } = useAuth();

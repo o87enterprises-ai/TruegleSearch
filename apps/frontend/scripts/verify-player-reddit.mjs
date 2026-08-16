@@ -51,7 +51,7 @@ const REDDIT_POSTS = [
 ];
 
 /** One page load, with the social feed either answering or failing. */
-async function run(query, { feedWorks = true } = {}) {
+async function run(query, { feedWorks = true, indexWorks = true } = {}) {
   const calls = [];
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 1000 } });
   await ctx.route('**/api/**', (route) => {
@@ -61,7 +61,18 @@ async function run(query, { feedWorks = true } = {}) {
     calls.push({ path: u.pathname, body });
     const json = (b) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
     if (u.pathname.includes('/social/feed')) {
-      if (!feedWorks) return route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"down"}' });
+      if (!feedWorks) {
+        // A REFUSAL, in the shape the route really answers with: 200, no
+        // posts, and the upstream's own words in `errors`. This is what a
+        // blocked deployment IP looks like from the client, and it used to be
+        // indistinguishable from "Reddit had nothing".
+        return json({
+          query: body?.query || '', results: [],
+          platforms: { reddit: [], hackernews: [], github: [] },
+          nextCursor: { reddit: null },
+          errors: { reddit: 'HTTP 403 — Reddit refused this request (commonly a blocked datacenter IP)' },
+        });
+      }
       return json({
         query: body?.query || '', results: [],
         platforms: { reddit: REDDIT_POSTS, hackernews: [], github: [] },
@@ -71,6 +82,7 @@ async function run(query, { feedWorks = true } = {}) {
     // The index path — the old route, kept as the fallback. It answers with a
     // DIFFERENT post so the two sources can be told apart in the list.
     if (u.pathname.includes('/api/search')) {
+      if (!indexWorks) return json({ results: [] });
       return json({ results: [
         { title: 'Indexed cat thread', url: 'https://www.reddit.com/r/cats/comments/zzz999/indexed_cat_thread/' },
       ] });
@@ -128,8 +140,23 @@ check(!c.calls.some((x) => x.path.includes('/social/feed')),
   'a YouTube search never asks the Reddit endpoint',
   c.calls.filter((x) => x.path.includes('/social')).map((x) => x.path).join(' · ') || 'none');
 
-check([...a.errs, ...b.errs, ...c.errs].length === 0, 'nothing threw',
-  [...a.errs, ...b.errs, ...c.errs].slice(0, 3).join(' | ') || 'clean');
+// ── 4. an empty result says WHY it is empty ─────────────────────────────────
+//
+// The whole reason this bug survived a round of fixing: an empty list looks
+// the same whether Reddit refused the request or genuinely had no posts, and
+// only one of those is something to act on. The player already prints its
+// trace when nothing comes back; the upstream's reason now rides along in it,
+// so it is legible on a phone with no console.
+const d = await run('!reddit cats', { feedWorks: false, indexWorks: false });
+check(/Nothing here can play/i.test(d.text),
+  'a search that finds nothing says so');
+check(/asked:/.test(d.text), '…and prints what it asked', d.text.match(/asked:[^]{0,90}/)?.[0]);
+check(/403|refused/i.test(d.text),
+  '…including the upstream\'s reason, so an empty list is reportable',
+  d.text.match(/reddit [^)]*\)/)?.[0] || '(no reason in the trace)');
+
+check([...a.errs, ...b.errs, ...c.errs, ...d.errs].length === 0, 'nothing threw',
+  [...a.errs, ...b.errs, ...c.errs, ...d.errs].slice(0, 3).join(' | ') || 'clean');
 
 console.log([...ok, ...bad].join('\n'));
 console.log(`\n${ok.length} passed, ${bad.length} failed`);

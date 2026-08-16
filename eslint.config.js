@@ -9,7 +9,14 @@ export default [
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
-      ecmaVersion: 2020,
+      // 2022, not 2020. At 2020 the parser rejects NUMERIC SEPARATORS —
+      // `30_000`, `1_000_000` — with "Parsing error: Identifier directly
+      // after number", which is a lie: that syntax has been standard since
+      // ES2021 and Vite compiles it without complaint. Three files failed to
+      // parse for that reason alone, so `npm run lint` was permanently red on
+      // code that was never wrong, which is exactly how a lint run stops
+      // being read. (The .mjs block below was already on 2022.)
+      ecmaVersion: 2022,
       globals: {
         ...globals.browser,
         ...globals.node,
@@ -65,6 +72,8 @@ export default [
       '**/verify-feed-page.mjs',
       '**/verify-camera-view.mjs',
       '**/verify-map-ui.mjs',
+      '**/verify-player-reddit.mjs',
+      '**/verify-trail-page.mjs',
     ],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },

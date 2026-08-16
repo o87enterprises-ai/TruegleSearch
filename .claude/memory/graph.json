@@ -624,6 +624,30 @@
         "body": "POST /api/social/feed answers 200 with results:[] and errors:{reddit:'...'} when an upstream refuses. useSocialFeed FETCHED that field and threw it away, and a failed platform reports next:null exactly like an exhausted one — so one blocked upstream set done=true on page ONE, the feed declared itself finished having shown nothing, and the sentinel never asked again. Both /feed ('feed won't load') and the Tube Reddit chip present as an empty list with no explanation. FIXED: backend reports the real reason (HTTP 403/429/timeout + which host), tries www./old./bare reddit.com in turn, frontend surfaces platformErrors and no longer treats an all-failed page as the end. NOT VERIFIED against the live backend — the agent sandbox proxy 403s every outbound host including backend-seven-khaki-60.vercel.app and reddit.com, so the actual production cause is still unconfirmed; the leading suspect is Reddit blocking Vercel datacenter IPs (403), which the new error field will now name.",
         "ts": "2026-08-16",
         "created": "2026-08-16"
+      },
+      "map-overlay-layout": {
+        "Id": "map-overlay-layout",
+        "Type": "fact",
+        "Label": "Map chrome measures the MAP AREA, not the viewport",
+        "body": "TruegleMap publishes --truegle-map-bottom-clearance (function bar's measured height + 26px) on the map-area div; the tile attribution, the scale bar and MapPlayerTransport all stack off that variable instead of guessed offsets. Function-bar labels are shown/hidden from the measured map-area width (>=900px), never a Tailwind viewport breakpoint — the map can be a 320px popped-out window on a 2560px monitor. The bar always flex-wraps so no control is ever half-clipped. panelOpen (cameras/camera-search/directions) hides the top-left fullscreen button; panels stop at bottom-20 so they never cover the row that closes them.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
+      },
+      "map-popup-anchor": {
+        "Id": "map-popup-anchor",
+        "Type": "fact",
+        "Label": "Marker popups must not force an anchor",
+        "body": "TruegleMap's <Popup> had anchor='top', which forces the card BELOW the pin — so a pin near the bottom edge (most of them, since 'near me' centres on you and the function bar owns the floor) opened its card outside the map and overflow-hidden clipped it. Removed the anchor so maplibre picks one that fits and flips above/beside the pin; offset={16} clears the 32px marker. Same class as the other overlay bugs: a fixed offset that assumes there is always room in one direction.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
+      },
+      "lint-was-permanently-red": {
+        "Id": "lint-was-permanently-red",
+        "Type": "fact",
+        "Label": "npm run lint now exits 0 — it was red on code that was never wrong",
+        "body": "Four independent causes, all fixed 2026-08-16: (1) eslint.config.js main block was ecmaVersion 2020, which rejects NUMERIC SEPARATORS (30_000, 1_000_000) as 'Parsing error: Identifier directly after number' — three files failed to PARSE for that alone. Now 2022, matching the .mjs block. (2) fallbackAnimations.js declared getAnimationSettings TWICE, verbatim, differing only in trailing whitespace — a real syntax error; duplicate removed. (3) BiasedResults.jsx had a local helper named useToken which is NOT a hook — the use* prefix tripped rules-of-hooks at both call sites; renamed spendToken. (4) TokenGate.jsx returns before its hooks on the FREE_ACCESS_MODE build constant — a genuine documented exception, now an explicit eslint-disable with the reason and a note to delete it if the paywall returns. Also: new Playwright verifiers must be added by NAME to the browser-globals block in eslint.config.js (verify-player-reddit / verify-trail-page added) — the list is deliberately not a glob so pure-Node verifiers still catch a real document reference.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
       }
     },
     "decision": {
@@ -1560,6 +1584,14 @@
         "Type": "decision",
         "Label": "maplibre controls moved off the bottom-right",
         "body": "NavigationControl -> top-right, ScaleControl -> bottom-left. The bottom-right corner is already a stack of three (function bar at bottom-4, Reset View at bottom-24, watermark above) and the compass landed straight on the function bar. It was invisible before only because the map never drew — the collision appeared the moment tiles started painting.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
+      },
+      "map-basemap-maplibre": {
+        "Id": "map-basemap-maplibre",
+        "Type": "decision",
+        "Label": "Map renders on MapLibre + keyless raster tiles",
+        "body": "components/map/config/basemap.js is the single place the basemap is decided. Renderer = react-map-gl/maplibre + maplibre-gl (BSD-3), NOT mapbox-gl: Mapbox GL JS v2+ is licensed for use WITH Mapbox services so pointing it at other tiles is a licence breach, and a token is a metered account against a $0 budget. Styles are hand-built RASTER style documents (not hosted style URLs, which can 404 and take the map down): standard=tile.openstreetmap.org, light/dark=CARTO light_all/dark_all, satellite=Esri World Imagery, each with its required attribution string. hasMapboxToken/TRAFFIC_AVAILABLE are the single switches if a token ever appears; Mapbox traffic must use the TileJSON https URL, never the mapbox:// shorthand (MapLibre cannot resolve it). maplibre-gl.css is a MODULE import in TruegleMap.jsx — index.html's CDN <link> to mapbox-gl.css was removed. NavigationControl=top-right, ScaleControl=bottom-left; bottom-right is the function bar / Reset View / watermark stack.",
         "ts": "2026-08-16",
         "created": "2026-08-16"
       }
