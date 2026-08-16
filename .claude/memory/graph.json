@@ -552,6 +552,22 @@
         "body": "mapApi.js validated the {success,data} envelope with questions about the payload, so Mapbox/Radar/TomTom were rejected as invalid on every call and the ladder always fell to Nominatim. Also: OSRM was called with start/end query params instead of path coords (directions never worked), Nominatim 'near me' passed lat/lon/radius which it ignores (searches were global), DirectionsPanel was hard-wired to Radar-only, and MapViewWrapper had the nearby-business fetch commented out.",
         "ts": "2026-08-15",
         "created": "2026-08-15"
+      },
+      "camera-hls-split": {
+        "Id": "camera-hls-split",
+        "Type": "fact",
+        "Label": "42% of traffic cameras are HLS video, not stills",
+        "body": "OpenTrafficCamMap USA feed: 7024 usable cameras — 4103 JPEG stills (IMAGE_STREAM), 2921 live HLS (M3U8). The UI rendered all of them as <img>, so every video camera showed 'Camera Offline'. Fixed with CameraView + lazily-imported hls.js (must stay UNASSIGNED in vite manualChunks — naming it makes index.html modulepreload it). 5 upstream rows were rtsp:// with plaintext creds on 10.x addresses; now filtered at the transform. 299 plain-http URLs upgraded to https (mixed content is blocked). Live verifier: apps/backend npm run cameras:test.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
+      },
+      "sandbox-no-h264": {
+        "Id": "sandbox-no-h264",
+        "Type": "fact",
+        "Label": "Sandbox Chromium has no H.264 decoder",
+        "body": "MediaSource.isTypeSupported('video/mp4; codecs=avc1...') is false in /opt/pw-browsers/chromium, so hls.js always ends fatal here. Browser tests can prove the video PATH is taken and that hls.js loads lazily, never that a stream decodes. Map provider hosts (mapbox/tomtom/nominatim/OSRM) are also denied by the network policy; raw.githubusercontent.com IS reachable.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
       }
     },
     "decision": {
@@ -1811,5 +1827,5 @@
       }
     }
   },
-  "updated": "2026-08-15"
+  "updated": "2026-08-16"
 }

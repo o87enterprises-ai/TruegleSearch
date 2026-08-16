@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Camera, X, MapPin, ExternalLink, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import CameraView from './CameraView';
 import { fetchCamerasNearLocation } from './services/dotCameraService';
 
 /**
@@ -142,14 +143,13 @@ export default function TrafficCameras({ userLocation, isOpen, onClose }) {
             >
               {/* Camera Preview Image */}
               <div className="relative h-32 bg-neutral-800">
-                <img
-                  src={camera.imageUrl}
-                  alt={camera.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjM2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjQwIiBoZWlnaHQ9IjM2MCIgZmlsbD0iIzFhMWEyZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiNmZjAwMzMiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5DYW1lcmEgT2ZmbGluZTwvdGV4dD48L3N2Zz4=';
-                  }}
-                />
+                {/* Stills poll; HLS cameras play. The old <img> rendered a
+                    null src for every video camera and swapped in a "Camera
+                    Offline" placeholder — 2,926 live cameras calling
+                    themselves dead. Tiles do not autoplay: a grid of thirty
+                    simultaneous HLS streams is not a preview, it is a
+                    download. */}
+                <CameraView camera={camera} autoPlay={false} />
                 {camera.isLive && (
                   <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 bg-red-600 rounded-full">
                     <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
@@ -229,11 +229,8 @@ export default function TrafficCameras({ userLocation, isOpen, onClose }) {
 
               {/* Modal Content */}
               <div className="p-4">
-                <img
-                  src={selectedCamera.imageUrl}
-                  alt={selectedCamera.name}
-                  className="w-full rounded-lg mb-4"
-                />
+                {/* Opened deliberately, so this one does play. */}
+                <CameraView camera={selectedCamera} className="w-full aspect-video rounded-lg overflow-hidden mb-4" />
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <span className="text-white/60">Direction:</span>
@@ -259,13 +256,17 @@ export default function TrafficCameras({ userLocation, isOpen, onClose }) {
                   </div>
                 </div>
 
+                {/* The stream is playing above now, so this is an escape
+                    hatch rather than the only way to watch. It used to be the
+                    latter, and it handed the browser a raw .m3u8 — which
+                    Chrome downloads as a file instead of playing. */}
                 {selectedCamera.streamUrl && (
                   <button
                     onClick={() => window.open(selectedCamera.streamUrl, '_blank')}
-                    className="w-full mt-4 px-4 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+                    className="w-full mt-4 px-4 py-2.5 bg-white/[0.06] hover:bg-white/[0.1] border border-white/15 text-white/70 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2"
                   >
-                    <ExternalLink size={18} />
-                    Open Live Stream
+                    <ExternalLink size={16} />
+                    Open stream in your own player
                   </button>
                 )}
               </div>

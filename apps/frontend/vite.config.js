@@ -68,6 +68,17 @@ export default defineConfig(({ mode }) => {
           if (/[\\/]node_modules[\\/](mapbox-gl|@mapbox)[\\/]/.test(id)) return 'mapbox'
           if (/[\\/]node_modules[\\/]echarts[\\/]/.test(id)) return 'echarts'
           if (/[\\/]node_modules[\\/]leaflet[\\/]/.test(id)) return 'leaflet'
+          // HLS playback for traffic cameras. Deliberately left UNASSIGNED so
+          // Rollup places it in the async chunk created by CameraView's
+          // dynamic import — 185KB gzipped that is fetched the first time
+          // somebody opens a video camera and never otherwise.
+          //
+          // Both other options are worse and were measured: the `return
+          // 'vendor'` below swallows it into the eager bundle, and naming it
+          // ('hls') makes it a separate file that index.html then lists as a
+          // modulepreload — still downloaded by every visitor, just from a
+          // different URL.
+          if (/[\\/]node_modules[\\/]hls\.js[\\/]/.test(id)) return
           return 'vendor'
         }
       }

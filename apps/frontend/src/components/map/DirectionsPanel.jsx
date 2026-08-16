@@ -6,6 +6,7 @@ import { useMap } from './context/MapContext';
 import { fetchCamerasAlongRoute } from './services/dotCameraService';
 import MapApiService from './services/mapApi';
 import { useLiveNavigation } from './hooks/useLiveNavigation';
+import CameraView from './CameraView';
 
 // The panel's travel modes, in the vocabulary the routers use. OSRM profiles
 // are driving/walking/cycling; sending it "car" routes nothing.
@@ -522,20 +523,15 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
                         >
                           <div className="flex items-start gap-3">
                             <div className="flex-shrink-0">
-                              <img
-                                src={camera.imageUrl ? `${camera.imageUrl}${camera.imageUrl.includes('?') ? '&' : '?'}t=${imageRefreshTimestamp}` : camera.imageUrl}
-                                alt={camera.name}
-                                className="w-16 h-12 object-cover rounded cursor-pointer hover:ring-2 hover:ring-cyan-400 transition-all"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (camera.streamUrl) {
-                                    window.open(camera.streamUrl, '_blank');
-                                  }
-                                }}
-                                onError={(e) => {
-                                  e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNDgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjQ4IiBmaWxsPSIjMWExYTJlIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI4IiBmaWxsPSIjMDBiY2RkIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+Q2FtPC90ZXh0Pjwvc3ZnPg==';
-                                }}
-                                title={camera.streamUrl ? 'Click to view live camera feed' : 'Camera feed unavailable'}
+                              {/* Same fix as the camera list: a video camera
+                                  has no imageUrl, so this rendered a null src
+                                  and fell back to a "Cam" placeholder for
+                                  every HLS feed along the route. */}
+                              <CameraView
+                                camera={camera}
+                                autoPlay={false}
+                                refreshToken={imageRefreshTimestamp}
+                                className="w-16 h-12 object-cover rounded overflow-hidden"
                               />
                             </div>
                             <div className="flex-1 min-w-0">

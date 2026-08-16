@@ -54,12 +54,17 @@ export default [
     // Playwright verifiers are Node programs that also SHIP code into a page:
     // everything inside a `page.evaluate` callback runs in the browser, so
     // `window` and `document` are legitimate there even though the file itself
-    // never touches a DOM. Without this they are six no-undef errors that are
-    // all false.
-    // Matched by intent, not by one filename shape: verify-feed-page.mjs is a
-    // Playwright verifier too and was being linted as pure Node, which is how
-    // eight false no-undefs appeared for `document` inside page.evaluate.
-    files: ['**/verify-*-browser.mjs', '**/verify-feed-page.mjs'],
+    // never touches a DOM. Without this they are no-undef errors that are all
+    // false.
+    //
+    // Listed by name rather than matched by `verify-*.mjs`, because the other
+    // verifiers (map-api, navigation) are pure Node — handing THEM browser
+    // globals would hide a real `document` reference instead of catching it.
+    files: [
+      '**/verify-*-browser.mjs',
+      '**/verify-feed-page.mjs',
+      '**/verify-camera-view.mjs',
+    ],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },
     },

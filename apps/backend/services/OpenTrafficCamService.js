@@ -81,6 +81,44 @@ class OpenTrafficCamService {
    * Transform OpenTrafficCamMap data to standardized format
    * Handles nested structure: State -> County/Region -> Array of cameras
    */
+  /**
+   * Is this URL something a browser on an https page can actually load, and
+   * safe for us to put in our own DOM?
+   *
+   * The public feed is community-maintained and five of its rows are
+   * `rtsp://user:password@10.53.56.x:554/` — somebody's internal camera, with
+   * the credentials in the URL. Three separate problems in one string: no
+   * browser plays RTSP, a 10.x address is unreachable from the internet, and
+   * rendering it would publish a working credential on our page. They are
+   * dropped rather than shown as five permanently broken tiles.
+   *
+   * Anything carrying userinfo is refused on the same grounds even if the
+   * scheme is fine — a credential in a feed is a credential we decline to
+   * repeat.
+   */
+  isUsableFeedUrl(url) {
+    if (typeof url !== 'string' || !url) return false;
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return false;
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    if (parsed.username || parsed.password) return false;
+    return true;
+  }
+
+  /**
+   * Truegle is served over https, and a browser blocks plain-http images and
+   * media on an https page as mixed content — 299 of these cameras would
+   * silently never load. Upgrading is not a guarantee, but most DOT endpoints
+   * serve both, and one that does not was going to be blocked anyway.
+   */
+  toHttps(url) {
+    return url.startsWith('http://') ? `https://${url.slice('http://'.length)}` : url;
+  }
+
   transformData(rawData, countryCode = 'Unknown') {
     const cameras = [];
 
@@ -88,7 +126,7 @@ class OpenTrafficCamService {
     if (Array.isArray(rawData)) {
       // Old flat array format
       return rawData
-        .filter(camera => camera.latitude && camera.longitude)
+        .filter(camera => camera.latitude && camera.longitude && this.isUsableFeedUrl(camera.url))
         .map((camera, index) => this.transformSingleCamera(camera, countryCode, 'Unknown', 'Unknown', index));
     }
 
@@ -100,7 +138,7 @@ class OpenTrafficCamService {
         if (!Array.isArray(camerasArray)) continue;
 
         camerasArray
-          .filter(camera => camera.latitude && camera.longitude)
+          .filter(camera => camera.latitude && camera.longitude && this.isUsableFeedUrl(camera.url))
           .forEach((camera, index) => {
             cameras.push(this.transformSingleCamera(camera, countryCode, state, county, index));
           });
@@ -123,9 +161,11 @@ class OpenTrafficCamService {
       },
       source: 'OpenTrafficCamMap',
       urls: {
-        // Map format to appropriate URL field
-        image: camera.format === 'IMAGE_STREAM' ? camera.url : null,
-        video: camera.format !== 'IMAGE_STREAM' ? camera.url : null
+        // Map format to appropriate URL field. IMAGE_STREAM is a JPEG still
+        // that is re-fetched; everything else in this feed is an HLS playlist,
+        // which needs a player rather than an <img>.
+        image: camera.format === 'IMAGE_STREAM' ? this.toHttps(camera.url) : null,
+        video: camera.format !== 'IMAGE_STREAM' ? this.toHttps(camera.url) : null
       },
       metadata: {
         direction: camera.direction || null,
