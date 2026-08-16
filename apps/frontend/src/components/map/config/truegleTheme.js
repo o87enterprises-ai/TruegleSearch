@@ -1,4 +1,4 @@
-import { MAP_STYLES } from './constants';
+import { BASEMAP_STYLES } from './basemap';
 
 export const TRUEGLE_BRAND_COLORS = {
   primary: '#4e22ab',
@@ -17,9 +17,7 @@ export const TRUEGLE_BRAND_COLORS = {
 
 export const TRUEGLE_THEME = {
   colors: TRUEGLE_BRAND_COLORS,
-  mapStyles: {
-    ...MAP_STYLES,
-  },
+  mapStyles: { ...BASEMAP_STYLES },
   marker: {
     size: 32,
     anchor: 'bottom',

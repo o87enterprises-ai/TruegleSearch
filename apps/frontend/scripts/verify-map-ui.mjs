@@ -21,9 +21,17 @@
  *     real mark again at h-8; LogoOverlay drew it a third time at 100px inside
  *     a rounded, shadowed card with no mixBlendMode, so its black backdrop sat
  *     on the map as a grey tile.
+ *   THE MAP DID NOT DRAW AT ALL. Every style was a `mapbox://` URL needing an
+ *     access token the deployment does not have, so mapbox-gl threw on the
+ *     first one and nothing ever painted. This file passed throughout, because
+ *     it only ever measured the CHROME around the map. Section 0 is the fix
+ *     for that: it asserts there is a sized canvas and that tiles were
+ *     actually requested — the difference between "the map is mounted" and
+ *     "the map is showing you something".
  *
- * Geometry, not pixels: Mapbox tiles are blocked in this sandbox and a
- * screenshot diff would fail on a starfield that is different every frame.
+ * Geometry, not pixels: tiles are stubbed with a 1x1 image (the sandbox denies
+ * every tile host) and a screenshot diff would fail on a starfield that is
+ * different every frame.
  *
  * Run it:  npm run mapui:test
  */
@@ -63,33 +71,51 @@ await ctx.route('**/api/**', (route) => {
   }
   return json({ success: true, data: [], results: [] });
 });
-// Tiles, telemetry and the keyless fallbacks never leave; this is about layout
-// and about which question was asked, not about anybody's live API.
-//
-// The STYLE is served rather than blocked, as a valid empty one. Aborting it
-// too left mapbox-gl with no projection, and adding a marker then threw inside
-// its own pointCoordinate() — an artifact of the test cutting too much, which
-// would otherwise read as the app being broken.
-await ctx.route('**/api.mapbox.com/styles/**', (r) => r.fulfill({
-  status: 200,
-  contentType: 'application/json',
-  body: JSON.stringify({ version: 8, name: 'test', sources: {}, layers: [] }),
-}));
-await ctx.route('**/*.mapbox.com/**', (r) => r.abort());
+// TILES ARE SERVED, not blocked. The style is built in the app now
+// (config/basemap.js) rather than fetched, so the only thing standing between
+// "mounted" and "drawn" is whether the raster source resolves — which is
+// exactly what section 0 measures. Every tile host is denied by the sandbox's
+// network policy, so each one is answered with a 1x1 PNG and recorded.
+const TILE_HOSTS = [
+  '**/tile.openstreetmap.org/**',
+  '**/*.basemaps.cartocdn.com/**',
+  '**/server.arcgisonline.com/**',
+];
+const PIXEL = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64',
+);
+const tileRequests = [];
+for (const pattern of TILE_HOSTS) {
+  await ctx.route(pattern, (r) => {
+    tileRequests.push(r.request().url());
+    return r.fulfill({ status: 200, contentType: 'image/png', body: PIXEL });
+  });
+}
+// A token would be a bug now — nothing here should be asking Mapbox anything.
+const mapboxRequests = [];
+await ctx.route('**/*.mapbox.com/**', (r) => { mapboxRequests.push(r.request().url()); return r.abort(); });
 await ctx.route('**/nominatim.openstreetmap.org/**', (r) => r.abort());
+await ctx.route('**/overpass-api.de/**', (r) => r.abort());
 await ctx.route('**/router.project-osrm.org/**', (r) => r.abort());
 
 const errs = [];
+// APP errors only, and two things are deliberately not app errors:
+//
+//   The RENDERER's own internals. Tiles here are a 1x1 stub, so maplibre can
+//   throw inside its own unproject()/queryTerrain paths on a pointer move —
+//   an artifact of the test cutting the data, not of the app.
+//   The AD IFRAME's localStorage access. Ad frames are sandboxed WITHOUT
+//   `allow-same-origin` — that is the non-negotiable rule in docs/AD-POLICY.md,
+//   written after an ad navigated the whole tab away — so any storage access
+//   inside one throws by design. Counting it would mean the policy working
+//   correctly fails the test.
+const notOurs = (e) => /node_modules\/\.vite\/deps\/maplibre-gl/.test(e.stack || '')
+  || /localStorage.+(sandboxed|Access is denied)/i.test(e.message || '');
+const watchErrors = (p) => p.on('pageerror', (e) => { if (!notOurs(e)) errs.push(e.message); });
+
 const page = await ctx.newPage();
-// APP errors only. Serving an empty style means mapbox-gl has no terrain, and
-// its own mouseover handler then throws inside unproject() the first time the
-// pointer crosses the canvas. That is this stub's doing, not the app's — a real
-// style has the data — so errors raised inside mapbox-gl's own bundle are not
-// counted. Anything from our code still is.
-page.on('pageerror', (e) => {
-  const fromMapboxInternals = /node_modules\/\.vite\/deps\/mapbox-gl/.test(e.stack || '');
-  if (!fromMapboxInternals) errs.push(e.message);
-});
+watchErrors(page);
 
 await page.goto(`${BASE}/search?q=coffee+near+me`, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(7000);
@@ -106,6 +132,47 @@ await page.waitForTimeout(9000);
 
 const container = page.locator('#truegle-map-container');
 check(await container.count() === 1, 'the map opens');
+
+// ── 0. THE MAP ACTUALLY DRAWS ───────────────────────────────────────────────
+// The one thing this file never checked, and the one thing that was broken.
+//
+// Polled rather than measured once: the map card opens on a height animation,
+// and the renderer re-measures itself on a debounced ResizeObserver, so a
+// single reading taken mid-animation catches a sliver and says "broken" about
+// a map that is merely still growing. The question is whether it gets there,
+// not whether it got there by a particular millisecond.
+const drew = await page.waitForFunction(() => {
+  const c = document.querySelector('#truegle-map-container canvas');
+  if (!c) return false;
+  const r = c.getBoundingClientRect();
+  return r.width > 200 && r.height > 100;
+}, null, { timeout: 20000 }).then(() => true).catch(() => false);
+
+const canvas = await page.evaluate(() => {
+  const box = document.querySelector('#truegle-map-container');
+  const c = box?.querySelector('canvas');
+  if (!c) return null;
+  const r = c.getBoundingClientRect();
+  return {
+    width: Math.round(r.width),
+    height: Math.round(r.height),
+    // maplibre-gl.css is what positions this. It used to arrive as a CDN
+    // <link> in index.html for a library the map no longer uses; it is a
+    // module import now, so it is in the bundle rather than on the wire.
+    positioned: getComputedStyle(c).position,
+  };
+});
+check(!!canvas, 'there is a map canvas at all');
+check(drew, '…that grows to fill the card, not a zero-height sliver',
+  `${canvas?.width}x${canvas?.height}`);
+check(canvas?.positioned === 'absolute',
+  '…positioned by the map stylesheet, which now ships in the bundle',
+  canvas?.positioned);
+check(tileRequests.length > 0, 'the map asks for tiles — the thing a blank map never did',
+  `${tileRequests.length} tile requests · ${tileRequests[0] || 'none'}`);
+check(mapboxRequests.length === 0,
+  'and asks Mapbox for nothing — no token, no licence, and no CDN stylesheet',
+  mapboxRequests.slice(0, 2).join(' | ') || 'none');
 
 // ── 1. one ad, not four ─────────────────────────────────────────────────────
 const adCount = await page.evaluate(() => {
@@ -230,6 +297,152 @@ check(!subjects.some((q) => /restaurant cafe shop/i.test(q)),
 const geocoded = calls.filter((c) => c.path.includes('/maps/geocode')).map((c) => c.body?.query);
 check(!geocoded.some((q) => /^\s*me\s*$/i.test(q || '')),
   '"near me" is never geocoded as a place called "me"', geocoded.join(' · ') || '(no geocodes)');
+
+// ── 6. the search bar takes more than an address ────────────────────────────
+// It called geocode() and only geocode(), so it could find "1600 Pennsylvania
+// Ave" and could not find "coffee near me" or a business by name — there is no
+// place called "coffee near me" for a geocoder to resolve.
+const searchBar = page.locator('#truegle-map-container input').first();
+await searchBar.fill('coffee near me');
+await page.waitForTimeout(2500);
+const nearMeAsks = calls.filter((c) => /\/maps\/places/.test(c.path))
+  .map((c) => c.body?.options?.query ?? '(none)');
+check(nearMeAsks.some((q) => /^coffee$/i.test(q)),
+  'typing "coffee near me" searches for COFFEE around you, not for a place called that',
+  nearMeAsks.join(' · ') || 'no place lookup');
+const suggestion = await page.evaluate(() => {
+  const box = document.querySelector('#truegle-map-container');
+  const btn = [...box.querySelectorAll('button')].find((b) => /Blue Bottle/i.test(b.innerText));
+  return btn ? btn.innerText.replace(/\s+/g, ' ').trim() : null;
+});
+check(!!suggestion, 'the result is offered by NAME, not by street address', suggestion || 'no suggestion');
+
+// ── 7. the map is not a mode you get stuck in ───────────────────────────────
+// Opening it took over the page — on a phone it goes native-fullscreen and
+// there is nothing else you can do until you close it. The player already
+// solved this; the map now has the same control.
+await searchBar.fill('');
+await page.waitForTimeout(300);
+const popOut = page.locator('#truegle-map-container button[title*="Pop the map out"]');
+check(await popOut.count() === 1, 'the map has a pop-out control');
+await popOut.first().click();
+await page.waitForTimeout(1500);
+const popped = await page.evaluate(() => {
+  const frame = document.querySelector('[data-map-popout]');
+  if (!frame) return null;
+  const r = frame.getBoundingClientRect();
+  return {
+    // Portalled to body: a transformed ancestor would make `fixed` resolve
+    // against the results column and clip the window inside what it escaped.
+    inBody: frame.parentElement === document.body,
+    fixed: getComputedStyle(frame).position,
+    hasMap: !!frame.querySelector('#truegle-map-container canvas'),
+    onScreen: r.width > 100 && r.height > 100
+      && r.left >= 0 && r.top >= 0
+      && r.right <= window.innerWidth + 1 && r.bottom <= window.innerHeight + 1,
+    canDock: !!frame.querySelector('button[aria-label*="Dock the map"]'),
+  };
+});
+check(!!popped, 'clicking it floats the map over the page');
+check(popped?.inBody && popped?.fixed === 'fixed',
+  '…as a fixed window portalled to the body, not trapped in the results column',
+  `${popped?.fixed} · body child: ${popped?.inBody}`);
+check(popped?.hasMap, '…carrying the same map, still drawn');
+check(popped?.onScreen, '…entirely on screen');
+check(popped?.canDock, '…with a way back into the page');
+
+await page.locator('[data-map-popout] button[aria-label*="Dock the map"]').first().click();
+await page.waitForTimeout(1200);
+check(await page.locator('[data-map-popout]').count() === 0, 'docking back puts it away');
+check(await page.locator('#truegle-map-container canvas').count() >= 1,
+  '…and the map is still there, in the page');
+
+// ── 8. the player is reachable from inside the map ──────────────────────────
+// The transport lives at the bottom of the PAGE, and the map covers the page —
+// on a phone it goes native-fullscreen, which covers everything. So whatever
+// was playing kept playing with no way to touch it without closing the map
+// first. Five controls, and deliberately only five.
+// Its own context, so a floating player cannot disturb the measurements
+// above. The queue is seeded and then STARTED by pressing Next, because
+// nothing auto-plays on load by design (PlayerContext.loadState) — the player
+// is popped out so its controls exist on a page that is not Tube.
+const ctx2 = await browser.newContext({
+  viewport: { width: 1280, height: 1000 },
+  permissions: ['geolocation'],
+  geolocation: { latitude: 34.0522, longitude: -118.2437 },
+});
+await ctx2.route('**/api/**', (r) => r.fulfill({
+  status: 200, contentType: 'application/json',
+  body: JSON.stringify({ success: true, data: [], results: [] }),
+}));
+for (const pattern of TILE_HOSTS) {
+  await ctx2.route(pattern, (r) => r.fulfill({ status: 200, contentType: 'image/png', body: PIXEL }));
+}
+await ctx2.route('**/*.mapbox.com/**', (r) => r.abort());
+await ctx2.addInitScript(() => {
+  localStorage.setItem('truegle_player_queue_v2', JSON.stringify({
+    current: null,
+    queue: [
+      { kind: 'youtube', src: 'https://www.youtube-nocookie.com/embed/aaa', title: 'First Track', pageUrl: 'https://youtu.be/aaa' },
+      { kind: 'youtube', src: 'https://www.youtube-nocookie.com/embed/bbb', title: 'Second Track', pageUrl: 'https://youtu.be/bbb' },
+    ],
+    history: [], poppedOut: true, expanded: true, minimized: false,
+    dock: 'float', footerView: 'watch', locked: false,
+  }));
+  // The map opens by itself for a "near me" query, which is the state being
+  // measured; no need to drive the category chips again.
+  localStorage.setItem('truegle_map_popped', '0');
+});
+const page2 = await ctx2.newPage();
+watchErrors(page2);
+await page2.goto(`${BASE}/search?q=coffee+near+me`, { waitUntil: 'domcontentloaded' });
+await page2.waitForTimeout(7000);
+const keep2 = page2.locator('button', { hasText: /No, keep Smart/i });
+if (await keep2.count()) { await keep2.first().click(); await page2.waitForTimeout(1000); }
+const category2 = page2.locator('button', { hasText: /^\s*Maps\s*$/ }).first();
+if (await category2.count()) { await category2.click(); await page2.waitForTimeout(1200); }
+const openMap = page2.locator('button', { hasText: /^\s*(View )?map/i });
+if (await openMap.count()) { await openMap.last().click(); }
+await page2.waitForSelector('#truegle-map-container canvas', { timeout: 20000 }).catch(() => {});
+await page2.waitForTimeout(2000);
+
+await page2.locator('button[aria-label="Next"]').first().click();
+await page2.waitForTimeout(1500);
+const transport = await page2.evaluate(() => {
+  const box = document.querySelector('#truegle-map-container');
+  const bar = box?.querySelector('[data-map-player-transport]');
+  if (!bar) return null;
+  const labels = [...bar.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'));
+  const r = bar.getBoundingClientRect(); const c = box.getBoundingClientRect();
+  const other = [...box.querySelectorAll('button, img, input')]
+    .filter((n) => !bar.contains(n))
+    .map((n) => ({ n, q: n.getBoundingClientRect() }))
+    .filter(({ q }) => q.width > 0 && q.height > 0
+      && !(r.right <= q.left || r.left >= q.right || r.bottom <= q.top || r.top >= q.bottom))
+    .map(({ n }) => (n.innerText || n.className || n.tagName).toString().replace(/\s+/g, ' ').slice(0, 30));
+  return {
+    labels,
+    title: bar.innerText.split('\n')[0].trim(),
+    inside: r.left >= c.left - 1 && r.right <= c.right + 1 && r.bottom <= c.bottom + 1,
+    over: other,
+  };
+});
+check(!!transport, 'a transport appears in the map once something is playing');
+check(transport?.title === 'First Track',
+  '…saying what is playing', transport?.title || '(no title)');
+check(JSON.stringify(transport?.labels) === JSON.stringify(['Previous', 'Play', 'Next', 'Stop'])
+  || JSON.stringify(transport?.labels) === JSON.stringify(['Previous', 'Pause', 'Next', 'Stop']),
+  '…with rewind, play/pause, fast forward and stop — and nothing else',
+  JSON.stringify(transport?.labels));
+check(transport?.inside, '…inside the map, so native fullscreen keeps it');
+check(transport?.over.length === 0, '…on top of no other control',
+  transport?.over.join(' | ') || 'clear');
+
+// Stop puts it away: the bar is for when something is playing, not furniture.
+await page2.locator('#truegle-map-container [data-map-player-transport] button[aria-label="Stop"]').click();
+await page2.waitForTimeout(800);
+check(await page2.locator('#truegle-map-container [data-map-player-transport]').count() === 0,
+  'stopping clears the transport rather than leaving a dead bar on the map');
 
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 

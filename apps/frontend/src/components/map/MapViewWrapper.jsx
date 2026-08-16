@@ -8,6 +8,7 @@ import TrafficCameras from './TrafficCameras';
 import DirectionsPanel from './DirectionsPanel';
 import LocationPermissionModal from './LocationPermissionModal';
 import AdBanner from './AdBanner';
+import MapPopOutFrame from './MapPopOutFrame';
 import { useMap } from './context/MapContext';
 import { USER_LOCATION_ZOOM, GEOLOCATION_OPTIONS } from './config/constants';
 import MapApiService from './services/mapApi';
@@ -42,6 +43,16 @@ export default function MapViewWrapper({
   const [mapZoom, setMapZoom] = useState(4);
   const hasFetchedPlacesRef = useRef(false);
   const lastLocationRef = useRef(null);
+  // Popped out = floating over the page instead of sitting in the results
+  // column, so the map is no longer a mode you are stuck in. Remembered,
+  // because it is a preference about how you like to work, not a per-search
+  // decision — same reasoning as the player's dock.
+  const [poppedOut, setPoppedOut] = useState(() => {
+    try { return localStorage.getItem('truegle_map_popped') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('truegle_map_popped', poppedOut ? '1' : '0'); } catch { /* private mode */ }
+  }, [poppedOut]);
 
   // Update map center when location is detected
   useEffect(() => {
@@ -336,6 +347,48 @@ export default function MapViewWrapper({
 
   if (!isOpen) return null;
 
+  // ONE map, two homes. The same element is rendered either in the results
+  // column or inside the floating frame — not two copies with their own state,
+  // which is how the player's three presentations stay one player.
+  const theMap = (
+    // Place search bar lives inside TruegleMap so it stays visible in native
+    // fullscreen (mobile always fullscreens the map).
+    <TruegleMap
+      style={mapStyle}
+      center={mapCenter}
+      zoom={mapZoom}
+      showTraffic={showTraffic}
+      userLocation={userLocation}
+      onClose={handleClose}
+      poppedOut={poppedOut}
+      onTogglePopOut={() => setPoppedOut((v) => !v)}
+    />
+  );
+
+  if (poppedOut) {
+    return (
+      <>
+        <MapPopOutFrame
+          title={detectedLocation?.locationName || detectedLocation?.query || 'Map'}
+          onDock={() => setPoppedOut(false)}
+          onClose={handleClose}
+        >
+          {/* No ad banners in the floating frame. The window is 420x340 by
+              default and two banners would leave barely any map — the policy
+              permits ads here (it is not the landing page), it does not
+              require them to crowd out the thing being advertised around. */}
+          {theMap}
+        </MapPopOutFrame>
+        <LocationPermissionModal
+          isOpen={showLocationModal}
+          onClose={() => setShowLocationModal(false)}
+          onLocationGranted={handleLocationGranted}
+          onLocationDenied={handleLocationDenied}
+        />
+      </>
+    );
+  }
+
   return (
     <div className={`relative ${className}`}>
       <motion.div
@@ -350,22 +403,12 @@ export default function MapViewWrapper({
 
         {/* Map Container - Removed redundant header controls */}
         <div style={{ flex: 1, position: 'relative' }}>
-          {/* Place search bar now lives inside TruegleMap so it stays visible
-              in native fullscreen (mobile always fullscreens the map). */}
-          <TruegleMap
-            provider="mapbox"
-            style={mapStyle}
-            center={mapCenter}
-            zoom={mapZoom}
-            showTraffic={showTraffic}
-            userLocation={userLocation}
-            onClose={handleClose}
-          />
+          {theMap}
         </div>
 
         {/* Bottom Ad Banner */}
         <AdBanner position="bottom" isDismissible={true} />
-                
+
         {/* Traffic Legend (when traffic is enabled) */}
         <AnimatePresence>
           {showTraffic && (

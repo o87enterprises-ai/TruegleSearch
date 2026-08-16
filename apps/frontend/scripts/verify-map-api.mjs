@@ -159,6 +159,67 @@ check((aRight - aLeft) > (right - left) * 3,
   '…and the box widens with latitude rather than covering a sliver',
   `equator ${(right - left).toFixed(3)}° vs arctic ${(aRight - aLeft).toFixed(3)}°`);
 
+// ── 7b. "coffee near me" asks a question a geocoder can answer ──────────────
+// This is the bug the owner reported: coffee near me pulled no results.
+// Nominatim is a GEOCODER — ask it for "coffee" and it looks for a place NAMED
+// coffee, which in most towns is nothing. Overpass is OSM's query engine and
+// answers "everything TAGGED as a cafe within 5km", which is the actual
+// question. Every rung above it needs an API key the deployment does not have,
+// so this rung is the whole search, not a nicety.
+const OVERPASS_CAFES = { elements: [
+  { type: 'node', id: 1, lat: 37.3312, lon: -122.0301, tags: { name: 'Near Cafe', amenity: 'cafe', 'addr:street': 'Main St' } },
+  { type: 'way', id: 2, center: { lat: 37.36, lon: -122.06 }, tags: { name: 'Far Cafe', amenity: 'cafe' } },
+  { type: 'node', id: 3, lat: 37.34, lon: -122.04, tags: { amenity: 'cafe' } },   // unnamed
+] };
+reset(({ url }) => {
+  // Overpass's own path contains "/api/", so it is matched first.
+  if (url.includes('overpass')) return { data: OVERPASS_CAFES };
+  if (url.includes('/api/')) throw new Error('no key configured');
+  if (url.includes('nominatim')) return { data: [] };
+  throw new Error(`unexpected ${url}`);
+});
+const coffee = await MapApi.searchPlaces({ lat: 37.33, lng: -122.03 }, { query: 'coffee', radius: 5000 });
+const overpass = calls.find((c) => c.url.includes('overpass'));
+check(!!overpass, '"coffee near me" reaches Overpass at all');
+// The body is form-encoded (`data=<query>`): percent-escapes AND `+` for
+// spaces, which decodeURIComponent alone does not undo.
+const readForm = (b) => decodeURIComponent(String(b || '').replace(/\+/g, '%20'));
+const ql = readForm(overpass?.body);
+check(ql.includes('"amenity"="cafe"'),
+  'coffee is asked for as the TAG that finds it, not as a name', ql.slice(ql.indexOf('node'), ql.indexOf('node') + 40));
+check(ql.includes('around:5000,37.33,-122.03'), '…around the point, at the radius asked for');
+check(ql.includes('node[') && ql.includes('way['),
+  '…as both a point and a building outline, since OSM maps cafes as either');
+check(coffee.data.length === 2, 'the named cafes come back and the unnamed node does not', `${coffee.data.length} results`);
+check(coffee.data[0].name === 'Near Cafe', 'nearest first — "near me" that lists the far one first has not answered');
+check(coffee.data[0].address === 'Main St', '…carrying the address OSM had for it', coffee.data[0].address);
+
+// An unknown subject is a NAME, which is what makes searching for one business
+// work rather than only the categories we happen to have listed.
+reset(({ url }) => {
+  if (url.includes('overpass')) return { data: { elements: [] } };
+  if (url.includes('/api/')) throw new Error('down');
+  if (url.includes('nominatim')) return { data: OSM_GEOCODE };
+  throw new Error(`unexpected ${url}`);
+});
+await MapApi.searchPlaces({ lat: 37.33, lng: -122.03 }, { query: 'trader joe', radius: 5000 });
+const named = calls.find((c) => c.url.includes('overpass'));
+check(readForm(named.body).includes('"name"~"trader joe",i'),
+  'an unlisted subject is matched on name, case-insensitively');
+check(!!calls.find((c) => c.url.includes('nominatim')),
+  '…and an empty Overpass answer still falls through to the geocoder');
+
+// Overpass is a volunteer service that 429s under load. That must cost the
+// search nothing.
+reset(({ url }) => {
+  if (url.includes('overpass')) throw new Error('429 Too Many Requests');
+  if (url.includes('/api/')) throw new Error('down');
+  if (url.includes('nominatim')) return { data: OSM_GEOCODE };
+  throw new Error(`unexpected ${url}`);
+});
+const busy = await MapApi.searchPlaces({ lat: 37.33, lng: -122.03 }, { query: 'coffee', radius: 5000 });
+check(busy.data.length > 0, 'a busy Overpass falls through to Nominatim rather than returning nothing');
+
 // ── 8. failures say which provider and why ──────────────────────────────────
 // "All map providers failed" alone cannot tell a missing API key from an
 // outage, which is the difference between a config fix and waiting.

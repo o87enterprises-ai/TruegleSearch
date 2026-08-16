@@ -128,6 +128,131 @@ function toRoute(payload, { minutes = false } = {}) {
 
 const toRadarRoute = (payload) => toRoute(payload, { minutes: true });
 
+// ── OVERPASS: the part that makes "near me" a real question ─────────────────
+//
+// Overpass is OpenStreetMap's query API. It is the only keyless thing here
+// that can answer "what CATEGORY of place is within N metres of this point" —
+// a geocoder can only answer "where is this NAME".
+//
+// The public instance is rate-limited and occasionally busy; a failure here is
+// caught by the caller and falls through to Nominatim rather than costing the
+// user their search.
+const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+
+// What people type → what OpenStreetMap calls it.
+//
+// The left-hand side is the word a person uses ("gas", "chemist", "coffee");
+// the right-hand side is the tag that actually finds it. Matching on tags
+// rather than names is the whole point: a cafe called "Blue Bottle" has the
+// word "coffee" nowhere in its name, and a name search misses every one of
+// them.
+//
+// Unlisted subjects are not a failure — they fall through to a name match,
+// which is what makes searching for a specific business work.
+const OSM_CATEGORIES = [
+  [/\b(coffee|cafe|café|espresso|coffee\s*shop)\b/i, ['amenity=cafe']],
+  [/\b(restaurant|food|eat|dinner|lunch|dining)\b/i, ['amenity=restaurant', 'amenity=fast_food']],
+  [/\b(fast\s*food|burger|pizza|takeaway|takeout)\b/i, ['amenity=fast_food']],
+  [/\b(bar|pub|brewery|tavern|drinks)\b/i, ['amenity=bar', 'amenity=pub']],
+  [/\b(gas|petrol|fuel|gas\s*station|filling\s*station)\b/i, ['amenity=fuel']],
+  [/\b(ev\s*charg\w*|charging\s*station|supercharger)\b/i, ['amenity=charging_station']],
+  [/\b(grocery|groceries|supermarket|market|food\s*store)\b/i, ['shop=supermarket', 'shop=convenience']],
+  [/\b(pharmacy|chemist|drugstore|drug\s*store)\b/i, ['amenity=pharmacy']],
+  [/\b(hospital|emergency\s*room|\ber\b)\b/i, ['amenity=hospital']],
+  [/\b(doctor|clinic|urgent\s*care|physician)\b/i, ['amenity=clinic', 'amenity=doctors']],
+  [/\b(dentist|dental)\b/i, ['amenity=dentist']],
+  [/\b(vet|veterinar\w+)\b/i, ['amenity=veterinary']],
+  [/\b(bank|credit\s*union)\b/i, ['amenity=bank']],
+  [/\b(atm|cash\s*machine|cashpoint)\b/i, ['amenity=atm']],
+  [/\b(hotel|motel|inn|lodging|hostel|place\s*to\s*stay)\b/i, ['tourism=hotel', 'tourism=motel', 'tourism=hostel']],
+  [/\b(park|playground|green\s*space)\b/i, ['leisure=park', 'leisure=playground']],
+  [/\b(gym|fitness|workout)\b/i, ['leisure=fitness_centre']],
+  [/\b(library|libraries)\b/i, ['amenity=library']],
+  [/\b(school|schools)\b/i, ['amenity=school']],
+  [/\b(police|police\s*station)\b/i, ['amenity=police']],
+  [/\b(fire\s*station|fire\s*department)\b/i, ['amenity=fire_station']],
+  [/\b(post\s*office|mail)\b/i, ['amenity=post_office']],
+  [/\b(hardware|home\s*improvement|diy)\b/i, ['shop=hardware', 'shop=doityourself']],
+  [/\b(barber|salon|hairdress\w*|haircut)\b/i, ['shop=hairdresser']],
+  [/\b(mechanic|car\s*repair|auto\s*repair|garage)\b/i, ['shop=car_repair']],
+  [/\b(parking|car\s*park)\b/i, ['amenity=parking']],
+  [/\b(laundry|laundromat|launderette|dry\s*clean\w*)\b/i, ['shop=laundry', 'shop=dry_cleaning']],
+  [/\b(cinema|movie\s*theat\w+|movies)\b/i, ['amenity=cinema']],
+  [/\b(toilet|restroom|bathroom|public\s*toilet)\b/i, ['amenity=toilets']],
+  [/\b(atm|bank)\b/i, ['amenity=atm', 'amenity=bank']],
+  [/\b(shop|shops|store|stores|shopping)\b/i, ['shop']],
+];
+
+/** Overpass QL is regex-quoted with double quotes; a stray one breaks the query. */
+const overpassEscape = (v) => String(v).replace(/["\\]/g, '\\$&');
+
+/**
+ * The body of an Overpass union — the `(...)` in `[out:json];(...);out center;`
+ *
+ * Both `node` and `way` are asked for, because a cafe is a point in some
+ * places and a building outline in others; `out center` gives a way its
+ * centroid so both come back with usable coordinates.
+ */
+function overpassClauses(subject, near, radius) {
+  const at = `(around:${Math.round(radius)},${near.lat},${near.lng})`;
+  const matched = OSM_CATEGORIES.find(([re]) => re.test(subject));
+
+  if (matched) {
+    return matched[1].flatMap((tag) => {
+      const [key, value] = tag.split('=');
+      const filter = value ? `["${key}"="${value}"]` : `["${key}"]`;
+      return [`node${filter}${at}`, `way${filter}${at}`];
+    }).join(';');
+  }
+
+  // Not a category we know — treat it as a name. `~` is a case-insensitive
+  // regex match, so "trader joe" finds "Trader Joe's".
+  const name = overpassEscape(subject);
+  return [
+    `node["name"~"${name}",i]${at}`,
+    `way["name"~"${name}",i]${at}`,
+  ].join(';');
+}
+
+/** Metres between two points. Only used to sort, so the spherical law of
+ *  cosines is plenty — no need for haversine's precision at these distances. */
+function metresBetween(a, b) {
+  const R = 6371000;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** One Overpass element → the same place shape everything else here produces. */
+function toOverpassPlace(el, near) {
+  const lat = num(el.lat ?? el.center?.lat);
+  const lng = num(el.lon ?? el.center?.lon);
+  if (!isCoord(lat, lng)) return null;
+  const t = el.tags || {};
+  // An unnamed node tagged `amenity=cafe` is real data, but "Unnamed cafe" is
+  // not a result anybody asked for — it is a pin you cannot act on.
+  if (!t.name) return null;
+  const street = [t['addr:housenumber'], t['addr:street']].filter(Boolean).join(' ');
+  const address = [street, t['addr:city'], t['addr:state'], t['addr:postcode']]
+    .filter(Boolean).join(', ');
+  return {
+    name: t.name,
+    address,
+    position: { lat, lng },
+    type: t.amenity || t.shop || t.tourism || t.leisure || null,
+    distance: metresBetween(near, { lat, lng }),
+    // Carried through so a result card can show them without a second lookup.
+    phone: t.phone || t['contact:phone'] || null,
+    website: t.website || t['contact:website'] || null,
+    hours: t.opening_hours || null,
+    raw: el,
+  };
+}
+
 class MapApiService {
   constructor() {
     this.providers = ['mapbox', 'radar', 'tomtom', 'leaflet'];
@@ -315,7 +440,67 @@ class MapApiService {
   }
 
   /**
-   * "Coffee near me", on Nominatim.
+   * "Coffee near me" — Overpass first, Nominatim second.
+   *
+   * WHY OVERPASS AT ALL. Nominatim is a GEOCODER: it turns a name into a
+   * point. Ask it for "coffee" and it looks for places literally NAMED
+   * "coffee", so in most towns it answers with nothing at all — which is
+   * exactly what "coffee near me pulled no results" was. Nothing further up
+   * the ladder covers it either: Mapbox, Radar and TomTom all need keys the
+   * deployment does not have, so the keyless floor IS the search.
+   *
+   * Overpass is OpenStreetMap's own query engine and answers the question
+   * actually being asked — "everything tagged as a cafe within 5km of this
+   * point". Keyless, free, no account, and the data is the same OSM data the
+   * basemap is drawn from, so the pins land on the buildings under them.
+   *
+   * Two shapes of question, in order:
+   *   1. A CATEGORY the tag table below knows ("coffee", "pharmacy", "gas") →
+   *      matched on tags, which finds the shop whether or not its name
+   *      contains the word.
+   *   2. A NAME, or a category we have no tag for → matched on the `name` tag,
+   *      case-insensitively. This is what makes "Name of Location" work as
+   *      well as "coffee".
+   * Nominatim stays as the last resort, unchanged, for anything Overpass
+   * cannot answer or when Overpass is busy (it is a volunteer service and
+   * returns 429 under load).
+   */
+  async searchPlacesWithOSM(near, options = {}) {
+    try {
+      const found = await this.searchPlacesWithOverpass(near, options);
+      if (found.length) return found;
+    } catch (error) {
+      log('Overpass unavailable, falling back to Nominatim:', error.message);
+    }
+    return this.searchPlacesWithNominatim(near, options);
+  }
+
+  async searchPlacesWithOverpass(near, options = {}) {
+    const radius = Math.min(options.radius || 5000, 50000);
+    const limit = options.limit || 20;
+    const subject = String(options.query || '').trim();
+    if (!subject) return [];
+
+    const clauses = overpassClauses(subject, near, radius);
+    if (!clauses) return [];
+
+    const ql = `[out:json][timeout:20];(${clauses});out center ${limit};`;
+    const response = await axios.post(
+      OVERPASS_ENDPOINT,
+      new URLSearchParams({ data: ql }),
+      { timeout: 20000, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+    );
+    return (response.data?.elements || [])
+      .map((el) => toOverpassPlace(el, near))
+      .filter(Boolean)
+      // Nearest first. Overpass returns in element order, which is arbitrary,
+      // and "near me" that lists the far one first is not answering the ask.
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, limit);
+  }
+
+  /**
+   * The geocoder, bounded to a box around a point.
    *
    * The old version passed `lat`, `lon` and `radius`. Nominatim has no such
    * parameters and ignores all three, so every "near me" search was a global
@@ -323,7 +508,7 @@ class MapApiService {
    * store on another continent. Bounding is done with `viewbox` plus
    * `bounded=1`, which is the only way this API takes a location.
    */
-  async searchPlacesWithOSM(near, options = {}) {
+  async searchPlacesWithNominatim(near, options = {}) {
     const radius = options.radius || 5000;
     // Degrees per metre. Longitude degrees shrink as you leave the equator, so
     // a fixed box is far too narrow at high latitude without the cos() term.

@@ -1,12 +1,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Map as MapboxMap, Marker, Popup, NavigationControl, ScaleControl, Source, Layer } from 'react-map-gl/mapbox';
-import mapboxgl from 'mapbox-gl';
-import { X, Minimize2, Layers, Navigation, Camera, MapPin, Navigation as NavigationIcon, Globe, Map as MapIcon, Target, Plus, Minus, Maximize2, Search } from 'lucide-react';
+// MapLibre, not Mapbox — see config/basemap.js for why (no token exists, and
+// borrowing Mapbox's SDK for someone else's tiles would breach its licence).
+// The stylesheet import is load-bearing — it positions the canvas and the
+// controls — and it belongs here rather than as a CDN <link> in index.html,
+// which is where the old one lived: that made every page on the site fetch a
+// map stylesheet before it could paint.
+import { Map as BaseMap, Marker, Popup, NavigationControl, ScaleControl, Source, Layer } from 'react-map-gl/maplibre';
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { X, Minimize2, Layers, Navigation, Camera, MapPin, Navigation as NavigationIcon, Globe, Map as MapIcon, Target, Plus, Minus, Maximize2, Search, PictureInPicture2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMap } from './context/MapContext';
 import { getMarkerColor, formatAddress, generateMarkerId } from './utils/helpers';
-import { MAP_STYLES, MAP_CONTROLS, MAP_VIEW_MODES, AZIMUTHAL_FLAT_CONFIG, USER_LOCATION_ZOOM, GEOLOCATION_OPTIONS } from './config/constants';
+import { MAP_CONTROLS, MAP_VIEW_MODES, AZIMUTHAL_FLAT_CONFIG, USER_LOCATION_ZOOM, GEOLOCATION_OPTIONS } from './config/constants';
+import { getBasemapStyle, BASEMAP_ORDER, MAPBOX_TOKEN, TRAFFIC_AVAILABLE } from './config/basemap';
 import { defaultLogoConfig, getLogoPosition, getLogoSize } from './config/logoConfig';
+import MapPlayerTransport from './MapPlayerTransport';
 import TrafficCameras from './TrafficCameras';
 import DirectionsPanel from './DirectionsPanel';
 import LocationPermissionModal from './LocationPermissionModal';
@@ -14,11 +22,9 @@ import Globe3D from './Globe3D';
 import AzimuthalFlat from './AzimuthalFlat';
 import WebGLErrorBoundary from '../ui/WebGLErrorBoundary';
 import EnhancedCameraSearch from './EnhancedCameraSearch';
-import MapApiService from './services/mapApi';
+import { searchMapQuery, formatDistance } from './utils/mapSearch';
 import backgroundImage from '../../assets/images/Azimuthal-satellite-view.png';
 import './styles/TruegleMap.css';
-
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 
 export default function TruegleMap({
   provider = 'mapbox',
@@ -33,6 +39,11 @@ export default function TruegleMap({
   onMarkerClick = null,
   onClose = null,
   userLocation: initialUserLocation = null,
+  // Whether the map is currently floating over the page, and how to switch.
+  // Owned by MapViewWrapper — the map draws the control, the wrapper decides
+  // where the map lives, the same split the player uses.
+  poppedOut = false,
+  onTogglePopOut = null,
   children,
   className = '',
 }) {
@@ -43,7 +54,7 @@ export default function TruegleMap({
     latitude: center[1],
     zoom,
   });
-  const [mapStyle, setMapStyleLocal] = useState(MAP_STYLES[style] || MAP_STYLES.standard);
+  const [mapStyle, setMapStyleLocal] = useState(() => getBasemapStyle(style));
   const [markers, setMarkers] = useState([]);
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -65,19 +76,21 @@ export default function TruegleMap({
   const [placeResults, setPlaceResults] = useState([]);
   const [isPlaceSearching, setIsPlaceSearching] = useState(false);
   const [showPlaceResults, setShowPlaceResults] = useState(false);
+  // "near me", asked before we know where "me" is.
+  const [placeNeedsLocation, setPlaceNeedsLocation] = useState(false);
 
   useEffect(() => {
-    const styleMap = {
-      standard: 'mapbox://styles/mapbox/streets-v12',
-      dark: 'mapbox://styles/mapbox/dark-v11',
-      light: 'mapbox://styles/mapbox/light-v11',
-      satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
-    };
-    setMapStyleLocal(styleMap[style] || styleMap.standard);
+    setMapStyleLocal(getBasemapStyle(style));
+    setFullscreenMapStyle(style);
   }, [style]);
 
-  // Add traffic layer when showTraffic or showTrafficFS is true
+  // Add traffic layer when showTraffic or showTrafficFS is true.
+  //
+  // Mapbox's traffic tiles are the only source here, and they are a
+  // `mapbox://` vector source — so without a token there is nothing to add and
+  // trying would throw on every toggle. TRAFFIC_AVAILABLE says so once.
   useEffect(() => {
+    if (!TRAFFIC_AVAILABLE) return;
     if (!mapLoaded || !mapRef.current) return;
 
     // Get the underlying Mapbox GL JS map instance
@@ -99,9 +112,11 @@ export default function TruegleMap({
           map.addLayer({
             id: 'traffic',
             type: 'line',
+            // The TileJSON URL, not the `mapbox://` shorthand: that shorthand
+            // is a Mapbox-SDK-only convention and MapLibre cannot resolve it.
             source: {
               type: 'vector',
-              url: 'mapbox://mapbox.mapbox-traffic-v1'
+              url: `https://api.mapbox.com/v4/mapbox.mapbox-traffic-v1.json?secure&access_token=${MAPBOX_TOKEN}`,
             },
             'source-layer': 'traffic',
             paint: {
@@ -343,18 +358,10 @@ export default function TruegleMap({
   }, [isFullscreen, exitFullscreen, onClose]);
 
   const toggleFullscreenMapStyle = useCallback(() => {
-    const styles = ['standard', 'dark', 'light', 'satellite'];
-    const currentIndex = styles.indexOf(fullscreenMapStyle);
-    const nextStyle = styles[(currentIndex + 1) % styles.length];
+    const currentIndex = BASEMAP_ORDER.indexOf(fullscreenMapStyle);
+    const nextStyle = BASEMAP_ORDER[(currentIndex + 1) % BASEMAP_ORDER.length];
     setFullscreenMapStyle(nextStyle);
-
-    const styleMap = {
-      standard: 'mapbox://styles/mapbox/streets-v12',
-      dark: 'mapbox://styles/mapbox/dark-v11',
-      light: 'mapbox://styles/mapbox/light-v11',
-      satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
-    };
-    setMapStyleLocal(styleMap[nextStyle]);
+    setMapStyleLocal(getBasemapStyle(nextStyle));
   }, [fullscreenMapStyle]);
 
   const toggleGlobeView = useCallback(() => {
@@ -420,26 +427,43 @@ export default function TruegleMap({
     }
   }, [actions]);
 
-  // Debounced place search for the in-map destination bar
+  // Debounced search for the in-map bar.
+  //
+  // It used to call MapApiService.geocode() and nothing else, so the bar
+  // understood addresses and only addresses — "coffee near me" and a business
+  // by name both came back empty. searchMapQuery reads the intent first; see
+  // utils/mapSearch.js.
   useEffect(() => {
     if (!placeQuery || placeQuery.trim().length < 3) {
       setPlaceResults([]);
-      return;
+      setPlaceNeedsLocation(false);
+      return undefined;
     }
+    let cancelled = false;
     const timeoutId = setTimeout(async () => {
       setIsPlaceSearching(true);
       try {
-        const result = await MapApiService.geocode(placeQuery);
-        setPlaceResults(result?.data || []);
+        const { rows, needsLocation } = await searchMapQuery(placeQuery, { near: userLocation });
+        if (cancelled) return;
+        setPlaceResults(rows);
+        setPlaceNeedsLocation(needsLocation);
       } catch (err) {
+        if (cancelled) return;
         console.error('Map place search error:', err);
         setPlaceResults([]);
+        setPlaceNeedsLocation(false);
       } finally {
-        setIsPlaceSearching(false);
+        if (!cancelled) setIsPlaceSearching(false);
       }
     }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [placeQuery]);
+    return () => { cancelled = true; clearTimeout(timeoutId); };
+  }, [placeQuery, userLocation]);
+
+  // A "near me" search with no position is not a failed search — it is a
+  // question we can't ask yet. Offer the one thing that fixes it.
+  const requestLocationForSearch = useCallback(() => {
+    setShowLocationModalFS(true);
+  }, []);
 
   const handlePlaceResultClick = useCallback((result) => {
     const lat = result.position?.lat;
@@ -453,7 +477,9 @@ export default function TruegleMap({
       id: `search-result-${lat}-${lng}`,
       lat,
       lng,
-      name: result.address,
+      // The NAME, with the address as the subtitle. Both were set to the
+      // address, so a pin for a cafe was labelled with its street.
+      name: result.name || result.address,
       address: result.address,
       category: 'SEARCH_RESULT',
     };
@@ -464,6 +490,29 @@ export default function TruegleMap({
     setPlaceResults([]);
     setShowPlaceResults(false);
   }, [actions]);
+
+  // Pressing Enter drops EVERY result on the map, rather than making the user
+  // pick one at a time — "coffee near me" means show me the coffee, plural.
+  const handlePlaceSubmit = useCallback((e) => {
+    e.preventDefault();
+    if (!placeResults.length) return;
+    for (const row of placeResults) {
+      const { lat, lng } = row.position || {};
+      if (typeof lat !== 'number' || typeof lng !== 'number') continue;
+      actions.addMarker({
+        id: `search-result-${lat.toFixed(5)}-${lng.toFixed(5)}`,
+        lat,
+        lng,
+        name: row.name,
+        address: row.address,
+        category: 'SEARCH_RESULT',
+      });
+    }
+    const first = placeResults[0].position;
+    setViewState(prev => ({ ...prev, longitude: first.lng, latitude: first.lat, zoom: 14 }));
+    actions.flyTo(first, 14);
+    setShowPlaceResults(false);
+  }, [placeResults, actions]);
 
   // Get user location for traffic cameras (whenever the map is mounted, not
   // just fullscreen — the cameras/directions panels work in windowed mode too).
@@ -608,12 +657,11 @@ export default function TruegleMap({
       {/* Map Content */}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
       {state.mapViewMode === MAP_VIEW_MODES.STANDARD ? (
-        <MapboxMap
+        <BaseMap
           ref={mapRef}
           {...viewState}
           onMove={handleZoom}
           mapStyle={mapStyle}
-          mapboxAccessToken={mapboxgl.accessToken}
           style={{ width: '100%', height: '100%' }}
           onLoad={handleMapLoad}
           onClick={handleMapClick}
@@ -621,13 +669,19 @@ export default function TruegleMap({
           navigationControl={false}
           scaleControl={false}
         >
+        {/* The renderer's own controls, out of the bottom-right corner.
+            That corner is a stack of three already — the function bar across
+            the bottom, Reset View above it, the watermark above that — and the
+            compass landed straight on the function bar. It was invisible
+            before only because the map itself never drew. Top-right is empty;
+            the scale bar sits bottom-left, under the mini player transport. */}
         <NavigationControl
-          position="bottom-right"
+          position="top-right"
           showCompass={true}
           showZoom={true}
         />
         <ScaleControl
-          position="bottom-right"
+          position="bottom-left"
           maxWidth={200}
           unit="imperial"
         />
@@ -718,7 +772,7 @@ export default function TruegleMap({
         )}
 
         {children}
-      </MapboxMap>
+      </BaseMap>
       ) : state.mapViewMode === MAP_VIEW_MODES.GLOBE_3D ? (
         <WebGLErrorBoundary componentName="Globe3D" fallback={<p className="text-white text-center p-4">3D Globe requires WebGL. Switching to standard map.</p>}>
           <Globe3D
@@ -754,7 +808,7 @@ export default function TruegleMap({
         className="absolute z-50 w-72 max-w-[calc(100%-88px)]"
         style={isFullscreen ? { top: 72, left: 12 } : { top: 16, left: 64 }}
       >
-        <div className="flex items-center gap-2 bg-white rounded-full shadow-lg px-4 py-2.5">
+        <form onSubmit={handlePlaceSubmit} className="flex items-center gap-2 bg-white rounded-full shadow-lg px-4 py-2.5">
           <Search size={16} className="text-gray-500 shrink-0" />
           <input
             type="text"
@@ -764,23 +818,46 @@ export default function TruegleMap({
               setShowPlaceResults(true);
             }}
             onFocus={() => setShowPlaceResults(true)}
-            placeholder="Search Truegle Maps"
+            // The placeholder is the documentation. A bar that accepts three
+            // kinds of question should say so, or people only ever try one.
+            placeholder="coffee near me, a place, an address"
+            aria-label="Search the map for a place, a category near you, or an address"
             className="flex-1 text-sm text-gray-800 outline-none bg-transparent min-w-0"
           />
-        </div>
-        {showPlaceResults && (placeResults.length > 0 || isPlaceSearching) && (
+        </form>
+        {showPlaceResults && (placeResults.length > 0 || isPlaceSearching || placeNeedsLocation) && (
           <div className="mt-1 bg-white rounded-xl shadow-lg overflow-hidden max-h-64 overflow-y-auto">
             {isPlaceSearching && (
               <div className="px-4 py-2 text-xs text-gray-500">Searching...</div>
             )}
+            {placeNeedsLocation && !isPlaceSearching && (
+              <button
+                type="button"
+                onClick={requestLocationForSearch}
+                className="w-full text-left px-4 py-3 text-sm text-gray-800 hover:bg-gray-100"
+              >
+                <span className="font-medium">Share your location to search near you</span>
+                <span className="block text-xs text-gray-500">
+                  Truegle needs a position before &ldquo;near me&rdquo; means anything.
+                </span>
+              </button>
+            )}
             {placeResults.map((result, index) => (
               <button
-                key={index}
+                key={`${result.position.lat},${result.position.lng},${index}`}
                 type="button"
                 onClick={() => handlePlaceResultClick(result)}
                 className="w-full text-left px-4 py-2 text-sm text-gray-800 hover:bg-gray-100 border-t border-gray-100 first:border-t-0"
               >
-                {result.address}
+                <span className="flex items-baseline justify-between gap-3">
+                  <span className="truncate font-medium">{result.name}</span>
+                  {result.distance !== null && (
+                    <span className="shrink-0 text-xs text-gray-500">{formatDistance(result.distance)}</span>
+                  )}
+                </span>
+                {result.address && (
+                  <span className="block truncate text-xs text-gray-500">{result.address}</span>
+                )}
               </button>
             ))}
           </div>
@@ -886,7 +963,10 @@ export default function TruegleMap({
                   <span className="hidden md:inline">{fullscreenMapStyle === 'satellite' ? 'Satellite' : 'Street'}</span>
                 </button>
 
-                {/* Traffic Toggle */}
+                {/* Traffic Toggle — only when there is a traffic source to
+                    show. A button that provably cannot do anything is worse
+                    than no button: it reads as a broken feature. */}
+                {TRAFFIC_AVAILABLE && (
                 <button
                   onClick={() => setShowTrafficFS(prev => !prev)}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -899,6 +979,7 @@ export default function TruegleMap({
                   <Navigation size={14} />
                   <span className="hidden md:inline">Traffic</span>
                 </button>
+                )}
 
                 {/* Cameras Toggle */}
                 <button
@@ -951,6 +1032,21 @@ export default function TruegleMap({
                   <MapPin size={14} />
                   <span className="hidden lg:inline">Location</span>
                 </button>
+
+                {/* Pop out / dock back. The map was a mode you got stuck in:
+                    open on a phone it goes native-fullscreen and there is
+                    nothing else you can do until you close it. This is the
+                    player's pop-out, for the map. */}
+                {onTogglePopOut && (
+                  <button
+                    onClick={onTogglePopOut}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-cyan-400"
+                    title={poppedOut ? 'Put the map back in the page' : 'Pop the map out so you can keep browsing'}
+                  >
+                    {poppedOut ? <Minimize2 size={14} /> : <PictureInPicture2 size={14} />}
+                    <span className="hidden lg:inline">{poppedOut ? 'Dock' : 'Pop out'}</span>
+                  </button>
+                )}
 
                 {/* Close Map */}
                 {onClose && (
@@ -1061,7 +1157,8 @@ export default function TruegleMap({
                     <span className="hidden md:inline">{fullscreenMapStyle === 'satellite' ? 'Satellite' : 'Street'}</span>
                   </button>
 
-                  {/* Traffic Toggle */}
+                  {/* Traffic Toggle — see the windowed bar above. */}
+                  {TRAFFIC_AVAILABLE && (
                   <button
                     onClick={() => setShowTrafficFS(prev => !prev)}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -1074,6 +1171,7 @@ export default function TruegleMap({
                     <Navigation size={14} />
                     <span className="hidden md:inline">Traffic</span>
                   </button>
+                  )}
 
                   {/* Cameras Toggle */}
                   <button
@@ -1243,7 +1341,16 @@ export default function TruegleMap({
         onLocationDenied={handleLocationDenied}
       />
 
-      {/* Reset View Button - Bottom Right */}
+      {/* What's playing, reachable without leaving the map. Renders nothing
+          when the player is empty. See MapPlayerTransport. */}
+      <MapPlayerTransport />
+
+      {/* Reset View Button - Bottom Right.
+          Not in the popped-out frame: that window is 340px tall by default and
+          this button, the function bar and the watermark all want the same
+          corner. Reset is a convenience; the other two are the controls and
+          the brand. */}
+      {!poppedOut && (
       <button
         onClick={() => {
           setViewState({
@@ -1258,6 +1365,7 @@ export default function TruegleMap({
       >
         Reset View
       </button>
+      )}
 
       {/* The map's ONE watermark — the legacy Truegle mark, drawn here and
           nowhere else. It lives inside #truegle-map-container so it survives
@@ -1274,8 +1382,11 @@ export default function TruegleMap({
         style={{
           ...getLogoPosition('bottomRight'),
           ...defaultLogoConfig.style,
-          ...getLogoSize(defaultLogoConfig.size),
-          bottom: '144px',
+          ...getLogoSize(poppedOut ? 'small' : defaultLogoConfig.size),
+          // Read from the floor up: function bar at bottom-4, Reset View at
+          // bottom-24, the mark above both. The popped-out frame has no Reset
+          // View, so the mark moves down into the space that leaves.
+          bottom: poppedOut ? '56px' : '144px',
         }}
       />
       </div>

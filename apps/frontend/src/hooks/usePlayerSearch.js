@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getPlayable, mediaKey } from '../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../utils/playerLink';
-import { parsePlayerQuery, rankPlayable, isolatePlatform, isShortsScope } from '../utils/playerQuery';
+import { parsePlayerQuery, rankPlayable, isolatePlatform, isShortsScope, toHandle } from '../utils/playerQuery';
 import { withoutBroken, loadBrokenList } from '../utils/broken';
 import { isShortForm, asReel } from '../utils/shortForm';
 
@@ -198,6 +198,49 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         : new Promise((res) => { setTimeout(res, 500); }).then(() => once(category, query))))
       .catch((e) => { if (e.name === 'AbortError') throw e; return []; });
 
+    // REDDIT ASKS REDDIT.
+    //
+    // The Reddit chip went through /api/search with category 'social', which
+    // is served by SearXNG's social-media engines and a Google CSE query. Both
+    // are optional infrastructure: the self-hosted SearXNG box is often cold
+    // and the Google key is frequently absent, and when neither answers the
+    // backend queues NO providers at all and returns an empty list. That is a
+    // Reddit search that is broken for reasons that have nothing to do with
+    // Reddit.
+    //
+    // Reddit's own search.json is public, keyless and always up, and the
+    // backend already speaks it for the feed page — so ask it directly and
+    // keep the index path as the fallback rather than the only route.
+    //
+    // The PERMALINK is the URL that matters. A Reddit post's `url` is whatever
+    // it links to (an imgur page, a news site, a v.redd.it blob), and none of
+    // those is a post the redditmedia embed can play. `permalink` is the
+    // /r/<sub>/comments/<id> form getPlayable() accepts.
+    const redditQuery = [
+      intent.text || q,
+      intent.channel ? `subreddit:${String(toHandle(intent.channel, 'reddit')).replace(/^r\//i, '')}` : '',
+    ].filter(Boolean).join(' ').trim();
+
+    const redditDirect = () => fetch(`${BACKEND}/api/social/feed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: redditQuery, platforms: ['reddit'], limit: 25 }),
+      signal: controller.signal,
+    })
+      .then((r) => (r.ok ? r.json() : { platforms: {} }))
+      .then((d) => {
+        const posts = d.platforms?.reddit || [];
+        const rows = posts.map((p) => toSource({
+          url: p.permalink,
+          title: p.title,
+          image: p.thumbnail,
+          channel: p.subreddit || p.author,
+        }, true)).filter(Boolean);
+        steps.push(`reddit ${posts.length}→${rows.length}`);
+        return rows;
+      })
+      .catch((e) => { if (e.name === 'AbortError') throw e; return []; });
+
     // WHICH INDEX FIRST. Each provider names the backend category that can
     // actually hold it (see PROVIDERS). Reddit is 'social' — the backend's own
     // Reddit path, which queries SearXNG's social-media category AND builds its
@@ -209,7 +252,8 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
 
     // Scoped first, then progressively looser — but never so loose that an
     // explicit ask ("!yt", "@channel", the Reddit chip) is quietly ignored.
-    const web = ask(first, intent.backendQuery, true)
+    const web = (intent.platform === 'reddit' ? redditDirect() : Promise.resolve([]))
+      .then((rows) => (rows.length ? rows : ask(first, intent.backendQuery, true)))
       // Second rung: the SAME need, a DIFFERENT question — keyword instead of
       // site: operator. Repeating the failed query here is what produced
       // `web 5→0 · web 5→0 · web 5→0` in the live trace.

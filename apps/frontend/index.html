@@ -119,8 +119,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Mapbox GL JS CSS -->
-    <link href="https://api.mapbox.com/mapbox-gl-js/v3.18.0/mapbox-gl.css" rel="stylesheet">
+    <!-- No map stylesheet here. This used to be a render-blocking
+         <link> to api.mapbox.com/mapbox-gl-js/v3.18.0/mapbox-gl.css, fetched
+         on EVERY page whether or not a map was ever opened, for a library the
+         map no longer uses. The map renderer imports its own stylesheet as a
+         module now (see components/map/TruegleMap.jsx), so it ships in the
+         bundle, versions with the package, and costs nothing on the pages that
+         never open a map. -->
     <title>Truegle - Unbiased, Transparent & Secure Search</title>
     <!-- Zero-latency fallback paint: applies before any network request
          finishes, so the pre-hydration window (real on slow connections)

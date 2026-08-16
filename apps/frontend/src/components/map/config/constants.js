@@ -13,14 +13,10 @@ export const TRUEGLE_BRAND_COLORS = {
   light: '#ffffff',
 };
 
-export const MAP_STYLES = {
-  standard: 'mapbox://styles/mapbox/streets-v12',
-  dark: 'mapbox://styles/mapbox/dark-v11',
-  light: 'mapbox://styles/mapbox/light-v11',
-  satellite: 'mapbox://styles/mapbox/satellite-v9',
-  navigation: 'mapbox://styles/mapbox/navigation-day-v1',
-  navigationNight: 'mapbox://styles/mapbox/navigation-night-v1',
-};
+// MAP_STYLES used to live here as a table of `mapbox://` style URLs. Every one
+// of them needed an access token the deployment does not have, so every one of
+// them threw and the map drew nothing. The basemap — styles, tiles and
+// attribution — is now decided in config/basemap.js, which needs no key.
 
 export const PROVIDERS = {
   MAPBOX: 'mapbox',

@@ -592,6 +592,30 @@
         "body": "useLocationDetection's pattern list ran /(in|at|near)\\s+([A-Za-z\\s]+)/ BEFORE /near\\s+me/, so 'coffee near me' captured 'me' and geocoded it as a place; the geolocation pattern was unreachable. 'nearby'/'around me'/'closest' matched nothing (LOCATION_KEYWORDS was consulted by no pattern). And the SUBJECT was always discarded, so the map centred correctly and searched a hardcoded 'restaurant cafe shop'. Replaced with parseLocalQuery() returning {type, subject, place|zipcode}; subject drives searchPlaces. Also fixed: routes/maps.js called RadarService.searchPlaces with ONE arg (needs two) and read its {success,places} return as an array. Guard: npm run localquery:test.",
         "ts": "2026-08-16",
         "created": "2026-08-16"
+      },
+      "map-blank-root-cause": {
+        "Id": "map-blank-root-cause",
+        "Type": "fact",
+        "Label": "Map never drew: no Mapbox token",
+        "body": "The map rendered nothing because every style was a mapbox:// URL and VITE_MAPBOX_ACCESS_TOKEN is blank/unset, so mapbox-gl threw on the first style resolve. Fixed by switching the renderer to maplibre-gl (react-map-gl/maplibre) with hand-built RASTER styles over keyless tiles — OSM standard, CARTO light_all/dark_all, Esri World Imagery — in components/map/config/basemap.js. Mapbox GL JS v2+ is licensed for use WITH Mapbox services, so pointing it at other tiles would breach the licence; MapLibre (BSD-3) does not have that condition. index.html's CDN <link> to mapbox-gl.css was removed; maplibre-gl.css is a module import now. Tile hosts + overpass added to connect-src in public/_headers.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
+      },
+      "overpass-nearby": {
+        "Id": "overpass-nearby",
+        "Type": "fact",
+        "Label": "Nearby places = Overpass, not Nominatim",
+        "body": "coffee near me returned nothing because Nominatim is a GEOCODER — asked for 'coffee' it looks for a place NAMED coffee. Every rung above it (Mapbox/Radar/TomTom) needs a key the deployment lacks, so the keyless floor IS the search. mapApi.searchPlacesWithOSM now tries Overpass (overpass-api.de/api/interpreter, keyless) first with an OSM_CATEGORIES word->tag table (coffee->amenity=cafe etc), falls back to a name regex match for unlisted subjects, then to bounded Nominatim. Results sort nearest-first and unnamed nodes are dropped.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
+      },
+      "player-reddit-keyless": {
+        "Id": "player-reddit-keyless",
+        "Type": "fact",
+        "Label": "Tube Reddit search asks Reddit directly",
+        "body": "The Reddit chip/!reddit bang went to /api/search category 'social', which is served ONLY by optional SearXNG + Google CSE — unconfigured means zero providers queued and an empty list. usePlayerSearch now calls POST /api/social/feed with platforms:['reddit'] FIRST (keyless reddit search.json, already used by the feed page) and keeps the index path as fallback. Must use post.permalink, never post.url — url is whatever the post links to (i.redd.it/news site) and getPlayable only accepts /r/<sub>/comments/<id>. Covered by npm run reddit:test.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
       }
     },
     "decision": {
@@ -1512,6 +1536,22 @@
         "Type": "decision",
         "Label": "Map view carries ONE watermark: the legacy mark",
         "body": "The open map used to draw three Truegle logos in the bottom-right: TruegleMap drew /og-image.png (the 1200x630 share card) squashed to 120x40 and through the Reset View button; MapViewWrapper drew truegle.webp at h-8; LogoOverlay drew it again at 100px in a rounded shadowed card with no blend. Now exactly one, in TruegleMap (inside #truegle-map-container so it survives fullscreen), sourced from assets/images/truegle.webp — the same legacy mark TruegleLogo's default variant uses — with mixBlendMode:screen, square aspect, pointer-events:none, at bottom 144px/right 16px so the corner reads as one column: function bar (bottom-4), Reset View (bottom-24), mark. LogoOverlay.jsx/.css deleted. Pinned by six assertions in verify-map-ui.mjs (count, not og-image, screen blend, 1:1 ratio, no pointer events, no control collision).",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
+      },
+      "map-popout-transport": {
+        "Id": "map-popout-transport",
+        "Type": "decision",
+        "Label": "Map pops out; a 5-control transport docks in it",
+        "body": "Map is no longer a mode you get stuck in: MapViewWrapper holds a poppedOut flag (localStorage truegle_map_popped) and renders the SAME TruegleMap element either in the results column or inside MapPopOutFrame — a fixed, draggable, resizable window PORTALLED to document.body (a transformed ancestor would make position:fixed resolve against the results column). Same idioms as MiniPlayer: pointer events, touch-action none, geometry in localStorage truegle_map_geom, clamp on resize. Separately MapPlayerTransport renders inside #truegle-map-container (so it survives native fullscreen) whenever PlayerContext has a current item: title, prev, play/pause, next, stop and nothing more — skip not seek, because cross-origin embeds would need four vendor SDKs. Covered by npm run mapui:test.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
+      },
+      "map-control-positions": {
+        "Id": "map-control-positions",
+        "Type": "decision",
+        "Label": "maplibre controls moved off the bottom-right",
+        "body": "NavigationControl -> top-right, ScaleControl -> bottom-left. The bottom-right corner is already a stack of three (function bar at bottom-4, Reset View at bottom-24, watermark above) and the compass landed straight on the function bar. It was invisible before only because the map never drew — the collision appeared the moment tiles started painting.",
         "ts": "2026-08-16",
         "created": "2026-08-16"
       }
