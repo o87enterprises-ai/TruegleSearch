@@ -125,9 +125,13 @@ class RadarService {
         near: `${near.latitude},${near.longitude}`,
         limit: options.limit || 10,
         radius: options.radius || 1000,
-        chains: options.chains || '',
-        categories: options.categories || '',
       };
+      // Only send the filters that were actually asked for. Radar treats an
+      // empty `categories=` as a filter matching nothing rather than as "no
+      // filter", so sending blanks unconditionally returned no places at all.
+      if (options.chains) params.chains = options.chains;
+      if (options.categories?.length) params.categories = options.categories;
+      if (options.query) params.query = options.query;
       const response = await this.axiosInstance.get('/search/places', { params });
       return {
         success: true,

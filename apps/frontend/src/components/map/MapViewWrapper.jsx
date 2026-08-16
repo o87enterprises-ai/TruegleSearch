@@ -112,7 +112,7 @@ export default function MapViewWrapper({
 
   // Fetch nearby businesses and travel destinations when location is available
   useEffect(() => {
-    const fetchNearbyPlaces = async (location) => {
+    const fetchNearbyPlaces = async (location, subject) => {
       try {
         // Fetch real local businesses with enriched data (ratings, hours, etc.)
         const response = await fetch(`${getBackendUrl()}/api/maps/local-businesses`, {
@@ -121,8 +121,10 @@ export default function MapViewWrapper({
           body: JSON.stringify({
             location: { lat: location.lat, lng: location.lng },
             radius: 5000, // 5km radius
-            categories: ['restaurant', 'cafe', 'shop', 'gas_station', 
-'hotel', 'grocery'], // Diverse local businesses
+            // Only sweep broad categories when nothing specific was asked
+            // for; otherwise the subject is the search.
+            categories: subject ? [] : ['restaurant', 'cafe', 'shop', 'gas_station', 'hotel', 'grocery'],
+            query: subject || undefined,
             limit: 25
           })
         });
@@ -174,9 +176,16 @@ export default function MapViewWrapper({
     // why the map showed no local businesses. This is the same question asked
     // through the provider ladder: fewer fields, but it works with the keys
     // that actually exist, and with none at all via OpenStreetMap.
-    const fetchNearbyFallback = async (location) => {
+    const fetchNearbyFallback = async (location, subject) => {
       try {
-        const result = await MapApiService.searchPlaces(location, { query: 'restaurant cafe shop', radius: 5000, limit: 20 });
+        // WHAT THE USER ASKED FOR. This was hardcoded to
+        // 'restaurant cafe shop', so "coffee near me" got your position, a
+        // correct map — and a scatter of restaurants. The one word that made
+        // the query a question was never used. An empty subject (the query was
+        // just a place) falls back to a general sweep, which is the only case
+        // the old constant was ever right for.
+        const query = subject || 'restaurant cafe shop';
+        const result = await MapApiService.searchPlaces(location, { query, radius: 5000, limit: 20 });
         for (const place of result?.data || []) {
           actions.addMarker({
             id: `place-${place.position.lat.toFixed(5)}-${place.position.lng.toFixed(5)}`,
@@ -187,8 +196,10 @@ export default function MapViewWrapper({
             category: 'BUSINESS',
           });
         }
+        return (result?.data || []).length > 0;
       } catch (error) {
         console.warn('Nearby places unavailable:', error.message);
+        return false;
       }
     };
                 
@@ -214,8 +225,9 @@ export default function MapViewWrapper({
       // no local business ever appeared on the map — the reason it was
       // disabled (it cleared every existing marker) is fixed above rather
       // than worked around by not calling it.
-      fetchNearbyPlaces(location).then((served) => {
-        if (!served) fetchNearbyFallback(location);
+      const subject = detectedLocation?.subject || '';
+      fetchNearbyPlaces(location, subject).then((served) => {
+        if (!served) fetchNearbyFallback(location, subject);
       });
     }
   }, [isOpen, userLocation, detectedLocation]);

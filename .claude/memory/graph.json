@@ -584,6 +584,14 @@
         "body": "The cloud container has Chromium at /opt/pw-browsers/chromium; a normal checkout (Windows/macOS/Linux) does not, and Playwright does not fall back. All Playwright verifiers now go through apps/frontend/scripts/lib/browser.mjs (launchChromium), which uses the preinstalled binary only if it exists. Devs need Downloading Chrome for Testing 149.0.7827.55 (playwright chromium v1228)\u001b[2m from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-linux64.zip\u001b[22m\nDownloading Chrome for Testing 149.0.7827.55 (playwright chromium v1228)\u001b[2m from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-linux64.zip\u001b[22m\nDownloading Chrome for Testing 149.0.7827.55 (playwright chromium v1228)\u001b[2m from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-linux64.zip\u001b[22m\nDownloading Chrome for Testing 149.0.7827.55 (playwright chromium v1228)\u001b[2m from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-linux64.zip\u001b[22m\nDownloading Chrome for Testing 149.0.7827.55 (playwright chromium v1228)\u001b[2m from https://cdn.playwright.dev/builds/cft/149.0.7827.55/linux64/chrome-linux64.zip\u001b[22m\nFailed to install browsers\nError: Failed to download Chrome for Testing 149.0.7827.55 (playwright chromium v1228), caused by\nError: Download failure, code=1\n    at ChildProcess.<anonymous> (/home/user/TruegleSearch/node_modules/playwright-core/lib/coreBundle.js:27793:32)\n    at ChildProcess.emit (node:events:519:28)\n    at ChildProcess._handle.onexit (node:internal/child_process:293:12) once. Likewise the build: NODE_OPTIONS='...' vite build is POSIX-only and fails on cmd.exe, so build/vercel-build now run scripts/build.mjs which sets the heap flag from inside Node.",
         "ts": "2026-08-16",
         "created": "2026-08-16"
+      },
+      "near-me-parsing": {
+        "Id": "near-me-parsing",
+        "Type": "fact",
+        "Label": "'near me' used to geocode the word 'me'",
+        "body": "useLocationDetection's pattern list ran /(in|at|near)\\s+([A-Za-z\\s]+)/ BEFORE /near\\s+me/, so 'coffee near me' captured 'me' and geocoded it as a place; the geolocation pattern was unreachable. 'nearby'/'around me'/'closest' matched nothing (LOCATION_KEYWORDS was consulted by no pattern). And the SUBJECT was always discarded, so the map centred correctly and searched a hardcoded 'restaurant cafe shop'. Replaced with parseLocalQuery() returning {type, subject, place|zipcode}; subject drives searchPlaces. Also fixed: routes/maps.js called RadarService.searchPlaces with ONE arg (needs two) and read its {success,places} return as an array. Guard: npm run localquery:test.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
       }
     },
     "decision": {

@@ -37,22 +37,53 @@ const ctx = await browser.newContext({
   geolocation: { latitude: 34.0522, longitude: -118.2437 },
 });
 
+// Every outbound call, so the test can assert on what was ASKED for.
+const calls = [];
 await ctx.route('**/api/**', (route) => {
-  const u = new URL(route.request().url());
+  const req = route.request();
+  const u = new URL(req.url());
+  const body = req.postData() ? JSON.parse(req.postData()) : null;
+  calls.push({ path: u.pathname, body });
   const json = (b) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
   if (u.pathname.includes('/maps/geocode')) {
     return json({ success: true, provider: 'mapbox', data: [
       { address: 'Los Angeles, California', position: { lon: -118.2437, lat: 34.0522 }, type: 'place', relevance: 0.99 },
     ] });
   }
+  if (u.pathname.includes('/maps/places')) {
+    return json({ success: true, provider: 'mapbox', data: [
+      { name: 'Blue Bottle Coffee', address: '300 S Broadway', position: { lon: -118.244, lat: 34.051 }, type: 'poi' },
+    ] });
+  }
   return json({ success: true, data: [], results: [] });
 });
-// Tiles and telemetry never leave; this is about layout.
+// Tiles, telemetry and the keyless fallbacks never leave; this is about layout
+// and about which question was asked, not about anybody's live API.
+//
+// The STYLE is served rather than blocked, as a valid empty one. Aborting it
+// too left mapbox-gl with no projection, and adding a marker then threw inside
+// its own pointCoordinate() — an artifact of the test cutting too much, which
+// would otherwise read as the app being broken.
+await ctx.route('**/api.mapbox.com/styles/**', (r) => r.fulfill({
+  status: 200,
+  contentType: 'application/json',
+  body: JSON.stringify({ version: 8, name: 'test', sources: {}, layers: [] }),
+}));
 await ctx.route('**/*.mapbox.com/**', (r) => r.abort());
+await ctx.route('**/nominatim.openstreetmap.org/**', (r) => r.abort());
+await ctx.route('**/router.project-osrm.org/**', (r) => r.abort());
 
 const errs = [];
 const page = await ctx.newPage();
-page.on('pageerror', (e) => errs.push(e.message));
+// APP errors only. Serving an empty style means mapbox-gl has no terrain, and
+// its own mouseover handler then throws inside unproject() the first time the
+// pointer crosses the canvas. That is this stub's doing, not the app's — a real
+// style has the data — so errors raised inside mapbox-gl's own bundle are not
+// counted. Anything from our code still is.
+page.on('pageerror', (e) => {
+  const fromMapboxInternals = /node_modules\/\.vite\/deps\/mapbox-gl/.test(e.stack || '');
+  if (!fromMapboxInternals) errs.push(e.message);
+});
 
 await page.goto(`${BASE}/search?q=coffee+near+me`, { waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(7000);
@@ -134,6 +165,26 @@ const mode = await page.evaluate(() => {
   return active?.innerText.trim() || null;
 });
 check(mode === 'Map', 'the map opens on the street map, not a polar projection', mode || '(none active)');
+
+// ── 5. the map answers the question that was asked ──────────────────────────
+// "coffee near me" must search for COFFEE. The subject used to be discarded
+// entirely: the query resolved to the PLACE "me" (the generic in|at|near
+// pattern captured it before the geolocation pattern could run), and the
+// nearby lookup was hardcoded to 'restaurant cafe shop'. So the map centred on
+// a geocode of the word "me" and scattered restaurants over it.
+const asked = calls.filter((c) => /\/maps\/(places|local-businesses)/.test(c.path));
+check(asked.length > 0, 'the map looks for nearby places on its own',
+  `${asked.length} place lookups`);
+const subjects = asked.map((c) => c.body?.options?.query ?? c.body?.query ?? '(none)');
+check(subjects.some((q) => /coffee/i.test(q)),
+  '…for COFFEE, because that is what was typed', subjects.join(' · '));
+check(!subjects.some((q) => /restaurant cafe shop/i.test(q)),
+  '…and not for a hardcoded category list', subjects.join(' · '));
+
+// The geocode must never have been asked about the word "me".
+const geocoded = calls.filter((c) => c.path.includes('/maps/geocode')).map((c) => c.body?.query);
+check(!geocoded.some((q) => /^\s*me\s*$/i.test(q || '')),
+  '"near me" is never geocoded as a place called "me"', geocoded.join(' · ') || '(no geocodes)');
 
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 

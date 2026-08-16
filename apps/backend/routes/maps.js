@@ -309,7 +309,7 @@ router.post('/place-panel', async (req, res) => {
 
 router.post('/local-businesses', async (req, res) => {
   try {
-    const { location, radius = 5000, categories = [], limit = 20 } = req.body;
+    const { location, radius = 5000, categories = [], limit = 20, query = '' } = req.body;
 
     if (!location || !location.lat || !location.lng) {
       return res.status(400).json({
@@ -320,34 +320,32 @@ router.post('/local-businesses', async (req, res) => {
 
     const RadarService = require('../services/RadarService');
 
-    // Search for diverse local businesses (not just chains)
-    const searchOptions = {
-      near: { latitude: location.lat, longitude: location.lng },
-      options: {
-        radius,
-        limit: limit * 2, // Get more results to filter later
-      }
+    // RadarService.searchPlaces(near, options) takes TWO arguments. This used
+    // to call it with a single { near, options } object, so `near.latitude`
+    // was undefined and every request went out as "near=undefined,undefined".
+    // It also read the `{ success, places, meta }` return as if it were an
+    // array, so `results.length` was undefined and even a good response was
+    // discarded as empty. Local businesses could not have worked with a Radar
+    // key configured, which is why the caller was eventually commented out
+    // rather than debugged.
+    const near = { latitude: location.lat, longitude: location.lng };
+    const baseOptions = { radius, limit: limit * 2 };
+
+    const collect = async (options) => {
+      const result = await RadarService.searchPlaces(near, options);
+      return result?.success ? (result.places || []) : [];
     };
 
-    // If specific categories requested, search each category
     let allResults = [];
     if (categories.length > 0) {
       for (const category of categories) {
-        const results = await RadarService.searchPlaces({
-          ...searchOptions,
-          options: {
-            ...searchOptions.options,
-            categories: [category],
-          }
-        });
-        if (results && results.length > 0) {
-          allResults = [...allResults, ...results];
-        }
+        allResults = [...allResults, ...await collect({ ...baseOptions, categories: [category] })];
       }
     } else {
-      // Search for general POIs (restaurants, cafes, shops, etc.)
-      const results = await RadarService.searchPlaces(searchOptions);
-      allResults = results || [];
+      // `query` is what the person actually typed — "coffee", "hardware
+      // store". Searching a fixed list of categories instead is how "coffee
+      // near me" came back as a scatter of restaurants.
+      allResults = await collect({ ...baseOptions, ...(query ? { query } : {}) });
     }
 
     if (!allResults || allResults.length === 0) {
