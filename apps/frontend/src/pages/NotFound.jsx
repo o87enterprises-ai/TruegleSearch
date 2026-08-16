@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import TruegleLogo from '../components/ui/TruegleLogo';
+import SearchPageShell from '../components/layout/SearchPageShell';
 import { vaultFound } from '../utils/vault';
 
 // Lazy, and that is the whole point: someone who mistypes a URL, reads "404"
@@ -42,11 +43,26 @@ const NotFound = () => {
     setReading(true);
   }, []);
 
+  // The game sits ON a Truegle page, not instead of one.
+  //
+  // It used to replace the entire window: black to every edge, a lone "TRAIL"
+  // wordmark in the top corner, and the only way back a small ✕. Nothing said
+  // Truegle. The shell puts the logo back (and the logo goes home), keeps the
+  // mode background, and drops the game into a card built from the same
+  // gradient and border as every search result.
+  //
+  // NO SEARCH BAR AND NO PILL ROW — the shell renders each only when it is
+  // handed one, and this page hands it neither. There is nothing to search
+  // for here and no mode to switch to.
   if (playing) {
     return (
-      <Suspense fallback={<div className="fixed inset-0 z-[100] bg-black" />}>
-        <TrailGame onClose={stopPlaying} onFound={openVault} />
-      </Suspense>
+      <SearchPageShell mode="ocean">
+        <div className="max-w-4xl mx-auto">
+          <Suspense fallback={<div className="rounded-lg border border-cyan-500/30 bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 aspect-[16/9]" />}>
+            <TrailGame embedded onClose={stopPlaying} onFound={openVault} />
+          </Suspense>
+        </div>
+      </SearchPageShell>
     );
   }
 

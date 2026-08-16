@@ -35,6 +35,10 @@ const calls = [];
 // like. The reason travels on the navigation now, not in the URL, so it is its
 // own failure mode rather than a variation on the happy path.
 let failExchange = false;
+// A platform whose upstream REFUSES: the route still answers 200, with the
+// reason in `errors`. Module-level, like failExchange, because the stub is
+// installed once per context and the flag is flipped around a single case.
+let feedUpstreamFails = false;
 
 async function makeContext(opts = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, ...opts });
@@ -59,6 +63,18 @@ async function makeContext(opts = {}) {
       return json({ success: true, connection: { provider: 'reddit', handle: 'demo_user', connectedAt: new Date().toISOString() } });
     }
     if (url.pathname === '/api/social/feed') {
+      // A platform that REFUSED. The route answers 200 with an empty result
+      // set and the reason in `errors` — which is exactly the shape that used
+      // to render as a blank page with nothing to report.
+      if (feedUpstreamFails) {
+        return json({
+          query: body?.query || '',
+          results: [],
+          platforms: { reddit: [], hackernews: [], github: [] },
+          nextCursor: { reddit: null },
+          errors: { reddit: 'HTTP 403 — Reddit refused this request (commonly a blocked datacenter IP)' },
+        });
+      }
       const page = body?.cursor?.reddit ? 2 : 1;
       return json({
         query: body?.query || '',
@@ -273,6 +289,35 @@ check(await sad.locator('text=Reddit turned that down.').count() > 0,
   '…and shows the provider’s actual reason rather than failing silently');
 check(await sad.evaluate(() => JSON.parse(localStorage.getItem('truegle_feed_connections') || '[]').length) === 0,
   '…and records no connection for a handshake that did not succeed');
+
+// ── an upstream that refuses says so ────────────────────────────────────────
+//
+// This is the bug behind "the feed won't load". The route answers 200 with an
+// empty list and the reason in `errors`; the hook fetched that field and threw
+// it away, so a BLOCKED platform and a platform with nothing to show rendered
+// identically — a blank page. Worse, a failed platform reports a null cursor
+// exactly like an exhausted one, so the feed marked itself finished on page
+// one and the sentinel never asked again.
+feedUpstreamFails = true;
+const ctxErr = await makeContext();
+const errPage = await ctxErr.newPage();
+errPage.on('pageerror', (e) => errs.push(e.message));
+await errPage.addInitScript(() => {
+  localStorage.setItem('truegle_feed_connections', JSON.stringify([
+    { provider: 'reddit', handle: 'demo_user', connectedAt: new Date().toISOString() },
+  ]));
+});
+await errPage.goto(`${BASE}/feed`, { waitUntil: 'domcontentloaded' });
+await errPage.waitForTimeout(4000);
+
+const reported = await errPage.evaluate(() => {
+  const box = document.querySelector('[data-feed-upstream-errors]');
+  return box ? box.innerText.replace(/\s+/g, ' ').trim() : null;
+});
+check(!!reported, 'a refused upstream is reported on the page, not swallowed');
+check(/reddit/i.test(reported || ''), '…naming the platform', reported?.slice(0, 60));
+check(/403|refused/i.test(reported || ''),
+  '…and giving the upstream\'s actual reason', reported?.slice(0, 90));
 
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 

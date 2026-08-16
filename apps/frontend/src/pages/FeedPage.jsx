@@ -99,6 +99,26 @@ export default function FeedPage() {
         </div>
       )}
 
+      {/* WHY THE FEED IS EMPTY, when it is.
+          The server reports per-platform failures and this page used to
+          discard them, so "Reddit refused this request" and "Reddit had
+          nothing to show" both rendered as a blank page. An empty feed with
+          no explanation is unreportable — there is nothing for anyone to
+          describe except the absence. */}
+      {(feed.platformErrors || []).length > 0 && (
+        <div
+          data-feed-upstream-errors=""
+          className="max-w-4xl mx-auto mb-4 px-4 py-3 rounded-xl bg-amber-950/25 border border-amber-500/30 text-amber-100/90 text-sm"
+        >
+          {feed.platformErrors.map(({ platform, reason }) => (
+            <p key={platform} className="leading-snug">
+              <span className="font-semibold capitalize">{platform}</span> didn&apos;t answer —{' '}
+              <span className="text-amber-200/70">{reason}</span>
+            </p>
+          ))}
+        </div>
+      )}
+
       {/* Which state the page is in, for the browser test to wait on. Timing
           a cold boot with a fixed sleep is how a suite starts failing on a
           slower machine for reasons that have nothing to do with the code. */}

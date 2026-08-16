@@ -227,7 +227,7 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
       body: JSON.stringify({ query: redditQuery, platforms: ['reddit'], limit: 25 }),
       signal: controller.signal,
     })
-      .then((r) => (r.ok ? r.json() : { platforms: {} }))
+      .then((r) => (r.ok ? r.json() : { platforms: {}, errors: { reddit: `HTTP ${r.status}` } }))
       .then((d) => {
         const posts = d.platforms?.reddit || [];
         const rows = posts.map((p) => toSource({
@@ -236,7 +236,12 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
           image: p.thumbnail,
           channel: p.subreddit || p.author,
         }, true)).filter(Boolean);
-        steps.push(`reddit ${posts.length}→${rows.length}`);
+        // The upstream's own words, kept for the trace. Reddit refusing a
+        // request from our deployment and Reddit having nothing for this
+        // query both produce an empty list; only one of them is a bug, and
+        // without this there is no way to tell which one happened.
+        const why = d.errors?.reddit;
+        steps.push(`reddit ${posts.length}→${rows.length}${why ? ` (${why})` : ''}`);
         return rows;
       })
       .catch((e) => { if (e.name === 'AbortError') throw e; return []; });

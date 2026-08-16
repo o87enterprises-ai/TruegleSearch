@@ -333,6 +333,33 @@ function normaliseGitHub(repos) {
 
 const UA = 'TruegleSearch/1.0 (social-feed)';
 
+// MORE THAN ONE DOOR TO REDDIT.
+//
+// `www.reddit.com` is the documented one and the one that works from a laptop.
+// It is also the one most likely to answer a request from a datacenter with a
+// 403 or a 429 — which is what this runs on in production, so a single-host
+// fetch means the feed and the Tube Reddit search both fail for a reason that
+// has nothing to do with the query. These are the same public JSON on hosts
+// Reddit operates itself; if one refuses, the next is asked.
+const REDDIT_HOSTS = [
+  'https://www.reddit.com',
+  'https://old.reddit.com',
+  // No `www`: a different edge again, and the JSON is identical.
+  'https://reddit.com',
+];
+
+/** The upstream's own words, short enough to put in a JSON field. */
+function upstreamReason(err) {
+  if (err?.response) {
+    const status = err.response.status;
+    if (status === 403) return 'HTTP 403 — Reddit refused this request (commonly a blocked datacenter IP)';
+    if (status === 429) return 'HTTP 429 — rate limited by Reddit';
+    return `HTTP ${status}`;
+  }
+  if (err?.code === 'ECONNABORTED') return `timed out after ${FEED_TIMEOUT}ms`;
+  return err?.code || err?.message || 'unknown error';
+}
+
 async function fetchReddit(query, limit, after) {
   const params = query
     ? new URLSearchParams({ q: query, sort: 'hot', limit, type: 'link', t: 'week' })
@@ -341,16 +368,30 @@ async function fetchReddit(query, limit, after) {
   // /hot.json is the keyless popular listing — the honest stand-in for a home
   // feed until a token can ask for the real one.
   const path = query ? 'search.json' : 'hot.json';
-  const res = await axios.get(`https://www.reddit.com/${path}?${params}`, {
-    timeout: FEED_TIMEOUT,
-    // Reddit 429s a default user agent almost immediately. This header is the
-    // only reason any of this works unauthenticated.
-    headers: { 'User-Agent': UA },
-  });
-  return {
-    items: normaliseReddit(res.data?.data?.children?.map((c) => c.data) || [], query),
-    next: res.data?.data?.after || null,
-  };
+
+  const tried = [];
+  for (const host of REDDIT_HOSTS) {
+    try {
+      const res = await axios.get(`${host}/${path}?${params}`, {
+        timeout: FEED_TIMEOUT,
+        // Reddit 429s a default user agent almost immediately. This header is
+        // the only reason any of this works unauthenticated.
+        headers: { 'User-Agent': UA },
+      });
+      return {
+        items: normaliseReddit(res.data?.data?.children?.map((c) => c.data) || [], query),
+        next: res.data?.data?.after || null,
+      };
+    } catch (err) {
+      tried.push(`${new URL(host).host}: ${upstreamReason(err)}`);
+    }
+  }
+  // Carries WHICH host said WHAT. "Reddit unavailable" on its own cannot tell
+  // a blocked deployment IP from an outage from a bad query, and that
+  // difference is the whole diagnosis.
+  const err = new Error(`Reddit unreachable — ${tried.join(' · ')}`);
+  err.attempts = tried;
+  throw err;
 }
 
 async function fetchHackerNews(query, limit, page = 0) {
@@ -445,10 +486,18 @@ router.post('/feed', async (req, res) => {
         hackernews: settle(hnResult).next,
         github: settle(ghResult).next,
       },
+      // WHY, not just THAT.
+      //
+      // This used to say 'unavailable' for every kind of failure, and the
+      // client threw the field away entirely — so a platform being blocked, a
+      // platform timing out and a platform genuinely having no posts all
+      // looked identical from the outside: an empty feed and no explanation.
+      // That is what "the feed won't load" was, and it is unfixable from a
+      // screenshot when the only symptom is nothing.
       errors: {
-        reddit: redditResult.status === 'rejected' ? 'unavailable' : null,
-        hackernews: hnResult.status === 'rejected' ? 'unavailable' : null,
-        github: ghResult.status === 'rejected' ? 'unavailable' : null,
+        reddit: redditResult.status === 'rejected' ? (redditResult.reason?.message || 'unavailable') : null,
+        hackernews: hnResult.status === 'rejected' ? (hnResult.reason?.message || 'unavailable') : null,
+        github: ghResult.status === 'rejected' ? (ghResult.reason?.message || 'unavailable') : null,
       },
     });
   } catch (error) {

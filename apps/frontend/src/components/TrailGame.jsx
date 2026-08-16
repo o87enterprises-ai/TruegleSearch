@@ -13,15 +13,19 @@ import { X } from 'lucide-react';
  * download a game. The import only fires once the player opens it, which is
  * also why the chunk can afford to be as big as it needs to be.
  */
-export default function TrailGame({ onClose, onFound }) {
+export default function TrailGame({ onClose, onFound, embedded = false }) {
   const canvasRef = useRef(null);
   const [failed, setFailed] = useState(false);
 
+  // Only the full-screen presentation owns the page's scroll. Embedded, the
+  // game is a card ON a page — locking the document would strand the reader
+  // wherever the card happens to sit.
   useEffect(() => {
+    if (embedded) return undefined;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
-  }, []);
+  }, [embedded]);
 
   // onClose through a REF, so the game mounts exactly once.
   //
@@ -56,13 +60,8 @@ export default function TrailGame({ onClose, onFound }) {
     return () => { live = false; unmount?.(); };
   }, []);
 
-  // Portalled to <body> and above everything. The site's own fixed chrome —
-  // the hamburger at z-9998, the clock, the cookie bar — sits at four-figure
-  // z-indexes, so a modestly-stacked overlay renders UNDER it: the first build
-  // had a menu button and a live clock floating over the sky. A full-screen
-  // game has to be the top of the stack or it is not full screen.
-  return createPortal(
-    <div className="fixed inset-0 z-[100000] bg-black flex flex-col">
+  const chrome = (
+    <>
       <div className="flex items-center justify-between px-3 py-2 shrink-0">
         <span className="text-[11px] tracking-[0.2em] text-white/35 font-mono">TRAIL</span>
         <button
@@ -76,8 +75,12 @@ export default function TrailGame({ onClose, onFound }) {
       </div>
 
       {/* The canvas fills what's left and measures itself against this box —
-          the engine reads parentElement, so the frame has to be the parent. */}
-      <div className="flex-1 min-h-0 relative">
+          the engine reads parentElement, so the frame has to be the parent.
+          Embedded, the box takes the game's OWN 320x180 shape (see engine.js)
+          rather than a guessed height: the renderer letterboxes anything else,
+          so a card taller than 16:9 is just dead card. Full screen keeps
+          flex-1, where filling the window is the whole point. */}
+      <div className={`relative ${embedded ? 'w-full aspect-[16/9]' : 'flex-1 min-h-0'}`}>
         {failed ? (
           <p className="absolute inset-0 flex items-center justify-center text-white/40 text-sm px-6 text-center">
             The game didn&apos;t load. You&apos;re still on a 404 either way.
@@ -90,6 +93,40 @@ export default function TrailGame({ onClose, onFound }) {
           />
         )}
       </div>
+    </>
+  );
+
+  // EMBEDDED: a card on a Truegle page, not a takeover.
+  //
+  // The game used to be the whole window — black to every edge, a lone
+  // "TRAIL" wordmark in the corner, and no way back to the site except the
+  // ✕. That is a different product wearing Truegle's URL. Embedded it keeps
+  // the page's logo, background and card language, so it reads as something
+  // Truegle has rather than somewhere Truegle sent you.
+  //
+  // No portal here on purpose: the point is to sit INSIDE the page's layout.
+  if (embedded) {
+    return (
+      <div
+        data-trail-embedded=""
+        // The results card, exactly: same gradient, same radius, same border
+        // treatment as every ResultCard on the search page.
+        className="flex flex-col rounded-lg overflow-hidden border border-cyan-500/30
+                   bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 shadow-2xl"
+      >
+        {chrome}
+      </div>
+    );
+  }
+
+  // Portalled to <body> and above everything. The site's own fixed chrome —
+  // the hamburger at z-9998, the clock, the cookie bar — sits at four-figure
+  // z-indexes, so a modestly-stacked overlay renders UNDER it: the first build
+  // had a menu button and a live clock floating over the sky. A full-screen
+  // game has to be the top of the stack or it is not full screen.
+  return createPortal(
+    <div className="fixed inset-0 z-[100000] bg-black flex flex-col">
+      {chrome}
     </div>,
     document.body,
   );

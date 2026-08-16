@@ -616,6 +616,14 @@
         "body": "The Reddit chip/!reddit bang went to /api/search category 'social', which is served ONLY by optional SearXNG + Google CSE — unconfigured means zero providers queued and an empty list. usePlayerSearch now calls POST /api/social/feed with platforms:['reddit'] FIRST (keyless reddit search.json, already used by the feed page) and keeps the index path as fallback. Must use post.permalink, never post.url — url is whatever the post links to (i.redd.it/news site) and getPlayable only accepts /r/<sub>/comments/<id>. Covered by npm run reddit:test.",
         "ts": "2026-08-16",
         "created": "2026-08-16"
+      },
+      "social-feed-silent-failure": {
+        "Id": "social-feed-silent-failure",
+        "Type": "fact",
+        "Label": "Social feed failed silently — errors were discarded",
+        "body": "POST /api/social/feed answers 200 with results:[] and errors:{reddit:'...'} when an upstream refuses. useSocialFeed FETCHED that field and threw it away, and a failed platform reports next:null exactly like an exhausted one — so one blocked upstream set done=true on page ONE, the feed declared itself finished having shown nothing, and the sentinel never asked again. Both /feed ('feed won't load') and the Tube Reddit chip present as an empty list with no explanation. FIXED: backend reports the real reason (HTTP 403/429/timeout + which host), tries www./old./bare reddit.com in turn, frontend surfaces platformErrors and no longer treats an all-failed page as the end. NOT VERIFIED against the live backend — the agent sandbox proxy 403s every outbound host including backend-seven-khaki-60.vercel.app and reddit.com, so the actual production cause is still unconfirmed; the leading suspect is Reddit blocking Vercel datacenter IPs (403), which the new error field will now name.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
       }
     },
     "decision": {
