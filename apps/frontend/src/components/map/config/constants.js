@@ -153,7 +153,14 @@ export const MAP_VIEW_MODES = {
   GLOBE_3D: 'globe_3d',
 };
 
-export const DEFAULT_MAP_VIEW_MODE = MAP_VIEW_MODES.AZIMUTHAL_FLAT;
+// The STANDARD street map, not the azimuthal projection.
+//
+// Opening on azimuthal meant a search for "coffee near me" landed on a polar
+// projection of the northern hemisphere — beautiful, and useless for finding a
+// coffee shop. The projection views are worth keeping and stay one press away
+// on the function bar; they are just not what somebody asking a local question
+// should be shown first.
+export const DEFAULT_MAP_VIEW_MODE = MAP_VIEW_MODES.STANDARD;
 
 export const US_BOUNDS = {
   north: 49.384358,

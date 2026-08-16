@@ -568,6 +568,14 @@
         "body": "MediaSource.isTypeSupported('video/mp4; codecs=avc1...') is false in /opt/pw-browsers/chromium, so hls.js always ends fatal here. Browser tests can prove the video PATH is taken and that hls.js loads lazily, never that a stream decodes. Map provider hosts (mapbox/tomtom/nominatim/OSRM) are also denied by the network policy; raw.githubusercontent.com IS reachable.",
         "ts": "2026-08-16",
         "created": "2026-08-16"
+      },
+      "map-ui-layout": {
+        "Id": "map-ui-layout",
+        "Type": "fact",
+        "Label": "Map chrome: search top, functions bottom",
+        "body": "Fixed 2026-08-16. AdBanner rendered in BOTH MapViewWrapper and TruegleMap (wrapper mounts the map) = 4 ad slots per map; TruegleMap's were removed, wrapper owns chrome. Function bar moved from top-4 (unbounded single row, clipped both edges by overflow-hidden, colliding with search + zoom stack) to bottom-4, max-w-[calc(100%-32px)], overflow-x-auto .no-scrollbar. Watermark logo raised to bottom:72px + pointerEvents none. DEFAULT_MAP_VIEW_MODE azimuthal_flat -> standard. Guard: apps/frontend npm run mapui:test.",
+        "ts": "2026-08-16",
+        "created": "2026-08-16"
       }
     },
     "decision": {

@@ -23,6 +23,7 @@
     "vault:browser": "node scripts/verify-vault-browser.mjs",
     "feedpage:test": "node scripts/verify-feed-page.mjs",
     "cameraview:test": "node scripts/verify-camera-view.mjs",
+    "mapui:test": "node scripts/verify-map-ui.mjs",
     "map:test": "esbuild scripts/verify-map-api.mjs --bundle --format=esm --platform=node --alias:axios=./scripts/stubs/axios.mjs --define:import.meta.env='{\"DEV\":false}' --outfile=dev/.build/map-test.mjs --log-level=error && node dev/.build/map-test.mjs",
     "vault:test": "esbuild scripts/verify-encyclopedia.mjs --bundle --format=esm --platform=node --loader:.md=text --outfile=dev/.build/vault-test.mjs --log-level=error && node dev/.build/vault-test.mjs",
     "player:test": "esbuild scripts/verify-player.mjs --bundle --format=esm --platform=node --outfile=dev/.build/player-test.mjs --external:esbuild --log-level=error && node dev/.build/player-test.mjs",

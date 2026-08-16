@@ -64,6 +64,7 @@ export default [
       '**/verify-*-browser.mjs',
       '**/verify-feed-page.mjs',
       '**/verify-camera-view.mjs',
+      '**/verify-map-ui.mjs',
     ],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },

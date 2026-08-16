@@ -543,3 +543,14 @@
     right: 16px;
   }
 }
+/* The function bar scrolls horizontally when the map is narrower than its
+   controls. A visible scrollbar inside a floating glass pill reads as a
+   rendering fault rather than an affordance, so it is hidden — the row is
+   still swipeable and keyboard-scrollable. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

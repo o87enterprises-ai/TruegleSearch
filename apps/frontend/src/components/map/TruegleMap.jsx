@@ -13,7 +13,6 @@ import LocationPermissionModal from './LocationPermissionModal';
 import Globe3D from './Globe3D';
 import AzimuthalFlat from './AzimuthalFlat';
 import WebGLErrorBoundary from '../ui/WebGLErrorBoundary';
-import AdBanner from './AdBanner';
 import EnhancedCameraSearch from './EnhancedCameraSearch';
 import MapApiService from './services/mapApi';
 import backgroundImage from '../../assets/images/Azimuthal-satellite-view.png';
@@ -600,8 +599,11 @@ export default function TruegleMap({
       className={`truegle-map-container ${className}`}
       style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
     >
-      {/* Top Ad Banner */}
-      <AdBanner position="top" />
+      {/* No ad banner here. MapViewWrapper — which is the only thing that
+          mounts this component in the app — renders its own top and bottom
+          banners, so having them in both put FOUR ad slots around a single
+          map, two stacked at each end, and pushed the map itself below the
+          fold. The wrapper owns the chrome; this owns the map. */}
 
       {/* Map Content */}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
@@ -818,10 +820,18 @@ export default function TruegleMap({
             </button>
           </div>
 
-          {/* Function Bar - Top Center (Non-Fullscreen) */}
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40">
-            <div className="bg-gradient-to-r from-neutral-900/95 to-neutral-800/95 backdrop-blur-xl rounded-xl border border-neutral-700/50 shadow-2xl">
-              <div className="flex items-center gap-2 px-4 py-2">
+          {/* Function Bar — BOTTOM centre, not top.
+              It was `absolute top-4 left-1/2` with no width bound and no
+              wrapping: eight buttons in one rigid row, wider than the map, so
+              the container's overflow-hidden sliced "Map" off the left edge
+              and "Close" off the right. It also shared the top band with the
+              search field and the zoom stack, so all three overlapped.
+              The top band is now search only; modes and layers sit along the
+              bottom the way every other map app arranges them, bounded to the
+              container and scrollable rather than clipped. */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100%-32px)]">
+            <div className="bg-gradient-to-r from-neutral-900/95 to-neutral-800/95 backdrop-blur-xl rounded-xl border border-neutral-700/50 shadow-2xl overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-2 px-4 py-2 w-max">
                 {/* View Mode Selector */}
                 <button
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -1254,17 +1264,21 @@ export default function TruegleMap({
         alt={defaultLogoConfig.alt}
         style={{
           position: 'absolute',
-          bottom: '16px',
           right: '80px',
           ...getLogoPosition('bottomRight'),
           ...defaultLogoConfig.style,
+          // Last word on the vertical position, after the spreads. The
+          // function bar now runs along the bottom and the watermark sat
+          // underneath it; a measured overlap, not a guess.
+          bottom: '72px',
+          // Decoration must never eat a click meant for the map.
+          pointerEvents: 'none',
         }}
         {...getLogoSize(defaultLogoConfig.size)}
       />
       </div>
 
-      {/* Bottom Ad Banner */}
-      <AdBanner position="bottom" />
+      {/* Bottom banner likewise belongs to the wrapper — see above. */}
     </div>
   );
 }
