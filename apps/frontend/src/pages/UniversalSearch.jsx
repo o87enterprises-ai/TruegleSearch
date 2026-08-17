@@ -518,6 +518,19 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // last query the user actually searched for.
   const { isLocationQuery, detectedLocation, queryType } = useLocationDetection(lastSearchedQuery);
 
+  // A near-me question the server cannot have answered.
+  //
+  // `queryType === 'geolocation'` is parseLocalQuery's verdict on the query
+  // the user actually submitted, and it is the same rule the backend now uses
+  // to refuse building a card. Suppression is unconditional rather than
+  // waiting on a permission check: even WITH a granted position, the card in
+  // hand was built server-side from a web result and knows nothing about
+  // where the reader is, so it is a guess either way. What answers the
+  // question is the map — which opens for exactly these queries and asks for
+  // a position when it needs one.
+  const suppressLocalGuess = queryType === 'geolocation'
+    && instantAnswer?.type === 'local_business';
+
   // The local panel. Asked on the SUBMITTED query only, and the backend gate
   // means most searches never reach a provider — a geocode per keystroke would
   // spend a free-tier quota on the 99% of queries that are not places.
@@ -1581,7 +1594,16 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
           </div>
 
           {/* Quick Result Card — directly below search bar for instant visibility */}
-          {instantAnswer && mode !== 'tube' && (
+          {/* NO QUICK CARD FOR A NEAR-ME QUESTION WITHOUT A POSITION.
+              The server builds a local-business card from the top web
+              result's pagemap, and it has no idea where anybody is — so
+              "coffee near me" produced a confident card for whichever coffee
+              shop ranks well globally, in a city the reader has never been
+              to. The backend refuses these now; this guard is what makes the
+              fix take effect on a frontend deploy rather than waiting for a
+              backend one, and it keeps holding if an older backend is ever
+              rolled back. The map is the answer to a near-me question. */}
+          {instantAnswer && mode !== 'tube' && !suppressLocalGuess && (
             <div className="max-w-4xl mx-auto mb-4 mt-2">
               <QuickResultCard instantAnswer={instantAnswer} mode={mode === 'green' ? 'green' : mode === 'red' ? 'red' : mode === 'purple' ? 'purple' : mode === 'ocean' ? 'ocean' : 'blue'} />
             </div>

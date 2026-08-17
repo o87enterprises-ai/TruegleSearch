@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import SearchPageShell from './layout/SearchPageShell';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
 import AdSlot from './AdSlot';
@@ -59,8 +60,16 @@ const SettingsPage = () => {
     'w-full p-3 rounded-xl bg-black/40 border border-white/20 text-white focus:outline-none focus:border-emerald-400 transition-colors';
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="max-w-3xl mx-auto px-4 py-12">
+    // THE BRAND LAYOUT, like every other page.
+    //
+    // Settings was one of the last two pages rendering as a bare
+    // `min-h-screen bg-black` — no logo, no background, no way home except the
+    // browser's back button. It read as a different site. The shell supplies
+    // the logo (which routes to the landing page) and the mode background;
+    // it is handed no search bar and no pill row, because there is nothing to
+    // search for here and no mode to switch to. Same call as the Trail page.
+    <SearchPageShell mode="green">
+      <div className="max-w-3xl mx-auto text-white">
         {/* Cookie Preference Dialog */}
         {showCookieDialog && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -105,13 +114,12 @@ const SettingsPage = () => {
           </div>
         )}
 
-        <div className="mb-10">
-          <div className="inline-block text-xs uppercase tracking-widest text-emerald-400/80 mb-3">
+        {/* A section label, not a second wordmark — the shell above already
+            says whose settings these are. */}
+        <div className="mb-6 flex items-center justify-center gap-2">
+          <SafeIcon icon={FiSettings} className="text-emerald-400" size={18} />
+          <h1 className="text-sm font-semibold uppercase tracking-widest text-emerald-400/80">
             Settings
-          </div>
-          <h1 className="text-3xl md:text-4xl font-bold flex items-center gap-3">
-            <SafeIcon icon={FiSettings} className="text-emerald-400" size={28} />
-            Truegle Settings
           </h1>
         </div>
 
@@ -120,7 +128,7 @@ const SettingsPage = () => {
           <AdSlot position="settings-top" size="leaderboard" className="mx-auto" />
 
           {/* Privacy & Security */}
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
+          <div className="p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">
             <div className="flex items-center mb-4">
               <SafeIcon icon={FiShield} className="mr-2 text-emerald-400" />
               <h2 className="text-lg font-semibold">Privacy &amp; Security</h2>
@@ -192,7 +200,7 @@ const SettingsPage = () => {
           <AdSlot position="settings-middle" size="medium" className="mx-auto" />
 
           {/* Search Preferences */}
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
+          <div className="p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">
             <div className="flex items-center mb-4">
               <SafeIcon icon={FiEye} className="mr-2 text-emerald-400" />
               <h2 className="text-lg font-semibold">Search Preferences</h2>
@@ -229,7 +237,7 @@ const SettingsPage = () => {
           </div>
 
           {/* Ad Preferences */}
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
+          <div className="p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">
             <div className="flex items-center mb-4">
               <SafeIcon icon={FiDollarSign} className="mr-2 text-emerald-400" />
               <h2 className="text-lg font-semibold">Ad Preferences</h2>
@@ -281,7 +289,7 @@ const SettingsPage = () => {
               S2S postback support (Adsterra Publishers has none) — moving to a
               manual email-verification workflow. Rewards status + dashboard link
               hidden from Settings.
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
+          <div className="p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">
             <div className="flex items-center mb-4">
               <SafeIcon icon={FiDollarSign} className="mr-2 text-emerald-400" />
               <h2 className="text-lg font-semibold">Rewards Program</h2>
@@ -310,7 +318,7 @@ const SettingsPage = () => {
 
           {/* Account code — durable sign-in credential */}
           {isAuthenticated && (
-            <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
+            <div className="p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">
               <div className="flex items-center mb-4">
                 <SafeIcon icon={FiKey} className="mr-2 text-emerald-400" />
                 <h2 className="text-lg font-semibold">Account code</h2>
@@ -333,7 +341,7 @@ const SettingsPage = () => {
           <AdSlot position="settings-bottom" size="leaderboard" className="mx-auto" />
 
           {/* Privacy & Data */}
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
+          <div className="p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">
             <div className="flex items-center mb-4">
               <SafeIcon icon={FiLock} className="mr-2 text-emerald-400" />
               <h2 className="text-lg font-semibold">Privacy &amp; Data</h2>
@@ -389,7 +397,7 @@ const SettingsPage = () => {
           </div>
 
           {/* About */}
-          <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
+          <div className="p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">
             <div className="flex items-center mb-4">
               <SafeIcon icon={FiGlobe} className="mr-2 text-emerald-400" />
               <h2 className="text-lg font-semibold">About Truegle</h2>
@@ -407,7 +415,7 @@ const SettingsPage = () => {
       {acctCode && (
         <AccountCodeModal code={acctCode} onClose={() => setAcctCode(null)} />
       )}
-    </div>
+    </SearchPageShell>
   );
 };
 

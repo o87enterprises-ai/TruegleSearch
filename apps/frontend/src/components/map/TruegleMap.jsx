@@ -53,6 +53,9 @@ export default function TruegleMap({
   // where the map lives, the same split the player uses.
   poppedOut = false,
   onTogglePopOut = null,
+  // What the nearby lookup did. See MapViewWrapper — the map reports it so an
+  // empty map can say WHY it is empty.
+  nearbyStatus = null,
   children,
   className = '',
 }) {
@@ -1667,6 +1670,33 @@ export default function TruegleMap({
         onLocationGranted={handleLocationGranted}
         onLocationDenied={handleLocationDenied}
       />
+
+      {/* WHY THE MAP HAS NO PINS ON IT.
+          A search that found nothing and a search that was refused look
+          identical — an empty map — and only one of them is something anyone
+          can act on. The ladder's failures ride along in `reason`, so a CSP
+          block or a provider outage names itself instead of presenting as
+          "no results". Nothing renders while it is working or once it has
+          found something. */}
+      {nearbyStatus && (nearbyStatus.state === 'empty' || nearbyStatus.state === 'failed') && (
+        <div
+          data-nearby-status={nearbyStatus.state}
+          className="absolute top-16 left-1/2 -translate-x-1/2 z-30 max-w-[calc(100%-32px)]
+                     px-3 py-2 rounded-lg border shadow-lg backdrop-blur-md
+                     border-amber-500/30 bg-amber-950/70 text-amber-100/90"
+        >
+          <p className="text-[11px] leading-snug">
+            {nearbyStatus.state === 'empty'
+              ? `Nothing found for “${nearbyStatus.query || 'places'}” within 5 km.`
+              : 'Couldn\u2019t reach any place provider.'}
+          </p>
+          {nearbyStatus.reason && (
+            <p className="mt-0.5 text-[10px] text-amber-200/60 break-words line-clamp-2">
+              {nearbyStatus.reason}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Share this spot. Opened by a right-click or a long press; positioned
           at the point that was pressed, then nudged back inside the container

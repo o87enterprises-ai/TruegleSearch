@@ -285,6 +285,12 @@ function validateFilters(filters) {
   return validFilters;
 }
 
+// Every way of saying "where I am". Kept in step with the client's own
+// parseLocalQuery (hooks/useLocationDetection.js) — the two have to agree
+// about what counts as local, or the server answers a question the client is
+// simultaneously opening a map for.
+const NEAR_ME_RE = /\b(?:near(?:by)?\s+me|near\s*by|nearby|around\s+me|close\s+to\s+me|closest(?:\s+to\s+me)?|by\s+me)\b/i;
+
 /**
  * Detect query type to determine instant answer card type.
  */
@@ -294,8 +300,22 @@ function detectQueryType(query) {
   // Phone number pattern
   if (/[\+\d][\d\s\-\(\)]{7,}/.test(query)) return 'phone';
 
-  // Business/local: "near me", "hours", "address", "phone number"
-  if (/\b(near me|hours|open now|address|phone number|directions|location)\b/.test(q))
+  // "NEAR ME" IS NOT A QUERY THIS SERVER CAN ANSWER.
+  //
+  // It used to fall into 'local_business' with everything else, and that card
+  // is built from the TOP WEB RESULT's pagemap — so "coffee near me" produced
+  // a confident card for whichever coffee shop ranks well globally, in a city
+  // the user has never been to. Worse than no answer: it looks like an answer.
+  //
+  // The server has no position and never will unless the client sends one;
+  // geolocation lives in the browser. So this returns its own type, and
+  // buildInstantAnswer refuses it. The MAP is the answer to a near-me
+  // question, and the client opens one.
+  if (NEAR_ME_RE.test(q)) return 'near_me';
+
+  // Business/local: "hours", "address", "phone number" — answerable, because
+  // the query NAMES the business and the top result is about it.
+  if (/\b(hours|open now|address|phone number|directions|location)\b/.test(q))
     return 'local_business';
 
   // Direct business name (contains common business suffixes)
@@ -371,6 +391,12 @@ const APP_NAMES = [
 async function buildInstantAnswer(query, results) {
   const type = detectQueryType(query);
   if (!type) return null;
+
+  // A near-me question gets no card from here. Answering it needs a position
+  // this process does not have, and a guess dressed as an answer is the worst
+  // of the three options — the other two being an honest blank and the map
+  // the client opens alongside these results.
+  if (type === 'near_me') return null;
 
   // these types are computed independently of web results
   const needsResults = !['calculation', 'weather', 'conversion', 'time', 'definition'].includes(type);

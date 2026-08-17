@@ -52,6 +52,10 @@ export default function MapViewWrapper({
   const [mapZoom, setMapZoom] = useState(4);
   const hasFetchedPlacesRef = useRef(false);
   const lastLocationRef = useRef(null);
+  // What the nearby lookup did, in the lookup's own words. Rendered on the
+  // map — see TruegleMap's nearbyStatus. 'searching' | 'found' | 'empty' |
+  // 'failed', with the reason when it failed.
+  const [nearbyStatus, setNearbyStatus] = useState({ state: 'idle', query: '', reason: '' });
   // Popped out = floating over the page instead of sitting in the results
   // column, so the map is no longer a mode you are stuck in. Remembered,
   // because it is a preference about how you like to work, not a per-search
@@ -226,6 +230,7 @@ export default function MapViewWrapper({
         // the old constant was ever right for.
         const query = subject || 'restaurant cafe shop';
         const result = await MapApiService.searchPlaces(location, { query, radius: 5000, limit: 20 });
+        setNearbyStatus({ state: (result?.data || []).length ? 'found' : 'empty', query, reason: '' });
         for (const place of result?.data || []) {
           actions.addMarker({
             id: `place-${place.position.lat.toFixed(5)}-${place.position.lng.toFixed(5)}`,
@@ -238,7 +243,14 @@ export default function MapViewWrapper({
         }
         return (result?.data || []).length > 0;
       } catch (error) {
-        console.warn('Nearby places unavailable:', error.message);
+        // WHICH PROVIDER, AND WHY. The ladder attaches `failures` — one entry
+        // per provider with its own message — and this used to drop all of it
+        // into console.warn, where nobody on a phone can read it. An empty map
+        // and a blocked map look identical, and only one of them is a bug you
+        // can act on. Same lesson as the social feed.
+        const detail = Array.isArray(error.failures) ? error.failures.join(' · ') : error.message;
+        console.warn('Nearby places unavailable:', detail);
+        setNearbyStatus({ state: 'failed', query: subject || '', reason: detail });
         return false;
       }
     };
@@ -266,8 +278,10 @@ export default function MapViewWrapper({
       // disabled (it cleared every existing marker) is fixed above rather
       // than worked around by not calling it.
       const subject = detectedLocation?.subject || '';
+      setNearbyStatus({ state: 'searching', query: subject, reason: '' });
       fetchNearbyPlaces(location, subject).then((served) => {
-        if (!served) fetchNearbyFallback(location, subject);
+        if (served) { setNearbyStatus({ state: 'found', query: subject, reason: '' }); return undefined; }
+        return fetchNearbyFallback(location, subject);
       });
     }
   }, [isOpen, userLocation, detectedLocation]);
@@ -387,6 +401,7 @@ export default function MapViewWrapper({
       onClose={handleClose}
       poppedOut={poppedOut}
       onTogglePopOut={() => setPoppedOut((v) => !v)}
+      nearbyStatus={nearbyStatus}
     />
   );
 

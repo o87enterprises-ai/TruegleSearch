@@ -672,6 +672,14 @@
         "body": "Eleven controls wrapped onto THREE rows in a 420px popped-out map — a third of the window spent on chrome. compactBar (areaWidth < 520) drops the exploratory controls (projection trio, basemap style, traffic, cameras, camera search) and keeps Directions, Location, Pop out/Dock, Close; it also switches the row to flex-nowrap and drops the divider before Close, because a wrap there costs a whole extra row for decoration. Measured 76px->44px, 22%->13% of a 340px frame. Nothing is lost — every dropped control returns when the map is docked or widened. Wide keeps flex-wrap, which is what stops 'Close' being clipped.",
         "ts": "2026-08-17",
         "created": "2026-08-17"
+      },
+      "near-me-quick-card": {
+        "Id": "near-me-quick-card",
+        "Type": "fact",
+        "Label": "The quick-answer card must never guess a location",
+        "body": "REPORTED: 'coffee near me' produced a confident quick-results card for a coffee shop in a random major US city. Not random — whichever coffee shop ranked FIRST GLOBALLY. detectQueryType mapped any 'near me' query to 'local_business', and buildInstantAnswer builds that card from the TOP WEB RESULT's pagemap. The server has no position and never will; geolocation lives in the browser and nothing sends it. FIXED both ends: routes/search.js has NEAR_ME_RE (kept in step with the client's parseLocalQuery) returning its own 'near_me' type that buildInstantAnswer refuses, and UniversalSearch suppresses any local_business card when queryType==='geolocation' — the client guard is what makes the fix land on a frontend deploy and survive a backend rollback. Queries that NAME a business ('starbucks hours') still answer, because the top result really is about them. Covered by apps/backend/__tests__/instantAnswer.nearMe.test.js. TEST TRAP: routes/search.js calls searchService.performSearch() (NOT .search()) on a CLASS instantiated at module load, so the jest mock must be a constructor returning { performSearch } — anything else 500s every request and looks like the feature failing.",
+        "ts": "2026-08-17",
+        "created": "2026-08-17"
       }
     },
     "decision": {
@@ -1624,6 +1632,14 @@
         "Type": "decision",
         "Label": "Chat answers local questions with the search page's map",
         "body": "components/chat/ChatLocationMap.jsx: useLocationDetection on the SUBMITTED query (never the input box — near-me detection asks the browser for a position, so per-keystroke would prompt while somebody is still typing 'near'), and when it is local it renders MapViewWrapper in the map's own pop-out frame. Owns almost nothing: detection, the Overpass/Nominatim nearby ladder and the markers are all the same code /search runs, so 'coffee near me' cannot mean different things on different surfaces. Floats rather than docking inline because a 600px card wedged mid-conversation pushes the reply off screen. Dismissal is keyed by query so closing never suppresses the NEXT local question, and leaves a 'Show the map for …' line. MapViewWrapper gained defaultPoppedOut + popOutStorageKey so each surface keeps its own pop-out preference (chat=truegle_chat_map_popped, default popped). Covered by npm run chatmap:test.",
+        "ts": "2026-08-17",
+        "created": "2026-08-17"
+      },
+      "settings-on-shell": {
+        "Id": "settings-on-shell",
+        "Type": "decision",
+        "Label": "Settings renders on SearchPageShell",
+        "body": "components/SettingsPage.jsx was one of the last two pages on a bare min-h-screen bg-black — no logo, no background, no way home but the browser back button; it read as a different site. Now SearchPageShell mode='green', handed no search bar and no pill row (nothing to search for, no mode to switch to) — same call as the Trail page. The page title dropped to a small section label because the shell already carries the wordmark, and the seven panels moved from flat bg-white/5 to the results-card gradient (from-[#1a1a2e]/95 to-[#16213e]/95) with an emerald border. Only ExtractPage remains off-layout, and it is parked pending the Tube fold.",
         "ts": "2026-08-17",
         "created": "2026-08-17"
       }
