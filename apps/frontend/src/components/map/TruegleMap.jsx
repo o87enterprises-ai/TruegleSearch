@@ -133,6 +133,15 @@ export default function TruegleMap({
   }, [isFullscreen, poppedOut, panelOpen]);
   const showBarLabels = areaWidth >= 900;
   const labelClass = showBarLabels ? '' : 'hidden';
+  // THE VIEW MODES KEEP THEIR LABELS LONGER THAN EVERYTHING ELSE.
+  //
+  // Layers, Traffic, Cameras and the rest are toggles: their icon plus their
+  // lit/unlit state says what they do. Map / Azimuthal / Globe are a MODE
+  // SELECTOR — three near-identical circles in a row — and stripped of text
+  // there is no way to tell which is which except by pressing one and seeing
+  // what happens. They are the last labels to go.
+  const showModeLabels = areaWidth >= 560;
+  const modeLabelClass = showModeLabels ? '' : 'hidden';
   // A SMALL MAP GETS A SMALL BAR.
   //
   // Eleven controls wrap onto three rows in a 420px pop-out, which is a third
@@ -156,6 +165,22 @@ export default function TruegleMap({
   const [locationOnScreen, setLocationOnScreen] = useState(false);
   // Their address, looked up once, for the hover label on the blue dot.
   const [userAddress, setUserAddress] = useState('');
+
+  // WHAT JUST CHANGED, said out loud for a moment.
+  //
+  // The controls are icons that light up, which tells you a toggle is ON but
+  // not WHICH toggle you hit — and on a narrow map, with the labels gone, a
+  // press produces a change somewhere in a ten-icon strip and you are left
+  // reading the map to work out what happened. This is the receipt: it names
+  // the state, sits over the map for a moment, and leaves.
+  const [stateToast, setStateToast] = useState(null);
+  const toastTimerRef = useRef(null);
+  const announce = useCallback((label) => {
+    setStateToast({ label, at: Date.now() });
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setStateToast(null), 1800);
+  }, []);
+  useEffect(() => () => clearTimeout(toastTimerRef.current), []);
 
   // Right-click / long-press menu: { lng, lat, x, y, address }.
   const [locationMenu, setLocationMenu] = useState(null);
@@ -249,11 +274,15 @@ export default function TruegleMap({
         lng >= -180 &&
         lng <= 180
       ) {
-        setViewState(prev => ({
-          ...prev,
-          longitude: lng,
-          latitude: lat,
-        }));
+        // Only when it is actually somewhere else. handleMoveEnd now writes the
+        // centre back into shared state, so without this guard every pan
+        // bounces straight back through here and re-sets viewState to the
+        // values it already has — a new object, a re-render, every time.
+        setViewState(prev => (
+          prev.latitude === lat && prev.longitude === lng
+            ? prev
+            : { ...prev, longitude: lng, latitude: lat }
+        ));
       } else {
         console.error('❌ Invalid center coordinates from state:', state.center);
         console.warn('⚠️ Ignoring invalid center update to prevent Mapbox errors');
@@ -361,6 +390,14 @@ export default function TruegleMap({
   const handleMoveEnd = useCallback((evt) => {
     const { zoom, latitude, longitude } = evt.viewState;
     actions.setZoom(zoom);
+    // AND THE CENTRE. This is why the map "reset" when you changed view:
+    // panning only ever updated the LOCAL viewState, so shared state still
+    // held wherever the map was last flown to. Switch to Globe or Azimuthal
+    // and they were handed that stale centre — the other side of the country
+    // from what you were looking at — and switching back re-applied it to the
+    // flat map through the state.center effect. Nothing was resetting; the two
+    // halves had simply never been told where you had gone.
+    actions.setCenter({ lat: latitude, lng: longitude });
 
     // Zoomed all the way out: offer the azimuthal projection.
     //
@@ -482,7 +519,8 @@ export default function TruegleMap({
     const nextStyle = BASEMAP_ORDER[(currentIndex + 1) % BASEMAP_ORDER.length];
     setFullscreenMapStyle(nextStyle);
     setMapStyleLocal(getBasemapStyle(nextStyle));
-  }, [fullscreenMapStyle]);
+    announce(`${nextStyle.charAt(0).toUpperCase()}${nextStyle.slice(1)} basemap`);
+  }, [fullscreenMapStyle, announce]);
 
   const toggleGlobeView = useCallback(() => {
     actions.toggleMapViewMode();
@@ -901,6 +939,15 @@ export default function TruegleMap({
     }
 
     const color = getMarkerColor(marker.category);
+    // WHAT THE PIN IS. Four identical teardrops told the reader that four
+    // things exist and nothing about which is which — every one had to be
+    // tapped to find out, and tapping closed the last one. The name rides
+    // under the pin; the distance joins it when the lookup knew it.
+    //
+    // Labels are only drawn for RESULTS. Putting one under every marker would
+    // paper the map over the moment a category sweep returns twenty.
+    const labelled = marker.category === 'BUSINESS' || marker.category === 'SEARCH_RESULT';
+    const label = labelled ? (marker.name || '').trim() : '';
 
     return (
       <div
@@ -919,6 +966,24 @@ export default function TruegleMap({
         >
           <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
         </svg>
+        {label && (
+          <div
+            data-marker-label=""
+            // Centred under the pin and NOT clickable — the pin is the target,
+            // and a label that eats the press would make the pin harder to
+            // hit than it was without one.
+            className="pointer-events-none absolute left-1/2 top-full -translate-x-1/2 mt-0.5
+                       max-w-[9rem] truncate rounded px-1.5 py-0.5
+                       bg-neutral-900/85 backdrop-blur-[2px] border border-white/10
+                       text-[10px] font-medium text-white leading-tight text-center"
+            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}
+          >
+            {label}
+            {typeof marker.distance === 'number' && (
+              <span className="text-white/50"> · {formatDistance(marker.distance)}</span>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -1240,11 +1305,11 @@ export default function TruegleMap({
                       ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
                       : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
                   }`}
-                  onClick={() => actions.setMapViewMode(MAP_VIEW_MODES.STANDARD)}
+                  onClick={() => { actions.setMapViewMode(MAP_VIEW_MODES.STANDARD); announce('Street map'); }}
                   title="Standard Map View"
                 >
                   <MapIcon size={14} />
-                  <span className={labelClass}>Map</span>
+                  <span className={modeLabelClass}>Map</span>
                 </button>
                 <button
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -1252,11 +1317,11 @@ export default function TruegleMap({
                       ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
                       : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
                   }`}
-                  onClick={() => actions.setMapViewMode(MAP_VIEW_MODES.AZIMUTHAL_FLAT)}
+                  onClick={() => { actions.setMapViewMode(MAP_VIEW_MODES.AZIMUTHAL_FLAT); announce('Azimuthal projection'); }}
                   title="Azimuthal Flat View"
                 >
                   <Target size={14} />
-                  <span className={labelClass}>Azimuthal</span>
+                  <span className={modeLabelClass}>Azimuthal</span>
                 </button>
                 <button
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -1264,11 +1329,11 @@ export default function TruegleMap({
                       ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
                       : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
                   }`}
-                  onClick={() => actions.setMapViewMode(MAP_VIEW_MODES.GLOBE_3D)}
+                  onClick={() => { actions.setMapViewMode(MAP_VIEW_MODES.GLOBE_3D); announce('3D globe'); }}
                   title="3D Globe View"
                 >
                   <Globe size={14} />
-                  <span className={labelClass}>Globe</span>
+                  <span className={modeLabelClass}>Globe</span>
                 </button>
 
                 <div className="w-px h-6 bg-neutral-700 mx-1"></div>
@@ -1292,7 +1357,7 @@ export default function TruegleMap({
                     than no button: it reads as a broken feature. */}
                 {TRAFFIC_AVAILABLE && (
                 <button
-                  onClick={() => setShowTrafficFS(prev => !prev)}
+                  onClick={() => setShowTrafficFS(prev => { announce(prev ? 'Traffic off' : 'Traffic on'); return !prev; })}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     showTrafficFS
                       ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/30'
@@ -1307,7 +1372,7 @@ export default function TruegleMap({
 
                 {/* Cameras Toggle */}
                 <button
-                  onClick={() => setShowCamerasFS(prev => !prev)}
+                  onClick={() => setShowCamerasFS(prev => { announce(prev ? 'Cameras closed' : 'Traffic cameras'); return !prev; })}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     showCamerasFS
                       ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
@@ -1321,7 +1386,7 @@ export default function TruegleMap({
 
                 {/* Search Cameras Toggle */}
                 <button
-                  onClick={() => setShowEnhancedCameraSearch(prev => !prev)}
+                  onClick={() => setShowEnhancedCameraSearch(prev => { announce(prev ? 'Camera search closed' : 'Camera search'); return !prev; })}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     showEnhancedCameraSearch
                       ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
@@ -1337,7 +1402,7 @@ export default function TruegleMap({
 
                 {/* Directions Toggle */}
                 <button
-                  onClick={() => setShowDirectionsFS(prev => !prev)}
+                  onClick={() => setShowDirectionsFS(prev => { announce(prev ? 'Directions closed' : 'Directions'); return !prev; })}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     showDirectionsFS
                       ? 'bg-green-600 text-white shadow-lg shadow-green-500/30'
@@ -1367,7 +1432,7 @@ export default function TruegleMap({
                     player's pop-out, for the map. */}
                 {onTogglePopOut && (
                   <button
-                    onClick={onTogglePopOut}
+                    onClick={() => { onTogglePopOut(); announce(poppedOut ? 'Map docked' : 'Map popped out'); }}
                     className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-cyan-400"
                     title={poppedOut ? 'Put the map back in the page' : 'Pop the map out so you can keep browsing'}
                   >
@@ -1438,7 +1503,7 @@ export default function TruegleMap({
                         ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
                         : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
                     }`}
-                    onClick={() => actions.setMapViewMode(MAP_VIEW_MODES.STANDARD)}
+                    onClick={() => { actions.setMapViewMode(MAP_VIEW_MODES.STANDARD); announce('Street map'); }}
                     title="Standard Map View"
                   >
                     <MapIcon size={14} />
@@ -1450,7 +1515,7 @@ export default function TruegleMap({
                         ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
                         : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
                     }`}
-                    onClick={() => actions.setMapViewMode(MAP_VIEW_MODES.AZIMUTHAL_FLAT)}
+                    onClick={() => { actions.setMapViewMode(MAP_VIEW_MODES.AZIMUTHAL_FLAT); announce('Azimuthal projection'); }}
                     title="Azimuthal Flat View"
                   >
                     <Target size={14} />
@@ -1462,7 +1527,7 @@ export default function TruegleMap({
                         ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
                         : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
                     }`}
-                    onClick={() => actions.setMapViewMode(MAP_VIEW_MODES.GLOBE_3D)}
+                    onClick={() => { actions.setMapViewMode(MAP_VIEW_MODES.GLOBE_3D); announce('3D globe'); }}
                     title="3D Globe View"
                   >
                     <Globe size={14} />
@@ -1488,7 +1553,7 @@ export default function TruegleMap({
                   {/* Traffic Toggle — see the windowed bar above. */}
                   {TRAFFIC_AVAILABLE && (
                   <button
-                    onClick={() => setShowTrafficFS(prev => !prev)}
+                    onClick={() => setShowTrafficFS(prev => { announce(prev ? 'Traffic off' : 'Traffic on'); return !prev; })}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                       showTrafficFS
                         ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/30'
@@ -1503,7 +1568,7 @@ export default function TruegleMap({
 
                   {/* Cameras Toggle */}
                   <button
-                    onClick={() => setShowCamerasFS(prev => !prev)}
+                    onClick={() => setShowCamerasFS(prev => { announce(prev ? 'Cameras closed' : 'Traffic cameras'); return !prev; })}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                       showCamerasFS
                         ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
@@ -1517,7 +1582,7 @@ export default function TruegleMap({
 
                   {/* Search Cameras Toggle */}
                   <button
-                    onClick={() => setShowEnhancedCameraSearch(prev => !prev)}
+                    onClick={() => setShowEnhancedCameraSearch(prev => { announce(prev ? 'Camera search closed' : 'Camera search'); return !prev; })}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                       showEnhancedCameraSearch
                         ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
@@ -1531,7 +1596,7 @@ export default function TruegleMap({
 
                   {/* Directions Toggle */}
                   <button
-                    onClick={() => setShowDirectionsFS(prev => !prev)}
+                    onClick={() => setShowDirectionsFS(prev => { announce(prev ? 'Directions closed' : 'Directions'); return !prev; })}
                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                       showDirectionsFS
                         ? 'bg-green-600 text-white shadow-lg shadow-green-500/30'
@@ -1671,6 +1736,22 @@ export default function TruegleMap({
         onLocationDenied={handleLocationDenied}
       />
 
+      {/* The state receipt. Centred, brief, and pointer-events-none so it can
+          never intercept the next press. */}
+      {stateToast && (
+        <div
+          data-state-toast=""
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50
+                     px-4 py-2 rounded-xl border border-cyan-400/30 bg-neutral-900/90 backdrop-blur-md
+                     shadow-2xl text-sm font-medium text-white/90 whitespace-nowrap
+                     animate-[fadeIn_120ms_ease-out]"
+        >
+          {stateToast.label}
+        </div>
+      )}
+
       {/* WHY THE MAP HAS NO PINS ON IT.
           A search that found nothing and a search that was refused look
           identical — an empty map — and only one of them is something anyone
@@ -1765,6 +1846,33 @@ export default function TruegleMap({
       {/* What's playing, reachable without leaving the map. Renders nothing
           when the player is empty. See MapPlayerTransport. */}
       <MapPlayerTransport />
+
+      {/* RECENTRE ON ME. Top-right, directly under the zoom controls, which is
+          where every map app puts it and therefore where a hand goes looking.
+          The Location button in the function bar does the same thing, but it
+          is one of ten icons on a bar that hides its labels when the map is
+          narrow — a control you have to hunt for is not a quick way back.
+          Hidden when we have no position: a button that cannot do its one job
+          is worse than no button (see utils/embeddable.js for the same call). */}
+      {userLocation && !panelOpen && (
+        <button
+          type="button"
+          data-recenter=""
+          onClick={handleLocationButton}
+          title={locationOnScreen ? 'Centre on your location' : 'Back to your location'}
+          aria-label="Centre the map on your location"
+          className={`absolute right-2.5 z-40 flex items-center justify-center w-[29px] h-[29px]
+                      rounded border shadow-md transition-colors ${
+            locationOnScreen
+              ? 'bg-blue-500/25 border-blue-400/60 text-blue-300'
+              : 'bg-neutral-900/90 border-neutral-600/60 text-white/70 hover:text-white hover:bg-neutral-800'
+          }`}
+          // Under the renderer's own zoom/compass stack, which sits at top 8.
+          style={{ top: 108 }}
+        >
+          <LocateFixed size={15} />
+        </button>
+      )}
 
       {/* Reset View Button - Bottom Right.
           Not in the popped-out frame: that window is 340px tall by default and

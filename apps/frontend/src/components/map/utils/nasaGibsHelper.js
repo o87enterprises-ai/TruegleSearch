@@ -19,6 +19,9 @@
  */
 
 const GIBS_BASE_URL = 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best';
+// The WMS endpoint, which can return an arbitrary bbox at an arbitrary size —
+// the only way to get a whole-world equirectangular image out of GIBS.
+const GIBS_WMS_URL = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
 
 /**
  * Available NASA GIBS imagery layers
@@ -137,11 +140,32 @@ export function getNASAMODISTileUrl({ zoom, x, y, date = null }) {
  */
 export function getNASAEarthTextureUrl(layerType = 'BLUE_MARBLE') {
   const layer = GIBS_LAYERS[layerType];
-  const date = layer.requiresDate ? getCurrentDate() : getCurrentDate();
+  const date = getCurrentDate();
 
-  // For full Earth texture, use zoom level 0 (entire world in one tile)
-  // GIBS tile at zoom 0, tile (0,0) shows the full Earth
-  return `${GIBS_BASE_URL}/${layer.id}/default/${date}/${layer.resolution}/0/0/0.${layer.format}`;
+  // WMS GetMap OVER THE WHOLE WORLD — not a WMTS tile.
+  //
+  // This used to request tile 0/0/0 and call it "the entire world in one
+  // tile". It is not: the EPSG:4326 tile grid is 2x1 at level zero, so that
+  // URL returns the WESTERN HEMISPHERE — half an Earth, at a 1:1 aspect,
+  // wrapped around a sphere as if it were a full map. A globe textured with
+  // it is wrong everywhere.
+  //
+  // A sphere needs an EQUIRECTANGULAR image: the full -180..180 by -90..90
+  // extent at a 2:1 aspect, which is exactly what a WMS GetMap over that bbox
+  // returns. Keyless, like the rest of GIBS.
+  const params = new URLSearchParams({
+    SERVICE: 'WMS',
+    REQUEST: 'GetMap',
+    VERSION: '1.3.0',
+    LAYERS: layer.id,
+    CRS: 'EPSG:4326',
+    BBOX: '-90,-180,90,180',
+    WIDTH: '2048',
+    HEIGHT: '1024',
+    FORMAT: `image/${layer.format}`,
+    ...(layer.requiresDate ? { TIME: date } : {}),
+  });
+  return `${GIBS_WMS_URL}?${params}`;
 }
 
 /**

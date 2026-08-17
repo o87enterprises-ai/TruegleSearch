@@ -161,10 +161,20 @@
 .truegle-marker {
   cursor: pointer;
   transition: all 0.2s ease;
+  /* The name label under the pin is absolutely positioned against this.
+     Without it the label escapes to the nearest positioned ancestor — the
+     map container — and every pin's name stacks in one corner. */
+  position: relative;
+}
+
+/* The hover scale is on the PIN only. Scaling the label with it made the
+   text jump a few pixels and re-wrap under the cursor, which reads as the
+   map twitching. */
+.truegle-marker:hover > svg {
+  transform: scale(1.2);
 }
 
 .truegle-marker:hover {
-  transform: scale(1.2);
   z-index: 100;
 }
 

@@ -8,8 +8,20 @@ import { fetchCamerasNearLocation } from './services/dotCameraService';
  * TrafficCameras Component
  * Finds and displays live traffic camera feeds near the user's location
  */
+// What "nearby" is allowed to mean, in miles.
+//
+// NEARBY_MILES is the promise the panel's heading makes. FAR_MILES is only
+// ever used to answer "how far IS the nearest one" — never to fill the panel
+// silently, which is how a Californian freeway ended up presented as a live
+// nearby feed to somebody in Oregon.
+const NEARBY_MILES = 50;
+const FAR_MILES = 400;
+
 export default function TrafficCameras({ userLocation, isOpen, onClose }) {
   const [cameras, setCameras] = useState([]);
+  // Cameras found only by looking well beyond "nearby". Held back until the
+  // reader asks for them — see the fetch below.
+  const [furthestLook, setFurthestLook] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedCamera, setSelectedCamera] = useState(null);
@@ -26,22 +38,45 @@ export default function TrafficCameras({ userLocation, isOpen, onClose }) {
 
       console.log('🎥 Fetching traffic cameras for location:', { lat, lng });
 
-      // Fetch cameras near location (within 150 miles, max 15 cameras)
-      // Increased radius to cover border states and rural areas where coverage may be sparse
-      const nearbyCameras = await fetchCamerasNearLocation({ lat, lng }, 150, 15);
+      // NEARBY HAS TO MEAN NEARBY.
+      //
+      // This asked for 150 miles, "increased to cover border states and rural
+      // areas where coverage may be sparse". It does cover them — with a
+      // camera in another state, presented under a heading that says nearby.
+      // Reported from Oregon: the feed was showing California. Nothing was
+      // calculating the distance wrongly; 150 miles was simply being called
+      // near, and the dataset (AL, AK, AZ, CA, CO, DE, GA, IN, KY, OH) does
+      // not cover Oregon at all, so the nearest camera genuinely is hundreds
+      // of miles away.
+      //
+      // So: ask for a radius that means something, and when nothing is inside
+      // it, SAY HOW FAR the nearest one actually is and let the reader decide.
+      // Quietly widening the search is what produced a "live nearby feed" of
+      // a freeway in another state.
+      const nearbyCameras = await fetchCamerasNearLocation({ lat, lng }, NEARBY_MILES, 15);
 
       if (nearbyCameras && nearbyCameras.length > 0) {
         setCameras(nearbyCameras);
+        setFurthestLook(null);
         console.log(`✅ Loaded ${nearbyCameras.length} cameras near location`);
       } else {
-        // No cameras found — the OpenTrafficCamMap dataset only covers ~10 US
-        // states, so outside those this is genuine absence, not an error.
-        console.log(`⚠️ No cameras available within 150 miles of this location`);
+        // Nothing close. Look further ONLY to report the distance — these are
+        // not shown until the reader asks for them.
+        const wider = await fetchCamerasNearLocation({ lat, lng }, FAR_MILES, 15);
         setCameras([]);
-        setError(
-          'No live cameras within 150 miles. Public camera coverage is currently ' +
-          'limited to parts of the US (AL, AK, AZ, CA, CO, DE, GA, IN, KY, OH).'
-        );
+        if (wider && wider.length > 0) {
+          setFurthestLook(wider);
+          setError(
+            `No live cameras within ${NEARBY_MILES} miles. The nearest is `
+            + `${Math.round(wider[0].distance)} miles away, in ${wider[0].state || 'another state'}.`
+          );
+        } else {
+          setFurthestLook(null);
+          setError(
+            `No live cameras within ${FAR_MILES} miles. Public camera coverage is currently `
+            + 'limited to parts of the US (AL, AK, AZ, CA, CO, DE, GA, IN, KY, OH).'
+          );
+        }
       }
 
     } catch (err) {
@@ -111,8 +146,20 @@ export default function TrafficCameras({ userLocation, isOpen, onClose }) {
 
       {/* Error Message */}
       {error && (
-        <div className="m-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-          <p className="text-sm text-red-400">{error}</p>
+        <div className="m-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+          <p className="text-sm text-amber-300/90">{error}</p>
+          {/* THE READER DECIDES whether a camera that far away is worth
+              seeing. Widening the search on their behalf is what made the
+              panel lie about the word "nearby". */}
+          {furthestLook && furthestLook.length > 0 && (
+            <button
+              type="button"
+              onClick={() => { setCameras(furthestLook); setFurthestLook(null); setError(null); }}
+              className="mt-2 text-xs font-medium text-cyan-400 hover:text-cyan-300 underline"
+            >
+              Show the {furthestLook.length} nearest anyway
+            </button>
+          )}
         </div>
       )}
 

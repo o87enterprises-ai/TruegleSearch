@@ -33,29 +33,37 @@ function EarthSphere({ radius, textureUrl, onTextureSourceChange }) {
 
   useEffect(() => {
     const loader = new THREE.TextureLoader();
+    // Cross-origin is required or the texture taints the canvas; GIBS sends
+    // Access-Control-Allow-Origin.
+    loader.setCrossOrigin('anonymous');
 
-    // Try primary texture first (local satellite image)
+    // NASA FIRST, and the local file is no longer a candidate for the sphere.
+    //
+    // The bundled Azimuthal-satellite-view.png is exactly what its name says:
+    // an AZIMUTHAL projection, 600x543. Wrapping that around a sphere maps a
+    // polar disc onto a lat/lon grid — every continent lands in the wrong
+    // place, at the wrong shape, and the poles smear. It was the PRIMARY
+    // texture, which is why the globe never looked like Earth. A sphere needs
+    // an equirectangular image and NASA's Blue Marble is one, free and
+    // keyless. If that cannot be reached, a plain ocean-blue sphere is a
+    // more honest globe than a misprojected photograph.
     loader.load(
-      textureUrl,
+      getNASAEarthTextureUrl('BLUE_MARBLE'),
       (loadedTexture) => {
-        console.log('✅ Primary satellite texture loaded successfully');
         configureTexture(loadedTexture);
         setTexture(loadedTexture);
-        onTextureSourceChange?.('local');
+        onTextureSourceChange?.('nasa');
       },
       undefined,
       (primaryError) => {
-        console.warn('⚠️ Primary texture failed, trying NASA GIBS fallback:', primaryError);
+        console.warn('⚠️ NASA Blue Marble unavailable, falling back:', primaryError?.message || primaryError);
 
-        // Fallback to NASA GIBS Blue Marble
-        const nasaUrl = getNASAEarthTextureUrl('BLUE_MARBLE');
         loader.load(
-          nasaUrl,
+          textureUrl,
           (loadedTexture) => {
-            console.log('✅ NASA GIBS Blue Marble texture loaded successfully');
             configureTexture(loadedTexture);
             setTexture(loadedTexture);
-            onTextureSourceChange?.('nasa');
+            onTextureSourceChange?.('local');
           },
           undefined,
           (nasaError) => {
@@ -274,7 +282,11 @@ export default function Globe3D({
         </div>
       ) : (
         <Canvas
-          camera={{ position: [0, 0, 10], fov: 45 }}
+          // Far enough back to see a whole planet. At z=10 with a radius-5
+          // globe the sphere overflows the frame — and the map area is short
+          // and wide, so it was cropped top and bottom into a featureless
+          // wall. This frames the globe with room around it.
+          camera={{ position: [0, 0, 16], fov: 45 }}
           gl={{
             antialias: false, // Reduce WebGL resource usage
             alpha: true,
@@ -300,15 +312,10 @@ export default function Globe3D({
               onTextureSourceChange={setTextureSource}
             />
 
-            <mesh position={[0, globeRadius + 0.5, 0]}>
-              <sphereGeometry args={[0.5, 16, 16]} />
-              <meshBasicMaterial color="#FF0000" />
-            </mesh>
-
-            <mesh position={[globeRadius + 0.5, 0, 0]}>
-              <sphereGeometry args={[0.5, 16, 16]} />
-              <meshBasicMaterial color="#00FF00" />
-            </mesh>
+            {/* Two half-metre debug spheres — one red at the north pole, one
+                green on the prime meridian — used to check the orientation
+                maths and never removed. They are the brightest objects on the
+                globe. */}
 
             {displayMarkers.map((marker) => (
               <GlobeMarker
