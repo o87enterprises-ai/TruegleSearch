@@ -133,9 +133,55 @@ describe('POST /api/social/feed — paging', () => {
     });
     const res = await request(app()).post('/api/social/feed').send({ query: 'x' });
     expect(res.status).toBe(200);
-    expect(res.body.errors.reddit).toBe('unavailable');
     expect(res.body.platforms.hackernews).toHaveLength(1);
     expect(res.body.results.length).toBeGreaterThan(0);
+
+    // THE REASON, not the word 'unavailable'.
+    //
+    // This used to assert the flat string, and the flat string is what made
+    // the outage unreportable: a blocked deployment IP, a timeout and a
+    // platform with genuinely nothing to show all arrived at the client
+    // looking identical, and the client then dropped the field entirely. The
+    // error now carries which host said what, so it names the fault.
+    expect(res.body.errors.reddit).toMatch(/reddit is down/);
+    expect(res.body.errors.reddit).toMatch(/reddit\.com/);
+  });
+
+  test('every Reddit host is tried before giving up', async () => {
+    // One refusal is not an answer. www., old. and bare reddit.com are the
+    // same public JSON on different edges, and the deployment is far more
+    // likely to be refused by one than by all three.
+    const asked = [];
+    axios.get.mockImplementation((url) => {
+      if (url.includes('reddit.com')) {
+        asked.push(new URL(url).host);
+        const err = new Error('Request failed with status code 403');
+        err.response = { status: 403 };
+        return Promise.reject(err);
+      }
+      return Promise.resolve({ data: { hits: [], items: [] } });
+    });
+    const res = await request(app()).post('/api/social/feed').send({ query: 'x', platforms: ['reddit'] });
+    expect(res.status).toBe(200);
+    expect(new Set(asked).size).toBeGreaterThanOrEqual(3);
+    // And the reason says what a 403 from a datacenter usually means, because
+    // "unavailable" gives nobody anything to act on.
+    expect(res.body.errors.reddit).toMatch(/403/);
+  });
+
+  test('a Reddit host that answers stops the walk', async () => {
+    const asked = [];
+    axios.get.mockImplementation((url) => {
+      if (url.includes('reddit.com')) {
+        asked.push(new URL(url).host);
+        return Promise.resolve({ data: { data: { children: [{ data: { id: 'a', title: 'A post', permalink: '/r/x/comments/a/t/' } }], after: null } } });
+      }
+      return Promise.resolve({ data: { hits: [], items: [] } });
+    });
+    const res = await request(app()).post('/api/social/feed').send({ query: 'x', platforms: ['reddit'] });
+    expect(asked).toHaveLength(1);
+    expect(res.body.errors.reddit).toBeNull();
+    expect(res.body.platforms.reddit).toHaveLength(1);
   });
 
   test('a non-string query is still rejected', async () => {

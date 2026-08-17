@@ -560,7 +560,18 @@ check(/Evergreen Terrace/.test(dot?.described || ''),
   '…and readable without a mouse', dot?.described);
 
 // ── 12. right-click shares a place ──────────────────────────────────────────
-await page2.mouse.click(640, 480, { button: 'right' });
+//
+// The point is computed FROM THE MAP, not written down as a viewport
+// coordinate. A fixed (640, 480) is only over the map for as long as
+// everything above the map keeps its exact height — change a result card and
+// the press silently lands somewhere else, which is a test failure that says
+// nothing about the map. Offset off-centre so it cannot land on the
+// current-location marker or a popup anchored to it.
+const clickAt = await page2.evaluate(() => {
+  const r = document.querySelector('#truegle-map-container').getBoundingClientRect();
+  return { x: Math.round(r.left + r.width * 0.35), y: Math.round(r.top + r.height * 0.65) };
+});
+await page2.mouse.click(clickAt.x, clickAt.y, { button: 'right' });
 await page2.waitForTimeout(1800);
 const menu = await page2.evaluate(() => {
   const m = document.querySelector('#truegle-map-container [data-location-menu]');
@@ -586,11 +597,16 @@ await page2.evaluate(() => {
   navigator.clipboard.writeText = (t) => { window.__copied = t; return Promise.resolve(); };
   window.__share = navigator.share; delete navigator.share;
 });
-await page2.locator('#truegle-map-container [data-location-menu] button', { hasText: /share/i }).first().click();
-await page2.waitForTimeout(600);
-const copied = await page2.evaluate(() => window.__copied || '');
+const shareBtn = page2.locator('#truegle-map-container [data-location-menu] button', { hasText: /share/i });
+let copied = '';
+if (await shareBtn.count()) {
+  await shareBtn.first().click();
+  await page2.waitForTimeout(600);
+  copied = await page2.evaluate(() => window.__copied || '');
+}
 check(/\/search\?q=-?\d+\.\d+%2C-?\d+\.\d+/.test(copied),
-  'sharing copies a Truegle link to that exact point', copied || '(nothing copied)');
+  'sharing copies a Truegle link to that exact point',
+  copied || '(no share button — the menu never opened)');
 
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 
