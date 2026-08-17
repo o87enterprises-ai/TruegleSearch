@@ -4,7 +4,10 @@ import { useNavigate } from 'react-router-dom';
 
 // The mode list, spelled out identically wherever it's referenced (chat card,
 // search card) so the two stay in sync without duplicating the wording.
-const MODE_LIST = 'Mainstream, Summarize, Rabbit Hole, Perspectives, Privacy/OSINT';
+// "Perspectives" is gone as a name: it is Wonderland now, and it is a fold
+// inside the Rabbit Hole rather than a lens of its own, so it is described
+// where it lives instead of listed alongside its parent.
+const MODE_LIST = 'Mainstream, Green, Rabbit Hole, Privacy/OSINT';
 
 // Three brief explainer cards beneath the "Why Truegle?" promise card — what
 // the chat modes, search modes, and the TrueGLE 1.3 model / GLE actually are,
@@ -27,8 +30,9 @@ const CARDS = [
     color: 'from-emerald-500 to-teal-500',
     border: 'border-emerald-500/30 hover:border-emerald-400/50',
     description: [
-      `The same color-coded lenses — ${MODE_LIST} — applied to classic web results instead of chat. Cycle the pill above the search bar to switch between them.`,
-      'Two more stops on that same pill jump to their own pages instead of a lens: Rewards (earn a share of ad revenue) and Transcripts (extract & transcribe).',
+      `The same color-coded lenses — ${MODE_LIST} — applied to classic web results instead of chat. Cycle the pill above the search bar to switch between them. Green is the zero-AI one: nothing is generated, so no model runs on your query at all.`,
+      'Two stops on that pill are whole surfaces rather than lenses: True Tube, where video and audio from across the web play in one pop-out player, and the Feed, where the social accounts you already read arrive in a single scroll.',
+      'And inside the Rabbit Hole there is Wonderland — isolate what you found by one perspective at a time: political, faith, societal, or economic.',
     ],
     path: '/search',
   },

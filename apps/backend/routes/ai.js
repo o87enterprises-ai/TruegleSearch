@@ -9,6 +9,7 @@ const QueryInterpreter = require('../services/QueryInterpreter');
 const DeepResearchService = require('../services/DeepResearchService');
 const FeedbackService = require('../services/FeedbackService');
 const logger = require('../utils/logger');
+const { buildMapFact } = require('../utils/mapFact');
 
 const deepResearch = new DeepResearchService();
 
@@ -535,10 +536,10 @@ function fallbackSummary(mode, query) {
  * @route   POST /api/ai/summary
  * @desc    Generate AI summary of search results (public, rate limited)
  * @access  Public
- * @body    { query, results, mode?, perspectives? }
+ * @body    { query, results, mode?, perspectives?, mapSurface? }
  */
 router.post('/summary', rateLimitSearch, async (req, res) => {
-  const { query, results, mode = 'blue-pill', modes, perspectives = [], isQuestion = false, nepheshMode = false, verbose = false } = req.body;
+  const { query, results, mode = 'blue-pill', modes, perspectives = [], isQuestion = false, nepheshMode = false, verbose = false, mapSurface = null } = req.body;
 
   try {
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -598,10 +599,21 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
       ? `${query}\n\n(This is a direct question — answer it in the first sentence, plainly and concisely, then add supporting context.)`
       : query;
 
+    // What Truegle Maps is doing for THIS query, stated as fact.
+    //
+    // The model has no view of the page, so left to itself it either invents a
+    // state ("the map pane should already be showing Cottage Grove" — it was
+    // not) or apologises for having no location. The client reads this straight
+    // off parseLocalQuery, the same function that decides whether the map
+    // opens, so a claim here cannot contradict the screen. Absent or malformed,
+    // nothing is asserted at all — silence beats a guess.
+    const mapFact = buildMapFact(mapSurface);
+
     // Mode-specific system prompt, with Nephesh mode (dual-audit protocol)
     // and verbosity layered on per the caller's toggles — same source of
     // truth as /chat, so summaries and follow-up chat behave consistently.
-    const systemOverride = getModePrompt(aiContexts && aiContexts.length > 1 ? aiContexts : aiContext, { nepheshMode, verbose });
+    const baseSystem = getModePrompt(aiContexts && aiContexts.length > 1 ? aiContexts : aiContext, { nepheshMode, verbose });
+    const systemOverride = mapFact ? `${baseSystem}\n\n${mapFact}` : baseSystem;
 
     // Try unified AI service first (with multi-provider failover)
     try {

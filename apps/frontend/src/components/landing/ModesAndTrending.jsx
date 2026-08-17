@@ -23,7 +23,7 @@ const MODES = [
     id: 'red',
     label: 'Red Mode',
     tagline: 'Rabbit Hole · Free Thinker',
-    description: 'Independent voices, contrarian takes, and sources that challenge the official narrative. For curious, open-minded people who question consensus and think for themselves.',
+    description: 'Independent voices, contrarian takes, and sources that challenge the official narrative. For curious, open-minded people who question consensus and think for themselves. Wonderland lives in here too — the fold that isolates a single perspective on what you found.',
     color: 'from-red-600 to-rose-400',
     glow: 'shadow-red-500/30',
     border: 'border-red-500/30 hover:border-red-400/60',
@@ -33,13 +33,14 @@ const MODES = [
     path: '/search?mode=red&q=federal+reserve+money+printing+explained',
   },
   {
-    // Perspectives is no longer a mode — it is the re-ask fold inside the
-    // Rabbit Hole. The card stays because the capability is worth advertising;
-    // it just points at where the capability actually lives now.
-    id: 'purple',
-    label: 'Re-ask It',
-    tagline: 'Multi-viewpoint · Skeptical',
-    description: 'Inside the Rabbit Hole: re-read the results you already have from a conservative, skeptical, faith, or economic angle — instantly, without searching again. Search again only if that angle isn\'t in them.',
+    // WONDERLAND. Perspectives stopped being a mode of its own and became the
+    // re-ask fold inside the Rabbit Hole; this card is the fold's own name and
+    // description, kept separate because the capability is the most distinctive
+    // thing Truegle does and burying it in the Red card would hide it.
+    id: 'wonderland',
+    label: 'Wonderland',
+    tagline: 'Inside the Rabbit Hole · Isolate a perspective',
+    description: 'Go further down: take the results you already have and isolate them by the lens you choose — political, faith, societal, or economic. One angle at a time, on the same query, without searching again.',
     color: 'from-purple-600 to-violet-400',
     glow: 'shadow-purple-500/30',
     border: 'border-purple-500/30 hover:border-purple-400/60',
@@ -47,6 +48,51 @@ const MODES = [
     textAccent: 'text-purple-400',
     exampleQuery: 'immigration policy effects',
     path: '/search?mode=red&fold=1&q=immigration+policy+effects',
+  },
+  {
+    // GREEN. The pun is the point and the owner asked for it kept: green the
+    // colour, green the footprint. This is the only mode that fires no model at
+    // all (AI_FREE_MODES in UniversalSearch), so the claim is literal rather
+    // than a slogan — no summary, no quick answer, no assistant, no inference.
+    // Deliberately no numbers here: we have not measured the saving and will
+    // not invent one.
+    id: 'green',
+    label: 'Green Mode',
+    tagline: 'Zero AI · Environmentally conscious',
+    description: 'Search with no AI at all. No summary, no answer card, no assistant — nothing is generated, so no model runs and nothing is spent on inference for your query. Just the results, and the lightest search we know how to serve.',
+    color: 'from-green-600 to-emerald-400',
+    glow: 'shadow-green-500/30',
+    border: 'border-green-500/30 hover:border-green-400/60',
+    dot: 'bg-green-400',
+    textAccent: 'text-green-300',
+    exampleQuery: 'how to repair a bike chain',
+    path: '/search?mode=green&q=how+to+repair+a+bike+chain',
+  },
+  {
+    id: 'tube',
+    label: 'True Tube',
+    tagline: 'Video · Audio · One player',
+    description: 'Video and audio from across the web — YouTube, Vimeo, SoundCloud, Rumble, Odysee, Reddit — searched together and played inside Truegle. The player pops out and keeps going while you browse the rest of the site.',
+    color: 'from-slate-300 to-slate-500',
+    glow: 'shadow-slate-400/20',
+    border: 'border-slate-400/30 hover:border-slate-300/60',
+    dot: 'bg-slate-300',
+    textAccent: 'text-slate-200',
+    exampleQuery: 'live jazz sets full length',
+    path: '/tube?q=live+jazz+sets+full+length',
+  },
+  {
+    id: 'feed',
+    label: 'The Feed',
+    tagline: 'Social · One place · No account',
+    description: 'The accounts you already read, in one endless feed on the search layout. Truegle reads only — it never posts, never votes, and never asks for a password; you sign in on the provider\'s own site. Typing searches just the accounts you connected.',
+    color: 'from-yellow-500 to-amber-400',
+    glow: 'shadow-yellow-500/20',
+    border: 'border-yellow-500/30 hover:border-yellow-400/60',
+    dot: 'bg-yellow-400',
+    textAccent: 'text-yellow-300',
+    exampleQuery: 'everything you follow, one scroll',
+    path: '/feed',
   },
   {
     id: 'ocean',
@@ -110,10 +156,13 @@ export default function ModesAndTrending() {
           className="mb-8"
         >
           <h2 className="text-2xl font-bold text-white mb-1">Pick your lens</h2>
-          <p className="text-sm text-white/50">Same query, completely different results — depending on what you need to see.</p>
+          <p className="text-sm text-white/50">Same query, completely different results — depending on what you need to see. Plus the two surfaces that aren't lenses at all: the player and the feed.</p>
         </motion.div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Three across, not four: the list is six cards now (Tube and the
+            Feed joined the lenses), and four columns leaves a ragged pair on
+            the second row. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {MODES.map((mode, i) => (
             <ModeCard key={mode.id} mode={mode} index={i} />
           ))}

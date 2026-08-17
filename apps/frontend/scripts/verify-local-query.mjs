@@ -93,6 +93,51 @@ check(parseLocalQuery('0, 181')?.type !== 'coords',
 check(parseLocalQuery('catch 22, revisited')?.type !== 'coords',
   'nor a sentence that merely contains a comma');
 
+// ── 9. "<what> <town> <state>" — no preposition anywhere ────────────────────
+// REPORTED: "taxi cottage grove oregon" opened no map, because SUBJECT_IN_PLACE
+// needs an "in"/"near"/"at" to split the halves and nobody types one. The
+// assistant then wrote "the map pane should already be showing Cottage Grove"
+// about a map that had never opened.
+expect('taxi cottage grove oregon', { type: 'place', subject: 'taxi', place: 'cottage grove oregon' });
+expect('pharmacy cottage grove, OR', { type: 'place', subject: 'pharmacy', place: 'cottage grove OR' });
+expect('coffee ann arbor michigan', { type: 'place', subject: 'coffee', place: 'ann arbor michigan' });
+
+// Longest category wins. The alternation lists "gas" before "gas station"
+// because it was written for test(), where order does not matter — taking the
+// FIRST match would search for "gas" in "station cottage grove oregon".
+expect('gas station cottage grove oregon',
+  { type: 'place', subject: 'gas station', place: 'cottage grove oregon' });
+
+// The guard: only a category we can actually search for may claim the front of
+// the string. Without it a bare town splits into nonsense.
+check(parseLocalQuery('cottage grove oregon') === null,
+  'a bare town + state stays a plain place lookup',
+  describe(parseLocalQuery('cottage grove oregon')));
+check(parseLocalQuery('portland oregon') === null,
+  '…and so does a one-word town', describe(parseLocalQuery('portland oregon')));
+check(parseLocalQuery('taxi oregon') === null,
+  'a category with a state but no town is not a local search',
+  describe(parseLocalQuery('taxi oregon')));
+// Same shape, and the ambiguity is why: "new york" here is the state half of
+// the pattern, and there is no way to tell it from the city. Pinning either
+// would be a guess, so it falls through to the ordinary place lookup.
+check(parseLocalQuery('hotel new york') === null,
+  '…including when the state name is also a city', describe(parseLocalQuery('hotel new york')));
+
+// Two-letter state codes are ordinary English words in lower case. Matching
+// them case-insensitively would turn half the language into geography.
+check(parseLocalQuery('coffee or tea') === null,
+  '"or" is not Oregon', describe(parseLocalQuery('coffee or tea')));
+check(parseLocalQuery('what is a hotel in') === null,
+  '"in" is not Indiana', describe(parseLocalQuery('what is a hotel in')));
+check(parseLocalQuery('buy me coffee me') === null,
+  '"me" is not Maine', describe(parseLocalQuery('buy me coffee me')));
+
+// The prepositional form still wins where it applies — it knows exactly where
+// the split is, so it must not be pre-empted by the looser rule.
+expect('dentist in cottage grove oregon',
+  { type: 'place', subject: 'dentist', place: 'cottage grove oregon' });
+
 console.log([...ok, ...bad].join('\n'));
 console.log(`\n${ok.length} passed, ${bad.length} failed`);
 process.exit(bad.length ? 1 : 0);

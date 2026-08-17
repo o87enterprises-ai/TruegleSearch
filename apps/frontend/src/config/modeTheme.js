@@ -45,7 +45,9 @@ export const BRAND_GRADIENT =
 export const MODE_LABELS = {
   blue: 'Mainstream',
   red: 'Rabbit Hole',
-  purple: 'Perspectives',
+  // Perspectives is now WONDERLAND, and it is the re-ask fold inside the
+  // Rabbit Hole rather than a lens of its own. ?mode=purple still resolves.
+  purple: 'Wonderland',
   ocean: 'Privacy / OSINT',
   green: 'Summarize',
   orange: 'Rewards',
@@ -54,6 +56,24 @@ export const MODE_LABELS = {
   tube: 'Tube',
   unhinged: 'Unhinged',
 };
+
+// GREEN MEANS TWO DIFFERENT THINGS, and this is where they part company.
+//
+// On CHAT it is a lens: "Summarize", concise plain-language answers — which is
+// an AI behaviour and needs a model to run.
+// On SEARCH it is the opposite: green is in AI_FREE_MODES (UniversalSearch),
+// so no summary, no answer card and no assistant request fires at all.
+//
+// One shared label therefore had the search pill reading "Summarize" over a
+// mode that generates nothing. Rather than force the two surfaces to share a
+// word that is wrong on one of them, the search side overrides here. Anything
+// not listed falls through to MODE_LABELS.
+const SEARCH_LABEL_OVERRIDES = {
+  green: 'Green',
+};
+
+/** The label for a mode as the SEARCH pill should show it. */
+export const searchModeLabel = (mode) => SEARCH_LABEL_OVERRIDES[mode] || MODE_LABELS[mode];
 
 // Optional metallic finish per mode, for surfaces that fill with the mode
 // colour. A flat mid-grey reads as "disabled", so steel needs a highlight and

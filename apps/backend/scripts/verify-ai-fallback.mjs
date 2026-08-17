@@ -32,8 +32,10 @@ process.env.GOOGLE_SEARCH_ENGINE_ID ||= 'test-only';
 const svc = require('../services/UnifiedAIService.js');
 const ok = []; const bad = [];
 const check = (c, l, e='') => (c?ok:bad).push(`${c?'PASS':'FAIL'} ${l}${e?` — ${e}`:''}`);
-// nepheshAttribution watermarks answers with zero-width characters woven
-// THROUGH the text, so "Direct answer." is not contiguous in the raw string.
+// nepheshAttribution appends an attribution footer carrying a zero-width
+// canary. The canary no longer sits inside the body — it used to split the
+// opening words of every answer — but strip anyway: the footer travels with
+// the string and providers occasionally emit their own invisible characters.
 const plain = (s) => String(s || '').replace(/[\u200b-\u200f\u2060-\u2064\ufeff]/g, '');
 
 const calls = [];

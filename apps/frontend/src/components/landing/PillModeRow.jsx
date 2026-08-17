@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { MODE_COLORS, MODE_GRADIENT, MODE_LABELS, solidTextClass } from '../../config/modeTheme';
+import { MODE_COLORS, MODE_GRADIENT, searchModeLabel, solidTextClass } from '../../config/modeTheme';
 
 // Pill Mode — lives ABOVE the search bar (spec #2). This is the SEARCH mode
 // selector: a single pill, not a row. Clicking it cycles to the next mode
@@ -43,7 +43,9 @@ export default function PillModeRow({ activeMode, onSelect }) {
   const color = MODE_COLORS[activeMode];
   // A mode may ask for a metallic finish instead of a flat fill (steel).
   const gradient = MODE_GRADIENT[activeMode];
-  const label = activeMode === 'black' ? 'Chat' : MODE_LABELS[activeMode];
+  // searchModeLabel, not MODE_LABELS: this pill drives SEARCH, where green
+  // generates nothing, so the shared chat label "Summarize" is wrong here.
+  const label = activeMode === 'black' ? 'Chat' : searchModeLabel(activeMode);
 
   return (
     <div className="flex flex-col items-center gap-1.5">

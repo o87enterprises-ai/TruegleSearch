@@ -33,7 +33,8 @@
     "vault:test": "esbuild scripts/verify-encyclopedia.mjs --bundle --format=esm --platform=node --loader:.md=text --outfile=dev/.build/vault-test.mjs --log-level=error && node dev/.build/vault-test.mjs",
     "player:test": "esbuild scripts/verify-player.mjs --bundle --format=esm --platform=node --outfile=dev/.build/player-test.mjs --external:esbuild --log-level=error && node dev/.build/player-test.mjs",
     "nav:test": "esbuild scripts/verify-navigation.mjs --bundle --format=esm --platform=node --alias:axios=./scripts/stubs/axios.mjs --define:import.meta.env='{\"DEV\":false}' --external:react --outfile=dev/.build/nav-test.mjs --log-level=error && node dev/.build/nav-test.mjs",
-    "feed:test": "node scripts/verify-feed.mjs"
+    "feed:test": "node scripts/verify-feed.mjs",
+    "markdown:test": "node scripts/verify-markdown.mjs"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.16.2",
@@ -71,6 +72,7 @@
     "react-map-gl": "^8.1.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^6.30.2",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.4.0",
     "three": "^0.182.0",
     "typescript": "^5.9.3",

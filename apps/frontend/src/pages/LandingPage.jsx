@@ -47,13 +47,15 @@ export default function LandingPage() {
   const PILL_TOAST_CONFIG = {
     black:  { label: 'Chat',             sub: 'TrueGLE answers directly',               color: 'from-neutral-200 to-neutral-400', dot: 'bg-neutral-200' },
     blue:   { label: 'Mainstream',        sub: 'Unbiased, standard search',              color: 'from-blue-500 to-blue-700',       dot: 'bg-blue-400' },
-    green:  { label: 'Summarize',          sub: 'Concise, plain-language answers',        color: 'from-green-500 to-emerald-700',   dot: 'bg-green-400' },
+    green:  { label: 'Green',            sub: 'Zero AI — nothing generated',            color: 'from-green-500 to-emerald-700',   dot: 'bg-green-400' },
     red:    { label: 'Rabbit Hole',       sub: 'Full spectrum — all perspectives',       color: 'from-red-600 to-red-800',         dot: 'bg-red-400' },
-    purple: { label: 'Perspectives',      sub: 'Multiple viewpoints, skeptical framing', color: 'from-purple-500 to-violet-700',   dot: 'bg-purple-400' },
+    purple: { label: 'Wonderland',        sub: 'Isolate one perspective at a time',      color: 'from-purple-500 to-violet-700',   dot: 'bg-purple-400' },
     ocean:  { label: 'Privacy / OSINT',   sub: 'Digital investigation lens',             color: 'from-cyan-500 to-teal-700',       dot: 'bg-cyan-400' },
     orange: { label: 'Rewards',           sub: 'Earn a share of ad revenue',             color: 'from-orange-500 to-amber-700',    dot: 'bg-orange-400' },
-    yellow: { label: 'Transcripts',       sub: 'Extract & transcribe',                   color: 'from-yellow-400 to-amber-600',    dot: 'bg-yellow-300' },
-    tube:   { label: 'Tube',             sub: 'Watch and queue without leaving search', color: 'from-slate-300 to-slate-500',     dot: 'bg-slate-300' },
+    // Yellow stopped being Transcripts when Extract was parked — the pill has
+    // gone to /feed for a while and the toast never caught up.
+    yellow: { label: 'Feed',             sub: 'Your social accounts, one scroll',       color: 'from-yellow-400 to-amber-600',    dot: 'bg-yellow-300' },
+    tube:   { label: 'True Tube',        sub: 'Watch and queue without leaving search', color: 'from-slate-300 to-slate-500',     dot: 'bg-slate-300' },
   };
 
   // Pill Mode click handler — cycling the single pill only ever changes

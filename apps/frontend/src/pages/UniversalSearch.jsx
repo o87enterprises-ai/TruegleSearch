@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from 'rea
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
+import Markdown from '../components/ui/Markdown';
 import { FREE_ACCESS_MODE } from '../config/access';
 import {
   ChevronDown,
@@ -61,7 +61,7 @@ import { recordRef } from '../utils/creatorRef';
 
 // Hooks and Config
 import { useSearchMode } from '../hooks/useSearchMode';
-import { useLocationDetection } from '../hooks/useLocationDetection';
+import { useLocationDetection, parseLocalQuery } from '../hooks/useLocationDetection';
 import useDeviceTier from '../hooks/useDeviceTier';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
@@ -905,6 +905,24 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
    */
   const fetchAiSummary = async (query, results, backendMode = 'blue-pill') => {
     setAiLoading(true);
+    // Tell the model what the MAP is doing, as a fact rather than a guess.
+    //
+    // Left to itself it wrote "if you're on a TrueGLE search page, the map pane
+    // should already be showing Cottage Grove" — hedging about our own product,
+    // and wrong: that query opened no map at all. Read straight off
+    // parseLocalQuery, which is the same function this page uses to decide, so
+    // the fact and the behaviour cannot disagree. Computed from the `query`
+    // argument rather than from the isLocationQuery state, because that state
+    // resolves asynchronously and may still be from the previous search when
+    // this fires.
+    const local = parseLocalQuery(query);
+    const mapSurface = !local
+      ? { state: 'none' }
+      : {
+        state: MAP_AUTO_OPEN_TYPES.includes(local.type) ? 'open' : 'available',
+        subject: local.subject || undefined,
+        place: local.place || undefined,
+      };
     try {
       const response = await fetch(
         `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/summary`,
@@ -921,6 +939,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
             perspectives: selectedPerspectives,
             isQuestion: isQuestionQuery(query),
             verbose: SEARCH_VERBOSE,
+            mapSurface,
           }),
         }
       );
@@ -1938,7 +1957,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                               </div>
                             )}
                             <div className="text-sm text-white/80 leading-relaxed mb-3 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline [&_strong]:font-semibold [&_code]:bg-white/10 [&_code]:px-1 [&_code]:rounded">
-                              <ReactMarkdown>{aiSummary.summary}</ReactMarkdown>
+                              <Markdown>{aiSummary.summary}</Markdown>
                             </div>
                             {mode === 'red' && aiSummary.perspectives?.length > 0 && (
                               <div className="mb-3">
@@ -2089,8 +2108,9 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                     <h3 className="text-white font-bold text-lg">Disable Smart Features?</h3>
                   </div>
                   <p className="text-white/60 text-sm mb-1">
-                    Switch to <strong className="text-green-400">Green Pill Mode</strong> for a
-                    completely AI-free search experience — pure results, no summaries, no chat assistant.
+                    Switch to <strong className="text-green-400">Green Mode</strong> for search with
+                    zero AI — no summaries, no answer card, no assistant. Nothing is generated, so no
+                    model runs on your query at all.
                   </p>
                   <p className="text-white/40 text-xs mb-5">Your choice is saved — we won't ask again. Change it anytime via the pill toggle.</p>
                   <div className="flex gap-3">

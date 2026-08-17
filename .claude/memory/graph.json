@@ -696,6 +696,38 @@
         "body": "Globe3D's primary texture was assets/images/Azimuthal-satellite-view.png — 600x543, an azimuthal projection. Wrapping that on a sphere maps a polar disc onto a lat/lon grid: every continent in the wrong place and the poles smeared. The NASA fallback was no better — getNASAEarthTextureUrl requested WMTS tile 0/0/0 calling it 'the entire world in one tile', but the EPSG:4326 grid is 2x1 at level zero, so that URL is the WESTERN HEMISPHERE at 1:1. A sphere needs EQUIRECTANGULAR: GIBS WMS GetMap with BBOX=-90,-180,90,180 at 2048x1024 returns exactly that, keyless. NASA is now primary, the local file is the fallback, and the camera moved from z=10 to z=16 (a radius-5 globe overflowed a short wide map area and was cropped into a featureless wall). Two leftover debug spheres — red at the north pole, green on the prime meridian — were the brightest objects on the globe and are gone. TEXTURE STILL UNVERIFIED: the sandbox denies gibs.earthdata.nasa.gov like every other map host.",
         "ts": "2026-08-17",
         "created": "2026-08-17"
+      },
+      "watermark-footer-placement": {
+        "Id": "watermark-footer-placement",
+        "Type": "fact",
+        "Label": "The AI-answer canary lives in the attribution footer, not the prose",
+        "body": "watermark.embed() inserts after the FIRST SPACE of what it is given; run over a whole answer that was the first space of the first sentence, so every reply read 'Based <zero-widths>on the search results…' when pasted. nepheshAttribution.stampText now builds the canary with watermark.marker() (which applies MARKER_PREFIX — encode() alone produces a canary extract() disowns) and places it between the '---' rule and 'Research Provided by'. Result-snippet watermarking in routes/search.js is UNCHANGED — that is the one docs/ANTI-SCRAPING.md specifies.",
+        "ts": "2026-08-17",
+        "created": "2026-08-17"
+      },
+      "markdown-needs-gfm": {
+        "Id": "markdown-needs-gfm",
+        "Type": "fact",
+        "Label": "Tables need remark-gfm — react-markdown alone is CommonMark, which has no tables",
+        "body": "A table in an AI answer rendered as one flat run of pipes because CommonMark parses it as a paragraph and folds single newlines into spaces. All six ReactMarkdown call sites now go through components/ui/Markdown.jsx (remark-gfm + safe new-tab links + scrollable table). TruegleChat's hand-rolled linkifyBareUrls is gone — gfm autolink-literal does it.",
+        "ts": "2026-08-17",
+        "created": "2026-08-17"
+      },
+      "bottom-dock-ownership": {
+        "Id": "bottom-dock-ownership",
+        "Type": "fact",
+        "Label": "A docked player or map outranks bottom page furniture",
+        "body": "hooks/useBottomDock.js — module-level ref count + window event (not a context: PreProductionBanner mounts above the provider tree in App.jsx). MiniPlayer claims while footer-docked with a current item; MapViewWrapper claims while open. The early-access feedback bar collapses to its chip while claimed WITHOUT persisting the dismissal, and re-dispatches BAR_EVENT so useFeedbackBarHeight re-measures and the released height actually reaches the player. Tapping the chip still opens it (forceOpen).",
+        "ts": "2026-08-17",
+        "created": "2026-08-17"
+      },
+      "freemium-meter-off": {
+        "Id": "freemium-meter-off",
+        "Type": "fact",
+        "Label": "The freemium token meter is off — SHOW_TOKEN_METER in config/access.js",
+        "body": "consumeFreemiumSearch() in TokenContext has NO call sites and FREE_ACCESS_MODE bypasses every gate, so the bar sat at 10/10 forever while occupying a fixed strip at the bottom of every page. Context, counter and component all kept; one flag turns it back on when metering is real.",
+        "ts": "2026-08-17",
+        "created": "2026-08-17"
       }
     },
     "decision": {
@@ -1656,6 +1688,22 @@
         "Type": "decision",
         "Label": "Settings renders on SearchPageShell",
         "body": "components/SettingsPage.jsx was one of the last two pages on a bare min-h-screen bg-black — no logo, no background, no way home but the browser back button; it read as a different site. Now SearchPageShell mode='green', handed no search bar and no pill row (nothing to search for, no mode to switch to) — same call as the Trail page. The page title dropped to a small section label because the shell already carries the wordmark, and the seven panels moved from flat bg-white/5 to the results-card gradient (from-[#1a1a2e]/95 to-[#16213e]/95) with an emerald border. Only ExtractPage remains off-layout, and it is parked pending the Tube fold.",
+        "ts": "2026-08-17",
+        "created": "2026-08-17"
+      },
+      "ai-no-competitor-referrals": {
+        "Id": "ai-no-competitor-referrals",
+        "Type": "decision",
+        "Label": "AI must never refer users to a rival search/maps/listings product",
+        "body": "BASE_IDENTITY (prompts/nepheshPrompts.js, PROMPT_VERSION 2026-08-17.1) bans Google/Bing/DDG/Google Maps/Apple Maps/Waze/Yelp/Yellow Pages/TripAdvisor/Foursquare by name AND as 'search online for…'. Naming a real-world service that IS the answer (a taxi firm, a transit authority) is fine — the ban is on rival FINDING tools. Triggered by 'taxi cottage grove oregon' answering with a table whose first row was: Google \"Cottage Grove Oregon taxi\".",
+        "ts": "2026-08-17",
+        "created": "2026-08-17"
+      },
+      "green-is-zero-ai": {
+        "Id": "green-is-zero-ai",
+        "Type": "decision",
+        "Label": "Green = zero-AI, environmentally conscious search; purple = Wonderland inside the Rabbit Hole",
+        "body": "Green fires no model at all on search (AI_FREE_MODES in UniversalSearch), so 'zero AI' is literal, not a slogan — no measured energy figures are claimed anywhere. NOTE the collision: on CHAT green is the 'Summarize' lens, which DOES need a model. modeTheme.searchModeLabel() overrides green to 'Green' for the search pill only. Purple is Wonderland: isolate results by one societal perspective (political, faith, societal, economic), a fold inside Red rather than a lens of its own. ?mode=purple still resolves.",
         "ts": "2026-08-17",
         "created": "2026-08-17"
       }

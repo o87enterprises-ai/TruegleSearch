@@ -80,6 +80,25 @@ function decode(text) {
 }
 
 /**
+ * The encoded canary on its own, for callers that need to place it themselves.
+ *
+ * embed() inserts after the first space of the text it is given, which is the
+ * right call for a result snippet and the wrong one for a whole answer (it
+ * lands inside the opening sentence — see nepheshAttribution.js). Callers that
+ * know a better spot build the marker here and position it.
+ *
+ * The MARKER_PREFIX is applied here rather than by the caller, because
+ * extract() and scripts/check-watermark.js both require it — a marker encoded
+ * without it decodes fine and is then rejected as "not ours".
+ *
+ * @param {string} traceId
+ * @returns {string} zero-width encoded marker
+ */
+function marker(traceId) {
+  return encode(`${MARKER_PREFIX}:${traceId}`);
+}
+
+/**
  * Embed an invisible "TRUEGLE:<traceId>" canary into a piece of visible text.
  * The marker is inserted after the first space so it sits inside the text
  * rather than dangling at the very end (where trailing-whitespace trims could
@@ -96,10 +115,10 @@ function embed(text, traceId) {
     ZERO_WIDTH_RE.lastIndex = 0;
     return text;
   }
-  const marker = encode(`${MARKER_PREFIX}:${traceId}`);
+  const canary = marker(traceId);
   const spaceIdx = text.indexOf(' ');
-  if (spaceIdx === -1) return text + marker;
-  return text.slice(0, spaceIdx + 1) + marker + text.slice(spaceIdx + 1);
+  if (spaceIdx === -1) return text + canary;
+  return text.slice(0, spaceIdx + 1) + canary + text.slice(spaceIdx + 1);
 }
 
 /**
@@ -128,6 +147,7 @@ function strip(text) {
 
 module.exports = {
   embed,
+  marker,
   extract,
   encode,
   decode,

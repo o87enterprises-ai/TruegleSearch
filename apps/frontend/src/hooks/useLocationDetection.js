@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import MapApiService from '../components/map/services/mapApi';
+import MapApiService, { leadingCategory } from '../components/map/services/mapApi';
 import { isQuestionQuery } from '../utils/queryIntent';
 
 // Mapbox returns { lon, lat }; the map context expects { lat, lng }.
@@ -51,6 +51,50 @@ const ZIPCODE = /\b(\d{5})\b/;
  * postcode on the other side of the country.
  */
 const COORDS = /^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
+
+/**
+ * "…cottage grove oregon" / "…cottage grove, OR" — a US state closing the
+ * query.
+ *
+ * REPORTED: "taxi cottage grove oregon" opened no map. SUBJECT_IN_PLACE needs a
+ * preposition ("taxi IN cottage grove"), and people don't type one, so the
+ * query was not local at all — which in turn had the assistant writing "if
+ * you're on a TrueGLE search page, the map should already be showing Cottage
+ * Grove" about a map that was never opened.
+ *
+ * A trailing state name is the cheapest reliable "this is a place" signal
+ * there is. Full names match case-insensitively. Two-letter abbreviations must
+ * be UPPERCASE, because lowercased they are ordinary English — "or", "in",
+ * "me", "ok", "hi", "as", "de" would each turn a normal sentence into a
+ * geography lookup.
+ */
+const US_STATE_NAMES = 'alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new\\s+hampshire|new\\s+jersey|new\\s+mexico|new\\s+york|north\\s+carolina|north\\s+dakota|ohio|oklahoma|oregon|pennsylvania|rhode\\s+island|south\\s+carolina|south\\s+dakota|tennessee|texas|utah|vermont|virginia|washington|west\\s+virginia|wisconsin|wyoming|district\\s+of\\s+columbia';
+const US_STATE_ABBR = 'AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC';
+const TRAILING_STATE_NAME = new RegExp(`^(.+?)[,\\s]+(${US_STATE_NAMES})\\.?$`, 'i');
+const TRAILING_STATE_ABBR = new RegExp(`^(.+?)[,\\s]+(${US_STATE_ABBR})\\.?$`);
+
+/** The head of a state-suffixed query split into what and where, or null. */
+function splitStateQuery(q) {
+  const m = q.match(TRAILING_STATE_NAME) || q.match(TRAILING_STATE_ABBR);
+  if (!m) return null;
+  const head = m[1].trim().replace(/,$/, '');
+  const state = m[2].trim();
+  // Only a category we can actually search for may claim the front of the
+  // string. Without that guard "cottage grove oregon" — a bare town — would
+  // split into subject "cottage" and place "grove oregon".
+  const category = leadingCategory(head);
+  if (!category) return null;
+  // Drop the category by WORD COUNT, not by character length — leadingCategory
+  // returns a whitespace-normalised phrase, so "gas  station downtown" would
+  // otherwise be sliced mid-word.
+  const place = head.split(/\s+/).slice(category.split(' ').length).join(' ').replace(/^,\s*/, '').trim();
+  // "taxi oregon" names a category and a whole state. There is no town to
+  // centre on, the bounding box is enormous, and "hotel new york" is the same
+  // shape with the same ambiguity (state or city?). Leave both to the ordinary
+  // place lookup rather than pinning a guess.
+  if (!place) return null;
+  return { type: 'place', subject: cleanSubject(category), place: `${place} ${state}` };
+}
 
 /** Words that are not the thing being looked for. */
 const FILLER = /^(?:the|a|an|some|any|best|good|cheap|open|find|show|me|my|is|are|there)$/i;
@@ -109,6 +153,11 @@ export function parseLocalQuery(query) {
     // nothing in Austin.
     if (place) return { type: 'place', subject, place };
   }
+
+  // Last, because it is the loosest: "<category> <town> <state>" with no
+  // preposition holding the two halves apart.
+  const stateSuffixed = splitStateQuery(q);
+  if (stateSuffixed) return stateSuffixed;
 
   return null;
 }

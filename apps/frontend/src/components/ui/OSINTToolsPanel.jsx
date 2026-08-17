@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
+import Markdown from './Markdown';
 import {
   Server, Shield, AtSign, Search, Loader2, ExternalLink, X, MapPin, Mail, Phone,
   Check, Minus, FileText, Download, Share2, Send, Sparkles, PanelBottom,
@@ -489,7 +489,7 @@ export default function OSINTToolsPanel({ initialQuery = '' }) {
                   m.role === 'user' ? 'bg-cyan-500/15 text-white' : 'bg-black/40 border border-white/10 text-white/90'
                 }`}>
                   {m.role === 'assistant'
-                    ? <div className="prose prose-invert prose-sm max-w-none [&_a]:underline"><ReactMarkdown>{m.content}</ReactMarkdown></div>
+                    ? <div className="prose prose-invert prose-sm max-w-none [&_a]:underline"><Markdown>{m.content}</Markdown></div>
                     : m.content}
                 </div>
               </div>

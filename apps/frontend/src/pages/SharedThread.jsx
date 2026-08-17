@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
+import Markdown from '../components/ui/Markdown';
 import LandingBackground from '../components/LandingBackground';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import { shareAPI } from '../services/api';
@@ -86,7 +86,7 @@ export default function SharedThread() {
                   }`}>
                     {m.role === 'assistant' ? (
                       <div className="prose prose-invert prose-sm max-w-none [&_a]:text-inherit [&_a]:underline">
-                        <ReactMarkdown>{m.content}</ReactMarkdown>
+                        <Markdown>{m.content}</Markdown>
                       </div>
                     ) : (
                       <p className="text-sm">{m.content}</p>

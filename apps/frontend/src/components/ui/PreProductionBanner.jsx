@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Sparkles, X, MessageSquarePlus, AlertTriangle } from 'lucide-react';
 import { PREPRODUCTION_MODE, FEEDBACK_EMAIL } from '../../config/access';
+import { useBottomDockClaimed } from '../../hooks/useBottomDock';
 
 // Same storage key as before "dismiss" meant "collapse to a small re-openable
 // chip" instead of gone-forever — anyone who'd already dismissed it stays
@@ -69,6 +70,26 @@ function feedbackMailto(kind = 'feedback') {
 const PreProductionBanner = () => {
   const [dismissed, setDismissed] = useState(true);
   const [errorVisible, setErrorVisible] = useState(false);
+  // A docked component — the footer player, the map — outranks this bar. While
+  // one is on screen the bar yields to its chip and hands back the strip, so
+  // the thing being used gets the height instead of the notice already read.
+  // This does NOT write the dismissal: the bar returns by itself the moment the
+  // component closes, because the visitor never chose to collapse it.
+  const yielded = useBottomDockClaimed();
+  // …unless the visitor taps the chip anyway. Yielding must not make the
+  // feedback route unreachable, which is the whole reason dismissal became a
+  // chip rather than a delete in the first place.
+  const [forceOpen, setForceOpen] = useState(false);
+  useEffect(() => { if (!yielded) setForceOpen(false); }, [yielded]);
+  const collapsed = dismissed || (yielded && !forceOpen);
+
+  // useFeedbackBarHeight() re-measures on BAR_EVENT, and a yield changes the
+  // bar's height without anyone clicking anything. Without this the player
+  // would keep reserving room for a bar that is no longer on screen — i.e. the
+  // released height would never actually reach it.
+  useEffect(() => {
+    window.dispatchEvent(new Event(BAR_EVENT));
+  }, [collapsed]);
 
   useEffect(() => {
     if (!PREPRODUCTION_MODE) return;
@@ -134,12 +155,13 @@ const PreProductionBanner = () => {
           chip instead of vanishing forever, so feedback is always reachable. */}
       <AnimatePresence mode="wait">
         {PREPRODUCTION_MODE && (
-          dismissed ? (
+          collapsed ? (
             <motion.button
               key="chip"
               type="button"
               onClick={() => {
                 setDismissed(false);
+                setForceOpen(true);   // beats a yield, so the chip always opens
                 try { localStorage.setItem(DISMISS_KEY, 'false'); } catch { /* ignore */ }
                 window.dispatchEvent(new Event(BAR_EVENT));
               }}

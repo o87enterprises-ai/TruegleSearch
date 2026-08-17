@@ -140,6 +140,21 @@ await page.waitForTimeout(9000);
 const container = page.locator('#truegle-map-container');
 check(await container.count() === 1, 'the map opens');
 
+// ── THE BOTTOM OF THE SCREEN BELONGS TO WHAT YOU ARE USING ──────────────────
+// Two things used to pin themselves across the bottom of every page and never
+// give the height back: the freemium meter (a permanent "10/10 · 0 searches
+// today" for a quota nothing ever spent) and the full-width early-access
+// feedback bar. An open map carries its own function bar, attribution line and
+// mini player transport, and all of that was being squeezed by furniture.
+const bottom = await page.evaluate(() => ({
+  meter: /searches today/i.test(document.body.innerText),
+  bar: !!document.querySelector('[data-feedback-bar]'),
+  chip: !!document.querySelector('button[aria-label="Open early-access feedback"]'),
+}));
+check(!bottom.meter, 'the freemium token meter is gone');
+check(!bottom.bar, 'the feedback bar yields its strip while the map is on screen');
+check(bottom.chip, '…collapsing to its chip rather than vanishing, so feedback stays reachable');
+
 // ── 0. THE MAP ACTUALLY DRAWS ───────────────────────────────────────────────
 // The one thing this file never checked, and the one thing that was broken.
 //

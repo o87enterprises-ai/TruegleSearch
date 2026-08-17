@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import ReactMarkdown from 'react-markdown';
+import Markdown from '../components/ui/Markdown';
 import { Send, ExternalLink, Eye, Image as ImageIcon, Film, Share2, X, Copy, Pencil, Check, Plus, Lock } from 'lucide-react';
 import LandingBackground from '../components/LandingBackground';
 import VoiceRecognition from '../components/ui/VoiceRecognition';
@@ -140,16 +140,10 @@ function extractUrls(text) {
   return [...new Set(text.match(URL_RE) || [])];
 }
 
-// react-markdown (no gfm plugin here) doesn't autolink bare URLs, so wrap any
-// bare URL in <…> autolink syntax — while leaving URLs already inside a
-// [label](url) markdown link or an existing <url> autolink untouched.
-function linkifyBareUrls(text) {
-  if (!text) return text;
-  return text.replace(
-    /(\[[^\]]*\]\([^)]*\)|<https?:\/\/[^>]+>)|(https?:\/\/[^\s<>()[\]]+[^\s<>()[\].,;:!?'"])/g,
-    (m, existing, bare) => (existing ? existing : `<${bare}>`),
-  );
-}
+// Bare URLs used to need wrapping in <…> by hand, because react-markdown alone
+// implements CommonMark and CommonMark does not autolink them. <Markdown> now
+// runs remark-gfm, whose autolink-literal extension does it properly, so that
+// workaround is gone along with the local components map.
 
 // Fold the model-mentioned URLs into the fetched citations' Sources list so
 // every link named in the answer is clickable in the list below it, without
@@ -162,13 +156,6 @@ function mergeUrlCitations(citations, urls) {
   if (extra.length === 0) return citations;
   return { ...(citations || {}), links: [...links, ...extra] };
 }
-
-// All markdown links open in a new tab, safely.
-const MD_COMPONENTS = {
-  a: ({ href, children }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
-  ),
-};
 
 // Small copy-to-clipboard icon button with a brief ✓ confirmation.
 function CopyButton({ text, accent, title = 'Copy' }) {
@@ -973,7 +960,7 @@ export default function TruegleChat() {
               >
                 {m.role === 'assistant' ? (
                   <div className="prose prose-invert prose-sm max-w-none [&_a]:text-inherit [&_a]:underline [&_a]:break-words">
-                    <ReactMarkdown components={MD_COMPONENTS}>{linkifyBareUrls(m.content)}</ReactMarkdown>
+                    <Markdown>{m.content}</Markdown>
                   </div>
                 ) : (
                   <>

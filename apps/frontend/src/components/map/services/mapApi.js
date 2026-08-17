@@ -180,8 +180,41 @@ const OSM_CATEGORIES = [
   [/\b(cinema|movie\s*theat\w+|movies)\b/i, ['amenity=cinema']],
   [/\b(toilet|restroom|bathroom|public\s*toilet)\b/i, ['amenity=toilets']],
   [/\b(atm|bank)\b/i, ['amenity=atm', 'amenity=bank']],
+  [/\b(taxi|taxis|taxi\s*stand|cab|cabs|cab\s*company|minicab)\b/i, ['amenity=taxi']],
+  [/\b(bus\s*stop|bus\s*station|transit|train\s*station|rail\s*station)\b/i, ['highway=bus_stop', 'amenity=bus_station', 'railway=station']],
   [/\b(shop|shops|store|stores|shopping)\b/i, ['shop']],
 ];
+
+// The category word(s) a query OPENS with — "taxi" in "taxi cottage grove
+// oregon" — or null.
+//
+// "<what> <where>" with no preposition between the halves cannot be split by
+// grammar, and we have no gazetteer to recognise "cottage grove" as a town.
+// But we do know every category we are able to search FOR, and that list is
+// directly above. If the query starts with one of them, the remainder is the
+// where. Anything else stays unsplit and is handled as a plain place name,
+// which is the existing behaviour.
+//
+// The LONGEST leading phrase wins, and it is found by testing whole-word
+// prefixes rather than by letting the regex pick.
+//
+// The alternations above were written for `test()`, where order does not
+// matter, so "gas" sits ahead of "gas station". A regex anchored only at the
+// start returns the first alternative that can succeed — "gas" — which would
+// make the subject "gas" and hand "station cottage grove oregon" to the
+// geocoder. Matching each candidate prefix in FULL, longest first, is immune
+// to how the alternations happen to be ordered.
+const WHOLE_CATEGORY = OSM_CATEGORIES.map(([re]) => new RegExp(`^(?:${re.source})$`, 'i'));
+const MAX_CATEGORY_WORDS = 4;   // "filling station", "place to stay", "movie theater"
+
+export function leadingCategory(text) {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+  for (let n = Math.min(MAX_CATEGORY_WORDS, words.length); n >= 1; n--) {
+    const prefix = words.slice(0, n).join(' ');
+    if (WHOLE_CATEGORY.some((re) => re.test(prefix))) return prefix;
+  }
+  return null;
+}
 
 /** Overpass QL is regex-quoted with double quotes; a stray one breaks the query. */
 const overpassEscape = (v) => String(v).replace(/["\\]/g, '\\$&');

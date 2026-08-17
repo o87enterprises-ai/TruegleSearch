@@ -12,6 +12,17 @@
 // When true, all login walls and token/premium gates are bypassed app-wide.
 export const FREE_ACCESS_MODE = true;
 
+// The freemium meter — the "⚡ 10/10 · N searches today · Upgrade" strip pinned
+// across the bottom of every page.
+//
+// It measured nothing. consumeFreemiumSearch() in TokenContext has no call
+// sites, and FREE_ACCESS_MODE bypasses every gate anyway, so the bar sat at
+// 10/10 forever: a permanent claim of a limit that does not exist, occupying a
+// strip of screen the player and the map both need. Off until metering is real
+// — the context, the counter and the component all stay, so turning it back on
+// is this one flag.
+export const SHOW_TOKEN_METER = false;
+
 // When true, show the dismissible "early access / pre-production" banner so
 // users understand the site isn't open to the world yet and are invited to
 // report bugs.

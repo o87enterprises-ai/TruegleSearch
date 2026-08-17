@@ -5,6 +5,7 @@ import { MODE_COLORS, BRAND_GRADIENT } from '../../config/modeTheme';
 import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
 import { useFeedbackBarHeight } from './PreProductionBanner';
+import { useBottomDockClaim } from '../../hooks/useBottomDock';
 import { usePlayerQuery } from '../../utils/playerQueryStore';
 import { toHandle } from '../../utils/playerQuery';
 import PlayerScopeChips from '../player/PlayerScopeChips';
@@ -312,6 +313,13 @@ export default function MiniPlayer() {
     onResize();
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  // Pinned across the bottom, the player is competing for the same strip as
+  // the early-access feedback bar — and it loses, because that bar is z-[60]
+  // and full width. Claiming the dock collapses the bar to its chip for as
+  // long as the player is down here, which hands back the height the player is
+  // squeezed by. Released automatically when it floats again or closes.
+  useBottomDockClaim(footerDock && !!current);
 
   // Footer dock covers the bottom of the page, so the page gets that height
   // back as extra scroll — otherwise the last few lines of every page sit

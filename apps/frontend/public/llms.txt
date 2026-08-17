@@ -37,12 +37,17 @@ Results are powered by our own self-hosted SearXNG metasearch instance — no co
 - AI multi-perspective summary for every query (mainstream + alternative viewpoints)
 - Bias detection and source transparency filtering
 - Instant answer cards for navigational, question, and calculator queries
-- Blue (standard), Red (deep dive), Purple (perspective filter), Ocean (OSINT), Green (AI-free) modes
+- Search lenses: Blue (mainstream), Red (Rabbit Hole — independent and contrarian sources), Ocean (privacy / OSINT), Green (zero AI)
+- Wonderland: inside the Rabbit Hole, isolate the results you already have by ONE chosen societal perspective at a time — political, faith, societal, or economic. No second search is run.
 
 ### Privacy
 - Anonymous result viewing — open links through a privacy proxy; destination sites never see your IP
 - Auto history deletion — no query log stored on our servers
 - No fingerprinting, no cookies, no user profiling
+
+### Surfaces that are not lenses
+- **True Tube** (`/tube`): video and audio from across the web — YouTube, Vimeo, SoundCloud, Rumble, Odysee, Reddit and more — searched together and played inside Truegle. The player pops out and keeps playing while you browse the rest of the site.
+- **Green mode** (`/green`): zero-AI search. Every other mode can call a model; this one calls none, which is both a privacy position and an energy one — an ungenerated answer costs no inference.
 
 ### Tools
 - **Feed** (`/feed`): connect the social accounts you already use and read them in one place, on the search layout. Truegle reads only — it never posts, never votes, and never asks for a password. Sign-in happens on the provider's own site; no Truegle account is required. Typing in the search bar searches only the accounts you connected.
@@ -105,7 +110,7 @@ For each query, Truegle generates an AI summary that explicitly presents mainstr
 ## Pages
 
 - https://truegle.info/ — Homepage and main search
-- https://truegle.info/green — AI-free clean search mode (human-authored sources only)
+- https://truegle.info/green — Green mode: zero-AI, environmentally conscious search. No summary, no answer card, no assistant — nothing is generated, so no model inference runs for the query.
 - https://truegle.info/feed — Your social feeds (Reddit, Hacker News, GitHub) in one place
 - https://truegle.info/about/ — About Truegle and our mission
 - https://truegle.info/advertise/ — Advertising information and media kit

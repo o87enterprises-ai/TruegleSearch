@@ -2,11 +2,16 @@ import { motion } from 'framer-motion';
 import { Zap, Crown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTokens } from '../../context/TokenContext';
+import { SHOW_TOKEN_METER } from '../../config/access';
 
 export default function FreemiumTokenBar() {
   const navigate = useNavigate();
   const { freemium, freemiumDailyLimit } = useTokens();
 
+  // Nothing spends these tokens yet, so the meter could only ever read 10/10.
+  // See SHOW_TOKEN_METER in config/access.js for why it is off rather than
+  // deleted. The hooks above run either way so the order never changes.
+  if (!SHOW_TOKEN_METER) return null;
   if (!freemium?.active) return null;
 
   const { tokens, searches } = freemium;

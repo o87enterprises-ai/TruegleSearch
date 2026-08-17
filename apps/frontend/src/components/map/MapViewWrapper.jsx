@@ -12,6 +12,7 @@ import MapPopOutFrame from './MapPopOutFrame';
 import { useMap } from './context/MapContext';
 import { USER_LOCATION_ZOOM, GEOLOCATION_OPTIONS } from './config/constants';
 import MapApiService from './services/mapApi';
+import { useBottomDockClaim } from '../../hooks/useBottomDock';
 // No logo here. TruegleMap — the only thing this mounts — draws the single
 // Truegle watermark inside the map container. This file used to draw it twice
 // more (an inline <img> in the card and a <LogoOverlay/> over the wrapper), so
@@ -383,6 +384,13 @@ export default function MapViewWrapper({
         return 'View';
     }
   };
+
+  // An open map carries its own bottom furniture — the function bar, the
+  // attribution line, and the mini player transport above them. Stacking the
+  // early-access feedback bar under all of that leaves the map's own controls
+  // pressed up against the page edge, so while the map is on screen the bar
+  // yields its strip and comes back when the map closes.
+  useBottomDockClaim(isOpen);
 
   if (!isOpen) return null;
 

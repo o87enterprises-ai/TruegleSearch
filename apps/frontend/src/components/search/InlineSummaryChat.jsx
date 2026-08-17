@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import ReactMarkdown from 'react-markdown';
+import Markdown from '../ui/Markdown';
 import { Send } from 'lucide-react';
 import { aiAPI } from '../../services/api';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, solidTextClass } from '../../config/modeTheme';
@@ -96,7 +96,7 @@ export default function InlineSummaryChat({ query, summary, primaryMode = 'blue'
               }`}>
                 {m.role === 'assistant' ? (
                   <div className="prose prose-invert prose-sm max-w-none [&_a]:underline">
-                    <ReactMarkdown>{m.content}</ReactMarkdown>
+                    <Markdown>{m.content}</Markdown>
                   </div>
                 ) : m.content}
                 {m.role === 'assistant' && (

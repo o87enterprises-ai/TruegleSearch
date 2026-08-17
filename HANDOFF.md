@@ -1,5 +1,84 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-08-16. Supersedes all prior handoff docs._
+_Last updated: 2026-08-17. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ SESSION LOG 2026-08-17 — The answer stops sending people to Google, and the bottom of the screen changes hands
+
+**Shipped (branch `claude/truegle-sharing-player-ux-t3hi43`):**
+
+- **🔴 THE ZERO-WIDTH JUNK IN EVERY ANSWER WAS OURS.** The owner pasted a reply
+  back and it read `Based ⁠⁠‌‌‌…⁠⁠on the search results provided`.
+  `watermark.embed()` inserts after the **first space of whatever it is given**,
+  and `nepheshAttribution.stampText` was handing it the whole answer — so the
+  provenance canary landed inside the opening sentence of every response. The
+  canary stays but now opens the attribution footer, between the `---` rule and
+  "Research Provided by": still mid-document, so trailing-trims cannot reach it
+  (the original reason it was buried in prose), and no visible word to split.
+  It is built with the new `watermark.marker()`, which applies `MARKER_PREFIX` —
+  `encode()` alone yields a canary that decodes fine and is then disowned by
+  `extract()` and `scripts/check-watermark.js`. **Result-snippet watermarking in
+  `routes/search.js` is unchanged** — that is the one `docs/ANTI-SCRAPING.md`
+  actually specifies, and it defends against SERP scraping, not a human quoting
+  a paragraph.
+- **🔴 A SEARCH ENGINE TOLD ITS USER TO GOOGLE IT.** Asked "taxi cottage grove
+  oregon", the assistant produced a "How to Find a Taxi" table whose first row
+  was *Google "Cottage Grove Oregon taxi"*, plus Yelp and Yellow Pages.
+  `BASE_IDENTITY` now forbids directing anyone to a rival search, maps or
+  listings product — by name, as "search online for…", or as "check a local
+  directory". Naming a real-world service that **is** the answer (a taxi firm, a
+  transit authority, a number to ring) stays fine; the ban is on rival *finding*
+  tools. `PROMPT_VERSION` → `2026-08-17.1`.
+- **The AI no longer guesses what is on your screen.** It had written "if you're
+  on a TrueGLE search page, the map pane should already be showing Cottage
+  Grove" — a hedge about our own product, and false: nothing had opened.
+  `/api/ai/summary` now takes a `mapSurface` the client reads straight off
+  `parseLocalQuery` (the same function the page uses to decide), and
+  `utils/mapFact.js` turns it into one line of fact. `state` is validated
+  against a known set and the free-text fields are flattened and clamped, so a
+  hand-rolled body cannot write its own instructions into the system prompt.
+- **"taxi cottage grove oregon" opens a map now.** `SUBJECT_IN_PLACE` needs a
+  preposition and nobody types one, so `<category> <town> <state>` was not a
+  local query at all. A trailing US state is the cheap reliable signal; the
+  front of the string may only be claimed by a category we can actually search
+  for (`leadingCategory()` in `mapApi.js`, longest whole-word prefix, so "gas
+  station" beats "gas"). Two-letter codes must be UPPERCASE — lower-cased, "or",
+  "in" and "me" are ordinary English. `amenity=taxi` and transit categories added.
+- **🔴 TABLES WERE NEVER GOING TO RENDER.** Not a model failure: tables are a
+  **GFM extension**, and plain `react-markdown` is CommonMark, so the table was
+  parsed as a paragraph — and a paragraph folds single newlines into spaces,
+  which is the flat line of pipes that was reported. All **six** `ReactMarkdown`
+  call sites (five bare, one with its own components map) now go through
+  `components/ui/Markdown.jsx`: remark-gfm, links forced to a safe new tab, and
+  tables that scroll inside their own box. TruegleChat's hand-rolled
+  `linkifyBareUrls` is deleted — gfm's autolink-literal does it properly.
+- **The freemium token meter is off** (`SHOW_TOKEN_METER` in `config/access.js`).
+  `consumeFreemiumSearch()` has no call sites and `FREE_ACCESS_MODE` bypasses
+  every gate, so the bar sat at 10/10 forever while holding a fixed strip on
+  every page. Context, counter and component all kept; one flag brings it back.
+- **The bottom of the screen belongs to what you are using.**
+  `hooks/useBottomDock.js` — a ref-counted claim (module-level + window event,
+  not a context: `PreProductionBanner` mounts above the provider tree). The
+  footer-docked player and the open map claim it; the early-access bar collapses
+  to its chip while claimed, **without** persisting the dismissal, and
+  re-dispatches `BAR_EVENT` so `useFeedbackBarHeight` re-measures and the
+  released height actually reaches the player. Tapping the chip still opens it.
+- **Public descriptions rewritten** — landing mode cards, `ThreeCards`,
+  `llms.txt`, and all four `index.html` meta/JSON-LD descriptions. **Green** is
+  now zero-AI, environmentally conscious search (literal: green is in
+  `AI_FREE_MODES`, so no model runs — and deliberately no energy figures, since
+  we have measured none). **Purple is Wonderland**, a fold inside the Rabbit
+  Hole that isolates results by one societal perspective at a time — political,
+  faith, societal, economic. **True Tube** and **the Feed** now have cards of
+  their own.
+  ⚠️ **Known collision:** green means "Summarize" on *chat* (which needs a
+  model) and "zero AI" on *search*. `modeTheme.searchModeLabel()` overrides the
+  label for the search pill only. Worth resolving properly.
+
+**Verified:** localquery 35, markdown 12 (new), map 30, player 59, nav 13,
+embeddable 26, feed 10, ai 25, mapui 63, chatmap 17, feedpage 38, backend jest
+130. Lint 0 errors. `check:ads` clean. `new-endpoints.test.js` still fails in
+the sandbox — it needs a Postgres and a `JWT_SECRET` that are not here.
 
 ---
 
