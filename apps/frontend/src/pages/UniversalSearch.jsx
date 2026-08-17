@@ -92,6 +92,7 @@ const MODE_TO_BACKEND = { blue: 'blue-pill', green: 'green', red: 'red-pill', pu
 const FOLDED_MODES = { purple: 'red' };
 const foldMode = (m) => FOLDED_MODES[m] || m;
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
+import { canPreview, opensOnLabel } from '../utils/embeddable';
 import api from '../services/api';
 import { fallbackVideos } from '../content/creatorVideosFallback';
 import QueueButton from '../components/ui/QueueButton';
@@ -1110,7 +1111,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     // actions showing, so the trip lands on the thing you tapped rather than
     // on a list you have to find it in again.
     const [viewerOpen, setViewerOpen] = useState(() => selectedUrl === result.url);
-    const [iframeBlocked, setIframeBlocked] = useState(false);
     const videoEmbed = getVideoEmbed(result.url);
     const playable = getPlayable(result.url);
     // Auto-played by the feed while this card is the one on screen. The embed
@@ -1122,6 +1122,10 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     const blurClass = safeSearch === 'blur' ? 'blur-md hover:blur-none transition-all duration-200' : '';
 
     // Human-friendly source URL (hostname + path)
+    // The host on its own, for the "Opens on …" label and its tooltip.
+    const hostLabel = (() => {
+      try { return new URL(result.url).hostname.replace(/^www\./, ''); } catch { return 'This site'; }
+    })();
     let displayUrl = result.domain || result.url || '';
     try {
       const u = new URL(result.url);
@@ -1239,23 +1243,39 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                   >
                     <ExternalLink size={12} /> Open link
                   </a>
-                  {result.proxyUrl && (
-                    <a
-                      href={result.proxyUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Open this page through Truegle's anonymous proxy — the site never sees your IP or browser"
-                      className={`flex items-center gap-1 ${accent.link} transition-colors`}
+                  {/* "View anonymously" pointed at result.proxyUrl, whose
+                      only source is searchConfig's
+                      `https://cors-anywhere.herokuapp.com/` — a public DEMO
+                      proxy that stopped serving traffic when Heroku ended free
+                      dynos, and which required each visitor to manually opt in
+                      on a separate page before that. Promising anonymity
+                      through a dead third-party host is worse than not
+                      offering it: the claim was never true and the link never
+                      worked. Restore this when Truegle proxies it itself. */}
+                  {/* "Open in app" is only offered when the site will
+                      actually open in the app. A host that refuses framing
+                      cannot be previewed by anyone — the button spins and
+                      lands on a blank rectangle, every time, for every
+                      visitor — so it is replaced by an honest label rather
+                      than left there to waste a press. See utils/embeddable.js.
+                      A VIDEO EMBED still gets its button: YouTube and TikTok
+                      refuse to frame their watch pages while publishing a
+                      dedicated embed path, and that path is what plays. */}
+                  {(videoEmbed || canPreview(result.url)) ? (
+                    <button
+                      onClick={() => setViewerOpen(!viewerOpen)}
+                      className={`${accent.link} transition-colors`}
                     >
-                      <Eye size={12} /> View anonymously
-                    </a>
+                      {viewerOpen ? 'Close' : videoEmbed ? '▶ Play here' : 'Open in app'}
+                    </button>
+                  ) : (
+                    <span
+                      className="text-white/30 cursor-default"
+                      title={`${hostLabel} blocks other sites from displaying its pages, so it can only open in its own tab.`}
+                    >
+                      {opensOnLabel(result.url)}
+                    </span>
                   )}
-                  <button
-                    onClick={() => { setViewerOpen(!viewerOpen); setIframeBlocked(false); }}
-                    className={`${accent.link} transition-colors`}
-                  >
-                    {viewerOpen ? 'Close' : videoEmbed ? '▶ Play here' : 'Open in app'}
-                  </button>
                   {playable && (
                     <QueueButton
                       source={{ ...playable, title: result.title || displayUrl, pageUrl: result.url, poster: result.image }}
@@ -1298,28 +1318,24 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                     allowFullScreen
                   />
                 </div>
-              ) : iframeBlocked ? (
-                <div className="flex flex-col items-center justify-center py-8 bg-black/20 gap-2">
-                  <p className="text-sm text-white/50 text-center px-4">This page can't be embedded.</p>
-                  <a href={result.url} target="_blank" rel="noopener noreferrer"
-                    className={`text-xs ${accent.link} flex items-center gap-1`}>
-                    <ExternalLink size={12} /> Open in new tab
-                  </a>
-                </div>
               ) : (
+                /* NO onLoad SNIFFING. This used to try to detect a refusal
+                   by reading `contentDocument`, which is null for EVERY
+                   cross-origin frame by specification — embeddable or not — so
+                   the catch branch fired on every external result and the
+                   preview announced "This page can't be embedded" about pages
+                   that embed perfectly well. A blocked frame is deliberately
+                   indistinguishable from a slow one; that is what the header
+                   is for. Known refusals are handled ahead of the press
+                   instead (utils/embeddable.js), and the bar above this frame
+                   always carries an Open link, so a frame that stays blank for
+                   any other reason still has a way out. */
                 <iframe
-                  key={result.proxyUrl || result.url}
-                  src={result.proxyUrl || result.url}
+                  key={result.url}
+                  src={result.url}
                   className="w-full h-[60vh]"
                   title="Result preview"
                   sandbox="allow-scripts allow-same-origin"
-                  onError={() => setIframeBlocked(true)}
-                  onLoad={(e) => {
-                    try {
-                      if (!e.target.contentDocument || e.target.contentDocument.body?.innerHTML === '')
-                        setIframeBlocked(true);
-                    } catch { setIframeBlocked(true); }
-                  }}
                 />
               )}
             </div>

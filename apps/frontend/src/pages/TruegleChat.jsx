@@ -15,6 +15,7 @@ import { useUnhingedGate } from '../hooks/useUnhingedGate';
 import { FREE_ACCESS_MODE } from '../config/access';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent, solidTextClass } from '../config/modeTheme';
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
+import { canPreview, opensOnLabel } from '../utils/embeddable';
 import { fmtStamp, fmtStampFull, msgTime } from '../utils/formatTime';
 import QueueButton from '../components/ui/QueueButton';
 import ChatShareButton from '../components/ui/ChatShareButton';
@@ -231,20 +232,30 @@ function CitationChip({ result, accent }) {
             title="Open link" className={`p-1.5 rounded-lg hover:bg-white/10 ${accent.link} transition-colors`}>
             <ExternalLink size={16} />
           </a>
-          {result.proxyUrl && (
-            <a href={result.proxyUrl} target="_blank" rel="noopener noreferrer"
-              title="View anonymously — the site never sees your IP" className={`p-1.5 rounded-lg hover:bg-white/10 ${accent.link} transition-colors`}>
-              <Eye size={16} />
-            </a>
+          {/* "View anonymously" is gone: its only source was searchConfig's
+              `https://cors-anywhere.herokuapp.com/`, a public demo proxy that
+              stopped serving when Heroku ended free dynos. Promising anonymity
+              through a dead third-party host is worse than not offering it. */}
+          {/* And "In app" only appears when the site can actually open in the
+              app — a host that refuses framing gives every visitor a blank
+              rectangle. See utils/embeddable.js. */}
+          {(videoEmbed || canPreview(result.url)) ? (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              title={videoEmbed ? 'Play here' : 'Open in app'}
+              className={`px-2 py-1 rounded-lg hover:bg-white/10 text-xs font-medium ${accent.link} transition-colors`}
+            >
+              {expanded ? 'Close' : videoEmbed ? '▶ Play' : 'In app'}
+            </button>
+          ) : (
+            <span
+              className="px-2 py-1 text-xs text-white/30"
+              title={`${domain} blocks other sites from displaying its pages, so it can only open in its own tab.`}
+            >
+              {opensOnLabel(result.url)}
+            </span>
           )}
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            title={videoEmbed ? 'Play here' : 'Open in app'}
-            className={`px-2 py-1 rounded-lg hover:bg-white/10 text-xs font-medium ${accent.link} transition-colors`}
-          >
-            {expanded ? 'Close' : videoEmbed ? '▶ Play' : 'In app'}
-          </button>
           {playable && (
             <QueueButton
               source={{ ...playable, title: result.title || domain, pageUrl: result.url, poster: result.image }}
@@ -256,8 +267,8 @@ function CitationChip({ result, accent }) {
       {expanded && (
         <div className={`border-t ${accent.iframeBorder}`}>
           <iframe
-            key={videoEmbed || result.proxyUrl || result.url}
-            src={videoEmbed ? `${videoEmbed}?autoplay=1` : (result.proxyUrl || result.url)}
+            key={videoEmbed || result.url}
+            src={videoEmbed ? `${videoEmbed}?autoplay=1` : result.url}
             className="w-full h-64"
             title={result.title || 'Preview'}
             allow={videoEmbed ? 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' : undefined}
