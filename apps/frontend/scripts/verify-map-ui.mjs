@@ -525,16 +525,45 @@ await page2.evaluate(() => {
   const el = document.querySelector('#truegle-map-container [data-map-player-transport]');
   return el;   // no-op; keeps the evaluate above from being optimised away
 });
-await page2.mouse.move(640, 500);
+// Dragged FROM THE MAP's own box, for the same reason the right-click below
+// is: a hardcoded (640, 500) is only inside the map while everything above it
+// keeps its exact height, and a drag that starts outside the map pans nothing
+// at all — which then reads as "the light did not go out".
+const drag = await page2.evaluate(() => {
+  const r = document.querySelector('#truegle-map-container').getBoundingClientRect();
+  return {
+    // The MIDDLE BAND, vertically. The top strip is the search field and the
+    // renderer's controls; the bottom strip is the function bar, the scale,
+    // the attribution and — in this context, because something is playing —
+    // the mini player transport. A drag starting on any of those is swallowed
+    // by that control and the map never moves, which then reads as "the light
+    // did not go out" about a light that was never asked to.
+    fromX: Math.round(r.left + r.width * 0.8), fromY: Math.round(r.top + r.height * 0.5),
+    toX: Math.round(r.left + r.width * 0.15), toY: Math.round(r.top + r.height * 0.25),
+  };
+});
+await page2.mouse.move(drag.fromX, drag.fromY);
 await page2.mouse.down();
-await page2.mouse.move(60, 120, { steps: 12 });
+await page2.mouse.move(drag.toX, drag.toY, { steps: 15 });
 await page2.mouse.up();
-await page2.waitForTimeout(1200);
-const afterPan = await page2.evaluate(
-  () => document.querySelector('#truegle-map-container button[data-location-state]')?.dataset.locationState,
-);
-check(afterPan === 'located',
-  '…and goes out when you pan away from yourself', `state: ${afterPan}`);
+// The state is recomputed on the map's own move event; poll for it rather
+// than sampling once after a guessed pause.
+const wentOut = await page2.waitForFunction(
+  () => document.querySelector('#truegle-map-container button[data-location-state]')?.dataset.locationState === 'located',
+  null, { timeout: 8000 },
+).then(() => true).catch(() => false);
+const afterPan = await page2.evaluate(() => {
+  const btn = document.querySelector('#truegle-map-container button[data-location-state]');
+  const dot = document.querySelector('#truegle-map-container .current-location-marker');
+  return {
+    state: btn?.dataset.locationState,
+    // Whether the dot is still anywhere on the map tells a failed pan apart
+    // from a pan that worked and a light that did not react.
+    dotOnScreen: !!dot && dot.getBoundingClientRect().width > 0,
+  };
+});
+check(wentOut, '…and goes out when you pan away from yourself',
+  `state: ${afterPan.state} · dot still rendered: ${afterPan.dotOnScreen}`);
 
 // ── 11. the blue dot says where it thinks you are ───────────────────────────
 const dot = await page2.evaluate(() => {

@@ -664,6 +664,14 @@
         "body": "Both Vercel projects (frontend + backend 'backend-seven-khaki-60') build from the main branch. The backend showing 'last deployed Aug 13' means MAIN is at Aug 13, not that a deploy failed — origin/main HEAD 9ab0ab7 is exactly the newest Vercel row. The Vercel dashboard 'Redeploy' rebuilds the SAME commit, so it can never pick up new work. Getting branch work live = fast-forward main: git fetch origin && git checkout main && git merge --ff-only origin/<branch> && git push origin main. Both projects then auto-deploy on the push. Session branches are fast-forwardable into main by design (see the branch workflow fact).",
         "ts": "2026-08-17",
         "created": "2026-08-17"
+      },
+      "map-compact-bar": {
+        "Id": "map-compact-bar",
+        "Type": "fact",
+        "Label": "The map function bar collapses below 520px of map area",
+        "body": "Eleven controls wrapped onto THREE rows in a 420px popped-out map — a third of the window spent on chrome. compactBar (areaWidth < 520) drops the exploratory controls (projection trio, basemap style, traffic, cameras, camera search) and keeps Directions, Location, Pop out/Dock, Close; it also switches the row to flex-nowrap and drops the divider before Close, because a wrap there costs a whole extra row for decoration. Measured 76px->44px, 22%->13% of a 340px frame. Nothing is lost — every dropped control returns when the map is docked or widened. Wide keeps flex-wrap, which is what stops 'Close' being clipped.",
+        "ts": "2026-08-17",
+        "created": "2026-08-17"
       }
     },
     "decision": {
@@ -1610,6 +1618,14 @@
         "body": "components/map/config/basemap.js is the single place the basemap is decided. Renderer = react-map-gl/maplibre + maplibre-gl (BSD-3), NOT mapbox-gl: Mapbox GL JS v2+ is licensed for use WITH Mapbox services so pointing it at other tiles is a licence breach, and a token is a metered account against a $0 budget. Styles are hand-built RASTER style documents (not hosted style URLs, which can 404 and take the map down): standard=tile.openstreetmap.org, light/dark=CARTO light_all/dark_all, satellite=Esri World Imagery, each with its required attribution string. hasMapboxToken/TRAFFIC_AVAILABLE are the single switches if a token ever appears; Mapbox traffic must use the TileJSON https URL, never the mapbox:// shorthand (MapLibre cannot resolve it). maplibre-gl.css is a MODULE import in TruegleMap.jsx — index.html's CDN <link> to mapbox-gl.css was removed. NavigationControl=top-right, ScaleControl=bottom-left; bottom-right is the function bar / Reset View / watermark stack.",
         "ts": "2026-08-16",
         "created": "2026-08-16"
+      },
+      "chat-location-map": {
+        "Id": "chat-location-map",
+        "Type": "decision",
+        "Label": "Chat answers local questions with the search page's map",
+        "body": "components/chat/ChatLocationMap.jsx: useLocationDetection on the SUBMITTED query (never the input box — near-me detection asks the browser for a position, so per-keystroke would prompt while somebody is still typing 'near'), and when it is local it renders MapViewWrapper in the map's own pop-out frame. Owns almost nothing: detection, the Overpass/Nominatim nearby ladder and the markers are all the same code /search runs, so 'coffee near me' cannot mean different things on different surfaces. Floats rather than docking inline because a 600px card wedged mid-conversation pushes the reply off screen. Dismissal is keyed by query so closing never suppresses the NEXT local question, and leaves a 'Show the map for …' line. MapViewWrapper gained defaultPoppedOut + popOutStorageKey so each surface keeps its own pop-out preference (chat=truegle_chat_map_popped, default popped). Covered by npm run chatmap:test.",
+        "ts": "2026-08-17",
+        "created": "2026-08-17"
       }
     },
     "entity": {

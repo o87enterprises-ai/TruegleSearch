@@ -25,6 +25,7 @@
     "feedpage:test": "node scripts/verify-feed-page.mjs",
     "cameraview:test": "node scripts/verify-camera-view.mjs",
     "mapui:test": "node scripts/verify-map-ui.mjs",
+    "chatmap:test": "node scripts/verify-chat-map.mjs",
     "reddit:test": "node scripts/verify-player-reddit.mjs",
     "localquery:test": "esbuild scripts/verify-local-query.mjs --bundle --format=esm --platform=node --alias:axios=./scripts/stubs/axios.mjs --define:import.meta.env='{\"DEV\":false}' --external:react --outfile=dev/.build/localquery-test.mjs --log-level=error && node dev/.build/localquery-test.mjs",
     "embeddable:test": "node scripts/verify-embeddable.mjs",

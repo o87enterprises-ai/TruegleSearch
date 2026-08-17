@@ -74,6 +74,7 @@ export default [
       '**/verify-map-ui.mjs',
       '**/verify-player-reddit.mjs',
       '**/verify-trail-page.mjs',
+      '**/verify-chat-map.mjs',
     ],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },

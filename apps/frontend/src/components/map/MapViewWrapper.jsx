@@ -27,6 +27,15 @@ export default function MapViewWrapper({
   onClose,
   onToggle,
   detectedLocation,
+  // WHERE THE MAP STARTS, and where that choice is remembered.
+  //
+  // The search page opens the map in the results column; Chat has no results
+  // column to open it in, so it starts floating. Each surface keeps its own
+  // preference under its own key — sharing one meant popping the map out in
+  // Chat also popped it out of the search results, which is not a preference
+  // anybody expressed.
+  defaultPoppedOut = false,
+  popOutStorageKey = 'truegle_map_popped',
   className = ''
 }) {
   const { state, actions } = useMap();
@@ -48,11 +57,14 @@ export default function MapViewWrapper({
   // because it is a preference about how you like to work, not a per-search
   // decision — same reasoning as the player's dock.
   const [poppedOut, setPoppedOut] = useState(() => {
-    try { return localStorage.getItem('truegle_map_popped') === '1'; } catch { return false; }
+    try {
+      const stored = localStorage.getItem(popOutStorageKey);
+      return stored === null ? defaultPoppedOut : stored === '1';
+    } catch { return defaultPoppedOut; }
   });
   useEffect(() => {
-    try { localStorage.setItem('truegle_map_popped', poppedOut ? '1' : '0'); } catch { /* private mode */ }
-  }, [poppedOut]);
+    try { localStorage.setItem(popOutStorageKey, poppedOut ? '1' : '0'); } catch { /* private mode */ }
+  }, [poppedOut, popOutStorageKey]);
 
   // Update map center when location is detected
   useEffect(() => {
@@ -405,11 +417,22 @@ export default function MapViewWrapper({
   return (
     <div className={`relative ${className}`}>
       <motion.div
-        initial={{ opacity: 0, height: 0 }}
-        animate={{ opacity: 1, height: 600 }}
-        exit={{ opacity: 0, height: 0 }}
+        // FADE, NOT HEIGHT. The card used to animate height 0 -> 600, and an
+        // animated height is a value the renderer inside it has to chase: the
+        // map measures its container on a debounced ResizeObserver, so a run
+        // that interrupted or re-started that animation could leave the card —
+        // and the canvas — settled at some fraction of 600. It was seen at
+        // 98px and at 63px, which is a map that has technically loaded and
+        // shows nobody anything.
+        //
+        // The height is fixed now and only the opacity animates. The reveal
+        // reads the same, and there is no moving target for the map to
+        // measure against.
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         className="relative rounded-2xl overflow-hidden border-2 border-cyan-500/30 shadow-2xl bg-gradient-to-br from-neutral-900 to-neutral-800"
-        style={{ display: 'flex', flexDirection: 'column' }}
+        style={{ display: 'flex', flexDirection: 'column', height: 600 }}
       >
         {/* Top Ad Banner */}
         <AdBanner position="top" />

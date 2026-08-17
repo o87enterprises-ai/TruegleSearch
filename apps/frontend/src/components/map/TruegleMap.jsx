@@ -130,6 +130,16 @@ export default function TruegleMap({
   }, [isFullscreen, poppedOut, panelOpen]);
   const showBarLabels = areaWidth >= 900;
   const labelClass = showBarLabels ? '' : 'hidden';
+  // A SMALL MAP GETS A SMALL BAR.
+  //
+  // Eleven controls wrap onto three rows in a 420px pop-out, which is a third
+  // of the window spent on chrome — the map it is chrome for ends up smaller
+  // than the toolbar. Below the threshold the bar keeps what a quick look
+  // actually needs (where am I, how do I get there, put it back, close it) and
+  // drops the exploratory controls: the projection trio, the basemap style,
+  // traffic and the camera panels. None of those are lost — they are all there
+  // the moment the map is docked or the window is widened.
+  const compactBar = areaWidth < 520;
   // How much room the bottom edge owes the function bar. The renderer pins its
   // attribution and scale to that edge, and attribution is a licence condition
   // of OSM, CARTO and Esri — it cannot sit under our chrome. Derived from the
@@ -1214,7 +1224,12 @@ export default function TruegleMap({
             className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100%-24px)]"
           >
             <div className="bg-gradient-to-r from-neutral-900/95 to-neutral-800/95 backdrop-blur-xl rounded-xl border border-neutral-700/50 shadow-2xl">
-              <div className="flex flex-wrap items-center justify-center gap-1.5 px-3 py-2">
+              {/* Compact never wraps: four controls always fit, and a wrap
+                  there costs a whole extra row of a 340px window for nothing.
+                  Wide still wraps, which is what stops "Close" being clipped. */}
+              <div className={`flex items-center justify-center gap-1.5 px-3 py-2 ${compactBar ? 'flex-nowrap' : 'flex-wrap'}`}>
+                {/* Exploratory controls — hidden on a small map. See compactBar. */}
+                {!compactBar && (<>
                 {/* View Mode Selector */}
                 <button
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -1315,6 +1330,8 @@ export default function TruegleMap({
                   <span className={labelClass}>Search</span>
                 </button>
 
+                </>)}
+
                 {/* Directions Toggle */}
                 <button
                   onClick={() => setShowDirectionsFS(prev => !prev)}
@@ -1359,7 +1376,7 @@ export default function TruegleMap({
                 {/* Close Map */}
                 {onClose && (
                   <>
-                    <div className="w-px h-6 bg-neutral-700 mx-1"></div>
+                    {!compactBar && <div className="w-px h-6 bg-neutral-700 mx-1"></div>}
                     <button
                       onClick={onClose}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-neutral-800 text-red-400 hover:bg-red-600 hover:text-white"

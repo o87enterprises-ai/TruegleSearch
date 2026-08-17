@@ -16,6 +16,7 @@ import { FREE_ACCESS_MODE } from '../config/access';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent, solidTextClass } from '../config/modeTheme';
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import { canPreview, opensOnLabel } from '../utils/embeddable';
+import ChatLocationMap from '../components/chat/ChatLocationMap';
 import { fmtStamp, fmtStampFull, msgTime } from '../utils/formatTime';
 import QueueButton from '../components/ui/QueueButton';
 import ChatShareButton from '../components/ui/ChatShareButton';
@@ -383,6 +384,8 @@ export default function TruegleChat() {
     { id: 1, role: 'assistant', content: MODE_WELCOME[localStorage.getItem('truegle_mode_pref') || 'blue'], citations: null },
   ]);
   const [input, setInput] = useState('');
+  // See handleSend: the submitted query, which drives the location map.
+  const [lastAsked, setLastAsked] = useState('');
   const [loading, setLoading] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const endRef = useRef(null);
@@ -513,6 +516,12 @@ export default function TruegleChat() {
     }
 
     const query = text;
+    // The last question actually ASKED, for the location map below the thread.
+    // Deliberately not the input box: useLocationDetection geocodes what it is
+    // given, and a "near me" query asks the browser for a position — running
+    // that per keystroke would mean a permission prompt while somebody is
+    // still typing the word "near".
+    setLastAsked(query);
     // Prior turns → working memory for a real back-and-forth. Skip the id:1
     // welcome (not a real exchange). Send only role/content, no media payloads
     // (the image itself isn't replayed into history — see aiAPI.chat call below).
@@ -1027,6 +1036,13 @@ export default function TruegleChat() {
             </Fragment>
             );
           })}
+
+          {/* A local question gets a map. Renders nothing unless the last
+              question asked was actually local — see ChatLocationMap, which
+              borrows the search page's detection and the map's own nearby
+              lookup rather than growing a second copy of either. */}
+          <ChatLocationMap query={lastAsked} accent={accent} />
+
           {/* Disappear/reappear flow: while a reply is in flight, the input is
               replaced by the loading indicator; once it lands, the mode row +
               input reappear directly below the finalized response — never
