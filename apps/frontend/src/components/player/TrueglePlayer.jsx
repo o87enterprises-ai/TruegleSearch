@@ -218,10 +218,14 @@ export default function TrueglePlayer({
   // something, and only counting the ones that led to another video would
   // learn from a biased half of them.
   const watching = useRef({ source: null, time: 0, duration: 0 });
-  if (current && mediaKey(current) === mediaKey(watching.current.source)) {
-    watching.current.time = embed?.time || watching.current.time;
-    watching.current.duration = embed?.duration || watching.current.duration;
-  }
+  // Mirrored in an effect rather than during render: writing to a ref while
+  // rendering is the kind of thing that works until concurrent rendering
+  // replays a render and quietly does it twice.
+  useEffect(() => {
+    if (!current || mediaKey(current) !== mediaKey(watching.current.source)) return;
+    if (embed?.time) watching.current.time = embed.time;
+    if (embed?.duration) watching.current.duration = embed.duration;
+  }, [current, embed?.time, embed?.duration]);
   useEffect(() => {
     const previous = watching.current;
     if (previous.source && mediaKey(previous.source) !== mediaKey(current)) {
