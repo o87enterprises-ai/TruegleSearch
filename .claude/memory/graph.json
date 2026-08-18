@@ -1754,6 +1754,14 @@
         "body": "No view count exists in a search result and YouTube's costs 1 quota unit/video against a 10k/day site-wide allowance. POST /api/media/scores batches media_signals (ups/downs/plays, same LCB formula as trending minus the recency bonus). CRITICAL: absent key means NO SIGNAL, not zero — unscored rows keep relevance order BELOW scored ones. Tooltip says 'on Truegle' explicitly.",
         "ts": "2026-08-18",
         "created": "2026-08-18"
+      },
+      "social-provider-statuses": {
+        "Id": "social-provider-statuses",
+        "Type": "decision",
+        "Label": "socialProviders status vocabulary: demo | open | soon",
+        "body": "'demo' = an ACCOUNT, goes through the (demo) OAuth handshake — Reddit. 'open' = a PUBLIC SOURCE with no account to connect and none ever needed — Hacker News, GitHub; switching one on is a local toggle. 'soon' = cannot work yet, pill disabled, note carries the real reason. needsAuth() gates the handshake; isConnectable() gates what may live in the connections list.",
+        "ts": "2026-08-18",
+        "created": "2026-08-18"
       }
     },
     "entity": {
@@ -2070,6 +2078,15 @@
         "status": "open",
         "ts": "2026-08-15",
         "created": "2026-08-15"
+      },
+      "tube-popular-needs-signal": {
+        "Id": "tube-popular-needs-signal",
+        "Type": "thread",
+        "Label": "Popular sort has no data until media_signals fills up",
+        "body": "POST /api/media/scores only returns rows with ups>0 OR plays>0. On a cold table every row is unscored, so Popular silently equals Relevant. That is the correct fallback, but the sort will look inert until real traffic accumulates signals — worth re-checking once the site has some. A YOUTUBE_API_KEY would also unlock full playlist import (currently RSS-capped at ~15 entries).",
+        "status": "open",
+        "ts": "2026-08-18",
+        "created": "2026-08-18"
       }
     }
   },
