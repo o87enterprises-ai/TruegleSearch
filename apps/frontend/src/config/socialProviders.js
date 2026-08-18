@@ -13,7 +13,12 @@
 // reason, not a placeholder, and it is what the pill shows.
 //
 // `status`:
-//   'demo'  — wired to the demo connect flow now, real data behind a credential
+//   'demo'  — an ACCOUNT. Wired to the demo connect flow now, real data behind
+//             a credential. Signing in happens on the provider's own site.
+//   'open'  — a PUBLIC SOURCE. No account exists to connect and none is ever
+//             needed; switching it on is one tap and nothing leaves the
+//             browser. Routing these through an OAuth handshake would be
+//             theatre — there is nothing to authorise.
 //   'soon'  — cannot work yet; pill is disabled and shows `note`
 //
 // When a provider's credentials arrive, its status flips and a backend adapter
@@ -28,6 +33,24 @@ export const PROVIDERS = [
     // The only one that genuinely works: free OAuth app, 100 queries/min, and
     // a real home feed at the end of it.
     note: 'Free OAuth — the one that fully works',
+  },
+  // PUBLIC SOURCES. These used to be smuggled in under Reddit — see
+  // BACKEND_PLATFORMS below for what that did — and they are their own pills
+  // now because they are their own things. Keyless, accountless, and the note
+  // says so rather than inventing a sign-in that does not exist.
+  {
+    id: 'hackernews',
+    label: 'Hacker News',
+    colour: '#FF6600',
+    status: 'open',
+    note: 'Public — no account, no sign-in',
+  },
+  {
+    id: 'github',
+    label: 'GitHub',
+    colour: '#8B949E',
+    status: 'open',
+    note: 'Trending repositories — public, no sign-in',
   },
   {
     id: 'pinterest',
@@ -74,17 +97,39 @@ export const PROVIDERS = [
 
 export const PROVIDER_IDS = PROVIDERS.map((p) => p.id);
 export const byId = (id) => PROVIDERS.find((p) => p.id === id) || null;
-export const isConnectable = (id) => byId(id)?.status === 'demo';
+// Everything that may appear in the connections list — accounts AND public
+// sources. Note this gates STORAGE, not the flow: needsAuth() below is what
+// decides whether switching one on involves the provider at all.
+export const isConnectable = (id) => ['demo', 'open'].includes(byId(id)?.status);
+
+/**
+ * Does switching this on require a trip to the provider?
+ *
+ * True for an account, false for a public source. A source that needs no
+ * sign-in must not be sent through the OAuth handshake: there is no
+ * authorisation to grant, and a redirect that pretends otherwise teaches
+ * people that Truegle asks for logins it does not need.
+ */
+export const needsAuth = (id) => byId(id)?.status === 'demo';
 
 /**
  * The platforms a query may actually be sent to.
  *
- * The backend's keyless feed speaks Reddit, Hacker News and GitHub. Reddit is
- * the only one of those a person "connects", so connecting it is what opens
- * that door — the others ride along with it rather than pretending to be
- * accounts somebody signed into.
+ * REPORTED: "Feed (reddit) is pulling GitHub results." It was, and this line
+ * is why — connecting Reddit used to send
+ * `platforms: ['reddit', 'hackernews', 'github']`, on the reasoning that
+ * Hacker News and GitHub are keyless so they may as well ride along. What that
+ * actually produced was a Reddit feed padded with repositories nobody asked
+ * for, and no way to turn them off, because they were not pills.
+ *
+ * Connecting Reddit means Reddit. Hacker News and GitHub are pills of their
+ * own now, switched on by the person who wants them.
  */
-export const BACKEND_PLATFORMS = { reddit: ['reddit', 'hackernews', 'github'] };
+export const BACKEND_PLATFORMS = {
+  reddit: ['reddit'],
+  hackernews: ['hackernews'],
+  github: ['github'],
+};
 
 export const platformsFor = (connectedIds = []) => [
   ...new Set(connectedIds.flatMap((id) => BACKEND_PLATFORMS[id] || [])),

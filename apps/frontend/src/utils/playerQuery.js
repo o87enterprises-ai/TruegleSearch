@@ -48,8 +48,8 @@ export const PROVIDERS = [
   // "Anywhere", not "All" — the What row has its own All, and two chips
   // reading the same word in adjacent rows is the kind of thing that makes a
   // control feel arbitrary. It also just answers "where?" better.
-  { id: 'all', label: 'Anywhere', site: '', category: 'videos', channelLabel: 'Channel', prefix: '@' },
-  { id: 'youtube', label: 'YouTube', site: 'site:youtube.com', category: 'videos', channelLabel: 'Channel', prefix: '@' },
+  { id: 'all', label: 'Anywhere', site: '', category: 'videos', colour: '#9aa7b8', channelLabel: 'Channel', prefix: '@' },
+  { id: 'youtube', label: 'YouTube', site: 'site:youtube.com', category: 'videos', colour: '#FF0000', channelLabel: 'Channel', prefix: '@' },
   // site: takes a DOMAIN. `site:reddit.com/r` is a path prefix, which only
   // Google honours — every other engine SearXNG fans out to treats it as
   // malformed and returns nothing, which is why Reddit searches came back
@@ -58,15 +58,15 @@ export const PROVIDERS = [
   // plus a Google query it builds itself. It does not depend on our site:
   // filter surviving, and — the reason this matters — it still answers when
   // SearXNG is cold, which 'web' and 'videos' may not.
-  { id: 'reddit', label: 'Reddit', site: 'site:reddit.com', category: 'social', channelLabel: 'Subreddit', prefix: 'r/' },
-  { id: 'vimeo', label: 'Vimeo', site: 'site:vimeo.com', category: 'videos', channelLabel: 'Creator', prefix: '' },
+  { id: 'reddit', label: 'Reddit', site: 'site:reddit.com', category: 'social', colour: '#FF4500', channelLabel: 'Subreddit', prefix: 'r/' },
+  { id: 'vimeo', label: 'Vimeo', site: 'site:vimeo.com', category: 'videos', colour: '#1AB7EA', channelLabel: 'Creator', prefix: '' },
   // NOT "Artist" — the What row already has an Artist chip, and two chips with
   // the same word on screen is worse than a slightly duller label.
-  { id: 'soundcloud', label: 'SoundCloud', site: 'site:soundcloud.com', category: 'web', channelLabel: 'Profile', prefix: '' },
-  { id: 'tiktok', label: 'TikTok', site: 'site:tiktok.com', category: 'videos', channelLabel: 'Creator', prefix: '@' },
-  { id: 'dailymotion', label: 'Dailymotion', site: 'site:dailymotion.com', category: 'videos', channelLabel: 'Channel', prefix: '' },
-  { id: 'rumble', label: 'Rumble', site: 'site:rumble.com', category: 'videos', channelLabel: 'Channel', prefix: 'c/' },
-  { id: 'odysee', label: 'Odysee', site: 'site:odysee.com', category: 'videos', channelLabel: 'Channel', prefix: '@' },
+  { id: 'soundcloud', label: 'SoundCloud', site: 'site:soundcloud.com', category: 'web', colour: '#FF5500', channelLabel: 'Profile', prefix: '' },
+  { id: 'tiktok', label: 'TikTok', site: 'site:tiktok.com', category: 'videos', colour: '#69C9D0', channelLabel: 'Creator', prefix: '@' },
+  { id: 'dailymotion', label: 'Dailymotion', site: 'site:dailymotion.com', category: 'videos', colour: '#0066DC', channelLabel: 'Channel', prefix: '' },
+  { id: 'rumble', label: 'Rumble', site: 'site:rumble.com', category: 'videos', colour: '#85C742', channelLabel: 'Channel', prefix: 'c/' },
+  { id: 'odysee', label: 'Odysee', site: 'site:odysee.com', category: 'videos', colour: '#EF1970', channelLabel: 'Channel', prefix: '@' },
 ];
 const PROVIDER_BY_ID = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
 export const providerMeta = (id) => PROVIDER_BY_ID[id] || PROVIDER_BY_ID.all;
@@ -292,6 +292,37 @@ export function isolatePlatform(rows, platform) {
   if (!platform || platform === 'any' || platform === 'all') return rows || [];
   return (rows || []).filter((r) => r && r.kind === platform);
 }
+
+/**
+ * Where a row CAME FROM, and what colour says so.
+ *
+ * The Where/What chip rows are gone: a search now goes to every provider at
+ * once and comes back as one list. That is the right behaviour — you asked for
+ * a thing, not for a website — but it costs the one piece of information the
+ * chips used to carry for free, which is which platform you are looking at. A
+ * list mixing YouTube, Rumble, Odysee and SoundCloud with nothing to tell them
+ * apart is a worse list, not a simpler one.
+ *
+ * So the answer moves onto the row itself. `kind` is set by getPlayable() from
+ * the URL, so it is what the row genuinely IS rather than what was asked for.
+ *
+ * 'video' and 'audio' are direct file URLs — a real playable thing with no
+ * platform behind it — so they take the neutral colour rather than being
+ * dressed up as a provider.
+ */
+export function sourceProvider(source) {
+  const kind = source?.kind;
+  return kind && PROVIDER_BY_ID[kind] ? kind : 'all';
+}
+
+/** The provider colour for a row, for its border/dot. Always a real colour. */
+export const sourceColour = (source) => providerMeta(sourceProvider(source)).colour;
+
+/** The provider's display name for a row — 'Direct link' when it has none. */
+export const sourceProviderLabel = (source) => {
+  const id = sourceProvider(source);
+  return id === 'all' ? 'Direct link' : providerMeta(id).label;
+};
 
 export function rankPlayable(rows, { channel, platform } = {}) {
   const wanted = channel ? channel.toLowerCase().replace(/[\s._-]/g, '') : null;

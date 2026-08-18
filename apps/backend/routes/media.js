@@ -109,6 +109,18 @@ router.get('/trending', async (req, res) => {
 });
 
 /**
+ * POST /api/media/scores  { keys: [...] }
+ * Truegle's own popularity for a batch of media keys, for the Tube results'
+ * "Popular" sort. POST rather than GET because a page of results is well past
+ * what belongs in a query string. Keys absent from the reply have no signal —
+ * that is not the same as zero, and callers must not treat it as such.
+ */
+router.post('/scores', rateLimitSearch, async (req, res) => {
+  const scores = await MediaService.scores((req.body || {}).keys);
+  return res.json({ success: true, scores });
+});
+
+/**
  * GET /api/media/broken
  * The keys the player should not offer: things enough people (or the embed
  * itself) reported as unplayable. Keys only — no metadata, because every

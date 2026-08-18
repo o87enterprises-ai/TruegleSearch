@@ -31,6 +31,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // What the current search turned up. With nothing playing, the viewport
   // becomes a swipeable deck of those results instead of a black rectangle.
   browse = null, browseLoading = false,
+  browseMore = false, onBrowseMore = null, browseLoadingMore = false,
 }, ref) {
   // Idle. An empty black rectangle reads as a player that has never worked.
   // If a search has run, the results themselves fill it — full-size, one flick
@@ -42,7 +43,8 @@ const PlayerScreen = forwardRef(function PlayerScreen({
     return (
       <div ref={ref} className={`w-full ${browsing ? '' : 'overflow-y-auto'} ${fill ? 'flex flex-col flex-1 min-h-0' : ''}`}>
         {browsing
-          ? <PlayerBrowse rows={browse} loading={browseLoading} compact={compact} fill={fill} />
+          ? <PlayerBrowse rows={browse} loading={browseLoading} compact={compact} fill={fill}
+              more={browseMore} onMore={onBrowseMore} loadingMore={browseLoadingMore} />
           : <PlayerStarters compact={compact} />}
       </div>
     );

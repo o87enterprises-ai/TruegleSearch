@@ -395,6 +395,9 @@ export default function TrueglePlayer({
           maxHeight={presentation === 'popped' ? 320 : 420}
           browse={search.results}
           browseLoading={search.loading}
+          browseMore={search.more}
+          onBrowseMore={search.loadMore}
+          browseLoadingMore={search.loadingMore}
         />
         {swipe && current && (
           <div

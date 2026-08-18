@@ -403,7 +403,14 @@ class SearchService {
         const filtered = categorizedResults.filter(r => mapped.includes(r.bias));
         console.log(`🟣 Purple strict filter: ${filtered.length} results for perspectives [${perspectives.join(',')}]`);
 
+        // Undated rows sort LAST on a date sort in either direction. They are
+        // not old and they are not new; putting them at one end because
+        // `new Date(null)` happens to be 1970 would be an accident, not a
+        // decision.
         return [...filtered].sort((a, b) => {
+          if (!a.date && !b.date) return 0;
+          if (!a.date) return 1;
+          if (!b.date) return -1;
           const diff = new Date(b.date) - new Date(a.date);
           return filters.order === 'asc' ? -diff : diff;
         });
@@ -541,6 +548,15 @@ class SearchService {
 
   /**
    * Recency score (0-1): newer results score higher, decaying over roughly a year.
+   *
+   * UNDATED MEANS UNDATED. Every normaliser above used to stamp
+   * `new Date().toISOString()` on a result whose provider gave no publish date
+   * — SearXNG does this for most rows — so "we don't know when" arrived here
+   * indistinguishable from "published in the last hour" and scored 1 instead
+   * of the 0.3 this function has always had waiting for it. Undated results
+   * were therefore ranked as the freshest thing on the page, and the Tube
+   * results could not show a date at all without printing today's date over a
+   * video from 2019.
    */
   calculateRecency(dateStr) {
     if (!dateStr) return 0.3;
@@ -882,7 +898,7 @@ class SearchService {
       snippet: item.snippet || '',
       source: 'google-images',
       sourceName: 'Google Images',
-      date: new Date().toISOString(),
+      date: null,   // Google Images carries no publish date — see UNDATED below
       image: item.link || null,
       thumbnail: item.image?.thumbnailLink || null,
       favicon: null,
@@ -939,7 +955,7 @@ class SearchService {
         snippet: item.title || '',
         source: 'brave-images',
         sourceName: 'Brave Images',
-        date: item.page_age || item.age || new Date().toISOString(),
+        date: item.page_age || item.age || null,
         image: imageUrl,
         thumbnail: item.thumbnail?.src || null,
         favicon: null,
@@ -1126,7 +1142,7 @@ class SearchService {
       // Show the aggregated engine so users know the provenance, but make clear
       // it came through Truegle's self-hosted metasearch (no direct tracking).
       sourceName: item.engine ? `${item.engine} · via Truegle` : 'Truegle Metasearch',
-      date: item.publishedDate || new Date().toISOString(),
+      date: item.publishedDate || null,
       image: item.img_src || null,
       favicon: null,
       domain: this.extractDomain(item.url),
@@ -1244,7 +1260,7 @@ class SearchService {
       snippet: item.description || '',
       source: 'brave',
       sourceName: 'Brave Search',
-      date: item.page_age || new Date().toISOString(),
+      date: item.page_age || null,
       image: item.thumbnail?.src || null,
       favicon: item.profile?.img || null,
       domain: this.extractDomain(item.url),
@@ -1293,7 +1309,7 @@ class SearchService {
       snippet: item.snippet || '',
       source: 'serp',
       sourceName: 'Google (via SerpAPI)',
-      date: item.date || new Date().toISOString(),
+      date: item.date || null,
       image: item.thumbnail || null,
       favicon: item.favicon || null,
       domain: this.extractDomain(item.link),
@@ -1496,7 +1512,7 @@ class SearchService {
       snippet: photo.description || photo.alt_description || '',
       source: 'unsplash',
       sourceName: 'Unsplash',
-      date: photo.created_at || new Date().toISOString(),
+      date: photo.created_at || null,
       image: photo.urls?.regular || photo.urls?.small || null,
       thumbnail: photo.urls?.thumb || null,
       favicon: null,
@@ -1551,7 +1567,7 @@ class SearchService {
       snippet: item.snippet,
       source: 'google',
       sourceName: 'Google',
-      date: item.date || new Date().toISOString(),
+      date: item.date || null,
       image: item.pagemap?.cse_image?.[0]?.src || null,
       favicon: item.pagemap?.cse_thumbnail?.[0]?.src || null,
       domain: this.extractDomain(item.link),
@@ -1942,7 +1958,7 @@ class SearchService {
       snippet: article.description,
       source: 'news',
       sourceName: 'News API',
-      date: article.publishedAt || new Date().toISOString(),
+      date: article.publishedAt || null,
       image: article.urlToImage || null,
       favicon: null,
       domain: this.extractDomain(article.url),
@@ -1961,7 +1977,7 @@ class SearchService {
       source: 'youtube',
       sourceName: 'YouTube',
       channel: decodeHtmlEntities(item.snippet.channelTitle) || 'YouTube',
-      date: item.snippet.publishedAt || new Date().toISOString(),
+      date: item.snippet.publishedAt || null,
       image: item.snippet.thumbnails?.high?.url || null,
       favicon: null,
       domain: 'youtube.com',
@@ -1997,7 +2013,7 @@ class SearchService {
       snippet: item.snippet,
       source: 'bing',
       sourceName: 'Bing',
-      date: item.dateLastCrawled || new Date().toISOString(),
+      date: item.dateLastCrawled || null,
       image: null,
       favicon: null,
       domain: this.extractDomain(item.url),

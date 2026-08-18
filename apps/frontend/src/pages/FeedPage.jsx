@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, Plus, X } from 'lucide-react';
 import SearchPageShell from '../components/layout/SearchPageShell';
 import SearchBar from '../components/ui/SearchBar';
 import FeedCard from '../components/feed/FeedCards';
-import { PROVIDERS, platformsFor } from '../config/socialProviders';
-import { useSocialConnections } from '../hooks/useSocialConnections';
+import { PROVIDERS, platformsFor, needsAuth } from '../config/socialProviders';
+import { useSocialConnections, connect as connectSource } from '../hooks/useSocialConnections';
 import { useSocialFeed } from '../hooks/useSocialFeed';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
@@ -50,6 +50,11 @@ export default function FeedPage() {
 
   const start = useCallback((id) => {
     setFailed('');
+    // A PUBLIC SOURCE HAS NOTHING TO AUTHORISE. Hacker News and GitHub are
+    // keyless and accountless, so switching one on is a local toggle — sending
+    // it round an OAuth handshake would be theatre, and the kind that teaches
+    // people to expect Truegle to ask for logins it does not need.
+    if (!needsAuth(id)) { connectSource({ provider: id }); return; }
     setBusy(id);
     // A full-page redirect, not a popup and not an iframe. Every one of these
     // providers serves its login with X-Frame-Options: DENY precisely to stop
@@ -128,7 +133,7 @@ export default function FeedPage() {
         <ArrivalState onConnect={start} busy={busy} />
       ) : (
         <>
-          <ConnectedRow connections={connections} onDisconnect={disconnect} />
+          <ConnectedRow connections={connections} onDisconnect={disconnect} onConnect={start} busy={busy} />
           <FeedList feed={feed} query={submitted} />
         </>
       )}
@@ -155,7 +160,7 @@ function ArrivalState({ onConnect, busy }) {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {PROVIDERS.map((p) => {
-          const ready = p.status === 'demo';
+          const ready = p.status === 'demo' || p.status === 'open';
           return (
             <button
               key={p.id}
@@ -188,9 +193,10 @@ function ArrivalState({ onConnect, busy }) {
       </div>
 
       <p className="text-white/30 text-[11px] text-center mt-5 max-w-lg mx-auto">
-        Sign-in happens on the provider&apos;s own site, in your address bar — never in a box
-        on this page. Most of these platforms cannot serve a personal feed to anyone at any
-        price; the ones that can are the ones you can press.
+        Where a sign-in is needed it happens on the provider&apos;s own site, in your address
+        bar — never in a box on this page. Hacker News and GitHub need none at all: they are
+        public, so switching them on is just a switch. Most of the rest cannot serve a
+        personal feed to anyone at any price; the ones that can are the ones you can press.
       </p>
     </motion.div>
   );
@@ -198,7 +204,17 @@ function ArrivalState({ onConnect, busy }) {
 
 // ── connected ───────────────────────────────────────────────────────────────
 
-function ConnectedRow({ connections, onDisconnect }) {
+// Connected sources, and the ones you could still add.
+//
+// The arrival pills disappear the moment anything is connected, so with only
+// Reddit on offer there was nowhere to add a second source — and now that
+// Hacker News and GitHub are their own pills rather than being smuggled in
+// under Reddit, "nowhere to add a second source" would mean nobody could ever
+// reach them without disconnecting first. The unconnected ready ones sit here,
+// faint, next to what is already on.
+function ConnectedRow({ connections, onDisconnect, onConnect, busy }) {
+  const connected = new Set(connections.map((c) => c.provider));
+  const addable = PROVIDERS.filter((p) => !connected.has(p.id) && (p.status === 'demo' || p.status === 'open'));
   return (
     <div className="max-w-4xl mx-auto mb-4 flex flex-wrap items-center gap-2">
       <span className="text-white/30 text-[10px] uppercase tracking-wider">Connected</span>
@@ -222,6 +238,24 @@ function ConnectedRow({ connections, onDisconnect }) {
           </span>
         );
       })}
+
+      {addable.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          data-provider={p.id}
+          data-ready="yes"
+          disabled={busy === p.id}
+          onClick={() => onConnect(p.id)}
+          title={p.note}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.02] border border-dashed border-white/15 text-xs text-white/45 hover:text-white/80 hover:border-white/30 transition-colors"
+        >
+          {busy === p.id
+            ? <Loader2 size={11} className="animate-spin" />
+            : <Plus size={11} />}
+          {p.label}
+        </button>
+      ))}
     </div>
   );
 }

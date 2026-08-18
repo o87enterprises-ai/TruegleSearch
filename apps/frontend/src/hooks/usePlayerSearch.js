@@ -55,6 +55,12 @@ function toSource(r, allowReddit = false) {
     // showed nothing under the title. Different providers name the field
     // differently and none of them is guaranteed, so take whichever arrived.
     channel: r.channel || r.author || r.uploader || r.creator || null,
+    // WHEN IT WAS PUBLISHED, and only when that is actually known. The search
+    // backend used to stamp today's date on every result whose provider gave
+    // none (see calculateRecency in SearchService.js), so carrying this field
+    // through before that was fixed would have printed "today" over a video
+    // from 2019 — worse than the blank it replaced. Null now means null.
+    published: r.date || r.published || r.publishedAt || null,
   };
 }
 
@@ -95,9 +101,31 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
   // rounds of guessing to diagnose — the UI knew nothing and so did I.
   const [trace, setTrace] = useState(null);
   const abortRef = useRef(null);
+  // ── MORE PAGES ────────────────────────────────────────────────────────────
+  // One ask of 20 was the whole search: type two words, get twenty rows, and
+  // that is everything Truegle will ever show you for it. The backend has
+  // always honoured `filters.page` on every provider (Google `start`, Brave
+  // `offset`, SearXNG `pageno`) — nothing here ever asked for a second one.
+  //
+  // What gets asked again is the rung of the fallback ladder that ACTUALLY
+  // ANSWERED, not the ladder from the top. Re-running the ladder for page two
+  // would hand back page one of a different rung, which reads as the button
+  // doing nothing while quietly duplicating rows.
+  const wonRef = useRef(null);          // { category, query } — the rung that answered
+  const pageRef = useRef(1);
+  const seenRef = useRef(new Set());    // mediaKeys already on screen, across pages
+  const [more, setMore] = useState(false);      // is another page worth asking for
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const run = useCallback((raw, activeScope, activeProvider) => {
     abortRef.current?.abort();
+    // A new query is a new deck: the winning rung, the page counter and the
+    // cross-page dedupe set all belong to the search that is being replaced.
+    wonRef.current = null;
+    pageRef.current = 1;
+    seenRef.current = new Set();
+    setMore(false);
+    setLoadingMore(false);
     const q = raw.trim();
     if (q.length < MIN_CHARS) { setResults(null); setLoading(false); setError(''); return; }
 
@@ -165,10 +193,10 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
     // is exactly the "took three tries" symptom. One retry, and a ceiling so a
     // hung request can't leave the spinner running forever.
     const steps = [];
-    const once = (category, query) => fetch(`${BACKEND}/api/search`, {
+    const once = (category, query, page = 1) => fetch(`${BACKEND}/api/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, filters: { category, bias: 'all', dateRange: 'any', perPage: 20 } }),
+      body: JSON.stringify({ query, filters: { category, bias: 'all', dateRange: 'any', perPage: 20, page } }),
       signal: controller.signal,
     })
       .then((r) => r.json())
@@ -196,6 +224,8 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
       .then((rows) => (rows.length || rows.raw > 0 || !retry
         ? rows
         : new Promise((res) => { setTimeout(res, 500); }).then(() => once(category, query))))
+      // Whichever rung produced rows is the one page two comes from.
+      .then((rows) => { if (rows.length) wonRef.current = { category, query }; return rows; })
       .catch((e) => { if (e.name === 'AbortError') throw e; return []; });
 
     // REDDIT ASKS REDDIT.
@@ -235,6 +265,7 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
           title: p.title,
           image: p.thumbnail,
           channel: p.subreddit || p.author,
+          date: p.date || null,
         }, true)).filter(Boolean);
         // The upstream's own words, kept for the trace. Reddit refusing a
         // request from our deployment and Reddit having nothing for this
@@ -285,7 +316,7 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         const base = getPlayable(v.url);
         return base ? {
           ...base, title: v.title || titleFromUrl(v.url), pageUrl: v.url,
-          poster: v.thumbnail, channel: v.channel,
+          poster: v.thumbnail, channel: v.channel, published: v.published || null,
         } : null;
       }).filter(Boolean))
       .catch(() => []);
@@ -356,6 +387,14 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         // shape these helpers were written for. Filtering on `url` here reads
         // undefined for every row and silently empties the deck.
         const scoped = shortsScope ? alive.map(asShortSource).filter(Boolean) : alive;
+        // The dedupe set carries across pages, so page two cannot re-show what
+        // page one already did — the ladder's rungs overlap heavily and
+        // without this "more" mostly returned the same twenty rows again.
+        scoped.forEach((row) => { const k = mediaKey(row) || row.src; if (k) seenRef.current.add(k); });
+        // Offer another page only when a rung actually answered AND it filled
+        // the one we asked for. A short page is the end of the results, and a
+        // "Load more" that returns nothing is worse than not offering one.
+        setMore(!!wonRef.current && webRows.length >= 15);
         setResults(rankPlayable(scoped, intent));
         setTrace({
           steps,
@@ -369,6 +408,54 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
       .finally(() => { clearTimeout(timeout); setLoading(false); });
   }, []);
 
+  /**
+   * The next page of whatever answered, appended.
+   *
+   * Deliberately NOT a re-run of the fallback ladder: the ladder starts at the
+   * top and would hand back page one of a different rung. `wonRef` is the rung
+   * that produced the rows on screen, so that is the one asked again.
+   *
+   * Community submissions and the Reddit direct path are seeds rather than
+   * pages — they are asked once, at the top of the deck, and are not re-asked
+   * here. Paging them would mean carrying a second cursor for a handful of
+   * rows that already all fit on page one.
+   */
+  const loadMore = useCallback(() => {
+    const won = wonRef.current;
+    if (!won) return;
+    const controller = new AbortController();
+    setLoadingMore(true);
+    const nextPage = pageRef.current + 1;
+    fetch(`${BACKEND}/api/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: won.query,
+        filters: { category: won.category, bias: 'all', dateRange: 'any', perPage: 20, page: nextPage },
+      }),
+      signal: controller.signal,
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        const raw = d.results || [];
+        const rows = raw.map((r) => toSource(r, won.category === 'social')).filter(Boolean);
+        const fresh = withoutBroken(rows).filter((row) => {
+          const k = mediaKey(row) || row.src;
+          if (!k || seenRef.current.has(k)) return false;
+          seenRef.current.add(k);
+          return true;
+        });
+        pageRef.current = nextPage;
+        // A page that came back empty, or entirely of things already shown, is
+        // the end. Say so by withdrawing the offer rather than letting people
+        // press a button that does nothing.
+        setMore(raw.length >= 15 && fresh.length > 0);
+        if (fresh.length) setResults((prev) => [...(prev || []), ...fresh]);
+      })
+      .catch(() => { setMore(false); })
+      .finally(() => setLoadingMore(false));
+  }, []);
+
   // Once per page load — the blocklist moves on the scale of days, and
   // re-fetching per search would be a request per keystroke.
   useEffect(() => { loadBrokenList(); }, []);
@@ -380,5 +467,5 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  return { results, loading, error, unsupported, trace };
+  return { results, loading, error, unsupported, trace, more, loadMore, loadingMore };
 }

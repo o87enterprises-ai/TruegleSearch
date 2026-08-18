@@ -393,6 +393,55 @@ const MediaService = {
    * instead, which reaches real, human-voted content that the score ordering
    * would never surface.
    */
+  /**
+   * How popular each of these is, by Truegle's OWN numbers.
+   *
+   * The Tube results page needed a "Popular" sort and there was no honest
+   * signal for one: the search index returns no view counts, and YouTube's own
+   * would cost 1 quota unit per video against a 10k/day allowance shared by
+   * the whole site. What we do have is this table — anonymous 👍/👎 and play
+   * counts, no user id attached to any of it — so Popular means "popular on
+   * Truegle", and the UI says exactly that rather than implying it is the
+   * platform's count.
+   *
+   * Same score formula as trending(), minus the recency bonus: this ranks
+   * within a result set the user already chose, so leaning on freshness here
+   * would quietly make Popular a second Newest.
+   *
+   * Unknown keys are simply absent from the map. A caller must treat missing
+   * as "no signal", NOT as zero — most rows will be missing, and sorting them
+   * below a video with a single thumb would be a strong claim built on one
+   * press.
+   *
+   * @param {string[]} keys media keys, as produced by utils/videoEmbed mediaKey()
+   * @returns {Promise<Object<string, number>>}
+   */
+  async scores(keys = []) {
+    const wanted = (Array.isArray(keys) ? keys : [])
+      .map((k) => clean(k, 200)).filter(Boolean).slice(0, 100);
+    if (wanted.length === 0) return {};
+    try {
+      const { rows } = await query(
+        `SELECT media_key,
+                ( (ups + 1.0) / (ups + downs + 2.0)
+                  - 1.0 / SQRT(ups + downs + 2.0)
+                  + LEAST(plays, 50) / 500.0
+                ) AS score
+           FROM media_signals
+          WHERE hidden = FALSE
+            AND (ups > 0 OR plays > 0)
+            AND media_key = ANY($1)`,
+        [wanted],
+      );
+      return Object.fromEntries(rows.map((r) => [r.media_key, Number(r.score)]));
+    } catch (err) {
+      // A popularity sort that cannot reach the database falls back to the
+      // order it already had. Never an error the user has to read.
+      logger.warn('Media scores failed', { error: err && err.message });
+      return {};
+    }
+  },
+
   async trending({ limit = 20, exclude = [], offset = 0 } = {}) {
     const capped = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
     const from = Math.min(Math.max(parseInt(offset, 10) || 0, 0), 500);

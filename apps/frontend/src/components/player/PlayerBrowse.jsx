@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Play, Plus, Check, Loader2, ChevronUp, ChevronDown } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { mediaKey } from '../../utils/videoEmbed';
+import { sourceColour, sourceProviderLabel } from '../../utils/playerQuery';
+import { publishedLabel } from '../../utils/published';
 import { PLAYER_SANDBOX } from './playerSandbox';
 
 // The viewport, while nothing is playing and a search has run.
@@ -47,7 +49,13 @@ function previewSrc(source) {
     : `${source.src}${sep}autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&playsinline=1&loop=0`;
 }
 
-export default function PlayerBrowse({ rows, loading = false, compact = false, fill = false }) {
+export default function PlayerBrowse({
+  rows, loading = false, compact = false, fill = false,
+  // Reaching the end of the deck asks for the next page. A swipe deck has no
+  // bottom to put a button at — you are always looking at exactly one card —
+  // so the gesture that means "keep going" has to be the trigger.
+  more = false, onMore = null, loadingMore = false,
+}) {
   const { play, enqueue, enqueueMany, clearQueue } = usePlayer();
   const scroller = useRef(null);
   const [active, setActive] = useState(0);
@@ -69,9 +77,23 @@ export default function PlayerBrowse({ rows, loading = false, compact = false, f
     return () => el.removeEventListener('scroll', onScroll);
   }, [rows]);
 
-  // A new set of results starts at the top rather than wherever the last one
-  // was scrolled to.
-  useEffect(() => { scroller.current?.scrollTo({ top: 0 }); setActive(0); }, [rows]);
+  // A NEW set of results starts at the top rather than wherever the last one
+  // was scrolled to — but a GROWN one does not. Appending a page makes a new
+  // array, so keying this on `rows` alone threw the deck back to card one
+  // every time it loaded more, which reads as the swipe having failed. The
+  // deck is the same deck while its first card is the same card.
+  const firstKey = rows && rows.length ? (mediaKey(rows[0]) || rows[0].src) : null;
+  useEffect(() => { scroller.current?.scrollTo({ top: 0 }); setActive(0); }, [firstKey]);
+
+  // REACHING THE END IS THE ASK. A swipe deck shows exactly one card, so there
+  // is no bottom of a list to put a "more" button at — the gesture that means
+  // "keep going" has to be the trigger. Fires two cards early so the next page
+  // is usually already there by the time it is swiped to.
+  useEffect(() => {
+    if (!more || !onMore || loadingMore) return;
+    if (!rows || rows.length === 0) return;
+    if (active >= rows.length - 2) onMore();
+  }, [active, rows, more, onMore, loadingMore]);
 
   // Storyboard frames, while a card is held and before the embed takes over.
   useEffect(() => {
@@ -230,12 +252,27 @@ export default function PlayerBrowse({ rows, loading = false, compact = false, f
                 />
               )}
 
+              {/* Which platform this card is from. The Where chips are gone
+                  and a search fans out across all of them, so the deck mixes
+                  providers freely — the badge is what stops that being a
+                  guessing game, and it is read off the row's own `kind`. */}
+              <span
+                className="absolute top-2 right-2 px-1.5 h-5 rounded-md text-[9px] font-semibold uppercase tracking-wider leading-5 text-black/85 pointer-events-none"
+                style={{ background: sourceColour(r) }}
+              >
+                {sourceProviderLabel(r)}
+              </span>
+
               <div className="absolute inset-x-0 bottom-0 p-2.5 pointer-events-none">
                 <p className="text-[12px] font-semibold text-white line-clamp-2 leading-snug drop-shadow">
                   {r.title}
                 </p>
-                {r.channel && (
-                  <p className="text-[10px] text-white/60 truncate mt-0.5">{r.channel}</p>
+                {(r.channel || publishedLabel(r.published)) && (
+                  <p className="text-[10px] text-white/60 truncate mt-0.5">
+                    {r.channel}
+                    {r.channel && publishedLabel(r.published) && <span className="text-white/30"> · </span>}
+                    {publishedLabel(r.published)}
+                  </p>
                 )}
               </div>
 
@@ -291,7 +328,7 @@ export default function PlayerBrowse({ rows, loading = false, compact = false, f
       </div>
 
       <p className="absolute bottom-0 inset-x-0 text-center text-[9px] uppercase tracking-wider text-white/25 pb-0.5 pointer-events-none">
-        Swipe for more · hold to preview
+        {loadingMore ? 'Finding more…' : 'Swipe for more · hold to preview'}
       </p>
     </div>
   );

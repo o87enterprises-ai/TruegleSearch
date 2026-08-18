@@ -105,7 +105,6 @@ import { toHandle, SEARCH_SCOPES } from '../utils/playerQuery';
 // Guarded so a hand-typed ?scope=whatever can't put the chips into a state
 // that has no chip.
 const SEARCH_SCOPE_IDS = new Set(SEARCH_SCOPES.map((s) => s.id));
-import PlayerScopeChips from '../components/player/PlayerScopeChips';
 import { parsePlayerParams, resolveShareInput } from '../utils/playerLink';
 import { usePlayer } from '../context/PlayerContext';
 
@@ -364,15 +363,20 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // Seeded from ?scope= so /shorts — which now redirects to /tube?scope=shorts
   // — lands on the short-form deck rather than on a generic Tube page that
   // makes the redirect look like it went to the wrong place.
-  const [tubeScope, setTubeScope] = useState(() => {
+  // Read-only now that the What row is gone: the URL is the only thing that
+  // sets it, which is exactly what /shorts needs (it redirects to
+  // /tube?scope=shorts and must land on the short-form deck, not a generic
+  // Tube page that makes the redirect look misrouted).
+  const tubeScope = useMemo(() => {
     const s = searchParams.get('scope');
     return s && SEARCH_SCOPE_IDS.has(s) ? s : 'all';
-  });
-  const [tubeProvider, setTubeProvider] = useState('all');
-  // The type chips belong to the act of composing a search, so they sit under
-  // the bar and get out of the way once one has been run — typing brings them
-  // straight back.
-  const [scopesOpen, setScopesOpen] = useState(true);
+  }, [searchParams]);
+  // Every provider, always. The picker that used to narrow this is gone (see
+  // the note where the chip rows were): a search fans out across all of them
+  // and the results say which is which by colour. A bang — !yt, !reddit, !sc —
+  // still narrows it per query, inside parsePlayerQuery, which is the version
+  // of this control that costs no screen.
+  const tubeProvider = 'all';
   const selectedUrl = searchParams.get('sel') || '';
   // The home-screen "Talk to Truegle" shortcut. Consumed once: leaving it in
   // the URL would restart the mic on every re-render and on back-navigation.
@@ -1462,7 +1466,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
               showBiasedButton={false}
               showUnbiasedButton={false}
               onChange={(val) => {
-                setScopesOpen(true);
                 setSearchValue(
                   // While the Channel chip is on, the box IS a handle: keep the
                   // @ and drop spaces as they're typed, so what you see is what
@@ -1471,7 +1474,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                 );
               }}
               onSubmit={() => submitSearch()}
-              onSearch={() => { setScopesOpen(false); submitSearch(); }}
+              onSearch={() => submitSearch()}
               // Same shape-shift as the landing bar, driven by the same pill,
               // so cycling to Chat here changes the box exactly as it does
               // there instead of looking like a different product.
@@ -1518,40 +1521,15 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                     // itself via a CSS variable so the page reserves exactly
                     // the room it occupies.
                     <>
-                      {/* Directly under the bar, because it qualifies what you
-                          are about to type — not what came back. */}
-                      {/* Always rendered; the tab inside it reopens the rows
-                          after they retract on their own. */}
-                      {(
-                        <PlayerScopeChips
-                          open={scopesOpen}
-                          onToggleOpen={() => setScopesOpen((v) => !v)}
-                          provider={tubeProvider}
-                          scope={tubeScope}
-                          onProvider={(id) => {
-                            setTubeProvider(id);
-                            // The address changes with the platform: @handle on
-                            // YouTube, r/ on Reddit. Rewrite the box so what
-                            // you see stays what actually gets searched.
-                            if (tubeScope === 'channel') setSearchValue(toHandle(searchValue, id));
-                            setScopesOpen(true);
-                          }}
-                          onScope={(id) => {
-                            setTubeScope(id);
-                            // Picking Channel rewrites the box into the form
-                            // that actually finds one. Anything else hands the
-                            // plain words back.
-                            if (id === 'channel') {
-                              const h = toHandle(searchValue, tubeProvider);
-                              if (h) setSearchValue(h);
-                            } else if (tubeScope === 'channel') {
-                              setSearchValue(searchValue.replace(/^(@|r\/|c\/)/i, ''));
-                            }
-                            setScopesOpen(true);
-                          }}
-                          className="bg-black/30 border-b border-white/10"
-                        />
-                      )}
+                      {/* THE WHERE/WHAT CHIP ROWS ARE GONE. They asked the
+                          visitor to pick a platform before searching, which is
+                          backwards: you want a thing, not a website. The
+                          multi-provider search behind them is unchanged and
+                          still runs across every provider at once — the bangs
+                          (!yt, !reddit, !sc) and @handles still steer it for
+                          anyone who wants to, via parsePlayerQuery. What each
+                          result actually IS now rides on the result itself, in
+                          its provider's colour. */}
                       <div
                         data-player-slot
                         aria-hidden="true"

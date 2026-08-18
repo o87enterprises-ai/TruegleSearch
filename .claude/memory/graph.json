@@ -728,6 +728,22 @@
         "body": "consumeFreemiumSearch() in TokenContext has NO call sites and FREE_ACCESS_MODE bypasses every gate, so the bar sat at 10/10 forever while occupying a fixed strip at the bottom of every page. Context, counter and component all kept; one flag turns it back on when metering is real.",
         "ts": "2026-08-17",
         "created": "2026-08-17"
+      },
+      "reddit-feed-github-cause": {
+        "Id": "reddit-feed-github-cause",
+        "Type": "fact",
+        "Label": "Feed pulling GitHub: BACKEND_PLATFORMS mapped reddit -> [reddit,hackernews,github]",
+        "body": "config/socialProviders.js deliberately rode HN+GitHub along with Reddit because they are keyless. That padded a Reddit feed with repos and gave nobody a way to switch them off (they were not pills). Now identity-mapped; HN and GitHub are status:'open' pills — public sources with no OAuth flow at all (needsAuth() gates the handshake, isConnectable() gates storage). ConnectedRow gained an add-more affordance so a second source is reachable after the first connects.",
+        "ts": "2026-08-18",
+        "created": "2026-08-18"
+      },
+      "search-dates-were-fabricated": {
+        "Id": "search-dates-were-fabricated",
+        "Type": "fact",
+        "Label": "SearchService stamped today's date on every undated result",
+        "body": "10 normalisers used 'date: x || new Date().toISOString()'. SearXNG supplies publishedDate for a minority of rows, so most results claimed to be published now. Two consequences: calculateRecency scored undated rows 1 instead of its own 0.3 default (undated ranked as freshest), and Tube could not show a date without printing today over a 2019 video. All now return null; date sorts put undated LAST in both directions. utils/published.js also rejects future dates and anything before 1995.",
+        "ts": "2026-08-18",
+        "created": "2026-08-18"
       }
     },
     "decision": {
@@ -1706,6 +1722,22 @@
         "body": "Green fires no model at all on search (AI_FREE_MODES in UniversalSearch), so 'zero AI' is literal, not a slogan — no measured energy figures are claimed anywhere. NOTE the collision: on CHAT green is the 'Summarize' lens, which DOES need a model. modeTheme.searchModeLabel() overrides green to 'Green' for the search pill only. Purple is Wonderland: isolate results by one societal perspective (political, faith, societal, economic), a fold inside Red rather than a lens of its own. ?mode=purple still resolves.",
         "ts": "2026-08-17",
         "created": "2026-08-17"
+      },
+      "tube-no-provider-chips": {
+        "Id": "tube-no-provider-chips",
+        "Type": "decision",
+        "Label": "Tube search chrome: no Where/What chips; provider shown by colour on the result",
+        "body": "PlayerScopeChips deleted. Multi-provider search is unchanged and always-on; bangs (!yt,!reddit,!sc) and @handles still steer a single query via parsePlayerQuery. Each PROVIDERS entry carries a colour; sourceProvider/sourceColour/sourceProviderLabel read the row's own kind (what it IS, not what was asked). List rows get a left border-stripe, deck cards a corner badge.",
+        "ts": "2026-08-18",
+        "created": "2026-08-18"
+      },
+      "tube-popular-is-truegles-own": {
+        "Id": "tube-popular-is-truegles-own",
+        "Type": "decision",
+        "Label": "Tube 'Popular' = Truegle's anonymous play/vote counts, never a platform view count",
+        "body": "No view count exists in a search result and YouTube's costs 1 quota unit/video against a 10k/day site-wide allowance. POST /api/media/scores batches media_signals (ups/downs/plays, same LCB formula as trending minus the recency bonus). CRITICAL: absent key means NO SIGNAL, not zero — unscored rows keep relevance order BELOW scored ones. Tooltip says 'on Truegle' explicitly.",
+        "ts": "2026-08-18",
+        "created": "2026-08-18"
       }
     },
     "entity": {
@@ -2051,5 +2083,5 @@
       }
     }
   },
-  "updated": "2026-08-17"
+  "updated": "2026-08-18"
 }

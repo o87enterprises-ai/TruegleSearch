@@ -34,7 +34,9 @@
     "player:test": "esbuild scripts/verify-player.mjs --bundle --format=esm --platform=node --outfile=dev/.build/player-test.mjs --external:esbuild --log-level=error && node dev/.build/player-test.mjs",
     "nav:test": "esbuild scripts/verify-navigation.mjs --bundle --format=esm --platform=node --alias:axios=./scripts/stubs/axios.mjs --define:import.meta.env='{\"DEV\":false}' --external:react --outfile=dev/.build/nav-test.mjs --log-level=error && node dev/.build/nav-test.mjs",
     "feed:test": "node scripts/verify-feed.mjs",
-    "markdown:test": "node scripts/verify-markdown.mjs"
+    "markdown:test": "node scripts/verify-markdown.mjs",
+    "published:test": "node scripts/verify-published.mjs",
+    "resultsort:test": "node scripts/verify-result-sort.mjs"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.16.2",

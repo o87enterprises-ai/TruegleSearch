@@ -231,9 +231,34 @@ await page.waitForTimeout(2500);
 const searched = calls.filter((c) => c.path === '/api/social/feed');
 check(searched.length > 0, 'typing searches the feed', `${searched.length} requests`);
 check(searched[0]?.body?.query === 'raspberry pi', '…for what was typed', searched[0]?.body?.query);
-check(searched.every((c) => JSON.stringify(c.body.platforms) === JSON.stringify(['reddit', 'hackernews', 'github'])),
-  '…and only across what is connected — never an unconnected provider',
+// REPORTED: "Feed (reddit) is pulling GitHub results." It was. Connecting
+// Reddit used to send platforms: ['reddit','hackernews','github'] on the
+// reasoning that the other two are keyless so they may as well ride along —
+// which padded a Reddit feed with repositories and gave nobody a way to switch
+// them off, because they were not pills. Connecting Reddit means Reddit.
+check(searched.every((c) => JSON.stringify(c.body.platforms) === JSON.stringify(['reddit'])),
+  '…and only across what is connected — Reddit means Reddit, not Reddit plus GitHub',
   JSON.stringify(searched[0]?.body?.platforms));
+
+// ── 5b. a public source is switched on, not signed into ─────────────────────
+// Hacker News and GitHub are keyless and accountless. Sending them round the
+// OAuth handshake would be theatre, and the kind that teaches people to expect
+// Truegle to ask for logins it does not need.
+calls.length = 0;
+// Reachable from the CONNECTED state: the arrival pills are gone by now, and
+// with three real sources on offer "you can only add one, ever" would be a
+// dead end. ConnectedRow carries the not-yet-added ones.
+await page.click('[data-provider="github"]');
+await page.waitForTimeout(2000);
+check(!calls.some((c) => c.path.includes('/social-auth/github')),
+  'switching on a public source involves no handshake',
+  calls.map((c) => c.path).join(' '));
+const withGh = calls.filter((c) => c.path === '/api/social/feed');
+check(withGh.some((c) => (c.body.platforms || []).includes('github')),
+  '…and it does reach the feed request', JSON.stringify(withGh[0]?.body?.platforms));
+check(withGh.every((c) => (c.body.platforms || []).includes('reddit')),
+  '…alongside the account already connected, not instead of it',
+  JSON.stringify(withGh[0]?.body?.platforms));
 
 // ── 6. the mode pill cycles rather than navigating ──────────────────────────
 // It shipped navigating on the click, which meant one press threw you off the

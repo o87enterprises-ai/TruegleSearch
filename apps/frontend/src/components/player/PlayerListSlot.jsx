@@ -3,10 +3,12 @@ import { Plus, Check, X, Loader2, ListMusic, Play, ChevronRight, Search as Searc
 import { usePlayer } from '../../context/PlayerContext';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useChannelFeed } from '../../hooks/useChannelFeed';
-import { parsePlayerQuery, toHandle } from '../../utils/playerQuery';
+import { parsePlayerQuery, toHandle, sourceColour, sourceProviderLabel } from '../../utils/playerQuery';
 import { hasTaste, forgetTaste } from '../../utils/taste';
 import { reportBroken, useBrokenFlag, useBrokenVersion, withoutBroken } from '../../utils/broken';
 import { useMediaMeta, formatDuration } from '../../utils/mediaMeta';
+import { publishedLabel } from '../../utils/published';
+import { SORTS, sortResults, fetchScores, datedCount } from '../../utils/resultSort';
 import PlayerLibrary from './PlayerLibrary';
 import { useWatchHistory, clearWatchHistory } from '../../utils/watchHistory';
 
@@ -63,7 +65,22 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
   // keystroke. `own` is the standalone fallback for any caller that doesn't
   // supply one.
   const own = usePlayerSearch(search ? '' : query, scope, provider);
-  const { results, loading, error, unsupported, trace } = search || own;
+  const { results, loading, error, unsupported, trace, more, loadMore, loadingMore } = search || own;
+  // ── ORDER ─────────────────────────────────────────────────────────────────
+  // 'relevant' is what the search already produced, so it costs nothing and is
+  // the default. The other two are asked for explicitly, and Popular only
+  // fetches Truegle's own counts when somebody actually picks it — a request
+  // per search for a sort nobody chose would be pure waste.
+  const [sort, setSort] = useState('relevant');
+  const [scores, setScores] = useState({});
+  useEffect(() => {
+    if (sort !== 'popular' || !results || results.length === 0) return undefined;
+    const ac = new AbortController();
+    fetchScores(results, ac.signal).then(setScores);
+    return () => ac.abort();
+  }, [sort, results]);
+  // A new search is a new question; the order it is asked in is not sticky.
+  useEffect(() => { setSort('relevant'); setScores({}); }, [query]);
   // Asking for a channel should be able to give you the CHANNEL, not a
   // scattering of its videos: one row to open its real feed, newest first.
   const intent = parsePlayerQuery(query, scope, provider);
@@ -123,7 +140,36 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
       <div className="border-t border-white/10 bg-black/30">
         <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/40">
           <SearchIcon size={11} /> Results
-          {(loading || pending) && <Loader2 size={11} className="animate-spin ml-auto" />}
+          {(loading || pending) && <Loader2 size={11} className="animate-spin" />}
+          {!feedRows && results && results.length > 1 && (
+            <span className="ml-auto flex items-center gap-1">
+              {SORTS.map((o) => {
+                // Newest is offered only when the rows actually carry dates.
+                // The index supplies one for some providers and not others, so
+                // a Newest that silently reorders nothing would read as broken.
+                const dead = o.id === 'newest' && datedCount(results) < 2;
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    data-sort={o.id}
+                    disabled={dead}
+                    onClick={() => setSort(o.id)}
+                    aria-pressed={sort === o.id}
+                    title={o.id === 'popular'
+                      ? "Most played and best rated ON TRUEGLE — our own anonymous counts, not the platform's view count"
+                      : (dead ? 'These results carry no publish dates' : `Sort by ${o.label.toLowerCase()}`)}
+                    className={`px-1.5 py-0.5 rounded transition-colors ${
+                      dead ? 'text-white/15 cursor-not-allowed'
+                        : sort === o.id ? 'bg-white/15 text-white' : 'text-white/35 hover:text-white/70'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </span>
+          )}
         </div>
         {/* The channel itself, offered before its scattered videos. YouTube
             only: opening a real feed goes through /creators/resolve, which
@@ -215,8 +261,20 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
               )}
             </div>
           )}
-          {withoutBroken(feedRows || results || []).map((r) => (
-            <div key={r.pageUrl || r.src} className={`flex items-center gap-2 px-2 ${rowH} hover:bg-white/5`}>
+          {withoutBroken(feedRows || sortResults(results || [], sort, scores)).map((r) => (
+            /* WHICH PLATFORM THIS CAME FROM, in colour. The Where chips are
+               gone and a search now fans out across every provider at once, so
+               a list mixing YouTube, Rumble, Odysee and SoundCloud had nothing
+               left to tell them apart. The stripe is read off the row's own
+               `kind` — what it genuinely IS, not what was asked for — and the
+               title attribute names it for anyone who cannot use the colour. */
+            <div
+              key={r.pageUrl || r.src}
+              data-provider={sourceProviderLabel(r)}
+              title={sourceProviderLabel(r)}
+              className={`flex items-center gap-2 pl-2 pr-2 ${rowH} hover:bg-white/5 border-l-2`}
+              style={{ borderLeftColor: sourceColour(r) }}
+            >
               {r.poster
                 ? <img src={r.poster} alt="" className="w-10 h-7 rounded object-cover shrink-0"
                     onError={(e) => { e.target.style.visibility = 'hidden'; }} />
@@ -232,12 +290,40 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
                   const m = metaFor(r) || {};
                   const channel = r.channel || m.c;
                   const length = formatDuration(r.duration || m.d);
-                  if (!channel && !length) return null;
+                  // Absent unless genuinely known — see utils/published.js.
+                  const when = publishedLabel(r.published);
+                  if (!channel && !length && !when) return null;
+                  // THE CHANNEL IS A WAY IN, not a label. Opening a creator's
+                  // real upload list already existed — it was reachable only
+                  // when the QUERY named a channel, so finding a video by
+                  // someone and then wanting more of their work meant retyping
+                  // their name and hoping the parser recognised it.
+                  //
+                  // YouTube only, and deliberately: /creators/resolve speaks
+                  // YouTube channel ids and nothing else, so offering it on a
+                  // SoundCloud or Reddit row would be a button that always
+                  // fails. Those keep the plain text.
+                  const openable = channel && r.kind === 'youtube';
                   return (
                     <span className="flex items-center gap-1.5 mt-0.5 text-[10px] text-white/35">
-                      {channel && <span className="truncate max-w-[10rem]">{channel}</span>}
+                      {openable ? (
+                        <button
+                          type="button"
+                          data-open-channel={channel}
+                          onClick={(e) => {
+                            e.preventDefault(); e.stopPropagation();
+                            feed.open(toHandle(channel, 'youtube'), channel);
+                          }}
+                          title={`Open ${channel} — latest uploads first`}
+                          className="truncate max-w-[10rem] text-left hover:text-white/80 hover:underline transition-colors"
+                        >
+                          {channel}
+                        </button>
+                      ) : (channel && <span className="truncate max-w-[10rem]">{channel}</span>)}
                       {channel && length && <span className="text-white/20">·</span>}
                       {length && <span className="tabular-nums shrink-0">{length}</span>}
+                      {when && (channel || length) && <span className="text-white/20">·</span>}
+                      {when && <span className="shrink-0 whitespace-nowrap">{when}</span>}
                     </span>
                   );
                 })()}
@@ -276,6 +362,24 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
               <BrokenFlag source={r} />
             </div>
           ))}
+
+          {/* MORE. One ask of twenty rows used to be the entire search for a
+              query — the backend has always paged, nothing ever asked it to.
+              Offered only while a page came back full; a button that returns
+              nothing is worse than no button. */}
+          {!feedRows && more && (
+            <button
+              type="button"
+              data-load-more
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] text-white/45 hover:text-white/80 hover:bg-white/5 transition-colors disabled:opacity-60"
+            >
+              {loadingMore
+                ? <><Loader2 size={12} className="animate-spin" /> Finding more…</>
+                : <>More results <ChevronRight size={12} /></>}
+            </button>
+          )}
         </div>
       </div>
     );

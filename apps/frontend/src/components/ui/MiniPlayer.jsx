@@ -8,7 +8,6 @@ import { useFeedbackBarHeight } from './PreProductionBanner';
 import { useBottomDockClaim } from '../../hooks/useBottomDock';
 import { usePlayerQuery } from '../../utils/playerQueryStore';
 import { toHandle } from '../../utils/playerQuery';
-import PlayerScopeChips from '../player/PlayerScopeChips';
 import PlayerMiniBar from '../player/PlayerMiniBar';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
 import { useKeyboardInset } from '../../hooks/useKeyboardInset';
@@ -103,16 +102,16 @@ export default function MiniPlayer() {
   // Bumped on submit so TrueglePlayer opens its list even when the text is
   // unchanged — otherwise a second Enter looks like nothing happened.
   const [submitNonce, setSubmitNonce] = useState(0);
-  // The popped-out player has its own bar, so it needs its own type chips —
-  // they were only ever on the Tube page, which meant the same search behaved
-  // differently depending on where you typed it.
-  const [playerScope, setPlayerScope] = useState('all');
-  const [playerProvider, setPlayerProvider] = useState('all');
-  const [scopesOpen, setScopesOpen] = useState(false);
+  // Fixed at "everything". The chips that used to narrow this are gone from
+  // both bars — a bang (!yt, !reddit, !sc) narrows a single query instead, and
+  // costs no screen to offer. Kept as named constants rather than inlined
+  // because TrueglePlayer still takes them, and the day one of them becomes a
+  // real setting again this is the seam.
+  const playerScope = 'all';
+  const playerProvider = 'all';
   const playerInputRef = useRef(null);
   const submitPlayerQuery = useCallback(() => {
     setSubmitNonce((n) => n + 1);
-    setScopesOpen(false);   // same as Tube: spent once a search has run
     // Dropping focus is what retracts the keyboard; with the keyboard up there
     // is no room left to show the results that were just fetched.
     playerInputRef.current?.blur();
@@ -567,12 +566,7 @@ export default function MiniPlayer() {
             <input
               ref={playerInputRef}
               value={playerQuery}
-              onChange={(e) => {
-                setScopesOpen(true);
-                setPlayerQuery(playerScope === 'channel'
-                  ? toHandle(e.target.value, playerProvider)
-                  : e.target.value);
-              }}
+              onChange={(e) => setPlayerQuery(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitPlayerQuery(); } }}
               enterKeyHint="search"
               placeholder={title || 'Search something to play…'}
@@ -623,38 +617,10 @@ export default function MiniPlayer() {
         </div>
         )}
 
-        {/* The same type chips Tube has, under THIS bar's input — the popped
-            out player is the same player, so it has to search the same way.
-            Sticky with the header so the keyboard can't push them out of
-            reach; they retract on Enter and come back on the next keystroke. */}
-        {/* Rendered even when collapsed — the tab inside it is the way back. */}
-        {!docked && !small && (
-          <PlayerScopeChips
-            compact
-            open={scopesOpen}
-            onToggleOpen={() => setScopesOpen((v) => !v)}
-            provider={playerProvider}
-            scope={playerScope}
-            onProvider={(id) => {
-              setPlayerProvider(id);
-              // The address changes with the platform: @handle on YouTube,
-              // r/ on Reddit. Rewrite what's in the box so it stays valid.
-              if (playerScope === 'channel') setPlayerQuery(toHandle(playerQuery, id));
-              setScopesOpen(true);
-            }}
-            onScope={(id) => {
-              setPlayerScope(id);
-              if (id === 'channel') {
-                const h = toHandle(playerQuery, playerProvider);
-                if (h) setPlayerQuery(h);
-              } else if (playerScope === 'channel') {
-                setPlayerQuery(playerQuery.replace(/^(@|r\/|c\/)/i, ''));
-              }
-              setScopesOpen(true);
-            }}
-            className="sticky top-[44px] z-40 bg-black/60 backdrop-blur-xl border-b border-white/10"
-          />
-        )}
+        {/* The chip rows are gone here too — the popped-out player is the
+            same player, so it searches the same way: every provider at once,
+            with the result's own colour saying which one answered. Bangs still
+            narrow it per query. */}
 
         {/* The player itself is the SHARED component — the same stack that
             docks inside the Tube search bar. This file now owns only the
