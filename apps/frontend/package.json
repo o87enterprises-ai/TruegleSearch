@@ -36,7 +36,9 @@
     "feed:test": "node scripts/verify-feed.mjs",
     "markdown:test": "node scripts/verify-markdown.mjs",
     "published:test": "node scripts/verify-published.mjs",
-    "resultsort:test": "node scripts/verify-result-sort.mjs"
+    "resultsort:test": "node scripts/verify-result-sort.mjs",
+    "retention:test": "node scripts/verify-retention.mjs",
+    "playlist:test": "node scripts/verify-playlist-import.mjs"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.16.2",

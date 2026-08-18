@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { getPlayable, mediaKey, urlFromKey } from '../utils/videoEmbed';
 import { titleFromUrl } from '../utils/playerLink';
 import { tasteScore, likedChannels, likedWords, tokens, isDisliked } from '../utils/taste';
+import { retentionScore, watchedChannels } from '../utils/retention';
 import { hasSeen, markSeen, markAllSeen, recentSeen } from '../utils/seen';
 import { scoreCandidates, draw, dedupeScored, poolFor, POOL } from '../utils/feedDraw';
 import { shouldExplore, exploreOffset, exploreSeed, EXPLORE_RATE } from '../utils/explore';
@@ -121,7 +122,12 @@ export function useUpNext() {
 
     // ── 1. channels this browser keeps thumbing up ──────────────────────────
     const fromChannels = async () => {
-      const names = likedChannels(3);
+      // Thumbed channels first, then ones this browser keeps WATCHING THROUGH.
+      // Most people never press a thumb, so keying candidate lookup on votes
+      // alone left the strongest and cheapest rung of the feed permanently
+      // empty for them — the channel list was the one signal that could not
+      // learn from ordinary use.
+      const names = [...new Set([...likedChannels(3), ...watchedChannels(3)])].slice(0, 3);
       if (!names.length) return [];
       const lists = await Promise.all(names.map(async (name) => {
         const r = await json(`${BACKEND}/api/creators/resolve?handle=${encodeURIComponent(name.replace(/^@/, ''))}`);
@@ -195,16 +201,28 @@ export function useUpNext() {
     // the fallback and only worth waiting for if they came back thin. A cold
     // fill needs the breadth, so it asks for all three at once.
     const raw = (await Promise.all([fromChannels(), fromPlatform()])).flat();
-    let scored = scoreCandidates(raw, usable, tasteScore);
+    // WHAT YOU SAID PLUS WHAT YOU DID. tasteScore is the thumbs — deliberate,
+    // sparse, and the strongest thing we have. retentionScore is how far
+    // through you actually got — weak per video and noisy, but given on every
+    // video rather than the handful anyone stops to rate, so over a session it
+    // is the signal that actually accumulates. Added rather than blended:
+    // retention's own weights are already scaled down (see retention.js), so a
+    // thumb still outranks a run of finished videos.
+    //
+    // A thumbs-DOWN still wins outright: tasteScore returns -Infinity for one,
+    // and no amount of having watched the thing changes that. Someone who
+    // watched it all and then said no meant the no.
+    const preference = (s) => tasteScore(s) + retentionScore(s);
+    let scored = scoreCandidates(raw, usable, preference);
     if (scored.length < (wide ? POOL : 1)) {
-      scored = dedupeScored([...scored, ...scoreCandidates(await fromSearch(), usable, tasteScore)]);
+      scored = dedupeScored([...scored, ...scoreCandidates(await fromSearch(), usable, preference)]);
     }
     // The head is exhausted — most of what came back has already been shown.
     // Re-ranking the same page again would just produce the same stragglers, so
     // go and get a page nobody has walked yet.
     if (seenRate() > 0.6) {
       const deeper = await fromPlatform({ offset: exploreOffset(wide ? 48 : 24) });
-      scored = dedupeScored([...scored, ...scoreCandidates(deeper, usable, tasteScore)])
+      scored = dedupeScored([...scored, ...scoreCandidates(deeper, usable, preference)])
         .sort((a, b) => b.value - a.value);
     }
     return { scored, seenRate: seenRate(), explored: false };

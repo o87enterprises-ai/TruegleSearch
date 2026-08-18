@@ -744,6 +744,22 @@
         "body": "10 normalisers used 'date: x || new Date().toISOString()'. SearXNG supplies publishedDate for a minority of rows, so most results claimed to be published now. Two consequences: calculateRecency scored undated rows 1 instead of its own 0.3 default (undated ranked as freshest), and Tube could not show a date without printing today over a 2019 video. All now return null; date sorts put undated LAST in both directions. utils/published.js also rejects future dates and anything before 1995.",
         "ts": "2026-08-18",
         "created": "2026-08-18"
+      },
+      "retention-signal": {
+        "Id": "retention-signal",
+        "Type": "fact",
+        "Label": "The feed learns from how far you watch, not only from thumbs",
+        "body": "utils/retention.js — separate store from taste.js because they are different claims (a thumb is speech, watching is behaviour) and because behaviour collected quietly is what Truegle exists not to do. Dead band: >=70% is a weak yes, <=15% on a >=30s video is a weak no, everything between records NOTHING. No duration => no fraction => no claim. retentionScore is capped at MAX_SCORE=3 in TOTAL (per-term caps were not enough — a tab left running overnight scored ~17 because title words stack). useUpNext adds tasteScore + retentionScore; a thumbs-down is still -Infinity and wins outright. forgetTaste in the UI clears retention too.",
+        "ts": "2026-08-18",
+        "created": "2026-08-18"
+      },
+      "playlist-import": {
+        "Id": "playlist-import",
+        "Type": "fact",
+        "Label": "YouTube playlist import: GET /api/creators/playlist?url=",
+        "body": "Data API path pages playlistItems 50 at a time (10 pages / 500 cap, 1 quota unit per call). Keyless RSS fallback returns only ~15 entries with NO page parameter, so the reply carries complete:false and the UI says a longer list may have more. Private/deleted entries have no videoId and are skipped, which is why an import can be smaller than YouTube's own count. Frontend: utils/playlistImport.js, offered when a playlist URL is pasted into the player search — previously that resolved at most the one video the link pointed at and discarded the list.",
+        "ts": "2026-08-18",
+        "created": "2026-08-18"
       }
     },
     "decision": {

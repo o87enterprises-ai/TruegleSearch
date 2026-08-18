@@ -1,5 +1,84 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-08-17. Supersedes all prior handoff docs._
+_Last updated: 2026-08-18. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ SESSION LOG 2026-08-18 — Tube stops asking which website you want, and starts learning from what you watch
+
+**Shipped (branch `claude/truegle-sharing-player-ux-t3hi43`):**
+
+- **🔴 THE REDDIT FEED WAS SERVING GITHUB ON PURPOSE.** `BACKEND_PLATFORMS`
+  mapped `reddit` → `['reddit','hackernews','github']`, on the reasoning that
+  the other two are keyless so they may as well ride along. It padded a Reddit
+  feed with repositories and gave nobody a way to switch them off, because they
+  were not pills. They are pills now — `status: 'open'`, a **public source**
+  rather than an account, so switching one on is a local toggle and never the
+  OAuth handshake (`needsAuth()` gates the flow, `isConnectable()` gates
+  storage). `ConnectedRow` gained an add-more control; without it the second
+  source was unreachable once the first connected.
+- **TUBE: the Where/What chip rows are gone,** and `PlayerScopeChips` is
+  deleted. They asked you to pick a platform before searching, which is
+  backwards. The multi-provider search is untouched and always on; bangs
+  (`!yt`, `!reddit`, `!sc`) and `@handles` still steer a single query via
+  `parsePlayerQuery` and cost no screen. What the chips carried for free —
+  *which platform am I looking at* — moved onto the result: a coloured stripe
+  per list row, a corner badge per deck card, read off the row's own `kind`.
+- **🔴 EVERY SEARCH RESULT CLAIMED TO BE PUBLISHED TODAY.** Ten normalisers in
+  `SearchService` did `date: x || new Date().toISOString()`, and SearXNG
+  supplies `publishedDate` for a minority of rows — so "we don't know when"
+  was indistinguishable from "an hour ago". Two consequences, both fixed:
+  `calculateRecency` scored undated rows **1** instead of the 0.3 it has always
+  had waiting for a null (undated ranked as the freshest thing on the page),
+  and Tube could not show a date without printing today over a 2019 video.
+  Null now means null; date sorts put undated **last** in both directions;
+  `utils/published.js` also refuses future timestamps and anything pre-1995.
+- **Sorting: Relevant · Newest · Popular.** Newest is offered only when the rows
+  carry dates, because a sort that visibly reorders nothing reads as broken.
+  **Popular is Truegle's OWN anonymous play/vote counts** via a new
+  `POST /api/media/scores` — there is no view count in a search result and
+  YouTube's costs a quota unit per video against a site-wide allowance, so the
+  tooltip says "on Truegle". **A row with no signal is not a row with zero:**
+  unscored rows keep relevance order behind scored ones, and with nothing known
+  the sort falls back to relevance rather than shuffling.
+- **Many pages.** One ask of 20 rows was the entire search for a query; the
+  backend has always honoured `filters.page` (Google `start`, Brave `offset`,
+  SearXNG `pageno`) and nothing ever asked. What gets re-asked is **the rung of
+  the fallback ladder that actually answered**, not the ladder from the top —
+  which would hand back page one of a different rung. The list gets a More
+  control; the swipe deck asks two cards early and no longer jumps to card one
+  when it grows.
+- **A result's channel opens that creator's uploads.** The capability existed
+  and was reachable only when the *query* named a channel. YouTube only, and
+  deliberately: `/creators/resolve` speaks YouTube channel ids and nothing else.
+- **The feed learns from watching, not only from thumbs** (`utils/retention.js`).
+  Almost nobody presses a thumb, so the strongest rung of the recommender stayed
+  permanently empty for most people. Kept separate from `taste.js` because they
+  are different claims — a 👍 is speech, watching is behaviour — and because
+  behaviour collected quietly is the thing Truegle exists not to do.
+  **Dead band:** ≥70% is a weak yes, ≤15% on a ≥30s video is a weak no,
+  everything between records *nothing*. No duration means no fraction means no
+  claim. `retentionScore` is capped at **3 in total**, not just per term — a tab
+  left running overnight scored ~17 before that, because title words stack, and
+  would have been the loudest voice in the profile. A thumbs-down still returns
+  -Infinity and wins outright. "Forget it" clears retention too: a profile you
+  can delete half of is still a dossier.
+- **Paste a YouTube playlist, get the whole thing** — `GET /api/creators/playlist`.
+  The Data API path pages `playlistItems` 50 at a time (500 cap, 1 quota unit
+  per call). The keyless RSS fallback returns ~15 entries with **no page
+  parameter**, so the reply carries `complete: false` and the UI says a longer
+  list may have more — importing 15 of somebody's 200 saved videos and reporting
+  success is the worst outcome available, because they find out later by missing
+  something. Private/deleted entries have no id and are skipped, which is why an
+  import can honestly be smaller than YouTube's own count.
+
+**Verified:** retention 27 (new), playlist 22 (new), resultsort 12 (new),
+published 19 (new), markdown 12, localquery 35, map 30, player 59, nav 13,
+embeddable 26, feed 10, mapui 63, chatmap 17, feedpage 41, backend jest 130.
+Lint 0 errors, `check:ads` clean, build clean.
+
+**Not verified from the sandbox** (the proxy denies every outbound host): the
+playlist endpoint against real YouTube, and the Popular sort against a real
+`media_signals` table. Both are exercised against stubs only.
 
 ---
 

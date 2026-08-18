@@ -177,6 +177,147 @@ router.get('/:channelId/videos', async (req, res) => {
   }
 });
 
+/*
+ * A WHOLE PLAYLIST, from its URL.
+ *
+ * "YT playlist upload via URL (captures all available links and embeds into
+ * users saved lists)" — so the deliverable is EVERY video it will give us, not
+ * the first page, and the reply has to be honest about which of those it got.
+ *
+ * TWO PATHS, and the difference matters enough to report it:
+ *
+ *   Data API (needs YOUTUBE_API_KEY) — playlistItems, paged, 50 at a time at
+ *   1 quota unit per call. A 500-video playlist costs 10 units of a 10,000/day
+ *   allowance, which is nothing. This is the only path that returns the whole
+ *   thing.
+ *
+ *   RSS (keyless, always available) — youtube.com/feeds/videos.xml?playlist_id
+ *   returns the most recent ~15 entries and there is no page parameter. It is
+ *   a real answer for a short playlist and a PARTIAL one for a long list, so
+ *   the reply says `complete: false` and the UI says so too. Silently importing
+ *   15 of someone's 200 saved videos and calling it done would be the worst
+ *   outcome here — they would only find out later, by missing something.
+ */
+const PLAYLIST_PAGES = 10;      // 10 * 50 = 500 videos, 10 quota units
+const PLAYLIST_CAP = 500;
+
+/**
+ * The playlist id inside whatever the user pasted.
+ *
+ * Accepts a full watch/playlist URL, a bare id, or a share link. Rejects a
+ * channel-uploads pseudo-id ("UU…") only in the sense that it does not need
+ * special handling — the API treats it as an ordinary playlist, which is
+ * exactly what it is.
+ */
+function playlistIdFrom(input) {
+  const raw = String(input || '').trim();
+  if (!raw) return null;
+  // A bare id, pasted on its own.
+  if (/^[A-Za-z0-9_-]{12,64}$/.test(raw) && !raw.includes('.')) return raw;
+  try {
+    const u = new URL(raw);
+    if (!/(^|\.)youtube\.com$|(^|\.)youtu\.be$/i.test(u.hostname)) return null;
+    const id = u.searchParams.get('list');
+    return id && /^[A-Za-z0-9_-]{12,64}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+async function playlistViaDataApi(playlistId) {
+  const key = process.env.YOUTUBE_API_KEY;
+  if (!key) return null;
+  const out = [];
+  let pageToken = '';
+  for (let i = 0; i < PLAYLIST_PAGES; i += 1) {
+    const url = 'https://www.googleapis.com/youtube/v3/playlistItems'
+      + `?part=snippet&maxResults=50&playlistId=${encodeURIComponent(playlistId)}`
+      + `&key=${key}${pageToken ? `&pageToken=${pageToken}` : ''}`;
+    const r = await fetch(url);
+    if (!r.ok) {
+      // A 404 is a private or deleted playlist, which is a real answer rather
+      // than a fault — say so instead of falling through to RSS, which would
+      // fail the same way a second time and report the wrong reason.
+      if (r.status === 404) throw Object.assign(new Error('playlist_not_found'), { status: 404 });
+      throw new Error(`DataAPI ${r.status}`);
+    }
+    const j = await r.json();
+    for (const it of j.items || []) {
+      const sn = it.snippet || {};
+      const videoId = sn.resourceId?.videoId;
+      // Private and deleted entries stay in a playlist as placeholders with no
+      // usable id. Skipping them is why the count we report can be lower than
+      // the playlist's own — which is correct, and better than importing rows
+      // that will never play.
+      if (!videoId) continue;
+      out.push({
+        videoId,
+        title: sn.title || '',
+        published: sn.publishedAt || null,
+        thumbnail: sn.thumbnails?.high?.url || sn.thumbnails?.medium?.url
+          || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        channel: sn.videoOwnerChannelTitle || sn.channelTitle || null,
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+      });
+      if (out.length >= PLAYLIST_CAP) return { videos: out, complete: !j.nextPageToken };
+    }
+    pageToken = j.nextPageToken || '';
+    if (!pageToken) return { videos: out, complete: true };
+  }
+  return { videos: out, complete: false };
+}
+
+async function playlistViaRss(playlistId) {
+  const r = await fetch(
+    `https://www.youtube.com/feeds/videos.xml?playlist_id=${encodeURIComponent(playlistId)}`,
+    { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TruegleSearch/1.0)' } },
+  );
+  if (!r.ok) throw new Error(`RSS ${r.status}`);
+  const videos = parseFeed(await r.text());
+  // The feed carries no total, so "complete" is a claim we cannot make. It is
+  // reported false whenever the feed came back full, because a full page is
+  // exactly what a truncated one looks like.
+  return { videos, complete: videos.length < 15 };
+}
+
+/**
+ * GET /api/creators/playlist?url=<playlist url or id>
+ * → { playlistId, videos: [...], complete: bool, source: 'api'|'rss' }
+ */
+router.get('/playlist', async (req, res) => {
+  const playlistId = playlistIdFrom(req.query.url);
+  if (!playlistId) {
+    return res.status(400).json({ error: 'bad_playlist', videos: [] });
+  }
+
+  const cacheKey = `pl:${playlistId}`;
+  const hit = cache.get(cacheKey);
+  if (hit && Date.now() - hit.at < TTL_MS) {
+    return res.json({ playlistId, ...hit.payload, cached: true });
+  }
+
+  try {
+    let payload = null;
+    try {
+      const viaApi = await playlistViaDataApi(playlistId);
+      if (viaApi) payload = { ...viaApi, source: 'api' };
+    } catch (e) {
+      if (e.status === 404) {
+        return res.status(404).json({ error: 'playlist_not_found', videos: [] });
+      }
+      logger.warn('Playlist Data API failed, trying RSS:', { playlistId, error: e.message });
+    }
+    if (!payload || payload.videos.length === 0) {
+      payload = { ...(await playlistViaRss(playlistId)), source: 'rss' };
+    }
+    cache.set(cacheKey, { at: Date.now(), payload });
+    return res.json({ playlistId, ...payload });
+  } catch (err) {
+    logger.warn('Playlist fetch failed:', { playlistId, error: err.message });
+    return res.status(502).json({ error: 'playlist_unavailable', videos: [] });
+  }
+});
+
 // The browser UA (and the consent cookie, and the optional proxy agent) moved
 // into YouTubeGateway with the requests that needed them.
 

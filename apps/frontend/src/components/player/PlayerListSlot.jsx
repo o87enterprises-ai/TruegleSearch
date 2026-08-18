@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, Check, X, Loader2, ListMusic, Play, ChevronRight, Search as SearchIcon, Flag } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useChannelFeed } from '../../hooks/useChannelFeed';
 import { parsePlayerQuery, toHandle, sourceColour, sourceProviderLabel } from '../../utils/playerQuery';
 import { hasTaste, forgetTaste } from '../../utils/taste';
+import { hasRetention, forgetRetention } from '../../utils/retention';
+import { isPlaylistUrl, importPlaylist, importMessage } from '../../utils/playlistImport';
 import { reportBroken, useBrokenFlag, useBrokenVersion, withoutBroken } from '../../utils/broken';
 import { useMediaMeta, formatDuration } from '../../utils/mediaMeta';
 import { publishedLabel } from '../../utils/published';
@@ -88,6 +90,25 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
   const feedRows = feed.videos;
   const [added, setAdded] = useState(null);
   const [forgetOpen, setForgetOpen] = useState(false);
+  // ── PASTING A PLAYLIST ────────────────────────────────────────────────────
+  // A playlist URL used to go through the ordinary pasted-link path, which
+  // resolves the ONE video the link happens to point at (or nothing, for a
+  // bare /playlist?list=… with no v=). The list itself — the actual thing
+  // being pasted — was silently discarded. It is offered as an import now.
+  const playlistPaste = isPlaylistUrl(query) ? query.trim() : '';
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState(null);
+  useEffect(() => { setImported(null); }, [playlistPaste]);
+  const runImport = useCallback(async () => {
+    if (!playlistPaste) return;
+    setImporting(true);
+    const result = await importPlaylist(playlistPaste);
+    setImported(result);
+    setImporting(false);
+    // Land them on the list they just made rather than on a search that is now
+    // beside the point.
+    if (result.ok) { setShowingResults(false); setTab('lists'); onRevert?.(); }
+  }, [playlistPaste, onRevert]);
   // Re-filter on every flag. usePlayerSearch drops known-dead rows when the
   // results ARRIVE; without this the row you just flagged would sit there
   // until the next search, which reads as the button not working.
@@ -227,6 +248,34 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
                     style={{ maxWidth: `${80 - i * 15}%` }} />
                 </div>
               ))}
+            </div>
+          )}
+          {/* A whole playlist was pasted. The single-video path below would
+              resolve one entry of it at best, so offer the list. */}
+          {playlistPaste && (
+            <div className="px-3 py-2.5 border-b border-white/10">
+              {imported ? (
+                <p className={`text-[11px] leading-snug ${imported.ok ? 'text-emerald-300/90' : 'text-amber-300/90'}`}>
+                  {importMessage(imported)}
+                </p>
+              ) : (
+                <>
+                  <p className="text-[11px] text-white/60 leading-snug mb-1.5">
+                    That is a playlist. Save the whole thing to your lists?
+                  </p>
+                  <button
+                    type="button"
+                    data-import-playlist
+                    onClick={runImport}
+                    disabled={importing}
+                    className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-white/20 text-[11px] text-white/80 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-60"
+                  >
+                    {importing
+                      ? <><Loader2 size={12} className="animate-spin" /> Fetching the playlist…</>
+                      : <><ListMusic size={12} /> Import playlist</>}
+                  </button>
+                </>
+              )}
             </div>
           )}
           {/* A link from somewhere we can't host. Not an error — a limit, and
@@ -414,12 +463,12 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
             Clear
           </button>
         )}
-        {tab === 'queue' && hasTaste() && (
+        {tab === 'queue' && (hasTaste() || hasRetention()) && (
           <button
             type="button"
             onClick={() => setForgetOpen((v) => !v)}
             aria-pressed={forgetOpen}
-            title="What the player has learned from your thumbs — and how to erase it"
+            title="What the player has learned from you — and how to erase it"
             className={`${queue.length > 0 ? '' : 'ml-auto '}text-[10px] uppercase tracking-wider transition-colors ${
               forgetOpen ? 'text-white/70' : 'text-white/25 hover:text-white/60'
             }`}
@@ -467,18 +516,20 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
         )}
       </div>
       )}
-      {/* A taste profile you can't delete is a dossier. This wipes the 👍/👎
-          the player has learned from — all of which lives in this browser and
-          nowhere else. The anonymous platform counters have nothing in them
-          tying back to anyone, so there is nothing there to withdraw. */}
+      {/* A taste profile you can't delete is a dossier — and one you can only
+          delete HALF of is still a dossier, which is why this clears the
+          watching record as well as the thumbs. Both live in this browser and
+          nowhere else. The anonymous platform counters carry nothing tying
+          back to anyone, so there is nothing there to withdraw. */}
       {forgetOpen && (
         <div className="flex items-center gap-2 px-3 py-1.5 border-t border-white/10">
           <span className="text-[10px] text-white/35 flex-1 leading-snug">
-            What the player has learned from your 👍/👎 — kept in this browser only.
+            What the player has learned from your 👍/👎 and from how far you watch — kept
+            in this browser only, and never sent anywhere.
           </span>
           <button
             type="button"
-            onClick={() => { forgetTaste(); setForgetOpen(false); }}
+            onClick={() => { forgetTaste(); forgetRetention(); setForgetOpen(false); }}
             className="shrink-0 px-2 h-6 rounded-md border border-white/15 text-[10px] uppercase tracking-wider text-white/50 hover:text-white hover:bg-white/10 transition-colors"
           >
             Forget it

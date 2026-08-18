@@ -13,6 +13,7 @@ import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useUpNext } from '../../hooks/useUpNext';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
 import { rate, useRating, signalPlay } from '../../utils/taste';
+import { recordRetention } from '../../utils/retention';
 import { reportBroken } from '../../utils/broken';
 import { learnMeta } from '../../utils/mediaMeta';
 import { recordWatch } from '../../utils/watchHistory';
@@ -204,6 +205,34 @@ export default function TrueglePlayer({
     if (!current || !embed?.duration) return;
     learnMeta(current, { duration: embed.duration, channel: current.channel });
   }, [current, embed?.duration]);
+
+  // HOW FAR YOU GOT, recorded when you leave — see utils/retention.js.
+  //
+  // The position has to be captured on the way OUT, which is the whole
+  // awkwardness: by the time `current` has changed, embed.time already belongs
+  // to the new video. So the live position is mirrored into a ref every render
+  // and read back when the source swaps, along with the source it belonged to.
+  //
+  // Fires on the swap AND on unmount, because closing the player, navigating
+  // away or ending a session are all ordinary ways to finish watching
+  // something, and only counting the ones that led to another video would
+  // learn from a biased half of them.
+  const watching = useRef({ source: null, time: 0, duration: 0 });
+  if (current && mediaKey(current) === mediaKey(watching.current.source)) {
+    watching.current.time = embed?.time || watching.current.time;
+    watching.current.duration = embed?.duration || watching.current.duration;
+  }
+  useEffect(() => {
+    const previous = watching.current;
+    if (previous.source && mediaKey(previous.source) !== mediaKey(current)) {
+      recordRetention(previous.source, previous.time, previous.duration);
+    }
+    watching.current = { source: current, time: 0, duration: embed?.duration || 0 };
+  }, [mediaKey(current)]);
+  useEffect(() => () => {
+    const last = watching.current;
+    if (last.source) recordRetention(last.source, last.time, last.duration);
+  }, []);
 
   // Everything that plays counts as seen, however it got here — otherwise
   // picking something by hand and then letting it run could hand you the same
