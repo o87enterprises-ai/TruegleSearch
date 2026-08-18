@@ -760,6 +760,14 @@
         "body": "Data API path pages playlistItems 50 at a time (10 pages / 500 cap, 1 quota unit per call). Keyless RSS fallback returns only ~15 entries with NO page parameter, so the reply carries complete:false and the UI says a longer list may have more. Private/deleted entries have no videoId and are skipped, which is why an import can be smaller than YouTube's own count. Frontend: utils/playlistImport.js, offered when a playlist URL is pasted into the player search — previously that resolved at most the one video the link pointed at and discarded the list.",
         "ts": "2026-08-18",
         "created": "2026-08-18"
+      },
+      "reddit-403-confirmed": {
+        "Id": "reddit-403-confirmed",
+        "Type": "fact",
+        "Label": "Reddit returns 403 to the production deployment — confirmed 2026-08-18",
+        "body": "Every host in REDDIT_HOSTS (www./old./bare) 403s from Vercel. Reddit blocks keyless reads from datacenter IP ranges, so host-walking and User-Agent tuning cannot get past it — the ONLY fix is an authenticated request via the free Reddit OAuth app that socialProviders.js already names as 'the one that fully works'. upstreamReason() now says that in the UI. Note this got MORE visible after BACKEND_PLATFORMS stopped padding the Reddit feed with HN/GitHub: a 403 now empties the feed outright.",
+        "ts": "2026-08-18",
+        "created": "2026-08-18"
       }
     },
     "decision": {
@@ -1762,6 +1770,14 @@
         "body": "'demo' = an ACCOUNT, goes through the (demo) OAuth handshake — Reddit. 'open' = a PUBLIC SOURCE with no account to connect and none ever needed — Hacker News, GitHub; switching one on is a local toggle. 'soon' = cannot work yet, pill disabled, note carries the real reason. needsAuth() gates the handshake; isConnectable() gates what may live in the connections list.",
         "ts": "2026-08-18",
         "created": "2026-08-18"
+      },
+      "trail-guide-any-completion": {
+        "Id": "trail-guide-any-completion",
+        "Type": "decision",
+        "Label": "Trail: the survival guide unlocks on ANY completed run, not only on arrival",
+        "body": "It used to unlock only on ending==='arrive', which meant the people most likely to want a survival guide (died of thirst 200mi short) got nothing. utils/vault.js now stores a TIER: 'guide' for any finish, 'full' for arriving. Never downgrades. MIGRATION: the original flag was the string '1' and could only be written by winning, so '1' reads as 'full'. The owner is supplying a deeper winners' guide — the 'full' tier is the seam for it; no placeholder content was invented.",
+        "ts": "2026-08-18",
+        "created": "2026-08-18"
       }
     },
     "entity": {
@@ -2084,6 +2100,15 @@
         "Type": "thread",
         "Label": "Popular sort has no data until media_signals fills up",
         "body": "POST /api/media/scores only returns rows with ups>0 OR plays>0. On a cold table every row is unscored, so Popular silently equals Relevant. That is the correct fallback, but the sort will look inert until real traffic accumulates signals — worth re-checking once the site has some. A YOUTUBE_API_KEY would also unlock full playlist import (currently RSS-capped at ~15 entries).",
+        "status": "open",
+        "ts": "2026-08-18",
+        "created": "2026-08-18"
+      },
+      "winners-guide-content": {
+        "Id": "winners-guide-content",
+        "Type": "thread",
+        "Label": "Winners' in-depth survival guide — content pending from owner",
+        "body": "vault.js tier 'full' is wired and tested (vaulttier:test, 17 checks). Nothing in the UI advertises a fuller edition yet, deliberately: claiming one exists before the content does would be a lie on screen. When the guide arrives it is a content drop plus a gate on vaultComplete().",
         "status": "open",
         "ts": "2026-08-18",
         "created": "2026-08-18"

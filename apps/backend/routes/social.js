@@ -352,7 +352,15 @@ const REDDIT_HOSTS = [
 function upstreamReason(err) {
   if (err?.response) {
     const status = err.response.status;
-    if (status === 403) return 'HTTP 403 — Reddit refused this request (commonly a blocked datacenter IP)';
+    // CONFIRMED IN PRODUCTION 2026-08-18, not a hypothesis: every host in
+    // REDDIT_HOSTS returns 403 from the deployment. Reddit blocks datacenter
+    // IP ranges for keyless reads, so no amount of host-walking or header
+    // tuning gets past it — the fix is an authenticated request, i.e. the free
+    // Reddit OAuth app the Feed page already names as the one that works.
+    if (status === 403) {
+      return 'HTTP 403 — Reddit blocks keyless reads from datacenter IPs like ours. '
+        + 'Connecting a Reddit account (free OAuth) is what lifts this.';
+    }
     if (status === 429) return 'HTTP 429 — rate limited by Reddit';
     return `HTTP ${status}`;
   }

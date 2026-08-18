@@ -3,6 +3,45 @@ _Last updated: 2026-08-18. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ SESSION LOG 2026-08-18b — The Tube mark, the guide for losers, and Reddit's 403 confirmed
+
+- **The player was signed with the wrong logo.** `TruegleWatermark` hard-coded
+  the TrueGLE Chat artwork, so True Tube's own viewer carried another product's
+  mark. It reads `LOGO_VARIANTS` from `TruegleLogo` now and defaults to `tube` —
+  two files each deciding what "the tube mark" means is exactly how one of them
+  ends up wrong, which is what happened. Keeps the fallback: `/truetube.png` is
+  served from `public` so it can be swapped without a code change, so it can
+  also be absent, so a load failure falls back rather than leaving a broken
+  image over the video.
+- **The Trail guide unlocks on ANY finished run, not only on arrival.** It had
+  it backwards: the people most likely to want a survival guide — the ones who
+  ran out of water two hundred miles short — were the ones told nothing.
+  `utils/vault.js` stores a **tier**: `'guide'` for any completion, `'full'`
+  for arriving, and it never downgrades. **Migration matters here:** the
+  original flag was the string `'1'` and could only be written by winning, so
+  it reads as `full` — anybody who had already earned it keeps it. The over
+  screen offers the library either way and labels which version you got.
+  ⏳ **The deeper winners' guide is content the owner is supplying.** The
+  `full` tier is wired and tested; deliberately NOTHING in the UI advertises a
+  fuller edition yet, because claiming one exists before it does would be a lie
+  on screen.
+- **🔴 REDDIT'S 403 IS CONFIRMED, NOT SUSPECTED.** Every host in `REDDIT_HOSTS`
+  returns 403 from the deployment. Reddit blocks keyless reads from datacenter
+  IP ranges, so host-walking and User-Agent tuning cannot get past it — the only
+  fix is an authenticated request via the free Reddit OAuth app that
+  `socialProviders.js` already calls "the one that fully works". The error
+  message now names that remedy instead of only the cause. **Note it got more
+  visible** the moment `BACKEND_PLATFORMS` stopped padding the Reddit feed with
+  Hacker News and GitHub: a 403 empties the feed outright now, which is honest
+  and also means the OAuth app is the next real unblock.
+
+**Verified:** vaulttier 17 (new), trail 62, vault 37, retention 27, playlist 22,
+resultsort 12, published 19, markdown 12, player 59, feed 10, localquery 35,
+map 30, nav 13, embeddable 26, backend jest 130. Lint 0 errors, check:ads clean,
+build clean.
+
+---
+
 ## 🗓️ SESSION LOG 2026-08-18 — Tube stops asking which website you want, and starts learning from what you watch
 
 **Shipped (branch `claude/truegle-sharing-player-ux-t3hi43`):**

@@ -74,14 +74,17 @@ export function mount(canvas, { onExit, onFound } = {}) {
   s.resize();
 
   // ── input ───────────────────────────────────────────────────────────────
-  // Arriving is how you find out the encyclopedia exists. The settlement at
-  // the end of five hundred miles kept its library, which is the only prize
-  // this game has to give that is worth anything off the screen.
+  // FINISHING is how you find out the encyclopedia exists — not winning.
+  //
+  // It used to unlock on arrival only, which meant the people most likely to
+  // want a survival guide, the ones who ran out of water two hundred miles
+  // short, were the ones told nothing at all. Any completed run opens it now.
+  // Arriving still means something: it opens the fuller version.
   let found = false;
   const arrive = () => {
-    if (found || run.ending !== 'arrive') return;
+    if (found || run.phase !== 'over') return;
     found = true;
-    findVault();
+    findVault(run.ending === 'arrive' ? 'full' : 'guide');
   };
 
   const commit = (i) => {
@@ -128,7 +131,7 @@ export function mount(canvas, { onExit, onFound } = {}) {
     // On the arrival screen V opens what the settlement kept. Checked before
     // the generic "any key restarts" so the one key that matters is not eaten
     // by a new run.
-    if (run.phase === 'over' && run.ending === 'arrive' && k === 'v') {
+    if (run.phase === 'over' && k === 'v') {
       onFound?.(); e.preventDefault(); return;
     }
     if (run.phase === 'minigame') {
@@ -175,7 +178,7 @@ export function mount(canvas, { onExit, onFound } = {}) {
     const { x, y } = pointAt(ev);
     if (titleScreen) { commit(0); return; }
     if (run.phase === 'minigame') { ptr = { x, y }; tap = { x, y }; return; }
-    if (run.phase === 'over' && run.ending === 'arrive' && inPad(VAULT, x, y)) { onFound?.(); return; }
+    if (run.phase === 'over' && inPad(VAULT, x, y)) { onFound?.(); return; }
     if (run.phase === 'outcome' || run.phase === 'over') { commit(0); return; }
     if (run.phase === 'event') {
       const hit = choiceBoxes.findIndex((b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h);
@@ -555,17 +558,21 @@ export function mount(canvas, { onExit, onFound } = {}) {
     text(view, `Best ${Math.max(stats.best, Math.round(run.dist))} mi  ·  Run ${stats.runs + 1}`, W / 2, 122, {
       size: 6, align: 'center', col: PAL[13],
     });
-    if (win) {
-      // The prize. Drawn as a button because on a phone there is no V key, and
-      // a reward you cannot reach is not a reward.
-      const { ctx, scale, ox, oy } = view;
-      ctx.fillStyle = PAL[3];
-      ctx.fillRect(ox + VAULT.x * scale, oy + VAULT.y * scale, VAULT.w * scale, VAULT.h * scale);
-      text(view, 'THEY KEPT THE LIBRARY', W / 2, VAULT.y + 5, { size: 7, align: 'center', col: PAL[7] });
-      text(view, blink() ? 'PRESS V OR TAP IT' : '', W / 2, 152, { size: 6, align: 'center', col: PAL[11] });
-    } else {
-      text(view, blink() ? 'TAP TO GO AGAIN' : '', W / 2, 138, { size: 7, align: 'center', col: UI });
-    }
+    // The prize, offered however the run ended. Drawn as a button because on a
+    // phone there is no V key, and a reward you cannot reach is not a reward.
+    // Winning gets the fuller version, and the label says so — otherwise the
+    // two outcomes would look identical and arriving would stop meaning
+    // anything.
+    const { ctx, scale, ox, oy } = view;
+    ctx.fillStyle = win ? PAL[3] : PAL[13];
+    ctx.fillRect(ox + VAULT.x * scale, oy + VAULT.y * scale, VAULT.w * scale, VAULT.h * scale);
+    text(view, win ? 'THEY KEPT THE LIBRARY' : 'TAKE THE GUIDE ANYWAY', W / 2, VAULT.y + 5, {
+      size: 7, align: 'center', col: win ? PAL[7] : PAL[0],
+    });
+    text(view, blink() ? 'PRESS V OR TAP IT' : '', W / 2, 152, {
+      size: 6, align: 'center', col: win ? PAL[11] : UI,
+    });
+    text(view, 'ANY KEY TO GO AGAIN', W / 2, 162, { size: 6, align: 'center', col: PAL[13] });
   }
 
   const flash = (period) => Math.floor(t / period) % 2 === 0;

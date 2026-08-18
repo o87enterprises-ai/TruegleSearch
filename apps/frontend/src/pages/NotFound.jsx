@@ -33,10 +33,11 @@ const NotFound = () => {
   // that re-renders should not be asking it to.
   const stopPlaying = useCallback(() => setPlaying(false), []);
   const stopReading = useCallback(() => setReading(false), []);
-  // Arriving at the settlement. Close the game, open what they kept, and leave
-  // the door unlocked from now on — winning a five-hundred-mile survival game
-  // every time you want to look up how to purify water would be a joke at the
-  // reader's expense.
+  // Finishing a run — any run. Close the game, open the guide, and leave the
+  // door unlocked from now on: winning a five-hundred-mile survival game every
+  // time you want to look up how to purify water would be a joke at the
+  // reader's expense, and so is telling the person who died of thirst that
+  // they have not earned the water chapter.
   const openVault = useCallback(() => {
     setFound(true);
     setPlaying(false);

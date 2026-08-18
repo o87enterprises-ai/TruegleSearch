@@ -1,4 +1,5 @@
-import logoMark from '../../assets/images/truegle-chat-transparent.webp';
+import { useState } from 'react';
+import { LOGO_VARIANTS } from './TruegleLogo';
 
 // A small translucent Truegle mark in the bottom-right of a media surface.
 //
@@ -8,10 +9,22 @@ import logoMark from '../../assets/images/truegle-chat-transparent.webp';
 // mark would misattribute their work. So the watermark brands the Truegle
 // viewing experience, and the Truegle metadata travels with the shared link.
 //
+// WHICH MARK. It hard-coded the TrueGLE Chat artwork, so the player — which is
+// True Tube — was signed with another product's logo. The variants come from
+// TruegleLogo now rather than being imported a second time here: two files each
+// deciding what "the tube mark" means is exactly how one of them ends up
+// wrong, which is what happened.
+//
+// The tube artwork is served from /public so it can be replaced without a code
+// change, which also means it can be absent — so a load failure falls back to
+// the default Truegle mark rather than leaving a broken image over the video.
+//
 // pointer-events-none throughout: it must never eat a tap meant for the
 // player controls underneath.
-export default function TruegleWatermark({ className = '', size = 'sm' }) {
+export default function TruegleWatermark({ className = '', size = 'sm', variant = 'tube' }) {
+  const [failed, setFailed] = useState(false);
   const px = size === 'lg' ? 46 : size === 'md' ? 34 : 26;
+  const chosen = (!failed && LOGO_VARIANTS[variant]) || LOGO_VARIANTS.default;
   return (
     <div
       aria-hidden="true"
@@ -19,10 +32,19 @@ export default function TruegleWatermark({ className = '', size = 'sm' }) {
       style={{ opacity: 0.38 }}
     >
       <img
-        src={logoMark}
+        src={chosen.src}
         alt=""
         draggable="false"
-        style={{ width: px, height: 'auto', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))' }}
+        onError={() => setFailed(true)}
+        style={{
+          width: px,
+          height: 'auto',
+          // The default mark is bright-on-black art and needs 'screen' to drop
+          // its backdrop; the transparent marks composite normally and would be
+          // washed out by it.
+          mixBlendMode: chosen.blend === 'screen' ? 'screen' : 'normal',
+          filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.8))',
+        }}
       />
     </div>
   );

@@ -15,7 +15,7 @@ import logoChatImage from '../../assets/images/truegle-chat-transparent.webp';
 // showing a broken image. Export it TRANSPARENT (like the chat mark): a white
 // background would sit on the dark page as a white box, and 'screen' can't
 // remove white the way it removes black.
-const LOGO_VARIANTS = {
+export const LOGO_VARIANTS = {
   default: { src: logoImage, alt: 'Truegle — Unbiased Search', blend: 'screen' },
   chat: { src: logoChatImage, alt: 'TrueGLE Chat', blend: 'normal' },
   tube: { src: '/truetube.png', alt: 'True Tube — watch and queue on Truegle', blend: 'normal' },

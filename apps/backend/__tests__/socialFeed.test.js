@@ -167,6 +167,11 @@ describe('POST /api/social/feed — paging', () => {
     // And the reason says what a 403 from a datacenter usually means, because
     // "unavailable" gives nobody anything to act on.
     expect(res.body.errors.reddit).toMatch(/403/);
+    // CONFIRMED IN PRODUCTION 2026-08-18: this is what the deployment actually
+    // gets. A reason that names the cause but not the remedy leaves the reader
+    // with a fact they can do nothing with, so it has to name the fix too.
+    expect(res.body.errors.reddit).toMatch(/datacenter/i);
+    expect(res.body.errors.reddit).toMatch(/OAuth/i);
   });
 
   test('a Reddit host that answers stops the walk', async () => {
