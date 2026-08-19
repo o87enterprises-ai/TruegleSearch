@@ -768,6 +768,22 @@
         "body": "Every host in REDDIT_HOSTS (www./old./bare) 403s from Vercel. Reddit blocks keyless reads from datacenter IP ranges, so host-walking and User-Agent tuning cannot get past it — the ONLY fix is an authenticated request via the free Reddit OAuth app that socialProviders.js already names as 'the one that fully works'. upstreamReason() now says that in the UI. Note this got MORE visible after BACKEND_PLATFORMS stopped padding the Reddit feed with HN/GitHub: a 403 now empties the feed outright.",
         "ts": "2026-08-18",
         "created": "2026-08-18"
+      },
+      "serpapi-was-uncapped": {
+        "Id": "serpapi-was-uncapped",
+        "Type": "fact",
+        "Label": "SerpApi exhaustion: a paid fallback fired automatically on ANY thin result set",
+        "body": "SEARXNG_PRIMARY=true IS set, so SearXNG does serve web search — but SearchService also had 'if (searchWeb && webResultCount < 5 && serpApiKey)' firing SerpApi with no cap, no counter and no log line. On a small self-hosted metasearch '<5 results' is the common case, so the paid tap ran constantly and the first signal was the vendor's email. FIXED: threshold is now ===0 (thin results are still results), and both callers (SearchService fallback AND ShoppingService) must claim from services/PaidProviderBudget.js. SERP_DAILY_LIMIT defaults to 0 — holding a key is NOT authorising spend.",
+        "ts": "2026-08-19",
+        "created": "2026-08-19"
+      },
+      "trail-cover-art-slot": {
+        "Id": "trail-cover-art-slot",
+        "Type": "fact",
+        "Label": "Trail title screen takes optional cover art at public/trail-title.png",
+        "body": "Drawn to COVER the 320x180 frame, TOP-anchored (posters put lettering at the top; a centred crop of a square cuts it off), imageSmoothingEnabled=false to keep the pixels, with a bottom scrim behind the prompt text. Absent or failed load falls back to the existing drawn title screen, so the game never depends on an asset that may not exist. Any aspect ratio works.",
+        "ts": "2026-08-19",
+        "created": "2026-08-19"
       }
     },
     "decision": {
@@ -1778,6 +1794,14 @@
         "body": "It used to unlock only on ending==='arrive', which meant the people most likely to want a survival guide (died of thirst 200mi short) got nothing. utils/vault.js now stores a TIER: 'guide' for any finish, 'full' for arriving. Never downgrades. MIGRATION: the original flag was the string '1' and could only be written by winning, so '1' reads as 'full'. The owner is supplying a deeper winners' guide — the 'full' tier is the seam for it; no placeholder content was invented.",
         "ts": "2026-08-18",
         "created": "2026-08-18"
+      },
+      "paid-provider-budget": {
+        "Id": "paid-provider-budget",
+        "Type": "decision",
+        "Label": "Any paid provider must claim a daily budget before it is called",
+        "body": "services/PaidProviderBudget.js: per-provider UTC-day counter, default limit 0. A configured API key alone must never open a paid tap under the $0 budget — a number has to be set deliberately in env. KNOWN LIMIT: the counter is in-memory, so on serverless it bounds spend to roughly limit x warm instances, not exactly limit. It is a brake, not an accountant; a true global cap needs shared storage.",
+        "ts": "2026-08-19",
+        "created": "2026-08-19"
       }
     },
     "entity": {
@@ -2141,5 +2165,5 @@
       }
     }
   },
-  "updated": "2026-08-18"
+  "updated": "2026-08-19"
 }

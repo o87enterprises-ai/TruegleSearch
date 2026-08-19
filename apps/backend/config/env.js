@@ -78,6 +78,13 @@ const envVarsSchema = Joi.object({
 
   // SERP API (Google Search Scraping Fallback)
   SERP_API_KEY: Joi.string().optional().description('SerpApi API Key'),
+  // HOLDING A KEY IS NOT AUTHORISING SPEND. SerpApi was being called
+  // automatically whenever the free providers came back thin, with no cap and
+  // no counter — which is how "your searches are exhausted" arrived by email
+  // before it ever appeared in a log. Under a $0 budget a paid provider stays
+  // shut until somebody names a number here, on purpose.
+  SERP_DAILY_LIMIT: Joi.number().integer().min(0).default(0)
+    .description('Max SerpApi calls per UTC day. 0 = never call it, even with a key configured.'),
 
   // Deepgram API (Voice Search — legacy)
   DEEPGRAM_API_KEY: Joi.string().optional().description('Deepgram API Key'),
@@ -327,6 +334,7 @@ const config = {
   },
   serp: {
     apiKey: envVars.SERP_API_KEY,
+    dailyLimit: envVars.SERP_DAILY_LIMIT,
   },
 
   // Email — Resend (transactional, used by EmailService) + legacy SMTP.

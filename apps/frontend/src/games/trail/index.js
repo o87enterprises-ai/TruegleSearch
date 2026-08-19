@@ -50,6 +50,26 @@ export function mount(canvas, { onExit, onFound } = {}) {
   let last = performance.now();
   let t = 0;
   let titleScreen = true;
+
+  // ── THE COVER ART ─────────────────────────────────────────────────────────
+  //
+  // Served from /public rather than bundled, exactly like the True Tube mark,
+  // so the artwork can be replaced without a code change — which matters while
+  // the final design is still moving. If the file is not there, or fails to
+  // load, the title screen falls back to the drawn one below and nothing looks
+  // broken; the game must never depend on an asset that may not exist yet.
+  //
+  // ANY ASPECT RATIO IS FINE. It is drawn to COVER the 320x180 frame and
+  // anchored to the TOP, because on a poster the lettering is at the top and
+  // centring a square crop would cut it off. A scrim across the bottom keeps
+  // the prompt text readable over whatever is behind it.
+  let cover = null;
+  if (typeof Image !== 'undefined') {
+    const img = new Image();
+    img.onload = () => { cover = img; };
+    img.onerror = () => { cover = null; };
+    img.src = '/trail-title.png';
+  }
   let hover = 0;
   let choiceBoxes = [];
   let held = null;          // 'gas' | 'brake' while a pad is pressed
@@ -426,6 +446,7 @@ export function mount(canvas, { onExit, onFound } = {}) {
   }
 
   function drawTitle(view) {
+    if (cover) { drawCoverTitle(view); return; }
     panel(view, 40, 104);
     text(view, 'TRAIL', W / 2, 48, { size: 20, align: 'center', col: PAL[10] });
     text(view, '500 miles. One life. No saves.', W / 2, 70, { size: 7, align: 'center', col: PAL[6] });
@@ -446,6 +467,38 @@ export function mount(canvas, { onExit, onFound } = {}) {
     }
     text(view, blink() ? 'PRESS ANY KEY OR TAP' : '', W / 2, 123, { size: 7, align: 'center', col: UI });
     text(view, 'Esc to leave', W / 2, 134, { size: 6, align: 'center', col: PAL[5] });
+  }
+
+  // The title screen when there IS artwork: the art, a scrim, and only the
+  // three lines a player actually needs before they press anything. Everything
+  // the drawn version says about strategy is still said — on the first
+  // encounter card, where it is relevant — rather than printed over a poster.
+  function drawCoverTitle(view) {
+    const { ctx, scale, ox, oy } = view;
+    const ratio = Math.max(W / cover.width, H / cover.height);
+    const dw = cover.width * ratio;
+    const dh = cover.height * ratio;
+    // Centred horizontally, TOP anchored: posters put the title at the top and
+    // a centred crop of a tall image cuts the lettering off.
+    const dx = (W - dw) / 2;
+    ctx.imageSmoothingEnabled = false;   // it is pixel art; keep the pixels
+    ctx.drawImage(cover, ox + dx * scale, oy, dw * scale, dh * scale);
+
+    // A scrim so the prompt survives whatever is underneath it.
+    const grad = ctx.createLinearGradient(0, oy + (H - 52) * scale, 0, oy + H * scale);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.85)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(ox, oy + (H - 52) * scale, W * scale, 52 * scale);
+
+    text(view, '500 miles. One life. No saves.', W / 2, H - 34, { size: 7, align: 'center', col: PAL[6] });
+    if (stats.runs > 0) {
+      text(view, `Best ${stats.best} mi  ·  Runs ${stats.runs}`, W / 2, H - 24, {
+        size: 6, align: 'center', col: PAL[13],
+      });
+    }
+    text(view, blink() ? 'PRESS ANY KEY OR TAP' : '', W / 2, H - 13, { size: 7, align: 'center', col: UI });
+    text(view, 'Esc to leave', W / 2, H - 4, { size: 6, align: 'center', col: PAL[5] });
   }
 
   function drawTravel(view, b) {

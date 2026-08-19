@@ -4,6 +4,8 @@
  * Provides shopping functionality with caching and price comparison
  */
 const serpApiService = require('./SerpApiService');
+const paidBudget = require('./PaidProviderBudget');
+const config = require('../config/env');
 const Redis = require('ioredis');
 
 class ShoppingService {
@@ -76,7 +78,17 @@ class ShoppingService {
       }
     }
 
-    // Search using SERP API
+    // SHOPPING IS THE OTHER PAID TAP. It goes to the same SerpApi account the
+    // search fallback drained, so it draws on the same daily budget — a cap
+    // that only covered one of two callers would not be a cap.
+    const budget = paidBudget.claim('serpapi', (config.serp && config.serp.dailyLimit) || 0);
+    if (!budget.ok) {
+      // An empty list rather than a throw: shopping is a category tab, and a
+      // spent budget is a limit on us, not an error the shopper caused.
+      const err = new Error(`Shopping is unavailable — ${budget.reason}`);
+      err.code = 'BUDGET_EXHAUSTED';
+      throw err;
+    }
     const results = await serpApiService.shoppingSearch(query, {
       ...options,
       numResults: this.resultsLimit,

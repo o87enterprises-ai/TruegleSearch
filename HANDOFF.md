@@ -3,6 +3,56 @@ _Last updated: 2026-08-18. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ SESSION LOG 2026-08-19 — The paid tap nobody knew was open
+
+- **🔴 SERPAPI WAS BEING CALLED AUTOMATICALLY, UNCAPPED.** The owner got
+  "your searches are exhausted" emails while believing SearXNG served every
+  query. Both halves were true: `SEARXNG_PRIMARY=true` IS set and SearXNG IS
+  primary for web search — and `SearchService` *also* had
+
+      if (searchWeb && webResultCount < 5 && this.serpApiKey) → performSerpSearch()
+
+  with no cap, no counter and no log line. On a self-hosted metasearch running
+  on a small box, "fewer than five web results" is not an edge case; it is most
+  of a cold afternoon. So the paid tap ran constantly and the first signal was
+  the vendor's email rather than anything in our own logs.
+
+  **Three changes:**
+  1. The threshold is `=== 0`, not `< 5`. Thin results are still results, and
+     paying real money to pad them is not worth it.
+  2. `services/PaidProviderBudget.js` — a per-provider UTC-day counter every
+     paid call must claim from. **`SERP_DAILY_LIMIT` defaults to 0**: holding an
+     API key is not authorising spend, and under a $0 budget a credential must
+     never open a tap by itself. Somebody has to write a number down.
+  3. `ShoppingService` draws on the SAME budget — it is the same SerpApi
+     account, and a cap covering one of two callers is not a cap.
+
+  ⚠️ **Known limit, stated rather than glossed:** the counter is in memory, so
+  on serverless it bounds spend to roughly *limit × warm instances*, not exactly
+  *limit*. It is a brake, not an accountant. A true global cap needs shared
+  storage and is a follow-up.
+
+  💸 **Action for the owner:** SerpApi is a paid vendor on a $0 budget. It is
+  now OFF by default and will stay off unless `SERP_DAILY_LIMIT` is set on
+  Vercel. Nothing needs setting for the site to work — SearXNG remains primary.
+
+- **The "Pics" tab returning nothing is a separate, unpaid problem.** Images go
+  SearXNG → Google Images (100/day free CSE cap) → Brave. An empty Pics tab
+  means all configured image providers came back empty, most likely the CSE
+  daily cap. Not yet fixed; see the open thread.
+
+- **Trail cover art has a slot: `public/trail-title.png`.** Optional, served
+  from `public` so it can be swapped without a code change (same pattern as the
+  True Tube mark), drawn to cover the 320×180 frame and **top-anchored** because
+  a poster puts its lettering at the top and a centred crop cuts it off.
+  `imageSmoothingEnabled = false` keeps the pixels. Absent or failed → the
+  existing drawn title screen, unchanged. Any aspect ratio works.
+
+**Verified:** paidBudget 12 (new), backend jest 142, trail 62, vaulttier 17,
+plus the standing suites. Lint 0 errors, check:ads clean, build clean.
+
+---
+
 ## 🗓️ SESSION LOG 2026-08-18b — The Tube mark, the guide for losers, and Reddit's 403 confirmed
 
 - **The player was signed with the wrong logo.** `TruegleWatermark` hard-coded

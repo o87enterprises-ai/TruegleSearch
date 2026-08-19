@@ -1,6 +1,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
 const config = require('../config/env');
+const paidBudget = require('./PaidProviderBudget');
 const { AI_CONTENT_DOMAINS } = require('../data/aiContentDomains');
 const QueryInterpreter = require('./QueryInterpreter');
 const UnifiedAIService = require('./UnifiedAIService');
@@ -61,6 +62,10 @@ class SearchService {
     // SerpAPI (Google whole-web fallback)
     this.serpApiKey = config.serp && config.serp.apiKey;
     this.serpBaseUrl = 'https://serpapi.com/search';
+    // Calls per UTC day this deployment is ALLOWED to pay for. Zero unless
+    // somebody set SERP_DAILY_LIMIT — see config/env.js and
+    // services/PaidProviderBudget.js for why a key alone is not permission.
+    this.serpDailyLimit = (config.serp && config.serp.dailyLimit) || 0;
 
     // SearXNG (self-hosted metasearch, no API key needed)
     this.searxngUrl = config.searxng && config.searxng.url;
@@ -341,10 +346,25 @@ class SearchService {
       }
       console.log(`🔗 Combined results: ${combinedResults.length}`);
 
-      // SerpAPI fallback: fire only when web results are thin (< 5)
+      // ── THE ONE PAID FALLBACK, AND WHAT IT COSTS ────────────────────────
+      //
+      // This fired on `webResultCount < 5`, which sounds conservative and is
+      // not: SearXNG is a self-hosted metasearch on a small box, and "fewer
+      // than five results" describes most of a cold afternoon. Every one of
+      // those was a billable SerpApi call, uncapped and unlogged, which is why
+      // the first anyone heard of it was the vendor's exhaustion email.
+      //
+      // Two changes. It now fires only when the free providers returned
+      // NOTHING — thin results are still results, and paying to pad them is
+      // not worth real money — and it must claim a slot from the daily budget,
+      // which is zero unless SERP_DAILY_LIMIT says otherwise.
       const webResultCount = combinedResults.filter(r => r.category === 'web').length;
-      if (searchWeb && webResultCount < 5 && this.serpApiKey) {
-        console.log(`⚡ SerpAPI fallback triggered (only ${webResultCount} web results)`);
+      if (searchWeb && webResultCount === 0 && this.serpApiKey) {
+        const budget = paidBudget.claim('serpapi', this.serpDailyLimit);
+        if (!budget.ok) {
+          console.log(`⚡ SerpAPI fallback SKIPPED — ${budget.reason}`);
+        } else {
+        console.log(`⚡ SerpAPI fallback triggered (0 web results, ${budget.used}/${budget.limit} today)`);
         try {
           const serpData = await this.performSerpSearch(query, filters);
           const serpResults = this.formatSerpResults(serpData);
@@ -354,6 +374,7 @@ class SearchService {
           console.log(`⚡ SerpAPI added ${newResults.length} results`);
         } catch (err) {
           console.error('SerpAPI fallback error:', err.message);
+        }
         }
       }
 
