@@ -792,6 +792,14 @@
         "body": "Owner uploaded the 3-panel NES box mockup (kept as public/trail-box-art.jpg, useful for OG/social) instead of the square title card, and said proceed. public/trail-title.png is the FRONT PANEL cropped to a 16:9 band across the wordmark, 640x360 (2x the 320x180 frame). Rejected alternatives, both checked by rendering: whole box scaled down = illegible back-cover text; tall front panel letterboxed = 110px thumbnail. Verified by screenshotting the real game canvas.",
         "ts": "2026-08-19",
         "created": "2026-08-19"
+      },
+      "searxng-safesearch-never-sent": {
+        "Id": "searxng-safesearch-never-sent",
+        "Type": "fact",
+        "Label": "Safe Search off was ignored: SearXNG was never sent a safesearch param",
+        "body": "performSearXNGSearch and performSearXNGCategorySearch sent only {q, format, pageno, categories}. Every OTHER provider mapped the setting (Brave/Google/Bing/SerpAPI/Unsplash), so the plumbing looked complete from every angle except the primary one — SearXNG applied its own settings.yml default on every search for everyone. Fixed via searxngSafeSearch(): off=0, blur=1, safe=2, unknown fails CLOSED to 2. SECOND HALF, server-side: if settings.yml on the box pins safe_search: 2 it overrides the request — both ends must agree. THIRD: routes/search.js:51 downgrades 'off' to 'safe' for anonymous callers (deliberate adult gate, not a bug).",
+        "ts": "2026-08-19",
+        "created": "2026-08-19"
       }
     },
     "decision": {

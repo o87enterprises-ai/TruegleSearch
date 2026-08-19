@@ -1120,6 +1120,29 @@ class SearchService {
     return results;
   }
 
+  /**
+   * The user's safe-search choice, in the numbers SearXNG speaks.
+   *
+   * REPORTED: with Safe Search turned OFF, adult sites were still being
+   * filtered out — against the whole premise of the product. This is why.
+   * SearXNG is the PRIMARY provider, and neither of the two functions that
+   * query it sent a `safesearch` parameter at all. Every other provider was
+   * wired up (Brave, Google, Bing, SerpAPI, Unsplash all map it); the one that
+   * actually answers most searches was left to apply whatever default sits in
+   * its own settings.yml, and the visitor's choice reached it never.
+   *
+   * SearXNG's scale is 0 none / 1 moderate / 2 strict.
+   *
+   * NOTE THE OTHER HALF: this sends the request. The instance can still
+   * override it — if settings.yml pins `safe_search: 2`, the box enforces
+   * strict no matter what we ask for. Both ends have to agree.
+   */
+  searxngSafeSearch(filters) {
+    if (filters.safeSearch === 'off') return 0;
+    if (filters.safeSearch === 'blur') return 1;
+    return 2;
+  }
+
   async performSearXNGSearch(query, filters) {
     if (!this.searxngUrl) {
       throw new Error('SearXNG not configured');
@@ -1129,6 +1152,7 @@ class SearchService {
       q: query,
       format: 'json',
       pageno: filters.page || 1,
+      safesearch: this.searxngSafeSearch(filters),
     };
 
     try {
@@ -1186,6 +1210,7 @@ class SearchService {
       format: 'json',
       categories: searxCategory,
       pageno: filters.page || 1,
+      safesearch: this.searxngSafeSearch(filters),
     };
 
     try {
