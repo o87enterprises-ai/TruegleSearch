@@ -391,10 +391,20 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         // page one already did — the ladder's rungs overlap heavily and
         // without this "more" mostly returned the same twenty rows again.
         scoped.forEach((row) => { const k = mediaKey(row) || row.src; if (k) seenRef.current.add(k); });
-        // Offer another page only when a rung actually answered AND it filled
-        // the one we asked for. A short page is the end of the results, and a
-        // "Load more" that returns nothing is worse than not offering one.
-        setMore(!!wonRef.current && webRows.length >= 15);
+        // OFFER ANOTHER PAGE WHENEVER A RUNG ANSWERED AT ALL.
+        //
+        // This used to require 15 rows before it would page. That number was
+        // measured against the wrong list: `webRows` has already been through
+        // toSource(), so it counts PLAYABLE videos, not results. A 20-result
+        // page yields three to eight playable ones on a good day and never
+        // fifteen — so the condition was false on every search ever run, `more`
+        // was permanently off, and the swipe deck could only show page one. The
+        // reported symptom was "it stops discovering new videos".
+        //
+        // Being liberal here is self-correcting: loadMore() withdraws the offer
+        // the moment a page comes back empty or entirely duplicated, so the
+        // worst case is one wasted request at the true end of the results.
+        setMore(!!wonRef.current && scoped.length > 0);
         setResults(rankPlayable(scoped, intent));
         setTrace({
           steps,
@@ -449,7 +459,12 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         // A page that came back empty, or entirely of things already shown, is
         // the end. Say so by withdrawing the offer rather than letting people
         // press a button that does nothing.
-        setMore(raw.length >= 15 && fresh.length > 0);
+        //
+        // Keyed on FRESH rows, not on the raw count, for the same reason as
+        // above: a page can be full of results and still yield nothing new, and
+        // it can be half full and still yield plenty. What decides whether
+        // there is more to see is whether this page showed you anything.
+        setMore(fresh.length > 0);
         if (fresh.length) setResults((prev) => [...(prev || []), ...fresh]);
       })
       .catch(() => { setMore(false); })
