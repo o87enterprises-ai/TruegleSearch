@@ -41,7 +41,18 @@ _Last updated: 2026-08-18. Supersedes all prior handoff docs._
   means all configured image providers came back empty, most likely the CSE
   daily cap. Not yet fixed; see the open thread.
 
-- **Trail cover art has a slot: `public/trail-title.png`.** Optional, served
+- **Trail cover art is IN.** The owner uploaded the three-panel box mockup
+  rather than the square title card, and said to proceed with it — so the front
+  panel was cropped out of it and framed as a 16:9 title card
+  (`public/trail-title.png`, 640×360 = 2× the game's 320×180 frame). Shrinking
+  the whole box to 320×180 would have made the back-cover copy an unreadable
+  smear; letterboxing the tall front panel made it a 110px thumbnail. A
+  deliberate band across the wordmark is the only framing of a portrait poster
+  that reads as a title screen, and it leaves the bottom strip dark so the
+  prompt text stays legible. Verified by screenshotting the real canvas, not by
+  trusting the arithmetic. The full mockup is kept as `trail-box-art.jpg` — it
+  is the right asset for an OG/social card, where it is seen large.
+- **The slot itself: `public/trail-title.png`.** Optional, served
   from `public` so it can be swapped without a code change (same pattern as the
   True Tube mark), drawn to cover the 320×180 frame and **top-anchored** because
   a poster puts its lettering at the top and a centred crop cuts it off.

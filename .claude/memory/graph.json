@@ -784,6 +784,14 @@
         "body": "Drawn to COVER the 320x180 frame, TOP-anchored (posters put lettering at the top; a centred crop of a square cuts it off), imageSmoothingEnabled=false to keep the pixels, with a bottom scrim behind the prompt text. Absent or failed load falls back to the existing drawn title screen, so the game never depends on an asset that may not exist. Any aspect ratio works.",
         "ts": "2026-08-19",
         "created": "2026-08-19"
+      },
+      "trail-title-art-shipped": {
+        "Id": "trail-title-art-shipped",
+        "Type": "fact",
+        "Label": "Trail title art shipped: front panel cropped out of the box mockup",
+        "body": "Owner uploaded the 3-panel NES box mockup (kept as public/trail-box-art.jpg, useful for OG/social) instead of the square title card, and said proceed. public/trail-title.png is the FRONT PANEL cropped to a 16:9 band across the wordmark, 640x360 (2x the 320x180 frame). Rejected alternatives, both checked by rendering: whole box scaled down = illegible back-cover text; tall front panel letterboxed = 110px thumbnail. Verified by screenshotting the real game canvas.",
+        "ts": "2026-08-19",
+        "created": "2026-08-19"
       }
     },
     "decision": {
