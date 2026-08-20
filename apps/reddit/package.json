@@ -1,6 +1,6 @@
 {
-  "name": "@truegle/reddit",
-  "version": "0.0.1",
+  "name": "truegleredd",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "description": "Truegle search, running inside a Reddit post (Devvit).",
@@ -19,5 +19,6 @@
   "devDependencies": {
     "devvit": "0.14.1",
     "esbuild": "^0.24.0"
-  }
+  },
+  "license": "MIT"
 }

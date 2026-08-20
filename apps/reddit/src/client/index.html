@@ -21,11 +21,13 @@
     -->
     <main class="wrap">
       <header class="head">
-        <h1 class="mark" aria-label="Truegle">
-          <span style="color:#ef4444">T</span><span style="color:#f97316">r</span
-          ><span style="color:#eab308">u</span><span style="color:#22c55e">e</span
-          ><span style="color:#3b82f6">g</span><span style="color:#a855f7">l</span
-          ><span style="color:#e5e7eb">e</span>
+        <h1 class="mark">
+          <!-- The real wordmark, not letters tinted to approximate it.
+               The source art has a dark-grey backing baked in, so it is levelled
+               to true black at build time and composited with mix-blend-mode:
+               screen — see styles.css. The alt text is the h1's actual content
+               for anything that cannot load it. -->
+          <img src="./truegle-logo.png" alt="Truegle" width="280" height="129" />
         </h1>
         <p class="tag">Private web search. No profile, no tracking, nothing stored.</p>
       </header>

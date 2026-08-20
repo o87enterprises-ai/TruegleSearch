@@ -42,9 +42,19 @@ body {
 
 .mark {
   margin: 0;
-  font-size: 40px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  line-height: 0;
+}
+
+/* SCREEN, so the artwork's own backing disappears.
+ * The source logo is not transparent — it ships on a dark grey field. Build
+ * time levels that field to black; `screen` then makes black composite as
+ * nothing, so the glow around the letters fades into the page instead of
+ * ending at a rectangle. A cut-out PNG would need the glow removed with it,
+ * which is most of what makes the mark look like itself. */
+.mark img {
+  width: min(280px, 72vw);
+  height: auto;
+  mix-blend-mode: screen;
 }
 
 .tag {

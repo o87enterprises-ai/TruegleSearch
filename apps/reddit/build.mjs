@@ -40,9 +40,14 @@ const clientOpts = {
   logLevel: 'info',
 };
 
+// Copied rather than bundled: esbuild would inline the PNG as a data URI and
+// the HTML references it by path. Listed explicitly so adding a file is a
+// deliberate act — a web view that silently grows assets is a post that takes
+// longer to appear in somebody's feed.
+const STATIC_FILES = ['index.html', 'styles.css', 'truegle-logo.png'];
+
 const statics = async () => {
-  await cp('src/client/index.html', 'dist/client/index.html');
-  await cp('src/client/styles.css', 'dist/client/styles.css');
+  for (const f of STATIC_FILES) await cp(`src/client/${f}`, `dist/client/${f}`);
 };
 
 if (watch) {
