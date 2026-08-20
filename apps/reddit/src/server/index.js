@@ -82,7 +82,16 @@ router.post('/api/search', async (req, res) => {
         try {
           const upstream = await fetch(`${TRUEGLE_API}/api/search`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              // SAY WHO WE ARE. Truegle blocks undeclared automation on this
+              // endpoint, and the Devvit runtime's fetch sends no User-Agent —
+              // which without this header reads as an anonymous scraper and
+              // lands in a five-per-minute throttle shared by every reader of
+              // every post. Declared clients get the documented API ceiling
+              // instead. See https://truegle.info/developers.
+              'X-Truegle-Client': 'truegle-reddit',
+            },
             // `blue-pill` is Truegle's mainstream lens. The other lenses are
             // the site's thing, not this post's — one box, one behaviour.
             body: JSON.stringify({ query, mode: 'blue-pill', filters: {} }),

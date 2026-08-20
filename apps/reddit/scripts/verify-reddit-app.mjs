@@ -85,7 +85,13 @@ for (const d of domains) {
 // than assuming it, because "we only navigate there" is exactly the sentence
 // somebody writes just before adding a fetch.
 const REDDIT_NAV = new Set(['reddit.com', 'www.reddit.com']);
-const fetched = [...server.matchAll(/https:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1]);
+//
+// A URL only counts when it is a STRING, hence the leading quote in the
+// pattern. Scanning bare `https://…` anywhere in the file made every comment
+// that mentioned a URL look like an outbound call — including the one above
+// pointing at our own documentation. A check that fails on prose gets its
+// prose deleted, which is the wrong thing to lose.
+const fetched = [...server.matchAll(/['"`]https:\/\/([a-z0-9.-]+)/gi)].map((m) => m[1]);
 const external = fetched.filter((h) => !REDDIT_NAV.has(h));
 check(external.length > 0, 'the server calls something', external.join(' '));
 check(external.every((h) => domains.includes(h)),
@@ -149,6 +155,16 @@ check(!/(full version|open in truegle|get the app|download)/i.test(surface),
 check(/rel\s*=\s*['"]noopener noreferrer['"]|rel\s*=\s*['"]noreferrer/.test(client)
   || /\.rel\s*=\s*['"]noopener noreferrer['"]/.test(client),
   'result links carry noopener noreferrer');
+
+// THE APP HAS TO SAY WHO IT IS.
+// Truegle answers 403 to undeclared automation on /api/search, and the Devvit
+// runtime's fetch sends no User-Agent — so without this header every search in
+// every post is either refused or sharing a five-per-minute throttle. It is one
+// line, it is invisible when present, and its absence looks exactly like the
+// API being down.
+check(/'X-Truegle-Client':\s*'[a-z0-9-]+'/i.test(server),
+  'the upstream request identifies this app to Truegle',
+  (server.match(/'X-Truegle-Client':\s*'[^']*'/i) || ['missing'])[0]);
 
 // ── nothing about the redditor leaves ───────────────────────────────────────
 // The privacy claim the README makes, checked against the code that would have

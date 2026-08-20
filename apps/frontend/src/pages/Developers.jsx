@@ -28,6 +28,7 @@ const API_HOST = 'https://api.truegle.info';
 
 const REQUEST = `curl -X POST ${API_HOST}/api/search \\
   -H 'Content-Type: application/json' \\
+  -H 'X-Truegle-Client: my-app' \\
   -d '{"query": "how do tides work", "mode": "blue-pill"}'`;
 
 const RESPONSE = `{
@@ -139,10 +140,30 @@ const Developers = () => (
       <H id="request">The request</H>
       <p className="text-white/60 mb-4 leading-relaxed">
         <code className="font-mono text-emerald-300">POST /api/search</code>, with a
-        JSON body. <code className="font-mono text-emerald-300">Content-Type: application/json</code> is
-        required; nothing else is.
+        JSON body and two headers:{' '}
+        <code className="font-mono text-emerald-300">Content-Type: application/json</code> and{' '}
+        <code className="font-mono text-emerald-300">X-Truegle-Client</code>.
       </p>
       <Table head={['Field', 'Type', 'Meaning']} rows={FIELDS} />
+
+      <h3 id="identify" className="text-lg font-semibold mt-10 mb-3 scroll-mt-8">
+        Tell us who you are
+      </h3>
+      <p className="text-white/60 mb-4 leading-relaxed">
+        Send <code className="font-mono text-emerald-300">X-Truegle-Client</code> with
+        a short name for your project — <code className="font-mono">my-app</code>,{' '}
+        <code className="font-mono">acme-dashboard</code>, whatever you would call
+        it out loud. Letters, digits, spaces and{' '}
+        <code className="font-mono">. _ - /</code>, up to 64 characters.
+      </p>
+      <p className="text-white/60 mb-4 leading-relaxed">
+        Without it, Truegle treats the request as anonymous automation and
+        answers <code className="font-mono">403</code>. That is not a key and it is
+        not a security measure — anyone can type anything in there. It exists so
+        that a person who read this page and a scraper hammering us anonymously
+        are not the same request to us, and so there is something to name in a
+        log when one integration misbehaves rather than throttling everybody.
+      </p>
 
       <H id="response">The response</H>
       <Code>{RESPONSE}</Code>
@@ -170,10 +191,14 @@ const Developers = () => (
       <H id="limits">Rate limits and fair use</H>
       <ul className="space-y-3 text-white/60 leading-relaxed list-disc pl-5">
         <li>
-          Requests are rate limited per IP. Stay conversational and you will never
-          see it; hammer it in a loop and you will get a{' '}
-          <code className="font-mono">429</code>. Back off and retry rather than
-          retrying immediately.
+          <span className="text-white/85">30 searches per minute</span>, per IP.
+          Exceed it and you get a <code className="font-mono">429</code>; back off
+          and retry rather than retrying immediately.
+        </li>
+        <li>
+          <span className="text-white/85">Identify yourself.</span> A request with
+          no <code className="font-mono">X-Truegle-Client</code> header is answered{' '}
+          <code className="font-mono">403</code>, whatever else it sends.
         </li>
         <li>
           <span className="text-white/85">Cache what you fetch.</span> Truegle runs

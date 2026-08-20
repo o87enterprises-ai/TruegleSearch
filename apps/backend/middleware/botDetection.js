@@ -18,8 +18,47 @@
  * (blocking, tighter rate limits) is applied by `blockBadBots` and the
  * bot-aware rate limiter so each route can opt in.
  *
+ * ── DECLARED API CLIENTS ────────────────────────────────────────────────────
+ *
+ * Truegle publishes a public search API at /developers. Blocking automation
+ * outright and documenting an API for automation are contradictory positions,
+ * and the contradiction was live: the quickstart on our own documentation page
+ * is a curl command, and `curl/` is in BAD_BOT_PATTERNS, so the documented way
+ * to call the documented endpoint returned 403.
+ *
+ * The resolution is the one every real API uses: say who you are. A request
+ * carrying `X-Truegle-Client: <name>` is a DECLARED client — it is not
+ * pretending to be a browser, and we know what to contact if it misbehaves. It
+ * skips the scraper block and the suspicious-client throttle, and picks up a
+ * documented rate limit of its own instead.
+ *
+ * This is not a security control and is not meant to be one — anyone can set a
+ * header. It is an honesty channel. What it buys is that the anonymous scraper
+ * (no UA, no declaration, hammering us) and the integrator who read the docs
+ * are no longer the same request to us, and can be treated differently and
+ * revoked separately.
+ *
  * Disable entirely with BOT_DETECTION_DISABLED=true.
  */
+
+// The header a documented API client identifies itself with, and the shape it
+// has to be in. Bounded and character-restricted because it is attacker-
+// controlled and ends up in logs: no newlines (log injection), no unbounded
+// length, nothing exotic.
+const CLIENT_HEADER = 'x-truegle-client';
+const CLIENT_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9 ._/-]{1,63}$/;
+
+/**
+ * The name a request declares itself under, or null if it declared nothing
+ * usable. A malformed declaration is treated as no declaration rather than as
+ * an error — it must not be a way to get a different response out of us.
+ */
+function declaredClient(req) {
+  const raw = req.headers[CLIENT_HEADER];
+  if (typeof raw !== 'string') return null;
+  const name = raw.trim();
+  return CLIENT_PATTERN.test(name) ? name : null;
+}
 
 // Legit crawlers we want to index us — matched case-insensitively on UA.
 const GOOD_BOT_PATTERNS = [
@@ -85,16 +124,28 @@ function classify(req) {
   const ua = (req.headers['user-agent'] || '').trim();
   const accept = req.headers['accept'] || '';
   const acceptLang = req.headers['accept-language'] || '';
+  const client = declaredClient(req);
 
   const info = {
     ua,
     ip: getClientIp(req),
     isGoodBot: false,
     isBadBot: false,
+    isDeclaredClient: !!client,
+    client,
     suspicious: false,
     reasons: [],
     score: 0,
   };
+
+  // A client that says who it is is answered before any of the guessing below.
+  // Checked ahead of the good-bot list too: this is a stronger signal than a
+  // pattern match on a string anyone can forge, and it must not be possible for
+  // a declared client to also come out flagged.
+  if (client) {
+    info.reasons.push('declared-client');
+    return info;
+  }
 
   // Cloudflare verified bot (when Bot Management is enabled on the zone).
   if (req.headers['cf-verified-bot'] === 'true') {
@@ -160,12 +211,17 @@ const botDetection = (req, res, next) => {
  */
 const blockBadBots = (req, res, next) => {
   const info = req.botInfo || classify(req);
+  // Declared clients are the documented way to use the public API. Blocking
+  // them would make /developers a page describing something that does not work.
+  if (info.isDeclaredClient) return next();
   if (info.isGoodBot) return next();
   if (info.isBadBot) {
     return res.status(403).json({
       error: 'Forbidden',
       message:
-        'Automated scraping of Truegle is not permitted. For data access, see https://truegle.info.',
+        'Automated scraping of Truegle is not permitted. To use the public API, '
+        + 'identify your client with an X-Truegle-Client header — see '
+        + 'https://truegle.info/developers.',
     });
   }
   next();
@@ -175,7 +231,9 @@ module.exports = {
   botDetection,
   blockBadBots,
   classify,
+  declaredClient,
   getClientIp,
+  CLIENT_HEADER,
   GOOD_BOT_PATTERNS,
   BAD_BOT_PATTERNS,
 };

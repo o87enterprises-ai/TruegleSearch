@@ -47,6 +47,35 @@ const searchLimiter = rateLimit({
 });
 
 /**
+ * The published ceiling for declared API clients.
+ *
+ * A request carrying `X-Truegle-Client` skips the scraper block and the
+ * suspicious-client throttle, so without this it would arrive with only the
+ * global 500-per-15-minutes to slow it down — and /developers promises a
+ * per-minute limit. This is that promise.
+ *
+ * SCOPED TO DECLARED CLIENTS ONLY, deliberately. The obvious alternative was
+ * to put the existing `searchLimiter` on /api/search for everybody, but
+ * /api/search currently has no per-minute limit at all, and quietly imposing
+ * one would change behaviour for every visitor on a shared or office IP to fix
+ * a problem none of them have. Additive here, nothing existing moves.
+ */
+const apiClientLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => getClientIp(req),
+  skip: (req) => !(req.botInfo && req.botInfo.isDeclaredClient),
+  message: {
+    error: 'Rate limit exceeded',
+    message:
+      'The public API allows 30 searches per minute. Back off and retry rather '
+      + 'than retrying immediately — see https://truegle.info/developers.',
+  },
+});
+
+/**
  * Bot-aware limiter for the search API. Only counts requests flagged as
  * suspicious by botDetection — normal users skip it entirely — so a scraper
  * that slips past UA-based blocking still hits a hard, low ceiling.
@@ -172,4 +201,5 @@ module.exports = {
   tieredLimiter,
   mapsLimiter,
   suspiciousBotLimiter,
+  apiClientLimiter,
 };

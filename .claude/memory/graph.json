@@ -816,6 +816,14 @@
         "body": "The site is https://truegle.info — sitemap.xml, llms.txt and the CORS allowlist all use it. There is no truegle.com. The Devvit fetch domain is therefore api.truegle.info.",
         "ts": "2026-08-20",
         "created": "2026-08-20"
+      },
+      "api-client-header": {
+        "Id": "api-client-header",
+        "Type": "fact",
+        "Label": "Public API requires X-Truegle-Client header",
+        "body": "blockBadBots on /api/search 403s known automation UAs (curl/, python-requests, node-fetch, axios/ ...). A request carrying X-Truegle-Client: <name> (^[a-zA-Z0-9][a-zA-Z0-9 ._/-]{1,63}$) is a DECLARED client: skips the scraper block AND the 5/min suspiciousBotLimiter, gets apiClientLimiter 30/min instead. Devvit runtime fetch sends NO User-Agent -> without the header it scores 60 = suspicious = 5/min shared across all readers. apps/reddit sends 'truegle-reddit'. Documented on /developers and in the GET /api index. Not a security control, an honesty channel.",
+        "ts": "2026-08-20",
+        "created": "2026-08-20"
       }
     },
     "decision": {
@@ -2199,6 +2207,15 @@
         "Label": "Devvit fetch-domain approval for our API",
         "body": "Devvit's fetch policy says personal domains 'will not be approved', excepting APIs that are publicly documented and publicly accessible. We request backend-seven-khaki-60.vercel.app, which is the weakest form of that ask. TODO: move the API to api.truegle.com (free on Vercel) and publish a public API docs page before submitting for review. Review = 1-2 business days, can be denied.",
         "status": "done",
+        "ts": "2026-08-20",
+        "created": "2026-08-20"
+      },
+      "search-ranking-relevance": {
+        "Id": "search-ranking-relevance",
+        "Type": "thread",
+        "Label": "Ranking: recency+diversity outweigh relevance",
+        "body": "SearchService.js:670 finalScore = relevance*0.5 + recency*0.35 + diversity*0.15. Live example: 'how do tides work' ranked a gamesindustry.biz article (relevance 0.163, recency 0.75, diversity 1 -> 0.494) and a Bitcoin story ABOVE the actual 'How Do Tides Work?' video (relevance 0.6, recency 0.3, diversity 0.1 -> 0.42). News API results carry high recency+diversity regardless of topical match, so fresh off-topic beats on-topic. Not yet fixed; search.ranking.test.js exists and would need updating.",
+        "status": "open",
         "ts": "2026-08-20",
         "created": "2026-08-20"
       }

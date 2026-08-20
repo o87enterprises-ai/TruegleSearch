@@ -6,7 +6,7 @@ const morgan = require('morgan');
 require('dotenv').config();
 
 const config = require('./config/env');
-const { generalLimiter, authLimiter, mapsLimiter, suspiciousBotLimiter, searchLimiter } = require('./middleware/rateLimit');
+const { generalLimiter, authLimiter, mapsLimiter, suspiciousBotLimiter, apiClientLimiter, searchLimiter } = require('./middleware/rateLimit');
 const { botDetection, blockBadBots } = require('./middleware/botDetection');
 const { privacyMiddleware, noTrackMiddleware, searchPrivacyMiddleware } = require('./middleware/privacy');
 const { securityHeaders, contentPolicyMiddleware } = require('./middleware/security');
@@ -242,6 +242,11 @@ app.get(['/', '/api'], (req, res) => {
         method: 'POST',
         path: '/api/search',
         summary: 'Search the web. Returns JSON results.',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Truegle-Client':
+            'required — a short name for your project. Anonymous automation is refused with 403.',
+        },
         body: {
           query: 'string, required, 1-300 characters',
           mode: 'string, optional — blue-pill (default), red-pill, ocean, green',
@@ -259,7 +264,9 @@ app.get(['/', '/api'], (req, res) => {
         summary: 'Service status.',
       },
     ],
-    rateLimit: 'Per IP. Exceeding it returns 429 — back off rather than retrying immediately.',
+    rateLimit:
+      '30 requests per minute per IP for declared clients. Exceeding it returns 429 — '
+      + 'back off rather than retrying immediately.',
   });
 });
 
@@ -298,7 +305,10 @@ app.get('/api/health/youtube', (req, res) => {
 });
 
 // API routes
-app.use('/api/search', [blockBadBots, suspiciousBotLimiter, searchPrivacyMiddleware, require('./routes/search')]);
+// `apiClientLimiter` and `suspiciousBotLimiter` are mutually exclusive by
+// construction — each skips the case the other handles — so exactly one applies
+// to any request, and a browser visitor is untouched by both.
+app.use('/api/search', [blockBadBots, apiClientLimiter, suspiciousBotLimiter, searchPrivacyMiddleware, require('./routes/search')]);
 app.use('/api/auth', [authLimiter, require('./routes/auth')]);
 app.use('/api/analytics', require('./routes/analytics').router);
 app.use('/api/tokens', require('./routes/tokens'));
