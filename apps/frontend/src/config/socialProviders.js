@@ -19,7 +19,9 @@
 //             needed; switching it on is one tap and nothing leaves the
 //             browser. Routing these through an OAuth handshake would be
 //             theatre — there is nothing to authorise.
-//   'soon'  — cannot work yet; pill is disabled and shows `note`
+//   'soon'  — cannot work yet; pill is disabled and shows `note`. Note this
+//             covers two different situations and the note has to say which:
+//             a door we have not walked through yet, and a door that is shut.
 //
 // When a provider's credentials arrive, its status flips and a backend adapter
 // stops returning demo data. Nothing else changes.
@@ -29,10 +31,22 @@ export const PROVIDERS = [
     id: 'reddit',
     label: 'Reddit',
     colour: '#FF4500',
-    status: 'demo',
-    // The only one that genuinely works: free OAuth app, 100 queries/min, and
-    // a real home feed at the end of it.
-    note: 'Free OAuth — the one that fully works',
+    // WAS 'demo', AND WAS DESCRIBED AS "the one that fully works". Both were
+    // true when written and neither is now.
+    //
+    // Reddit closed new Data API app registration to everything except
+    // moderation tools — r/reddit.com/wiki/api, checked 2026-08-19: "If you
+    // have a valid moderation use case, you should submit a request to create
+    // new apps with Reddit's Data API." Truegle is not a moderation tool, so
+    // there is no application to make and no tier to buy. Devvit, which Reddit
+    // points at instead, builds apps that run INSIDE Reddit and cannot read the
+    // API from our own backend.
+    //
+    // That also makes the 403 our deployment gets on keyless reads permanent:
+    // Reddit blocks datacenter IPs, and the authenticated path that would lift
+    // it is the one now closed to us. We do not route around that.
+    status: 'soon',
+    note: 'Reddit closed its API to everyone but moderation tools',
   },
   // PUBLIC SOURCES. These used to be smuggled in under Reddit — see
   // BACKEND_PLATFORMS below for what that did — and they are their own pills

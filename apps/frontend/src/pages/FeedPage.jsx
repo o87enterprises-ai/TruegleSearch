@@ -5,7 +5,7 @@ import { Loader2, Plus, X } from 'lucide-react';
 import SearchPageShell from '../components/layout/SearchPageShell';
 import SearchBar from '../components/ui/SearchBar';
 import FeedCard from '../components/feed/FeedCards';
-import { PROVIDERS, platformsFor, needsAuth } from '../config/socialProviders';
+import { PROVIDERS, byId, platformsFor, needsAuth } from '../config/socialProviders';
 import { useSocialConnections, connect as connectSource } from '../hooks/useSocialConnections';
 import { useSocialFeed } from '../hooks/useSocialFeed';
 
@@ -117,7 +117,10 @@ export default function FeedPage() {
         >
           {feed.platformErrors.map(({ platform, reason }) => (
             <p key={platform} className="leading-snug">
-              <span className="font-semibold capitalize">{platform}</span> didn&apos;t answer —{' '}
+              {/* The provider's own name, not `capitalize` on the id — that
+                  rendered "Github" and "Hackernews", which is how a page
+                  starts looking machine-generated. */}
+              <span className="font-semibold">{byId(platform)?.label || platform}</span> didn&apos;t answer —{' '}
               <span className="text-amber-200/70">{reason}</span>
             </p>
           ))}

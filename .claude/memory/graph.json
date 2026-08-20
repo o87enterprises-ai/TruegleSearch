@@ -800,6 +800,14 @@
         "body": "performSearXNGSearch and performSearXNGCategorySearch sent only {q, format, pageno, categories}. Every OTHER provider mapped the setting (Brave/Google/Bing/SerpAPI/Unsplash), so the plumbing looked complete from every angle except the primary one — SearXNG applied its own settings.yml default on every search for everyone. Fixed via searxngSafeSearch(): off=0, blur=1, safe=2, unknown fails CLOSED to 2. SECOND HALF, server-side: if settings.yml on the box pins safe_search: 2 it overrides the request — both ends must agree. THIRD: routes/search.js:51 downgrades 'off' to 'safe' for anonymous callers (deliberate adult gate, not a bug).",
         "ts": "2026-08-19",
         "created": "2026-08-19"
+      },
+      "reddit-api-closed": {
+        "Id": "reddit-api-closed",
+        "Type": "fact",
+        "Label": "Reddit Data API closed to us",
+        "body": "Reddit limits new Data API app registration to valid moderation use cases (r/reddit.com/wiki/api, checked 2026-08-19). Truegle is not one, so there is no application to make and no tier to buy. Devvit builds apps that run INSIDE Reddit and cannot read the API from our backend. The 403 our Vercel deploy gets on keyless reads is therefore permanent. Feed pill is status:'soon', disabled, with that reason on it. Do NOT route around the IP block.",
+        "ts": "2026-08-20",
+        "created": "2026-08-20"
       }
     },
     "decision": {
@@ -2181,5 +2189,5 @@
       }
     }
   },
-  "updated": "2026-08-19"
+  "updated": "2026-08-20"
 }

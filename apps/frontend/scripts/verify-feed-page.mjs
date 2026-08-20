@@ -58,9 +58,13 @@ async function makeContext(opts = {}) {
         headers: { location: `${BASE}/feed/callback?provider=${provider}&code=demo_x&state=st_1` },
       });
     }
+    // The handshake's return leg. Only the REFUSAL is exercised below, because
+    // no provider has status 'demo' any more — the success branch is kept as
+    // the shape the seam has to produce whenever one reopens.
     if (url.pathname.endsWith('/exchange')) {
       if (failExchange) return json({ error: 'Reddit turned that down.' }, 400);
-      return json({ success: true, connection: { provider: 'reddit', handle: 'demo_user', connectedAt: new Date().toISOString() } });
+      const provider = url.pathname.split('/')[3];
+      return json({ success: true, connection: { provider, handle: 'demo_user', connectedAt: new Date().toISOString() } });
     }
     if (url.pathname === '/api/social/feed') {
       // A platform that REFUSED. The route answers 200 with an empty result
@@ -70,30 +74,30 @@ async function makeContext(opts = {}) {
         return json({
           query: body?.query || '',
           results: [],
-          platforms: { reddit: [], hackernews: [], github: [] },
-          nextCursor: { reddit: null },
-          errors: { reddit: 'HTTP 403 — Reddit refused this request (commonly a blocked datacenter IP)' },
+          platforms: { hackernews: [], github: [] },
+          nextCursor: { github: null },
+          errors: { github: 'HTTP 403 — GitHub refused this request' },
         });
       }
-      const page = body?.cursor?.reddit ? 2 : 1;
+      const page = body?.cursor?.github ? 2 : 1;
       return json({
         query: body?.query || '',
         results: Array.from({ length: 6 }, (_, i) => ({
           id: `p${page}_${i}`,
-          platform: 'Reddit',
+          platform: 'GitHub',
           title: `${body?.query ? `Result for ${body.query}` : 'Popular post'} ${page}-${i}`,
           url: 'https://example.com/x',
           permalink: 'https://example.com/x',
           snippet: 'body text',
           author: 'someone',
-          subreddit: 'r/test',
+          subreddit: null,
           date: '2026-01-01T00:00:00Z',
           score: 10,
           comments: 2,
         })),
         // Page two is the last one, so the feed can be seen to END.
-        nextCursor: { reddit: page === 1 ? 't3_next' : null },
-        errors: { reddit: null },
+        nextCursor: { github: page === 1 ? 'gh_next' : null },
+        errors: { github: null },
       });
     }
     return json({ success: true, results: [] });
@@ -150,8 +154,22 @@ const pills = await page.evaluate(() => [...document.querySelectorAll('[data-pro
   .map((b) => ({ id: b.dataset.provider, ready: b.dataset.ready, text: (b.textContent || '').trim(), disabled: b.disabled })));
 
 check(pills.length >= 6, 'every provider gets a pill', `${pills.length} pills`);
+// REDDIT IS SHUT, AND THE PILL HAS TO SAY SO.
+// It shipped as the connectable one, described as "the one that fully works".
+// Reddit then closed new Data API registration to everything except moderation
+// tools (r/reddit.com/wiki/api), so there is no application to make and no tier
+// to buy. A pill still promising free OAuth would be a lie on screen, and the
+// kind somebody only discovers after connecting and getting an empty feed.
 const reddit = pills.find((p) => p.id === 'reddit');
-check(reddit && !reddit.disabled, 'Reddit is connectable', reddit ? `disabled=${reddit.disabled}` : 'missing');
+check(reddit && reddit.disabled, 'Reddit is no longer offered as connectable',
+  reddit ? `disabled=${reddit.disabled}` : 'missing');
+check(/moderation/i.test(reddit?.text || ''),
+  '…and names the real reason rather than a vague "coming soon"',
+  reddit?.text.replace(/\s+/g, ' ').slice(0, 90));
+
+// The connectable one is now a PUBLIC SOURCE: no account, no handshake.
+const github = pills.find((p) => p.id === 'github');
+check(github && !github.disabled, 'GitHub is connectable', github ? `disabled=${github.disabled}` : 'missing');
 const locked = pills.filter((p) => p.ready === 'no');
 check(locked.length > 0 && locked.every((p) => p.disabled),
   'every provider that cannot serve a feed is un-pressable',
@@ -160,34 +178,30 @@ check(locked.every((p) => /Coming soon/i.test(p.text)),
   '…and says so, with the real reason rather than a placeholder',
   locked[0]?.text.replace(/\s+/g, ' ').slice(0, 80));
 
-// ── 3. connect round-trips, and the feed fills ──────────────────────────────
+// ── 3. switching on a source fills the feed ─────────────────────────────────
+// NO HANDSHAKE IS EXERCISED HERE ANY MORE, and that is the point rather than a
+// gap: with Reddit closed, every provider left is either 'soon' or a public
+// source needing no account. The OAuth route and the Reddit adapter stay in the
+// tree as the seam for whenever a provider reopens — but nothing in the UI can
+// reach them, so a test asserting the handshake would be testing a path no
+// visitor can take.
 calls.length = 0;
-await page.click('[data-provider="reddit"]');
-// Long enough for a cross-origin redirect AND a cold boot of the whole app on
-// the other side. 3.5s was not: the page was still blank when the assertions
-// ran, and every one of them failed for that reason rather than a real one.
-await page.waitForURL('**/feed/callback**', { timeout: 15000 });
+await page.click('[data-provider="github"]');
 // `attached`, not the default `visible` — the marker is a `hidden` div, so it
 // is by definition never visible and the default state waits forever on an
 // element that is already there and already correct.
 await page.waitForSelector('[data-feed-state="connected"]', { state: 'attached', timeout: 20000 });
 await page.waitForTimeout(1500);
 
-check(calls.some((c) => c.path.includes('/social-auth/reddit/start')), 'pressing a pill starts the handshake');
-check(calls.some((c) => c.path.includes('/social-auth/reddit/exchange')),
-  '…and the code is exchanged server-side, not in the browser');
+check(!calls.some((c) => c.path.includes('/social-auth/')),
+  'a public source needs no handshake at all', calls.map((c) => c.path).join(' '));
 check(await page.evaluate(() => JSON.parse(localStorage.getItem('truegle_feed_connections') || '[]').length) === 1,
   'the connection is remembered');
-
-// /feed/callback is a leg of the handshake, not a page. Clearing only the query
-// string left people parked on it — the URL they would then bookmark or share.
-check(new URL(page.url()).pathname === '/feed',
-  'the handshake ends back on /feed, not parked on the callback path', page.url());
-check(!page.url().includes('code='), '…with the one-use code out of the URL', page.url());
+check(new URL(page.url()).pathname === '/feed', 'and you stay on /feed', page.url());
 
 const firstFeed = calls.find((c) => c.path === '/api/social/feed');
 check(!!firstFeed, 'the feed is requested once connected');
-check(firstFeed?.body?.platforms?.includes('reddit'), 'for the connected provider',
+check(firstFeed?.body?.platforms?.includes('github'), 'for the connected provider',
   JSON.stringify(firstFeed?.body?.platforms));
 check(await page.locator('text=Popular post 1-0').count() > 0, 'and the posts are on screen');
 
@@ -205,7 +219,7 @@ await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 await page.waitForTimeout(2500);
 const more = calls.filter((c) => c.path === '/api/social/feed');
 check(more.length > 1, 'a feed shorter than the screen keeps paging on its own', `${more.length} requests`);
-check(more.some((c) => c.body?.cursor?.reddit === 't3_next'),
+check(more.some((c) => c.body?.cursor?.github === 'gh_next'),
   '…carrying the cursor the last page handed back, not starting over',
   more.map((c) => JSON.stringify(c.body?.cursor)).join(' '));
 // One connect is one page-one fetch. Two meant the page was remounting on the
@@ -231,13 +245,14 @@ await page.waitForTimeout(2500);
 const searched = calls.filter((c) => c.path === '/api/social/feed');
 check(searched.length > 0, 'typing searches the feed', `${searched.length} requests`);
 check(searched[0]?.body?.query === 'raspberry pi', '…for what was typed', searched[0]?.body?.query);
-// REPORTED: "Feed (reddit) is pulling GitHub results." It was. Connecting
-// Reddit used to send platforms: ['reddit','hackernews','github'] on the
-// reasoning that the other two are keyless so they may as well ride along —
-// which padded a Reddit feed with repositories and gave nobody a way to switch
-// them off, because they were not pills. Connecting Reddit means Reddit.
-check(searched.every((c) => JSON.stringify(c.body.platforms) === JSON.stringify(['reddit'])),
-  '…and only across what is connected — Reddit means Reddit, not Reddit plus GitHub',
+// REPORTED: "Feed (reddit) is pulling GitHub results." It was. Connecting one
+// source used to send platforms: ['reddit','hackernews','github'], on the
+// reasoning that the keyless two may as well ride along — which padded the feed
+// with things nobody asked for and gave no way to switch them off, because they
+// were not pills. One source connected means one source searched. Reddit is the
+// provider that is shut now, but the rule is the rule whichever way round it is.
+check(searched.every((c) => JSON.stringify(c.body.platforms) === JSON.stringify(['github'])),
+  '…and only across what is connected — one source connected is one source searched',
   JSON.stringify(searched[0]?.body?.platforms));
 
 // ── 5b. a public source is switched on, not signed into ─────────────────────
@@ -246,19 +261,20 @@ check(searched.every((c) => JSON.stringify(c.body.platforms) === JSON.stringify(
 // Truegle to ask for logins it does not need.
 calls.length = 0;
 // Reachable from the CONNECTED state: the arrival pills are gone by now, and
-// with three real sources on offer "you can only add one, ever" would be a
-// dead end. ConnectedRow carries the not-yet-added ones.
-await page.click('[data-provider="github"]');
+// "you can only add one, ever" would be a dead end. ConnectedRow carries the
+// not-yet-added ones. Hacker News is the second source here because GitHub is
+// already on from §3 — adding a source must not replace the one before it.
+await page.click('[data-provider="hackernews"]');
 await page.waitForTimeout(2000);
-check(!calls.some((c) => c.path.includes('/social-auth/github')),
+check(!calls.some((c) => c.path.includes('/social-auth/hackernews')),
   'switching on a public source involves no handshake',
   calls.map((c) => c.path).join(' '));
-const withGh = calls.filter((c) => c.path === '/api/social/feed');
-check(withGh.some((c) => (c.body.platforms || []).includes('github')),
-  '…and it does reach the feed request', JSON.stringify(withGh[0]?.body?.platforms));
-check(withGh.every((c) => (c.body.platforms || []).includes('reddit')),
-  '…alongside the account already connected, not instead of it',
-  JSON.stringify(withGh[0]?.body?.platforms));
+const withHn = calls.filter((c) => c.path === '/api/social/feed');
+check(withHn.some((c) => (c.body.platforms || []).includes('hackernews')),
+  '…and it does reach the feed request', JSON.stringify(withHn[0]?.body?.platforms));
+check(withHn.every((c) => (c.body.platforms || []).includes('github')),
+  '…alongside the source already connected, not instead of it',
+  JSON.stringify(withHn[0]?.body?.platforms));
 
 // ── 6. the mode pill cycles rather than navigating ──────────────────────────
 // It shipped navigating on the click, which meant one press threw you off the
@@ -299,13 +315,17 @@ check(await clean.evaluate(() => performance.getEntriesByType('resource').filter
 // The failure reason is handed over on the navigation rather than left in the
 // URL, so it has to survive a route change to be seen at all — and a refusal
 // must not leave a connection behind.
+//
+// DRIVEN BY THE ROUTE, NOT A PILL. No provider has status 'demo' any more, so
+// there is no pill that starts a handshake — but /feed/callback is still a live
+// route anything can land on: a stale link, a Back button, or a provider
+// redirect arriving for a source that has since shut. Reddit is exactly that
+// case, which is why it is the provider on the URL.
 failExchange = true;
 const ctx3 = await makeContext();
 const sad = await ctx3.newPage();
 sad.on('pageerror', (e) => errs.push(e.message));
-await sad.goto(`${BASE}/feed`, { waitUntil: 'domcontentloaded' });
-await sad.waitForTimeout(3500);
-await sad.click('[data-provider="reddit"]');
+await sad.goto(`${BASE}/feed/callback?provider=reddit&code=demo_x&state=st_1`, { waitUntil: 'domcontentloaded' });
 await sad.waitForSelector('[data-feed-state]', { state: 'attached', timeout: 20000 });
 await sad.waitForTimeout(1500);
 
@@ -329,7 +349,7 @@ const errPage = await ctxErr.newPage();
 errPage.on('pageerror', (e) => errs.push(e.message));
 await errPage.addInitScript(() => {
   localStorage.setItem('truegle_feed_connections', JSON.stringify([
-    { provider: 'reddit', handle: 'demo_user', connectedAt: new Date().toISOString() },
+    { provider: 'github', handle: null, connectedAt: new Date().toISOString() },
   ]));
 });
 await errPage.goto(`${BASE}/feed`, { waitUntil: 'domcontentloaded' });
@@ -340,7 +360,11 @@ const reported = await errPage.evaluate(() => {
   return box ? box.innerText.replace(/\s+/g, ' ').trim() : null;
 });
 check(!!reported, 'a refused upstream is reported on the page, not swallowed');
-check(/reddit/i.test(reported || ''), '…naming the platform', reported?.slice(0, 60));
+// `GitHub`, not `Github`. The panel used to `capitalize` the raw platform id,
+// which produced "Github" and "Hackernews" — machine-generated-looking, and
+// wrong in a way people notice.
+check(/GitHub/.test(reported || ''), '…naming the platform, spelled the way the platform spells it',
+  reported?.slice(0, 60));
 check(/403|refused/i.test(reported || ''),
   '…and giving the upstream\'s actual reason', reported?.slice(0, 90));
 
