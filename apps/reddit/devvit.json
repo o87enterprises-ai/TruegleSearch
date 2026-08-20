@@ -25,7 +25,7 @@
       "enable": true,
       "scope": "user"
     },
-    "redis": false,
+    "redis": true,
     "media": false,
     "payments": false,
     "realtime": false,

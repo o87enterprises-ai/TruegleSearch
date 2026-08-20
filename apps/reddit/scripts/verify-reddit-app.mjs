@@ -174,8 +174,17 @@ const upstreamCall = server.slice(server.indexOf('await fetch('), server.indexOf
 check(!/userId|username|context\.|req\.headers|postId/.test(upstreamCall),
   'the upstream search request carries no Reddit identity',
   (upstreamCall.match(/userId|username|context\.|req\.headers|postId/) || [])[0] || '');
-check(cfg.permissions?.redis !== true,
-  'storage is off, because nothing is kept');
+// REDIS IS ON, AND THE CHECK IS THAT WE DO NOT USE IT.
+// It used to be off, with a test asserting so — until `devvit playtest` refused
+// the app outright: `config.menu.items` requires `config.permissions.redis`.
+// The cache helper is Redis-backed too, so the earlier setting would have
+// failed at runtime as well. The permission being on is now the platform's
+// requirement rather than our choice, which makes "we store nothing" a claim
+// about the CODE, so that is what is checked: no direct store, no key of our
+// own, nothing but the cache helper.
+check(!/@devvit\/redis|\bredis\s*\.\s*(set|get|hset|del|incr|expire)/.test(server),
+  'the app never writes to storage itself — only the shared result cache',
+  (server.match(/@devvit\/redis|\bredis\s*\.\s*\w+/) || [])[0] || 'clean');
 
 // The shared cache must not be keyed on anything that identifies a reader —
 // the cache helper hands one person's response to everyone with the same key.

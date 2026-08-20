@@ -21,8 +21,12 @@ import {
  *   - It sends nothing about the redditor. No username, no user ID, no post ID,
  *     no IP forwarding, no cookies. Truegle's API is called with a query and
  *     nothing else, which is the same promise the website makes.
- *   - It sets no cookies and stores nothing. `redis` is off in devvit.json
- *     because there is nothing worth keeping between searches.
+ *   - It sets no cookies and writes nothing of its own. `redis` is ENABLED in
+ *     devvit.json, but not because this app keeps anything: the platform
+ *     requires it for `menu.items`, and `cache()` is Redis-backed underneath.
+ *     The only thing that ever lands in it is a five-minute shared cache of
+ *     public search results, keyed on the query text — see the note on the
+ *     cache call below for why that key can contain nothing else.
  *   - It never returns a link back to truegle.com. See client/index.html.
  */
 

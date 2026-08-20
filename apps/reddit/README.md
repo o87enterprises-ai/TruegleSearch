@@ -21,9 +21,11 @@ account or install anything. It shows no advertising.
   Searches run against Truegle's live index every time.
 - **Nothing personal is sent anywhere.** The app sends the words you typed to
   Truegle's search API and nothing else — no Reddit username, no user ID, no
-  post or subreddit ID, no IP forwarding, no cookies. There is no account, and
-  nothing is written to storage; Redis is switched off in `devvit.json` because
-  there is nothing to keep.
+  post or subreddit ID, no IP forwarding, no cookies. There is no account. The
+  app has the Redis permission because Reddit's platform requires it for a
+  moderator menu item and for the shared response cache, but it writes nothing
+  of its own: the only thing stored is a five-minute cache of public search
+  results, keyed on the search text alone.
 - **Searches are cached for five minutes, by query text only.** If two people
   search the same words within five minutes, the second gets the first's
   results without a second call upstream. The cache key is the query and
