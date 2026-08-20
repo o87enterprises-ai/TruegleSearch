@@ -237,12 +237,21 @@ export default function MiniPlayer() {
   // player is IN the layout, so it can't be in anybody's way.
   // ONE small state. `peek` (retract while typing) used to be a fourth
   // presentation with its own row of buttons; it is now just this — the same
-  // bar, shown for a different reason. Docked included: the whole point of the
-  // consolidation is that "small" looks identical wherever the player lives.
-  // Docked, the player sits IN the page below the search bar rather than on
-  // top of it, so typing never covers anything and shrinking would just be
-  // the layout jumping around. Minimizing by hand still applies everywhere.
-  const small = minimized || (pageTyping && !peekOpen && !docked);
+  // bar, shown for a different reason.
+  //
+  // DOCKED IS INCLUDED NOW. It used to be excluded, on the reasoning that a
+  // docked player sits IN the page below the search bar rather than on top of
+  // it, so typing never covers anything. That is true and it was not the whole
+  // problem: covering is not the only way to be in the way. Docked, the player
+  // takes a large bite out of the screen directly beneath the bar, and on a
+  // phone with the keyboard up there was no room left underneath it for the
+  // suggestions — so the thing you were typing into had nowhere to show you
+  // what it had found.
+  //
+  // The trade is honest: the results below do shift up while you type and back
+  // down when you stop. That is the same motion the player already makes when
+  // it expands and collapses, and it buys back the space the suggestions need.
+  const small = minimized || (pageTyping && !peekOpen);
 
   // ── drag + resize ────────────────────────────────────────────────────────
   const onMove = useCallback((e) => {

@@ -7,6 +7,7 @@ import {
   Camera, Paperclip, Shield, EyeOff, Eye, Play, Plus, PictureInPicture2, Clapperboard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { completeFrom } from '../../utils/autocomplete';
 import { useNavigate } from 'react-router-dom';
 import MapApiService from '../map/services/mapApi';
 import VoiceRecognition from './VoiceRecognition';
@@ -1144,6 +1145,13 @@ export default function SearchBar({
 
   const colors = getThemeColors();
 
+  // ── INLINE COMPLETION ─────────────────────────────────────────────────────
+  // The tail of a query you have searched before, shown ahead of the caret.
+  // Suppressed after a deletion: someone shortening what they typed is moving
+  // AWAY from the longer string, and re-offering it on every backspace is the
+  // autocomplete that will not let go. The next real character brings it back.
+  const [ghostOff, setGhostOff] = useState(false);
+
   // Get recent searches from localStorage
   const getRecentSearches = useCallback(() => {
     try {
@@ -1168,6 +1176,13 @@ export default function SearchBar({
       // Ignore localStorage errors
     }
   }, [getRecentSearches]);
+
+  // What the completion would be, if there is one. Derived rather than stored:
+  // it is a pure function of the value and this browser's history, and a copy
+  // in state is a copy that can disagree with the box.
+  const ghost = (!ghostOff && isFocused)
+    ? completeFrom(getRecentSearches(), localValue)
+    : null;
 
   // Generate suggestions based on input
   const generateSuggestions = useCallback((query) => {
@@ -1453,11 +1468,13 @@ const handleChange = useCallback((e) => {
   const newValue = typeof e === 'string' ? e : (e?.target?.value ?? '');
   if (maxLength && newValue.length > maxLength) return;
 
+  // Deleting suppresses the ghost; typing forwards restores it.
+  setGhostOff((off) => (newValue.length < localValue.length ? true : (newValue.length > localValue.length ? false : off)));
   setLocalValue(newValue);
   userTypedRef.current = true; // real keystroke → suggestions may auto-open
   // Pass the string value, not the event object
   onChange?.(newValue);
-}, [onChange, maxLength]);
+}, [onChange, maxLength, localValue]);
 
   // Handle clear
   const handleClear = useCallback((e) => {
@@ -1565,12 +1582,40 @@ const handleChange = useCallback((e) => {
       }
     }
 
+    // ── taking the completion ─────────────────────────────────────────────
+    // Right / Tab / End accept it, which is what every browser address bar
+    // does. The caret has to be at the very end: mid-string editing is not a
+    // moment anyone wants the rest of an old query appended.
+    const atEnd = e.target?.selectionStart === localValue.length
+      && e.target?.selectionEnd === localValue.length;
+    if (ghost && atEnd && (e.key === 'ArrowRight' || e.key === 'Tab' || e.key === 'End')) {
+      e.preventDefault();
+      handleChange(ghost.match);
+      setGhostOff(true);   // taken — do not immediately offer the next match
+      return;
+    }
+
     // Enter submits; Shift+Enter inserts a newline like a normal textarea.
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      // "…they should only have to type a few letters before autocomplete
+      // suggests the title and then the user can hit enter." So Enter takes the
+      // completion and searches it — but only while it is actually on screen
+      // and the caret is at the end, so Enter never quietly searches something
+      // longer than what is visible in the box.
+      if (ghost && atEnd) {
+        setGhostOff(true);
+        // The same path a picked suggestion takes. Deliberately not
+        // `handleChange` then `trySubmit`: trySubmit reads `localValue` out of
+        // its closure, which on this tick is still the few letters that were
+        // typed — it would search the fragment and not the completion.
+        handleSuggestionClick({ type: 'recent', text: ghost.match });
+        return;
+      }
       trySubmit();
     }
-  }, [hasValue, handleClear, showSuggestions, suggestions, selectedSuggestionIndex, handleSuggestionClick, trySubmit]);
+  }, [hasValue, handleClear, showSuggestions, suggestions, selectedSuggestionIndex,
+    handleSuggestionClick, trySubmit, ghost, localValue, handleChange]);
 
   // Calculate dynamic right padding based on icons
   const getRightPadding = () => {
@@ -1617,6 +1662,66 @@ const handleChange = useCallback((e) => {
       ? colors.shadowHovered
       : colors.shadowDefault
   ).replace(/_/g, ' ');
+
+  // THE INPUT'S GEOMETRY, IN ONE OBJECT.
+  // Shared with the inline-completion layer drawn over the box, so the
+  // completion cannot end up a few pixels off the text it is completing.
+  // Two copies of this would be two things to keep in step, and the drift
+  // would read as a rendering bug rather than as a feature.
+  const inputGeometry = {
+    // THE INSET, and why it is not padding.
+    //
+    // Every other shape reserves room for the icon cluster with
+    // padding-right. In a horizontally scrolling box that quietly
+    // fails: Chrome does NOT count end padding in scrollWidth, so
+    // the furthest you can scroll leaves the last ~18 characters
+    // parked under the icons with no way to bring them out. Measured,
+    // not assumed — the tail of a long query was simply unreachable.
+    //
+    // Narrowing the element makes its right edge the real content
+    // edge, so max scroll lands the caret exactly where it can be
+    // read. The pill does not shrink with it: the surface is the
+    // glow layer underneath at inset-0, which is why the box goes
+    // transparent here.
+    ...(lineShaped
+      ? {
+        // Inset on BOTH sides rather than padded. Margins move the
+        // box's own edges, so scrolling text physically cannot reach
+        // the icons — no masking strip to colour-match against the
+        // pill, and no glyphs parked somewhere unreachable.
+        marginLeft: 48,
+        paddingLeft: 8,
+        paddingRight: 8,
+        width: `calc(100% - ${48 + lineInset}px)`,
+        backgroundColor: 'transparent',
+      }
+      : { paddingRight: getRightPadding() }),
+    letterSpacing: chatShaped ? '0.01em' : '0.025em',
+    // Chat rests taller than it needs to be for one line. An empty
+    // box the height of a search bar invites a search; an empty box
+    // with room in it invites a sentence.
+    minHeight: `${chatShaped ? config.boxHeightPx + 16 : config.boxHeightPx}px`,
+    // Chat scrolls internally sooner instead of growing into a tall
+    // block; a line shape never grows at all.
+    maxHeight: lineShaped
+      ? `${config.boxHeightPx}px`
+      : (chatShaped ? '132px' : '240px'),
+    ...(lineShaped ? {
+      height: `${config.boxHeightPx}px`,
+      whiteSpace: 'nowrap',
+      overflowX: 'auto',
+      overflowY: 'hidden',
+    } : {}),
+    lineHeight: chatShaped ? '1.6' : '1.5',
+    // Mode-themed glow. Values are stored in Tailwind underscore format
+    // (shared with the className maps); convert to real CSS here so we
+    // apply it as an inline style instead of a dynamic arbitrary shadow
+    // class, which Tailwind's JIT scanner can't generate at build time.
+    // The narrowed box would drag the mode glow inward with it, so
+    // in the line shape the glow is painted by the full-width
+    // wrapper instead.
+    boxShadow: lineShaped ? 'none' : glow,
+  };
 
   return (
     <div className={`w-full ${className}`}>
@@ -1785,6 +1890,46 @@ const handleChange = useCallback((e) => {
             />
           </motion.div>
 
+          {/* THE COMPLETION, drawn over the box rather than inside it.
+              It is not part of the value: putting it there would mean every
+              read of the input — validation, the submit handler, the parent's
+              onChange — seeing text nobody typed. So it is a layer, mounted
+              ABOVE the textarea because the textarea has an opaque background
+              and anything underneath would simply be hidden by it.
+
+              The typed portion is rendered transparent purely to push the
+              completion to the right spot. Mirroring the caret position with
+              measured text is the alternative, and it is the version that drifts
+              the moment a font, a letter-spacing or a padding changes — this one
+              cannot drift, because it IS the same text in the same box.
+
+              aria-hidden and pointer-events-none: it is a hint about the input,
+              not content of its own, and a screen reader announcing the whole
+              old query as you type each letter would be unusable. */}
+          {ghost && (
+            <div
+              aria-hidden="true"
+              data-search-ghost
+              className={`
+                absolute inset-0 z-[6] pointer-events-none select-none
+                block w-full pl-12 ${config.padY}
+                ${chatShaped ? 'rounded-3xl' : 'rounded-2xl'}
+                tracking-wide overflow-hidden
+                ${chatShaped ? 'font-normal' : 'font-medium'}
+              `}
+              // THE SAME geometry object the textarea uses, not a copy of it.
+              // A copy is a second thing to keep in step, and the failure mode is
+              // a completion sitting a few pixels off the text it completes —
+              // which reads as a rendering bug, not a feature. The glow is
+              // dropped so it is not painted twice, and the background so the
+              // box underneath still shows through.
+              style={{ ...inputGeometry, boxShadow: 'none', background: 'none' }}
+            >
+              <span className="text-transparent">{localValue}</span>
+              <span className="text-neutral-500">{ghost.completion}</span>
+            </div>
+          )}
+
           {/* Main Input — a textarea so the bar can grow vertically line-by-line
               as the user types (auto-resize effect above), instead of a fixed-
               height single-line input. Enter submits; Shift+Enter is a newline. */}
@@ -1834,60 +1979,7 @@ const handleChange = useCallback((e) => {
               disabled:opacity-50 disabled:cursor-not-allowed
               ${colors.selection}
             `}
-            style={{
-              // THE INSET, and why it is not padding.
-              //
-              // Every other shape reserves room for the icon cluster with
-              // padding-right. In a horizontally scrolling box that quietly
-              // fails: Chrome does NOT count end padding in scrollWidth, so
-              // the furthest you can scroll leaves the last ~18 characters
-              // parked under the icons with no way to bring them out. Measured,
-              // not assumed — the tail of a long query was simply unreachable.
-              //
-              // Narrowing the element makes its right edge the real content
-              // edge, so max scroll lands the caret exactly where it can be
-              // read. The pill does not shrink with it: the surface is the
-              // glow layer underneath at inset-0, which is why the box goes
-              // transparent here.
-              ...(lineShaped
-                ? {
-                  // Inset on BOTH sides rather than padded. Margins move the
-                  // box's own edges, so scrolling text physically cannot reach
-                  // the icons — no masking strip to colour-match against the
-                  // pill, and no glyphs parked somewhere unreachable.
-                  marginLeft: 48,
-                  paddingLeft: 8,
-                  paddingRight: 8,
-                  width: `calc(100% - ${48 + lineInset}px)`,
-                  backgroundColor: 'transparent',
-                }
-                : { paddingRight: getRightPadding() }),
-              letterSpacing: chatShaped ? '0.01em' : '0.025em',
-              // Chat rests taller than it needs to be for one line. An empty
-              // box the height of a search bar invites a search; an empty box
-              // with room in it invites a sentence.
-              minHeight: `${chatShaped ? config.boxHeightPx + 16 : config.boxHeightPx}px`,
-              // Chat scrolls internally sooner instead of growing into a tall
-              // block; a line shape never grows at all.
-              maxHeight: lineShaped
-                ? `${config.boxHeightPx}px`
-                : (chatShaped ? '132px' : '240px'),
-              ...(lineShaped ? {
-                height: `${config.boxHeightPx}px`,
-                whiteSpace: 'nowrap',
-                overflowX: 'auto',
-                overflowY: 'hidden',
-              } : {}),
-              lineHeight: chatShaped ? '1.6' : '1.5',
-              // Mode-themed glow. Values are stored in Tailwind underscore format
-              // (shared with the className maps); convert to real CSS here so we
-              // apply it as an inline style instead of a dynamic arbitrary shadow
-              // class, which Tailwind's JIT scanner can't generate at build time.
-              // The narrowed box would drag the mode glow inward with it, so
-              // in the line shape the glow is painted by the full-width
-              // wrapper instead.
-              boxShadow: lineShaped ? 'none' : glow,
-            }}
+            style={inputGeometry}
           />
 
           {/* Right Side Actions Container — anchored to the same fixed

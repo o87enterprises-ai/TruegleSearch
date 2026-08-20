@@ -57,6 +57,21 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // wastes most of the player and shrinks the clip to a stamp.
   const vertical = !!source.vertical || kind === 'tiktok';
 
+  // TIKTOK IS NOT 9:16, AND THAT IS WHY IT DID NOT FIT.
+  //
+  // The clip is, but the /embed/v2 iframe is not a video player — it is a card.
+  // Below the picture it renders the author row, the caption, the music line and
+  // the action rail, and that chrome is part of the document we are handed: it
+  // cannot be turned off and it does not scroll. Sized to 9:16 the iframe was
+  // roughly a quarter shorter than its own contents, so the bottom of the card
+  // was cut off — which is what "not fitting properly in the viewport" was.
+  //
+  // Measured off the real embed: ~404 wide by ~945 tall, so 9:21 rather than
+  // 9:16. An approximation on purpose — the caption is text and re-wraps, so the
+  // true height moves with the words. Erring slightly tall costs a thin band of
+  // background; erring short costs the controls.
+  const ratio = kind === 'tiktok' ? '9 / 21' : (vertical ? '9 / 16' : '16 / 9');
+
   // A 9:16 clip is ~1.78× its width tall — at phone width that is taller than
   // the whole viewport, which pushed the transport row off the bottom of the
   // screen and put the controls out of reach exactly when a reel was playing.
@@ -77,9 +92,12 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // pushed the transport row out of the bottom of it.
   const cap = compact
     ? 'min(42svh, var(--truegle-player-cap, 100svh))'
-    : `min(${vertical ? '58svh' : '62svh'}, var(--truegle-player-cap, 100svh))`;
+    // TikTok gets more height than a bare reel because a fifth of its box is
+    // the card's own chrome rather than picture — at 58svh the CLIP came out
+    // noticeably smaller than a YouTube Short beside it, for the same box.
+    : `min(${kind === 'tiktok' ? '68svh' : (vertical ? '58svh' : '62svh')}, var(--truegle-player-cap, 100svh))`;
   const boxStyle = fill ? undefined : {
-    aspectRatio: vertical ? '9 / 16' : '16 / 9',
+    aspectRatio: ratio,
     maxHeight: cap,
     // width:auto lets max-height win and the box shrink sideways rather than
     // overflow — that's what produces the side bars on a reel.
