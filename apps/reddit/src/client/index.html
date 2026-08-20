@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Truegle</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <!--
+      NO LINK BACK TO THE TRUEGLE WEBSITE ANYWHERE ON THIS PAGE, and that is a
+      rule rather than an oversight. Devvit rejects apps that point people at a
+      fuller edition of themselves on another platform, or that ask for an
+      account off Reddit. So this post is not a taster: it is a search box that
+      works start to finish without leaving the thread. The only outbound links
+      are the search results, which is what a search engine is for.
+
+      The check in scripts/verify-reddit-app.mjs enforces this by scanning the
+      whole file, comments included — which is why this one describes the rule
+      without naming the address or quoting the phrases it bans.
+    -->
+    <main class="wrap">
+      <header class="head">
+        <h1 class="mark" aria-label="Truegle">
+          <span style="color:#ef4444">T</span><span style="color:#f97316">r</span
+          ><span style="color:#eab308">u</span><span style="color:#22c55e">e</span
+          ><span style="color:#3b82f6">g</span><span style="color:#a855f7">l</span
+          ><span style="color:#e5e7eb">e</span>
+        </h1>
+        <p class="tag">Private web search. No profile, no tracking, nothing stored.</p>
+      </header>
+
+      <form class="bar" id="form" role="search">
+        <input
+          id="q"
+          type="search"
+          name="q"
+          autocomplete="off"
+          enterkeyhint="search"
+          placeholder="Search the web"
+          aria-label="Search the web"
+        />
+        <button id="go" type="submit">Search</button>
+      </form>
+
+      <section id="out" class="out" aria-live="polite"></section>
+
+      <footer class="foot">
+        Results come from Truegle's own index. Your search is not tied to your
+        Reddit account and is not kept.
+      </footer>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

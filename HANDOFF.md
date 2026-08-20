@@ -1,5 +1,56 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-08-18. Supersedes all prior handoff docs._
+_Last updated: 2026-08-20. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ SESSION LOG 2026-08-20 — Reddit shuts the door, so we go through theirs
+
+- **🔴 REDDIT'S DATA API IS CLOSED TO US, PERMANENTLY.** New app registration is
+  limited to "a valid moderation use case" (r/reddit.com/wiki/api). Truegle is
+  not one, so there is no application to make and no tier to buy — this is not a
+  budget problem and money will not fix it. That also makes the 403 our Vercel
+  deployment gets on keyless reads permanent: Reddit blocks datacenter IPs, and
+  the authenticated path that would lift the block is the one now shut.
+  **We do not route around it.**
+
+  The Feed pill is `status: 'soon'`, disabled, carrying that exact reason —
+  `apps/frontend/src/config/socialProviders.js`. GitHub and Hacker News remain
+  as `'open'` public sources, and `verify-feed-page.mjs` was reworked around
+  them (41/41). A stored connection for a provider that has since closed is
+  filtered out on read, so nobody is left looking at an empty feed.
+
+- **🟢 NEW: `apps/reddit/` — Truegle search, running INSIDE a Reddit post.**
+  Devvit is open to us where the Data API is not, and a Devvit server may fetch
+  allow-listed external domains — so the post calls our existing Vercel backend.
+  No new hosting, no new API, **$0**.
+
+  - Web view (`src/client`) is plain HTML/CSS/JS, no framework, no CDN, no font
+    download — a Devvit web view can reach nothing but its own `/api/`.
+  - `src/server` is the only thing that talks outward, and sends the query and
+    nothing else: no username, no user ID, no post ID, no cookies. Redis off.
+  - `npm test` (`scripts/verify-reddit-app.mjs`, 29 checks, no network) pins the
+    rules that actually get apps rejected — bare-hostname fetch domains, README
+    Fetch Domains section, no client-side external fetch, CJS server bundle, and
+    **no link back to the website**.
+
+  ⚠️ **TWO POLICY WALLS, BOTH REAL, NEITHER FATAL:**
+  1. Devvit's fetch policy says **personal domains "will not be approved"**,
+     with an exception for a *publicly documented and publicly accessible* API.
+     Our host is a bare `*.vercel.app`, which is the weakest possible version of
+     that request. **Putting the API on `api.truegle.com` with a public docs page
+     materially improves the odds and costs nothing** — Vercel custom domains are
+     free. Review takes 1–2 business days and can be denied.
+  2. Devvit rejects apps that **link out to a fuller version of themselves**.
+     The post therefore carries no link to the website, no sign-in and no upsell;
+     it is a search box that works start to finish inside the thread. The test
+     enforces this by scanning the whole client surface, comments included.
+
+  💸 **No ads in it, ever** — advertising inside a Devvit app is against Reddit's
+  developer terms. This surface is reach, not revenue.
+
+  **Owner steps (cannot be done from here):** `cd apps/reddit && npm install`,
+  `npm run login` (Reddit developer account), `npm run dev` to playtest, then
+  `npm run launch` to submit for review. Nothing else needs configuring.
 
 ---
 

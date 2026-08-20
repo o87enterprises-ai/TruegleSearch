@@ -1,0 +1,23 @@
+{
+  "name": "@truegle/reddit",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Truegle search, running inside a Reddit post (Devvit).",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "devvit playtest",
+    "login": "devvit login",
+    "upload": "devvit upload",
+    "launch": "devvit publish",
+    "test": "node scripts/verify-reddit-app.mjs"
+  },
+  "dependencies": {
+    "@devvit/web": "0.14.1",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "devvit": "0.14.1",
+    "esbuild": "^0.24.0"
+  }
+}

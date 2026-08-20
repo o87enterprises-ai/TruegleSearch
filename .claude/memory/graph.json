@@ -1826,6 +1826,14 @@
         "body": "services/PaidProviderBudget.js: per-provider UTC-day counter, default limit 0. A configured API key alone must never open a paid tap under the $0 budget — a number has to be set deliberately in env. KNOWN LIMIT: the counter is in-memory, so on serverless it bounds spend to roughly limit x warm instances, not exactly limit. It is a brake, not an accountant; a true global cap needs shared storage.",
         "ts": "2026-08-19",
         "created": "2026-08-19"
+      },
+      "devvit-no-link-out": {
+        "Id": "devvit-no-link-out",
+        "Type": "decision",
+        "Label": "Reddit app must not link back to truegle.com",
+        "body": "Devvit rules reject apps that link out to a fuller version of themselves on another platform, upsell another version, or ask for an account off Reddit. The post is therefore self-contained: no website link, no sign-in, no upsell, no ads (advertising inside a Devvit app is against Reddit's developer terms). verify-reddit-app.mjs enforces this by scanning the whole client surface INCLUDING comments.",
+        "ts": "2026-08-20",
+        "created": "2026-08-20"
       }
     },
     "entity": {
@@ -1852,6 +1860,14 @@
         "body": "Landing/app-wide logo = assets/images/truegle.png ('Truegle' script). /chat uses assets/images/truegle-chat.png ('TrueGLE chat') via TruegleLogo variant='chat'. Both bright-on-dark art rendered with mixBlendMode:screen. (Both ~1MB — optimize later.)",
         "ts": "2026-07-14",
         "created": "2026-07-14"
+      },
+      "truegle-reddit-app": {
+        "Id": "truegle-reddit-app",
+        "Type": "entity",
+        "Label": "apps/reddit — Truegle search inside a Reddit post (Devvit)",
+        "body": "Devvit web-view custom post. Client = plain HTML/CSS/JS, can only fetch its own /api/. Server (@devvit/web/server + express) is the sole outward caller and hits backend-seven-khaki-60.vercel.app POST /api/search with the query ONLY (no username/userId/postId/cookies). Redis off. Cache helper 5 min keyed on query text. Moderator menu item /internal/menu/create-post submits the custom post. Build: node build.mjs (esbuild; server MUST be cjs -> dist/server/index.cjs). Test: npm test = scripts/verify-reddit-app.mjs, 29 checks, no network. EXCLUDED from root npm workspaces via '!apps/reddit' so the Devvit toolchain never enters the site/API lockfile. Owner must run: npm install, npm run login, npm run dev, npm run launch.",
+        "ts": "2026-08-20",
+        "created": "2026-08-20"
       }
     },
     "thread": {
@@ -2160,6 +2176,15 @@
         "status": "open",
         "ts": "2026-08-18",
         "created": "2026-08-18"
+      },
+      "devvit-domain-approval": {
+        "Id": "devvit-domain-approval",
+        "Type": "thread",
+        "Label": "Devvit fetch-domain approval for our API",
+        "body": "Devvit's fetch policy says personal domains 'will not be approved', excepting APIs that are publicly documented and publicly accessible. We request backend-seven-khaki-60.vercel.app, which is the weakest form of that ask. TODO: move the API to api.truegle.com (free on Vercel) and publish a public API docs page before submitting for review. Review = 1-2 business days, can be denied.",
+        "status": "open",
+        "ts": "2026-08-20",
+        "created": "2026-08-20"
       }
     }
   },

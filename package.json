@@ -5,6 +5,7 @@
   "description": "Truegle - Unbiased Search Engine Monorepo",
   "workspaces": [
     "apps/*",
+    "!apps/reddit",
     "packages/*"
   ],
   "scripts": {

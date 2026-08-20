@@ -1,0 +1,54 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "truegle-search",
+  "post": {
+    "dir": "dist/client",
+    "entrypoints": {
+      "default": {
+        "entry": "index.html",
+        "height": "tall"
+      }
+    }
+  },
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "permissions": {
+    "http": {
+      "enable": true,
+      "domains": ["backend-seven-khaki-60.vercel.app"]
+    },
+    "reddit": {
+      "enable": true,
+      "scope": "user"
+    },
+    "redis": false,
+    "media": false,
+    "payments": false,
+    "realtime": false,
+    "chromeless": false
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Add a Truegle search post",
+        "description": "Put a working search box in this community",
+        "forUserType": "moderator",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/create-post"
+      }
+    ]
+  },
+  "marketingAssets": {
+    "icon": "assets/icon.png"
+  },
+  "dev": {
+    "subreddit": "truegle_dev"
+  },
+  "scripts": {
+    "dev": "node build.mjs --watch",
+    "build": "node build.mjs"
+  },
+  "sourceIgnores": ["dist/", "*.log"]
+}
