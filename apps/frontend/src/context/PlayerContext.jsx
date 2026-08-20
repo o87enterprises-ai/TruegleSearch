@@ -26,7 +26,7 @@ export const usePlayer = () => {
 // search bar; `expanded` is whether the docked form is showing its screen.
 // Both live here rather than in a component so the presentation can change
 // without remounting the media node and restarting playback.
-const INITIAL = {
+export const INITIAL = {
   current: null, queue: [], history: [], minimized: false,
   paused: false, expanded: false, poppedOut: false,
   // Where the popped-out player lives: 'float' = the draggable window,
@@ -47,6 +47,23 @@ const INITIAL = {
   // reload: you locked it on purpose, and quietly unlocking itself when the tab
   // is recycled is the exact failure the lock exists to prevent.
   locked: false,
+  // 0..1, applied to whatever is playing through the embed control channel.
+  // Persisted: a volume that resets every reload is one you have to set every
+  // reload.
+  volume: 1,
+  // HAS THE USER ACTUALLY ASKED FOR THE QUEUE?
+  //
+  // Autoplay used to hand control to the queue whenever the queue was
+  // non-empty, which sounds right and is not: a queue restored from a previous
+  // session is STORAGE, not intent. Clearing the queue, searching, and playing
+  // one video dropped you straight back into last week's list, and there was no
+  // way to browse forward into anything new — the exact "impossible to
+  // organically discover new content" report.
+  //
+  // Armed by touching the queue on purpose: adding to it, playing an entry from
+  // it, or pressing play on the list. NOT armed by anything automatic, and
+  // deliberately NOT restored from storage — see loadState.
+  queueArmed: false,
 };
 // Identity is the MEDIA, not the URL string. The same YouTube video arrives as
 // a watch link, a youtu.be link and an /embed/ URL with a ?si= suffix, and
@@ -60,7 +77,11 @@ const sameSrc = (a, b) => !!a && !!b && (a.src === b.src || sameMedia(a, b));
 // is the only thing that differs, and it never leaves the client.
 const replay = (source) => ({ ...source, playToken: (source.playToken || 0) + 1 });
 
-function reducer(s, a) {
+// Exported for scripts/verify-player-engine.mjs. The reducer and loadState are
+// pure functions and are where the queue-versus-discovery rule actually lives,
+// so testing them directly is testing the thing rather than a React wrapper
+// around it.
+export function reducer(s, a) {
   switch (a.type) {
     case 'play': { // interrupt: play now, remembering what was playing
       if (!a.source?.src) return s;
@@ -83,9 +104,15 @@ function reducer(s, a) {
     }
     case 'enqueue': { // idle → play now; busy → append (dedup against current/queue)
       if (!a.source?.src) return s;
-      if (!s.current) return { ...s, current: a.source, minimized: false };
-      if (sameSrc(s.current, a.source) || s.queue.some((q) => sameSrc(q, a.source))) return s;
-      return { ...s, queue: [...s.queue, a.source] };
+      // `byUser` distinguishes somebody pressing Add to queue from the player
+      // topping itself up. Only the former is a statement about what should
+      // play next — see queueArmed.
+      const armed = a.byUser ? true : s.queueArmed;
+      if (!s.current) return { ...s, current: a.source, minimized: false, queueArmed: armed };
+      if (sameSrc(s.current, a.source) || s.queue.some((q) => sameSrc(q, a.source))) {
+        return armed === s.queueArmed ? s : { ...s, queueArmed: armed };
+      }
+      return { ...s, queue: [...s.queue, a.source], queueArmed: armed };
     }
     case 'enqueueMany': { // used by shared player links: first plays, rest line up
       const list = (a.sources || []).filter((s) => s?.src);
@@ -122,7 +149,9 @@ function reducer(s, a) {
       const item = s.queue[a.index];
       if (!item) return s;
       const history = s.current ? [...s.history, s.current] : s.history;
-      return { ...s, current: item, queue: s.queue.filter((_, i) => i !== a.index), history };
+      // Pressing play on a queue entry is the clearest possible statement that
+      // the queue is what you want playing.
+      return { ...s, current: item, queue: s.queue.filter((_, i) => i !== a.index), history, queueArmed: true };
     }
     case 'removeFromQueue':
       return { ...s, queue: s.queue.filter((_, i) => i !== a.index) };
@@ -136,6 +165,8 @@ function reducer(s, a) {
       return { ...s, playMode: a.value };
     case 'setLocked':
       return { ...s, locked: !!a.value };
+    case 'setVolume':
+      return { ...s, volume: Math.max(0, Math.min(1, Number(a.value) || 0)) };
     case 'setExpanded':
       return { ...s, expanded: !!a.value };
     case 'setPoppedOut':
@@ -163,7 +194,11 @@ function reducer(s, a) {
       // now only ever explicit — see clearQueue.
       return { ...s, current: null, paused: false, poppedOut: false, expanded: false, minimized: false };
     case 'clearQueue':
-      return { ...s, queue: [] };
+      // Emptying the list also withdraws the instruction to follow it —
+      // otherwise the next thing added would silently inherit the old intent.
+      return { ...s, queue: [], queueArmed: false };
+    case 'armQueue':
+      return { ...s, queueArmed: true };
     case 'toggleMin':
       return { ...s, minimized: !s.minimized };
     default:
@@ -181,37 +216,43 @@ function reducer(s, a) {
 // `blob:` sources (files added from the device) are dropped on save: an object
 // URL is only valid for the document that created it, so persisting one would
 // restore a queue entry that can never play.
-const QUEUE_KEY = 'truegle_player_queue_v2';
+export const QUEUE_KEY = 'truegle_player_queue_v2';
 const LEGACY_KEY = 'truegle_player_queue';
 const persistable = (s) => !!s && typeof s.src === 'string' && !s.src.startsWith('blob:');
 
-function loadState() {
+export function loadState() {
   try {
     const raw = localStorage.getItem(QUEUE_KEY)
       || sessionStorage.getItem(LEGACY_KEY)
       || localStorage.getItem(LEGACY_KEY);
     const saved = JSON.parse(raw || 'null');
     if (!saved) return INITIAL;
-    // NOTHING AUTO-PLAYS ON LAUNCH. What was playing when the tab closed goes
-    // back to the FRONT of the queue instead of straight into `current`, so
-    // opening Truegle never starts a video by itself.
+    // NOTHING AUTO-PLAYS ON LAUNCH, and nothing is silently added to the list
+    // either.
     //
-    // It used to be restored as `current`, which the screen mounts with
-    // autoplay=1 — so last session's clip was the default thing to play, and
-    // the only way to stop it being that was to hunt down the queue and empty
-    // it. Nothing is lost: it is still the very next thing, one press of play
-    // away, and it keeps its place at the head of the list. An empty queue now
-    // means an empty player, which is what lets the feed fill it with things
-    // this browser has not already been shown (see useUpNext's fill()).
+    // What was playing used to be restored as `current`, which the screen
+    // mounts with autoplay=1, so last session's clip started by itself. That
+    // was fixed by moving it to the FRONT OF THE QUEUE instead — which fixed
+    // the autoplay and created a subtler one: a queue the user had emptied came
+    // back with an item in it on the next load, and a non-empty queue used to
+    // take over autoplay. Emptying the queue therefore did not stay emptied.
+    //
+    // It is simply dropped now. Nothing is lost that the user asked to keep:
+    // the queue itself is restored in full, and what was merely PLAYING when a
+    // tab closed was never a list entry — it is in `history`, which is where
+    // "what was I just watching" belongs and what prev() walks back through.
     const restored = Array.isArray(saved.queue) ? saved.queue.filter(persistable) : [];
     const wasPlaying = persistable(saved.current) ? saved.current : null;
+    const priorHistory = Array.isArray(saved.history) ? saved.history.filter(persistable) : [];
     return {
       ...INITIAL,
       current: null,
-      queue: wasPlaying ? [wasPlaying, ...restored] : restored,
+      queue: restored,
       // Without this, prev() went dead after every reload — another way the
-      // player looked like it had forgotten what the user was doing.
-      history: Array.isArray(saved.history) ? saved.history.filter(persistable) : [],
+      // player looked like it had forgotten what the user was doing. What was
+      // playing at the end of last session goes on the end of it, so Back
+      // reaches it.
+      history: wasPlaying ? [...priorHistory, wasPlaying] : priorHistory,
       poppedOut: !!saved.poppedOut,
       expanded: !!saved.expanded,
       // Collapsing the player is a decision too; springing back to full size
@@ -220,6 +261,12 @@ function loadState() {
       dock: saved.dock === 'footer' || saved.dock === 'float' ? saved.dock : null,
       footerView: saved.footerView === 'hidden' ? 'hidden' : 'watch',
       locked: !!saved.locked,
+      volume: typeof saved.volume === 'number' ? Math.max(0, Math.min(1, saved.volume)) : 1,
+      // DELIBERATELY NOT PERSISTED. Arming the queue is a statement about this
+      // sitting, not a setting. Restoring it would mean a list assembled days
+      // ago quietly takes over autoplay again on the next visit, which is the
+      // whole behaviour this flag exists to stop.
+      queueArmed: false,
     };
   } catch {
     return INITIAL;
@@ -241,13 +288,21 @@ export const PlayerProvider = ({ children }) => {
         dock: state.dock,
         footerView: state.footerView,
         locked: state.locked,
+        volume: state.volume,
+        // queueArmed is absent on purpose — see loadState.
       }));
     } catch { /* private mode / quota — the queue just won't survive a reload */ }
-  }, [state.current, state.queue, state.history, state.poppedOut, state.expanded, state.minimized, state.dock, state.footerView, state.locked]);
+  }, [state.current, state.queue, state.history, state.poppedOut, state.expanded, state.minimized, state.dock, state.footerView, state.locked, state.volume]);
 
   const play = useCallback((source) => dispatch({ type: 'play', source }), []);
   const playNow = useCallback((source) => dispatch({ type: 'playNow', source }), []);
-  const enqueue = useCallback((source) => dispatch({ type: 'enqueue', source }), []);
+  // `byUser` says a person pressed Add to queue, as opposed to the player
+  // topping itself up. Defaults TRUE: every existing call site is a button, and
+  // a default that silently disarmed the queue would be the more surprising of
+  // the two mistakes. Automatic fills pass false explicitly.
+  const enqueue = useCallback((source, { byUser = true } = {}) => dispatch({ type: 'enqueue', source, byUser }), []);
+  // Shared links and automatic top-ups: these put things in the list without
+  // anyone asking for the list to take over, so they never arm it.
   const enqueueMany = useCallback((sources) => dispatch({ type: 'enqueueMany', sources }), []);
   // Automatic advance (a track ended) honours the play mode; the transport's
   // Next button passes manual so it always moves.
@@ -258,6 +313,10 @@ export const PlayerProvider = ({ children }) => {
   const removeFromQueue = useCallback((index) => dispatch({ type: 'removeFromQueue', index }), []);
   const close = useCallback(() => dispatch({ type: 'close' }), []);
   const clearQueue = useCallback(() => dispatch({ type: 'clearQueue' }), []);
+  // For a "play the list" control: follow the queue from here on without having
+  // to add to it or pick an entry first.
+  const armQueue = useCallback(() => dispatch({ type: 'armQueue' }), []);
+  const setVolume = useCallback((value) => dispatch({ type: 'setVolume', value }), []);
   const toggleMinimize = useCallback(() => dispatch({ type: 'toggleMin' }), []);
   const stop = useCallback(() => dispatch({ type: 'stop' }), []);
   const togglePause = useCallback(() => dispatch({ type: 'togglePause' }), []);
@@ -272,11 +331,11 @@ export const PlayerProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       ...state,
-      play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
-      stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked,
+      play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
+      stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume,
     }),
-    [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, toggleMinimize,
-      stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode, setLocked]
+    [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
+      stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode, setLocked, setVolume]
   );
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;

@@ -18,6 +18,37 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 const YT_ORIGINS = ['https://www.youtube-nocookie.com', 'https://www.youtube.com'];
 const VIMEO_ORIGIN = 'https://player.vimeo.com';
 
+/**
+ * The wire messages that set the volume on a given platform.
+ *
+ * Pure and exported so the exact shape can be tested without a browser: this is
+ * a wire protocol, the platforms are unforgiving about it, and a typo here
+ * fails silently — the embed simply ignores a message it does not recognise,
+ * which looks identical to the control not being wired up at all.
+ *
+ * `level` is 0..1 for every caller; the per-platform scale is this function's
+ * problem, not the player's.
+ */
+export function volumeCommands(kind, level) {
+  const v = Math.max(0, Math.min(1, Number(level) || 0));
+  if (kind === 'youtube') {
+    // MUTE STATE FIRST. A muted YouTube embed ignores setVolume outright, and
+    // autoplayed clips start muted by browser policy — so without this, dragging
+    // up from zero on the thing that just autoplayed did nothing whatsoever.
+    return [
+      { targetOrigin: '*', payload: { event: 'command', func: v > 0 ? 'unMute' : 'mute', args: [] } },
+      { targetOrigin: '*', payload: { event: 'command', func: 'setVolume', args: [Math.round(v * 100)] } },
+    ];
+  }
+  if (kind === 'vimeo') {
+    return [{ targetOrigin: VIMEO_ORIGIN, payload: { method: 'setVolume', value: v } }];
+  }
+  if (kind === 'soundcloud') {
+    return [{ targetOrigin: 'https://w.soundcloud.com', payload: { method: 'setVolume', value: Math.round(v * 100) } }];
+  }
+  return [];
+}
+
 export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   const [progress, setProgress] = useState({ time: 0, duration: 0 });
   // Kept in a ref so a changing callback identity doesn't tear down the
@@ -150,6 +181,28 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
     return false;
   }, [kind, frameRef]);
 
+  // ── VOLUME, on the same channel ────────────────────────────────────────
+  // WHY THE APP OWNS THE VOLUME. Every platform puts its own volume control
+  // somewhere different, and inside a 9:16 reel or a docked strip half of them
+  // are off-screen or too small to hit — so "turn it down" meant hunting for a
+  // different control depending on what happened to be playing. One control in
+  // one place, speaking the channel that is already open.
+  //
+  // The scale is 0..1 here and converted per platform, because that is the only
+  // way callers do not have to know which platform is playing: YouTube counts
+  // 0-100, Vimeo 0-1.
+  const setVolume = useCallback((level) => {
+    const frame = frameRef?.current;
+    if (!frame?.contentWindow) return false;
+    const msgs = volumeCommands(kind, level);
+    if (!msgs.length) return false;
+    try {
+      for (const m of msgs) frame.contentWindow.postMessage(JSON.stringify(m.payload), m.targetOrigin);
+      return true;
+    } catch { /* frame gone or cross-origin refused */ }
+    return false;
+  }, [kind, frameRef]);
+
   // ── SEEK, on the same channel ──────────────────────────────────────────
   // Both platforms take an ABSOLUTE target, not a delta, so a relative jump
   // needs to know where we are. `progress.time` already does, because the
@@ -201,8 +254,12 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // subscribed to its progress, so we would be jumping from a position we do
   // not know. Better to offer no jump than a jump to the wrong place.
   const canSeek = kind === 'youtube' || kind === 'vimeo';
+  // Native <audio>/<video> are absent on purpose: they have a real `.volume`
+  // and the player sets it on the element directly. This is only for the
+  // embeds, which have no element to reach.
+  const canSetVolume = canCommand;
 
-  return { ...progress, command, canCommand, seek, canSeek };
+  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume };
 }
 
 export default useEmbedPlayback;

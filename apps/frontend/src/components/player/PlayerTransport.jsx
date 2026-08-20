@@ -3,7 +3,7 @@ import {
   Play, Pause, Square, SkipBack, SkipForward,
   ListMusic, Share2, Check, PictureInPicture2, Minimize2, Move, PanelBottom,
   Repeat, Repeat1, Shuffle, ArrowDownUp, Maximize, Minimize, ThumbsUp, ThumbsDown,
-  AlertTriangle, Lock,
+  AlertTriangle, Lock, Volume2, Volume1, VolumeX,
 } from 'lucide-react';
 
 // The one transport row. Identical in all three presentations — collapsed
@@ -48,6 +48,74 @@ const POP_OUT = {
   move: { label: 'Move and resize the player', Icon: Move },
 };
 
+// ONE VOLUME CONTROL, IN ONE PLACE, whatever is playing.
+//
+// Every platform puts its own volume somewhere different, and inside a 9:16
+// reel or a docked strip half of them are off-screen or too small to hit — so
+// "turn it down" meant first working out what was playing. This speaks the
+// postMessage channel the player already has open (see useEmbedPlayback), so
+// the control is in the same spot for YouTube, Vimeo, SoundCloud and a plain
+// <video> alike.
+//
+// A BUTTON THAT GROWS, not a slider parked in the row. The row already carries
+// eleven controls and wraps to two lines when the popped-out frame is dragged
+// narrow; a permanent slider would push it there at every size. The button is
+// the same 36px square as its neighbours and the slider appears over the row
+// when you reach for it.
+function VolumeControl({ level, onChange, btn, size, accent }) {
+  const [open, setOpen] = useState(false);
+  // What to go back to when you un-mute. Muting by dragging to zero and muting
+  // by pressing the button are the same state, so the level to restore has to
+  // be remembered rather than inferred.
+  const lastAudible = useRef(level > 0 ? level : 1);
+  if (level > 0) lastAudible.current = level;
+
+  const Icon = level === 0 ? VolumeX : (level < 0.5 ? Volume1 : Volume2);
+  const pct = Math.round(level * 100);
+
+  return (
+    <div
+      className="relative shrink-0"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button
+        type="button"
+        className={btn}
+        title={level === 0 ? 'Unmute' : `Volume ${pct}%`}
+        aria-label={level === 0 ? 'Unmute' : `Volume, ${pct} percent`}
+        // Touch has no hover: the press opens the slider AND toggles mute, so
+        // the control still does something useful on the first tap either way.
+        onClick={() => {
+          setOpen((v) => !v);
+          onChange(level === 0 ? lastAudible.current : 0);
+        }}
+      >
+        <Icon size={size} />
+      </button>
+
+      {open && (
+        <div
+          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-2 rounded-lg bg-[#0d0d14] border border-white/15 shadow-xl z-50"
+          // Vertical, so it never widens the row it is trying not to crowd.
+          style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
+        >
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={pct}
+            onChange={(e) => onChange(Number(e.target.value) / 100)}
+            aria-label="Volume"
+            className="h-20 w-4 cursor-pointer accent-white"
+            style={{ accentColor: accent }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PlayerTransport({
   playing,
   canPrev,
@@ -71,6 +139,11 @@ export default function PlayerTransport({
   onRate,
   showLock = false,
   onLock,
+  // 0..1. Absent on a platform we cannot command, where a control that does
+  // nothing is worse than no control.
+  showVolume = false,
+  volume = 1,
+  onVolume,
   adjustOn = false,
   shareState = 'idle',
   onPlayPause,
@@ -133,6 +206,10 @@ export default function PlayerTransport({
         aria-label="Next" className={btn}>
         <SkipForward size={size} />
       </button>
+
+      {showVolume && onVolume && (
+        <VolumeControl level={volume} onChange={onVolume} btn={btn} size={size} accent={accent} />
+      )}
 
       {/* Thumbs sit next to the transport rather than off in a menu, because
           they are the only thing steering what plays next — burying the one

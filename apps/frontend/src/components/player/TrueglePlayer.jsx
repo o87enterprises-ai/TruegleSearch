@@ -56,7 +56,7 @@ export default function TrueglePlayer({
   const {
     current, queue, history, paused, dock, locked, setLocked,
     next, skipNext, prev, stop, togglePause, setPoppedOut, setDock, play,
-    enqueueMany, playMode, setPlayMode,
+    enqueueMany, playMode, setPlayMode, queueArmed, volume, setVolume,
   } = usePlayer();
   const pageMode = usePageMode();
   const mediaRef = useRef(null);
@@ -134,22 +134,35 @@ export default function TrueglePlayer({
   // instructions about what comes next and quietly overriding them would be
   // wrong.
   const upNext = useUpNext();
+  // THE QUEUE ONLY WINS WHEN IT WAS ASKED FOR.
+  //
+  // This used to read `if (queue.length > 0)`, which made upNext.pick()
+  // unreachable whenever anything at all sat in the list — including a list
+  // restored from a previous session. Clear the queue, search, play one video,
+  // and the next thing up was last week's list again, with no way forward into
+  // anything new.
+  //
+  // `queueArmed` is the difference between a list somebody is following and a
+  // list that merely exists (see PlayerContext). Unarmed, an empty player and a
+  // player with fifty stored items behave the same way: they go and find
+  // something related to what you just watched.
+  const followQueue = queueArmed && queue.length > 0;
   const advance = useCallback(async () => {
-    if (queue.length > 0 || playMode !== 'auto' || !current) { next(); return; }
+    if (followQueue || playMode !== 'auto' || !current) { next(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) { play(nextUp); return; }
     next();
-  }, [queue.length, playMode, current, next, play, upNext]);
+  }, [followQueue, playMode, current, next, play, upNext]);
 
   // A manual Next must always go somewhere. With an empty queue it used to do
   // nothing at all, which is what "I hit next and nothing happened" was: the
   // feed is now what it falls through to, in every play mode, because pressing
   // the button is an explicit instruction that outranks repeat-one.
   const goNext = useCallback(async () => {
-    if (queue.length > 0 || !current) { skipNext(); return; }
+    if (followQueue || !current) { skipNext(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) play(nextUp); else skipNext();
-  }, [queue.length, current, upNext, play, skipNext]);
+  }, [followQueue, current, upNext, play, skipNext]);
 
   // AN EMPTY VIEWPORT FILLS ITSELF. Landing on the player with nothing playing
   // and nothing queued used to be a dead end — the only way forward was to go
@@ -261,6 +274,49 @@ export default function TrueglePlayer({
     embed.command(paused ? 'pause' : 'play');
   }, [paused, current, embed]);
 
+  // ── VOLUME ────────────────────────────────────────────────────────────────
+  // Re-applied on every source change, not just when the slider moves: each
+  // platform starts a new clip at ITS default, and YouTube additionally starts
+  // muted whenever it was autoplayed. Without this the level you set silently
+  // reverted one video later, which reads as the control not working.
+  //
+  // Delayed as well as immediate: the embed ignores commands until its player
+  // has booted, and a brand-new iframe usually has not. The retry is the same
+  // trick the progress handshake uses.
+  useEffect(() => {
+    if (!current) return undefined;
+    const apply = () => {
+      if (embed.canSetVolume) embed.setVolume(volume);
+      // Native <audio>/<video> have a real property; no channel needed.
+      if (mediaRef.current) mediaRef.current.volume = volume;
+    };
+    apply();
+    const t = [250, 900, 2000].map((d) => setTimeout(apply, d));
+    return () => t.forEach(clearTimeout);
+  }, [volume, current, embed]);
+
+  // ── SPACEBAR ──────────────────────────────────────────────────────────────
+  // The universal play/pause key, and it was bound to nothing. Skipped while
+  // the caret is in a text field, where space means space — that is the whole
+  // reason a global key handler is normally a bad idea, and the only reason it
+  // is a good one here is that the player is genuinely global.
+  useEffect(() => {
+    if (!current || locked) return undefined;
+    const onKey = (e) => {
+      if (e.code !== 'Space' && e.key !== ' ') return;
+      const t = e.target;
+      const tag = t?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return;
+      // A focused button gets space as "press me"; stealing it would break
+      // every control on the page.
+      if (tag === 'BUTTON' || t?.closest?.('button, a, [role="button"]')) return;
+      e.preventDefault(); // or the page scrolls a screen at the same time
+      togglePause();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [current, locked, togglePause]);
+
   // 👍/👎. The thumb steers what plays next; a dislike also guarantees this
   // never comes back. It deliberately does NOT skip — you may be halfway
   // through and simply registering an opinion, and losing your place to a
@@ -335,6 +391,11 @@ export default function TrueglePlayer({
 
   const transport = (
     <PlayerTransport
+      // Offered for the embeds we can command AND for native media, where the
+      // element has a real .volume. Withheld only where neither is true.
+      showVolume={!!current && (embed.canSetVolume || current.kind === 'audio' || current.kind === 'video')}
+      volume={volume}
+      onVolume={setVolume}
       playing={!!current && !paused}
       canPrev={history.length > 0}
       canNext={queue.length > 0 || !!current}
@@ -411,7 +472,10 @@ export default function TrueglePlayer({
           resolved to zero height and full screen was a black rectangle with
           controls on it. */}
       <div
-        className={clipScreen ? 'max-h-0 overflow-hidden' : (fullscreen ? 'relative flex flex-1 min-h-0' : '')}
+        // `relative` outside full screen too: the click-to-pause overlay below
+        // positions against this box, and without it the overlay escaped to
+        // whichever ancestor happened to be positioned.
+        className={clipScreen ? 'max-h-0 overflow-hidden' : (fullscreen ? 'relative flex flex-1 min-h-0' : 'relative')}
         aria-hidden={clipScreen}
       >
         <PlayerScreen
@@ -432,6 +496,32 @@ export default function TrueglePlayer({
           onBrowseMore={search.loadMore}
           browseLoadingMore={search.loadingMore}
         />
+        {/* CLICK THE PICTURE TO PAUSE, outside full screen.
+            The swipe sheet below is full-screen only, and for good reason — it
+            sets touch-action to read vertical gestures, which on a docked
+            player would eat the page scroll. This one is click-only: no
+            touch-action, no preventDefault on touch, so scrolling past the
+            player is unaffected and a tap still lands as a click.
+
+            THE TRADE, stated because it is real: an overlay over an iframe
+            takes the platform's own controls with it. That is acceptable now
+            and was not before — our transport carries play/pause, seek,
+            fullscreen and (as of this change) volume, so nothing is lost by
+            covering theirs. On a platform we cannot command there is no
+            overlay at all: a stray click restarting the video is worse than a
+            click doing nothing. */}
+        {!swipe && current && embed.canCommand && !locked && !clipScreen && (
+          <button
+            type="button"
+            onClick={togglePause}
+            aria-label={paused ? 'Play' : 'Pause'}
+            className="absolute inset-0 z-10 cursor-default"
+            // Bottom 12% left alone so the platform's own progress bar — the
+            // one thing our transport cannot fully replace on every embed —
+            // stays reachable.
+            style={{ bottom: '12%', background: 'transparent' }}
+          />
+        )}
         {swipe && current && (
           <div
             {...swipe}
