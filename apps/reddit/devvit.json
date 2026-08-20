@@ -1,6 +1,6 @@
 {
   "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
-  "name": "truegle-search",
+  "name": "truegleredd",
   "post": {
     "dir": "dist/client",
     "entrypoints": {
@@ -46,7 +46,7 @@
     "icon": "assets/icon.png"
   },
   "dev": {
-    "subreddit": "truegle_dev"
+    "subreddit": "truegleredd_dev"
   },
   "scripts": {
     "dev": "node build.mjs --watch",

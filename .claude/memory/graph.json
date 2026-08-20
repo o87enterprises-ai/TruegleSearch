@@ -824,6 +824,14 @@
         "body": "blockBadBots on /api/search 403s known automation UAs (curl/, python-requests, node-fetch, axios/ ...). A request carrying X-Truegle-Client: <name> (^[a-zA-Z0-9][a-zA-Z0-9 ._/-]{1,63}$) is a DECLARED client: skips the scraper block AND the 5/min suspiciousBotLimiter, gets apiClientLimiter 30/min instead. Devvit runtime fetch sends NO User-Agent -> without the header it scores 60 = suspicious = 5/min shared across all readers. apps/reddit sends 'truegle-reddit'. Documented on /developers and in the GET /api index. Not a security control, an honesty channel.",
         "ts": "2026-08-20",
         "created": "2026-08-20"
+      },
+      "devvit-app-identity": {
+        "Id": "devvit-app-identity",
+        "Type": "fact",
+        "Label": "Reddit app is 'truegleredd', not 'truegle-search'",
+        "body": "devvit upload renamed it — truegle-search was unavailable. App page https://developers.reddit.com/apps/truegleredd · playtest sub https://www.reddit.com/r/truegleredd_dev · approved fetch domains show at /apps/truegleredd/developer-settings. Reddit account used: TruegleSearch. Token at C:\\\\Users\\\\there\\\\.devvit\\\\token. The name is the app identity on Reddit and cannot be changed without registering a new app.",
+        "ts": "2026-08-20",
+        "created": "2026-08-20"
       }
     },
     "decision": {

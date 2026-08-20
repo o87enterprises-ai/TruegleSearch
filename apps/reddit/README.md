@@ -117,6 +117,18 @@ The Truegle website itself still calls the backend on its original Vercel URL,
 deliberately: nothing about the live site changes until the new hostname is
 proven, and it can be switched over later at leisure.
 
+## Where this app lives on Reddit
+
+- App page: <https://developers.reddit.com/apps/truegleredd>
+- Playtest community: <https://www.reddit.com/r/truegleredd_dev>
+- Approved fetch domains, once review completes:
+  <https://developers.reddit.com/apps/truegleredd/developer-settings>
+
+The app account is `truegleredd` rather than `truegle-search` — the latter was
+unavailable when the app was registered, and `devvit upload` picks a free name
+and writes it into `devvit.json`. The name is the app's identity on Reddit and
+cannot be changed afterwards without registering a different app, so it stays.
+
 ## Developing
 
 ```sh
