@@ -41,6 +41,18 @@ router.post('/', rateLimitSearch, optionalAuth, async (req, res) => {
       });
     }
 
+    // A LENGTH THIS IS ALLOWED TO BE, stated here because the public docs at
+    // /developers now promise it. There was no cap at all before: a multi-
+    // kilobyte body — a paste accident far more often than a real search —
+    // went straight through to every upstream provider, which is our cost and
+    // their rate limit for a query nobody meant to make.
+    if (query.trim().length > 300) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'Search query must be 300 characters or fewer',
+      });
+    }
+
     // Validate filters
     const validFilters = validateFilters(filters);
 

@@ -48,9 +48,36 @@ _Last updated: 2026-08-20. Supersedes all prior handoff docs._
   💸 **No ads in it, ever** — advertising inside a Devvit app is against Reddit's
   developer terms. This surface is reach, not revenue.
 
-  **Owner steps (cannot be done from here):** `cd apps/reddit && npm install`,
-  `npm run login` (Reddit developer account), `npm run dev` to playtest, then
-  `npm run launch` to submit for review. Nothing else needs configuring.
+  **Owner steps (cannot be done from here):**
+  1. **FIRST — Vercel → backend project → Settings → Domains → add
+     `api.truegle.info`**, then add the CNAME it asks for (normally `api` →
+     `cname.vercel-dns.com`) at the DNS host for truegle.info. Free on the
+     current plan. Verify with
+     `curl https://api.truegle.info/api` before going further.
+  2. `cd apps/reddit && npm install`
+  3. `npm run login` (Reddit developer account)
+  4. `npm run dev` — playtest. **This is the moment the domain request is
+     submitted**, which is why step 1 comes first.
+  5. `npm run launch` — submits for review.
+
+- **🟢 `/developers` — the public API documentation page, and the reason it
+  exists.** Devvit approves an outside domain when the API behind it is
+  "publicly documented and publicly accessible" and refuses personal servers, so
+  this page is what converts our request from the second category into the
+  first. Prerendered (in `scripts/prerender-entry.jsx`), in `sitemap.xml` and
+  `llms.txt`, and pinned by a check in `apps/reddit/npm test` — if the requested
+  hostname and the page ever drift apart, the suite fails rather than the
+  submission.
+
+  The backend now also answers `GET /` and `GET /api` with a machine-readable
+  index naming the endpoints and linking the docs. And `POST /api/search` now
+  **caps queries at 300 characters** — there was no cap at all, so a multi-
+  kilobyte paste went to every upstream provider — because the docs page
+  promises one and a promise nobody enforces is just a nicer lie.
+
+  **The website still calls the backend on its original `*.vercel.app` URL, on
+  purpose.** Nothing about the live site changes until the new hostname is
+  proven; switching it over is a one-line follow-up whenever you like.
 
 ---
 

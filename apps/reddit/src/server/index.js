@@ -28,7 +28,15 @@ import {
 
 // Allow-listed in devvit.json. Both lists have to agree or the fetch is
 // blocked at runtime, so the test asserts they do.
-const TRUEGLE_API = 'https://backend-seven-khaki-60.vercel.app';
+//
+// WHY THE NAMED HOST AND NOT THE RAW DEPLOYMENT URL. Devvit's fetch policy
+// approves "APIs that provide data or specific services" with a publicly
+// documented and publicly accessible API, and refuses personal servers. A bare
+// *.vercel.app deployment hostname reads as the second no matter what it
+// serves. api.truegle.info, documented at truegle.info/developers, is the
+// first. Same backend either way — this is about what the request looks like
+// to the person reviewing it, and the reviewer is right to care.
+const TRUEGLE_API = 'https://api.truegle.info';
 
 // Truegle's own timeout budget, minus a margin. Devvit kills a fetch at 30s and
 // reports it as a context deadline, which reads like an app bug rather than a

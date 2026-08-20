@@ -808,6 +808,14 @@
         "body": "Reddit limits new Data API app registration to valid moderation use cases (r/reddit.com/wiki/api, checked 2026-08-19). Truegle is not one, so there is no application to make and no tier to buy. Devvit builds apps that run INSIDE Reddit and cannot read the API from our backend. The 403 our Vercel deploy gets on keyless reads is therefore permanent. Feed pill is status:'soon', disabled, with that reason on it. Do NOT route around the IP block.",
         "ts": "2026-08-20",
         "created": "2026-08-20"
+      },
+      "canonical-domain": {
+        "Id": "canonical-domain",
+        "Type": "fact",
+        "Label": "Canonical domain is truegle.info (NOT .com)",
+        "body": "The site is https://truegle.info — sitemap.xml, llms.txt and the CORS allowlist all use it. There is no truegle.com. The Devvit fetch domain is therefore api.truegle.info.",
+        "ts": "2026-08-20",
+        "created": "2026-08-20"
       }
     },
     "decision": {
@@ -1834,6 +1842,14 @@
         "body": "Devvit rules reject apps that link out to a fuller version of themselves on another platform, upsell another version, or ask for an account off Reddit. The post is therefore self-contained: no website link, no sign-in, no upsell, no ads (advertising inside a Devvit app is against Reddit's developer terms). verify-reddit-app.mjs enforces this by scanning the whole client surface INCLUDING comments.",
         "ts": "2026-08-20",
         "created": "2026-08-20"
+      },
+      "public-api-docs": {
+        "Id": "public-api-docs",
+        "Type": "decision",
+        "Label": "/developers is the public API docs page",
+        "body": "Devvit approves outside domains for publicly documented + publicly accessible APIs and refuses personal servers. /developers (prerendered, in sitemap + llms.txt) is what makes api.truegle.info the first category. Backend GET / and GET /api return a machine-readable index linking it. POST /api/search now caps queries at 300 chars to match the documented contract. apps/reddit npm test fails if the requested domain is not named on the docs page. Website still uses the *.vercel.app backend URL until DNS is proven.",
+        "ts": "2026-08-20",
+        "created": "2026-08-20"
       }
     },
     "entity": {
@@ -2182,7 +2198,7 @@
         "Type": "thread",
         "Label": "Devvit fetch-domain approval for our API",
         "body": "Devvit's fetch policy says personal domains 'will not be approved', excepting APIs that are publicly documented and publicly accessible. We request backend-seven-khaki-60.vercel.app, which is the weakest form of that ask. TODO: move the API to api.truegle.com (free on Vercel) and publish a public API docs page before submitting for review. Review = 1-2 business days, can be denied.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-08-20",
         "created": "2026-08-20"
       }

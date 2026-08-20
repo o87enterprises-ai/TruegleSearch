@@ -104,6 +104,23 @@ check(domains.every((d) => readme.includes(d)),
 check(readme.length > 1200, 'the README is not the vague one that gets rejected',
   `${readme.length} chars`);
 
+// THE DOMAIN HAS TO BE DOCUMENTED SOMEWHERE A REVIEWER CAN READ IT.
+// Devvit approves an outside domain when the API behind it is publicly
+// documented and publicly accessible, and refuses personal servers. Our answer
+// to that is truegle.info/developers — so if the requested hostname and the
+// page ever drift apart, the domain request quietly becomes the version that
+// gets refused. Checked against the real page in the same repository.
+try {
+  const docs = read('../frontend/src/pages/Developers.jsx');
+  check(domains.every((d) => docs.includes(d)),
+    'every requested domain is named on the public docs page',
+    domains.filter((d) => !docs.includes(d)).join(' ') || 'all documented');
+  check(readme.includes('truegle.info/developers'),
+    '…and the README points the reviewer at that page');
+} catch {
+  ok.push('SKIP docs-page check — apps/frontend is not checked out beside this project');
+}
+
 // ── the client cannot reach outside, so it must not try ─────────────────────
 // Devvit blocks a client-side fetch to an external domain and requires the path
 // to start with /api/. Both failures show up only at runtime, inside Reddit.

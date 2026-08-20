@@ -5,6 +5,7 @@ import About from '../src/pages/About.jsx';
 import PrivacyPolicy from '../src/pages/PrivacyPolicy.jsx';
 import TermsOfService from '../src/pages/TermsOfService.jsx';
 import Advertise from '../src/pages/Advertise.jsx';
+import Developers from '../src/pages/Developers.jsx';
 import PrivacyResourceHub from '../src/pages/PrivacyResourceHub.jsx';
 import Blog from '../src/pages/Blog.jsx';
 import BlogPost from '../src/pages/BlogPost.jsx';
@@ -24,6 +25,7 @@ const PAGES = {
   '/privacy': { Component: PrivacyPolicy, useRouter: true },
   '/terms': { Component: TermsOfService, useRouter: true },
   '/advertise': { Component: Advertise, useRouter: true },
+  '/developers': { Component: Developers, useRouter: true },
   '/privacy-resource-hub': { Component: PrivacyResourceHub, useRouter: true },
   '/blog': { Component: Blog, useRouter: true },
 };
@@ -32,6 +34,11 @@ const PAGES = {
 // page's <title>/description without duplicating content. The static routes'
 // META still lives in prerender.mjs; these get merged in.
 export const ROUTE_META = {
+  '/developers': {
+    title: 'Truegle API — public web search for your own code',
+    description:
+      'Public documentation for Truegle\u2019s search API: one POST endpoint, no key and no account, JSON web results. Request and response shapes, modes, rate limits and terms.',
+  },
   '/blog': {
     title: 'Truegle Blog — Private Search, Filter Bubbles & Seeing the Web Clearly',
     description:

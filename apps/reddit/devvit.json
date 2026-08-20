@@ -17,7 +17,9 @@
   "permissions": {
     "http": {
       "enable": true,
-      "domains": ["backend-seven-khaki-60.vercel.app"]
+      "domains": [
+        "api.truegle.info"
+      ]
     },
     "reddit": {
       "enable": true,
@@ -50,5 +52,8 @@
     "dev": "node build.mjs --watch",
     "build": "node build.mjs"
   },
-  "sourceIgnores": ["dist/", "*.log"]
+  "sourceIgnores": [
+    "dist/",
+    "*.log"
+  ]
 }

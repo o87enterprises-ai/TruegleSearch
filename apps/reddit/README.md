@@ -55,13 +55,14 @@ with no referrer attached, so the destination is not told you came from Reddit.
 
 The following domain is requested for this app:
 
-- `backend-seven-khaki-60.vercel.app` — Truegle's public search API. This is the
-  only external call the app makes and it is the app's entire purpose: the
-  server posts the visitor's query to `POST /api/search` and receives a list of
-  web results (title, URL, extract, source, date). No identifying information is
-  included in the request, and no other endpoint on that host is called. The
-  request is made server-side only; the web view can reach nothing but this
-  app's own `/api/` routes.
+- `api.truegle.info` — Truegle's public search API, documented for anyone at
+  <https://truegle.info/developers>. This is the only external call the app
+  makes and it is the app's entire purpose: the server posts the visitor's query
+  to `POST /api/search` and receives a list of web results (title, URL, extract,
+  source, date). The API is open — no key, no account — and the request carries
+  no identifying information about the redditor making it. No other endpoint on
+  that host is called. The request is made server-side only; the web view can
+  reach nothing but this app's own `/api/` routes.
 
 ## How it is built
 
@@ -74,6 +75,45 @@ The following domain is requested for this app:
 - `devvit.json` — permissions, the moderator menu item and the fetch allow-list.
 - `scripts/verify-reddit-app.mjs` — checks the app against the Devvit rules that
   actually get apps rejected, before a submission is made rather than after.
+
+## Before the first playtest: point `api.truegle.info` at the backend
+
+**Do this first.** The fetch domain in `devvit.json` is submitted for review the
+moment you run `npm run dev` or `npm run launch`, so it has to be the final
+hostname before you run either. It is also the difference between a request
+Reddit's policy says it approves and one it says it refuses:
+
+> **Personal domains** (e.g. `personaldomain.com`) — Will not be approved.
+> …
+> **APIs that provide data or specific services** — These will be approved if
+> they have a publicly documented and publicly accessible API for valid use
+> cases.
+
+A raw `*.vercel.app` deployment URL is the first kind no matter what it serves.
+`api.truegle.info`, documented at <https://truegle.info/developers>, is the
+second. Same backend either way.
+
+1. **Vercel** → the backend project → **Settings → Domains** → **Add** →
+   `api.truegle.info`. Vercel will show the DNS record it wants. Custom domains
+   are included on the current plan — this costs nothing.
+2. **Your DNS host for `truegle.info`** → add the record Vercel asked for. It is
+   normally a `CNAME` on the name `api` pointing at `cname.vercel-dns.com`.
+3. Wait for Vercel to show the domain as **Valid**, then check it yourself:
+
+   ```sh
+   curl https://api.truegle.info/api        # the public API index
+   curl -X POST https://api.truegle.info/api/search \
+     -H 'Content-Type: application/json' -d '{"query":"test"}'
+   ```
+
+   The first returns a JSON index pointing at the docs page; the second returns
+   search results. If either fails, stop — playtesting now would submit a domain
+   request for a host that does not answer.
+4. Only then run `npm run dev`.
+
+The Truegle website itself still calls the backend on its original Vercel URL,
+deliberately: nothing about the live site changes until the new hostname is
+proven, and it can be switched over later at leisure.
 
 ## Developing
 

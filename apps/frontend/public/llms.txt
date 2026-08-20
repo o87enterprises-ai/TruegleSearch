@@ -111,9 +111,10 @@ For each query, Truegle generates an AI summary that explicitly presents mainstr
 
 - https://truegle.info/ — Homepage and main search
 - https://truegle.info/green — Green mode: zero-AI, environmentally conscious search. No summary, no answer card, no assistant — nothing is generated, so no model inference runs for the query.
-- https://truegle.info/feed — Your social feeds (Reddit, Hacker News, GitHub) in one place
+- https://truegle.info/feed — Public source feeds (Hacker News, GitHub) in one place. Reddit is unavailable: Reddit limits new Data API registration to moderation tools.
 - https://truegle.info/about/ — About Truegle and our mission
 - https://truegle.info/advertise/ — Advertising information and media kit
+- https://truegle.info/developers — Public documentation for the Truegle search API: one POST endpoint, no key, no account, JSON web results
 - https://truegle.info/blog — Editorial content: search bias, privacy, independent research
 - https://truegle.info/privacy/ — Privacy policy
 - https://truegle.info/terms/ — Terms of service

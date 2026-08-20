@@ -212,6 +212,57 @@ app.get('/robots.txt', (req, res) => {
   );
 });
 
+/**
+ * The API index — what somebody gets for hitting the host with a browser.
+ *
+ * A public API needs a front door. Before this, api.truegle.info answered a
+ * bare GET with an HTML 404 from the SPA fallback, which tells a reader nothing
+ * and tells a reviewer less. Reddit's Devvit platform only allow-lists an
+ * outbound domain when the API behind it is "publicly documented and publicly
+ * accessible"; a machine-readable index that points at the human page is the
+ * cheapest possible proof of both.
+ *
+ * Deliberately hand-written rather than generated from the routes: this lists
+ * what is PROMISED to outside callers, which is a much smaller set than what
+ * happens to be mounted. An endpoint appearing here is a commitment to keep it
+ * working.
+ */
+app.get(['/', '/api'], (req, res) => {
+  const site = (config.frontendUrl || 'https://truegle.info').replace(/\/$/, '');
+  res.json({
+    name: 'Truegle Search API',
+    description:
+      'Public web search. One endpoint, no API key and no account required.',
+    documentation: `${site}/developers`,
+    terms: `${site}/terms`,
+    privacy: `${site}/privacy`,
+    contact: 'truegleai@proton.me',
+    endpoints: [
+      {
+        method: 'POST',
+        path: '/api/search',
+        summary: 'Search the web. Returns JSON results.',
+        body: {
+          query: 'string, required, 1-300 characters',
+          mode: 'string, optional — blue-pill (default), red-pill, ocean, green',
+          filters: 'object, optional',
+        },
+      },
+      {
+        method: 'GET',
+        path: '/api/search/trending',
+        summary: 'Recent popular queries, aggregated and anonymous.',
+      },
+      {
+        method: 'GET',
+        path: '/api/health',
+        summary: 'Service status.',
+      },
+    ],
+    rateLimit: 'Per IP. Exceeding it returns 429 — back off rather than retrying immediately.',
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
   try {

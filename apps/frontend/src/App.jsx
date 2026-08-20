@@ -46,6 +46,7 @@ import TermsOfService from './pages/TermsOfService';
 import About from './pages/About';
 import PrivacyResourceHub from './pages/PrivacyResourceHub';
 import Advertise from './pages/Advertise';
+import Developers from './pages/Developers';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
 import RevenueCalculator from './pages/RevenueCalculator';
@@ -351,6 +352,10 @@ const AppContent = () => {
         {/* Content-hub pillar page (privacy + OSINT) */}
         <Route path="/privacy-resource-hub" element={<RouteBoundary><PrivacyResourceHub /></RouteBoundary>} />
         <Route path="/advertise" element={<RouteBoundary><Advertise /></RouteBoundary>} />
+        {/* Public documentation for the search API. Prerendered — it has to be
+            readable without running JavaScript, because the people who most
+            need to read it are reviewers and crawlers. */}
+        <Route path="/developers" element={<RouteBoundary><Developers /></RouteBoundary>} />
 
         {/* Blog / editorial content (crawlable publisher content for SEO + ads) */}
         <Route path="/blog" element={<RouteBoundary><Blog /></RouteBoundary>} />
