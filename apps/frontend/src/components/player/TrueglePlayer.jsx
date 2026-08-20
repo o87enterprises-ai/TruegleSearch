@@ -57,6 +57,7 @@ export default function TrueglePlayer({
     current, queue, history, paused, dock, locked, setLocked,
     next, skipNext, prev, stop, togglePause, setPoppedOut, setDock, play,
     enqueueMany, playMode, setPlayMode, queueArmed, volume, setVolume,
+    feedActive, feed: feedRest, feedNext,
   } = usePlayer();
   const pageMode = usePageMode();
   const mediaRef = useRef(null);
@@ -147,22 +148,32 @@ export default function TrueglePlayer({
   // player with fifty stored items behave the same way: they go and find
   // something related to what you just watched.
   const followQueue = queueArmed && queue.length > 0;
+  // THE FEED OUTRANKS THE QUEUE. Switching on feed autoplay means "play these
+  // results", and it stays in charge until it runs out or somebody stops it —
+  // at which point playback falls to discovery, not back into a queue nobody
+  // restarted. See PlayerContext for why the queue is left untouched
+  // underneath rather than replaced.
+  const followFeed = feedActive && feedRest.length > 0;
   const advance = useCallback(async () => {
+    if (followFeed) { feedNext(); return; }
     if (followQueue || playMode !== 'auto' || !current) { next(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) { play(nextUp); return; }
     next();
-  }, [followQueue, playMode, current, next, play, upNext]);
+  }, [followFeed, feedNext, followQueue, playMode, current, next, play, upNext]);
 
   // A manual Next must always go somewhere. With an empty queue it used to do
   // nothing at all, which is what "I hit next and nothing happened" was: the
   // feed is now what it falls through to, in every play mode, because pressing
   // the button is an explicit instruction that outranks repeat-one.
   const goNext = useCallback(async () => {
+    // Swiping or pressing Next during a feed walks the feed — "play the feed as
+    // is". Only an exhausted feed falls through to finding something new.
+    if (followFeed) { feedNext(); return; }
     if (followQueue || !current) { skipNext(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) play(nextUp); else skipNext();
-  }, [followQueue, current, upNext, play, skipNext]);
+  }, [followFeed, feedNext, followQueue, current, upNext, play, skipNext]);
 
   // AN EMPTY VIEWPORT FILLS ITSELF. Landing on the player with nothing playing
   // and nothing queued used to be a dead end — the only way forward was to go

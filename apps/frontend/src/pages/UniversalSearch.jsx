@@ -250,6 +250,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   const {
     poppedOut, setPoppedOut, current: playerCurrent,
     expanded: tubeExpanded, setExpanded, enqueueMany, play,
+    startFeed, stopFeed, feedActive,
   } = usePlayer();
   // The screen drops out of the bar on its own the first time there's
   // something to show, but `expanded` stays authoritative after that — a
@@ -1139,6 +1140,68 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // empty page — the fold's status bar is already saying "0 of 20 read this
   // way", which is the useful version of that information.
   const displayResults = lensView.active && lensView.count > 0 ? lensView.matched : searchResults;
+
+  // ── THE FEED PLAYS THROUGH THE PLAYER ─────────────────────────────────────
+  //
+  // Switching autoplay on hands the playable results to the one player, in the
+  // order they are listed, and it takes over from there: it advances when a
+  // video actually ENDS rather than on a timer, because the player has a real
+  // end-of-video signal and a card's own iframe never did.
+  //
+  // The queue underneath is untouched — see PlayerContext's startFeed. It is put
+  // on standby, not consumed, and does not resume by itself afterwards.
+  const feedSources = useMemo(() => (displayResults || [])
+    .map((r) => {
+      const p = getPlayable(r.url);
+      return p ? { ...p, title: r.title || r.url, pageUrl: r.url, poster: r.image } : null;
+    })
+    .filter(Boolean), [displayResults]);
+
+  // Started once per switch-on, not on every render of the list: re-running it
+  // as results stream in would restart the feed from the top mid-watch.
+  const feedRunning = useRef(false);
+  useEffect(() => {
+    if (!feed.autoplay) {
+      if (feedRunning.current) { feedRunning.current = false; stopFeed(); }
+      return;
+    }
+    if (feedRunning.current || feedSources.length === 0) return;
+    feedRunning.current = true;
+    startFeed(feedSources);
+  }, [feed.autoplay, feedSources, startFeed, stopFeed]);
+
+  // A NEW SEARCH ENDS THE FEED. Typing a different query is a deliberate change
+  // of subject; carrying on playing the last one's results through it would be
+  // the player talking over the person using it.
+  useEffect(() => {
+    feedRunning.current = false;
+    stopFeed();
+  }, [lastSearchedQuery, stopFeed]);
+
+  // The player stopping (Stop, Close, or the feed running dry) releases the
+  // toggle, so the switch on screen never claims a feed that is not running.
+  useEffect(() => {
+    if (!feedActive && feedRunning.current) {
+      feedRunning.current = false;
+      feed.setAutoplay(false);
+    }
+  }, [feedActive, feed]);
+
+  // THE PAGE FOLLOWS THE PLAYER. When the player moves to the next feed item —
+  // because the last one ENDED, not because a timer fired — walk the list down
+  // to match, so the marked card is the one actually playing and the next
+  // result is under your eyes when it starts.
+  //
+  // The first item is skipped: startFeed sets `current` itself, and scrolling on
+  // that would jump the page the instant the toggle is pressed.
+  const feedFollowing = useRef(null);
+  useEffect(() => {
+    if (!feedActive || !playerCurrent?.src) { feedFollowing.current = null; return; }
+    if (feedFollowing.current === null) { feedFollowing.current = playerCurrent.src; return; }
+    if (feedFollowing.current === playerCurrent.src) return;
+    feedFollowing.current = playerCurrent.src;
+    if (feed.autoAdvance) feed.advanceToNext();
+  }, [feedActive, playerCurrent, feed]);
   const modeAccent = getModeAccent(mode);
 
   // ── ResultCard ──────────────────────────────────────────────────────────
@@ -1149,10 +1212,18 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     const [viewerOpen, setViewerOpen] = useState(() => selectedUrl === result.url);
     const videoEmbed = getVideoEmbed(result.url);
     const playable = getPlayable(result.url);
-    // Auto-played by the feed while this card is the one on screen. The embed
-    // unmounts when it stops being active, which is what pauses it.
-    const autoPlaying = feed.autoplay && videoEmbed && feed.activeIndex === index;
-    const showViewer = viewerOpen || autoPlaying;
+    // THIS CARD NO LONGER PLAYS ANYTHING.
+    //
+    // It used to mount its own `<iframe ...autoplay=1&mute=1>` — a second media
+    // surface with no control channel, which is why pause, volume and
+    // end-of-video behaved differently here than in the player, and why feed
+    // auto-advance had to guess with a 30-second timer instead of waiting for
+    // the video to finish. Playback goes to the one player now; the card shows
+    // that it is the one playing and nothing more.
+    const playingHere = feed.autoplay && !!videoEmbed && feed.activeIndex === index;
+    // Page previews ("Open in app") are unaffected: those are documents, not
+    // media, and there is only ever one of them open because it takes a press.
+    const showViewer = viewerOpen;
     const borderClass = accent.border;
     const titleClass = accent.title;
     const blurClass = safeSearch === 'blur' ? 'blur-md hover:blur-none transition-all duration-200' : '';
@@ -1216,9 +1287,21 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
             window.open(result.url, '_blank', 'noopener,noreferrer');
           }
         }}
-        className={`rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border transition-colors duration-300 cursor-pointer ${borderClass}`}
+        // THE CARD SAYS IT IS THE ONE PLAYING, rather than playing it.
+        // Without a mark, handing playback to the player would leave the list
+        // with no indication of where you are in it — you would be watching
+        // something with no idea which result it came from.
+        className={`rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border transition-colors duration-300 cursor-pointer ${
+          playingHere ? 'ring-1 ring-white/40' : ''
+        } ${borderClass}`}
       >
         <div className="p-4">
+          {playingHere && (
+            <div className="flex items-center gap-1.5 mb-2 text-[10px] uppercase tracking-wider text-white/50">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Playing in the player
+            </div>
+          )}
           <div className="flex gap-3">
             {/* Thumbnail */}
             {result.image && (
@@ -1297,14 +1380,18 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                       A VIDEO EMBED still gets its button: YouTube and TikTok
                       refuse to frame their watch pages while publishing a
                       dedicated embed path, and that path is what plays. */}
-                  {(videoEmbed || canPreview(result.url)) ? (
+                  {/* "Play here" is gone. There is one Play, it is on the
+                      QueueButton below, and it plays in the player — which is
+                      the whole point of removing the card's own embed. A page
+                      preview is a different thing and keeps its button. */}
+                  {(!videoEmbed && canPreview(result.url)) ? (
                     <button
                       onClick={() => setViewerOpen(!viewerOpen)}
                       className={`${accent.link} transition-colors`}
                     >
-                      {viewerOpen ? 'Close' : videoEmbed ? '▶ Play here' : 'Open in app'}
+                      {viewerOpen ? 'Close' : 'Open in app'}
                     </button>
-                  ) : (
+                  ) : videoEmbed ? null : (
                     <span
                       className="text-white/30 cursor-default"
                       title={`${hostLabel} blocks other sites from displaying its pages, so it can only open in its own tab.`}
@@ -1343,18 +1430,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                   <button onClick={() => setViewerOpen(false)} className="text-xs text-white/30 hover:text-white">✕</button>
                 </div>
               </div>
-              {videoEmbed ? (
-                <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
-                  <iframe
-                    key={`${videoEmbed}${autoPlaying ? '-auto' : ''}`}
-                    src={`${videoEmbed}?autoplay=1${autoPlaying ? '&mute=1' : ''}`}
-                    className="absolute inset-0 w-full h-full"
-                    title="Video player"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-              ) : (
+              {(
                 /* NO onLoad SNIFFING. This used to try to detect a refusal
                    by reading `contentDocument`, which is null for EVERY
                    cross-origin frame by specification — embeddable or not — so
@@ -2274,7 +2350,9 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                         </button>
                       )}
                       <span className="text-[10px] text-white/30">
-                        {feed.autoplay ? 'Videos play muted as you reach them' : 'Play videos as you scroll'}
+                        {feed.autoplay
+                          ? 'Results play in the player, in order'
+                          : 'Play the results through the player'}
                       </span>
                     </div>
                   )}

@@ -1,16 +1,23 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-// Viewport-driven autoplay for a scrolling result feed.
+// Which result the feed is on, and walking the page down to the next one.
 //
-// Exactly one card plays at a time: whichever playable result is most visible.
-// Scroll to the next and the previous one stops — because its embed unmounts,
-// which is the only reliable way to stop a cross-origin player we don't
-// control (there's no pause() to call on a YouTube iframe without loading
-// their SDK).
+// THIS NO LONGER PLAYS ANYTHING. It used to: each card mounted its own muted
+// iframe, and "stopping" meant unmounting it. The comment here said that was
+// "the only reliable way to stop a cross-origin player we don't control (there's
+// no pause() to call on a YouTube iframe without loading their SDK)" — which was
+// true when written and stopped being true when useEmbedPlayback opened a
+// postMessage channel to exactly those iframes, with no SDK. The cards were the
+// last place still working around a problem that had been solved.
 //
-// Optionally it also scrolls itself: after a dwell, it walks to the next
-// playable card. Any interaction restarts the dwell so it never yanks the page
-// away from someone who is reading.
+// Playback belongs to the one player now. This hook's job is narrower and
+// clearer: track which playable card is the active one, and optionally scroll to
+// the next. The page turns that into player commands.
+//
+// AUTO-ADVANCE IS DRIVEN BY THE VIDEO ENDING, not by this hook's timer. The
+// timer exists because a card's embed fired no `ended` event, so a 30-second
+// guess was the only option; the player has the real signal. What remains here
+// is the fallback for media that still gives us nothing to listen to.
 //
 // Both behaviours are off unless switched on, and the choice is remembered.
 // A search results page that starts moving and playing unasked is hostile;
@@ -138,18 +145,28 @@ export function useFeedAutoplay() {
     }
   }, []);
 
-  // Walk to the next playable card on its own.
+  /** Scroll the page to the next playable card. */
+  const advanceToNext = useCallback(() => {
+    const indices = [...nodes.current.keys()].sort((a, b) => a - b);
+    if (!indices.length) return;
+    const next = indices.find((i) => i > (activeIndex ?? -1));
+    // Wrapping to the top would replay the list forever. Stopping at the end is
+    // what lets the player fall through to finding something new, which is the
+    // point of "if the feed is empty, the random similar videos begin".
+    if (next == null) return;
+    nodes.current.get(next)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [activeIndex]);
+
+  // THE FALLBACK, not the mechanism. The page advances the feed when the player
+  // reports a video has ENDED; this timer only covers media that reports
+  // nothing, and it is deliberately long enough not to interrupt anything the
+  // real signal would have handled first.
   useEffect(() => {
     if (!autoplay || !autoAdvance || activeIndex == null) return undefined;
-    const timer = setTimeout(() => {
-      const indices = [...nodes.current.keys()].sort((a, b) => a - b);
-      const next = indices.find((i) => i > activeIndex);
-      const target = nodes.current.get(next ?? indices[0]);
-      target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, DEFAULT_DWELL_MS);
+    const timer = setTimeout(advanceToNext, DEFAULT_DWELL_MS);
     return () => clearTimeout(timer);
     // `interaction` is a dependency on purpose: any touch restarts the dwell.
-  }, [autoplay, autoAdvance, activeIndex, interaction]);
+  }, [autoplay, autoAdvance, activeIndex, interaction, advanceToNext]);
 
   return {
     autoplay,
@@ -158,6 +175,7 @@ export function useFeedAutoplay() {
     setAutoAdvance,
     activeIndex,
     register,
+    advanceToNext,
     bumpInteraction,
     hasFeed: nodes.current.size > 0,
   };

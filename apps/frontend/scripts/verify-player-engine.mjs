@@ -107,7 +107,66 @@ check(!loaded.queue.some((q) => q.title === 'Video wasplaying'),
   '…without the thing that happened to be playing pushed into it');
 check(!loaded.queueArmed, '…and still unarmed until the user touches it');
 
-// ── 3. volume ───────────────────────────────────────────────────────────────
+// ── 3. the feed outranks the queue without eating it ────────────────────────
+// The owner's rule: "the feed interrupts the queue. the queue gets put on
+// standby until the user stops the feed … the user essentially would need to
+// manually restart the queue for it to resume. the feed is the player's default
+// state."
+const built = run(INITIAL,
+  { type: 'play', source: yt('mine1') },
+  { type: 'enqueue', source: yt('mine2'), byUser: true },
+  { type: 'enqueue', source: yt('mine3'), byUser: true });
+check(built.queueArmed && built.queue.length === 2, 'a hand-built queue starts armed',
+  `armed=${built.queueArmed} n=${built.queue.length}`);
+
+const withFeed = run(built, { type: 'startFeed', sources: [yt('f1'), yt('f2'), yt('f3')] });
+check(withFeed.feedActive, 'starting a feed takes over');
+check(withFeed.current.title === 'Video f1', '…playing the first result', withFeed.current.title);
+check(withFeed.queue.length === 2 && withFeed.queue.every((q) => q.title.startsWith('Video mine')),
+  '…and the queue is untouched underneath, not replaced or drained',
+  withFeed.queue.map((q) => q.title).join(', '));
+check(!withFeed.queueArmed,
+  '…but is no longer being followed, so it will not resume by itself');
+
+// Walking the feed leaves the queue alone the whole way down.
+let walked = run(withFeed, { type: 'feedNext' }, { type: 'feedNext' });
+check(walked.current.title === 'Video f3', 'the feed walks in order', walked.current.title);
+check(walked.queue.length === 2, '…without consuming the queue', `${walked.queue.length}`);
+check(walked.feed.length === 0, '…and runs out at the end rather than looping',
+  `${walked.feed.length} left`);
+check(run(walked, { type: 'feedNext' }).current.title === 'Video f3',
+  'an exhausted feed stays put — the player falls through to discovery instead');
+
+// Every way a feed ends.
+for (const [label, action] of [['Stop', { type: 'stop' }], ['Close', { type: 'close' }],
+  ['stopFeed', { type: 'stopFeed' }]]) {
+  const ended = run(withFeed, action);
+  check(!ended.feedActive && ended.feed.length === 0, `${label} ends the feed`,
+    `active=${ended.feedActive} left=${ended.feed.length}`);
+  check(ended.queue.length === 2, `…and ${label} still leaves the queue intact`,
+    `${ended.queue.length}`);
+  check(!ended.queueArmed, `…unarmed, so it waits to be restarted by hand`);
+}
+
+// The queue comes back only when asked.
+const resumed = run(run(withFeed, { type: 'stopFeed' }), { type: 'armQueue' });
+check(resumed.queueArmed && resumed.queue.length === 2, 'the queue resumes on an explicit press',
+  `armed=${resumed.queueArmed} n=${resumed.queue.length}`);
+
+// A feed is this sitting's business, not a setting.
+store.clear();
+localStorage.setItem(QUEUE_KEY, JSON.stringify({
+  current: yt('x'), queue: [yt('q')], history: [], feedActive: true, feed: [yt('f')],
+}));
+const afterReload = loadState();
+check(!afterReload.feedActive && afterReload.feed.length === 0,
+  'a feed never survives leaving Truegle',
+  `active=${afterReload.feedActive} left=${afterReload.feed.length}`);
+
+check(run(INITIAL, { type: 'startFeed', sources: [] }).feedActive === false,
+  'a search with nothing playable starts no feed');
+
+// ── 4. volume ───────────────────────────────────────────────────────────────
 const ytCmds = volumeCommands('youtube', 0.5);
 check(ytCmds.length === 2, 'YouTube gets a mute-state message and a level message', `${ytCmds.length}`);
 check(ytCmds[0].payload.func === 'unMute',
@@ -129,7 +188,7 @@ check(volumeCommands('youtube', -3)[1].payload.args[0] === 0, 'levels below 0 cl
 check(volumeCommands('tiktok', 0.5).length === 0,
   'a platform with no channel gets no messages rather than a broken one');
 
-// ── 4. the reducer still does what it did ───────────────────────────────────
+// ── 5. the reducer still does what it did ───────────────────────────────────
 // Guard rails: the queue rule touches enqueue/jump/clearQueue, all of which
 // carry behaviour that predates it.
 s = run(INITIAL, { type: 'enqueue', source: yt('a'), byUser: true });

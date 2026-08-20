@@ -64,6 +64,23 @@ export const INITIAL = {
   // it, or pressing play on the list. NOT armed by anything automatic, and
   // deliberately NOT restored from storage — see loadState.
   queueArmed: false,
+  // ── THE FEED ──────────────────────────────────────────────────────────────
+  // The search results, playing through the player. This is the player's
+  // DEFAULT state: switch feed autoplay on and the results are what plays next,
+  // ahead of the queue.
+  //
+  // IT INTERRUPTS THE QUEUE, IT DOES NOT CONSUME IT. `queue` is left exactly as
+  // it was and is never walked or drained while a feed is running — a list
+  // somebody spent time building must still be there afterwards. Starting a
+  // feed only clears `queueArmed`, which is what makes the queue need restarting
+  // by hand rather than silently resuming the moment the feed runs out.
+  //
+  // Session-only, like queueArmed: a feed is something you are doing now, not a
+  // setting. Leaving and coming back starts with no feed.
+  feedActive: false,
+  // What the feed has left to play, newest search first. Separate from `queue`
+  // for the reason above.
+  feed: [],
 };
 // Identity is the MEDIA, not the URL string. The same YouTube video arrives as
 // a watch link, a youtu.be link and an /embed/ URL with a ?si= suffix, and
@@ -156,7 +173,10 @@ export function reducer(s, a) {
     case 'removeFromQueue':
       return { ...s, queue: s.queue.filter((_, i) => i !== a.index) };
     case 'stop': // stop playback, keep the queue — unlike close, which clears everything
-      return { ...s, current: null, paused: false };
+      // Stop ends the feed. It is the one control that means "I am done with
+      // what you are doing", and a feed that survived it would immediately put
+      // the next result on.
+      return { ...s, current: null, paused: false, feedActive: false, feed: [] };
     case 'togglePause':
       return { ...s, paused: !s.paused };
     case 'setPaused':
@@ -192,7 +212,38 @@ export function reducer(s, a) {
       // header, and wiping an assembled queue on a mis-tap (with no undo) is
       // what read as "the list erases itself at random". Emptying the queue is
       // now only ever explicit — see clearQueue.
-      return { ...s, current: null, paused: false, poppedOut: false, expanded: false, minimized: false };
+      return { ...s, current: null, paused: false, poppedOut: false, expanded: false, minimized: false, feedActive: false, feed: [] };
+    case 'startFeed': {
+      // The results become what plays next. The queue is put on standby:
+      // contents untouched, but no longer followed — so when the feed ends,
+      // playback falls to discovery and the queue waits to be restarted by
+      // hand, which is what "the feed is the player's default state" means.
+      const list = (a.sources || []).filter((x) => x?.src);
+      if (!list.length) return s;
+      const [first, ...rest] = list;
+      const history = s.current && !sameSrc(s.current, first) ? [...s.history, s.current] : s.history;
+      return {
+        ...s,
+        current: first,
+        feed: rest,
+        feedActive: true,
+        queueArmed: false,
+        history,
+        paused: false,
+        minimized: false,
+      };
+    }
+    case 'feedNext': {
+      if (!s.feedActive || s.feed.length === 0) return s;
+      const [nx, ...rest] = s.feed;
+      const history = s.current ? [...s.history, s.current] : s.history;
+      return { ...s, current: nx, feed: rest, history, paused: false };
+    }
+    case 'stopFeed':
+      // The feed's remaining items go with it. They are search results, not a
+      // list anybody assembled — keeping them would mean a stopped feed quietly
+      // resumes later, which is the behaviour being removed.
+      return { ...s, feedActive: false, feed: [] };
     case 'clearQueue':
       // Emptying the list also withdraws the instruction to follow it —
       // otherwise the next thing added would silently inherit the old intent.
@@ -267,6 +318,10 @@ export function loadState() {
       // ago quietly takes over autoplay again on the next visit, which is the
       // whole behaviour this flag exists to stop.
       queueArmed: false,
+      // Same reasoning, and the owner's rule directly: leaving Truegle ends the
+      // feed. Coming back starts with none.
+      feedActive: false,
+      feed: [],
     };
   } catch {
     return INITIAL;
@@ -316,6 +371,11 @@ export const PlayerProvider = ({ children }) => {
   // For a "play the list" control: follow the queue from here on without having
   // to add to it or pick an entry first.
   const armQueue = useCallback(() => dispatch({ type: 'armQueue' }), []);
+  // Play the search results, ahead of the queue. See the reducer for what this
+  // does and does not do to the queue.
+  const startFeed = useCallback((sources) => dispatch({ type: 'startFeed', sources }), []);
+  const feedNext = useCallback(() => dispatch({ type: 'feedNext' }), []);
+  const stopFeed = useCallback(() => dispatch({ type: 'stopFeed' }), []);
   const setVolume = useCallback((value) => dispatch({ type: 'setVolume', value }), []);
   const toggleMinimize = useCallback(() => dispatch({ type: 'toggleMin' }), []);
   const stop = useCallback(() => dispatch({ type: 'stop' }), []);
@@ -332,9 +392,11 @@ export const PlayerProvider = ({ children }) => {
     () => ({
       ...state,
       play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
+      startFeed, feedNext, stopFeed,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume,
     }),
     [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
+      startFeed, feedNext, stopFeed,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode, setLocked, setVolume]
   );
 

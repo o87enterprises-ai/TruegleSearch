@@ -1866,6 +1866,14 @@
         "body": "Devvit approves outside domains for publicly documented + publicly accessible APIs and refuses personal servers. /developers (prerendered, in sitemap + llms.txt) is what makes api.truegle.info the first category. Backend GET / and GET /api return a machine-readable index linking it. POST /api/search now caps queries at 300 chars to match the documented contract. apps/reddit npm test fails if the requested domain is not named on the docs page. Website still uses the *.vercel.app backend URL until DNS is proven.",
         "ts": "2026-08-20",
         "created": "2026-08-20"
+      },
+      "player-playback-priority": {
+        "Id": "player-playback-priority",
+        "Type": "decision",
+        "Label": "Playback priority: feed > armed queue > discovery",
+        "body": "PlayerContext now has feedActive+feed (session-only, never persisted) alongside queueArmed. startFeed(sources) plays the search results, clears queueArmed but LEAVES queue contents untouched (standby, not consumed) — so the queue never auto-resumes and must be restarted by hand (armQueue/jump/add). Feed ends on stop, close, stopFeed, or a new search. TrueglePlayer.advance/goNext: followFeed -> feedNext(); followQueue -> next(); else upNext.pick(). Result cards no longer mount their own iframe — one media node in the app. QueueButton is now Play + Add to queue (Play = playNow when queue armed, else play). useFeedAutoplay no longer plays; its 30s timer is a fallback, real advance is video-ended.",
+        "ts": "2026-08-20",
+        "created": "2026-08-20"
       }
     },
     "entity": {
