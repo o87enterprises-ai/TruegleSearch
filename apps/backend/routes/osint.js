@@ -7,6 +7,7 @@ const logger = require('../utils/logger');
 const { authenticate, optionalAuth } = require('../middleware/auth');
 const { rateLimitSearch } = require('../middleware/rateLimit');
 const OsintInvestigationService = require('../services/OsintInvestigationService');
+const OsintLookups = require('../services/OsintLookups');
 const TokenService = require('../services/TokenService');
 
 // Common disposable / throwaway email domains (small built-in list, no API).
@@ -450,9 +451,18 @@ router.get('/phone-intel', async (req, res) => {
     // libphonenumber-js/max bundles line-type metadata (mobile vs fixed line).
     const { parsePhoneNumberWithError } = require('libphonenumber-js/max');
 
+    // NORMALIZE FIRST — this is the bug that made a bare 10-digit number report
+    // "not a valid number". Handed "5416230460" with no country, libphonenumber
+    // cannot infer a region and throws, so the panel's Phone tool showed every
+    // un-prefixed US number as invalid. The /investigate path already went
+    // through OsintLookups.normalizePhone (which assumes +1 for a 10-digit
+    // number); this direct route never did. Reuse the same normalization so both
+    // paths agree.
+    const norm = OsintLookups.normalizePhone(phone, country);
+
     let parsed;
     try {
-      parsed = parsePhoneNumberWithError(phone, country);
+      parsed = parsePhoneNumberWithError(norm.input, norm.region);
     } catch (e) {
       return res.json({
         success: true,
@@ -482,6 +492,9 @@ router.get('/phone-intel', async (req, res) => {
           national: parsed.formatNational(),
           uri: parsed.getURI(),
         },
+        // Surfaced so the UI can say "assumed US" rather than pretending the
+        // country was stated by the user.
+        assumedRegion: norm.assumedRegion || null,
       },
     });
   } catch (error) {
