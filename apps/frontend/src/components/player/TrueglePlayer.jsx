@@ -14,6 +14,7 @@ import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useUpNext } from '../../hooks/useUpNext';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
 import { useOverlayReveal } from '../../hooks/useOverlayReveal';
+import { useLockedGestures } from '../../hooks/useLockedGestures';
 import { rate, useRating, signalPlay } from '../../utils/taste';
 import { recordRetention } from '../../utils/retention';
 import { reportBroken } from '../../utils/broken';
@@ -48,6 +49,10 @@ export default function TrueglePlayer({
   // when the text hasn't changed since last time — pressing enter and seeing
   // nothing happen is what made the popped-out player feel broken.
   openListNonce = 0,
+  // A host that has a voice search can hand it in; the locked player's middle
+  // third calls it. Absent, that gesture does nothing rather than pretending
+  // there is a microphone.
+  onVoiceSearch,
   onQueryHandled,
   className = '',
 }) {
@@ -385,6 +390,23 @@ export default function TrueglePlayer({
   // reach anything, and a rail that appears on a hold would be exactly that.
   const overlay = useOverlayReveal({ enabled: !!current && !locked });
 
+  // ── RUNNING IT LOCKED, AND DARK ───────────────────────────────────────────
+  // The lock used to mean "no controls at all". It means "different controls"
+  // now: a set of deliberate gestures on the sheet that a pocket cannot
+  // produce, so the player is fully usable with the screen apparently off.
+  // See useLockedGestures for what each one is and how they are told apart.
+  const lockedGestures = useLockedGestures({
+    enabled: locked && !!current,
+    onTogglePause: togglePause,
+    onNext: goNext,
+    onPrev: prev,
+    onShuffle: () => setPlayMode('shuffle'),
+    // Voice belongs to the page's search bar, not the player, so it is passed
+    // in from outside when a host offers one. Absent, the middle third simply
+    // does nothing rather than pretending.
+    onVoice: onVoiceSearch,
+  });
+
   const clickTimer = useRef(null);
   // Which half of the picture the pending click landed on — read on the first
   // click, used if a second one follows.
@@ -511,7 +533,7 @@ export default function TrueglePlayer({
       // nothing else on the page.
       className={`relative ${fullscreen ? 'flex flex-col w-full h-full bg-black' : className}`}
     >
-      {locked && <PlayerLockOverlay onUnlock={() => setLocked(false)} />}
+      {locked && <PlayerLockOverlay onUnlock={() => setLocked(false)} gestures={lockedGestures} />}
       {/* 'hidden' clips the picture to nothing rather than unmounting it: an
           unmounted iframe stops playing and starts over when it comes back,
           which is the opposite of what "hide the video, keep listening" means.

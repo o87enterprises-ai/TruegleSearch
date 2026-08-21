@@ -1890,6 +1890,14 @@
         "body": "PlayerOverlay.jsx renders a TikTok-style right rail over the viewport. useOverlayReveal.js governs visibility: a TAP never summons it (a tap already means pause, double = seek); only a >=400ms hold, or mouse pointermove (never touch pointermove — that fires during scroll). Auto-hides after 5s. A hold that wanders >10px is a drag, not a summon. wasHeld() lets onClick skip the pause that would otherwise follow a summon. Transport is now prev / play-pause / next: Stop removed (it was pause plus an explanation), move-mode button removed entirely (window drags from its bar, resizes from its corner). MiniPlayer adjust state deleted. Away-from-Tube pop-out slot now toggles float<->footer dock.",
         "ts": "2026-08-21",
         "created": "2026-08-21"
+      },
+      "locked-mode-gestures": {
+        "Id": "locked-mode-gestures",
+        "Type": "decision",
+        "Label": "Locked player: gestures + a dimmer that is NOT the backlight",
+        "body": "useLockedGestures.js. Web cannot touch device brightness (no API, by design) so \"brightness 0\" is a black scrim at opacity 1 over the player — screen looks off, audio plays, gestures still work. Only saves battery on OLED. Gesture set: two quick taps = play/pause; press-hold-then-slide (no tap first) = dimmer; two taps THEN hold = command, by third: left=prev, middle=voice (host passes onVoiceSearch, absent = no-op), right=next; shake = shuffle (devicemotion, only while locked, first sample skipped or it fires on lock). The only ambiguity is two kinds of hold, resolved by tap count before it. Nothing fires on a single tap — that is what a pocket produces. Dim is cleared when the lock lifts or it would be a dead black screen. 21 tests, mostly must-NOT-fire cases.",
+        "ts": "2026-08-21",
+        "created": "2026-08-21"
       }
     },
     "entity": {

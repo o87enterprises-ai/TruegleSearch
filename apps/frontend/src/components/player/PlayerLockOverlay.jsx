@@ -14,7 +14,7 @@ import { Lock, LockOpen } from 'lucide-react';
 // the failure mode of a hidden hold is "the button is broken".
 const HOLD_MS = 700;
 
-export default function PlayerLockOverlay({ onUnlock }) {
+export default function PlayerLockOverlay({ onUnlock, gestures }) {
   const [progress, setProgress] = useState(0);
   const timer = useRef(null);
   const raf = useRef(null);
@@ -44,14 +44,26 @@ export default function PlayerLockOverlay({ onUnlock }) {
 
   const swallow = useCallback((e) => { e.preventDefault(); e.stopPropagation(); }, []);
 
+  // The sheet SWALLOWS presses, and now also reads them. Those are different
+  // jobs: nothing gets through to the media or the transport underneath, and
+  // the deliberate gestures (see useLockedGestures) are interpreted here
+  // instead. A lock that means "no controls" and a lock that means "different
+  // controls" are the same sheet; the difference is whether anybody bothered to
+  // listen.
+  const gate = useCallback((fn) => (e) => { swallow(e); fn?.(e); }, [swallow]);
+  const g = gestures?.handlers || {};
+  const dim = gestures?.dim || 0;
+
   return (
     <div
-      // Above the move overlay (z-20) and the transport (z-30) — this has to be
-      // the top of the stack or the very controls it is disabling stay live.
+      // Above the transport (z-30) — this has to be the top of the stack or the
+      // very controls it is disabling stay live.
       className="absolute inset-0 z-40 flex items-center justify-center bg-black/35 backdrop-blur-[1px]"
       style={{ touchAction: 'none' }}
-      onPointerDown={swallow}
-      onPointerUp={swallow}
+      onPointerDown={gate(g.onPointerDown)}
+      onPointerMove={g.onPointerMove}
+      onPointerUp={gate(g.onPointerUp)}
+      onPointerCancel={gate(g.onPointerCancel)}
       onClick={swallow}
       onContextMenu={swallow}
       role="button"
@@ -87,6 +99,30 @@ export default function PlayerLockOverlay({ onUnlock }) {
       <span className="absolute bottom-2 text-[10px] uppercase tracking-wider text-white/50 pointer-events-none">
         {progress > 0 ? 'Keep holding…' : 'Controls locked — hold to unlock'}
       </span>
+
+      {/* THE DIMMER, and it is drawn LAST so it covers the padlock too.
+          "As if the screen was off" means the padlock is not glowing in the
+          middle of it either. Unlocking still works at full dark — the hold is
+          on the button underneath and does not need to be seen to be pressed,
+          which is the entire point of the mode. */}
+      {dim > 0 && (
+        <div
+          className="absolute inset-0 bg-black pointer-events-none"
+          style={{ opacity: dim }}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* The level, while the finger is still down. It sits ABOVE the dimmer so
+          it stays readable as the screen goes dark — otherwise the only feedback
+          for the gesture would be the thing the gesture is hiding. */}
+      {gestures?.sliding && (
+        <div className="absolute inset-x-0 bottom-10 flex justify-center pointer-events-none">
+          <div className="px-3 py-1.5 rounded-full bg-black/80 border border-white/20 text-[11px] text-white/80 tabular-nums">
+            Screen {Math.round((1 - dim) * 100)}%
+          </div>
+        </div>
+      )}
     </div>
   );
 }
