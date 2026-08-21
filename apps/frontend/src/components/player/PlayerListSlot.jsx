@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Check, X, Loader2, ListMusic, Play, ChevronRight, Search as SearchIcon, Flag } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
+import { mediaKey } from '../../utils/videoEmbed';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useChannelFeed } from '../../hooks/useChannelFeed';
 import { parsePlayerQuery, toHandle, sourceColour, sourceProviderLabel } from '../../utils/playerQuery';
@@ -59,8 +60,18 @@ function BrokenFlag({ source }) {
 }
 
 export default function PlayerListSlot({ search, query = '', scope = 'all', provider = 'all', accent = '#f43f5e', onRevert, compact = false }) {
-  const { current, queue, jump, removeFromQueue, enqueue, clearQueue, playNow } = usePlayer();
+  const { current, queue, jump, removeFromQueue, enqueue, clearQueue, playNow, armQueue } = usePlayer();
   const [tab, setTab] = useState('queue');
+  // WHAT'S ALREADY LINED UP, by identity. A row whose media is already the
+  // current track or sits anywhere in the queue stays lit — the glow used to
+  // flash for 1.5s and vanish, so a list you had half-built looked untouched and
+  // the same song got added again (it didn't — enqueue dedupes by sameMedia —
+  // but there was no way to SEE that). Keyed on mediaKey so the same upload from
+  // a different provider counts as the same thing.
+  const queuedKeys = useMemo(
+    () => new Set([current, ...queue].map((x) => mediaKey(x)).filter(Boolean)),
+    [current, queue],
+  );
   const historyCount = useWatchHistory().length;
   // The host runs the search now — the viewport's browse deck shows the same
   // results, and two hooks on one query meant two identical requests per
@@ -156,9 +167,81 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
 
   const rowH = compact ? 'min-h-[38px]' : 'min-h-[44px]';
 
+  // START PLAYING WHAT YOU LINED UP, without hunting for a control. If nothing
+  // is playing it drops the needle on the first queued item; if something is
+  // already on, it just tells autoplay to follow the queue from here (armQueue),
+  // rather than interrupting what you are watching.
+  const playQueue = useCallback(() => {
+    if (queue.length === 0) return;
+    if (current) armQueue(); else jump(0);
+  }, [queue.length, current, armQueue, jump]);
+
+  // Leave the results and land on one of the library tabs WITHOUT closing the
+  // slot — onRevert would hide the whole list, which is not what tapping "Up
+  // next" means. The revert timer is cancelled so results don't snap back over
+  // the tab a beat later.
+  const goToTab = useCallback((id) => {
+    clearTimeout(revertTimer.current);
+    setTab(id);
+    setShowingResults(false);
+  }, []);
+
+  // The persistent, self-announcing way to start the queue — a soft green pulse
+  // pinned to the bottom of the slot so it is reachable without scrolling the
+  // results to the end. Deliberately almost wordless (a play glyph and a count):
+  // it should read as "press to go", not as another labelled control competing
+  // for attention. Shown only when there is actually something to play.
+  const queueFab = queue.length > 0 ? (
+    <div className="sticky bottom-0 z-10 flex justify-end px-3 py-2 pointer-events-none bg-gradient-to-t from-black/60 to-transparent">
+      <button
+        type="button"
+        onClick={playQueue}
+        title={current ? 'Play your queue after this' : 'Play your queue'}
+        aria-label={`Play your queue of ${queue.length}`}
+        className="pointer-events-auto relative flex items-center gap-1.5 pl-2.5 pr-3 h-9 rounded-full bg-green-500 text-black font-semibold text-[12px] shadow-lg shadow-green-500/40 hover:bg-green-400 transition-colors"
+      >
+        {/* The pulse itself — a ring that expands and fades behind the button,
+            so the whole thing breathes rather than blinks. */}
+        <span className="absolute inset-0 rounded-full bg-green-400/60 animate-ping" aria-hidden="true" />
+        <Play size={15} className="relative fill-black" />
+        <span className="relative tabular-nums">{queue.length}</span>
+      </button>
+    </div>
+  ) : null;
+
+  // The library tabs, so a search-in-progress can jump straight to Up next,
+  // History, Lists or the taste panel instead of clearing the box first. Shown
+  // above the results and their sort row.
+  const resultsTabBar = (
+    <div className="flex items-center gap-2 px-3 pt-1.5 text-[10px] uppercase tracking-wider">
+      <ListMusic size={11} className="shrink-0 text-white/40" />
+      {TABS.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          onClick={() => goToTab(t.id)}
+          className="uppercase tracking-wider text-white/30 hover:text-white/70 transition-colors"
+        >
+          {t.label}
+          {t.id === 'queue' && queue.length > 0 ? ` (${queue.length})` : ''}
+        </button>
+      ))}
+      {(hasTaste() || hasRetention()) && (
+        <button
+          type="button"
+          onClick={() => { goToTab('queue'); setForgetOpen(true); }}
+          className="ml-auto text-white/25 hover:text-white/60 transition-colors"
+        >
+          Your taste
+        </button>
+      )}
+    </div>
+  );
+
   if (showingResults) {
     return (
       <div className="border-t border-white/10 bg-black/30">
+        {resultsTabBar}
         <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/40">
           <SearchIcon size={11} /> Results
           {(loading || pending) && <Loader2 size={11} className="animate-spin" />}
@@ -310,7 +393,11 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
               )}
             </div>
           )}
-          {withoutBroken(feedRows || sortResults(results || [], sort, scores)).map((r) => (
+          {withoutBroken(feedRows || sortResults(results || [], sort, scores)).map((r) => {
+            // Already lined up? The row stays tinted and its Add turns into a
+            // lit "Queued" — see queuedKeys.
+            const inQueue = queuedKeys.has(mediaKey(r));
+            return (
             /* WHICH PLATFORM THIS CAME FROM, in colour. The Where chips are
                gone and a search now fans out across every provider at once, so
                a list mixing YouTube, Rumble, Odysee and SoundCloud had nothing
@@ -320,8 +407,11 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
             <div
               key={r.pageUrl || r.src}
               data-provider={sourceProviderLabel(r)}
+              data-queued={inQueue ? 'true' : undefined}
               title={sourceProviderLabel(r)}
-              className={`flex items-center gap-2 pl-2 pr-2 ${rowH} hover:bg-white/5 border-l-2`}
+              className={`flex items-center gap-2 pl-2 pr-2 ${rowH} border-l-2 transition-colors ${
+                inQueue ? 'bg-green-400/[0.07] ring-1 ring-inset ring-green-400/20' : 'hover:bg-white/5'
+              }`}
               style={{ borderLeftColor: sourceColour(r) }}
             >
               {r.poster
@@ -393,24 +483,31 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
                 <Play size={13} />
               </button>
               {/* Explicit add — the row is not a click target, so nothing here
-                  can be mistaken for "open this result" and navigate away. */}
+                  can be mistaken for "open this result" and navigate away.
+                  Once it's in the queue the button stays lit and disabled: the
+                  state is real (enqueue dedupes), and a second press could only
+                  ever be a mistake, so there is nothing for it to do. */}
               <button
                 type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); add(r); }}
-                title="Add to queue"
-                aria-label={`Add ${r.title || 'this'} to the queue`}
-                className={`shrink-0 flex items-center gap-1 pl-1.5 pr-2 h-8 rounded-lg border text-[11px] transition-colors ${
-                  added === r.src
-                    ? 'border-green-400/50 bg-green-400/10 text-green-300'
-                    : 'border-white/15 text-white/70 hover:text-white hover:bg-white/10'
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!inQueue) add(r); }}
+                disabled={inQueue}
+                title={inQueue ? 'Already in your queue' : 'Add to queue'}
+                aria-label={inQueue ? `${r.title || 'This'} is already in the queue` : `Add ${r.title || 'this'} to the queue`}
+                className={`shrink-0 flex items-center gap-1 pl-1.5 pr-2 h-8 rounded-lg border text-[11px] transition-all ${
+                  inQueue
+                    ? 'border-green-400/60 bg-green-400/15 text-green-200 shadow-[0_0_12px_rgba(74,222,128,0.45)] cursor-default'
+                    : added === r.src
+                      ? 'border-green-400/50 bg-green-400/10 text-green-300'
+                      : 'border-white/15 text-white/70 hover:text-white hover:bg-white/10'
                 }`}
               >
-                {added === r.src ? <Check size={13} /> : <Plus size={13} />}
-                {added === r.src ? 'Added' : 'Add'}
+                {inQueue || added === r.src ? <Check size={13} /> : <Plus size={13} />}
+                {inQueue ? 'Queued' : added === r.src ? 'Added' : 'Add'}
               </button>
               <BrokenFlag source={r} />
             </div>
-          ))}
+            );
+          })}
 
           {/* MORE. One ask of twenty rows used to be the entire search for a
               query — the backend has always paged, nothing ever asked it to.
@@ -430,6 +527,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
             </button>
           )}
         </div>
+        {queueFab}
       </div>
     );
   }
@@ -536,6 +634,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
           </button>
         </div>
       )}
+      {queueFab}
     </div>
   );
 }

@@ -96,15 +96,35 @@ const PlayerScreen = forwardRef(function PlayerScreen({
     // the card's own chrome rather than picture — at 58svh the CLIP came out
     // noticeably smaller than a YouTube Short beside it, for the same box.
     : `min(${kind === 'tiktok' ? '68svh' : (vertical ? '58svh' : '62svh')}, var(--truegle-player-cap, 100svh))`;
-  const boxStyle = fill ? undefined : {
+  // WHY VERTICAL AND HORIZONTAL SIZE DIFFERENTLY.
+  //
+  // The old single style set width:auto + maxHeight and trusted the aspect ratio
+  // to narrow the box. On a BLOCK element with no definite height that does not
+  // happen: width:auto fills the container, the ratio then derives the HEIGHT
+  // from that full width, and maxHeight merely clips it — so a 9:21 TikTok in a
+  // wide popped window came out full-width and short, a big letterbox with a
+  // stamp-sized clip floating in it. That is the "TikToks are oversized for the
+  // viewport" report.
+  //
+  // A reel has to be driven by HEIGHT: give the box a definite height (the cap)
+  // and let the ratio compute a NARROW width from it, which margin:auto then
+  // centres — real side bars, the clip as tall as the viewport allows and no
+  // wider than that makes it. A landscape clip is the opposite: driven by width,
+  // capped by height, exactly as before.
+  const boxStyle = fill ? undefined : (vertical ? {
     aspectRatio: ratio,
-    maxHeight: cap,
-    // width:auto lets max-height win and the box shrink sideways rather than
-    // overflow — that's what produces the side bars on a reel.
+    height: cap,
+    maxHeight: '100%',
     width: 'auto',
     maxWidth: '100%',
     margin: '0 auto',
-  };
+  } : {
+    aspectRatio: ratio,
+    maxHeight: cap,
+    width: '100%',
+    maxWidth: '100%',
+    margin: '0 auto',
+  });
 
   return (
     <div ref={ref} data-player-screen className={`relative w-full bg-black ${fill ? 'flex-1 min-h-0' : ''}`}>
