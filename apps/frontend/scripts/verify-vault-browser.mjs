@@ -71,8 +71,15 @@ await page.evaluate(() => {
 });
 await page.waitForTimeout(600);
 
-check(await page.evaluate(() => localStorage.getItem('truegle_vault_v1')) === '1',
-  'arriving at the settlement unlocks the encyclopedia for good');
+// 'full', not '1'. The vault used to store a single flag; it stores a TIER now
+// — 'guide' for finishing a run however it ended, 'full' for reaching the
+// settlement — and '1' survives only as a migration path for browsers that
+// unlocked it under the old scheme. This assertion was left behind by that
+// change and had been failing ever since, which is its own small lesson: a test
+// that is red for a week stops being read.
+check(await page.evaluate(() => localStorage.getItem('truegle_vault_v1')) === 'full',
+  'arriving at the settlement unlocks the FULL encyclopedia, for good',
+  await page.evaluate(() => localStorage.getItem('truegle_vault_v1')) || 'nothing stored');
 
 await page.keyboard.press('v');
 await page.waitForTimeout(1500);
@@ -117,6 +124,44 @@ await link.click();
 await page.waitForTimeout(1200);
 check(await page.locator('input[type="search"]').count() === 1,
   'and one tap reopens it');
+
+// ── 6. losing earns the guide, end to end ──────────────────────────────────
+// REQUESTED: "make the trail game provide the survival guide after ANY game
+// completion win or lose." The tier rules themselves are covered by
+// vaulttier:test, which is pure and cannot see whether the GAME LOOP actually
+// calls into them — and that wiring is one line (`findVault(run.ending ===
+// 'arrive' ? 'full' : 'guide')`) that nothing else watches.
+//
+// A FRESH BROWSER, deliberately. The vault never downgrades, so a losing run
+// checked in the context above would find 'full' already stored and pass
+// without proving anything.
+const loseCtx = await browser.newContext({
+  viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true,
+});
+const lose = await loseCtx.newPage();
+lose.on('pageerror', (e) => errs.push(e.message));
+await lose.goto(`${base}/asdf`, { waitUntil: 'domcontentloaded' });
+await lose.waitForSelector('text=Page Not Found', { timeout: 25000 });
+await lose.click('button[aria-label*="Trail"]');
+await lose.waitForSelector('canvas', { timeout: 25000 });
+await lose.waitForTimeout(5500);   // past the hint timer that used to remount
+await lose.keyboard.press('Enter');
+await lose.waitForTimeout(400);
+await lose.evaluate(() => {
+  const r = document.querySelector('canvas').__trailRun;
+  r.phase = 'over';
+  r.ending = 'thirst';   // dead two hundred miles short
+  r.dist = 300;
+});
+await lose.waitForTimeout(600);
+
+const losingTier = await lose.evaluate(() => localStorage.getItem('truegle_vault_v1'));
+check(losingTier === 'guide',
+  'dying on the trail still earns the guide — the whole point of the change',
+  losingTier || 'nothing stored');
+check(losingTier !== 'full',
+  '…but not the full encyclopedia, which is what arriving is for', String(losingTier));
+await loseCtx.close();
 
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 
