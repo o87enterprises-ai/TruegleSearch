@@ -864,6 +864,14 @@
         "body": "Container was RUNNING and answering; disk was 100% (8GB). Fillers: journalctl 674MB + docker build cache 966MB — now capped (SystemMaxUse=200M in journald.conf; max-size 20m/max-file 3 in /etc/docker/daemon.json). THE TRAP THAT COST AN HOUR: docker pull + docker restart does NOT apply a new image — the container must be rm -f and re-run. Recreate cmd (bind is a host path so settings.yml survives): sudo docker run -d --name searxng --restart unless-stopped -p 127.0.0.1:8888:8080 -v /var/lib/docker/volumes/8872994b85212f0a365c97bfc443a0f9336904a647dcfe7549fdb11e06a6e1d1/_data:/etc/searxng searxng/searxng:latest . Version went 2026.6.20 -> 2026.8.20 and search returned. There is ALREADY a /swap file — check swapon --show before adding one. Full steps in docs/RUNBOOK.md.",
         "ts": "2026-08-21",
         "created": "2026-08-21"
+      },
+      "ec2-port-9090-closed": {
+        "Id": "ec2-port-9090-closed",
+        "Type": "fact",
+        "Label": "Port 9090 (Revive direct) closed in SG",
+        "body": "SG sg-063b58a4ed8289b4e (us-west-2): revoked 9090 0.0.0.0/0 on 2026-08-21. Revive admin now only via https://ads.truegle.info/www/admin/ through Cloudflare->nginx:80->9090. Still open: 80(nginx->Revive), 3001(Morty), 8080(SearXNG raw). 22 locked to 18.237.140.160/29. AWS CLI works locally with $env:AWS_PROFILE='truegle' region us-west-2.",
+        "ts": "2026-08-21",
+        "created": "2026-08-21"
       }
     },
     "decision": {
@@ -2298,6 +2306,15 @@
         "status": "open",
         "ts": "2026-08-20",
         "created": "2026-08-20"
+      },
+      "searxng-behind-cloudflare": {
+        "Id": "searxng-behind-cloudflare",
+        "Type": "thread",
+        "Label": "Front SearXNG w/ Cloudflare, close 8080",
+        "body": "8080 exposes raw unauth SearXNG to internet under our datacenter IP (engine-block risk). Plan in docs/SEARXNG-CLOUDFLARE.md + scripts/searxng-nginx.conf: DNS search.truegle.info(proxied)->nginx:80->127.0.0.1:8888, set SEARXNG_URL=https://search.truegle.info on Vercel, then revoke 8080. Additive/reversible; 8080 stays live until last step.",
+        "status": "open",
+        "ts": "2026-08-21",
+        "created": "2026-08-21"
       }
     }
   },
