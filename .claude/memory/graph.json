@@ -840,6 +840,14 @@
         "body": "Console shows: \"Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.\" This is the Adsterra script inside /adframe.html being refused by the sandbox that AD-POLICY.md requires. It is the sandbox working, NOT a bug. Never add allow-same-origin to silence it. verify-autocomplete-ui.mjs filters this exact message by regex so real errors still fail.",
         "ts": "2026-08-20",
         "created": "2026-08-20"
+      },
+      "obscura-headless-browser": {
+        "Id": "obscura-headless-browser",
+        "Type": "fact",
+        "Label": "Obscura = Rust headless browser (CDP), NOT a Puppeteer agent lib",
+        "body": "github.com/h4ckf0r0day/obscura, ~22k stars, created 2026-04. Drop-in replacement for headless Chrome: `obscura serve --port 9222`, connect via browserWSEndpoint ws://127.0.0.1:9222/devtools/browser. Claims 85ms page load vs Chrome ~500ms, 30MB vs 200MB+, instant startup, 70MB binary, built-in anti-detect. NOT useful for our test suite — our slowness was 120s of waitForTimeout, not Chromium startup, and anti-detect is worthless against our own localhost dev server. WOULD be relevant for server-side page fetching on the 1GB EC2 box (30MB vs 200MB matters there). Caveat: anti-detect is the same category as routing around Reddit IP blocks, which we declined.",
+        "ts": "2026-08-21",
+        "created": "2026-08-21"
       }
     },
     "decision": {
@@ -1896,6 +1904,14 @@
         "Type": "decision",
         "Label": "Locked player: gestures + a dimmer that is NOT the backlight",
         "body": "useLockedGestures.js. Web cannot touch device brightness (no API, by design) so \"brightness 0\" is a black scrim at opacity 1 over the player — screen looks off, audio plays, gestures still work. Only saves battery on OLED. Gesture set: two quick taps = play/pause; press-hold-then-slide (no tap first) = dimmer; two taps THEN hold = command, by third: left=prev, middle=voice (host passes onVoiceSearch, absent = no-op), right=next; shake = shuffle (devicemotion, only while locked, first sample skipped or it fires on lock). The only ambiguity is two kinds of hold, resolved by tap count before it. Nothing fires on a single tap — that is what a pocket produces. Dim is cleared when the lock lifts or it would be a dead black screen. 21 tests, mostly must-NOT-fire cases.",
+        "ts": "2026-08-21",
+        "created": "2026-08-21"
+      },
+      "browser-test-waits": {
+        "Id": "browser-test-waits",
+        "Type": "decision",
+        "Label": "Browser suites: wait for the thing, never sleep",
+        "body": "scripts/lib/browser.mjs exports openApp(page,url,{ready}) + until(fn,{what,timeout}) + testContext(browser,opts). openApp waits for real render (domcontentloaded fires long before React mounts) AND zeroes all animation/transition durations — Framer Motion mid-flight is why sleeps felt needed. THE RULE: wait for what the ASSERTION reads, not something earlier in the chain; both regressions found while converting were exactly that (waited for the request, assertion read the rendered panel). Only honest sleep is asserting a NEGATIVE. feedpage 117s->82s (13 sleeps->1), mapui 71s->48s (16->12), both stable over repeated runs. Pattern documented in scripts/lib/README.md. Still on sleeps: vault-browser, trail-browser, trail-page, chat-map, camera-view, autocomplete-ui.",
         "ts": "2026-08-21",
         "created": "2026-08-21"
       }

@@ -17,7 +17,7 @@
  * Run it:  npm run feedpage:test
  */
 import { createServer } from 'vite';
-import { launchChromium } from './lib/browser.mjs';
+import { launchChromium, openApp, until, testContext } from './lib/browser.mjs';
 
 const ok = []; const bad = [];
 const check = (c, l, e = '') => (c ? ok : bad).push(`${c ? 'PASS' : 'FAIL'} ${l}${e ? ` — ${e}` : ''}`);
@@ -41,7 +41,7 @@ let failExchange = false;
 let feedUpstreamFails = false;
 
 async function makeContext(opts = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, ...opts });
+  const ctx = await testContext(browser, opts);
   await ctx.route('**/api/**', async (route) => {
     const req = route.request();
     const url = new URL(req.url());
@@ -128,12 +128,10 @@ const geometry = async (p) => p.evaluate(() => {
   };
 });
 
-await page.goto(`${BASE}/search`, { waitUntil: 'domcontentloaded' });
-await page.waitForTimeout(4000);
+await openApp(page, `${BASE}/search`);
 const searchGeo = await geometry(page);
 
-await page.goto(`${BASE}/feed`, { waitUntil: 'domcontentloaded' });
-await page.waitForTimeout(4000);
+await openApp(page, `${BASE}/feed`);
 const feedGeo = await geometry(page);
 
 check(!!searchGeo.outer && !!feedGeo.outer, 'both pages render the outer rail',
@@ -191,7 +189,10 @@ await page.click('[data-provider="github"]');
 // is by definition never visible and the default state waits forever on an
 // element that is already there and already correct.
 await page.waitForSelector('[data-feed-state="connected"]', { state: 'attached', timeout: 20000 });
-await page.waitForTimeout(1500);
+// Wait for the feed request the connection triggers, not for a guess at how
+// long it takes to arrive.
+await until(() => calls.some((c) => c.path === '/api/social/feed'), { what: 'the first feed request' });
+await until(() => page.locator('text=Popular post 1-0').count().then((n) => n > 0), { what: 'the first page of posts' });
 
 check(!calls.some((c) => c.path.includes('/social-auth/')),
   'a public source needs no handshake at all', calls.map((c) => c.path).join(' '));
@@ -216,7 +217,10 @@ check(await page.locator('text=Popular right now').count() > 0,
 // does not fill the screen has to keep going — and it is the same code path a
 // real scroll takes, so this asserts on the requests themselves.
 await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-await page.waitForTimeout(2500);
+await until(() => calls.filter((c) => c.path === '/api/social/feed').length > 1,
+  { what: 'a second page to be requested' });
+await until(() => page.locator('text=Popular post 2-0').count().then((n) => n > 0),
+  { what: 'the second page to append' });
 const more = calls.filter((c) => c.path === '/api/social/feed');
 check(more.length > 1, 'a feed shorter than the screen keeps paging on its own', `${more.length} requests`);
 check(more.some((c) => c.body?.cursor?.github === 'gh_next'),
@@ -233,7 +237,11 @@ check(await page.locator('text=Popular post 1-0').count() > 0, '…without repla
 // The stub says page two is the last. The feed must stop rather than spin.
 calls.length = 0;
 await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-await page.waitForTimeout(2000);
+// THE ONE HONEST SLEEP. This asserts a request does NOT happen, and there is no
+// event for "nothing is going to arrive" — the only way to test a negative is to
+// give it long enough to have arrived and then look. Kept short and kept
+// explained, so it does not get copied as the house style.
+await page.waitForTimeout(1200);
 check(calls.filter((c) => c.path === '/api/social/feed').length === 0,
   'an exhausted feed stops asking instead of spinning on a dead cursor');
 
@@ -241,7 +249,8 @@ check(calls.filter((c) => c.path === '/api/social/feed').length === 0,
 calls.length = 0;
 await page.fill('textarea', 'raspberry pi');
 await page.keyboard.press('Enter');
-await page.waitForTimeout(2500);
+await until(() => calls.some((c) => c.path === '/api/social/feed' && c.body?.query === 'raspberry pi'),
+  { what: 'the typed query to reach the feed' });
 const searched = calls.filter((c) => c.path === '/api/social/feed');
 check(searched.length > 0, 'typing searches the feed', `${searched.length} requests`);
 check(searched[0]?.body?.query === 'raspberry pi', '…for what was typed', searched[0]?.body?.query);
@@ -265,7 +274,8 @@ calls.length = 0;
 // not-yet-added ones. Hacker News is the second source here because GitHub is
 // already on from §3 — adding a source must not replace the one before it.
 await page.click('[data-provider="hackernews"]');
-await page.waitForTimeout(2000);
+await until(() => calls.some((c) => (c.body?.platforms || []).includes('hackernews')),
+  { what: 'Hacker News to reach the feed request' });
 check(!calls.some((c) => c.path.includes('/social-auth/hackernews')),
   'switching on a public source involves no handshake',
   calls.map((c) => c.path).join(' '));
@@ -284,7 +294,7 @@ check(withHn.every((c) => (c.body.platforms || []).includes('github')),
 const pillText = () => page.locator('.relative.z-20 button').first().innerText();
 const before = await pillText();
 await page.locator('.relative.z-20 button').first().click();
-await page.waitForTimeout(400);
+await until(async () => (await pillText()).trim() !== before.trim(), { what: 'the pill to advance' });
 check(new URL(page.url()).pathname === '/feed',
   'clicking the mode pill stays on the feed instead of navigating away', page.url());
 check((await pillText()).trim() !== before.trim(),
@@ -294,18 +304,16 @@ check((await pillText()).trim() !== before.trim(),
 // Submitting is what carries the query to the mode now selected.
 await page.fill('textarea', 'hello');
 await page.keyboard.press('Enter');
-await page.waitForTimeout(800);
+await until(() => new URL(page.url()).pathname !== '/feed', { what: 'the submit to navigate' });
 check(new URL(page.url()).pathname !== '/feed',
   'submitting on a cycled pill is what leaves the page', page.url());
-await page.goto(`${BASE}/feed`, { waitUntil: 'domcontentloaded' });
-await page.waitForTimeout(3000);
+await openApp(page, `${BASE}/feed`);
 
 // ── 7. a fresh browser is back to the arrival state ─────────────────────────
 const ctx2 = await makeContext();
 const clean = await ctx2.newPage();
 clean.on('pageerror', (e) => errs.push(e.message));
-await clean.goto(`${BASE}/feed`, { waitUntil: 'domcontentloaded' });
-await clean.waitForTimeout(3500);
+await openApp(clean, `${BASE}/feed`);
 check(await clean.locator('text=Your feeds, in one place').count() > 0,
   'a browser that has connected nothing sees the sign-in state');
 check(await clean.evaluate(() => performance.getEntriesByType('resource').filter((r) => /social\/feed/.test(r.name)).length) === 0,
@@ -327,7 +335,8 @@ const sad = await ctx3.newPage();
 sad.on('pageerror', (e) => errs.push(e.message));
 await sad.goto(`${BASE}/feed/callback?provider=reddit&code=demo_x&state=st_1`, { waitUntil: 'domcontentloaded' });
 await sad.waitForSelector('[data-feed-state]', { state: 'attached', timeout: 20000 });
-await sad.waitForTimeout(1500);
+await until(() => sad.locator('text=Reddit turned that down.').count().then((n) => n > 0),
+  { what: 'the refusal to be shown' });
 
 check(new URL(sad.url()).pathname === '/feed', 'a refused handshake still lands on /feed', sad.url());
 check(await sad.locator('text=Reddit turned that down.').count() > 0,
@@ -352,13 +361,18 @@ await errPage.addInitScript(() => {
     { provider: 'github', handle: null, connectedAt: new Date().toISOString() },
   ]));
 });
-await errPage.goto(`${BASE}/feed`, { waitUntil: 'domcontentloaded' });
-await errPage.waitForTimeout(4000);
+await openApp(errPage, `${BASE}/feed`);
 
-const reported = await errPage.evaluate(() => {
+// Wait for the PANEL, not for the page. openApp returns as soon as the app has
+// rendered, which is well before the seeded connection's feed request has gone
+// out and come back — so reading this straight away caught an empty document
+// about one run in three. The old four-second sleep hid that by being longer
+// than the round trip, which is exactly the kind of thing a fixed sleep hides
+// until the day it does not.
+const reported = await until(async () => errPage.evaluate(() => {
   const box = document.querySelector('[data-feed-upstream-errors]');
   return box ? box.innerText.replace(/\s+/g, ' ').trim() : null;
-});
+}), { what: 'the upstream error panel' }).catch(() => null);
 check(!!reported, 'a refused upstream is reported on the page, not swallowed');
 // `GitHub`, not `Github`. The panel used to `capitalize` the raw platform id,
 // which produced "Github" and "Hackernews" — machine-generated-looking, and

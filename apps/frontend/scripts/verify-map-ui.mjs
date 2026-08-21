@@ -36,7 +36,7 @@
  * Run it:  npm run mapui:test
  */
 import { createServer } from 'vite';
-import { launchChromium } from './lib/browser.mjs';
+import { launchChromium, openApp, until } from './lib/browser.mjs';
 
 const ok = []; const bad = [];
 const check = (c, l, e = '') => (c ? ok : bad).push(`${c ? 'PASS' : 'FAIL'} ${l}${e ? ` — ${e}` : ''}`);
@@ -124,8 +124,13 @@ const watchErrors = (p) => p.on('pageerror', (e) => { if (!notOurs(e)) errs.push
 const page = await ctx.newPage();
 watchErrors(page);
 
-await page.goto(`${BASE}/search?q=coffee+near+me`, { waitUntil: 'domcontentloaded' });
-await page.waitForTimeout(7000);
+// Wait for the CATEGORY ROW, which is what the next lines actually use. The
+// seven-second sleep this replaces was a guess at how long a cold search page
+// takes to boot and get results back — long enough to be safe on a bad day,
+// which meant paying for a bad day on every good one.
+await openApp(page, `${BASE}/search?q=coffee+near+me`);
+await until(() => page.locator('button', { hasText: /^\s*Maps\s*$/ }).count().then((n) => n > 0),
+  { what: 'the Maps category button' });
 
 const keep = page.locator('button', { hasText: /No, keep Smart/i });
 if (await keep.count()) { await keep.first().click(); await page.waitForTimeout(1000); }
@@ -135,7 +140,12 @@ const category = page.locator('button', { hasText: /^\s*Maps\s*$/ }).first();
 await category.click();
 await page.waitForTimeout(1200);
 await page.locator('button', { hasText: /map/i }).last().click();
-await page.waitForTimeout(9000);
+// The map container is what the very next line asserts on, so wait for that
+// rather than for nine seconds. A WebGL map on a slow machine could genuinely
+// exceed nine seconds too — this is both faster in the normal case and more
+// reliable in the bad one.
+await until(() => page.locator('#truegle-map-container').count().then((n) => n === 1),
+  { what: 'the map container', timeout: 25000 });
 
 const container = page.locator('#truegle-map-container');
 check(await container.count() === 1, 'the map opens');
@@ -364,7 +374,17 @@ check(!geocoded.some((q) => /^\s*me\s*$/i.test(q || '')),
 // place called "coffee near me" for a geocoder to resolve.
 const searchBar = page.locator('#truegle-map-container input').first();
 await searchBar.fill('coffee near me');
-await page.waitForTimeout(2500);
+// Wait for the SUGGESTION, not merely for the request that fetches it. The
+// assertion below reads rendered text, and the request landing is two steps
+// short of that — the response still has to come back and the list still has to
+// draw. Waiting for the earlier signal is how a sleep-free test becomes a
+// flaky one.
+await until(() => calls.some((c) => /\/maps\/places/.test(c.path)),
+  { what: 'the places lookup the typed query triggers' });
+await until(() => page.evaluate(() => {
+  const box = document.querySelector('#truegle-map-container');
+  return !!box && [...box.querySelectorAll('button')].some((b) => /Blue Bottle/i.test(b.innerText));
+}), { what: 'the place suggestion to render' }).catch(() => { /* asserted below */ });
 const nearMeAsks = calls.filter((c) => /\/maps\/places/.test(c.path))
   .map((c) => c.body?.options?.query ?? '(none)');
 check(nearMeAsks.some((q) => /^coffee$/i.test(q)),
@@ -452,8 +472,9 @@ await ctx2.addInitScript(() => {
 });
 const page2 = await ctx2.newPage();
 watchErrors(page2);
-await page2.goto(`${BASE}/search?q=coffee+near+me`, { waitUntil: 'domcontentloaded' });
-await page2.waitForTimeout(7000);
+await openApp(page2, `${BASE}/search?q=coffee+near+me`);
+await until(() => page2.locator('button', { hasText: /^\s*Maps\s*$/ }).count().then((n) => n > 0),
+  { what: 'the Maps category button' });
 const keep2 = page2.locator('button', { hasText: /No, keep Smart/i });
 if (await keep2.count()) { await keep2.first().click(); await page2.waitForTimeout(1000); }
 const category2 = page2.locator('button', { hasText: /^\s*Maps\s*$/ }).first();
