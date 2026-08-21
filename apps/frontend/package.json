@@ -43,7 +43,8 @@
     "playerengine:test": "esbuild scripts/verify-player-engine.mjs --bundle --format=esm --platform=node --outfile=dev/.build/player-engine-test.mjs --external:react --external:esbuild --log-level=error && node dev/.build/player-engine-test.mjs",
     "autocomplete:test": "node scripts/verify-autocomplete.mjs",
     "autocompleteui:test": "node scripts/verify-autocomplete-ui.mjs",
-    "overlayreveal:test": "esbuild scripts/verify-overlay-reveal.mjs --bundle --format=esm --platform=node --alias:react=./scripts/stubs/react.mjs --outfile=dev/.build/overlay-reveal-test.mjs --log-level=error && node dev/.build/overlay-reveal-test.mjs"
+    "overlayreveal:test": "esbuild scripts/verify-overlay-reveal.mjs --bundle --format=esm --platform=node --alias:react=./scripts/stubs/react.mjs --outfile=dev/.build/overlay-reveal-test.mjs --log-level=error && node dev/.build/overlay-reveal-test.mjs",
+    "aierror:test": "node scripts/verify-ai-error.mjs"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.16.2",

@@ -18,6 +18,7 @@ import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import { canPreview, opensOnLabel } from '../utils/embeddable';
 import ChatLocationMap from '../components/chat/ChatLocationMap';
 import { fmtStamp, fmtStampFull, msgTime } from '../utils/formatTime';
+import { aiErrorMessage } from '../utils/aiError';
 import QueueButton from '../components/ui/QueueButton';
 import ChatShareButton from '../components/ui/ChatShareButton';
 import SponsoredAd from '../components/ads/SponsoredAd';
@@ -572,7 +573,12 @@ export default function TruegleChat() {
           content = extractContent(chatRes);
         } catch (e) {
           if (isAbortError(e)) aborted = true;
-          else content = "Sorry, I couldn't reach the AI just now — try again in a moment.";
+          // SAY WHICH FAILURE IT WAS. This used to be one sentence for every
+          // one of them, which sent people off to "try again in a moment" when
+          // the real answer was "that image is too large" or "you are offline".
+          // It also gets saved into a shared thread, so an unexplained failure
+          // becomes a permanent link with nothing in it to act on.
+          else content = aiErrorMessage(e);
         }
       }
     }
