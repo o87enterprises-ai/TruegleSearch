@@ -856,6 +856,14 @@
         "body": "When SearXNG is down you still get a full result count — but every card is a video or news provider (dailymotion, bing videos, News API) and there are no ordinary web pages. SEARXNG_PRIMARY=true means SearXNG is the web tier; the others carry on without it, so an outage reads as \"bad/irrelevant results\" rather than as an outage. Seen 3x (2026-08-19, 2026-08-21). Recovery steps in docs/RUNBOOK.md. Verify with: curl http://localhost:8888/search?q=test&format=json ON THE BOX, or POST api.truegle.info/api/search with X-Truegle-Client header from outside.",
         "ts": "2026-08-21",
         "created": "2026-08-21"
+      },
+      "searxng-outage-2026-08-21": {
+        "Id": "searxng-outage-2026-08-21",
+        "Type": "fact",
+        "Label": "SearXNG outage 2026-08-21: disk full + stale image, NOT a crash",
+        "body": "Container was RUNNING and answering; disk was 100% (8GB). Fillers: journalctl 674MB + docker build cache 966MB — now capped (SystemMaxUse=200M in journald.conf; max-size 20m/max-file 3 in /etc/docker/daemon.json). THE TRAP THAT COST AN HOUR: docker pull + docker restart does NOT apply a new image — the container must be rm -f and re-run. Recreate cmd (bind is a host path so settings.yml survives): sudo docker run -d --name searxng --restart unless-stopped -p 127.0.0.1:8888:8080 -v /var/lib/docker/volumes/8872994b85212f0a365c97bfc443a0f9336904a647dcfe7549fdb11e06a6e1d1/_data:/etc/searxng searxng/searxng:latest . Version went 2026.6.20 -> 2026.8.20 and search returned. There is ALREADY a /swap file — check swapon --show before adding one. Full steps in docs/RUNBOOK.md.",
+        "ts": "2026-08-21",
+        "created": "2026-08-21"
       }
     },
     "decision": {

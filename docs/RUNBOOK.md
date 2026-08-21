@@ -17,13 +17,87 @@ SearXNG is primary for web search, so when it is down the web tier vanishes
 while everything else carries on. A count like "About 102 results" with nothing
 but videos in it *is* this fault, not a relevance problem.
 
-This has now happened three times. The causes so far, in order of likelihood:
+This has happened three times. **The first two guesses in this section were
+wrong both times**, so the order below is what has actually occurred, not what
+sounds likely:
 
-1. **The container stopped or is crash-looping.** Usually a `settings.yml` it
-   cannot parse — the file is only re-read on restart, so a bad edit can sit
-   harmlessly for weeks and then take the box down at the next reboot.
-2. **The instance failed its reachability check.** Cleared by a reboot.
-3. **Out of memory.** t3.micro is 1 GB. There should be a 1 GB swapfile.
+1. **The disk is full** (2026-08-21). The container was running, the port was
+   open, and SearXNG answered — it just could not do its job. `df -h /` said
+   100%. The culprits were `journalctl` at 674 MB and Docker build cache at
+   966 MB, neither of which anything was capping. Symptoms are strange and
+   varied because nothing can write.
+2. **A stale image with broken engine parsers.** Search engines change their
+   HTML and JSON without warning, and a SearXNG build from two months ago simply
+   cannot read them any more — `brave.py … ValueError: substring not found` is
+   what that looks like. `docker pull` alone does NOT fix it; see the trap
+   below.
+3. **The engines are refusing us**, which is not a fault at all — see
+   "The engines are blocked" further down.
+4. **A `settings.yml` it cannot parse** (2026-08-19). The file is only re-read on
+   restart, so a bad edit can lie dormant for weeks and surface at the next
+   reboot. The known one is `result_proxy.key`, whose base64 must be one
+   unbroken line.
+5. **The instance failed its reachability check.** Cleared by a reboot.
+
+### ⚠️ The trap: `docker restart` does not apply a pulled image
+
+This cost an hour. `docker pull searxng/searxng:latest` fetches the new image and
+changes nothing — the running container is still built from the old one, and
+`docker restart` restarts *that*. The container has to be REPLACED:
+
+```sh
+sudo docker rm -f searxng
+sudo docker run -d --name searxng --restart unless-stopped -p 127.0.0.1:8888:8080 -v /var/lib/docker/volumes/8872994b85212f0a365c97bfc443a0f9336904a647dcfe7549fdb11e06a6e1d1/_data:/etc/searxng searxng/searxng:latest
+```
+
+`settings.yml` is a bind mount to a host path, so `rm -f` cannot touch it. Prove
+the new build is running rather than assuming:
+
+```sh
+sudo docker inspect searxng --format '{{range .Config.Env}}{{println .}}{{end}}' | grep VERSION
+```
+
+### Freeing the disk
+
+**Never `docker system prune --volumes`.** It is the obvious next command and it
+deletes the volume holding `settings.yml` and the `result_proxy` key. Without
+`--volumes` is safe.
+
+```sh
+df -h /
+sudo docker system df
+sudo journalctl --disk-usage
+sudo journalctl --vacuum-size=100M        # freed 674 MB
+sudo docker builder prune -af             # freed 966 MB
+sudo docker image prune -af
+sudo sh -c 'truncate -s 0 /var/lib/docker/containers/*/*-json.log'
+```
+
+Both fillers are now capped, so this should not recur: `SystemMaxUse=200M` in
+`/etc/systemd/journald.conf`, and `max-size 20m` / `max-file 3` in
+`/etc/docker/daemon.json`.
+
+**Note there is already a `/swap` file.** Adding a second one wastes a gigabyte
+of an 8 GB disk. Check `swapon --show` before creating anything.
+
+### The engines are blocked (not a fault)
+
+`duckduckgo: CAPTCHA`, `SearxEngineAccessDeniedException: HTTP error 403` —
+these are engines refusing an AWS datacenter IP. SearXNG has **no index of its
+own**; it forwards queries to other engines and merges the answers. Self-hosting
+removed the bill, not the dependency.
+
+Getting past a CAPTCHA by rotating IPs or spoofing fingerprints is the same
+category as routing around Reddit's block, which we declined. What is legitimate
+is choosing engines that permit datacenter traffic — Mojeek and Marginalia run
+their own crawlers, Wikipedia is always fine — and dropping the ones that
+reliably refuse, so a query stops being spent on engines that will never answer.
+
+See which engines actually answered:
+
+```sh
+curl -s 'http://localhost:8888/search?q=test&format=json' | python3 -c "import sys,json; d=json.load(sys.stdin); print('results', len(d.get('results',[]))); print('engines', sorted({r.get('engine') for r in d.get('results',[])})); print('unresponsive', d.get('unresponsive_engines'))"
+```
 
 ### Getting on the box
 
