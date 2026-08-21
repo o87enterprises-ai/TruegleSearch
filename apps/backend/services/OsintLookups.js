@@ -164,6 +164,75 @@ async function githubByEmail(email) {
 }
 
 /**
+ * "Which services is this email on?" — the free, lawful answer.
+ *
+ * A faithful holehe walks ~120 sites' password-reset/registration endpoints to
+ * infer whether an address is registered. That is fragile (every one of those
+ * forms changes), it is exactly the kind of automated account-enumeration that
+ * trips a site's abuse defences from a datacenter IP, and much of it is against
+ * those sites' terms — so we do NOT do it. What we do instead is compose the
+ * three signals a server can ask for cleanly and lawfully, each labelled by how
+ * strong it is:
+ *   · Gravatar profile + the accounts its OWNER chose to link there — the
+ *     highest-confidence signal, because the person published it themselves.
+ *   · GitHub's public commit-email index — an address on a public commit
+ *     resolves straight to the account (confirmed).
+ *   · The email's LOCAL-PART treated as a username, checked across the
+ *     platforms that answer a clean 200/404 — labelled CANDIDATE, because
+ *     "jane" in jane@gmail.com being a real handle somewhere is a guess, not a
+ *     fact about this address.
+ * Everything settles independently so one rate-limit can't empty the list.
+ */
+async function emailAccounts(email) {
+  if (!RE.email.test(email)) return { ok: false, error: 'invalid email' };
+  const localPart = String(email).split('@')[0].toLowerCase();
+  const [grav, gh, handles] = await Promise.all([
+    gravatarProfile(email),
+    githubByEmail(email),
+    RE.username.test(localPart) ? usernameCheck(localPart) : Promise.resolve(null),
+  ]);
+
+  const services = [];
+  const seen = new Set();
+  const push = (service, url, status, via) => {
+    if (!url || !service) return;
+    const key = `${String(service).toLowerCase()}|${url}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    services.push({ service, url, status, via });
+  };
+
+  if (grav?.found) {
+    push('Gravatar', grav.profileUrl, 'confirmed', 'Gravatar profile for this address');
+    (grav.accounts || []).forEach((a) => push(a.platform || 'Linked account', a.url, 'confirmed', 'linked on the Gravatar profile'));
+    (grav.urls || []).forEach((u) => push('Website', u, 'confirmed', 'listed on the Gravatar profile'));
+  }
+  (gh?.users || []).forEach((u) => push('GitHub', u.profile, 'confirmed', 'public commit email'));
+  (handles?.results || []).forEach((r) => {
+    if (r.found === true && r.profile) push(r.platform, r.profile, 'candidate', 'email local-part as a username');
+  });
+
+  return {
+    ok: true,
+    email: String(email).toLowerCase(),
+    localPart,
+    derivedUsername: localPart,
+    services,
+    counts: {
+      confirmed: services.filter((s) => s.status === 'confirmed').length,
+      candidate: services.filter((s) => s.status === 'candidate').length,
+    },
+    // So the UI can be honest about a partial answer rather than implying a
+    // clean "no accounts found" when a source was simply unreachable.
+    sources: {
+      gravatar: grav?.ok !== false,
+      github: gh?.ok !== false,
+      usernameDerivation: !!handles,
+    },
+  };
+}
+
+/**
  * Normalise whatever the user typed into something libphonenumber can parse.
  *
  * THE BUG THIS FIXES: this was called with no `country`, and libphonenumber
@@ -380,6 +449,7 @@ module.exports = {
   dns,
   ipGeo,
   emailIntel,
+  emailAccounts,
   gravatarProfile,
   githubByEmail,
   phoneIntel,

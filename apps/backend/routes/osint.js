@@ -412,6 +412,21 @@ router.get('/email-intel', async (req, res) => {
       logger.warn('email-intel gravatar check failed:', e.message);
     }
 
+    // WHICH SERVICES THIS ADDRESS IS ON — the free, lawful holehe-style answer,
+    // composed from Gravatar's owner-linked accounts, GitHub's commit-email
+    // index, and the local-part checked as a username (see
+    // OsintLookups.emailAccounts for why it is these three and not a fragile
+    // 120-site password-reset sweep). Non-fatal: a slow or rate-limited source
+    // must not empty the deliverability answer above.
+    let accounts = [];
+    let derivedUsername = null;
+    try {
+      const acc = await OsintLookups.emailAccounts(email);
+      if (acc.ok) { accounts = acc.services; derivedUsername = acc.derivedUsername; }
+    } catch (e) {
+      logger.warn('email-intel accounts lookup failed:', e.message);
+    }
+
     res.json({
       success: true,
       data: {
@@ -426,6 +441,9 @@ router.get('/email-intel', async (req, res) => {
         mxRecords,
         gravatarExists,
         gravatarUrl: gravatarExists ? `${gravatarUrl}?s=200` : null,
+        // Web services the address is confirmed on or a candidate for.
+        accounts,
+        derivedUsername,
       },
     });
   } catch (error) {

@@ -941,6 +941,39 @@ function EmailResult({ data }) {
           <a href={data.gravatarUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><ExternalLink size={12} /> View Gravatar</a>
         </div>
       )}
+
+      {/* WEB SERVICES THIS ADDRESS IS ON. CONFIRMED = the owner published it
+          (Gravatar) or it is on a public commit (GitHub). CANDIDATE = the part
+          before the @ is a real handle somewhere, which is a lead, not a fact
+          about this address — labelled so nobody treats a guess as proof. */}
+      {Array.isArray(data.accounts) && data.accounts.length > 0 && (
+        <div className="mt-4">
+          <div className="text-[11px] uppercase tracking-wide text-cyan-300/50 mb-1.5">
+            Web services · {data.accounts.length}
+            {data.derivedUsername ? ` · handle “${data.derivedUsername}”` : ''}
+          </div>
+          <div className="space-y-1.5">
+            {data.accounts.map((a, i) => (
+              <div key={`${a.service}-${i}`} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10">
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-sm text-white/90 truncate">{a.service}</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      a.status === 'confirmed' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+                    }`}>
+                      {a.status === 'confirmed' ? 'CONFIRMED' : 'CANDIDATE'}
+                    </span>
+                  </span>
+                  {a.via && <span className="block text-[11px] text-white/30 truncate">{a.via}</span>}
+                </span>
+                <a href={a.url} target="_blank" rel="noopener noreferrer" title="Open" className="text-white/40 hover:text-white flex-shrink-0">
+                  <ExternalLink size={13} />
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
