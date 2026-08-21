@@ -879,6 +879,23 @@
         "Label": "search.truegle.info 522: CF SSL mode is Full, origin :443 closed",
         "body": "Fronting SearXNG hit a wall: DNS search.truegle.info is live (proxied, resolves to CF 104.21.26.192/172.67.138.150) and nginx origin answers on :80, BUT https://search.truegle.info returns 522. Cause: Cloudflare zone SSL/TLS mode is FULL (not Flexible) => CF connects to origin on :443, which is CLOSED (only :80 open) => 522. ads.truegle.info works (returns 404 via CF) because it has an override forcing HTTP:80 that search lacks. FIX (pick one, none done yet): (1) CF Origin Rule for search.truegle.info -> HTTP port 80, mirroring ads [recommended, surgical]; (2) zone SSL -> Flexible [zone-wide, risky for main site]; (3) real TLS on origin :443 + open 443 in SG. Cloudflare claude.ai connector would not authenticate (browser cancels). NOTHING production changed: 8080 still open, SEARXNG_URL still http://44.236.219.63:8080, search WORKING. Resume: apply fix #1 then re-verify + close 8080.",
         "ts": "2026-08-21",
+        "created": "2026-08-21",
+        "status": "done"
+      },
+      "searxng-cf-live": {
+        "Id": "searxng-cf-live",
+        "Type": "fact",
+        "Label": "SearXNG fronted by Cloudflare; port 8080 locked to CF IPs",
+        "body": "search.truegle.info -> Cloudflare (Configuration Rule SSL=flexible per-host; Origin Rule routes origin port->8080) -> 44.236.219.63:8080 (SearXNG). Vercel backend SEARXNG_URL=https://search.truegle.info (redeployed, aliased api.truegle.info). AWS SG sg-063b58a4ed8289b4e tcp/8080 now allows only the 15 Cloudflare IPv4 CIDRs; 0.0.0.0/0 revoked 2026-08-21. Raw IP:8080 from public internet now times out; production search still returns source:searxng. Did NOT use the nginx search vhost (never loaded on box; needs Instance Connect). Full detail: docs/SEARXNG-CLOUDFLARE.md.",
+        "ts": "2026-08-21",
+        "created": "2026-08-21"
+      },
+      "cf-api-token-exists": {
+        "Id": "cf-api-token-exists",
+        "Type": "fact",
+        "Label": "A Cloudflare API token now exists (account-owned, truegle.info) usable from CLI",
+        "body": "Account ID 1052be08b0c9382768667a9254936f9c, zone truegle.info id af7726b91a5aa5f1fde4b03481cfcd2f. Token is OVER-permissioned (full zone control) and has NO expiration - should be rotated down to least-privilege (Zone Settings + DNS) or deleted when not needed. Token value was shown in chat 2026-08-21 (screenshot) so treat as exposed. Not stored in repo. Verify endpoint /user/tokens/verify rejects it (needs user scope) but zone calls work.",
+        "ts": "2026-08-21",
         "created": "2026-08-21"
       },
       "radar-enrichment-bug": {
@@ -2344,7 +2361,7 @@
         "Type": "thread",
         "Label": "Front SearXNG w/ Cloudflare, close 8080",
         "body": "8080 exposes raw unauth SearXNG to internet under our datacenter IP (engine-block risk). Plan in docs/SEARXNG-CLOUDFLARE.md + scripts/searxng-nginx.conf: DNS search.truegle.info(proxied)->nginx:80->127.0.0.1:8888, set SEARXNG_URL=https://search.truegle.info on Vercel, then revoke 8080. Additive/reversible; 8080 stays live until last step.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-08-21",
         "created": "2026-08-21"
       }
