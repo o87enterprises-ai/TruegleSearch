@@ -872,6 +872,14 @@
         "body": "SG sg-063b58a4ed8289b4e (us-west-2): revoked 9090 0.0.0.0/0 on 2026-08-21. Revive admin now only via https://ads.truegle.info/www/admin/ through Cloudflare->nginx:80->9090. Still open: 80(nginx->Revive), 3001(Morty), 8080(SearXNG raw). 22 locked to 18.237.140.160/29. AWS CLI works locally with $env:AWS_PROFILE='truegle' region us-west-2.",
         "ts": "2026-08-21",
         "created": "2026-08-21"
+      },
+      "searxng-cf-522-ssl-full": {
+        "Id": "searxng-cf-522-ssl-full",
+        "Type": "fact",
+        "Label": "search.truegle.info 522: CF SSL mode is Full, origin :443 closed",
+        "body": "Fronting SearXNG hit a wall: DNS search.truegle.info is live (proxied, resolves to CF 104.21.26.192/172.67.138.150) and nginx origin answers on :80, BUT https://search.truegle.info returns 522. Cause: Cloudflare zone SSL/TLS mode is FULL (not Flexible) => CF connects to origin on :443, which is CLOSED (only :80 open) => 522. ads.truegle.info works (returns 404 via CF) because it has an override forcing HTTP:80 that search lacks. FIX (pick one, none done yet): (1) CF Origin Rule for search.truegle.info -> HTTP port 80, mirroring ads [recommended, surgical]; (2) zone SSL -> Flexible [zone-wide, risky for main site]; (3) real TLS on origin :443 + open 443 in SG. Cloudflare claude.ai connector would not authenticate (browser cancels). NOTHING production changed: 8080 still open, SEARXNG_URL still http://44.236.219.63:8080, search WORKING. Resume: apply fix #1 then re-verify + close 8080.",
+        "ts": "2026-08-21",
+        "created": "2026-08-21"
       }
     },
     "decision": {
