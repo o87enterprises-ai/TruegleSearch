@@ -66,6 +66,11 @@ export default function TrueglePlayer({
   const mediaRef = useRef(null);
   const frameRef = useRef(null);
   const rootRef = useRef(null);
+  // The picture box, and the two counters a wheel-to-advance needs — see the
+  // wheel effect below for why a mouse gets its own path.
+  const screenWrapRef = useRef(null);
+  const wheelAccum = useRef(0);
+  const wheelLockUntil = useRef(0);
   const [listOpen, setListOpen] = useState(false);
   // ONE search per query, shared by the list below and the browse deck in the
   // viewport. It used to live inside PlayerListSlot; with two consumers that
@@ -181,6 +186,48 @@ export default function TrueglePlayer({
     const nextUp = await upNext.pick(current);
     if (nextUp) play(nextUp); else skipNext();
   }, [followFeed, feedNext, followQueue, current, upNext, play, skipNext]);
+
+  // ── SCROLL TO THE NEXT ONE, ON A DESKTOP ──────────────────────────────────
+  //
+  // useSwipeNav is the phone gesture: TOUCH events on a full-screen sheet, plus
+  // the arrow keys. A mouse WHEEL was never wired anywhere, so "scroll to the
+  // next video" did nothing at all on a desktop — the reported bug. A wheel is
+  // not a touch and can't be faked into one, so it gets its own listener here.
+  //
+  // Only over the picture, and only where the player IS the surface (full
+  // screen, the popped-out window, or the Tube page). Trapping the wheel over a
+  // small docked player buried in a scrollable results page would hijack the
+  // page scroll, so there it stays a normal scroll and Next is the button.
+  //
+  // Native (non-passive) listener because React's onWheel is passive — a
+  // passive handler cannot preventDefault, and without that the page scrolls
+  // underneath the video swap.
+  const wheelNav = !!current && !locked
+    && (fullscreen || presentation === 'popped' || pageMode === 'tube')
+    && !(hideScreen && !fullscreen);
+  useEffect(() => {
+    const el = screenWrapRef.current;
+    if (!el || !wheelNav) return undefined;
+    const onWheel = (e) => {
+      // Leave horizontal scrolling and pinch-zoom (ctrl+wheel) to the browser.
+      if (e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      const now = Date.now();
+      // One video per gesture: a trackpad fires a long tail of wheel events for
+      // a single flick, and without a cooldown that flick would skip ten deep.
+      if (now < wheelLockUntil.current) { e.preventDefault(); return; }
+      wheelAccum.current += e.deltaY;
+      // A small nudge builds up before it counts — a graze of the wheel should
+      // not change the video, a deliberate scroll should.
+      if (Math.abs(wheelAccum.current) < 48) return;
+      e.preventDefault();
+      const dir = wheelAccum.current > 0 ? 1 : -1;
+      wheelAccum.current = 0;
+      wheelLockUntil.current = now + 650;
+      if (dir > 0) goNext(); else prev();
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [wheelNav, goNext, prev]);
 
   // AN EMPTY VIEWPORT FILLS ITSELF. Landing on the player with nothing playing
   // and nothing queued used to be a dead end — the only way forward was to go
@@ -544,6 +591,7 @@ export default function TrueglePlayer({
           resolved to zero height and full screen was a black rectangle with
           controls on it. */}
       <div
+        ref={screenWrapRef}
         // `relative` outside full screen too: the click-to-pause overlay below
         // positions against this box, and without it the overlay escaped to
         // whichever ancestor happened to be positioned.
