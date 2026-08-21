@@ -4,7 +4,8 @@ import { usePageMode } from '../../hooks/usePageMode';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
 import { buildPlayerLink } from '../../utils/playerLink';
 import PlayerScreen from './PlayerScreen';
-import PlayerTransport, { PLAY_MODES } from './PlayerTransport';
+import PlayerTransport, { PLAY_MODES, PLAY_MODE_LABEL } from './PlayerTransport';
+import PlayerOverlay from './PlayerOverlay';
 import PlayerListSlot from './PlayerListSlot';
 import PlayerLockOverlay from './PlayerLockOverlay';
 import PlayerProgress from './PlayerProgress';
@@ -12,6 +13,7 @@ import { useEmbedPlayback } from '../../hooks/useEmbedPlayback';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useUpNext } from '../../hooks/useUpNext';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
+import { useOverlayReveal } from '../../hooks/useOverlayReveal';
 import { rate, useRating, signalPlay } from '../../utils/taste';
 import { recordRetention } from '../../utils/retention';
 import { reportBroken } from '../../utils/broken';
@@ -46,10 +48,6 @@ export default function TrueglePlayer({
   // when the text hasn't changed since last time — pressing enter and seeing
   // nothing happen is what made the popped-out player feel broken.
   openListNonce = 0,
-  // Move mode belongs to the floating frame (it owns the geometry), but its
-  // control belongs on the transport with everything else.
-  moveOn = false,
-  onToggleMove,
   onQueryHandled,
   className = '',
 }) {
@@ -104,13 +102,17 @@ export default function TrueglePlayer({
   const onTube = pageMode === 'tube';
   const popOutMode = presentation !== 'popped'
     ? 'pop'
-    : onTube ? 'bar' : 'move';
+    : onTube ? 'bar' : (atFooter ? 'float' : 'footer');
 
   const cyclePopOut = useCallback(() => {
     if (presentation !== 'popped') { setPoppedOut(true); return; }
     if (onTube) { setPoppedOut(false); return; }
-    onToggleMove?.();
-  }, [presentation, onTube, setPoppedOut, onToggleMove]);
+    // Away from Tube there is nothing to dock back into, so this moves the
+    // player between its two homes. It used to toggle a move/resize MODE; the
+    // window drags from its bar and resizes from its corner now, like any other
+    // window, so the mode had nothing left to do.
+    setDock(atFooter ? 'float' : 'footer');
+  }, [presentation, onTube, setPoppedOut, setDock, atFooter]);
 
   // Typing opens the list; it retreats again once the user has made their
   // selection (PlayerListSlot's post-add timer calls onRevert).
@@ -378,6 +380,11 @@ export default function TrueglePlayer({
   // shorter drops real double-clicks, longer makes pausing feel laggy. Without
   // the wait, a double-click pauses, resumes and then seeks — three things for
   // one gesture.
+  // The rail of controls over the picture, and the narrow set of gestures that
+  // summons it. Disabled while locked — the lock exists so a pocket cannot
+  // reach anything, and a rail that appears on a hold would be exactly that.
+  const overlay = useOverlayReveal({ enabled: !!current && !locked });
+
   const clickTimer = useRef(null);
   // Which half of the picture the pending click landed on — read on the first
   // click, used if a second one follows.
@@ -385,6 +392,10 @@ export default function TrueglePlayer({
   useEffect(() => () => clearTimeout(clickTimer.current), []);
 
   const onScreenClick = useCallback((e) => {
+    // A long press summoned the overlay; the click that ends it is not a tap
+    // and must not also pause. This is the "if tap/hold is detected the overlay
+    // fires" half — without it, every summon would pause what you are watching.
+    if (overlay.wasHeld()) return;
     if (!canDoubleTap) { togglePause(); return; }   // nothing to seek: act now
     clearTimeout(clickTimer.current);
     // Which half was clicked decides which way a double-click would seek, so it
@@ -393,7 +404,7 @@ export default function TrueglePlayer({
     const left = e.clientX - box.left < box.width / 2;
     clickTimer.current = setTimeout(() => { clickTimer.current = null; togglePause(); }, 250);
     clickSide.current = left ? 'left' : 'right';
-  }, [canDoubleTap, togglePause]);
+  }, [canDoubleTap, togglePause, overlay]);
 
   const onScreenDoubleClick = useCallback(() => {
     clearTimeout(clickTimer.current);
@@ -448,9 +459,6 @@ export default function TrueglePlayer({
       queueCount={queue.length}
       accent={accent}
       showList={showList}
-      showRating={!!current}
-      rating={rating}
-      onRate={current ? onRate : undefined}
       // FULL SCREEN ONLY. The lock is for watching undisturbed — a pocket, a
       // propped-up phone — and that is exactly when you are in full screen.
       // On the normal row it was an eleventh button competing with the two
@@ -458,7 +466,6 @@ export default function TrueglePlayer({
       // pop-out off the end.
       showLock={fullscreen}
       onLock={() => setLocked(true)}
-      showPlayMode
       playMode={playMode}
       onCyclePlayMode={() => setPlayMode(PLAY_MODES[(PLAY_MODES.indexOf(playMode) + 1) % PLAY_MODES.length])}
       listOpen={listOpen}
@@ -474,18 +481,15 @@ export default function TrueglePlayer({
       // them, which is the point of each of those states.
       showPopOut={!fullscreen}
       popOutMode={popOutMode}
-      adjustOn={moveOn}
       showFullscreen={presentation !== 'collapsed'}
       fullscreen={fullscreen}
       onToggleFullscreen={toggleFullscreen}
       shareState={shareState}
       onPlayPause={() => (current ? togglePause() : null)}
-      onStop={stop}
       onPrev={prev}
       onNext={goNext}
       onToggleList={() => setListOpen((v) => !v)}
       onPopOut={cyclePopOut}
-      onShare={current ? share : undefined}
     />
   );
 
@@ -542,6 +546,25 @@ export default function TrueglePlayer({
           onBrowseMore={search.loadMore}
           browseLoadingMore={search.loadingMore}
         />
+        {/* The controls that sit ON the picture: thumbs, share, play mode. They
+            are always mounted and fade rather than appearing, so nothing pops
+            in over the video — and they take no width from the transport row
+            underneath, which is what stopped it running out of room in a
+            resized window. */}
+        {current && !clipScreen && (
+          <PlayerOverlay
+            visible={overlay.visible && !locked}
+            rating={rating}
+            onRate={current ? onRate : undefined}
+            onShare={current ? share : undefined}
+            shareState={shareState}
+            playMode={playMode}
+            playModeLabel={PLAY_MODE_LABEL[playMode]}
+            onCyclePlayMode={() => setPlayMode(PLAY_MODES[(PLAY_MODES.indexOf(playMode) + 1) % PLAY_MODES.length])}
+            accent={accent}
+          />
+        )}
+
         {/* CLICK THE PICTURE TO PAUSE, outside full screen.
             The swipe sheet below is full-screen only, and for good reason — it
             sets touch-action to read vertical gestures, which on a docked
@@ -561,6 +584,7 @@ export default function TrueglePlayer({
             type="button"
             onClick={onScreenClick}
             onDoubleClick={onScreenDoubleClick}
+            {...overlay.handlers}
             aria-label={paused ? 'Play' : 'Pause'}
             className="absolute inset-0 z-10 cursor-default"
             // Bottom 12% left alone so the platform's own progress bar — the
@@ -572,6 +596,10 @@ export default function TrueglePlayer({
         {swipe && current && (
           <div
             {...swipe}
+            {/* The reveal gesture rides alongside the swipe sheet in full
+                screen: useSwipeNav listens on TOUCH events and this on POINTER
+                ones, so they observe the same gestures without either
+                intercepting the other. */ ...overlay.handlers}
             style={{
               // Vertical panning has to be ours or the browser starts scrolling
               // the page and the gesture never completes.

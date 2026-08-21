@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Play, Pause, Square, SkipBack, SkipForward,
-  ListMusic, Share2, Check, PictureInPicture2, Minimize2, Move, PanelBottom,
-  Repeat, Repeat1, Shuffle, ArrowDownUp, Maximize, Minimize, ThumbsUp, ThumbsDown,
-  AlertTriangle, Lock, Volume2, Volume1, VolumeX,
+  Play, Pause, SkipBack, SkipForward,
+  ListMusic, PictureInPicture2, Minimize2, PanelBottom,
+  Maximize, Minimize, Lock, Volume2, Volume1, VolumeX,
 } from 'lucide-react';
 
 // The one transport row. Identical in all three presentations — collapsed
@@ -18,7 +17,9 @@ import {
 // (play straight through the queue) — the behaviour people expect without
 // touching anything.
 export const PLAY_MODES = ['auto', 'repeat-one', 'shuffle', 'loop'];
-const PLAY_MODE_LABEL = {
+// Exported: the play-mode control lives on PlayerOverlay now, and its label has
+// to say the same thing there that it said here.
+export const PLAY_MODE_LABEL = {
   auto: 'Auto — play through the queue',
   'repeat-one': 'Repeat this one',
   shuffle: 'Shuffle the queue',
@@ -42,10 +43,12 @@ const POP_OUT = {
   footer: { label: 'Dock the player at the bottom of the page', Icon: PanelBottom },
   float: { label: 'Float the player', Icon: PictureInPicture2 },
   bar: { label: 'Dock the player back into the search bar', Icon: Minimize2 },
-  // Popped out and away from Tube: there is nothing to dock back into, so this
-  // slot is move/resize instead — the thing that was previously two presses
-  // and a mode away.
-  move: { label: 'Move and resize the player', Icon: Move },
+  // Popped out and away from Tube there is nothing to dock back INTO, so this
+  // slot offers the other home instead: pin to the bottom of the page, or let
+  // it float again. It used to be a move/resize MODE — a button that switched
+  // on the ability to drag. The window drags from its bar and resizes from its
+  // corner like any other window, so the mode was a second way to do what
+  // dragging already did.
 };
 
 // ONE VOLUME CONTROL, IN ONE PLACE, whatever is playing.
@@ -127,11 +130,8 @@ export default function PlayerTransport({
   showPopOut = false,
   popOutMode = 'pop',
   showDock = false,
-  showAdjust = false,
   showFullscreen = false,
   fullscreen = false,
-  playMode = 'auto',
-  showPlayMode = false,
   // 👍/👎. `rating` is 1, -1 or 0; pressing the thumb that's already lit
   // clears it, so the pair behaves like every other vote control.
   showRating = false,
@@ -144,19 +144,15 @@ export default function PlayerTransport({
   showVolume = false,
   volume = 1,
   onVolume,
-  adjustOn = false,
   shareState = 'idle',
   onPlayPause,
-  onStop,
   onPrev,
   onNext,
   onToggleList,
   onPopOut,
   onDock,
   onShare,
-  onToggleAdjust,
   onToggleFullscreen,
-  onCyclePlayMode,
   className = '',
 }) {
   // ELEVEN controls in a fixed row. In the popped-out frame — which the user
@@ -191,16 +187,22 @@ export default function PlayerTransport({
       ref={rowRef}
       className={`flex items-center ${veryTight ? 'flex-wrap justify-center' : ''} ${tight ? 'gap-0' : 'gap-0.5'} ${className}`}
     >
-      <button type="button" onClick={onPlayPause} title={playing ? 'Pause' : 'Play'}
-        aria-label={playing ? 'Pause' : 'Play'} className={btn}>
-        {playing ? <Pause size={size} /> : <Play size={size} />}
-      </button>
-      <button type="button" onClick={onStop} title="Stop" aria-label="Stop" className={btn}>
-        <Square size={size - 1} />
-      </button>
+      {/* BACK, PLAY, FORWARD — in that order, which is the order they are on
+          every remote control and every other player anyone has used. Play/pause
+          sat at the far left with Stop between it and the skips, so the two
+          buttons pressed most often were separated by the one pressed least.
+
+          STOP IS GONE. It cleared what was playing and left the queue, which is
+          pause plus an extra thing to explain — and the transport has a pause.
+          Closing the player is the control that means "I'm done", and it is
+          already in the frame's own header. */}
       <button type="button" onClick={onPrev} disabled={!canPrev} title="Previous"
         aria-label="Previous" className={btn}>
         <SkipBack size={size} />
+      </button>
+      <button type="button" onClick={onPlayPause} title={playing ? 'Pause' : 'Play'}
+        aria-label={playing ? 'Pause' : 'Play'} className={btn}>
+        {playing ? <Pause size={size} /> : <Play size={size} />}
       </button>
       <button type="button" onClick={onNext} disabled={!canNext} title="Next"
         aria-label="Next" className={btn}>
@@ -216,44 +218,12 @@ export default function PlayerTransport({
           control that trains the feed would leave the feed untrained.
           What they do is split: the taste they build stays in this browser,
           and only an anonymous counter bump leaves it. See utils/taste.js. */}
-      {showRating && (
-        <>
-          <button
-            type="button"
-            onClick={() => onRate?.(1)}
-            disabled={!onRate}
-            aria-pressed={rating === 1}
-            title={rating === 1 ? 'Liked — press again to undo' : 'More like this'}
-            aria-label={rating === 1 ? 'Remove like' : 'Like — more like this'}
-            className={`${btn} ${rating === 1 ? 'text-green-400 bg-green-400/10' : ''}`}
-          >
-            <ThumbsUp size={size} />
-          </button>
-          <button
-            type="button"
-            onClick={() => onRate?.(-1)}
-            disabled={!onRate}
-            aria-pressed={rating === -1}
-            title={rating === -1 ? 'Hidden from your feed — press again to undo' : 'Less like this'}
-            aria-label={rating === -1 ? 'Remove dislike' : 'Dislike — less like this'}
-            className={`${btn} ${rating === -1 ? 'text-rose-400 bg-rose-400/10' : ''}`}
-          >
-            <ThumbsDown size={size} />
-          </button>
-        </>
-      )}
-
+      {/* Thumbs, share and play-mode are on the PICTURE now (PlayerOverlay).
+          They are a different kind of control from play and skip — things you
+          do to what you are watching, not to the playback — and moving them off
+          this row is what stops it running out of width in a resized window,
+          which is what "controls get lost on resize" was. */}
       <div className={`flex items-center shrink-0 ${veryTight ? 'w-full justify-center' : 'ml-auto'} ${tight ? 'gap-0' : 'gap-0.5'}`}>
-        {showPlayMode && (
-          <button type="button" onClick={onCyclePlayMode}
-            title={PLAY_MODE_LABEL[playMode]} aria-label={PLAY_MODE_LABEL[playMode]}
-            className={`${btn} ${playMode !== 'auto' ? 'text-white bg-white/10' : ''}`}>
-            {playMode === 'repeat-one' ? <Repeat1 size={size} />
-              : playMode === 'shuffle' ? <Shuffle size={size} />
-                : playMode === 'loop' ? <Repeat size={size} />
-                  : <ArrowDownUp size={size} />}
-          </button>
-        )}
         {showList && (
           <button type="button" onClick={onToggleList} title="Queue and results"
             aria-label="Queue and results" aria-pressed={listOpen}
@@ -269,25 +239,11 @@ export default function PlayerTransport({
             )}
           </button>
         )}
-        {onShare && (
-          <button type="button" onClick={onShare} aria-label="Share"
-            title={shareState === 'failed'
-              ? "Couldn't copy — the browser blocked it. Try again."
-              : "Share a Truegle player link — opens inside Truegle's sandboxed player"}
-            className={`${btn} ${shareState === 'done' ? 'text-green-400' : ''} ${shareState === 'failed' ? 'text-amber-400' : ''}`}>
-            {shareState === 'done' ? <Check size={size} />
-              : shareState === 'failed' ? <AlertTriangle size={size} />
-                : <Share2 size={size} />}
-          </button>
-        )}
-        {showAdjust && (
-          <button type="button" onClick={onToggleAdjust} aria-pressed={adjustOn}
-            title={adjustOn ? 'Finish moving/resizing' : 'Move and resize the player'}
-            aria-label="Move and resize"
-            className={`${btn} ${adjustOn ? 'text-black bg-cyan-400 hover:bg-cyan-300 hover:text-black' : ''}`}>
-            <Move size={size} />
-          </button>
-        )}
+        {/* NO MOVE BUTTON. The floating player is a window: you drag its bar
+            to move it and its corner to resize it, exactly like every other
+            window on a desktop. A mode you have to switch on first, with a
+            button that only exists in one presentation, was a second way to do
+            what dragging already does. */}
         {/* Lock the controls. A single press is enough to lock; UNLOCKING is a
             long-press on the overlay, because a lock a pocket can undo is not
             a lock. */}
@@ -310,8 +266,7 @@ export default function PlayerTransport({
         {showPopOut && (
           <button type="button" onClick={onPopOut} title={POP_OUT[popOutMode].label}
             aria-label={POP_OUT[popOutMode].label}
-            aria-pressed={popOutMode === 'move' ? adjustOn : undefined}
-            className={`${btn} ${popOutMode === 'move' && adjustOn ? 'text-black bg-cyan-400 hover:bg-cyan-300 hover:text-black' : ''}`}>
+            className={btn}>
             {(() => { const { Icon } = POP_OUT[popOutMode]; return <Icon size={size} />; })()}
           </button>
         )}

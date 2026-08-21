@@ -85,7 +85,13 @@ export default function MiniPlayer() {
   const [pos, setPos] = useState(saved.current?.pos || null); // {left, top}; null = docked
   const [width, setWidth] = useState(saved.current?.width || DEFAULT_W);
   const [dragging, setDragging] = useState(false);
-  const [adjust, setAdjust] = useState(false);   // move mode: drag from anywhere
+  // MOVE MODE IS GONE. It was a state you switched on before you could drag,
+  // because an iframe swallows pointer events so the picture could not be a
+  // drag handle. A desktop window does not work that way and never needed to:
+  // you drag its bar and resize its corner, which is what the grab bar and the
+  // corner grip already do. The button that turned the mode on has gone with
+  // it — one less control, and one less thing that only existed in one
+  // presentation.
   const [playerQuery, setPlayerQuery] = useState('');
   // ── getting out of the way of the page's search bar ──────────────────────
   // Pinned to the bottom of a phone screen and lifted by the keyboard, the
@@ -502,10 +508,10 @@ export default function MiniPlayer() {
         ref={frameRef}
         style={{
           ...style,
-          background: adjust ? MODE_COLORS.ocean : ring,
+          background: ring,
           // Docked, the bar above supplies the top edge — a ring all the way
           // round would draw a line through the middle of one surface.
-          padding: docked ? '0 1.5px 1.5px' : (adjust ? 2.5 : 1.5),
+          padding: docked ? '0 1.5px 1.5px' : 1.5,
         }}
         className={`fixed shadow-2xl transition-shadow ${dragging ? 'select-none' : ''} ${
           docked
@@ -521,14 +527,6 @@ export default function MiniPlayer() {
             overlay "move" could only ever be started from the grab bar, which
             is why the button felt like it did nothing but resize. Resizing
             still lives on the corner grip; it never needed a mode. */}
-        {adjust && !docked && !footerDock && (
-          <div
-            onPointerDown={startMove}
-            style={{ touchAction: 'none' }}
-            className="absolute inset-0 z-20 cursor-move"
-            aria-hidden="true"
-          />
-        )}
         {/* THE minimized player — the same component and the same footprint
             whether the player is floating, docked into the page, or pinned to
             the footer, and whether it got small because you minimized it or
@@ -551,13 +549,13 @@ export default function MiniPlayer() {
         {!docked && !small && (
         <div
           onPointerDown={footerDock ? undefined : startMove}
-          style={{ touchAction: footerDock ? 'auto' : 'none', background: adjust ? 'rgba(34,211,238,0.15)' : tint }}
+          style={{ touchAction: footerDock ? 'auto' : 'none', background: tint }}
           className={`sticky top-0 z-40 flex items-center gap-1.5 px-2 min-h-[44px] border-b backdrop-blur-xl ${footerDock ? '' : 'cursor-move'} ${
-            adjust ? 'border-cyan-400/30' : 'border-white/10'
+            'border-white/10'
           }`}
         >
           {!footerDock && (
-            <GripHorizontal size={18} className={adjust ? 'text-cyan-300 shrink-0' : 'text-white/40 shrink-0'} />
+            <GripHorizontal size={18} className="text-white/40 shrink-0" />
           )}
           {/* The player's OWN search bar, in the header where it can't be
               mistaken for the page's. Deliberately never auto-hides: the old
@@ -650,8 +648,6 @@ export default function MiniPlayer() {
             presentation={docked ? 'expanded' : 'popped'}
             accent={accent || undefined}
             openListNonce={submitNonce}
-            moveOn={adjust}
-            onToggleMove={() => setAdjust((v) => !v)}
             query={docked ? page.text : playerQuery}
             scope={docked ? page.scope : playerScope}
             provider={docked ? page.provider : playerProvider}
@@ -662,26 +658,19 @@ export default function MiniPlayer() {
             the move toggle once the player is popped out and away from Tube.
             Two buttons for one job, in two different places, was the "press
             pop-out, press move, drag, press move, press pop-out" dance. */}
-        {adjust && !footerDock && !docked && !small && (
-          <div className="relative z-30 px-3 py-1 border-t border-cyan-400/20 bg-cyan-400/10">
-            <span className="text-[10px] uppercase tracking-wider text-cyan-200/80">
-              Drag anywhere to move · corner to resize
-            </span>
-          </div>
-        )}
 
         {/* Resize grip in its own footer strip — never overlaps the media
             controls, and needs no mode of its own. Bigger while moving so a
             thumb can find it without leaving the mode. */}
         {!footerDock && !docked && !small && (
-          <div className={`relative z-30 flex justify-end border-t ${adjust ? 'border-cyan-400/20 bg-cyan-400/10' : 'border-white/10 bg-black/20'}`}>
+          <div className="relative z-30 flex justify-end border-t border-white/10 bg-black/20">
             <div
               onPointerDown={startResize}
               title="Drag to resize"
               style={{ touchAction: 'none' }}
-              className={`cursor-nwse-resize flex items-end justify-end p-1.5 ${adjust ? 'w-11 h-11' : 'w-8 h-6'}`}
+              className="cursor-nwse-resize flex items-end justify-end p-1.5 w-9 h-8"
             >
-              <span className={`block border-r-2 border-b-2 ${adjust ? 'w-4 h-4 border-cyan-300' : 'w-2.5 h-2.5 border-white/40'}`} />
+              <span className="block border-r-2 border-b-2 w-3 h-3 border-white/40" />
             </div>
           </div>
         )}
