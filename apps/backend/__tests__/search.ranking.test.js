@@ -1,4 +1,15 @@
 /**
+ * NOT THE RANKING /api/search USES. Despite the filename, this covers
+ * PrivateSearchService, which serves routes/news.js. The ranking behind
+ * /api/search lives in SearchService and is covered by searchRanking.test.js.
+ *
+ * That gap is worth naming rather than leaving to be rediscovered: the search
+ * ranking bug where a fresh off-topic story beat an on-topic one went unnoticed
+ * partly because this file existed and looked like it covered ranking. The two
+ * services genuinely are different — this one already scored recency only for
+ * time-sensitive queries, which is the fix the other one needed.
+ */
+/**
  * Search Ranking Algorithm Tests
  * Tests for bias-resistant ranking
  */

@@ -1914,6 +1914,14 @@
         "body": "scripts/lib/browser.mjs exports openApp(page,url,{ready}) + until(fn,{what,timeout}) + testContext(browser,opts). openApp waits for real render (domcontentloaded fires long before React mounts) AND zeroes all animation/transition durations — Framer Motion mid-flight is why sleeps felt needed. THE RULE: wait for what the ASSERTION reads, not something earlier in the chain; both regressions found while converting were exactly that (waited for the request, assertion read the rendered panel). Only honest sleep is asserting a NEGATIVE. feedpage 117s->82s (13 sleeps->1), mapui 71s->48s (16->12), both stable over repeated runs. Pattern documented in scripts/lib/README.md. Still on sleeps: vault-browser, trail-browser, trail-page, chat-map, camera-view, autocomplete-ui.",
         "ts": "2026-08-21",
         "created": "2026-08-21"
+      },
+      "search-ranking-weights": {
+        "Id": "search-ranking-weights",
+        "Type": "decision",
+        "Label": "SearchService ranking: relevance 0.6 / recency 0.25 / diversity 0.15",
+        "body": "Was 0.5/0.35/0.15 — the two supporting signals together outweighed relevance, so a result matching 0.163 of the query beat one matching 0.600 (\"how do tides work\" returned games-industry + Bitcoin news above the actual answer). Three fixes: (1) weights rebalanced; (2) calculateRecency(date, isTimeSensitive) returns neutral 0.5 unless the query is time-sensitive AND a date exists — unknown date scored 0.3, a PENALTY, and SearXNG web results are mostly undated while news always has dates; (3) diversity applied AFTER sorting by relevance, so \"first from a domain\" means BEST from that domain rather than whichever provider answered earliest. NOTE search.ranking.test.js tests PrivateSearchService (serves routes/news.js), NOT SearchService — searchRanking.test.js covers /api/search.",
+        "ts": "2026-08-21",
+        "created": "2026-08-21"
       }
     },
     "entity": {

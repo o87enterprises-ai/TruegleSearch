@@ -579,10 +579,29 @@ class SearchService {
    * results could not show a date at all without printing today's date over a
    * video from 2019.
    */
-  calculateRecency(dateStr) {
-    if (!dateStr) return 0.3;
+  calculateRecency(dateStr, isTimeSensitive = false) {
+    // FRESHNESS ONLY COUNTS WHEN FRESHNESS WAS ASKED FOR, and an unknown date
+    // is not a black mark.
+    //
+    // REPORTED: "how do tides work" returned a games-industry redundancy story
+    // and a Bitcoin piece above the actual answer. Both are the same bug. This
+    // used to score every result on age no matter what the question was, and
+    // gave an undated result 0.3 — a PENALTY — while a news item with a real
+    // timestamp got 0.75 or better. SearXNG's web results mostly carry no date;
+    // the news providers always do. So on a question with nothing time-sensitive
+    // about it, the news won on freshness nobody had asked for.
+    //
+    // (That got worse, not better, when result dates stopped being fabricated.
+    // Undated results used to be stamped with `new Date()` and scored 1.0, which
+    // made recency a no-op differentiator. Telling the truth about a missing
+    // date exposed the weighting underneath it.)
+    //
+    // 0.5 is deliberately the MIDDLE of the scale rather than zero: unknown
+    // should neither help nor hurt.
+    if (!isTimeSensitive) return 0.5;
+    if (!dateStr) return 0.5;
     const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return 0.3;
+    if (isNaN(date.getTime())) return 0.5;
     const daysDiff = (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24);
     if (daysDiff < 1) return 1;
     if (daysDiff < 7) return 0.9;
@@ -590,6 +609,26 @@ class SearchService {
     if (daysDiff < 90) return 0.6;
     if (daysDiff < 365) return 0.4;
     return 0.2;
+  }
+
+  /**
+   * Does this question actually want something recent?
+   *
+   * Same list PrivateSearchService has used all along — kept in step rather than
+   * invented again, because two services disagreeing about what "latest" means
+   * is how one of them ends up ranking differently from the other for no reason
+   * anybody can see.
+   */
+  isTimeSensitiveQuery(query) {
+    const q = String(query || '').toLowerCase();
+    if (!q) return false;
+    const now = new Date().getFullYear();
+    const years = [now - 1, now, now + 1].map(String);
+    return [
+      'news', 'latest', 'today', 'recent', 'current', 'now', 'breaking',
+      'update', 'tonight', 'this week', 'this year', 'live', 'score',
+      ...years,
+    ].some((term) => q.includes(term));
   }
 
   /**
@@ -659,15 +698,43 @@ class SearchService {
     if (!results || results.length === 0) return [];
 
     const isNavigational = this.isNavigationalQuery(query);
+    const isTimeSensitive = this.isTimeSensitiveQuery(query);
+
+    // TWO PASSES, AND THE SECOND ONE IS THE POINT.
+    //
+    // calculateDiversity gives the FIRST result from a domain 1.0 and halves it
+    // for each one after — which is right, but "first" was whatever order the
+    // providers happened to answer in. News results arrive as a block, each on
+    // its own domain, so every one of them scored a perfect 1.0 while genuinely
+    // good results further down were marked as duplicates of a domain they were
+    // simply later than. That is not diversity; it is a prize for being early.
+    //
+    // Ordering by relevance before applying it means "first from a domain" is
+    // the BEST from that domain, which is what the penalty was always meant to
+    // express.
+    const base = results.map((result) => ({
+      result,
+      domain: result.domain || this.extractDomain(result.url || ''),
+      relevanceScore: this.calculateRelevance(query, result),
+      recencyScore: this.calculateRecency(result.date, isTimeSensitive),
+    }));
+    base.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
     const domainCounts = new Map();
-    const scored = results.map((result) => {
-      const domain = result.domain || this.extractDomain(result.url || '');
-      const relevanceScore = this.calculateRelevance(query, result);
-      const recencyScore = this.calculateRecency(result.date);
+    const scored = base.map(({ result, domain, relevanceScore, recencyScore }) => {
       const diversityScore = this.calculateDiversity(domain, domainCounts);
       domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
 
-      let finalScore = relevanceScore * 0.5 + recencyScore * 0.35 + diversityScore * 0.15;
+      // RELEVANCE IS THE MAJORITY OF THE SCORE, which it was not: at 0.5 against
+      // recency's 0.35 and diversity's 0.15, the two supporting signals together
+      // outweighed the one that answers the question. A result matching 0.16 of
+      // the query beat one matching 0.60 of it, which is the reported bug
+      // exactly.
+      //
+      // Recency's weight only bites on a time-sensitive question now — on any
+      // other, calculateRecency returns the same 0.5 for everything, so the term
+      // is a constant and cannot reorder anything.
+      let finalScore = relevanceScore * 0.6 + recencyScore * 0.25 + diversityScore * 0.15;
 
       if (isNavigational) {
         const navScore = this.calculateNavigationalScore(query, result);
