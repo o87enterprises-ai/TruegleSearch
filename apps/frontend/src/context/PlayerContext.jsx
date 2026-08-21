@@ -250,6 +250,34 @@ export function reducer(s, a) {
       return { ...s, queue: [], queueArmed: false };
     case 'armQueue':
       return { ...s, queueArmed: true };
+    case 'playList': {
+      // PRESSING PLAY ON A SAVED LIST. Unambiguously "follow this", so it arms
+      // the queue and ends any feed — the one case where the queue outranks the
+      // feed, because the person just said so.
+      //
+      // It replaces rather than appends: this used to go through enqueueMany,
+      // which appends AND (correctly, for its other callers) never arms. So a
+      // list pressed while something was queued was mixed into whatever was
+      // already there — "it did add to list but combined with que" — and, once
+      // the first track ended, autoplay ignored the unarmed queue and went off
+      // to discovery instead of playing the list. Both halves of that were the
+      // same missing statement of intent.
+      const list = (a.sources || []).filter((x) => x?.src);
+      if (!list.length) return s;
+      const [first, ...rest] = list;
+      const history = s.current ? [...s.history, s.current] : s.history;
+      return {
+        ...s,
+        current: first,
+        queue: rest,
+        queueArmed: true,
+        feedActive: false,
+        feed: [],
+        history,
+        paused: false,
+        minimized: false,
+      };
+    }
     case 'toggleMin':
       return { ...s, minimized: !s.minimized };
     default:
@@ -371,6 +399,8 @@ export const PlayerProvider = ({ children }) => {
   // For a "play the list" control: follow the queue from here on without having
   // to add to it or pick an entry first.
   const armQueue = useCallback(() => dispatch({ type: 'armQueue' }), []);
+  // Play a saved list: it becomes the queue, and the queue is followed.
+  const playList = useCallback((sources) => dispatch({ type: 'playList', sources }), []);
   // Play the search results, ahead of the queue. See the reducer for what this
   // does and does not do to the queue.
   const startFeed = useCallback((sources) => dispatch({ type: 'startFeed', sources }), []);
@@ -392,11 +422,11 @@ export const PlayerProvider = ({ children }) => {
     () => ({
       ...state,
       play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
-      startFeed, feedNext, stopFeed,
+      startFeed, feedNext, stopFeed, playList,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume,
     }),
     [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
-      startFeed, feedNext, stopFeed,
+      startFeed, feedNext, stopFeed, playList,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode, setLocked, setVolume]
   );
 

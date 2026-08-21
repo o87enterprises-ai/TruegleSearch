@@ -166,6 +166,38 @@ check(!afterReload.feedActive && afterReload.feed.length === 0,
 check(run(INITIAL, { type: 'startFeed', sources: [] }).feedActive === false,
   'a search with nothing playable starts no feed');
 
+// ── 3b. pressing play on a saved list ───────────────────────────────────────
+// REPORTED: "it did add to list but combined with que … there were no play
+// buttons on the list". Both were the same missing statement of intent: the
+// control went through enqueueMany, which APPENDS and — correctly for its other
+// callers — never arms the queue. So a list pressed while something was queued
+// was mixed into it, and once the first track ended autoplay ignored the
+// unarmed queue and went off to discovery instead of playing the list.
+{
+  const mixed = run(INITIAL,
+    { type: 'play', source: yt('other') },
+    { type: 'enqueue', source: yt('leftover'), byUser: false });
+  const played = run(mixed, { type: 'playList', sources: [yt('l1'), yt('l2'), yt('l3')] });
+  check(played.current.title === 'Video l1', 'pressing play on a list starts it', played.current.title);
+  check(played.queueArmed, '…and follows it, rather than wandering off after one track');
+  check(played.queue.length === 2 && played.queue.every((q) => q.title.startsWith('Video l')),
+    '…replacing what was queued rather than mixing into it',
+    played.queue.map((q) => q.title).join(', '));
+  check(played.history.some((h) => h.title === 'Video other'),
+    '…with what was playing kept in history, not discarded');
+
+  // A list outranks a running feed: pressing it is the person saying so.
+  const overFeed = run(run(INITIAL, { type: 'startFeed', sources: [yt('f1'), yt('f2')] }),
+    { type: 'playList', sources: [yt('l1')] });
+  check(!overFeed.feedActive && overFeed.feed.length === 0,
+    'a list pressed during a feed ends the feed');
+  check(overFeed.queueArmed && overFeed.current.title === 'Video l1',
+    '…and the list is what plays', overFeed.current.title);
+
+  check(run(INITIAL, { type: 'playList', sources: [] }).current === null,
+    'an empty list does nothing rather than clearing the player');
+}
+
 // ── 4. volume ───────────────────────────────────────────────────────────────
 const ytCmds = volumeCommands('youtube', 0.5);
 check(ytCmds.length === 2, 'YouTube gets a mute-state message and a level message', `${ytCmds.length}`);

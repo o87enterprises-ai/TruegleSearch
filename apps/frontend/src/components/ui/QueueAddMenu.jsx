@@ -3,6 +3,7 @@ import { HardDrive, Link2, Search, Loader2, Plus, Check } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { getPlayable } from '../../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../../utils/playerLink';
+import { isPlaylistUrl, importPlaylist, importMessage } from '../../utils/playlistImport';
 
 // The queue's "+" panel: three ways to feed the player.
 //   Device — a local file, played from an object URL. Never uploaded.
@@ -33,6 +34,12 @@ export default function QueueAddMenu() {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [added, setAdded] = useState(null);   // src of the last thing added
+  // Pasting a whole playlist. Recognised HERE as well as in the list slot: the
+  // "+" panel's Link tab is where somebody who has a URL in their clipboard
+  // actually goes, and it used to answer a playlist link with "that link can't
+  // play in here yet" — a refusal for something the app can, in fact, import.
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState(null);
   const fileRef = useRef(null);
   const abortRef = useRef(null);
 
@@ -60,7 +67,27 @@ export default function QueueAddMenu() {
   };
 
   // ── Link ────────────────────────────────────────────────────────────────
+  const pastedPlaylist = isPlaylistUrl(linkText) ? linkText.trim() : '';
+  useEffect(() => { setImported(null); }, [pastedPlaylist]);
+
+  // A playlist becomes a LIST, not a queue full of loose tracks. That is the
+  // difference the two things exist to draw: a list is yours and survives being
+  // played, a queue is consumed.
+  const addPlaylist = useCallback(async () => {
+    if (!pastedPlaylist) return;
+    setImporting(true);
+    setError('');
+    const result = await importPlaylist(pastedPlaylist);
+    setImported(result);
+    setImporting(false);
+    if (result.ok) setLinkText('');
+  }, [pastedPlaylist]);
+
   const addLink = () => {
+    // A playlist URL that also names a video (…watch?v=X&list=Y) is genuinely
+    // both. Import wins: the person pasted a list, and the single video is one
+    // press away inside it.
+    if (pastedPlaylist) { addPlaylist(); return; }
     const sources = resolveShareInput(linkText);
     if (!sources.length) {
       setError("That link can't play in here yet — YouTube, Vimeo, SoundCloud, a direct audio/video file, or a Truegle player link.");
@@ -163,10 +190,27 @@ export default function QueueAddMenu() {
                 inputMode="url"
                 className={inputCls}
               />
-              <button type="button" onClick={addLink} className={goCls}>Add</button>
+              <button type="button" onClick={addLink} disabled={importing} className={goCls}>
+                {importing ? <Loader2 size={12} className="animate-spin" /> : (pastedPlaylist ? 'Import' : 'Add')}
+              </button>
             </div>
+            {/* Say what will happen BEFORE the press, not after. A playlist and
+                a single video look alike in an address bar, and "Add" doing two
+                different things without saying so is how the import came as a
+                surprise the first time. */}
+            {pastedPlaylist && !imported && (
+              <p className="mt-1.5 text-[10px] text-cyan-200/70 leading-tight">
+                That&apos;s a playlist — it will be saved as a list of its own, not
+                poured into the queue.
+              </p>
+            )}
+            {imported && (
+              <p className={`mt-1.5 text-[10px] leading-tight ${imported.ok ? 'text-emerald-300/80' : 'text-amber-200/80'}`}>
+                {importMessage(imported)}
+              </p>
+            )}
             <p className="mt-1.5 text-[10px] text-white/35 leading-tight">
-              YouTube, Vimeo, SoundCloud, direct audio/video files, and any truegle.info/w link.
+              YouTube, Vimeo, SoundCloud, direct audio/video files, playlists, and any truegle.info/w link.
             </p>
           </div>
         )}
