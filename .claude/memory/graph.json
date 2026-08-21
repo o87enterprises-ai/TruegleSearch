@@ -1887,7 +1887,7 @@
         "Id": "player-overlay-controls",
         "Type": "decision",
         "Label": "Thumbs/share/play-mode live on the picture, not the transport",
-        "body": "PlayerOverlay.jsx renders a TikTok-style right rail over the viewport. useOverlayReveal.js governs visibility: a TAP never summons it (a tap already means pause, double = seek); only a >=400ms hold, or mouse pointermove (never touch pointermove — that fires during scroll). Auto-hides after 5s. A hold that wanders >10px is a drag, not a summon. wasHeld() lets onClick skip the pause that would otherwise follow a summon. Transport is now prev / play-pause / next: Stop removed (it was pause plus an explanation), move-mode button removed entirely (window drags from its bar, resizes from its corner). MiniPlayer's  state deleted. Away-from-Tube pop-out slot now toggles float<->footer dock.",
+        "body": "PlayerOverlay.jsx renders a TikTok-style right rail over the viewport. useOverlayReveal.js governs visibility: a TAP never summons it (a tap already means pause, double = seek); only a >=400ms hold, or mouse pointermove (never touch pointermove — that fires during scroll). Auto-hides after 5s. A hold that wanders >10px is a drag, not a summon. wasHeld() lets onClick skip the pause that would otherwise follow a summon. Transport is now prev / play-pause / next: Stop removed (it was pause plus an explanation), move-mode button removed entirely (window drags from its bar, resizes from its corner). MiniPlayer adjust state deleted. Away-from-Tube pop-out slot now toggles float<->footer dock.",
         "ts": "2026-08-21",
         "created": "2026-08-21"
       }
