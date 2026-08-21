@@ -40,8 +40,12 @@ page.on('request', (r) => fetched.push(r.url()));
 
 // ── 1. hidden until found ──────────────────────────────────────────────────
 await page.goto(`${base}/asdf`, { waitUntil: 'domcontentloaded' });
+// waitForSelector already proves the 404 is up. The 1.2s that followed was
+// insurance against the rest of it still rendering; the assertions below read
+// specific text, so wait for the element they depend on instead.
 await page.waitForSelector('text=Page Not Found', { timeout: 25000 });
-await page.waitForTimeout(1200);
+await page.waitForSelector('button[aria-label*="Press to play"]', { timeout: 25000 })
+  .catch(() => { /* the numerals may be absent; that is asserted below */ });
 
 check(await page.locator("text=THE SURVIVOR'S ENCYCLOPEDIA").count() === 0,
   'on a fresh browser the encyclopedia is not on the page at all');

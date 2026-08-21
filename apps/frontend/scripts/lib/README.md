@@ -57,17 +57,30 @@ check(calls.filter(c => c.path === '/api/social/feed').length === 0, '…');
 
 ## Result so far
 
-| suite | before | after | sleeps |
-|---|---|---|---|
-| `feedpage:test` | 117s | 82s | 13 → 1 |
-| `mapui:test` | 71s | 48s | 16 → 12 |
+Across all the browser suites: **60 sleeps / 120s → 34 sleeps / 35s.**
 
-Verified stable across repeated runs, which is the point — a suite that is fast
-and occasionally wrong is worse than one that is slow.
+| suite | before | after |
+|---|---|---|
+| `feedpage:test` | 117s | 82s |
+| `mapui:test` | 71s | 49s |
+| `chatmap:test` | 54s | 40s |
+| `trailpage:test` | 24s | 15s |
+| `autocompleteui:test` | 26s | 18s |
+| `cameraview:test` | 9s | 5s |
 
-Remaining suites still on sleeps: `vault-browser`, `trail-browser`,
-`trail-page`, `chat-map`, `camera-view`, `autocomplete-ui`. Same conversion,
-same rule.
+Verified over repeated runs, which is the point — a suite that is fast and
+occasionally wrong is worse than one that is slow.
+
+**What is deliberately still a sleep.** The 34 that remain are almost all inside
+the Trail game's own loop (`trail-browser`, 80–200ms each), where the test is
+letting a game tick rather than guessing whether a page has loaded. Those are
+timed waits, not readiness guesses, and converting them would be replacing a
+correct thing with a more complicated correct thing.
+
+`vault:browser` also carries one long deliberate wait, past a hint timer it has
+to outlast. Note that suite fails one assertion — *"arriving at the settlement
+unlocks the encyclopedia for good"* — and has done since before this work;
+verified by stashing these changes and seeing the same failure.
 
 ## What about swapping the browser engine?
 

@@ -25,7 +25,7 @@
  * Run it:  npm run cameraview:test
  */
 import { createServer } from 'vite';
-import { launchChromium } from './lib/browser.mjs';
+import { launchChromium, until } from './lib/browser.mjs';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 
 const ok = []; const bad = [];
@@ -88,7 +88,9 @@ page.on('pageerror', (e) => errs.push(e.message));
 page.on('request', (r) => requests.push(r.url()));
 
 await page.goto(`${BASE}/${HARNESS}`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(1500);
+// Wait for the first thing asserted on rather than for a second and a half.
+await until(() => page.locator('#still img').count().then((n) => n === 1),
+  { what: 'the still camera image' }).catch(() => { /* asserted below */ });
 
 // ── 1. a still camera is an image ───────────────────────────────────────────
 check(await page.locator('#still img').count() === 1, 'a still camera renders an image');

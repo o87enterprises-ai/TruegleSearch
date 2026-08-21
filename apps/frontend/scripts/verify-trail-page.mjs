@@ -21,7 +21,7 @@
  * Run it:  npm run trailpage:test
  */
 import { createServer } from 'vite';
-import { launchChromium } from './lib/browser.mjs';
+import { launchChromium, openApp, until } from './lib/browser.mjs';
 
 const ok = []; const bad = [];
 const check = (c, l, e = '') => (c ? ok : bad).push(`${c ? 'PASS' : 'FAIL'} ${l}${e ? ` — ${e}` : ''}`);
@@ -40,13 +40,17 @@ const errs = [];
 const page = await ctx.newPage();
 page.on('pageerror', (e) => errs.push(e.message));
 
-await page.goto(`${BASE}/definitely-not-a-real-page`, { waitUntil: 'domcontentloaded' });
-await page.waitForTimeout(4000);
+await openApp(page, `${BASE}/definitely-not-a-real-page`, { ready: 'button[aria-label*="Press to play"]' });
 
 // The numerals are the door — no button, no badge.
 await page.locator('button[aria-label*="Press to play"]').click();
 await page.waitForSelector('[data-trail-embedded] canvas', { timeout: 20000 }).catch(() => {});
-await page.waitForTimeout(2500);
+// The canvas exists before the game has laid itself out; wait for it to have
+// real size rather than for two and a half seconds.
+await until(() => page.evaluate(
+  '(() => { const c = document.querySelector("[data-trail-embedded] canvas");'
+  + ' return !!c && c.getBoundingClientRect().width > 50; })()',
+), { what: 'the game canvas to size itself' }).catch(() => { /* asserted below */ });
 
 const layout = await page.evaluate(() => {
   const card = document.querySelector('[data-trail-embedded]');
@@ -87,7 +91,8 @@ check(!layout.scrollLocked,
 
 // The logo is the way home. It was the one thing the takeover had no room for.
 await page.locator('img[alt*="Truegle" i], img[src*="truegle" i]').first().click();
-await page.waitForTimeout(1500);
+await until(() => new URL(page.url()).pathname === '/', { what: 'the logo to navigate home' })
+  .catch(() => { /* asserted below */ });
 const landed = new URL(page.url()).pathname;
 check(landed === '/', 'pressing the logo goes back to the landing page', landed);
 

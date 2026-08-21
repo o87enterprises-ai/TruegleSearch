@@ -12,7 +12,7 @@
  * Run it:  npm run autocompleteui:test
  */
 import { createServer } from 'vite';
-import { launchChromium } from './lib/browser.mjs';
+import { launchChromium, openApp, until } from './lib/browser.mjs';
 
 const ok = []; const bad = [];
 const check = (c, l, e = '') => (c ? ok : bad).push(`${c ? 'PASS' : 'FAIL'} ${l}${e ? ` — ${e}` : ''}`);
@@ -44,12 +44,12 @@ await page.addInitScript(() => {
   localStorage.setItem('truegle_recent_searches',
     JSON.stringify(['how do tides work', 'monoatomic gold']));
 });
-await page.goto(`${BASE}/search`, { waitUntil: 'domcontentloaded' });
-await page.waitForTimeout(4000);
+await openApp(page, `${BASE}/search`, { ready: 'textarea' });
 
 await page.click('textarea');
 await page.type('textarea', 'how do', { delay: 30 });
-await page.waitForTimeout(400);
+await until(() => page.locator('[data-search-ghost]').count().then((n) => n > 0),
+  { what: 'the completion to appear' }).catch(() => { /* asserted below */ });
 
 check(await page.locator('[data-search-ghost]').count() > 0,
   'typing a few letters of a past query shows a completion');

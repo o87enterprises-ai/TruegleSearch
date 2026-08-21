@@ -16,7 +16,7 @@
  * Run it:  npm run chatmap:test
  */
 import { createServer } from 'vite';
-import { launchChromium } from './lib/browser.mjs';
+import { launchChromium, openApp, until } from './lib/browser.mjs';
 
 const ok = []; const bad = [];
 const check = (c, l, e = '') => (c ? ok : bad).push(`${c ? 'PASS' : 'FAIL'} ${l}${e ? ` — ${e}` : ''}`);
@@ -65,13 +65,25 @@ async function ask(query) {
   page.on('pageerror', (e) => {
     if (!/node_modules\/\.vite\/deps\/maplibre-gl/.test(e.stack || '')) errs.push(e.message);
   });
-  await page.goto(`${BASE}/chat?q=${encodeURIComponent(query)}`, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(11000);
+  // Eleven seconds was a guess at a cold chat page plus a stubbed answer. What
+  // every caller actually needs is the assistant's reply on screen, so wait for
+  // that — and let it fail loudly if it never comes rather than assert on an
+  // empty page.
+  await openApp(page, `${BASE}/chat?q=${encodeURIComponent(query)}`);
+  await until(() => page.evaluate('document.body.innerText.length > 400'),
+    { what: 'the chat answer to render', timeout: 25000 }).catch(() => { /* asserted by the caller */ });
   return { page, ctx, calls, errs };
 }
 
 // ── 1. a local question gets a map ──────────────────────────────────────────
 const local = await ask('coffee near me');
+// The map window appears before the map is DRAWN in it — maplibre still has to
+// get a WebGL context and paint. The assertions below read the canvas, so wait
+// for the canvas; waiting only for the answer text (which `ask` does) lands
+// several hundred milliseconds too early.
+await until(() => local.page.locator('[data-map-popout] #truegle-map-container canvas').count()
+  .then((n) => n > 0), { what: 'the map to draw', timeout: 25000 })
+  .catch(() => { /* asserted below, with a better message than a timeout */ });
 const frame = await local.page.evaluate(() => {
   const f = document.querySelector('[data-map-popout]');
   if (!f) return null;
@@ -123,12 +135,14 @@ check(!local.calls.some((c) => c.path.includes('/maps/geocode') && /^\s*me\s*$/i
 // A map that springs back after being dismissed is what people call fighting
 // the page. It may only return when a NEW question is asked.
 await local.page.locator('[data-map-popout] button[aria-label="Close the map"]').first().click();
-await local.page.waitForTimeout(1500);
+await until(() => local.page.locator('[data-map-popout]').count().then((n) => n === 0),
+  { what: 'the map to close' });
 check(await local.page.locator('[data-map-popout]').count() === 0, 'closing it closes it');
 const wayBack = await local.page.evaluate(() => /Show the map for/.test(document.body.innerText));
 check(wayBack, '…leaving one quiet line to get it back');
 await local.page.locator('button', { hasText: /Show the map for/ }).first().click();
-await local.page.waitForTimeout(1500);
+await until(() => local.page.locator('[data-map-popout]').count().then((n) => n === 1),
+  { what: 'the map to reopen' });
 check(await local.page.locator('[data-map-popout]').count() === 1, '…which reopens it');
 check(local.errs.length === 0, 'nothing threw on the local question', local.errs.slice(0, 2).join(' | ') || 'clean');
 await local.ctx.close();
