@@ -3,6 +3,18 @@ _Last updated: 2026-08-20. Supersedes all prior handoff docs._
 
 ---
 
+## 📕 OPERATIONS: see `docs/RUNBOOK.md`
+
+Everything the agent cannot do from its sandbox — SearXNG recovery on the EC2
+box, which of the two deploys to run, reading Vercel logs, the Reddit app steps —
+is in one place now. **The SearXNG outage signature is worth memorising: a full
+count of results with NOTHING but video and news cards in it.** SearXNG is
+primary for web search, so when it is down the web tier vanishes silently while
+everything else carries on, and it reads as "bad results" rather than "outage".
+Third occurrence as of 2026-08-21.
+
+---
+
 ## 🗓️ SESSION LOG 2026-08-20 — Reddit shuts the door, so we go through theirs
 
 - **🔴 REDDIT'S DATA API IS CLOSED TO US, PERMANENTLY.** New app registration is

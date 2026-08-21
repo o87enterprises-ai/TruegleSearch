@@ -848,6 +848,14 @@
         "body": "github.com/h4ckf0r0day/obscura, ~22k stars, created 2026-04. Drop-in replacement for headless Chrome: `obscura serve --port 9222`, connect via browserWSEndpoint ws://127.0.0.1:9222/devtools/browser. Claims 85ms page load vs Chrome ~500ms, 30MB vs 200MB+, instant startup, 70MB binary, built-in anti-detect. NOT useful for our test suite — our slowness was 120s of waitForTimeout, not Chromium startup, and anti-detect is worthless against our own localhost dev server. WOULD be relevant for server-side page fetching on the 1GB EC2 box (30MB vs 200MB matters there). Caveat: anti-detect is the same category as routing around Reddit IP blocks, which we declined.",
         "ts": "2026-08-21",
         "created": "2026-08-21"
+      },
+      "searxng-down-signature": {
+        "Id": "searxng-down-signature",
+        "Type": "fact",
+        "Label": "SearXNG-down signature: results but ZERO web results",
+        "body": "When SearXNG is down you still get a full result count — but every card is a video or news provider (dailymotion, bing videos, News API) and there are no ordinary web pages. SEARXNG_PRIMARY=true means SearXNG is the web tier; the others carry on without it, so an outage reads as \"bad/irrelevant results\" rather than as an outage. Seen 3x (2026-08-19, 2026-08-21). Recovery steps in docs/RUNBOOK.md. Verify with: curl http://localhost:8888/search?q=test&format=json ON THE BOX, or POST api.truegle.info/api/search with X-Truegle-Client header from outside.",
+        "ts": "2026-08-21",
+        "created": "2026-08-21"
       }
     },
     "decision": {
