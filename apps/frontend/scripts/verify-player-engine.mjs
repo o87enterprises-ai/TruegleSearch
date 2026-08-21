@@ -80,7 +80,7 @@ check(s.queueArmed, 'an explicit play-the-list arms it');
 // FRONT of the queue, so an emptied queue came back non-empty — and a non-empty
 // queue then took over autoplay.
 store.clear();
-localStorage.setItem(QUEUE_KEY, JSON.stringify({
+globalThis.localStorage.setItem(QUEUE_KEY, JSON.stringify({
   current: yt('wasplaying'),
   queue: [],
   history: [yt('older')],
@@ -98,7 +98,7 @@ check(loaded.volume === 0.4, 'volume survives a reload', String(loaded.volume));
 
 // A queue the user really did build still comes back in full.
 store.clear();
-localStorage.setItem(QUEUE_KEY, JSON.stringify({
+globalThis.localStorage.setItem(QUEUE_KEY, JSON.stringify({
   current: yt('wasplaying'), queue: [yt('q1'), yt('q2')], history: [],
 }));
 loaded = loadState();
@@ -155,7 +155,7 @@ check(resumed.queueArmed && resumed.queue.length === 2, 'the queue resumes on an
 
 // A feed is this sitting's business, not a setting.
 store.clear();
-localStorage.setItem(QUEUE_KEY, JSON.stringify({
+globalThis.localStorage.setItem(QUEUE_KEY, JSON.stringify({
   current: yt('x'), queue: [yt('q')], history: [], feedActive: true, feed: [yt('f')],
 }));
 const afterReload = loadState();

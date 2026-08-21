@@ -11,6 +11,13 @@ class RadarService {
       ? config.maps.radar.test.publishableKey
       : config.maps.radar.live.publishableKey;
     this.baseUrl = 'https://api.radar.io/v1';
+    // Whether this service can do anything at all. Without a key, axios still
+    // sends the header — as the literal string "undefined" — and Radar answers
+    // 401. Every caller then saw a generic failure and could not tell "not
+    // configured" from "the request was wrong", which is how nearby search
+    // came to return an empty list in production with nothing in the logs
+    // pointing at the cause. Callers check this and skip the request.
+    this.configured = Boolean(this.secretKey);
     this.axiosInstance = axios.create({
       baseURL: this.baseUrl,
       headers: {
@@ -120,6 +127,9 @@ class RadarService {
   }
 
   async searchPlaces(near, options = {}) {
+    // 25 places enriched in parallel is 25 doomed round-trips when no key is
+    // set. Say so once, up front, in the shape callers already handle.
+    if (!this.configured) return { success: false, places: [], reason: 'not_configured' };
     try {
       const params = {
         near: `${near.latitude},${near.longitude}`,
@@ -145,6 +155,9 @@ class RadarService {
   }
 
   async getHealthStatus() {
+    if (!this.configured) {
+      return { status: 'unconfigured', message: 'No Radar API key is set' };
+    }
     try {
       await this.axiosInstance.get('/geocode/forward', { params: { query: 'test' } });
       return {

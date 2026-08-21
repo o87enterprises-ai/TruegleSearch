@@ -209,19 +209,22 @@ class BusinessEnrichmentService {
    */
   async getRadarData(name, lat, lng) {
     try {
-      const searchOptions = {
-        near: { latitude: lat, longitude: lng },
-        options: {
-          query: name,
-          radius: 100, // Search within 100m
-          limit: 1
-        }
-      };
+      // searchPlaces(near, options) takes TWO arguments. This passed a single
+      // { near, options } object, so `near.latitude` was undefined and every
+      // enrichment went out as "near=undefined,undefined" — then read
+      // `.length` on the { success, places, meta } return, got undefined, and
+      // discarded even a good response. Radar enrichment has never once
+      // populated a rating; it only ever spent a request per place to fail.
+      // The identical bug was found and fixed in routes/maps.js and never
+      // followed down to this caller.
+      const result = await RadarService.searchPlaces(
+        { latitude: lat, longitude: lng },
+        { query: name, radius: 100, limit: 1 }
+      );
 
-      const results = await RadarService.searchPlaces(searchOptions);
-
-      if (results && results.length > 0) {
-        const place = results[0];
+      const places = result?.success ? (result.places || []) : [];
+      if (places.length > 0) {
+        const place = places[0];
 
         // Extract price range if available (convert to $ symbols)
         let priceRange = null;

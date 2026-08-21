@@ -319,33 +319,74 @@ router.post('/local-businesses', async (req, res) => {
     }
 
     const RadarService = require('../services/RadarService');
+    const OverpassPlaces = require('../services/OverpassPlacesService');
+
+    // TWO PROVIDERS, AND WHY.
+    //
+    // Radar is the better data when it is available, but it needs a key, and
+    // its Places API is not on every plan. With no key the requests came back
+    // 401, the route answered `businesses: []`, and the map drew nothing —
+    // which is indistinguishable, on screen, from "there is nothing near you".
+    // Nearby search was therefore one unset environment variable away from
+    // silently not existing, with no way to tell from the outside.
+    //
+    // OpenStreetMap needs no key at all, so it is the floor: whatever else is
+    // or is not configured, a nearby search returns places. Radar is tried
+    // first when it can work, and OSM answers whenever Radar cannot or finds
+    // nothing.
+    const near = { latitude: location.lat, longitude: location.lng };
+    const baseOptions = { radius, limit: limit * 2 };
 
     // RadarService.searchPlaces(near, options) takes TWO arguments. This used
     // to call it with a single { near, options } object, so `near.latitude`
     // was undefined and every request went out as "near=undefined,undefined".
     // It also read the `{ success, places, meta }` return as if it were an
     // array, so `results.length` was undefined and even a good response was
-    // discarded as empty. Local businesses could not have worked with a Radar
-    // key configured, which is why the caller was eventually commented out
-    // rather than debugged.
-    const near = { latitude: location.lat, longitude: location.lng };
-    const baseOptions = { radius, limit: limit * 2 };
-
+    // discarded as empty.
+    //
+    // The catch is not decoration: searchPlaces throws on a transport error,
+    // and an unhandled throw here took the whole request to a 500 — so one
+    // slow Radar call lost the OSM results too.
     const collect = async (options) => {
-      const result = await RadarService.searchPlaces(near, options);
-      return result?.success ? (result.places || []) : [];
+      try {
+        const result = await RadarService.searchPlaces(near, options);
+        return result?.success ? (result.places || []) : [];
+      } catch (err) {
+        console.warn('Radar places lookup failed, falling back:', err.message);
+        return [];
+      }
     };
 
     let allResults = [];
-    if (categories.length > 0) {
-      for (const category of categories) {
-        allResults = [...allResults, ...await collect({ ...baseOptions, categories: [category] })];
+    let provider = 'radar';
+
+    if (RadarService.configured) {
+      if (categories.length > 0) {
+        for (const category of categories) {
+          allResults = [...allResults, ...await collect({ ...baseOptions, categories: [category] })];
+        }
+      } else {
+        // `query` is what the person actually typed — "coffee", "hardware
+        // store". Searching a fixed list of categories instead is how "coffee
+        // near me" came back as a scatter of restaurants.
+        allResults = await collect({ ...baseOptions, ...(query ? { query } : {}) });
       }
-    } else {
-      // `query` is what the person actually typed — "coffee", "hardware
-      // store". Searching a fixed list of categories instead is how "coffee
-      // near me" came back as a scatter of restaurants.
-      allResults = await collect({ ...baseOptions, ...(query ? { query } : {}) });
+    }
+
+    if (allResults.length === 0) {
+      provider = 'openstreetmap';
+      const osm = await OverpassPlaces.search({
+        lat: location.lat,
+        lng: location.lng,
+        radius,
+        query,
+        categories,
+        limit: limit * 2,
+      });
+      allResults = osm.places || [];
+      if (!osm.success && osm.reason) {
+        console.warn(`Nearby fallback unavailable: ${osm.reason}`);
+      }
     }
 
     if (!allResults || allResults.length === 0) {
@@ -354,6 +395,7 @@ router.post('/local-businesses', async (req, res) => {
         data: {
           businesses: [],
           total: 0,
+          provider,
         },
       });
     }
@@ -381,6 +423,13 @@ router.post('/local-businesses', async (req, res) => {
         return {
           id: place._id || place.id || `place-${place.name}-${distance}`,
           ...enriched,
+          // OpenStreetMap often already carries a phone and a website in the
+          // object's own tags. enrichLocation builds its result from scratch
+          // and knows nothing about them, so spreading it plain overwrote real
+          // contact details with the nulls it starts from. Only fall back to
+          // the source's own values where enrichment found nothing.
+          phone: enriched.phone || place.phone || null,
+          website: enriched.website || place.website || null,
           distance,
           formattedDistance: formatDistance(distance),
         };
@@ -404,6 +453,10 @@ router.post('/local-businesses', async (req, res) => {
         total: enrichedBusinesses.length,
         location,
         radius,
+        // Which upstream answered. Without this, "nearby returns nothing" is
+        // an unanswerable bug report — it cannot be told from "Radar is
+        // unconfigured" or "OpenStreetMap was busy" from the client side.
+        provider,
       },
     });
   } catch (error) {
