@@ -91,7 +91,7 @@ const MODE_TO_BACKEND = { blue: 'blue-pill', green: 'green', red: 'red-pill', pu
 // uses the same perspective ids and the same backend mapping.
 const FOLDED_MODES = { purple: 'red' };
 const foldMode = (m) => FOLDED_MODES[m] || m;
-import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
+import { getVideoEmbed, getPlayable, mediaKey } from '../utils/videoEmbed';
 import { canPreview, opensOnLabel } from '../utils/embeddable';
 import api from '../services/api';
 import { fallbackVideos } from '../content/creatorVideosFallback';
@@ -830,8 +830,30 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
       // long-form too. Keep only what's actually short-form, otherwise the
       // filter is decorative.
       const wantsShortForm = filters.category === 'reels' || activeCategory === 'reels';
+      // DEDUPED BY MEDIA, NOT BY URL, and only where the promotion above can
+      // create a collision.
+      //
+      // REPORTED: "the reels results had a duplicate identical result." The
+      // same Short is reachable at /shorts/<id> AND /watch?v=<id>, and two
+      // providers answering the same query can return one of each. asReel then
+      // rewrites the watch URL to its /shorts/ form — at which point two rows
+      // that arrived looking different are the same video, listed twice.
+      // mediaKey() is the identity the player already uses for exactly this
+      // ("the same YouTube video arrives as a watch link, a youtu.be link and
+      // an /embed/ URL"), so the list now uses it too.
       const results = wantsShortForm
-        ? (data.results || []).map(asReel).filter((r) => r && isShortForm(r))
+        ? (() => {
+          const seenKeys = new Set();
+          return (data.results || [])
+            .map(asReel)
+            .filter((r) => r && isShortForm(r))
+            .filter((r) => {
+              const key = mediaKey(r.url) || r.url;
+              if (seenKeys.has(key)) return false;
+              seenKeys.add(key);
+              return true;
+            });
+        })()
         : (data.results || []);
       setSearchResults(results);
       setInstantAnswer(data.instantAnswer || null);
@@ -1167,13 +1189,31 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     }
     if (feedRunning.current || feedSources.length === 0) return;
     feedRunning.current = true;
-    startFeed(feedSources);
-  }, [feed.autoplay, feedSources, startFeed, stopFeed]);
+    // START WHERE YOU ALREADY ARE, if you are already somewhere.
+    //
+    // It used to always start at result one, so switching autoplay on while
+    // something from the list was playing threw you back to the top — reported
+    // as "it looped back to the beginning". If what is playing is in the feed,
+    // the feed begins there and keeps it playing; the rest queues up behind.
+    const at = playerCurrent?.src
+      ? feedSources.findIndex((f) => f.src === playerCurrent.src)
+      : -1;
+    startFeed(at > 0 ? feedSources.slice(at) : feedSources);
+  }, [feed.autoplay, feedSources, startFeed, stopFeed, playerCurrent]);
 
   // A NEW SEARCH ENDS THE FEED. Typing a different query is a deliberate change
   // of subject; carrying on playing the last one's results through it would be
   // the player talking over the person using it.
+  //
+  // SKIPS ITS FIRST RUN, and that is not a nicety. `feed.autoplay` is
+  // remembered in localStorage, so arriving with it already on ran the start
+  // effect and then this one in the same commit — starting the feed and killing
+  // it a moment later. The release effect below then saw a dead feed and
+  // switched the toggle off, which is exactly the reported "autoplay failed to
+  // start by default … required one more click before properly firing".
+  const searchSettled = useRef(false);
   useEffect(() => {
+    if (!searchSettled.current) { searchSettled.current = true; return; }
     feedRunning.current = false;
     stopFeed();
   }, [lastSearchedQuery, stopFeed]);

@@ -266,6 +266,28 @@ check(playlists()[0].items.length === before, 'playing a list does not empty it'
 deletePlaylist(id);
 check(playlists().length === 0, 'a list can be deleted');
 
+// ── the same Short, listed twice ────────────────────────────────────────────
+// REPORTED: "the reels results had a duplicate identical result." A Short is
+// reachable at /shorts/<id> AND /watch?v=<id>; two providers answering one
+// query can return one of each, and asReel() rewrites the watch URL into the
+// shorts form — at which point the list holds the same video twice under what
+// were, on arrival, two different URLs. mediaKey is what collapses them.
+{
+  const rows = [
+    'https://www.youtube.com/shorts/nt1zixiSids',
+    'https://www.youtube.com/watch?v=nt1zixiSids',
+    'https://youtu.be/nt1zixiSids',
+    'https://www.youtube.com/shorts/aBcDeFgHiJk',
+  ];
+  const keys = rows.map((u) => mediaKey(u));
+  check(new Set(keys).size === 2,
+    'every URL form of one Short collapses to a single identity',
+    `${new Set(keys).size} distinct from ${rows.length} rows`);
+  check(keys[0] === keys[1] && keys[1] === keys[2],
+    '\u2026shorts, watch and youtu.be all agree', keys.join(' | '));
+  check(keys[3] !== keys[0], '\u2026and a genuinely different Short stays separate');
+}
+
 // ── report ──────────────────────────────────────────────────────────────────
 ok.forEach((l) => console.log(l));
 if (bad.length) {

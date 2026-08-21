@@ -366,6 +366,41 @@ export default function TrueglePlayer({
   }, [embed]);
   useEffect(() => () => clearTimeout(jumpTimer.current), []);
 
+  // ── CLICKING THE PICTURE, ON A DESKTOP ────────────────────────────────────
+  //
+  // Double-tap-to-seek existed only as a TOUCH gesture (useSwipeNav's
+  // doubleTap), so on a mouse there was no way to jump ten seconds at all —
+  // reported as "the double tap to fast forward key sequence isn't working on
+  // desktop". It was not broken; it was never wired for a pointer.
+  //
+  // A single click still pauses, so the single action has to WAIT to find out
+  // whether a second click is coming. 250ms is the usual double-click window;
+  // shorter drops real double-clicks, longer makes pausing feel laggy. Without
+  // the wait, a double-click pauses, resumes and then seeks — three things for
+  // one gesture.
+  const clickTimer = useRef(null);
+  // Which half of the picture the pending click landed on — read on the first
+  // click, used if a second one follows.
+  const clickSide = useRef('right');
+  useEffect(() => () => clearTimeout(clickTimer.current), []);
+
+  const onScreenClick = useCallback((e) => {
+    if (!canDoubleTap) { togglePause(); return; }   // nothing to seek: act now
+    clearTimeout(clickTimer.current);
+    // Which half was clicked decides which way a double-click would seek, so it
+    // has to be read here, before the event is recycled.
+    const box = e.currentTarget.getBoundingClientRect();
+    const left = e.clientX - box.left < box.width / 2;
+    clickTimer.current = setTimeout(() => { clickTimer.current = null; togglePause(); }, 250);
+    clickSide.current = left ? 'left' : 'right';
+  }, [canDoubleTap, togglePause]);
+
+  const onScreenDoubleClick = useCallback(() => {
+    clearTimeout(clickTimer.current);
+    clickTimer.current = null;
+    seekBy(clickSide.current === 'left' ? -10 : 10);
+  }, [seekBy]);
+
   const swipe = useSwipeNav({
     active: fullscreen && !locked,
     onNext: goNext,
@@ -524,7 +559,8 @@ export default function TrueglePlayer({
         {!swipe && current && embed.canCommand && !locked && !clipScreen && (
           <button
             type="button"
-            onClick={togglePause}
+            onClick={onScreenClick}
+            onDoubleClick={onScreenDoubleClick}
             aria-label={paused ? 'Play' : 'Pause'}
             className="absolute inset-0 z-10 cursor-default"
             // Bottom 12% left alone so the platform's own progress bar — the
