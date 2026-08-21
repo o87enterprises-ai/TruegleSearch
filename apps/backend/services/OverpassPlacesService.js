@@ -40,84 +40,50 @@ const CACHE_MAX = 200;
  * What people type, mapped to what OpenStreetMap actually calls it.
  *
  * OSM tags are not words a person would search for: a petrol station is
- * `amenity=fuel`, a supermarket is `shop=supermarket`. Without this map,
- * "gas station" matches nothing at all, because no OSM object is tagged with
- * the phrase "gas station".
+ * `amenity=fuel`, a supermarket is `shop=supermarket`. Without this map, "gas
+ * station" matches nothing at all, because no OSM object carries that phrase.
  *
- * The keys include the frontend's own category names ('gas_station',
- * 'grocery', …) so the category sweep and a typed query go through one table
- * rather than two that can drift apart.
+ * THE TABLE IS NOT KEPT HERE. The browser map needs exactly the same mapping
+ * and had already grown a good one, tuned against real queries. A second copy
+ * in this file would drift the first time somebody added a category to one and
+ * not the other — and the failure would be silent, because an unmapped word
+ * still returns SOMETHING via the name match below. So both read
+ * shared/osm-categories.json, and this file owns none of it.
  */
-const TAG_MAP = {
-  cafe: [['amenity', 'cafe']],
-  coffee: [['amenity', 'cafe']],
-  'coffee shop': [['amenity', 'cafe']],
-  restaurant: [['amenity', 'restaurant']],
-  food: [['amenity', 'restaurant'], ['amenity', 'fast_food']],
-  'fast food': [['amenity', 'fast_food']],
-  bar: [['amenity', 'bar'], ['amenity', 'pub']],
-  pub: [['amenity', 'pub']],
-  bakery: [['shop', 'bakery']],
-  gas: [['amenity', 'fuel']],
-  gas_station: [['amenity', 'fuel']],
-  'gas station': [['amenity', 'fuel']],
-  fuel: [['amenity', 'fuel']],
-  petrol: [['amenity', 'fuel']],
-  charging: [['amenity', 'charging_station']],
-  'charging station': [['amenity', 'charging_station']],
-  hotel: [['tourism', 'hotel']],
-  motel: [['tourism', 'motel']],
-  lodging: [['tourism', 'hotel'], ['tourism', 'motel'], ['tourism', 'guest_house']],
-  grocery: [['shop', 'supermarket'], ['shop', 'grocery'], ['shop', 'convenience']],
-  supermarket: [['shop', 'supermarket']],
-  shop: [['shop', '*']],
-  store: [['shop', '*']],
-  pharmacy: [['amenity', 'pharmacy']],
-  hospital: [['amenity', 'hospital']],
-  clinic: [['amenity', 'clinic'], ['amenity', 'doctors']],
-  doctor: [['amenity', 'doctors']],
-  dentist: [['amenity', 'dentist']],
-  bank: [['amenity', 'bank']],
-  atm: [['amenity', 'atm']],
-  park: [['leisure', 'park']],
-  gym: [['leisure', 'fitness_centre']],
-  library: [['amenity', 'library']],
-  school: [['amenity', 'school']],
-  police: [['amenity', 'police']],
-  'fire station': [['amenity', 'fire_station']],
-  'post office': [['amenity', 'post_office']],
-  parking: [['amenity', 'parking']],
-  toilet: [['amenity', 'toilets']],
-  laundry: [['shop', 'laundry']],
-  'car wash': [['amenity', 'car_wash']],
-  hardware: [['shop', 'hardware'], ['shop', 'doityourself']],
-  'hardware store': [['shop', 'hardware'], ['shop', 'doityourself']],
-  bookstore: [['shop', 'books']],
-  'book store': [['shop', 'books']],
-  cinema: [['amenity', 'cinema']],
-  movie: [['amenity', 'cinema']],
-  museum: [['tourism', 'museum']],
-  church: [['amenity', 'place_of_worship']],
-  veterinary: [['amenity', 'veterinary']],
-  vet: [['amenity', 'veterinary']],
-};
+const { categories: CATEGORY_DATA } = require('../../../shared/osm-categories.json');
+
+const CATEGORIES = CATEGORY_DATA.map(({ pattern, tags }) => [
+  new RegExp(pattern, 'i'),
+  // The shared file stores tags the way OSM writes them, "amenity=cafe", and a
+  // bare key like "shop" means "any shop" — a key-existence filter rather than
+  // a value match.
+  tags.map((t) => {
+    const [key, value] = t.split('=');
+    return [key, value ?? '*'];
+  }),
+]);
 
 /** Overpass string literals are quoted; a stray quote or backslash ends the query early. */
 function escapeLiteral(value) {
   return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-/** The tag filters a phrase implies, or [] when it names no known kind of place. */
+/**
+ * The tag filters a phrase implies, or [] when it names no known kind of place.
+ * The first match wins, so the shared table's order is load-bearing: specific
+ * entries sit before general ones.
+ */
 function tagsFor(phrase) {
-  const key = String(phrase || '').trim().toLowerCase();
-  if (!key) return [];
-  if (TAG_MAP[key]) return TAG_MAP[key];
-  // "coffee shops near the park" still means coffee. Longest key first, so
-  // "coffee shop" is preferred over the "shop" it contains.
-  const hit = Object.keys(TAG_MAP)
-    .sort((a, b) => b.length - a.length)
-    .find((k) => key.includes(k));
-  return hit ? TAG_MAP[hit] : [];
+  // The shared table is written in the words a person types, so its patterns
+  // are bounded by \b. The map sends CATEGORY NAMES — 'gas_station' — and an
+  // underscore is a word character, so \bgas\b cannot match inside it and the
+  // whole category sweep came back empty. Underscores become spaces here,
+  // where the two naming conventions meet, rather than by loosening 33
+  // patterns that are correct as written.
+  const text = String(phrase || '').trim().replace(/_/g, ' ');
+  if (!text) return [];
+  const hit = CATEGORIES.find(([re]) => re.test(text));
+  return hit ? hit[1] : [];
 }
 
 /**
@@ -295,5 +261,5 @@ module.exports = {
   categoryOf,
   tagsFor,
   escapeLiteral,
-  TAG_MAP,
+  CATEGORIES,
 };

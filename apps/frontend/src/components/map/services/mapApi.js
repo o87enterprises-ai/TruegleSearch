@@ -1,4 +1,5 @@
 import axios from 'axios';
+import OSM_CATEGORY_DATA from '../../../../../../shared/osm-categories.json';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -149,41 +150,15 @@ const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
 //
 // Unlisted subjects are not a failure — they fall through to a name match,
 // which is what makes searching for a specific business work.
-const OSM_CATEGORIES = [
-  [/\b(coffee|cafe|café|espresso|coffee\s*shop)\b/i, ['amenity=cafe']],
-  [/\b(restaurant|food|eat|dinner|lunch|dining)\b/i, ['amenity=restaurant', 'amenity=fast_food']],
-  [/\b(fast\s*food|burger|pizza|takeaway|takeout)\b/i, ['amenity=fast_food']],
-  [/\b(bar|pub|brewery|tavern|drinks)\b/i, ['amenity=bar', 'amenity=pub']],
-  [/\b(gas|petrol|fuel|gas\s*station|filling\s*station)\b/i, ['amenity=fuel']],
-  [/\b(ev\s*charg\w*|charging\s*station|supercharger)\b/i, ['amenity=charging_station']],
-  [/\b(grocery|groceries|supermarket|market|food\s*store)\b/i, ['shop=supermarket', 'shop=convenience']],
-  [/\b(pharmacy|chemist|drugstore|drug\s*store)\b/i, ['amenity=pharmacy']],
-  [/\b(hospital|emergency\s*room|\ber\b)\b/i, ['amenity=hospital']],
-  [/\b(doctor|clinic|urgent\s*care|physician)\b/i, ['amenity=clinic', 'amenity=doctors']],
-  [/\b(dentist|dental)\b/i, ['amenity=dentist']],
-  [/\b(vet|veterinar\w+)\b/i, ['amenity=veterinary']],
-  [/\b(bank|credit\s*union)\b/i, ['amenity=bank']],
-  [/\b(atm|cash\s*machine|cashpoint)\b/i, ['amenity=atm']],
-  [/\b(hotel|motel|inn|lodging|hostel|place\s*to\s*stay)\b/i, ['tourism=hotel', 'tourism=motel', 'tourism=hostel']],
-  [/\b(park|playground|green\s*space)\b/i, ['leisure=park', 'leisure=playground']],
-  [/\b(gym|fitness|workout)\b/i, ['leisure=fitness_centre']],
-  [/\b(library|libraries)\b/i, ['amenity=library']],
-  [/\b(school|schools)\b/i, ['amenity=school']],
-  [/\b(police|police\s*station)\b/i, ['amenity=police']],
-  [/\b(fire\s*station|fire\s*department)\b/i, ['amenity=fire_station']],
-  [/\b(post\s*office|mail)\b/i, ['amenity=post_office']],
-  [/\b(hardware|home\s*improvement|diy)\b/i, ['shop=hardware', 'shop=doityourself']],
-  [/\b(barber|salon|hairdress\w*|haircut)\b/i, ['shop=hairdresser']],
-  [/\b(mechanic|car\s*repair|auto\s*repair|garage)\b/i, ['shop=car_repair']],
-  [/\b(parking|car\s*park)\b/i, ['amenity=parking']],
-  [/\b(laundry|laundromat|launderette|dry\s*clean\w*)\b/i, ['shop=laundry', 'shop=dry_cleaning']],
-  [/\b(cinema|movie\s*theat\w+|movies)\b/i, ['amenity=cinema']],
-  [/\b(toilet|restroom|bathroom|public\s*toilet)\b/i, ['amenity=toilets']],
-  [/\b(atm|bank)\b/i, ['amenity=atm', 'amenity=bank']],
-  [/\b(taxi|taxis|taxi\s*stand|cab|cabs|cab\s*company|minicab)\b/i, ['amenity=taxi']],
-  [/\b(bus\s*stop|bus\s*station|transit|train\s*station|rail\s*station)\b/i, ['highway=bus_stop', 'amenity=bus_station', 'railway=station']],
-  [/\b(shop|shops|store|stores|shopping)\b/i, ['shop']],
-];
+// ONE table, two consumers. The identical mapping is needed by the public API
+// (apps/backend/services/OverpassPlacesService.js), which answers the same
+// question for callers that are not this browser. Two copies drift: a category
+// added here would silently not exist there. The regexes are built from the
+// shared data below, so `re.source` still reads exactly as it did when the
+// patterns were written inline — which leadingCategory() depends on.
+const OSM_CATEGORIES = OSM_CATEGORY_DATA.categories.map(
+  ({ pattern, tags }) => [new RegExp(pattern, 'i'), tags]
+);
 
 // The category word(s) a query OPENS with — "taxi" in "taxi cottage grove
 // oregon" — or null.

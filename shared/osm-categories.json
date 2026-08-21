@@ -1,0 +1,215 @@
+{
+  "note": "What people type, mapped to the OpenStreetMap tag that actually finds it. Matching on tags rather than names is the point: a cafe called Blue Bottle has the word coffee nowhere in its name, and a name search misses every one of them. A tag with no = is a key-existence filter (shop -> [\"shop\"]). ONE table, two consumers: the browser map (mapApi.js) and the public API (OverpassPlacesService.js). It lives here because two copies drift, and a category added to one would silently not exist in the other. Order matters to callers that scan for a match: keep specific before general.",
+  "categories": [
+    {
+      "pattern": "\\b(coffee|cafe|café|espresso|coffee\\s*shop)\\b",
+      "tags": [
+        "amenity=cafe"
+      ]
+    },
+    {
+      "pattern": "\\b(restaurant|food|eat|dinner|lunch|dining)\\b",
+      "tags": [
+        "amenity=restaurant",
+        "amenity=fast_food"
+      ]
+    },
+    {
+      "pattern": "\\b(fast\\s*food|burger|pizza|takeaway|takeout)\\b",
+      "tags": [
+        "amenity=fast_food"
+      ]
+    },
+    {
+      "pattern": "\\b(bar|pub|brewery|tavern|drinks)\\b",
+      "tags": [
+        "amenity=bar",
+        "amenity=pub"
+      ]
+    },
+    {
+      "pattern": "\\b(gas|petrol|fuel|gas\\s*station|filling\\s*station)\\b",
+      "tags": [
+        "amenity=fuel"
+      ]
+    },
+    {
+      "pattern": "\\b(ev\\s*charg\\w*|charging\\s*station|supercharger)\\b",
+      "tags": [
+        "amenity=charging_station"
+      ]
+    },
+    {
+      "pattern": "\\b(grocery|groceries|supermarket|market|food\\s*store)\\b",
+      "tags": [
+        "shop=supermarket",
+        "shop=convenience"
+      ]
+    },
+    {
+      "pattern": "\\b(pharmacy|chemist|drugstore|drug\\s*store)\\b",
+      "tags": [
+        "amenity=pharmacy"
+      ]
+    },
+    {
+      "pattern": "\\b(hospital|emergency\\s*room|\\ber\\b)\\b",
+      "tags": [
+        "amenity=hospital"
+      ]
+    },
+    {
+      "pattern": "\\b(doctor|clinic|urgent\\s*care|physician)\\b",
+      "tags": [
+        "amenity=clinic",
+        "amenity=doctors"
+      ]
+    },
+    {
+      "pattern": "\\b(dentist|dental)\\b",
+      "tags": [
+        "amenity=dentist"
+      ]
+    },
+    {
+      "pattern": "\\b(vet|veterinar\\w+)\\b",
+      "tags": [
+        "amenity=veterinary"
+      ]
+    },
+    {
+      "pattern": "\\b(bank|credit\\s*union)\\b",
+      "tags": [
+        "amenity=bank"
+      ]
+    },
+    {
+      "pattern": "\\b(atm|cash\\s*machine|cashpoint)\\b",
+      "tags": [
+        "amenity=atm"
+      ]
+    },
+    {
+      "pattern": "\\b(hotel|motel|inn|lodging|hostel|place\\s*to\\s*stay)\\b",
+      "tags": [
+        "tourism=hotel",
+        "tourism=motel",
+        "tourism=hostel"
+      ]
+    },
+    {
+      "pattern": "\\b(park|playground|green\\s*space)\\b",
+      "tags": [
+        "leisure=park",
+        "leisure=playground"
+      ]
+    },
+    {
+      "pattern": "\\b(gym|fitness|workout)\\b",
+      "tags": [
+        "leisure=fitness_centre"
+      ]
+    },
+    {
+      "pattern": "\\b(library|libraries)\\b",
+      "tags": [
+        "amenity=library"
+      ]
+    },
+    {
+      "pattern": "\\b(school|schools)\\b",
+      "tags": [
+        "amenity=school"
+      ]
+    },
+    {
+      "pattern": "\\b(police|police\\s*station)\\b",
+      "tags": [
+        "amenity=police"
+      ]
+    },
+    {
+      "pattern": "\\b(fire\\s*station|fire\\s*department)\\b",
+      "tags": [
+        "amenity=fire_station"
+      ]
+    },
+    {
+      "pattern": "\\b(post\\s*office|mail)\\b",
+      "tags": [
+        "amenity=post_office"
+      ]
+    },
+    {
+      "pattern": "\\b(hardware|home\\s*improvement|diy)\\b",
+      "tags": [
+        "shop=hardware",
+        "shop=doityourself"
+      ]
+    },
+    {
+      "pattern": "\\b(barber|salon|hairdress\\w*|haircut)\\b",
+      "tags": [
+        "shop=hairdresser"
+      ]
+    },
+    {
+      "pattern": "\\b(mechanic|car\\s*repair|auto\\s*repair|garage)\\b",
+      "tags": [
+        "shop=car_repair"
+      ]
+    },
+    {
+      "pattern": "\\b(parking|car\\s*park)\\b",
+      "tags": [
+        "amenity=parking"
+      ]
+    },
+    {
+      "pattern": "\\b(laundry|laundromat|launderette|dry\\s*clean\\w*)\\b",
+      "tags": [
+        "shop=laundry",
+        "shop=dry_cleaning"
+      ]
+    },
+    {
+      "pattern": "\\b(cinema|movie\\s*theat\\w+|movies)\\b",
+      "tags": [
+        "amenity=cinema"
+      ]
+    },
+    {
+      "pattern": "\\b(toilet|restroom|bathroom|public\\s*toilet)\\b",
+      "tags": [
+        "amenity=toilets"
+      ]
+    },
+    {
+      "pattern": "\\b(atm|bank)\\b",
+      "tags": [
+        "amenity=atm",
+        "amenity=bank"
+      ]
+    },
+    {
+      "pattern": "\\b(taxi|taxis|taxi\\s*stand|cab|cabs|cab\\s*company|minicab)\\b",
+      "tags": [
+        "amenity=taxi"
+      ]
+    },
+    {
+      "pattern": "\\b(bus\\s*stop|bus\\s*station|transit|train\\s*station|rail\\s*station)\\b",
+      "tags": [
+        "highway=bus_stop",
+        "amenity=bus_station",
+        "railway=station"
+      ]
+    },
+    {
+      "pattern": "\\b(shop|shops|store|stores|shopping)\\b",
+      "tags": [
+        "shop"
+      ]
+    }
+  ]
+}
