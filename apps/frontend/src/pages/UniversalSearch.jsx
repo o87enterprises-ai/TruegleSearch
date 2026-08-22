@@ -1250,6 +1250,13 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     // actions showing, so the trip lands on the thing you tapped rather than
     // on a list you have to find it in again.
     const [viewerOpen, setViewerOpen] = useState(() => selectedUrl === result.url);
+    // Whether the page will actually let us frame it. The static list
+    // (utils/embeddable.js) catches the KNOWN refusers before the button is even
+    // offered; this covers the long tail it can't enumerate — an ordinary site
+    // that still sends X-Frame-Options, which is what put the browser's own
+    // "can't open this page" error inside the preview. 'checking' → 'ok' (frame
+    // it) | 'blocked' (offer the link instead of a dead rectangle).
+    const [frameState, setFrameState] = useState('idle');
     const videoEmbed = getVideoEmbed(result.url);
     const playable = getPlayable(result.url);
     // THIS CARD NO LONGER PLAYS ANYTHING.
@@ -1264,6 +1271,28 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     // Page previews ("Open in app") are unaffected: those are documents, not
     // media, and there is only ever one of them open because it takes a press.
     const showViewer = viewerOpen;
+
+    // Ask the server whether this page can be framed the moment the preview
+    // opens — the browser can't tell us (the refusal headers are invisible to
+    // the framing page by design), but the server, fetching it itself, can read
+    // them. Unknown/timeout is treated as OK so a slow probe never hides a page
+    // that would have worked; a definite "blocked" swaps the frame for the link.
+    useEffect(() => {
+      if (!showViewer || videoEmbed) { setFrameState('idle'); return undefined; }
+      let cancelled = false;
+      setFrameState('checking');
+      const backend = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      fetch(`${backend}/api/extract/frameable`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: result.url }),
+      })
+        .then((r) => r.json())
+        .then((j) => { if (!cancelled) setFrameState(j?.frameable === false ? 'blocked' : 'ok'); })
+        .catch(() => { if (!cancelled) setFrameState('ok'); });
+      return () => { cancelled = true; };
+    }, [showViewer, result.url, videoEmbed]);
+
     const borderClass = accent.border;
     const titleClass = accent.title;
     const blurClass = safeSearch === 'blur' ? 'blur-md hover:blur-none transition-all duration-200' : '';
@@ -1470,18 +1499,34 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                   <button onClick={() => setViewerOpen(false)} className="text-xs text-white/30 hover:text-white">✕</button>
                 </div>
               </div>
-              {(
-                /* NO onLoad SNIFFING. This used to try to detect a refusal
-                   by reading `contentDocument`, which is null for EVERY
-                   cross-origin frame by specification — embeddable or not — so
-                   the catch branch fired on every external result and the
-                   preview announced "This page can't be embedded" about pages
-                   that embed perfectly well. A blocked frame is deliberately
-                   indistinguishable from a slow one; that is what the header
-                   is for. Known refusals are handled ahead of the press
-                   instead (utils/embeddable.js), and the bar above this frame
-                   always carries an Open link, so a frame that stays blank for
-                   any other reason still has a way out. */
+              {/* NO client-side onLoad sniffing — `contentDocument` is null for
+                  EVERY cross-origin frame by specification, so it can't tell a
+                  refusal from a slow load. The server probe above CAN (it reads
+                  the headers), so the three states here are real: checking,
+                  blocked (offer the link, not a dead rectangle — this is the
+                  "open in app" case the browser error used to fill), or frame. */}
+              {frameState === 'checking' ? (
+                <div className="flex flex-col items-center justify-center gap-2 py-16 bg-black/20">
+                  <div className="w-5 h-5 border-2 border-white/20 border-t-white/70 rounded-full animate-spin" />
+                  <p className="text-xs text-white/40">Checking if this page can open in-app…</p>
+                </div>
+              ) : frameState === 'blocked' ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-14 px-6 bg-black/20 text-center">
+                  <ExternalLink size={28} className="text-white/40" />
+                  <p className="text-sm text-white/70 max-w-sm">
+                    <span className="text-white/90 font-semibold">{hostLabel}</span> blocks other
+                    sites from embedding its pages, so it can only open in its own tab.
+                  </p>
+                  <a
+                    href={result.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border ${accent.iframeBorder} ${accent.link} text-sm font-medium hover:bg-white/5 transition-colors`}
+                  >
+                    <ExternalLink size={14} /> Open in new tab
+                  </a>
+                </div>
+              ) : (
                 <iframe
                   key={result.url}
                   src={result.url}

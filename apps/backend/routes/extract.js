@@ -156,4 +156,94 @@ router.post('/images', rateLimitSearch, async (req, res) => {
   }
 });
 
+// Hosts we must never let a user-supplied URL point the server at — the SSRF
+// guard for any endpoint that fetches an arbitrary URL. Loopback, link-local,
+// the cloud metadata address, private ranges, and bare/.local names.
+function isBlockedHost(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  if (!h) return true;
+  if (h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal')) return true;
+  if (!h.includes('.') && !h.includes(':')) return true; // bare hostname, no TLD
+  if (h === '169.254.169.254' || h === 'metadata.google.internal') return true;
+  // IPv4 literals in private / loopback / link-local ranges.
+  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const [a, b] = [Number(m[1]), Number(m[2])];
+    if (a === 10 || a === 127 || a === 0) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+  }
+  if (h === '::1' || h.startsWith('fc') || h.startsWith('fd') || h.startsWith('fe80')) return true;
+  return false;
+}
+
+/**
+ * POST /api/extract/frameable
+ * body: { url: string }
+ * Server-side check of whether a page will let Truegle embed it in an iframe.
+ *
+ * WHY THIS EXISTS: X-Frame-Options / CSP frame-ancestors are enforced by the
+ * BROWSER and leak nothing back to the framing page (that is the point of a
+ * clickjacking header), so the client cannot tell an embeddable page from a
+ * refusing one — it just shows the browser's own "can't open this page" error
+ * inside the preview. The server, fetching the page itself, CAN read those
+ * headers. Returns { frameable: true | false | null } — null means the probe
+ * could not decide (timeout/blocked), and the caller should fall back to its
+ * static list rather than a broken frame.
+ */
+router.post('/frameable', rateLimitSearch, async (req, res) => {
+  const { url } = req.body;
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    return res.status(400).json({ error: 'url is required' });
+  }
+  let normalized = url.trim();
+  if (!/^https?:\/\//i.test(normalized)) normalized = 'https://' + normalized;
+
+  let parsed;
+  try { parsed = new URL(normalized); } catch { return res.status(400).json({ error: 'invalid url' }); }
+  if (!/^https?:$/.test(parsed.protocol) || isBlockedHost(parsed.hostname)) {
+    return res.status(400).json({ error: 'url not allowed' });
+  }
+
+  try {
+    const r = await axios.get(normalized, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Truegle-Framecheck/1.0; +https://truegle.info)' },
+      timeout: 8000,
+      maxContentLength: 512 * 1024,
+      maxRedirects: 3,
+      responseType: 'text',
+      validateStatus: () => true,
+    });
+
+    const xfo = String(r.headers['x-frame-options'] || '').toLowerCase();
+    const csp = String(r.headers['content-security-policy'] || '').toLowerCase();
+    let frameable = true;
+    let reason = null;
+
+    if (xfo.includes('deny') || xfo.includes('sameorigin')) {
+      frameable = false;
+      reason = `X-Frame-Options: ${xfo.trim()}`;
+    }
+    // CSP frame-ancestors is the modern control and OVERRIDES X-Frame-Options
+    // where both are present. We can embed only if it explicitly allows any
+    // origin (a bare `*`); 'none', 'self', or a specific allow-list all exclude
+    // Truegle.
+    const fa = csp.match(/frame-ancestors([^;]*)/);
+    if (fa) {
+      const val = fa[1].trim();
+      frameable = /(^|\s)\*(\s|$)/.test(val) && !/'none'/.test(val);
+      if (!frameable) reason = `CSP frame-ancestors: ${val}`;
+      else reason = null;
+    }
+
+    return res.json({ success: true, url: normalized, frameable, reason });
+  } catch (err) {
+    // Timeout, DNS failure, connection refused — we genuinely can't tell. Say
+    // so (null) rather than guessing, so the client keeps its static-list call.
+    logger.warn('Frameable probe failed:', { error: err.message, url: normalized });
+    return res.json({ success: true, url: normalized, frameable: null, reason: 'probe failed' });
+  }
+});
+
 module.exports = router;
