@@ -1,0 +1,7 @@
+# Truegle security contact — RFC 9116 (https://securitytxt.org)
+# Served by Cloudflare Pages at https://truegle.info/.well-known/security.txt
+Contact: mailto:truegleai@proton.me
+Expires: 2027-08-21T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://truegle.info/.well-known/security.txt
+Policy: https://truegle.info/privacy
