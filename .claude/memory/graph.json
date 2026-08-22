@@ -905,6 +905,22 @@
         "body": "BusinessEnrichmentService.getRadarData called RadarService.searchPlaces({near,options}) but the signature is (near, options), so near.latitude was undefined and requests went out as near=undefined,undefined; it also read .length on the {success,places,meta} return. Fixed 2026-08-21. Same bug had been fixed in routes/maps.js earlier and not followed down to this caller - check ALL callers when fixing a signature misuse.",
         "ts": "2026-08-21",
         "created": "2026-08-21"
+      },
+      "cf-token-deleted": {
+        "Id": "cf-token-deleted",
+        "Type": "fact",
+        "Label": "Cloudflare API token was deleted after the SearXNG migration",
+        "body": "The over-permissioned token (hidden-pine-a8bf) was deleted by the user 2026-08-21 for security. There is now NO Cloudflare API access. To do DNS/zone changes (DMARC fix, Bot Fight Mode, HSTS, AI Labyrinth) either the user does them in the dashboard or creates a NEW least-privilege token (Zone.DNS Edit + Zone Settings Edit, scoped to truegle.info). Supersedes [[cf-api-token-exists]].",
+        "ts": "2026-08-22",
+        "created": "2026-08-22"
+      },
+      "truegle-dmarc-conflict": {
+        "Id": "truegle-dmarc-conflict",
+        "Type": "fact",
+        "Label": "truegle.info DMARC is misconfigured: CNAME + TXT conflict at _dmarc",
+        "body": "_dmarc.truegle.info returns BOTH a CNAME (dmarc.ionos.com) AND a TXT (v=DMARC1; p=none) — invalid (a name can't have a CNAME alongside other records), which is the Cloudflare 'DMARC Record Error detected' insight. SPF is fine: v=spf1 include:_spf-us.ionos.com ~all. Fix in Cloudflare DNS: delete one so exactly ONE DMARC record remains; recommended single TXT: v=DMARC1; p=none; rua=mailto:truegleai@proton.me then tighten to quarantine after monitoring. security.txt was added to the repo (commit 3d2587f).",
+        "ts": "2026-08-22",
+        "created": "2026-08-22"
       }
     },
     "decision": {
@@ -2393,5 +2409,5 @@
       }
     }
   },
-  "updated": "2026-08-21"
+  "updated": "2026-08-22"
 }
