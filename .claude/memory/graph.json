@@ -917,8 +917,8 @@
       "truegle-dmarc-conflict": {
         "Id": "truegle-dmarc-conflict",
         "Type": "fact",
-        "Label": "truegle.info DMARC is misconfigured: CNAME + TXT conflict at _dmarc",
-        "body": "_dmarc.truegle.info returns BOTH a CNAME (dmarc.ionos.com) AND a TXT (v=DMARC1; p=none) — invalid (a name can't have a CNAME alongside other records), which is the Cloudflare 'DMARC Record Error detected' insight. SPF is fine: v=spf1 include:_spf-us.ionos.com ~all. Fix in Cloudflare DNS: delete one so exactly ONE DMARC record remains; recommended single TXT: v=DMARC1; p=none; rua=mailto:truegleai@proton.me then tighten to quarantine after monitoring. security.txt was added to the repo (commit 3d2587f).",
+        "Label": "truegle.info DMARC + HSTS now fixed (was CNAME conflict)",
+        "body": "RESOLVED 2026-08-21: replaced the invalid _dmarc CNAME (to dmarc.ionos.com) with a single TXT 'v=DMARC1; p=none; rua=mailto:truegleai@proton.me; fo=1'. Also enabled HSTS on truegle.info (max-age 15552000 = 6mo, no includeSubDomains, no preload) — header confirmed live. security.txt added to repo (commit 3d2587f). Bot Fight Mode + AI Labyrinth deliberately left OFF (SEO trade / no real security value). SPF unchanged (IONOS + SES send.). Done via a temporary rolled Cloudflare token that the user re-rolls after each session — see [[cf-token-deleted]].",
         "ts": "2026-08-22",
         "created": "2026-08-22"
       }
