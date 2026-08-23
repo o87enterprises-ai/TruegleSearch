@@ -864,6 +864,22 @@
         "body": "Container was RUNNING and answering; disk was 100% (8GB). Fillers: journalctl 674MB + docker build cache 966MB — now capped (SystemMaxUse=200M in journald.conf; max-size 20m/max-file 3 in /etc/docker/daemon.json). THE TRAP THAT COST AN HOUR: docker pull + docker restart does NOT apply a new image — the container must be rm -f and re-run. Recreate cmd (bind is a host path so settings.yml survives): sudo docker run -d --name searxng --restart unless-stopped -p 127.0.0.1:8888:8080 -v /var/lib/docker/volumes/8872994b85212f0a365c97bfc443a0f9336904a647dcfe7549fdb11e06a6e1d1/_data:/etc/searxng searxng/searxng:latest . Version went 2026.6.20 -> 2026.8.20 and search returned. There is ALREADY a /swap file — check swapon --show before adding one. Full steps in docs/RUNBOOK.md.",
         "ts": "2026-08-21",
         "created": "2026-08-21"
+      },
+      "analytics-endpoint-is-mock": {
+        "Id": "analytics-endpoint-is-mock",
+        "Type": "fact",
+        "Label": "/api/analytics serves FABRICATED data — never quote it",
+        "body": "apps/backend/routes/analytics.js is mounted live at server.js:313 but is scaffolding: module-level seeded constants apiUsage={totalSearches:1500,successful:1420,failed:80,avgResponseTime:380,popularQueries technology45/health38/education32} + 2 searchAnalytics rows dated Jan-2024. logSearch() increments ON TOP of the fake baseline into an in-memory array => resets every serverless cold start AND is permanently offset by the seed. Admin-gated so not public, and Advertise.jsx is qualitative (no hard numbers) so nothing fake has shipped. TRAP: HANDOFF Step 6 says /advertise needs 'real audience/traffic numbers' — filling that from /api/analytics would publish invented stats to advertisers. Fix = wire to real store or return 501, and delete the seed constants.",
+        "ts": "2026-08-23",
+        "created": "2026-08-23"
+      },
+      "traffic-truth-two-sources": {
+        "Id": "traffic-truth-two-sources",
+        "Type": "fact",
+        "Label": "Real traffic ground truth = Cloudflare vs Adsterra, ~100x apart, neither counts humans",
+        "body": "The ONLY two first-party traffic sources. Cloudflare 30d geo: US top, NL 6.5k, BR 5.2k, CA, FR 2.3k (>=14k from 3 countries; Cloudflare's default unit is REQUESTS not visitors). Adsterra 7d 2026-07-14..21: 320x50=35imp, 468x60=14imp, 300x250=7imp => ~56 imp/wk (~240/mo). Gap ~100x, explained by: (1) SPA page load = many requests; (2) deliberately-invited crawlers (llms.txt + robots.txt Allow GPTBot/PerplexityBot/ClaudeBot + IndexNow); (3) ~18% hardcore adblockers + render-gate means blocked=no impression; (4) CRITICAL — AD POLICY forbids ads on the landing page and the localized /de /es /fr /nl /pt pages ARE the SEO surface, so organic landing traffic generates ZERO Adsterra impressions BY DESIGN. SEO wins are structurally invisible in ad stats. No GA/Plausible/Umami/Matomo/PostHog anywhere (correct per no-tracking policy) => zero session measurement exists.",
+        "ts": "2026-08-23",
+        "created": "2026-08-23"
       }
     },
     "decision": {
@@ -2298,6 +2314,15 @@
         "status": "open",
         "ts": "2026-08-20",
         "created": "2026-08-20"
+      },
+      "gsc-status-contradiction": {
+        "Id": "gsc-status-contradiction",
+        "Type": "thread",
+        "Label": "HANDOFF contradicts itself on Search Console — unresolved",
+        "body": "HANDOFF ~L2028 (SEO/Indexing SHIPPED): 'Bing Webmaster Tools: imported from Google Search Console (one click). 5 URLs submitted. Sitemap submitted.' HANDOFF ~L2425 service table: 'Search Console | Not started' AND 'Bing Webmaster | Not started'. Both cannot be true. Matters because GSC is the ONLY authoritative source of organic impressions/clicks/queries/position + Coverage (Google's own technical audit). Until it exists, no external SEO vendor claim about truegle.info traffic is verifiable — and once it exists, no vendor is needed for the diagnosis. ACTION: log into GSC, confirm property state, reconcile HANDOFF.",
+        "status": "open",
+        "ts": "2026-08-23",
+        "created": "2026-08-23"
       }
     }
   },
@@ -2327,5 +2352,5 @@
       }
     }
   },
-  "updated": "2026-08-21"
+  "updated": "2026-08-23"
 }
