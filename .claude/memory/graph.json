@@ -872,6 +872,14 @@
         "body": "GroqKeyPool.js (apps/backend/services) tapers requests ROUND-ROBIN across all Groq keys; 429 parks that key for its retry-after (1s-1h clamp), 401/403 disables it for the process, each process starts on a RANDOM key (Vercel cold starts). Text+vision+STT share the one pool. Keys come from collectGroqKeys() in config/env.js: GROQ_API_KEYS (pool in one var, comma/newline sep, unlimited) + GROQ_API_KEY + GROQ_API_KEY_2.._50, additive and deduped. The old 5-key cap and sticky key-0 behaviour are gone.",
         "ts": "2026-08-23",
         "created": "2026-08-23"
+      },
+      "groq-per-org-limits": {
+        "Id": "groq-per-org-limits",
+        "Type": "fact",
+        "Label": "Groq rate limits are PER ORG, not per key",
+        "body": "Groq meters RPM/RPD/TPM/TPD per ORGANIZATION. All keys inside one org share one bucket, so ORG COUNT is the quota multiplier and extra keys within an org are hot standbys, not headroom. Account as of 2026-08-23: 4 orgs, 12 new keys => 4x headroom, not 12x. GroqKeyPool therefore tapers round-robin ACROSS ORGS; a 429 parks the whole org for its retry-after, a 401/403 drops only that one key. Supply via GROQ_ORG_1_KEYS..GROQ_ORG_20_KEYS (one var per org, keys comma separated); ungrouped GROQ_API_KEYS/GROQ_API_KEY_n are each assumed their own org.",
+        "ts": "2026-08-23",
+        "created": "2026-08-23"
       }
     },
     "decision": {

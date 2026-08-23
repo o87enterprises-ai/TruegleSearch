@@ -38,19 +38,26 @@ frontend `import.meta.env.VITE_*` via `apps/frontend/src/config/env.js`.
 
 ## Groq (primary AI substrate)
 
-Groq free-tier limits are **per key**, so more keys = more headroom. The pool
-is tapered round-robin by `apps/backend/services/GroqKeyPool.js`; a key that
-429s is parked for its `retry-after` window instead of being retried.
+**Groq meters rate limits per ORGANIZATION, not per key.** Every key inside one
+org draws on the same RPM/RPD/TPM/TPD bucket, so the org count is the quota
+multiplier — extra keys within an org are hot standbys, not headroom. Group
+them correctly or the pool wastes requests discovering that a key's org-mates
+are limited too.
+
+**One variable per org**, that org's keys comma-separated:
 
 | Name | Store | Purpose |
 |---|---|---|
-| `GROQ_API_KEYS` | Vercel | **Preferred for bulk.** Whole pool in one variable, comma/newline separated. No count limit. |
-| `GROQ_API_KEY` | Vercel | Original single key. Still honoured. |
-| `GROQ_API_KEY_2` … `GROQ_API_KEY_50` | Vercel | Numbered slots. Was capped at 5; now scans to 50. |
+| `GROQ_ORG_1_KEYS` … `GROQ_ORG_20_KEYS` | Vercel | One Groq org per variable; its keys comma separated. **This is the shape to use.** |
+| `GROQ_API_KEYS` | Vercel | Ungrouped pool. Each key is assumed to be its own org — safe default, wrong if two are org-mates. |
+| `GROQ_API_KEY`, `GROQ_API_KEY_2` … `_50` | Vercel | Legacy ungrouped slots, same assumption. |
 | `GROQ_MODEL`, `GROQ_VISION_MODEL` | Vercel | Model ids — not secrets. |
 
-All three sources are additive and de-duplicated, so mixing them is safe.
-Text chat, vision and speech-to-text share the one pool.
+All sources are additive and de-duplicated, so mixing them is safe, but a key
+that belongs to a known org should live in that org's variable. Rotation is
+handled by `apps/backend/services/GroqKeyPool.js`: round-robin **across orgs**,
+a 429 parks the whole org for its `retry-after`, a 401/403 drops just that one
+key. Text chat, vision and speech-to-text share the one pool.
 
 ## Other backend secrets (all in Vercel)
 

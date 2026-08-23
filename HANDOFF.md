@@ -25,38 +25,49 @@ Third occurrence as of 2026-08-21.
   history) and tells the agent only the NAMES. The map lists every variable
   name and which store it lives in — **names and locations only, never values**.
 
-- **🟢 The 5-key ceiling is gone.** `collectGroqKeys()` in
-  `apps/backend/config/env.js` now reads three additive, de-duplicated sources:
-  `GROQ_API_KEYS` (whole pool in one variable, comma/newline separated,
-  no count limit — preferred for bulk), `GROQ_API_KEY`, and
-  `GROQ_API_KEY_2`…`_50`. Mixing them is safe.
+- **🔴 PERMANENT FACT — Groq meters rate limits PER ORGANIZATION, not per key.**
+  Every key inside one org shares the same RPM/RPD/TPM/TPD bucket. **The org
+  count is the quota multiplier**; extra keys within an org are hot standbys,
+  not headroom. Current account: **4 orgs, 12 new keys → 4× headroom, not 12×.**
 
-- **🟢 Rotation is now a taper, not a fallback.** New
-  `apps/backend/services/GroqKeyPool.js` hands out keys **round-robin per
-  request**, so load spreads evenly instead of key 0 being drained while the
-  rest idle. On 429 it parks that key for exactly the `retry-after` Groq sends
-  (clamped 1s–1h) rather than retrying it next request; on 401/403 it drops the
-  key for the life of the process. Each process starts on a **random** key —
-  on Vercel every cold start is a fresh process, and a fixed start would point
-  every concurrent lambda at key 0.
+- **🟢 The 5-key ceiling is gone, and keys are grouped by org.**
+  `collectGroqOrgs()` in `apps/backend/config/env.js` reads, additive and
+  de-duplicated: `GROQ_ORG_1_KEYS`…`GROQ_ORG_20_KEYS` (**the shape to use** —
+  one var per org, that org's keys comma separated), plus the ungrouped
+  `GROQ_API_KEYS` / `GROQ_API_KEY` / `GROQ_API_KEY_2`…`_50`, where each key is
+  assumed to be its own org. That assumption preserves the old behaviour
+  exactly and only costs a wasted round-trip if two ungrouped keys turn out to
+  be org-mates — move those into a `GROQ_ORG_n_KEYS` var to fix it.
+
+- **🟢 Rotation is now a taper across ORGS, not a fallback across keys.** New
+  `apps/backend/services/GroqKeyPool.js` goes **round-robin over orgs** per
+  request. A 429 parks **the whole org** for exactly the `retry-after` Groq
+  sends (clamped 1s–1h) — its sibling keys share the exhausted bucket, so
+  probing them is a guaranteed wasted round-trip. A 401/403 drops **only that
+  key**, since a revoked key says nothing about its org-mates. Each process
+  starts on a **random** org — on Vercel every cold start is a fresh process,
+  and a fixed start would point every concurrent lambda at org 0.
 
   Text chat, vision and speech-to-text share the one pool, so voice search no
-  longer independently hammers whichever key the chat surface is on
-  (`SpeechToTextService` used to always start at index 0).
+  longer independently drains whichever org the chat surface is on
+  (`SpeechToTextService` used to keep its own list and always start at index 0).
 
-  Measured against a fake Groq enforcing 3 requests/key: 12 requests over 4
-  keys → **12/12 succeeded, exactly 3 per key, zero wasted 429 round-trips**.
-  Once the pool is genuinely spent it fails fast with no HTTP call at all, so
-  the failover chain (gemini→nvidia→…) gets control immediately.
-  `healthCheck()` reports `{total, usable, cooling, disabled}` — counts only,
-  never key material.
+  Measured against a fake Groq metering **per org** at 3 requests/org: 12
+  requests over 4 orgs × 3 keys → **12/12 succeeded, exactly 3 per org, every
+  key exercised once, zero wasted 429 round-trips**. Once the pool is spent it
+  fails with no HTTP call at all, so the failover chain (gemini→nvidia→…) gets
+  control immediately. `healthCheck()` reports
+  `{orgs, keys, usableOrgs, coolingOrgs, disabledKeys}` — counts only, never
+  key material.
 
-- Tests: `apps/backend/__tests__/groqKeyPool.test.js` (7). Full backend suite
-  16/16 suites, 174/174 tests. (`new-endpoints.test.js` needs Postgres on
+- Tests: `apps/backend/__tests__/groqKeyPool.test.js` (11). Full backend suite
+  16/16 suites, 178/178 tests. (`new-endpoints.test.js` needs Postgres on
   :5432 and is skipped in a fresh container — unrelated.)
 
-- **Still to do by hand:** set the new keys in Vercel and redeploy — env changes
-  only take effect on a new build.
+- **Still to do by hand:** set `GROQ_ORG_1_KEYS`…`GROQ_ORG_4_KEYS` in Vercel
+  (one var per org, that org's keys comma separated) and redeploy — env changes
+  only take effect on a new build. Move the 3 pre-existing keys into whichever
+  org var they actually belong to.
 
 ---
 

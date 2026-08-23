@@ -1,9 +1,9 @@
 /**
  * GroqService - Groq LPU Inference (OpenAI-compatible)
  * Free tier: https://console.groq.com — no credit card required.
- * Keys come from GroqKeyPool, which tapers requests round-robin across every
- * configured key and parks a key for as long as Groq's retry-after asks after
- * a 429 — so load is spread instead of one key being drained first.
+ * Keys come from GroqKeyPool, which tapers requests round-robin across Groq
+ * ORGS — the unit rate limits are actually metered on — and parks a whole org
+ * for as long as its retry-after asks after a 429.
  */
 const axios = require('axios');
 const config = require('../config/env');
@@ -15,7 +15,7 @@ class GroqService {
     this.baseUrl = 'https://api.groq.com/openai/v1';
     this.defaultModel = config.ai.groq?.model || 'llama-3.3-70b-versatile';
 
-    logger.info(`GroqService initialized with ${keyPool.size} key(s)`);
+    logger.info(`GroqService initialized with ${keyPool.size} key(s) across ${keyPool.orgCount} org(s)`);
   }
 
   isAvailable() {
@@ -41,19 +41,21 @@ class GroqService {
       formatted.push(...messages);
     }
 
-    // Try each usable key at most once, in round-robin order.
-    const tried = new Set();
+    // Walk the orgs in round-robin order. A 429 rules out an org for the rest
+    // of this request; a 401 only rules out the one key, so its org-mates stay
+    // in play. Each pass either cools an org or disables a key, both finite,
+    // so the loop is bounded by orgs + keys.
+    const triedOrgs = new Set();
 
     for (;;) {
-      const lease = keyPool.acquire(tried);
+      const lease = keyPool.acquire(triedOrgs);
       if (!lease) {
-        // Nothing left to lease: if any key is only cooling down, this is a
+        // Nothing left to lease: if an org is only cooling down, this is a
         // rate limit and the caller should fail over rather than retry Groq.
-        throw new Error(keyPool.stats().cooling > 0
+        throw new Error(keyPool.stats().coolingOrgs > 0
           ? 'All Groq API keys are rate-limited'
           : 'All Groq API keys exhausted');
       }
-      tried.add(lease.index);
 
       try {
         const response = await axios.post(
@@ -79,15 +81,16 @@ class GroqService {
 
       } catch (error) {
         const status = error.response?.status;
-        logger.warn(`Groq key[${lease.index}] failed:`, { status });
+        logger.warn(`Groq org[${lease.org}] key[${lease.index}] failed:`, { status });
 
         if (status === 401 || status === 403) {
-          keyPool.disable(lease.index, `HTTP ${status}`);
+          keyPool.disable(lease.org, lease.index, `HTTP ${status}`);
           continue;
         }
 
         if (status === 429) {
-          keyPool.cool(lease.index, error.response?.headers?.['retry-after']);
+          keyPool.cool(lease.org, error.response?.headers?.['retry-after']);
+          triedOrgs.add(lease.org);
           continue;
         }
 

@@ -38,18 +38,17 @@ class SpeechToTextService {
    * next key and the exhausted one is parked for its retry-after window.
    */
   async transcribe(buffer, filename = 'audio.webm', mimetype = 'audio/webm') {
-    const tried = new Set();
+    const triedOrgs = new Set();
     let lastError;
 
     for (let attempt = 0; ; attempt++) {
       let key = this.explicitKey;
-      let index = -1;
+      let lease = null;
 
       if (this.usesGroqKeys) {
-        const lease = keyPool.acquire(tried);
+        lease = keyPool.acquire(triedOrgs);
         if (!lease) break;
-        ({ key, index } = lease);
-        tried.add(index);
+        key = lease.key;
       } else if (attempt > 0) {
         break;
       }
@@ -77,11 +76,12 @@ class SpeechToTextService {
         if (!this.usesGroqKeys) throw error;
 
         if (status === 429) {
-          keyPool.cool(index, error.response?.headers?.['retry-after']);
+          keyPool.cool(lease.org, error.response?.headers?.['retry-after']);
+          triedOrgs.add(lease.org);
           continue;
         }
         if (status === 401 || status === 403) {
-          keyPool.disable(index, `HTTP ${status}`);
+          keyPool.disable(lease.org, lease.index, `HTTP ${status}`);
           continue;
         }
         throw error;
