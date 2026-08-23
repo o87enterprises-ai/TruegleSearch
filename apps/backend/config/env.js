@@ -56,6 +56,9 @@ const envVarsSchema = Joi.object({
   GROQ_API_KEY_3: Joi.string().optional().description('Groq API Key 3 — rotated to when key 2 rate-limits'),
   GROQ_API_KEY_4: Joi.string().optional().description('Groq API Key 4 — rotated to when key 3 rate-limits'),
   GROQ_API_KEY_5: Joi.string().optional().description('Groq API Key 5 — rotated to when key 4 rate-limits'),
+  // Beyond 5 keys, use GROQ_API_KEYS (one variable, comma/newline separated) or
+  // keep numbering GROQ_API_KEY_6.._50 — collectGroqKeys() picks up both.
+  GROQ_API_KEYS: Joi.string().optional().description('Groq API key pool — comma/whitespace separated, unlimited count'),
   // Default to the 70B model: the 8b-instant default produced weak, shallow
   // summaries (the "poor unbiased summaries" complaint). 70b-versatile is still
   // free-tier; its lower TPM is covered by multi-key rotation (GROQ_API_KEY..._5).
@@ -208,6 +211,32 @@ if (error) {
   throw new Error(`Config validation error: ${error.message}`);
 }
 
+/**
+ * Gather every Groq key the environment carries, in a stable order.
+ * Three ways to supply them, all additive:
+ *   GROQ_API_KEYS      — a pool in one variable, comma/whitespace/newline separated
+ *   GROQ_API_KEY       — the original single key
+ *   GROQ_API_KEY_2..50 — numbered slots (was capped at 5)
+ * Duplicates are dropped so a key listed twice doesn't get double the traffic.
+ */
+const GROQ_KEY_SLOT_LIMIT = 50;
+
+function collectGroqKeys(env) {
+  const found = [];
+  const push = (raw) => {
+    const key = String(raw || '').trim();
+    if (key && !found.includes(key)) found.push(key);
+  };
+
+  String(env.GROQ_API_KEYS || '').split(/[\s,;]+/).forEach(push);
+  push(env.GROQ_API_KEY);
+  for (let n = 2; n <= GROQ_KEY_SLOT_LIMIT; n++) push(env[`GROQ_API_KEY_${n}`]);
+
+  return found;
+}
+
+const groqKeys = collectGroqKeys(envVars);
+
 // Environment configuration
 const config = {
   env: envVars.NODE_ENV,
@@ -280,37 +309,27 @@ const config = {
       model: envVars.NVIDIA_MODEL,
     },
     groq: {
-      apiKey: envVars.GROQ_API_KEY,
+      // First pooled key when only GROQ_API_KEYS is set, so callers that read
+      // .apiKey directly still work.
+      apiKey: envVars.GROQ_API_KEY || groqKeys[0],
       model: envVars.GROQ_MODEL,
       // Vision-capable model for image-attached chat turns (extract/describe
       // an uploaded image). Only used when a request carries an image — the
       // default text model doesn't understand image_url content parts.
       visionModel: envVars.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b',
-      keys: [
-        envVars.GROQ_API_KEY,
-        envVars.GROQ_API_KEY_2,
-        envVars.GROQ_API_KEY_3,
-        envVars.GROQ_API_KEY_4,
-        envVars.GROQ_API_KEY_5,
-      ].filter(k => k),
+      keys: groqKeys,
     },
     deepseek: {
       apiKey: envVars.DEEPSEEK_API_KEY, // DEPRECATED - DO NOT USE
     },
   },
 
-  // Speech-to-text for voice search (open-source Whisper, Groq-hosted by default)
+  // Speech-to-text for voice search (open-source Whisper, Groq-hosted by default).
+  // No key list here — on Groq it leases from the shared GroqKeyPool.
   stt: {
     baseUrl: envVars.STT_BASE_URL || 'https://api.groq.com/openai/v1',
     model: envVars.STT_MODEL || 'whisper-large-v3-turbo',
     apiKey: envVars.STT_API_KEY || null,
-    groqKeys: [
-      envVars.GROQ_API_KEY,
-      envVars.GROQ_API_KEY_2,
-      envVars.GROQ_API_KEY_3,
-      envVars.GROQ_API_KEY_4,
-      envVars.GROQ_API_KEY_5,
-    ].filter(Boolean),
   },
 
   // Maps

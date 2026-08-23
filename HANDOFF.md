@@ -1,5 +1,5 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-08-20. Supersedes all prior handoff docs._
+_Last updated: 2026-08-23. Supersedes all prior handoff docs._
 
 ---
 
@@ -12,6 +12,51 @@ count of results with NOTHING but video and news cards in it.** SearXNG is
 primary for web search, so when it is down the web tier vanishes silently while
 everything else carries on, and it reads as "bad results" rather than "outage".
 Third occurrence as of 2026-08-21.
+
+---
+
+## 🗓️ SESSION LOG 2026-08-23 — Groq keys: unlimited pool, real tapering
+
+- **🔑 HOW TO HAND OVER NEW KEYS — `docs/SECRETS-MAP.md` (new, was missing).**
+  Never paste a key value into a chat, issue, PR, commit, or log; transcripts
+  persist and containers get snapshotted, so a pasted key is a burned key.
+  The user sets values in the Vercel store directly (dashboard, or
+  `vercel env add <NAME> production`, which reads from stdin and skips shell
+  history) and tells the agent only the NAMES. The map lists every variable
+  name and which store it lives in — **names and locations only, never values**.
+
+- **🟢 The 5-key ceiling is gone.** `collectGroqKeys()` in
+  `apps/backend/config/env.js` now reads three additive, de-duplicated sources:
+  `GROQ_API_KEYS` (whole pool in one variable, comma/newline separated,
+  no count limit — preferred for bulk), `GROQ_API_KEY`, and
+  `GROQ_API_KEY_2`…`_50`. Mixing them is safe.
+
+- **🟢 Rotation is now a taper, not a fallback.** New
+  `apps/backend/services/GroqKeyPool.js` hands out keys **round-robin per
+  request**, so load spreads evenly instead of key 0 being drained while the
+  rest idle. On 429 it parks that key for exactly the `retry-after` Groq sends
+  (clamped 1s–1h) rather than retrying it next request; on 401/403 it drops the
+  key for the life of the process. Each process starts on a **random** key —
+  on Vercel every cold start is a fresh process, and a fixed start would point
+  every concurrent lambda at key 0.
+
+  Text chat, vision and speech-to-text share the one pool, so voice search no
+  longer independently hammers whichever key the chat surface is on
+  (`SpeechToTextService` used to always start at index 0).
+
+  Measured against a fake Groq enforcing 3 requests/key: 12 requests over 4
+  keys → **12/12 succeeded, exactly 3 per key, zero wasted 429 round-trips**.
+  Once the pool is genuinely spent it fails fast with no HTTP call at all, so
+  the failover chain (gemini→nvidia→…) gets control immediately.
+  `healthCheck()` reports `{total, usable, cooling, disabled}` — counts only,
+  never key material.
+
+- Tests: `apps/backend/__tests__/groqKeyPool.test.js` (7). Full backend suite
+  16/16 suites, 174/174 tests. (`new-endpoints.test.js` needs Postgres on
+  :5432 and is skipped in a fresh container — unrelated.)
+
+- **Still to do by hand:** set the new keys in Vercel and redeploy — env changes
+  only take effect on a new build.
 
 ---
 

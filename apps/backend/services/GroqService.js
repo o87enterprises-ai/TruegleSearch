@@ -1,38 +1,25 @@
 /**
  * GroqService - Groq LPU Inference (OpenAI-compatible)
  * Free tier: https://console.groq.com — no credit card required.
- * Supports multiple keys via GROQ_API_KEY through GROQ_API_KEY_5.
- * When a key hits its rate limit (429) the service automatically rotates
- * to the next available key so requests keep flowing.
+ * Keys come from GroqKeyPool, which tapers requests round-robin across every
+ * configured key and parks a key for as long as Groq's retry-after asks after
+ * a 429 — so load is spread instead of one key being drained first.
  */
 const axios = require('axios');
 const config = require('../config/env');
+const keyPool = require('./GroqKeyPool');
 const logger = require('../utils/logger');
 
 class GroqService {
   constructor() {
-    this.keys = config.ai.groq?.keys || (config.ai.groq?.apiKey ? [config.ai.groq.apiKey] : []);
-    this.currentKeyIndex = 0;
     this.baseUrl = 'https://api.groq.com/openai/v1';
     this.defaultModel = config.ai.groq?.model || 'llama-3.3-70b-versatile';
 
-    logger.info(`GroqService initialized with ${this.keys.length} key(s)`);
-  }
-
-  get apiKey() {
-    return this.keys[this.currentKeyIndex] || null;
+    logger.info(`GroqService initialized with ${keyPool.size} key(s)`);
   }
 
   isAvailable() {
-    return this.keys.length > 0;
-  }
-
-  rotateKey() {
-    const next = (this.currentKeyIndex + 1) % this.keys.length;
-    if (next === this.currentKeyIndex) return false; // only one key, can't rotate
-    this.currentKeyIndex = next;
-    logger.warn(`Groq: rotated to key index ${this.currentKeyIndex}`);
-    return true;
+    return keyPool.isAvailable();
   }
 
   async chat(messages, options = {}) {
@@ -54,17 +41,27 @@ class GroqService {
       formatted.push(...messages);
     }
 
-    const startIndex = this.currentKeyIndex;
+    // Try each usable key at most once, in round-robin order.
+    const tried = new Set();
 
-    // Try each key once before giving up
-    do {
+    for (;;) {
+      const lease = keyPool.acquire(tried);
+      if (!lease) {
+        // Nothing left to lease: if any key is only cooling down, this is a
+        // rate limit and the caller should fail over rather than retry Groq.
+        throw new Error(keyPool.stats().cooling > 0
+          ? 'All Groq API keys are rate-limited'
+          : 'All Groq API keys exhausted');
+      }
+      tried.add(lease.index);
+
       try {
         const response = await axios.post(
           `${this.baseUrl}/chat/completions`,
           { model, messages: formatted, temperature, max_tokens, stream: false },
           {
             headers: {
-              'Authorization': `Bearer ${this.apiKey}`,
+              'Authorization': `Bearer ${lease.key}`,
               'Content-Type': 'application/json',
             },
             timeout: 30000,
@@ -82,28 +79,22 @@ class GroqService {
 
       } catch (error) {
         const status = error.response?.status;
-        logger.warn(`Groq key[${this.currentKeyIndex}] failed:`, { status });
+        logger.warn(`Groq key[${lease.index}] failed:`, { status });
 
-        if (status === 401) {
-          // Bad key — rotate and try next
-          if (!this.rotateKey() || this.currentKeyIndex === startIndex) break;
+        if (status === 401 || status === 403) {
+          keyPool.disable(lease.index, `HTTP ${status}`);
           continue;
         }
 
         if (status === 429) {
-          // Rate limited — rotate and try next
-          if (!this.rotateKey() || this.currentKeyIndex === startIndex) {
-            throw new Error('All Groq API keys are rate-limited');
-          }
+          keyPool.cool(lease.index, error.response?.headers?.['retry-after']);
           continue;
         }
 
         // Non-recoverable error — throw immediately
-        throw new Error(`Groq service error: ${error.message}`);
+        throw new Error(`Groq service error: ${error.message}`, { cause: error });
       }
-    } while (this.currentKeyIndex !== startIndex);
-
-    throw new Error('All Groq API keys exhausted');
+    }
   }
 
   async analyzeContent(content, queryContext = null, options = {}) {
@@ -119,9 +110,9 @@ class GroqService {
     if (!this.isAvailable()) return { status: 'unavailable', message: 'No API key', provider: 'groq' };
     try {
       await this.chat('ping', { max_tokens: 5 });
-      return { status: 'healthy', provider: 'groq', activeKeyIndex: this.currentKeyIndex, totalKeys: this.keys.length };
+      return { status: 'healthy', provider: 'groq', keys: keyPool.stats() };
     } catch (error) {
-      return { status: 'unhealthy', message: error.message, provider: 'groq' };
+      return { status: 'unhealthy', message: error.message, provider: 'groq', keys: keyPool.stats() };
     }
   }
 }

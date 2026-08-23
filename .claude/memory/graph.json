@@ -864,6 +864,14 @@
         "body": "Container was RUNNING and answering; disk was 100% (8GB). Fillers: journalctl 674MB + docker build cache 966MB — now capped (SystemMaxUse=200M in journald.conf; max-size 20m/max-file 3 in /etc/docker/daemon.json). THE TRAP THAT COST AN HOUR: docker pull + docker restart does NOT apply a new image — the container must be rm -f and re-run. Recreate cmd (bind is a host path so settings.yml survives): sudo docker run -d --name searxng --restart unless-stopped -p 127.0.0.1:8888:8080 -v /var/lib/docker/volumes/8872994b85212f0a365c97bfc443a0f9336904a647dcfe7549fdb11e06a6e1d1/_data:/etc/searxng searxng/searxng:latest . Version went 2026.6.20 -> 2026.8.20 and search returned. There is ALREADY a /swap file — check swapon --show before adding one. Full steps in docs/RUNBOOK.md.",
         "ts": "2026-08-21",
         "created": "2026-08-21"
+      },
+      "groq-key-pool": {
+        "Id": "groq-key-pool",
+        "Type": "fact",
+        "Label": "Groq keys: unlimited pool + tapered rotation",
+        "body": "GroqKeyPool.js (apps/backend/services) tapers requests ROUND-ROBIN across all Groq keys; 429 parks that key for its retry-after (1s-1h clamp), 401/403 disables it for the process, each process starts on a RANDOM key (Vercel cold starts). Text+vision+STT share the one pool. Keys come from collectGroqKeys() in config/env.js: GROQ_API_KEYS (pool in one var, comma/newline sep, unlimited) + GROQ_API_KEY + GROQ_API_KEY_2.._50, additive and deduped. The old 5-key cap and sticky key-0 behaviour are gone.",
+        "ts": "2026-08-23",
+        "created": "2026-08-23"
       }
     },
     "decision": {
@@ -1938,6 +1946,14 @@
         "body": "Was 0.5/0.35/0.15 — the two supporting signals together outweighed relevance, so a result matching 0.163 of the query beat one matching 0.600 (\"how do tides work\" returned games-industry + Bitcoin news above the actual answer). Three fixes: (1) weights rebalanced; (2) calculateRecency(date, isTimeSensitive) returns neutral 0.5 unless the query is time-sensitive AND a date exists — unknown date scored 0.3, a PENALTY, and SearXNG web results are mostly undated while news always has dates; (3) diversity applied AFTER sorting by relevance, so \"first from a domain\" means BEST from that domain rather than whichever provider answered earliest. NOTE search.ranking.test.js tests PrivateSearchService (serves routes/news.js), NOT SearchService — searchRanking.test.js covers /api/search.",
         "ts": "2026-08-21",
         "created": "2026-08-21"
+      },
+      "secrets-handover": {
+        "Id": "secrets-handover",
+        "Type": "decision",
+        "Label": "Never paste key VALUES to an agent",
+        "body": "docs/SECRETS-MAP.md is the standing answer to 'how do I give you keys securely': user sets values directly in Vercel (dashboard or 'vercel env add NAME production' - reads stdin, no shell history) and tells the agent only the variable NAMES + how many. Values never enter a chat, issue, PR, commit, log, or tracked .env - transcripts persist and containers get snapshotted, so a pasted key is a burned key and must be rotated. Map lists every env var name + its store, values never.",
+        "ts": "2026-08-23",
+        "created": "2026-08-23"
       }
     },
     "entity": {
@@ -1972,6 +1988,14 @@
         "body": "Devvit web-view custom post. Client = plain HTML/CSS/JS, can only fetch its own /api/. Server (@devvit/web/server + express) is the sole outward caller and hits backend-seven-khaki-60.vercel.app POST /api/search with the query ONLY (no username/userId/postId/cookies). Redis off. Cache helper 5 min keyed on query text. Moderator menu item /internal/menu/create-post submits the custom post. Build: node build.mjs (esbuild; server MUST be cjs -> dist/server/index.cjs). Test: npm test = scripts/verify-reddit-app.mjs, 29 checks, no network. EXCLUDED from root npm workspaces via '!apps/reddit' so the Devvit toolchain never enters the site/API lockfile. Owner must run: npm install, npm run login, npm run dev, npm run launch.",
         "ts": "2026-08-20",
         "created": "2026-08-20"
+      },
+      "secrets-map": {
+        "Id": "secrets-map",
+        "Type": "entity",
+        "Label": "docs/SECRETS-MAP.md",
+        "body": "Complete inventory of every env var NAME and which store it lives in (Vercel backend / Cloudflare Pages VITE_ / EC2 env file / public-by-nature ad zone keys in apps/frontend/src/config/ads.js). Created 2026-08-23; the tech skill requires it be kept current whenever a new key is added.",
+        "ts": "2026-08-23",
+        "created": "2026-08-23"
       }
     },
     "thread": {
@@ -2327,5 +2351,5 @@
       }
     }
   },
-  "updated": "2026-08-21"
+  "updated": "2026-08-23"
 }
