@@ -80,6 +80,12 @@ class SearchService {
     // How many SearXNG results count as a FULL page — the bar for skipping the
     // API providers entirely. Distinct from primaryMin, which is only the floor
     // for treating the instance as alive.
+    // How many DISTINCT upstreams must answer before we stop topping up. Two
+    // is the floor because one engine replying is not coverage — see the
+    // mwmbl-only incident noted at the coverage check in performSearch.
+    this.searxngMinEngines = Number(
+      (config.searxng && config.searxng.minEngines) || 2,
+    );
     this.searxngSufficient = Math.max(
       (config.searxng && config.searxng.sufficient) || 20,
       this.searxngPrimaryMin,
@@ -216,6 +222,7 @@ class SearchService {
         // runs with its own engine set (independent indexes, no Google/Bing),
         // which serves the same intent far better than skipping.
         let searxngServed = false;
+        let enginesAnswering = 0;
         if (this.searxngPrimary && this.searxngUrl) {
           try {
             const engines = modeEngines.enginesFor(mode);
@@ -232,6 +239,21 @@ class SearchService {
               sxResults = this.formatSearXNGResults(sx);
             }
 
+            // COVERAGE, not just count. Counting results alone was not enough:
+            // on a real red-pill query only `mwmbl` answered — the smallest
+            // index in the set — and it returned enough rows to look like
+            // success while actually serving clip art, wallpapers and the wrong
+            // ship. A single small engine replying is indistinguishable from
+            // working if you only measure quantity.
+            //
+            // So a page counts as "served" only when at least two distinct
+            // upstreams contributed. Below that the API providers still run and
+            // top up, which for red-pill means Brave — an independent index, so
+            // the mode keeps its character instead of falling back to Google.
+            enginesAnswering = new Set(
+              sxResults.map((r) => r.engine).filter(Boolean),
+            ).size;
+
             // SearXNG results are ALWAYS kept. This used to be winner-take-all:
             // anything at or above SEARXNG_PRIMARY_MIN (default 5) set
             // searxngServed and skipped every other provider, so a query where
@@ -243,11 +265,17 @@ class SearchService {
             // page. Below that we top up and merge — the point of the primary
             // setting is to avoid paying for queries SearXNG already answered
             // well, not to cap the page at whatever it happened to return.
-            searxngServed = sxResults.length >= this.searxngSufficient;
+            searxngServed =
+              sxResults.length >= this.searxngSufficient &&
+              enginesAnswering >= this.searxngMinEngines;
             console.log(
               searxngServed
-                ? `🔎 SearXNG-primary served ${sxResults.length} web results (full page)`
-                : `🔎 SearXNG returned ${sxResults.length} (< ${this.searxngSufficient}) — keeping them and topping up from API providers`,
+                ? `🔎 SearXNG-primary served ${sxResults.length} web results from ${enginesAnswering} engines (full page)`
+                : `🔎 SearXNG returned ${sxResults.length} result(s) from ${enginesAnswering} engine(s) — ` +
+                  (sxResults.length < this.searxngSufficient
+                    ? `under the ${this.searxngSufficient} needed for a full page`
+                    : `only ${enginesAnswering} engine(s), under the ${this.searxngMinEngines} needed for coverage`) +
+                  ` — keeping them and topping up from API providers`,
             );
           } catch {
             // Offline/error — fall through to the API providers below.
@@ -1316,6 +1344,10 @@ class SearchService {
       // Show the aggregated engine so users know the provenance, but make clear
       // it came through Truegle's self-hosted metasearch (no direct tracking).
       sourceName: item.engine ? `${item.engine} · via Truegle` : 'Truegle Metasearch',
+      // Kept as a field, not just display text, so the caller can measure how
+      // many upstreams actually answered — see the coverage check in
+      // performSearch. One engine replying is not coverage.
+      engine: item.engine || null,
       date: item.publishedDate || null,
       image: item.img_src || null,
       favicon: null,

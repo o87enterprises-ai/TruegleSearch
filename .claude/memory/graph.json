@@ -2509,6 +2509,22 @@
         "body": "Supersedes fact vercel-author-block from earlier the same day, which was over-cautious. EVIDENCE: production deployment 0a1020f is authored Claude noreply@anthropic.com — the exact address the old rule said would be BLOCKED — and it deployed READY on api.truegle.info. So the seatBlock TEAM_ACCESS_REQUIRED constraint from the 2026-06 incident has since been resolved, most likely by adding the account to the Vercel team. Do NOT diagnose a missing backend change as an authorship block without checking the Vercel dashboard first. ALSO WORTH KNOWING, and this part stands: Vercel builds the TREE at a commit, not its diff, so a later commit on main carries earlier commits' work with it — b36b388 was an ancestor of 0a1020f and shipped inside that build. And the frontend/backend split is real: Cloudflare Pages serves truegle.info from main, Vercel serves api.truegle.info from main, so a backend-only change is invisible on the frontend deploy.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
+      },
+      "mwmbl-only-coverage-bug": {
+        "Id": "mwmbl-only-coverage-bug",
+        "Type": "fact",
+        "Label": "Red-pill ran on mwmbl ALONE — counting results is not measuring coverage",
+        "body": "OBSERVED LIVE 2026-08-24 on the query 'uss abraham lincoln conditions'. Blue returned bing-sourced BBC (Center) / NYT (Left-Leaning) / ABC / Tennessean — bias labels populating correctly, so the curated lists work. Red returned EVERY result tagged 'mwmbl · via Truegle': wallhaven wallpapers, clker.com clip art, valka.cz, hullnumber.com for SSBN-602 (the WRONG SHIP — a submarine, not carrier CVN-72), laughingsquid, markmaynard, en.ria.ru. So mojeek/marginalia/brave contributed NOTHING and mwmbl — the smallest index in the set — carried the whole mode. Quality was terrible. ROOT CAUSE was in my own fix: the thin-result retry gated on RESULT COUNT only, and mwmbl returned 25 rows, so it looked like success. One small engine answering is indistinguishable from working if you only measure quantity. FIX: SearchService now counts DISTINCT engines from the preserved result.engine field and requires searxngMinEngines (default 2, env SEARXNG_MIN_ENGINES) before setting searxngServed. Below that the API providers top up — for red-pill that means Brave, an independent index, so the mode keeps its character rather than falling back to Google. STILL OPEN: confirm via the instance /config whether mojeek/marginalia/brave are actually enabled; if not, repoint SEARXNG_ENGINES_RED_PILL at engines it has.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "gsc-first-data": {
+        "Id": "gsc-first-data",
+        "Type": "fact",
+        "Label": "Search Console: Truegle ranks for its OWN NAME and essentially nothing else",
+        "body": "First GSC export, 3 months to 2026-08-24: 16 clicks / 84 impressions TOTAL. The only query listed is 'truegle.info' (22 impressions, 0 clicks, position 1.59) — a purely navigational/branded query. No topical or informational query appears at all, so Google is not surfacing Truegle for anything except people already looking for it by name. Top page https://truegle.info/ = 16 clicks / 72 impressions / 22.22% CTR / position 2.08. Countries: US 15 clicks, Mexico 1. TWO REAL PROBLEMS FOUND: (1) URL DUPLICATION splitting signals — the homepage is indexed as https://truegle.info/, http://www.truegle.info/ AND https://www.truegle.info/, and localized pages appear both with and without a trailing slash (/fr/ and /fr, /pt/ and /pt, /nl/ and /nl, /about/ and /about, /privacy/ and /privacy). Needs canonical + redirect. (2) DESKTOP CTR ANOMALY — mobile 15 clicks/39 impressions = 38.46% CTR, desktop 1 click/45 impressions = 2.22% CTR, despite desktop ranking BETTER (1.69 vs 2.26). Same content, 17x worse click-through; worth investigating the desktop title/snippet presentation. Localized pages ARE indexed but rank poorly: /fr/ pos 6.14, /es/ 7.14, /pt/ 7, /nl/ 8.5.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       }
     }
   },
