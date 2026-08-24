@@ -1,112 +1,113 @@
 # Browser tasks — things only you can do
 
-Three tasks, ~20 minutes total. Do them in any order. Task 3 is the quickest and
-tells you whether the last deploy worked, so it's a reasonable place to start.
+**Updated 2026-08-24.** Task 1 is done. Three left, ~20 minutes.
 
-**Note on hosting:** `truegle.info` is served by **Cloudflare Pages** (project
-`truegle-search`), following the Git-connected `main` branch. Vercel hosts only
-the backend API. Frontend environment variables therefore go in **Cloudflare
-Pages**, not Vercel.
+Task 4 is new and matters most: it decides whether the search work that just
+shipped actually does anything.
 
 ---
 
-## 1 — Turn on Cloudflare Web Analytics
+## ~~1 — Cloudflare Web Analytics~~ ✅ DONE
 
-The analytics code is already deployed but loads **nothing** until this token
-exists. Cookieless, no fingerprinting, and it skips anyone sending Do Not Track.
-
-1. Go to **dash.cloudflare.com** → log in.
-2. Left sidebar → **Analytics & Logs** → **Web Analytics**.
-3. Click **Add a site**. Enter `truegle.info`.
-4. Cloudflare shows a JavaScript snippet. You do **not** need the snippet —
-   only the token inside it. It looks like:
-   `<script ... data-cf-beacon='{"token": "abc123def456..."}'></script>`
-   **Copy just the token value** (the `abc123def456...` part, no quotes).
-5. Go to **Workers & Pages** → **truegle-search** → **Settings** →
-   **Environment variables**.
-6. Under **Production**, click **Add variable**:
-   - Name: `VITE_CF_BEACON_TOKEN`
-   - Value: the token you copied
-7. **Save**.
-8. Go to the **Deployments** tab → find the latest deployment →
-   **⋯** menu → **Retry deployment**.
-   *(This is required. The variable is read at build time, so it does nothing
-   until the site is rebuilt.)*
-
-**Confirm it worked:** load `truegle.info`, then check Web Analytics in ~5
-minutes. You should see at least one page view. If it stays at zero, the token
-didn't make it into the build — re-check step 6 was under **Production** and
-that you redeployed.
+Confirmed live. The Core Web Vitals and element-level data in your dashboard can
+only come from the browser beacon, so the token took and the site rebuilt.
+Nothing more to do here.
 
 ---
 
-## 2 — Set up Google Search Console (and Bing)
+## 2 — Google Search Console (and Bing)
 
-This is the only authoritative source for how you actually rank: real
-impressions, clicks, the queries people use, and average position. It also gives
-you Coverage — Google's own technical audit of the site, which is worth more
-than any SEO vendor's screenshot.
+The only authoritative source for how you actually rank: real impressions,
+clicks, the queries people use, average position, and Coverage — Google's own
+technical audit of the site.
 
-### Google Search Console
+1. **search.google.com/search-console**
+2. **Add property** → pick the **Domain** option (left-hand box, not URL prefix).
+   Enter `truegle.info`.
+3. Google shows a **TXT record**. Copy its value.
+4. New tab → **dash.cloudflare.com** → `truegle.info` → **DNS** → **Records** →
+   **Add record**:
+   - Type `TXT` · Name `@` · Content: the value from Google → **Save**
+5. Back in Search Console → **Verify**. *(If it fails, wait 5 minutes for DNS and
+   retry — normal.)*
+6. **Sitemaps** → enter `sitemap.xml` → **Submit**. *(29 URLs.)*
+7. **URL Inspection** → `https://truegle.info/` → **Request indexing**.
+   Repeat for `https://truegle.info/search`.
 
-1. Go to **search.google.com/search-console**.
-2. Click **Add property** → choose the **Domain** option (left box, not URL
-   prefix). Enter `truegle.info`.
-3. Google shows a **TXT record** to add. Copy its value.
-4. In a new tab: **dash.cloudflare.com** → select `truegle.info` → **DNS** →
-   **Records** → **Add record**:
-   - Type: `TXT`
-   - Name: `@`
-   - Content: the value Google gave you
-   - **Save**
-5. Back in Search Console, click **Verify**. *(If it fails, wait 5 minutes for
-   DNS to propagate and try again — this is normal.)*
-6. Once verified: left sidebar → **Sitemaps** → enter `sitemap.xml` → **Submit**.
-   *(It contains 29 URLs.)*
-7. Left sidebar → **URL Inspection** → paste `https://truegle.info/` →
-   **Request indexing**. Repeat for `https://truegle.info/search`.
+**Then Bing:** **bing.com/webmasters** → **Import from Google Search Console** →
+authorise. One click, and it covers Bing, Yahoo and DuckDuckGo.
 
-**Data note:** Search Console shows nothing for the first 2–3 days, and takes
-about a week to become useful. That's expected — don't read anything into an
-empty dashboard on day one.
-
-### Bing Webmaster Tools
-
-8. Go to **bing.com/webmasters**.
-9. Choose **Import from Google Search Console** and authorise it.
-   That's the whole task — it carries the property and sitemap across in one
-   click, and covers Bing, Yahoo and DuckDuckGo.
+**Expect nothing for 2–3 days.** Search Console backfills slowly; an empty
+dashboard tomorrow means nothing is wrong.
 
 ---
 
-## 3 — Confirm the last deploy landed
+## 3 — Does search actually look fixed?
 
-Two search fixes shipped to `main`. I can't reach the live site from my
-environment to check, so this needs your eyes.
+Three things shipped. Open `truegle.info` and search something ordinary —
+`how do solar panels work` works well.
 
-1. Go to **dash.cloudflare.com** → **Workers & Pages** → **truegle-search** →
-   **Deployments**. Confirm the most recent deployment **succeeded** and its
-   commit message mentions removing advertising or curated lists.
-2. Open `truegle.info` and search for something ordinary — `how do solar panels
-   work` is a good test.
+**a. Fuller pages.** Results used to cap at five whenever SearXNG answered first.
+You should now get a full page.
 
-**What to look for:**
+**b. Modes differ.** Run the **same query** in blue, then in red / rabbit-hole.
+The lists should now be **visibly different sites in a different order**. This is
+the one that matters — they used to be identical.
 
-- **Fuller results.** Pages used to cap at five results when SearXNG answered
-  first. You should now see a full page.
-- **Modes differ.** Run the *same* query in blue mode, then red/rabbit-hole.
-  The result lists should now be **visibly different** — different sites, in a
-  different order. Previously they were identical.
-- **No ads anywhere.** No banners, no "Sponsored" boxes, no cookie-consent
-  popup at the bottom. If you see any of those, the deploy is stale.
+**c. No ads anywhere.** No banners, no "Sponsored" boxes, no cookie-consent popup.
+If you see any of those, the frontend deploy is stale.
 
-Tell me what you see. If modes still look identical, that's useful information
-and I'll dig further.
+Tell me what you see, especially for (b).
 
 ---
+
+## 4 — Which engines does your SearXNG actually have? ⭐ NEW
+
+**Why this matters:** red-pill mode now queries `mojeek, brave, marginalia,
+mwmbl, duckduckgo` instead of Google and Bing — that is the entire reason the
+rabbit hole can return anything the other modes can't. But those names only work
+if your instance has those engines **enabled**. If it doesn't, the code silently
+falls back to the default engines and red-pill goes back to looking like blue.
+
+So if task 3(b) shows the modes still looking similar, this is almost certainly why.
+
+**How to check** — open this in a browser:
+
+```
+http://44.236.219.63:8888/config
+```
+
+*(If that doesn't load, use whatever URL `SEARXNG_URL` is set to on the Vercel
+backend — Vercel dashboard → project `backend` → Settings → Environment
+Variables.)*
+
+It returns JSON. Use your browser's find (Ctrl-F / Cmd-F) and tell me
+**yes or no for each**:
+
+- `mojeek`
+- `marginalia`
+- `mwmbl`
+- `brave`
+- `duckduckgo`
+
+You're looking for each name with `"enabled": true` nearby. If the page is huge,
+searching for just the engine name and telling me whether it appears at all is
+enough to start.
+
+**If some are missing**, that's fine and expected — I'll point the mode at
+engines you do have. There's an env var per mode (`SEARXNG_ENGINES_RED_PILL`)
+so it's a settings change, not a code change.
+
+---
+
+## What I'll do with the answers
+
+- **Task 3(b) + task 4** → confirm red-pill genuinely diverges, or repoint it at
+  engines your instance has.
+- Then the performance work: search-box responsiveness (INP), layout shift on the
+  results grid (CLS), and the YouTube-thumbnail load tail (LCP).
 
 ## Not needed from you
 
-- Nothing on the home PC tower yet — the search-index project waits on
-  persistence, and there's no rush.
-- No spend. Everything above is free.
+Nothing on the home PC. The search-index project waits on persistence and there's
+no rush. No spend on any of the above.
