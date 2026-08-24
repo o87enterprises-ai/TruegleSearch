@@ -49,6 +49,12 @@ describe('GroqService with a reasoning model', () => {
     await expect(svc.chat('ping')).resolves.toMatchObject({ content: '', provider: 'groq' });
   });
 
+  it('gives healthCheck enough budget for a reasoning model to think and answer', async () => {
+    axios.post.mockResolvedValue(reply('pong'));
+    await svc.healthCheck();
+    expect(axios.post.mock.calls[0][1].max_tokens).toBeGreaterThanOrEqual(128);
+  });
+
   it('passes normal content straight through', async () => {
     axios.post.mockResolvedValue(reply('Hello there, nice to meet.'));
     await expect(svc.chat('ping')).resolves.toMatchObject({ content: 'Hello there, nice to meet.' });

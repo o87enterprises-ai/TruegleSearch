@@ -135,7 +135,10 @@ class GroqService {
   async healthCheck() {
     if (!this.isAvailable()) return { status: 'unavailable', message: 'No API key', provider: 'groq' };
     try {
-      await this.chat('ping', { max_tokens: 5 });
+      // 5 tokens was fine for Llama, but a reasoning model spends ~50 thinking
+      // before it writes anything — the ping would fail on its own budget while
+      // the service was perfectly healthy. Enough headroom to think and answer.
+      await this.chat('ping', { max_tokens: 256 });
       return { status: 'healthy', provider: 'groq', keys: keyPool.stats() };
     } catch (error) {
       return { status: 'unhealthy', message: error.message, provider: 'groq', keys: keyPool.stats() };
