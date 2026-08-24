@@ -960,6 +960,22 @@
         "body": "Groq meters RPM/RPD/TPM/TPD per ORGANIZATION. All keys inside one org share one bucket, so ORG COUNT is the quota multiplier and extra keys within an org are hot standbys, not headroom. Account as of 2026-08-23: 4 orgs, 12 new keys => 4x headroom, not 12x. GroqKeyPool therefore tapers round-robin ACROSS ORGS; a 429 parks the whole org for its retry-after, a 401/403 drops only that one key. Supply via GROQ_ORG_1_KEYS..GROQ_ORG_20_KEYS (one var per org, keys comma separated); ungrouped GROQ_API_KEYS/GROQ_API_KEY_n are each assumed their own org.",
         "ts": "2026-08-23",
         "created": "2026-08-23"
+      },
+      "groq-llama-retired": {
+        "Id": "groq-llama-retired",
+        "Type": "fact",
+        "Label": "Groq retired ALL Llama models; default now openai/gpt-oss-120b",
+        "body": "2026-08-24: llama-3.3-70b-versatile 404s ('model does not exist') - Groq serves NO Llama chat model any more. /v1/models returns only openai/gpt-oss-120b, openai/gpt-oss-20b, openai/gpt-oss-safeguard-20b, groq/compound, groq/compound-mini, qwen/qwen3.6-27b, allam-2-7b, whisper-large-v3(-turbo), canopylabs/orpheus-*, meta-llama/llama-prompt-guard-2-*. GROQ_MODEL default changed to openai/gpt-oss-120b. Vision (qwen/qwen3.6-27b) and STT (whisper-large-v3-turbo) were already right. Always verify against /v1/models before changing the model id.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "groq-reasoning-tokens": {
+        "Id": "groq-reasoning-tokens",
+        "Type": "fact",
+        "Label": "gpt-oss bills reasoning tokens: always set reasoning_effort=low",
+        "body": "MEASURED 2026-08-24 on openai/gpt-oss-120b: a six-word answer cost 251 completion tokens of which 235 were REASONING. With reasoning_effort='low' the same answer cost 66 total / 50 reasoning - about 4x cheaper. Groq free tier meters TPM/TPD, so unset reasoning effort silently eats the headroom the 4-org key pool was added to buy. GROQ_REASONING_EFFORT env var (default 'low') is sent ONLY to models matching /^openai\\/gpt-oss/ because others reject the parameter. Also: a reasoning model that exhausts max_tokens returns HTTP 200 with content:'' and finish_reason:'length' - a blank answer, not an error - so GroqService throws on that combination to trigger provider failover instead of shipping silence.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       }
     },
     "decision": {

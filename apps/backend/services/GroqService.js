@@ -22,6 +22,17 @@ class GroqService {
     return keyPool.isAvailable();
   }
 
+  /**
+   * gpt-oss reasons before it answers, and bills you for the thinking. Left
+   * unset it spent 235 of 251 completion tokens deliberating over a six-word
+   * reply; 'low' does the same job in ~50. Other Groq models reject the
+   * parameter outright, so it only goes to the ones that take it.
+   */
+  reasoningFor(model) {
+    if (!/^openai\/gpt-oss/.test(model)) return {};
+    return { reasoning_effort: config.ai.groq?.reasoningEffort || 'low' };
+  }
+
   async chat(messages, options = {}) {
     if (!this.isAvailable()) throw new Error('Groq API key not configured');
 
@@ -60,7 +71,7 @@ class GroqService {
       try {
         const response = await axios.post(
           `${this.baseUrl}/chat/completions`,
-          { model, messages: formatted, temperature, max_tokens, stream: false },
+          { model, messages: formatted, temperature, max_tokens, stream: false, ...this.reasoningFor(model) },
           {
             headers: {
               'Authorization': `Bearer ${lease.key}`,
@@ -71,8 +82,20 @@ class GroqService {
         );
 
         const choice = response.data.choices?.[0] || {};
+        const content = choice.message?.content || '';
+
+        // A reasoning model that runs out of budget mid-thought returns an empty
+        // content string with finish_reason 'length' — a 200 OK carrying nothing.
+        // Silently passing that up the stack ships a blank answer to the user, so
+        // throw instead and let the failover chain try another provider.
+        if (!content && choice.finish_reason === 'length') {
+          throw new Error(
+            `Groq returned no content: ${model} spent the whole ${max_tokens}-token budget reasoning. Raise max_tokens or lower GROQ_REASONING_EFFORT.`
+          );
+        }
+
         return {
-          content: choice.message?.content || '',
+          content,
           model: response.data.model || model,
           usage: response.data.usage,
           finishReason: choice.finish_reason,

@@ -70,11 +70,18 @@ const envVarsSchema = Joi.object({
   // GROQ_API_KEYS / GROQ_API_KEY_n still work and are treated as one org each.
   GROQ_ORG_1_KEYS: Joi.string().optional().description('Groq org 1 — comma separated keys sharing one rate-limit bucket'),
   GROQ_API_KEYS: Joi.string().optional().description('Ungrouped Groq keys — comma/whitespace separated, each assumed its own org'),
-  // Default to the 70B model: the 8b-instant default produced weak, shallow
-  // summaries (the "poor unbiased summaries" complaint). 70b-versatile is still
-  // free-tier; its lower TPM is covered by multi-key rotation (GROQ_API_KEY..._5).
-  // Override per-deploy with GROQ_MODEL if a different model is preferred.
-  GROQ_MODEL: Joi.string().optional().default('llama-3.3-70b-versatile').description('Groq model id'),
+  // Groq retired every Llama chat model — the old llama-3.3-70b-versatile default
+  // 404s ("model does not exist"), which took every AI surface down. gpt-oss-120b
+  // is the largest general chat model Groq still serves and the closest successor
+  // to a 70B. Verify against /v1/models before changing this again.
+  GROQ_MODEL: Joi.string().optional().default('openai/gpt-oss-120b').description('Groq model id'),
+  // gpt-oss models emit reasoning tokens before visible content, and they are not
+  // cheap: an unset effort spent 235 of 251 completion tokens reasoning about a
+  // six-word answer. 'low' cuts that to ~50 for the same result. On a free tier
+  // metered by TPM/TPD that is the difference between the key pool buying real
+  // headroom and the model eating it. Only sent to models that accept it.
+  GROQ_REASONING_EFFORT: Joi.string().valid('low', 'medium', 'high').optional().default('low')
+    .description('Reasoning budget for gpt-oss models; lower spends fewer tokens per answer'),
   // Vision-capable model, used only for image-attached chat turns.
   GROQ_VISION_MODEL: Joi.string().optional().default('qwen/qwen3.6-27b').description('Groq vision model id'),
 
@@ -347,6 +354,7 @@ const config = {
       // an uploaded image). Only used when a request carries an image — the
       // default text model doesn't understand image_url content parts.
       visionModel: envVars.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b',
+      reasoningEffort: envVars.GROQ_REASONING_EFFORT,
       keys: groqKeys,
       orgs: groqOrgs,
     },

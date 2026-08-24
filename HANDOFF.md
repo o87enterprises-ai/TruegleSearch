@@ -35,6 +35,36 @@ may need applying by hand on the box.
 
 ---
 
+## 🔴 2026-08-24 — Groq retired every Llama model; the AI was 404ing
+
+Found the moment the new key pool went live and the health check ran a real
+request. **Not caused by the key work** — `llama-3.3-70b-versatile` had been the
+`GROQ_MODEL` default since long before, and `GROQ_MODEL` is not set in Vercel, so
+the dead default applied. Every AI surface was getting `404 model does not exist`.
+
+`/v1/models` on a live key returns **no Llama chat model at all** — only
+`openai/gpt-oss-120b` / `-20b`, `groq/compound(-mini)`, `qwen/qwen3.6-27b`,
+`allam-2-7b`, whisper, orpheus, and the prompt-guard classifiers.
+
+- **New default: `openai/gpt-oss-120b`** — largest general chat model Groq still
+  serves. `qwen/qwen3.6-27b` (vision) and `whisper-large-v3-turbo` (STT) were
+  already correct and unaffected.
+- **🔴 gpt-oss bills you for thinking.** Measured on a six-word answer: **235 of
+  251 completion tokens were reasoning**. `reasoning_effort: 'low'` does the same
+  job in ~50 (66 total). On a free tier metered by TPM/TPD that is the difference
+  between four orgs buying real headroom and the model eating it. New
+  `GROQ_REASONING_EFFORT` env var, default `low`, sent only to `openai/gpt-oss*`
+  (other models reject the parameter).
+- **Empty-answer guard.** A reasoning model that exhausts its budget returns a
+  200 OK with `content: ''` and `finish_reason: 'length'` — a blank answer, not
+  an error. `GroqService` now throws on that so the failover chain takes over
+  instead of shipping silence. This is why `max_tokens: 10` returned nothing
+  during diagnosis.
+
+Tests: `__tests__/groqService.test.js` (5). Suite 17/17, 183/183.
+
+---
+
 ## 🗓️ SESSION LOG 2026-08-23 — Groq keys: unlimited pool, real tapering
 
 - **🔑 HOW TO HAND OVER NEW KEYS — `docs/SECRETS-MAP.md` (new, was missing).**
