@@ -928,6 +928,22 @@
         "body": "30 days (Jul 25 - Aug 24): 3.88k UNIQUE VISITORS, 126.55k TOTAL REQUESTS, 4 GB served, 55.12% cached. Per-day uniques: max 372, min 131, typical ~200. 24h sample: 222 uniques / ~8.9k requests. Top countries BY REQUESTS: US 73,350 / France 16,718 / Sweden 3,781 / Switzerland 3,717 / Norway 2,980 (=79% of all requests). THE GAP EXPLAINED: 126,550 requests / 3,880 uniques = 32.6 requests per visitor, which is the SPA asset-load ratio, NOT bot inflation. And Adsterra's ~240 impressions/month against 3,880 visitors = only 6.2% of visitors ever registered an ad — landing pages carried no ads by policy plus adblock. Both halves of the 100x now accounted for. TRAFFIC MIX SHIFTED since the /nl /pt work: France went 2.3k -> 16,718 (now #2 by far), Netherlands and Brazil fell OUT of the top 5, and Sweden+Norway (6,761 combined) are new with NO localized page. /fr is now the highest-value localized page.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
+      },
+      "real-traffic-2026-08": {
+        "Id": "real-traffic-2026-08",
+        "Type": "fact",
+        "Label": "REAL traffic numbers from Cloudflare dashboard — the 100x gap is resolved",
+        "body": "30 days to 2026-08-24: 3.88k UNIQUE VISITORS, 126.55k total requests, 55.12% cached, 4GB served (2GB cached). Per-day unique: max 372, min 131. 24h sample: 222 unique, ~8.9k requests. Top countries by REQUESTS (not visitors): US 73,350 / France 16,718 / Sweden 3,781 / Switzerland 3,717 / Norway 2,980. THIS RESOLVES the Cloudflare-vs-Adsterra puzzle: 126.55k requests / 3.88k visitors = 32.6 requests per visitor, exactly the SPA-asset explanation; and Adsterra's ~240 impressions/month against 3.88k visitors means only ~6 percent of visitors ever registered an impression (landing pages carried no ads by policy, plus adblock). TRAFFIC MIX HAS SHIFTED since the localized-page work: France went from 2.3k to 16.7k requests and is now a distant second to the US, while Netherlands and Brazil have dropped out of the top five entirely. Sweden, Switzerland and Norway are new entrants with NO localized pages. The /nl and /pt pages were built for traffic that has since left.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "thin-results-rootcause": {
+        "Id": "thin-results-rootcause",
+        "Type": "fact",
+        "Label": "Thin result pages were a logic bug, not a missing index",
+        "body": "SearXNG-primary was winner-take-all: any result count at or above SEARXNG_PRIMARY_MIN (default 5) set searxngServed and skipped Google, Bing and Brave entirely. A query where SearXNG managed five hits returned a FIVE-RESULT PAGE with three providers idle and nothing topping it up. Fixed in commit 18e547f: SearXNG results are now always kept, and the API providers are skipped only when SearXNG returns a FULL page (searxngSufficient, default 20, env SEARXNG_SUFFICIENT). Below that threshold results merge instead of one provider winning. The point of the primary setting is to avoid paying for queries SearXNG already answered well, not to cap the page.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       }
     },
     "decision": {
@@ -2040,6 +2056,14 @@
         "Type": "decision",
         "Label": "FIXED thin results: SearXNG-primary was winner-take-all at 5 results",
         "body": "ROOT CAUSE of 'results are way too thin': in performSearch, if SearXNG returned >= SEARXNG_PRIMARY_MIN (default 5) it set searxngServed=true and SKIPPED GOOGLE, BING AND BRAVE ENTIRELY. Five SearXNG hits therefore produced a five-result page with nothing topping it up. FIX: SearXNG results are now ALWAYS kept, and the API providers are skipped only when SearXNG returned a genuinely full page — new SEARXNG_SUFFICIENT env (default 20, floored at primaryMin). Below that we keep the SearXNG results AND top up from the other providers, then merge. primaryMin now only means 'instance is alive'. ALSO: dedup was exact-URL string match, so /a vs /a/ vs ?utm_source= twins all survived as separate results — a big part of why a page read as repetitive. New dedupeKey() normalises scheme, www., trailing slash, case and tracking params (utm_*, fbclid, gclid, msclkid, mc_eid, ref, source, igshid). STILL OPEN: SearXNG only ever fetches pageno 1, and Google CSE 403s on quota so that provider is effectively dead.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "serp-decisions-locked": {
+        "Id": "serp-decisions-locked",
+        "Type": "decision",
+        "Label": "Owner decisions on the Common Crawl index path",
+        "body": "1 BUDGET: stays 0 dollars. No ads until 50k DAILY visitors (currently 131-372/day, so ads are effectively off the table for a long time; treat all costs as pure expense). 2 COMPUTE: home PC tower, but no persistence yet — planning for the future, not now. 3 SLICE: owner deferred to me, constraint is 8-16 GB RAM. 4 SELECTION: curated for mainstream, RANDOM for rabbit hole — owner's own idea and a good one. 5 WET-vs-WARC, 6 ENGINE, 7 RANKING: deferred to me, with a hard constraint from 6 that whatever is chosen must impose the least possible content control — censorship is against project policy. 8 INTEGRATION: blend, or rabbit-hole mode only. OWNER'S STATED URGENCY: search results are too thin and too identical across pages, and that would damage public perception before launch — so fixing retrieval beats building an index.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
       }
