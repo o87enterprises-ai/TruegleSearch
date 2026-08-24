@@ -1,5 +1,5 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-08-23. Supersedes all prior handoff docs._
+_Last updated: 2026-08-24. Supersedes all prior handoff docs._
 
 ---
 
@@ -62,6 +62,79 @@ the dead default applied. Every AI surface was getting `404 model does not exist
   during diagnosis.
 
 Tests: `__tests__/groqService.test.js` (5). Suite 17/17, 183/183.
+
+---
+
+## 🗓️ SESSION LOG 2026-08-24 — Ads removed entirely; modes finally retrieve differently
+
+**Advertising is gone from Truegle.** Owner decision: the project is no longer run
+on a profit/loss basis, so the last thing pulling against that was cut. Adsterra
+and every surface built to serve it were deleted, not flag-disabled — components,
+config, `adframe.html`, the cookie-consent banner and adult-ad gate (both existed
+only to permission ad serving), the backend ad route + GeoAdService + ad_zones,
+`ads.txt` (still declaring a Google seller id two months after AdSense was
+dropped), and `/revenue-calc`. Every ad-network origin is out of the CSP.
+`check-ads.mjs` is INVERTED rather than deleted: it used to contain advertising,
+it now prevents it — the build fails if an ad domain, tag, or deleted ad module
+reappears. **Truegle now sets zero cookies, so there is no consent banner.**
+See `docs/AD-POLICY.md`. Do not propose re-adding ads; that is a product
+decision, not a code change.
+
+**"Results are thin and identical across modes" — root-caused, three separate bugs.**
+1. THIN was a logic bug, not a missing index. SearXNG-primary was winner-take-all:
+   any count at or above `SEARXNG_PRIMARY_MIN` (5) skipped Google, Bing and Brave
+   entirely, so a query where SearXNG managed five hits returned a FIVE-RESULT PAGE
+   with three providers idle. Now SearXNG results are always kept and the API
+   providers are skipped only on a genuinely full page (`SEARXNG_SUFFICIENT`, 20).
+2. IDENTICAL, part one — ranking. `detectBias` was a 115-domain object literal with
+   DUPLICATE KEYS (last silently won) that matched exact hostnames only, so
+   `edition.cnn.com` resolved to nothing. Everything fell through to `neutral`,
+   whose tier weight equalled the default — making red-pill's re-rank the affine
+   transform `0.6x + 0.2`, mathematically incapable of reordering. Replaced by
+   `data/sourceBias.js`: 374 curated domains, arrays that THROW on a duplicate,
+   registrable-domain + subdomain matching, platforms separated from sources, and
+   `unknown` distinguished from assessed-`neutral`.
+3. IDENTICAL, part two — retrieval. Every mode sent the same query to the same
+   upstreams; a perspective that only reorders a Google-derived list is still
+   Google's. `data/modeEngines.js` gives each mode its own SearXNG `engines` set.
+   Red-pill drops Google and Bing for Mojeek/Brave/Marginalia/Mwmbl — engines that
+   crawl the web themselves. A scoped query coming back thin retries once unscoped,
+   so a disabled or misspelled engine name costs one request, never an empty page.
+   Red-pill was also excluded from SearXNG entirely under primary mode; now included.
+
+**Repairs:** `/api/analytics` shipped SEEDED FAKE DATA (a hardcoded 1500-search
+baseline, invented popular queries, rows dated January 2024) that `logSearch`
+incremented on top of — every number it returned was fiction plus a real delta.
+Seed removed; counters start at zero and each response declares itself
+process-local and not a traffic measurement. Google CSE credentials are no longer
+`.required()` at boot — the backend refused to start over a credential it does not
+search with. `GeoAdService` was deleted with the ads but `routes/news.js` used it
+for REGIONAL NEWS (the tests caught it); its country-detection half survives as
+`services/GeoService.js`.
+
+**Analytics:** Cloudflare Web Analytics wired in (`src/utils/analytics.js`) —
+cookieless, no fingerprinting, inert until `VITE_CF_BEACON_TOKEN` is set, skipped
+on DNT/GPC. **Real traffic, finally measured:** 3.88k unique visitors / 30 days,
+126.55k requests — 32.6 requests per visitor, which is exactly the SPA-asset
+explanation for the old Cloudflare-vs-Adsterra gap. Traffic mix has SHIFTED:
+France is now a distant second (16.7k requests, was 2.3k) while the Netherlands
+and Brazil have dropped out of the top five that `/nl` and `/pt` were built for;
+Sweden, Switzerland and Norway are new and unlocalised.
+
+**Docs added:** `docs/OWN-SERP-PLAN.md` (what an independent index actually
+requires; Common Crawl removes the crawl stage, Marginalia is the one-dev proof),
+`docs/COMMON-CRAWL-DECISIONS.md`, `docs/BROWSER-TASKS.md` (the three owner-only
+browser tasks).
+
+**⚠️ DEPLOY WARNING — read this.** Commits this session were authored as
+`Claude <noreply@anthropic.com>`, which violates the rule further down this file:
+Vercel checks the commit AUTHOR against team membership, so backend git deploys
+come back `BLOCKED (seatBlock: TEAM_ACCESS_REQUIRED)`. **All the search fixes above
+are backend-only**, so they are on `main` but were NOT live until a correctly
+authored commit landed. `git config user.email o87enterprises@gmail.com` is set in
+this repo again. Verify in the Vercel dashboard that the backend deployed READY,
+because Cloudflare Pages does not check authorship and will happily ship the
+frontend regardless — leaving frontend and backend out of step.
 
 ---
 
