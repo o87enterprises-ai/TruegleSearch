@@ -385,20 +385,20 @@
         "ts": "2026-08-24",
         "created": "2026-08-24"
       },
-      "unmerged-8-21-branch": {
-        "Id": "unmerged-8-21-branch",
-        "Type": "thread",
-        "Label": "IN PROGRESS: claude/truegle-sharing-player-ux-t3hi43 (15 commits, deliberately unmerged)",
-        "body": "STILL OPEN as of 2026-08-24 - owner confirmed the work is unfinished and deliberately parked, NOT abandoned. Branch head c07766a, 15 commits ahead of the main it was cut from. Both Vercel and Cloudflare build from main so none of it is live yet, which is intended. Contents: Cloudflare fronting SearXNG to close port 8080 (+ scripts/searxng-nginx.conf, docs/SEARXNG-CLOUDFLARE.md), RFC 9116 security.txt, email-to-services OSINT, OSINT phone bare-number fix, player queue UX + wheel-scroll, Overpass nearby provider needing no key, shared OSM category table. 22 files across apps/backend + apps/frontend. NOTE: main has moved a long way since it was cut (all advertising removed, SearchService + analytics rewritten, mode engines added), so it will need main merged INTO it first - do not expect a fast-forward. Do NOT merge it into main as a side effect of another sync; wait until the owner says it is ready.",
-        "status": "done",
-        "ts": "2026-08-24",
-        "created": "2026-08-24"
-      },
       "groq-legacy-vars-cleanup": {
         "Id": "groq-legacy-vars-cleanup",
         "Type": "thread",
         "Label": "Remove legacy GROQ_API_KEY/_2/_3 from Vercel",
         "body": "Still set in Vercel production as of 2026-08-24. The org-aware pool treats each ungrouped key as its own org, so these 3 make health report 7 orgs when there are really 4 - and a rate-limited org would waste one round-trip on its own legacy key. Fix: npx vercel env rm GROQ_API_KEY production (and _2, _3), then redeploy; health should then read orgs:4 keys:11. Zero quota cost: those keys sit inside orgs 1/2/3 which each still hold fresh keys.",
+        "status": "open",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "unmerged-8-21-branch": {
+        "Id": "unmerged-8-21-branch",
+        "Type": "thread",
+        "Label": "IN PROGRESS: claude/truegle-sharing-player-ux-t3hi43 (15 commits, deliberately unmerged)",
+        "body": "STILL OPEN as of 2026-08-24 - owner confirmed the work is unfinished and deliberately parked, NOT abandoned. Branch head c07766a, 15 commits ahead of the main it was cut from. Both Vercel and Cloudflare build from main so none of it is live yet, which is intended. Contents: Cloudflare fronting SearXNG to close port 8080 (+ scripts/searxng-nginx.conf, docs/SEARXNG-CLOUDFLARE.md), RFC 9116 security.txt, email-to-services OSINT, OSINT phone bare-number fix, player queue UX + wheel-scroll, Overpass nearby provider needing no key, shared OSM category table. 22 files across apps/backend + apps/frontend. NOTE: main has moved a long way since it was cut (all advertising removed, SearchService + analytics rewritten, mode engines added), so it needs main merged INTO it first - do not expect a fast-forward. Do NOT merge it into main as a side effect of another sync; wait until the owner says it is ready.",
         "status": "open",
         "ts": "2026-08-24",
         "created": "2026-08-24"
