@@ -2501,6 +2501,14 @@
         "body": "Vercel checks the commit AUTHOR (not the pusher) against team membership; a non-member author returns seatBlock TEAM_ACCESS_REQUIRED and the backend git deploy is BLOCKED. Claude Code defaults to authoring as Claude noreply@anthropic.com, which trips this EVERY session unless git config is set. FIX AT SESSION START: git config user.email o87enterprises@gmail.com (keep user.name Truegle). CONSEQUENCE WORTH KNOWING: Cloudflare Pages does NOT check authorship, so the FRONTEND ships regardless while the BACKEND silently does not — the two drift out of step and it looks like the code did not work rather than did not deploy. Any backend-only change (SearchService, routes, services) is invisible until a correctly-authored commit lands.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
+      },
+      "vercel-author-block-resolved": {
+        "Id": "vercel-author-block-resolved",
+        "Type": "fact",
+        "Label": "CORRECTION: the Vercel seatBlock author rule does NOT currently block deploys",
+        "body": "Supersedes fact vercel-author-block from earlier the same day, which was over-cautious. EVIDENCE: production deployment 0a1020f is authored Claude noreply@anthropic.com — the exact address the old rule said would be BLOCKED — and it deployed READY on api.truegle.info. So the seatBlock TEAM_ACCESS_REQUIRED constraint from the 2026-06 incident has since been resolved, most likely by adding the account to the Vercel team. Do NOT diagnose a missing backend change as an authorship block without checking the Vercel dashboard first. ALSO WORTH KNOWING, and this part stands: Vercel builds the TREE at a commit, not its diff, so a later commit on main carries earlier commits' work with it — b36b388 was an ancestor of 0a1020f and shipped inside that build. And the frontend/backend split is real: Cloudflare Pages serves truegle.info from main, Vercel serves api.truegle.info from main, so a backend-only change is invisible on the frontend deploy.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       }
     }
   },

@@ -96,15 +96,22 @@ requires; Common Crawl removes the crawl stage, Marginalia is the one-dev proof)
 `docs/COMMON-CRAWL-DECISIONS.md`, `docs/BROWSER-TASKS.md` (the three owner-only
 browser tasks).
 
-**⚠️ DEPLOY WARNING — read this.** Commits this session were authored as
-`Claude <noreply@anthropic.com>`, which violates the rule further down this file:
-Vercel checks the commit AUTHOR against team membership, so backend git deploys
-come back `BLOCKED (seatBlock: TEAM_ACCESS_REQUIRED)`. **All the search fixes above
-are backend-only**, so they are on `main` but were NOT live until a correctly
-authored commit landed. `git config user.email o87enterprises@gmail.com` is set in
-this repo again. Verify in the Vercel dashboard that the backend deployed READY,
-because Cloudflare Pages does not check authorship and will happily ship the
-frontend regardless — leaving frontend and backend out of step.
+**DEPLOY — verified live, and the old author rule no longer bites.** All the search
+fixes above are backend-only, so they ship via Vercel rather than Cloudflare Pages.
+Confirmed live from the Vercel dashboard: production deployment READY on
+`api.truegle.info`, built from `0a1020f` — and `b36b388` (this session's work) is
+an ancestor of it, so the deployed tree contains everything above. Vercel builds
+the TREE at a commit, not its diff, so any later commit on `main` carries earlier
+work with it.
+
+**Correction to the `seatBlock: TEAM_ACCESS_REQUIRED` rule below:** it did NOT
+apply this time. `0a1020f` is authored `Claude <noreply@anthropic.com>` — a
+non-team-member address by that rule — and deployed READY, not BLOCKED. So the
+constraint recorded during the 2026-06 incident has since been resolved (most
+likely the account was added to the Vercel team). Do not spend time chasing a
+blocked deploy on authorship grounds without first checking the dashboard.
+`git config user.email o87enterprises@gmail.com` is set in this repo anyway,
+which is harmless and keeps authorship consistent.
 
 ---
 
