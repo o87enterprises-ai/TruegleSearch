@@ -390,7 +390,7 @@
         "Type": "thread",
         "Label": "Remove legacy GROQ_API_KEY/_2/_3 from Vercel",
         "body": "Still set in Vercel production as of 2026-08-24. The org-aware pool treats each ungrouped key as its own org, so these 3 make health report 7 orgs when there are really 4 - and a rate-limited org would waste one round-trip on its own legacy key. Fix: npx vercel env rm GROQ_API_KEY production (and _2, _3), then redeploy; health should then read orgs:4 keys:11. Zero quota cost: those keys sit inside orgs 1/2/3 which each still hold fresh keys.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-08-24",
         "created": "2026-08-24"
       },
@@ -2530,8 +2530,8 @@
       "groq-pool-live": {
         "Id": "groq-pool-live",
         "Type": "fact",
-        "Label": "Groq org-tapered key pool is LIVE and healthy (2026-08-24)",
-        "body": "Verified in production 2026-08-24 via GET https://api.truegle.info/api/ai/health -> providers.groq = {status:'healthy', keys:{orgs:7,keys:14,usableOrgs:7,coolingOrgs:0,disabledKeys:0}}. Config: GROQ_ORG_1_KEYS(3) GROQ_ORG_2_KEYS(3) GROQ_ORG_3_KEYS(2) GROQ_ORG_4_KEYS(3) = 4 real orgs / 11 keys, plus legacy GROQ_API_KEY/_2/_3 still set and counted as 3 phantom single-key orgs (they actually live INSIDE orgs 1,2,3 - suffixes 1b80/YCEZ/7sqv seen in the Groq console). PENDING CLEANUP: remove those 3 legacy vars so health reads orgs:4 keys:11; costs zero quota because each of those orgs still has fresh keys. Real quota multiplier is 4 orgs, NOT 14 keys.",
+        "Label": "Groq org-tapered key pool LIVE and healthy — 4 orgs / 11 keys",
+        "body": "FINAL STATE verified in production 2026-08-24 via GET https://api.truegle.info/api/ai/health -> providers.groq = {status:'healthy', keys:{orgs:4, keys:11, usableOrgs:4, coolingOrgs:0, disabledKeys:0}}. Config is GROQ_ORG_1_KEYS(3) GROQ_ORG_2_KEYS(3) GROQ_ORG_3_KEYS(2) GROQ_ORG_4_KEYS(3). Legacy GROQ_API_KEY/_2/_3 were REMOVED from Vercel - they held keys that lived inside orgs 1/2/3, so each was being counted as a phantom independent org. THE QUOTA MULTIPLIER IS 4 ORGS, not 11 keys: Groq meters per organization, so extra keys within an org are hot standbys only. org3 having 2 keys instead of 3 costs nothing. Model: openai/gpt-oss-120b with GROQ_REASONING_EFFORT=low (unset in Vercel, code default).",
         "ts": "2026-08-24",
         "created": "2026-08-24"
       }
