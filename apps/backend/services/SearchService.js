@@ -76,6 +76,13 @@ class SearchService {
     // → unchanged behavior (all providers fire in parallel).
     this.searxngPrimary = !!(config.searxng && config.searxng.primary);
     this.searxngPrimaryMin = (config.searxng && config.searxng.primaryMin) || 5;
+    // How many SearXNG results count as a FULL page — the bar for skipping the
+    // API providers entirely. Distinct from primaryMin, which is only the floor
+    // for treating the instance as alive.
+    this.searxngSufficient = Math.max(
+      (config.searxng && config.searxng.sufficient) || 20,
+      this.searxngPrimaryMin,
+    );
 
     // Anonymous "proxied page view" (Startpage-style). When the SearXNG host runs
     // a result proxy (Morty / SearXNG `result_proxy`), the JSON API still returns
@@ -207,13 +214,24 @@ class SearchService {
           try {
             const sx = await this.performSearXNGSearch(query, filters);
             const sxResults = this.formatSearXNGResults(sx);
-            if (sxResults.length >= this.searxngPrimaryMin) {
-              preformattedResults.push(...sxResults);
-              searxngServed = true;
-              console.log(`🔎 SearXNG-primary served ${sxResults.length} web results`);
-            } else {
-              console.log(`🔎 SearXNG-primary thin (${sxResults.length} < ${this.searxngPrimaryMin}) — falling back to API providers`);
-            }
+
+            // SearXNG results are ALWAYS kept. This used to be winner-take-all:
+            // anything at or above SEARXNG_PRIMARY_MIN (default 5) set
+            // searxngServed and skipped every other provider, so a query where
+            // SearXNG managed five hits returned a five-result page and nothing
+            // topped it up. That is the "results are too thin" report.
+            if (sxResults.length > 0) preformattedResults.push(...sxResults);
+
+            // The API providers are skipped only when SearXNG returned a FULL
+            // page. Below that we top up and merge — the point of the primary
+            // setting is to avoid paying for queries SearXNG already answered
+            // well, not to cap the page at whatever it happened to return.
+            searxngServed = sxResults.length >= this.searxngSufficient;
+            console.log(
+              searxngServed
+                ? `🔎 SearXNG-primary served ${sxResults.length} web results (full page)`
+                : `🔎 SearXNG returned ${sxResults.length} (< ${this.searxngSufficient}) — keeping them and topping up from API providers`,
+            );
           } catch {
             // Offline/error — fall through to the API providers below.
           }
@@ -1723,11 +1741,18 @@ class SearchService {
       }
     });
 
-    // Remove duplicates based on URL
-    const uniqueResults = combined.filter(
-      (result, index, self) =>
-        index === self.findIndex((r) => r.url === result.url)
-    );
+    // De-duplicate on a NORMALISED url. Exact string matching let the same page
+    // through several times — `/a` vs `/a/`, http vs https, and especially the
+    // `?utm_source=` twins different providers attach — which is a large part of
+    // why one page of results reads as repetitive.
+    const seen = new Set();
+    const uniqueResults = [];
+    for (const result of combined) {
+      const key = this.dedupeKey(result.url);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      uniqueResults.push(result);
+    }
 
     return uniqueResults;
   }
@@ -1903,6 +1928,29 @@ class SearchService {
   /**
    * Extract domain from URL
    */
+  /**
+   * Identity of a page for de-duplication: scheme and `www.` dropped, tracking
+   * parameters stripped, trailing slash removed. Falls back to the raw string
+   * so an unparseable url still de-dupes against itself.
+   */
+  dedupeKey(url) {
+    if (!url) return '';
+    try {
+      const u = new URL(url);
+      const host = u.hostname.replace(/^www\./, '').toLowerCase();
+      for (const p of [...u.searchParams.keys()]) {
+        if (/^(utm_|fbclid|gclid|msclkid|mc_[ce]id|ref|source|igshid)/i.test(p)) {
+          u.searchParams.delete(p);
+        }
+      }
+      const path = u.pathname.replace(/\/+$/, '');
+      const qs = u.searchParams.toString();
+      return `${host}${path}${qs ? `?${qs}` : ''}`.toLowerCase();
+    } catch {
+      return String(url).trim().toLowerCase();
+    }
+  }
+
   extractDomain(url) {
     try {
       // Anchored: the old `.replace('www.', '')` was a substring replace, so

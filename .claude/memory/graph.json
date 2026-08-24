@@ -920,6 +920,14 @@
         "body": "Alternates pass/fail across identical full-suite runs (4 vs 5 failures); passes 11/11 when the suite runs alone. Cause is shared axios.get mock state across parallel workers, not product code. Do NOT chase it as a regression. Baseline for the backend suite is 4 pre-existing failures in __tests__/new-endpoints.test.js (Hunter.io x2, Shodan, PayPal — absent third-party keys), confirmed identical on a pre-change worktree.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
+      },
+      "real-traffic-numbers": {
+        "Id": "real-traffic-numbers",
+        "Type": "fact",
+        "Label": "REAL traffic, from Cloudflare dash 2026-08-24 — the 100x gap is RESOLVED",
+        "body": "30 days (Jul 25 - Aug 24): 3.88k UNIQUE VISITORS, 126.55k TOTAL REQUESTS, 4 GB served, 55.12% cached. Per-day uniques: max 372, min 131, typical ~200. 24h sample: 222 uniques / ~8.9k requests. Top countries BY REQUESTS: US 73,350 / France 16,718 / Sweden 3,781 / Switzerland 3,717 / Norway 2,980 (=79% of all requests). THE GAP EXPLAINED: 126,550 requests / 3,880 uniques = 32.6 requests per visitor, which is the SPA asset-load ratio, NOT bot inflation. And Adsterra's ~240 impressions/month against 3,880 visitors = only 6.2% of visitors ever registered an ad — landing pages carried no ads by policy plus adblock. Both halves of the 100x now accounted for. TRAFFIC MIX SHIFTED since the /nl /pt work: France went 2.3k -> 16,718 (now #2 by far), Netherlands and Brazil fell OUT of the top 5, and Sweden+Norway (6,761 combined) are new with NO localized page. /fr is now the highest-value localized page.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       }
     },
     "decision": {
@@ -2024,6 +2032,14 @@
         "Type": "decision",
         "Label": "Bias classification moved to data/sourceBias.js — 374 curated domains, modes now diverge",
         "body": "Replaced the inline 115-domain object literal in SearchService.detectBias. FIXED THREE SILENT BUGS: (1) duplicate keys — theintercept.com and substack.com each appeared twice, last-wins, so The Intercept was 'alternative' not 'left'; buildIndex() now THROWS on a domain claimed by two categories (it caught currentaffairs.org during authoring). (2) exact-match-only lookup — edition.cnn.com/amp.cnn.com/news.yahoo.com matched NOTHING; classify() now walks the host inward so subdomains resolve and the most specific match wins (greenwald.substack.com=independent while substack.com=platform). (3) platforms treated as sources — medium/substack/wordpress/rumble/odysee now 'platform', carrying no editorial claim. NEW 'unknown' category: unlisted is 'unknown', NOT 'neutral'; biasTierWeight unknown=0.65 (must differ from the 0.5 default or red-pill is a no-op). mapPerspectivesToBias expands neutral -> [neutral,unknown,platform] so purple still matches unrated. Also fixed extractDomain: .replace('www.','') was a SUBSTRING replace (wwww.x.com -> w.x.com), now anchored /^www\\./. VERIFIED: blue ranks CNN/Fox/Reuters top, red ranks Infowars/off-guardian/Taibbi top — modes diverge where they previously could not.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "searxng-topup": {
+        "Id": "searxng-topup",
+        "Type": "decision",
+        "Label": "FIXED thin results: SearXNG-primary was winner-take-all at 5 results",
+        "body": "ROOT CAUSE of 'results are way too thin': in performSearch, if SearXNG returned >= SEARXNG_PRIMARY_MIN (default 5) it set searxngServed=true and SKIPPED GOOGLE, BING AND BRAVE ENTIRELY. Five SearXNG hits therefore produced a five-result page with nothing topping it up. FIX: SearXNG results are now ALWAYS kept, and the API providers are skipped only when SearXNG returned a genuinely full page — new SEARXNG_SUFFICIENT env (default 20, floored at primaryMin). Below that we keep the SearXNG results AND top up from the other providers, then merge. primaryMin now only means 'instance is alive'. ALSO: dedup was exact-URL string match, so /a vs /a/ vs ?utm_source= twins all survived as separate results — a big part of why a page read as repetitive. New dedupeKey() normalises scheme, www., trailing slash, case and tracking params (utm_*, fbclid, gclid, msclkid, mc_eid, ref, source, igshid). STILL OPEN: SearXNG only ever fetches pageno 1, and Google CSE 403s on quota so that provider is effectively dead.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
       }

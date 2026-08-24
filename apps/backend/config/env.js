@@ -167,7 +167,8 @@ const envVarsSchema = Joi.object({
   // SearXNG self-hosted instance URL (no API key required)
   SEARXNG_URL: Joi.string().optional().description('SearXNG instance URL e.g. https://xyz.ngrok-free.dev'),
   SEARXNG_PRIMARY: Joi.boolean().default(false).description('Query SearXNG first; paid API providers become fallback'),
-  SEARXNG_PRIMARY_MIN: Joi.number().integer().min(1).default(5).description('Min SearXNG results before the API providers are skipped'),
+  SEARXNG_PRIMARY_MIN: Joi.number().integer().min(1).default(5).description('Min SearXNG results for the instance to count as alive'),
+  SEARXNG_SUFFICIENT: Joi.number().integer().min(1).default(20).description('SearXNG results that count as a full page; below this the API providers top up'),
   // Anonymous "proxied page view" (Startpage-style). When the SearXNG host runs a
   // result proxy (Morty / SearXNG `result_proxy`), set these so the backend can
   // attach a signed proxy link to each result. URL points at the proxy root; the
@@ -375,6 +376,7 @@ const config = {
     url: envVars.SEARXNG_URL,
     primary: envVars.SEARXNG_PRIMARY,
     primaryMin: envVars.SEARXNG_PRIMARY_MIN,
+    sufficient: envVars.SEARXNG_SUFFICIENT,
     resultProxyUrl: envVars.SEARXNG_RESULT_PROXY_URL,
     resultProxyKey: envVars.SEARXNG_RESULT_PROXY_KEY,
   },
