@@ -4,6 +4,7 @@ const config = require('../config/env');
 const paidBudget = require('./PaidProviderBudget');
 const { AI_CONTENT_DOMAINS } = require('../data/aiContentDomains');
 const sourceBias = require('../data/sourceBias');
+const modeEngines = require('../data/modeEngines');
 const QueryInterpreter = require('./QueryInterpreter');
 const UnifiedAIService = require('./UnifiedAIService');
 
@@ -207,13 +208,29 @@ class SearchService {
 
       if (searchWeb) {
         // SearXNG-primary mode (opt-in): query the self-hosted metasearch first
-        // and skip the paid API providers when it returns enough results. Not
-        // used for red-pill, which depends on Brave's alternative-media querying.
+        // and skip the paid API providers when it returns enough results.
+        //
+        // Red-pill is INCLUDED here now. It used to be excluded outright, which
+        // meant the rabbit hole never queried SearXNG at all under primary mode
+        // — it lost the metasearch entirely and leaned on Brave alone. It now
+        // runs with its own engine set (independent indexes, no Google/Bing),
+        // which serves the same intent far better than skipping.
         let searxngServed = false;
-        if (this.searxngPrimary && this.searxngUrl && !isRedPill) {
+        if (this.searxngPrimary && this.searxngUrl) {
           try {
-            const sx = await this.performSearXNGSearch(query, filters);
-            const sxResults = this.formatSearXNGResults(sx);
+            const engines = modeEngines.enginesFor(mode);
+            let sx = await this.performSearXNGSearch(query, filters, { engines });
+            let sxResults = this.formatSearXNGResults(sx);
+
+            // Naming engines is a best-effort narrowing, not a promise: an
+            // engine that is disabled or renamed on the instance simply returns
+            // nothing. Rather than hand the user a thin page, retry once
+            // unscoped — one wasted request beats an empty result set.
+            if (engines && sxResults.length < this.searxngPrimaryMin) {
+              console.log(`🔎 SearXNG thin on engines [${engines}] (${sxResults.length}) — retrying with the instance default`);
+              sx = await this.performSearXNGSearch(query, filters);
+              sxResults = this.formatSearXNGResults(sx);
+            }
 
             // SearXNG results are ALWAYS kept. This used to be winner-take-all:
             // anything at or above SEARXNG_PRIMARY_MIN (default 5) set
@@ -246,7 +263,9 @@ class SearchService {
           }
           // Parallel-mode SearXNG (skipped above only when it ran as primary).
           if (this.searxngUrl && !this.searxngPrimary) {
-            searchPromises.push(this.performSearXNGSearch(query, filters));
+            searchPromises.push(
+              this.performSearXNGSearch(query, filters, { engines: modeEngines.enginesFor(mode) }),
+            );
           }
           if (this.braveApiKey) {
             searchPromises.push(this.performBraveSearch(query, filters));
@@ -1248,7 +1267,7 @@ class SearchService {
     return 2;
   }
 
-  async performSearXNGSearch(query, filters) {
+  async performSearXNGSearch(query, filters, options = {}) {
     if (!this.searxngUrl) {
       throw new Error('SearXNG not configured');
     }
@@ -1259,6 +1278,11 @@ class SearchService {
       pageno: filters.page || 1,
       safesearch: this.searxngSafeSearch(filters),
     };
+
+    // Naming engines is how a mode RETRIEVES differently rather than merely
+    // re-sorting one shared list. Omitted => the instance default, which is the
+    // behaviour every mode had before. See data/modeEngines.js.
+    if (options.engines) params.engines = options.engines;
 
     try {
       const response = await axios.get(`${this.searxngUrl}/search`, {

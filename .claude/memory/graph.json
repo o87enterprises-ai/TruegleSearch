@@ -2066,6 +2066,14 @@
         "body": "1 BUDGET: stays 0 dollars. No ads until 50k DAILY visitors (currently 131-372/day, so ads are effectively off the table for a long time; treat all costs as pure expense). 2 COMPUTE: home PC tower, but no persistence yet — planning for the future, not now. 3 SLICE: owner deferred to me, constraint is 8-16 GB RAM. 4 SELECTION: curated for mainstream, RANDOM for rabbit hole — owner's own idea and a good one. 5 WET-vs-WARC, 6 ENGINE, 7 RANKING: deferred to me, with a hard constraint from 6 that whatever is chosen must impose the least possible content control — censorship is against project policy. 8 INTEGRATION: blend, or rabbit-hole mode only. OWNER'S STATED URGENCY: search results are too thin and too identical across pages, and that would damage public perception before launch — so fixing retrieval beats building an index.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
+      },
+      "per-mode-retrieval": {
+        "Id": "per-mode-retrieval",
+        "Type": "decision",
+        "Label": "Modes now RETRIEVE differently, not just re-rank — per-mode SearXNG engine sets",
+        "body": "data/modeEngines.js maps each mode to a SearXNG engines list, threaded through performSearXNGSearch(query, filters, {engines}). Defaults: blue-pill and green = google,bing,duckduckgo,wikipedia; red-pill = mojeek,brave,marginalia,mwmbl,duckduckgo (NO Google, NO Bing — independent indexes only); purple = widest mix because it filters down to perspectives afterwards and a narrow set would leave the filter empty. Overridable per mode via SEARXNG_ENGINES_BLUE_PILL / _GREEN / _RED_PILL / _PURPLE; empty string means use the instance default. SAFETY: engine names must match what the instance has enabled, so if an engine-scoped query returns fewer than SEARXNG_PRIMARY_MIN, SearchService retries ONCE unscoped — a wrong or disabled engine name costs one extra request and never an empty page. ALSO FIXED: red-pill used to be excluded from SearXNG-primary entirely, so under primary mode the rabbit hole never queried the metasearch at all and leaned on Brave alone; it is now included with its own engine set. Verified against a local HTTP stub: each mode sends its own set, the thin retry fires exactly once and drops the engines param. Regression test at __tests__/modeEngines.test.js (9 tests).",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       }
     },
     "entity": {
