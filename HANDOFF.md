@@ -1,5 +1,5 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-08-20. Supersedes all prior handoff docs._
+_Last updated: 2026-08-23. Supersedes all prior handoff docs._
 
 ---
 
@@ -12,6 +12,82 @@ count of results with NOTHING but video and news cards in it.** SearXNG is
 primary for web search, so when it is down the web tier vanishes silently while
 everything else carries on, and it reads as "bad results" rather than "outage".
 Third occurrence as of 2026-08-21.
+
+---
+
+## 🚧 IN PROGRESS — `claude/truegle-sharing-player-ux-t3hi43` (15 commits)
+
+**Deliberately unmerged — this work isn't finished.** Noted 2026-08-24 while
+syncing the Groq branch. Head `c07766a`, 15 commits ahead of `main`. Both Vercel
+and Cloudflare build from `main`, so none of it is live yet, which is intended:
+
+- Cloudflare fronting SearXNG so **port 8080 can close** (+ `scripts/searxng-nginx.conf`,
+  `docs/SEARXNG-CLOUDFLARE.md`) — the security-relevant one
+- RFC 9116 `security.txt`; email-to-services OSINT; OSINT phone bare-number fix
+- Player queue UX (persistent glow, pinned play, tabs, reel sizing) + wheel-scroll
+- Overpass nearby-search provider that needs no key; shared OSM category table
+
+22 files across `apps/backend` and `apps/frontend`. Only overlap with the Groq
+branch is `.claude/memory/graph.json`, so landing it later is a trivial merge —
+do NOT treat it as abandoned or sweep it into an unrelated sync. When it is
+ready it also triggers a Cloudflare frontend deploy, and the nginx/EC2 pieces
+may need applying by hand on the box.
+
+---
+
+## 🗓️ SESSION LOG 2026-08-23 — Groq keys: unlimited pool, real tapering
+
+- **🔑 HOW TO HAND OVER NEW KEYS — `docs/SECRETS-MAP.md` (new, was missing).**
+  Never paste a key value into a chat, issue, PR, commit, or log; transcripts
+  persist and containers get snapshotted, so a pasted key is a burned key.
+  The user sets values in the Vercel store directly (dashboard, or
+  `vercel env add <NAME> production`, which reads from stdin and skips shell
+  history) and tells the agent only the NAMES. The map lists every variable
+  name and which store it lives in — **names and locations only, never values**.
+
+- **🔴 PERMANENT FACT — Groq meters rate limits PER ORGANIZATION, not per key.**
+  Every key inside one org shares the same RPM/RPD/TPM/TPD bucket. **The org
+  count is the quota multiplier**; extra keys within an org are hot standbys,
+  not headroom. Current account: **4 orgs, 12 new keys → 4× headroom, not 12×.**
+
+- **🟢 The 5-key ceiling is gone, and keys are grouped by org.**
+  `collectGroqOrgs()` in `apps/backend/config/env.js` reads, additive and
+  de-duplicated: `GROQ_ORG_1_KEYS`…`GROQ_ORG_20_KEYS` (**the shape to use** —
+  one var per org, that org's keys comma separated), plus the ungrouped
+  `GROQ_API_KEYS` / `GROQ_API_KEY` / `GROQ_API_KEY_2`…`_50`, where each key is
+  assumed to be its own org. That assumption preserves the old behaviour
+  exactly and only costs a wasted round-trip if two ungrouped keys turn out to
+  be org-mates — move those into a `GROQ_ORG_n_KEYS` var to fix it.
+
+- **🟢 Rotation is now a taper across ORGS, not a fallback across keys.** New
+  `apps/backend/services/GroqKeyPool.js` goes **round-robin over orgs** per
+  request. A 429 parks **the whole org** for exactly the `retry-after` Groq
+  sends (clamped 1s–1h) — its sibling keys share the exhausted bucket, so
+  probing them is a guaranteed wasted round-trip. A 401/403 drops **only that
+  key**, since a revoked key says nothing about its org-mates. Each process
+  starts on a **random** org — on Vercel every cold start is a fresh process,
+  and a fixed start would point every concurrent lambda at org 0.
+
+  Text chat, vision and speech-to-text share the one pool, so voice search no
+  longer independently drains whichever org the chat surface is on
+  (`SpeechToTextService` used to keep its own list and always start at index 0).
+
+  Measured against a fake Groq metering **per org** at 3 requests/org: 12
+  requests over 4 orgs × 3 keys → **12/12 succeeded, exactly 3 per org, every
+  key exercised once, zero wasted 429 round-trips**. Once the pool is spent it
+  fails with no HTTP call at all, so the failover chain (gemini→nvidia→…) gets
+  control immediately. `healthCheck()` reports
+  `{orgs, keys, usableOrgs, coolingOrgs, disabledKeys}` — counts only, never
+  key material.
+
+- Tests: `apps/backend/__tests__/groqKeyPool.test.js` (11). Full backend suite
+  16/16 suites, 178/178 tests. (`new-endpoints.test.js` needs Postgres on
+  :5432 and is skipped in a fresh container — unrelated.)
+
+- **Still to do by hand:** set `GROQ_ORG_1_KEYS`…`GROQ_ORG_4_KEYS` in Vercel
+  (one var per org, that org's keys comma separated) and redeploy — env changes
+  only take effect on a new build. Move the 3 pre-existing keys into whichever
+  org var they actually belong to.
 
 ---
 

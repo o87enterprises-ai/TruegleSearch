@@ -65,6 +65,11 @@ const envVarsSchema = Joi.object({
   GROQ_API_KEY_3: Joi.string().optional().description('Groq API Key 3 — rotated to when key 2 rate-limits'),
   GROQ_API_KEY_4: Joi.string().optional().description('Groq API Key 4 — rotated to when key 3 rate-limits'),
   GROQ_API_KEY_5: Joi.string().optional().description('Groq API Key 5 — rotated to when key 4 rate-limits'),
+  // Groq meters rate limits PER ORGANIZATION, so keys are grouped by org:
+  // GROQ_ORG_1_KEYS..GROQ_ORG_20_KEYS each hold one org's comma-separated keys.
+  // GROQ_API_KEYS / GROQ_API_KEY_n still work and are treated as one org each.
+  GROQ_ORG_1_KEYS: Joi.string().optional().description('Groq org 1 — comma separated keys sharing one rate-limit bucket'),
+  GROQ_API_KEYS: Joi.string().optional().description('Ungrouped Groq keys — comma/whitespace separated, each assumed its own org'),
   // Default to the 70B model: the 8b-instant default produced weak, shallow
   // summaries (the "poor unbiased summaries" complaint). 70b-versatile is still
   // free-tier; its lower TPM is covered by multi-key rotation (GROQ_API_KEY..._5).
@@ -218,6 +223,50 @@ if (error) {
   throw new Error(`Config validation error: ${error.message}`);
 }
 
+/**
+ * Group every Groq key the environment carries by the ORGANIZATION it belongs
+ * to. Groq enforces rate limits per org, not per key, so keys sharing an org
+ * share one bucket — the pool has to know which keys are siblings or it will
+ * waste requests discovering that a key's org-mates are limited too.
+ *
+ *   GROQ_ORG_1_KEYS..GROQ_ORG_20_KEYS — one org per variable, keys comma separated
+ *   GROQ_API_KEYS                     — ungrouped pool; each key assumed its own org
+ *   GROQ_API_KEY, GROQ_API_KEY_2..50  — ungrouped legacy slots, same assumption
+ *
+ * Treating an ungrouped key as its own org is the safe default: it preserves
+ * the old behaviour exactly. It only costs a wasted round-trip if two of them
+ * turn out to be org-mates — move those into a GROQ_ORG_n_KEYS var to fix that.
+ * Duplicates are dropped so a key listed twice doesn't get double the traffic.
+ */
+const GROQ_KEY_SLOT_LIMIT = 50;
+const GROQ_ORG_SLOT_LIMIT = 20;
+
+function collectGroqOrgs(env) {
+  const seen = new Set();
+  const orgs = [];
+  const split = (raw) => String(raw || '')
+    .split(/[\s,;]+/)
+    .map(k => k.trim())
+    .filter(k => k && !seen.has(k) && seen.add(k));
+
+  for (let n = 1; n <= GROQ_ORG_SLOT_LIMIT; n++) {
+    const keys = split(env[`GROQ_ORG_${n}_KEYS`]);
+    if (keys.length) orgs.push({ label: `org${n}`, keys });
+  }
+
+  const ungrouped = [
+    ...split(env.GROQ_API_KEYS),
+    ...split(env.GROQ_API_KEY),
+  ];
+  for (let n = 2; n <= GROQ_KEY_SLOT_LIMIT; n++) ungrouped.push(...split(env[`GROQ_API_KEY_${n}`]));
+  ungrouped.forEach((key, i) => orgs.push({ label: `ungrouped${i + 1}`, keys: [key] }));
+
+  return orgs;
+}
+
+const groqOrgs = collectGroqOrgs(envVars);
+const groqKeys = groqOrgs.flatMap(org => org.keys);
+
 // Environment configuration
 const config = {
   env: envVars.NODE_ENV,
@@ -290,37 +339,28 @@ const config = {
       model: envVars.NVIDIA_MODEL,
     },
     groq: {
-      apiKey: envVars.GROQ_API_KEY,
+      // First pooled key when only GROQ_API_KEYS is set, so callers that read
+      // .apiKey directly still work.
+      apiKey: envVars.GROQ_API_KEY || groqKeys[0],
       model: envVars.GROQ_MODEL,
       // Vision-capable model for image-attached chat turns (extract/describe
       // an uploaded image). Only used when a request carries an image — the
       // default text model doesn't understand image_url content parts.
       visionModel: envVars.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b',
-      keys: [
-        envVars.GROQ_API_KEY,
-        envVars.GROQ_API_KEY_2,
-        envVars.GROQ_API_KEY_3,
-        envVars.GROQ_API_KEY_4,
-        envVars.GROQ_API_KEY_5,
-      ].filter(k => k),
+      keys: groqKeys,
+      orgs: groqOrgs,
     },
     deepseek: {
       apiKey: envVars.DEEPSEEK_API_KEY, // DEPRECATED - DO NOT USE
     },
   },
 
-  // Speech-to-text for voice search (open-source Whisper, Groq-hosted by default)
+  // Speech-to-text for voice search (open-source Whisper, Groq-hosted by default).
+  // No key list here — on Groq it leases from the shared GroqKeyPool.
   stt: {
     baseUrl: envVars.STT_BASE_URL || 'https://api.groq.com/openai/v1',
     model: envVars.STT_MODEL || 'whisper-large-v3-turbo',
     apiKey: envVars.STT_API_KEY || null,
-    groqKeys: [
-      envVars.GROQ_API_KEY,
-      envVars.GROQ_API_KEY_2,
-      envVars.GROQ_API_KEY_3,
-      envVars.GROQ_API_KEY_4,
-      envVars.GROQ_API_KEY_5,
-    ].filter(Boolean),
   },
 
   // Maps
