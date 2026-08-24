@@ -14,3 +14,8 @@ dist
 !.env.example
 !apps/backend/.env.example
 !apps/frontend/.env.example
+
+# Scratch space for handing secret VALUES to a CLI (e.g. piping key lists into
+# `vercel env add`). Nothing in here is ever committed. Delete the files once
+# the values are in the platform store — see docs/SECRETS-MAP.md.
+.secrets/
