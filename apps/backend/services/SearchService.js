@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const config = require('../config/env');
 const paidBudget = require('./PaidProviderBudget');
 const { AI_CONTENT_DOMAINS } = require('../data/aiContentDomains');
+const sourceBias = require('../data/sourceBias');
 const QueryInterpreter = require('./QueryInterpreter');
 const UnifiedAIService = require('./UnifiedAIService');
 
@@ -534,7 +535,17 @@ class SearchService {
       small_business: 'alternative',
       corporate: 'mainstream',
     };
-    const biases = [...new Set(perspectives.map(p => map[p] || 'neutral'))];
+    // 'neutral' expands to include 'unknown'. Unlisted sources used to BE
+    // 'neutral', so a purple search for a neutral perspective matched them; now
+    // that the two are distinguished, the filter has to name both or it would
+    // silently return only the handful of explicitly-assessed neutral sites.
+    const EXPAND = { neutral: ['neutral', 'unknown', 'platform'] };
+    const biases = [...new Set(
+      perspectives.flatMap((p) => {
+        const bias = map[p] || 'neutral';
+        return EXPAND[bias] || [bias];
+      }),
+    )];
     return biases;
   }
 
@@ -650,14 +661,23 @@ class SearchService {
       conspiracy: 1,
       alternative: 0.9,
       independent: 0.8,
+      // 'unknown' means "not in the curated lists" — which, on balance, means a
+      // site that is not one of the corporate outlets we bothered to name. In a
+      // mode whose whole request is "show me something other than the usual
+      // suspects", that deserves to sit above assessed-centrist and well above
+      // mainstream. It must ALSO differ from the default fallback: when every
+      // result scored the same 0.5, this whole term became a constant and the
+      // re-rank could not reorder anything.
+      unknown: 0.65,
       neutral: 0.5,
+      platform: 0.5,
       center: 0.45,
       unbiased: 0.4,
       left: 0.35,
       right: 0.35,
       mainstream: 0.1,
     };
-    return weights[bias] !== undefined ? weights[bias] : 0.5;
+    return weights[bias] !== undefined ? weights[bias] : 0.65;
   }
 
   /**
@@ -1745,10 +1765,13 @@ class SearchService {
       alternative: 'Alternative Media',
       conspiracy: 'Fringe / Conspiracy',
       independent: 'Independent',
+      platform: 'User Platform',
+      unknown: 'Unrated',
     };
 
     return results.map((result) => {
-      const bias = this.detectBias(result) || 'neutral';
+      // 'unknown' (no data), never 'neutral' (assessed non-partisan).
+      const bias = this.detectBias(result) || 'unknown';
       const category = this.detectCategory(result);
 
       return {
@@ -1761,143 +1784,23 @@ class SearchService {
   }
 
   /**
-   * Detect bias based on source domain
+   * Source characteristics for one result, from the curated lists in
+   * data/sourceBias.js.
+   *
+   * The 115-domain object literal that used to live here had duplicate keys
+   * (last one silently won) and matched exact hostnames only, so `edition.cnn.com`
+   * resolved to nothing. Both are fixed in that module; it also refuses to load
+   * if a domain is claimed by two categories.
+   *
+   * Returns null when nothing is known, so the caller can record 'unknown'
+   * rather than asserting 'neutral'.
    */
   detectBias(result) {
     const domain = result.domain || this.extractDomain(result.url || '');
 
-    const biasMap = {
-      // LEFT-LEANING SOURCES
-      'cnn.com': 'left',
-      'msnbc.com': 'left',
-      'nytimes.com': 'left',
-      'washingtonpost.com': 'left',
-      'huffpost.com': 'left',
-      'theguardian.com': 'left',
-      'slate.com': 'left',
-      'vox.com': 'left',
-      'thedailybeast.com': 'left',
-      'motherjones.com': 'left',
-      'thenation.com': 'left',
-      'salon.com': 'left',
-      'thinkprogress.org': 'left',
-      'commondreams.org': 'left',
-      'democracynow.org': 'left',
-      'jacobin.com': 'left',
-      'newrepublic.com': 'left',
-      'talkingpointsmemo.com': 'left',
-      'rawstory.com': 'left',
-      'alternet.org': 'left',
-      'theintercept.com': 'left',
-      'truthout.org': 'left',
-      'inthesetimes.com': 'left',
+    const curated = sourceBias.classify(domain);
+    if (curated) return curated;
 
-      // RIGHT-LEANING SOURCES
-      'foxnews.com': 'right',
-      'breitbart.com': 'right',
-      'dailywire.com': 'right',
-      'nypost.com': 'right',
-      'wsj.com': 'right',
-      'nationalreview.com': 'right',
-      'theblaze.com': 'right',
-      'townhall.com': 'right',
-      'redstate.com': 'right',
-      'thefederalist.com': 'right',
-      'washingtonexaminer.com': 'right',
-      'washingtontimes.com': 'right',
-      'newsmax.com': 'right',
-      'oann.com': 'right',
-      'americanthinker.com': 'right',
-      'conservativereview.com': 'right',
-      'theamericanconservative.com': 'right',
-      'powerlineblog.com': 'right',
-      'legalinsurrection.com': 'right',
-      'pjmedia.com': 'right',
-      'dailysignal.com': 'right',
-      'westernjournal.com': 'right',
-
-      // CENTER/UNBIASED SOURCES
-      'reuters.com': 'unbiased',
-      'apnews.com': 'unbiased',
-      'bbc.com': 'center',
-      'bbc.co.uk': 'center',
-      'npr.org': 'center',
-      'pbs.org': 'unbiased',
-      'c-span.org': 'unbiased',
-      'thehill.com': 'center',
-      'politico.com': 'center',
-      'axios.com': 'center',
-      'bloomberg.com': 'center',
-      'fortune.com': 'center',
-      'usatoday.com': 'center',
-      'cbsnews.com': 'center',
-      'abcnews.go.com': 'center',
-      'nbcnews.com': 'center',
-      'time.com': 'center',
-      'newsweek.com': 'center',
-      'economist.com': 'center',
-      'ft.com': 'center',
-      'factcheck.org': 'unbiased',
-      'snopes.com': 'unbiased',
-      'politifact.com': 'unbiased',
-
-      // MAINSTREAM/GENERAL
-      'google.com': 'mainstream',
-      'bing.com': 'mainstream',
-      'yahoo.com': 'mainstream',
-      'wikipedia.org': 'unbiased',
-      'en.wikipedia.org': 'unbiased',
-      'youtube.com': 'mainstream',
-      'msn.com': 'mainstream',
-
-      // ALTERNATIVE — independent voices, non-corporate media, dissident press
-      'substack.com': 'alternative',
-      'greenwald.substack.com': 'alternative',
-      'racket.news': 'alternative',
-      'thegrayzone.com': 'alternative',
-      'mintpressnews.com': 'alternative',
-      'consortiumnews.com': 'alternative',
-      'off-guardian.org': 'alternative',
-      'globalresearch.ca': 'alternative',
-      'theintercept.com': 'alternative',
-      'unlimitedhangout.com': 'alternative',
-      'corbettreport.com': 'alternative',
-      'zerohedge.com': 'alternative',
-      'rumble.com': 'alternative',
-      'odysee.com': 'alternative',
-      'bitchute.com': 'alternative',
-      'banned.video': 'alternative',
-      'brighteon.com': 'alternative',
-      'rt.com': 'alternative',
-      'sputniknews.com': 'alternative',
-      'strategic-culture.org': 'alternative',
-      'unz.com': 'alternative',
-      'lewrockwell.com': 'alternative',
-      'antiwar.com': 'alternative',
-
-      // CONSPIRACY / FRINGE
-      'infowars.com': 'conspiracy',
-      'naturalnews.com': 'conspiracy',
-      'activistpost.com': 'conspiracy',
-      'beforeitsnews.com': 'conspiracy',
-      'whatreallyhappened.com': 'conspiracy',
-      'henrymakow.com': 'conspiracy',
-      'rense.com': 'conspiracy',
-      'veterans-today.com': 'conspiracy',
-      'thepeoplesvoice.tv': 'conspiracy',
-      'neonnettle.com': 'conspiracy',
-
-      // INDEPENDENT — personal blogs, independent journalists, non-partisan
-      'medium.com': 'independent',
-      'substack.com': 'independent',
-      'wordpress.com': 'independent',
-      'blogspot.com': 'independent',
-      'ghost.io': 'independent',
-      'patreon.com': 'independent',
-      'locals.com': 'independent',
-    };
-
-    if (biasMap[domain]) return biasMap[domain];
 
     // Keyword-based bias detection for unlisted domains
     const url = (result.url || '').toLowerCase();
@@ -1924,7 +1827,7 @@ class SearchService {
     // Mainstream signals (large institutional sites)
     if (/\.gov\b|\.edu\b/.test(url)) return 'unbiased';
 
-    return 'neutral';
+    return null; // unlisted — caller records 'unknown', not 'neutral'
   }
 
   /**
@@ -2002,7 +1905,10 @@ class SearchService {
    */
   extractDomain(url) {
     try {
-      return new URL(url).hostname.replace('www.', '');
+      // Anchored: the old `.replace('www.', '')` was a substring replace, so
+      // `wwww.x.com` became `w.x.com` and any host containing "www." anywhere
+      // was corrupted mid-string.
+      return new URL(url).hostname.replace(/^www\./, '');
     } catch {
       return 'unknown.com';
     }
