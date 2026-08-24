@@ -15,11 +15,11 @@ Third occurrence as of 2026-08-21.
 
 ---
 
-## ⚠️ PARKED, UNDEPLOYED — `claude/truegle-sharing-player-ux-t3hi43` (15 commits)
+## 🚧 IN PROGRESS — `claude/truegle-sharing-player-ux-t3hi43` (15 commits)
 
-Found 2026-08-24 while syncing the Groq work. That branch (head `c07766a`) is
-**15 commits ahead of `main` and was never fast-forwarded into it**. Both Vercel
-and Cloudflare build from `main`, so none of this is live:
+**Deliberately unmerged — this work isn't finished.** Noted 2026-08-24 while
+syncing the Groq branch. Head `c07766a`, 15 commits ahead of `main`. Both Vercel
+and Cloudflare build from `main`, so none of it is live yet, which is intended:
 
 - Cloudflare fronting SearXNG so **port 8080 can close** (+ `scripts/searxng-nginx.conf`,
   `docs/SEARXNG-CLOUDFLARE.md`) — the security-relevant one
@@ -28,10 +28,10 @@ and Cloudflare build from `main`, so none of this is live:
 - Overpass nearby-search provider that needs no key; shared OSM category table
 
 22 files across `apps/backend` and `apps/frontend`. Only overlap with the Groq
-branch is `.claude/memory/graph.json`, so landing it later is a trivial merge.
-**Owner's call 2026-08-24: ship Groq alone, leave these parked.** Landing them
-triggers a Cloudflare frontend deploy as well, and the nginx/EC2 pieces may need
-applying by hand on the box.
+branch is `.claude/memory/graph.json`, so landing it later is a trivial merge —
+do NOT treat it as abandoned or sweep it into an unrelated sync. When it is
+ready it also triggers a Cloudflare frontend deploy, and the nginx/EC2 pieces
+may need applying by hand on the box.
 
 ---
 
