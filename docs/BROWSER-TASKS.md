@@ -1,88 +1,72 @@
-# Browser tasks — things only you can do
+# Browser tasks
 
-**Updated 2026-08-24.** Task 1 is done. Three left, ~20 minutes.
+**Updated 2026-08-24.** Four tasks, ~12 minutes total. Do them in order.
 
-Task 4 is new and matters most: it decides whether the search work that just
-shipped actually does anything.
-
----
-
-## ~~1 — Cloudflare Web Analytics~~ ✅ DONE
-
-Confirmed live. The Core Web Vitals and element-level data in your dashboard can
-only come from the browser beacon, so the token took and the site rebuilt.
-Nothing more to do here.
+Everything else is already done in code and deployed.
 
 ---
 
-## 2 — Google Search Console (and Bing)
+## 1 — Fix www duplicate URLs (5 min) ⭐ biggest SEO win
 
-The only authoritative source for how you actually rank: real impressions,
-clicks, the queries people use, average position, and Coverage — Google's own
-technical audit of the site.
+Search Console shows your homepage indexed as **three separate URLs**:
+`https://truegle.info/`, `http://www.truegle.info/`, `https://www.truegle.info/`.
+Google splits ranking credit across all three, so each is weaker than one
+consolidated page would be.
 
-1. **search.google.com/search-console**
-2. **Add property** → pick the **Domain** option (left-hand box, not URL prefix).
-   Enter `truegle.info`.
-3. Google shows a **TXT record**. Copy its value.
-4. New tab → **dash.cloudflare.com** → `truegle.info` → **DNS** → **Records** →
-   **Add record**:
-   - Type `TXT` · Name `@` · Content: the value from Google → **Save**
-5. Back in Search Console → **Verify**. *(If it fails, wait 5 minutes for DNS and
-   retry — normal.)*
-6. **Sitemaps** → enter `sitemap.xml` → **Submit**. *(29 URLs.)*
-7. **URL Inspection** → `https://truegle.info/` → **Request indexing**.
-   Repeat for `https://truegle.info/search`.
+I fixed the trailing-slash half of this in code. The `www` half can't be fixed
+in code — Cloudflare Pages `_redirects` matches on path only, never on hostname.
+It needs a dashboard rule.
 
-**Then Bing:** **bing.com/webmasters** → **Import from Google Search Console** →
-authorise. One click, and it covers Bing, Yahoo and DuckDuckGo.
+1. **dash.cloudflare.com** → select `truegle.info`
+2. Left sidebar → **Rules** → **Redirect Rules** → **Create rule**
+3. Name: `www to apex`
+4. **If** → *Custom filter expression* → set:
+   - Field: **Hostname** · Operator: **equals** · Value: `www.truegle.info`
+5. **Then** → *Dynamic redirect*:
+   - Type: **Dynamic**
+   - Expression: `concat("https://truegle.info", http.request.uri.path)`
+   - Status code: **301**
+   - ✅ tick **Preserve query string**
+6. **Deploy**
 
-**Expect nothing for 2–3 days.** Search Console backfills slowly; an empty
-dashboard tomorrow means nothing is wrong.
-
----
-
-## 3 — Does search actually look fixed?
-
-Three things shipped. Open `truegle.info` and search something ordinary —
-`how do solar panels work` works well.
-
-**a. Fuller pages.** Results used to cap at five whenever SearXNG answered first.
-You should now get a full page.
-
-**b. Modes differ.** Run the **same query** in blue, then in red / rabbit-hole.
-The lists should now be **visibly different sites in a different order**. This is
-the one that matters — they used to be identical.
-
-**c. No ads anywhere.** No banners, no "Sponsored" boxes, no cookie-consent popup.
-If you see any of those, the frontend deploy is stale.
-
-Tell me what you see, especially for (b).
+**Check it worked:** open `https://www.truegle.info/about` — the address bar
+should land on `https://truegle.info/about`.
 
 ---
 
-## 4 — Which engines does your SearXNG actually have? ⭐ NEW
+## 2 — Resubmit the sitemap (1 min)
 
-**Why this matters:** red-pill mode now queries `mojeek, brave, marginalia,
-mwmbl, duckduckgo` instead of Google and Bing — that is the entire reason the
-rabbit hole can return anything the other modes can't. But those names only work
-if your instance has those engines **enabled**. If it doesn't, the code silently
-falls back to the default engines and red-pill goes back to looking like blue.
+The sitemap and the canonical tags disagreed on trailing slashes, which is what
+made Google index `/about/` and `/about` as two pages. That's fixed and
+deployed — Google just needs to re-read it.
 
-So if task 3(b) shows the modes still looking similar, this is almost certainly why.
+1. **search.google.com/search-console** → your property
+2. **Sitemaps** → click the existing `sitemap.xml` row → **⋯** → **Remove**
+3. Re-enter `sitemap.xml` → **Submit**
 
-**How to check** — open this in a browser:
+*(Removing and re-adding forces a re-crawl rather than waiting for the schedule.)*
+
+---
+
+## 3 — Which engines does your SearXNG have? (2 min)
+
+Your rabbit-hole results were **entirely `mwmbl`** — wallpapers, clip art, and a
+page about the wrong ship. Mojeek, Marginalia and Brave contributed nothing, and
+mwmbl is the smallest index of the set.
+
+I've fixed the code so one weak engine answering can no longer masquerade as a
+full page. But I still need to know what your instance actually has.
+
+Open:
 
 ```
 http://44.236.219.63:8888/config
 ```
 
-*(If that doesn't load, use whatever URL `SEARXNG_URL` is set to on the Vercel
-backend — Vercel dashboard → project `backend` → Settings → Environment
-Variables.)*
+*(If it doesn't load, get the URL from Vercel → project `backend` → Settings →
+Environment Variables → `SEARXNG_URL`.)*
 
-It returns JSON. Use your browser's find (Ctrl-F / Cmd-F) and tell me
-**yes or no for each**:
+Ctrl-F for each of these and tell me **yes/no**:
 
 - `mojeek`
 - `marginalia`
@@ -90,24 +74,52 @@ It returns JSON. Use your browser's find (Ctrl-F / Cmd-F) and tell me
 - `brave`
 - `duckduckgo`
 
-You're looking for each name with `"enabled": true` nearby. If the page is huge,
-searching for just the engine name and telling me whether it appears at all is
-enough to start.
-
-**If some are missing**, that's fine and expected — I'll point the mode at
-engines you do have. There's an env var per mode (`SEARXNG_ENGINES_RED_PILL`)
-so it's a settings change, not a code change.
+If some are missing, that's fine — it's an env var change, not code.
 
 ---
 
-## What I'll do with the answers
+## 4 — Re-test the search modes (3 min)
 
-- **Task 3(b) + task 4** → confirm red-pill genuinely diverges, or repoint it at
-  engines your instance has.
-- Then the performance work: search-box responsiveness (INP), layout shift on the
-  results grid (CLS), and the YouTube-thumbnail load tail (LCP).
+Same query in both modes, e.g. `uss abraham lincoln conditions`.
 
-## Not needed from you
+**Blue** — news should now lead. YouTube and Dailymotion were outranking BBC and
+NYT; they're now weighted below web results. They should still *appear*, just
+lower. If a video is still first, tell me.
 
-Nothing on the home PC. The search-index project waits on persistence and there's
-no rush. No spend on any of the above.
+**Red** — should return different sites from blue, and should no longer be
+100% mwmbl.
+
+---
+
+## Done in code, nothing needed from you
+
+- Ads removed entirely; zero cookies; no consent banner
+- Thin result pages (was capping at five results)
+- Modes retrieving from different engines, not just re-sorting
+- Engine-coverage check so one weak engine can't carry a mode
+- Blue-mode ranking: web results lead, platforms weighted below
+- Sitemap/canonical trailing-slash mismatch
+- Cloudflare Web Analytics (live)
+- Search Console + Bing (live)
+
+## About ranking on Google
+
+There is no switch for this, and anyone selling you one is lying.
+
+Your Search Console data says you rank for `truegle.info` and essentially
+nothing else — 16 clicks and 84 impressions in three months, no topical query at
+all. Tasks 1 and 2 fix the self-inflicted part: you were splitting your own
+ranking credit across up to six URLs per page. That's real, and it's worth doing
+today.
+
+The rest is not a technical problem. Google ranks pages it has reasons to trust,
+and those reasons are links from other sites and content that answers a question
+nobody else answers. A search engine's own homepage is a hard thing to rank —
+your blog posts are the realistic path, because they can rank for questions
+rather than for a brand name. That is a months-long content effort, not a
+setting.
+
+One anomaly worth knowing: **desktop CTR is 2.22%, mobile is 38.46%** — despite
+desktop ranking *better*. Same content, 17× worse click-through. That usually
+means the title or description reads badly at desktop width. Worth a look once
+the duplicates are consolidated and the numbers are trustworthy.
