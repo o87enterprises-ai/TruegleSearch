@@ -1,118 +1,84 @@
-# 🔴 AD POLICY — permanent rules (read before touching anything ad-related)
+# 🔴 AD POLICY — Truegle carries no advertising
 
-Written 2026-08-01 after the landing page became completely unusable: the
-Adsterra tag redirected the top window to `https://bulsis.net/go/1740870?...`
-the moment a visitor loaded `truegle.info`. Nobody could search, click, or read
-anything. This document exists so it cannot happen again.
-
-These are **rules, not preferences**. `npm run check:ads` enforces rules 1–3 and
-runs automatically on `npm run build` — a violation fails the build.
+**Current rule, and the only one: Truegle serves no third-party ads.**
+Removed in full on 2026-08-24. `npm run check:ads` enforces this and runs on
+every `npm run build` — reintroducing an ad network fails the build.
 
 ---
 
-## Rule 1 — NO ADS ON THE LANDING PAGE. Ever.
+## The decision
 
-`src/pages/LandingPage.jsx` (route `/`, plus `/de` `/es` `/fr` `/nl` `/pt`)
-renders **zero** third-party ads. Not a banner, not a native slot, not a
-smartlink, not "just a small one in the footer".
+Truegle is no longer run on a profit/loss basis. It exists to give people an
+alternative to the search monopoly. Advertising was the last thing pulling in
+the other direction, so it is gone: no networks, no house ads, no smartlinks, no
+affiliate ad units, no cookie banner asking permission to meter any of it.
 
-The landing page is the first thing a new visitor sees and the page every SEO
-link points at. One bad creative there costs the entire first impression, and
-historically it has. Revenue comes from `/search`, `/chat`, `/extract`,
-`/settings`, and the rewards pages — pages a visitor has already chosen to use.
+This is not a pause. The previous policy tried to make advertising *safe* by
+constraining it — no ads on the landing page, no popunders, mandatory iframe
+sandboxing. That work succeeded on its own terms and the constraints held. But
+the constraints existed because the underlying product was hostile, and the
+revenue never justified continuing to manage it: at removal, Adsterra was
+producing roughly **56 ad impressions per week** across all zones and cents per
+month, while costing the incidents listed below.
 
-Do not import `AdSlot`, `AdsterraBanner`, `SponsoredAd`, `RewardAdSlot`,
-`AdColorWrapper`, `config/ads`, or `config/adNetworks` into `LandingPage.jsx`
-**or into any component it renders**. The guard walks the whole import tree, so
-hiding an ad inside `FeaturedCreator` or `ModesAndTrending` will still fail.
+## What was removed
 
-## Rule 2 — NO POPUNDERS, NO SOCIAL BARS, NO PUSH, NO INTERSTITIALS. Ever.
-
-Banned on every page, from every network, forever:
-
-| Format | Why it is banned |
+| Layer | Gone |
 | --- | --- |
-| Popunder / popup | Opens windows the user did not ask for; has served scareware |
-| Social Bar / in-page push | Sticky overlay that covers the UI and cannot be dismissed |
-| Browser push notifications | Follows the user off-site |
-| Interstitial / full-page | Blocks the content the user came for |
-| Top-window redirect | What broke the site on 2026-08-01 |
+| Frontend components | `AdsterraBanner`, `SponsoredAd`, `AdSlot`, `RewardAdSlot`, `AdColorWrapper`, `AdBanner` (×2), `AdCard` |
+| Config | `config/ads.js`, `config/adNetworks.js`, `context/AdGeoContext.jsx` |
+| Ad frame | `public/adframe.html` (the sandboxed same-origin tag host) |
+| Consent UI | `ui/CookieConsent.jsx`, `ui/AdultConsentGate.jsx` |
+| Backend | `routes/ads.js`, `services/GeoAdService.js`, `config/ad_zones.json`, the `/api/ads` mount |
+| Seller declaration | `public/ads.txt` (a stale AdSense entry — AdSense itself was dropped 2026-06-17) |
+| Tooling | `scripts/ad-verify.mjs` (Adsterra fill verification) |
+| Pages | `/revenue-calc` (ad-revenue projection calculator) |
+| CSP | every ad-network origin dropped from `public/_headers` |
 
-Only two formats are permitted:
+`docs/AD-NETWORK-SIGNUP.md` and `tools/ad-distributor-cli/` are left in place as
+historical reference. They are not wired to anything.
 
-1. **In-content native banner** (Adsterra `nativeBanner`), inside the sandboxed
-   iframe described in Rule 3.
-2. **Smartlink**, as a plain `<a href>` the user chooses to click.
+## Why it is enforced rather than just documented
 
-If a network only pays well on a banned format, we do not use that network.
-Do not add `VITE_*_POPUNDER_URL`, `VITE_POP_SCRIPT_URL`,
-`VITE_SOCIAL_BAR_SCRIPT_URL`, `VITE_*_PUSH_*`, or any equivalent — not to
-`.env.example`, not to Cloudflare/Vercel env settings, not "temporarily to test".
+The history is the argument. Each of these was a real production incident:
 
-## Rule 3 — EVERY ad iframe stays sandboxed.
-
-This is the fix that actually stopped the 2026-08-01 hijack, and it is the one
-most likely to be undone by accident.
-
-Ads run inside `<iframe src="/adframe.html?...">`. `/adframe.html` is
-**same-origin**, so without a sandbox the ad network's `invoke.js` has full
-access to our page: it can set `window.top.location` (the bulsis.net redirect),
-inject a Social Bar into the parent DOM, and attach click listeners to the
-*whole site* so any click anywhere fires a popunder. A CSP does not stop any of
-that — `default-src 'none'` on `/adframe.html` was already in place and the
-hijack happened anyway.
-
-`src/components/ads/AdsterraBanner.jsx`:
-
-```js
-const AD_SANDBOX = 'allow-scripts allow-popups allow-popups-to-escape-sandbox';
-```
-
-| Granted | Why |
+| Date | What happened |
 | --- | --- |
-| `allow-scripts` | The tag has to run to draw an ad |
-| `allow-popups` | A real click on the creative opens the advertiser — this is how we get paid. Safe, because the frame only sees clicks inside its own ~250px box; it cannot see clicks on the rest of the site |
-| `allow-popups-to-escape-sandbox` | The advertiser's own page loads normally |
+| 2026-06-17 | Google rejected AdSense — display ads aren't allowed on search results |
+| 2026-07-05 | An ungated zone served adult creative |
+| 2026-07-20 | It happened again; zones pulled and reissued |
+| 2026-08-01 | A landing-page tag hijacked the top window (redirect to `bulsis.net/go/…`). The site was unusable for every visitor until it was cut. CSP did not stop this — only the iframe sandbox did |
+| ongoing | Adsterra has **no delete function for ad units, ever**. A zone that starts serving adult creative cannot be fixed, only abandoned |
 
-| **Never granted** | What it would let the ad do |
-| --- | --- |
-| `allow-same-origin` | Reach `window.parent`'s DOM → inject a Social Bar, listen for clicks site-wide, read our storage |
-| `allow-top-navigation` / `-by-user-activation` | Set `window.top.location` → redirect the whole tab, which is exactly what broke the site |
-| `allow-modals` | `alert`/`confirm` spam from the ad frame |
+A network reintroduced quietly, as a one-line import, brings all of that back.
+The guard makes it a visible decision instead.
 
-Every `<iframe>` in `AdsterraBanner.jsx` must carry `sandbox={AD_SANDBOX}`. If
-you add a new ad component, it renders through `AdsterraBanner` — do not create
-a second, unsandboxed path.
+## What the guard checks
 
-## Rule 4 — the fastest rollback is deleting a key.
+`apps/frontend/scripts/check-ads.mjs` fails the build if:
 
-If a zone starts serving something bad, delete its line from
-`src/config/ads.js` and redeploy. Adsterra has no delete function for ad units
-(confirmed by their support), so a zone that goes bad can only be abandoned,
-never repaired. Request a fresh zone to replace it.
+1. Any ad-network domain or tag plumbing appears in `src/` or `public/` —
+   Adsterra's serving domains, AdSense, other networks, `window.atOptions`,
+   `/invoke.js`, smartlinks, popunders, social bars.
+2. Any of the deleted ad modules reappears on disk.
 
----
+Comment lines are ignored, so documenting this history (as this file does) never
+trips it.
 
-## If it happens again — 60-second triage
+## If advertising ever comes back
 
-1. **Confirm the vector.** Does the URL bar change (top-nav hijack), or does a
-   new tab/window appear (popunder), or does an overlay cover the page
-   (social bar)? The redirect URL itself (`bulsis.net`, etc.) identifies the
-   offending campaign.
-2. **Kill it at the source.** Delete the offending zone key from
-   `src/config/ads.js`, run `npm run check:ads`, redeploy. Minutes, not hours.
-3. **Then** work out which zone/network it was in the Adsterra dashboard.
+That is a product decision, not a code change. It would mean editing this file
+and `check-ads.mjs` deliberately. If it happens, the two rules that were written
+in blood still apply and should be restored first: **never** grant an ad iframe
+`allow-same-origin` or `allow-top-navigation*`, and **never** put an ad on the
+landing page.
 
-Do **not** "fix" it by loosening the sandbox or by moving the ad somewhere else
-on the landing page.
+## What replaced it
 
-## Checks
+Nothing, on the revenue side. On the measurement side, Truegle now carries
+Cloudflare Web Analytics (`src/utils/analytics.js`) — cookieless, no
+fingerprinting, inert unless `VITE_CF_BEACON_TOKEN` is set, and skipped entirely
+for visitors sending Do Not Track or Global Privacy Control.
 
-```bash
-cd apps/frontend
-npm run check:ads     # rules 1–3; also runs on npm run build
-```
-
-The check lives in `apps/frontend/scripts/check-ads.mjs`. If you legitimately
-need to change what it enforces, change the rules in this document first and
-say why — the script is downstream of this file, not the other way around.
+Truegle now sets **zero cookies** and runs **zero ad tech**. That is why there is
+no cookie-consent banner any more: there is nothing left to consent to.

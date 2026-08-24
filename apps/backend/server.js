@@ -321,7 +321,6 @@ app.use('/api/rewards', require('./routes/rewards'));
 // after verifying a user's forwarded conversion-confirmation email.
 app.use('/api/admin', require('./routes/admin'));
 // Geo-targeted ad configuration (IP country-of-origin -> highest-CPM zones)
-app.use('/api/ads', require('./routes/ads'));
 app.use('/api/creators', require('./routes/creators'));
 app.use('/api/session', require('./routes/session'));
 app.use('/api/ai', require('./routes/ai'));

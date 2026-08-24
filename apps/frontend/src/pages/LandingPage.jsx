@@ -472,14 +472,9 @@ export default function LandingPage() {
             latest upload, links to their on-site /creator page. */}
         <FeaturedCreator />
 
-        {/* Rewards CTA removed 2026-07-24 — the ad-pay/rewards program is paused
-            (Adsterra pays CPM, not the clicks the loop rewarded). Re-add when the
-            program returns. */}
-
-        {/* Landing-page ad slot REMOVED 2026-08-01 — the Adsterra tag hijacked
-            the top window (redirect to bulsis.net/go/...) and made the site
-            unusable for first-time visitors. The landing page stays ad-free
-            permanently; see docs/AD-POLICY.md. */}
+        {/* No rewards CTA and no ad slot: advertising was removed from Truegle
+            entirely on 2026-08-24, and the rewards program it funded went with
+            it. The whole site is ad-free now, not just this page. */}
 
         {/* Footer */}
         <footer className="py-12 px-4 border-t border-purple-500/20">

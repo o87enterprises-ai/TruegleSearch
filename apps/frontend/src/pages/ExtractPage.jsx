@@ -15,7 +15,6 @@ import {
   ArrowLeft, Search,
 } from 'lucide-react';
 import TruegleLogo from '../components/ui/TruegleLogo';
-import AdSlot from '../components/AdSlot';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 const FREE_SPINS = 3;
@@ -242,10 +241,6 @@ export default function ExtractPage() {
           </motion.div>
         </div>
 
-        {/* ── Ad top ── */}
-        <div className="max-w-3xl w-full mx-auto px-4 mb-4">
-          <AdSlot size="large" />
-        </div>
 
         {/* ── URL input + mode toggle ── */}
         <div className="max-w-3xl w-full mx-auto px-4">
@@ -400,11 +395,6 @@ export default function ExtractPage() {
             </motion.div>
           )}
 
-          {/* ── Bottom ad — first-party house ad (active Adsterra zones are
-              adult-enabled at the network level; never render them ungated) ── */}
-          <div className="mb-8">
-            <AdSlot size="large" className="max-w-4xl mx-auto" />
-          </div>
         </div>
       </div>
     </div>

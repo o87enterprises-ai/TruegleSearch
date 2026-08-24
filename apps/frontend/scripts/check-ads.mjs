@@ -1,19 +1,21 @@
 #!/usr/bin/env node
 /**
- * Ad-policy guard — fails the build if a banned ad pattern comes back.
+ * No-ad-network guard — fails the build if third-party advertising returns.
  *
- * Why this exists: on 2026-08-01 the landing page's Adsterra tag hijacked the
- * top window (redirect to bulsis.net/go/...) and visitors could not use the
- * site at all. The tag could do that because the ad iframe was same-origin and
- * un-sandboxed. Both the landing-page slot and the missing sandbox were fixed;
- * this script exists so neither can silently come back.
+ * Truegle carried Adsterra until 2026-08-24, when the ad model was dropped
+ * entirely: the project is no longer run on a profit/loss basis, so there is no
+ * longer a reason to accept the costs that came with a network. Those costs
+ * were not hypothetical:
  *
- * Rules enforced (see docs/AD-POLICY.md for the reasoning):
- *   1. AD-FREE PAGES render no ad component — checked through the whole local
- *      import tree, so a nested component can't sneak one in either.
- *   2. Every ad <iframe> carries the sandbox, and that sandbox never grants
- *      allow-same-origin or allow-top-navigation*.
- *   3. No popunder / social-bar / push plumbing anywhere in the frontend.
+ *   2026-07-05  an ungated zone served adult creative
+ *   2026-07-20  it happened again — zones pulled
+ *   2026-08-01  a landing-page tag hijacked the top window (redirect to
+ *               bulsis.net/go/...) and the site was unusable until it was cut
+ *
+ * This script used to *contain* those risks (sandbox the iframes, keep the
+ * landing page clean). Now it removes them: no ad network may be reintroduced
+ * without deliberately editing this file, which makes the decision explicit and
+ * reviewable instead of a quiet one-line import.
  *
  * Run: npm run check:ads   (also runs automatically as part of `npm run build`)
  */
@@ -27,107 +29,23 @@ const rel = (p) => relative(ROOT, p);
 const errors = [];
 
 /* ------------------------------------------------------------------ *
- * 1 — pages that must never contain an ad, verified through their
- *     entire local import tree.
+ * 1 — ad-network domains and tag plumbing must not appear anywhere.
  * ------------------------------------------------------------------ */
 
-// Modules that render a third-party ad. Matched against import paths.
-const AD_MODULES = /\/(AdSlot|RewardAdSlot|ads\/AdsterraBanner|ads\/SponsoredAd|ads\/AdColorWrapper|config\/ads|config\/adNetworks)$/;
-
-const AD_FREE_PAGES = ['src/pages/LandingPage.jsx'];
-
-const EXTS = ['', '.jsx', '.js', '.tsx', '.ts', '/index.jsx', '/index.js'];
-
-const resolveLocal = (fromFile, spec) => {
-  const base = resolve(dirname(fromFile), spec);
-  for (const ext of EXTS) {
-    const candidate = base + ext;
-    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
-  }
-  return null;
-};
-
-const importsOf = (src) =>
-  [...src.matchAll(/(?:from\s*|import\s*\(\s*)['"](\.[^'"]+)['"]/g)].map((m) => m[1]);
-
-function walkPage(entry) {
-  const seen = new Set();
-  const stack = [[resolve(ROOT, entry), [entry]]];
-
-  while (stack.length) {
-    const [file, trail] = stack.pop();
-    if (seen.has(file)) continue;
-    seen.add(file);
-
-    const src = readFileSync(file, 'utf8');
-    for (const spec of importsOf(src)) {
-      if (AD_MODULES.test(spec.replace(/\.(jsx?|tsx?)$/, ''))) {
-        errors.push(
-          `${entry} must stay ad-free, but ${rel(file)} imports "${spec}".\n` +
-            `    import chain: ${trail.join(' → ')}\n` +
-            `    Remove the ad, or move it to a page that is not in AD_FREE_PAGES.`
-        );
-        continue;
-      }
-      const next = resolveLocal(file, spec);
-      if (next) stack.push([next, [...trail, rel(next)]]);
-    }
-  }
-}
-
-for (const page of AD_FREE_PAGES) {
-  if (!existsSync(resolve(ROOT, page))) {
-    errors.push(`AD_FREE_PAGES lists ${page}, which no longer exists — update check-ads.mjs.`);
-    continue;
-  }
-  walkPage(page);
-}
-
-/* ------------------------------------------------------------------ *
- * 2 — every ad iframe is sandboxed, and the sandbox stays strict.
- * ------------------------------------------------------------------ */
-
-const BANNER = 'src/components/ads/AdsterraBanner.jsx';
-const bannerPath = resolve(ROOT, BANNER);
-
-if (!existsSync(bannerPath)) {
-  errors.push(`${BANNER} is missing — check-ads.mjs needs updating.`);
-} else {
-  const src = readFileSync(bannerPath, 'utf8');
-
-  const sandboxDecl = src.match(/const AD_SANDBOX\s*=\s*'([^']*)'/);
-  if (!sandboxDecl) {
-    errors.push(`${BANNER}: AD_SANDBOX constant is gone. Ad iframes MUST be sandboxed.`);
-  } else {
-    for (const banned of ['allow-same-origin', 'allow-top-navigation']) {
-      if (sandboxDecl[1].includes(banned)) {
-        errors.push(
-          `${BANNER}: AD_SANDBOX grants "${banned}". That hands the page back to the ad ` +
-            `network (parent-DOM injection / top-window redirect). Never grant it.`
-        );
-      }
-    }
-  }
-
-  const iframes = src.match(/<iframe\b[\s\S]*?\/>/g) || [];
-  if (iframes.length === 0) errors.push(`${BANNER}: no <iframe> found — did the ad markup move?`);
-  iframes.forEach((tag, i) => {
-    if (!/sandbox=\{AD_SANDBOX\}/.test(tag)) {
-      errors.push(`${BANNER}: ad <iframe> #${i + 1} is missing sandbox={AD_SANDBOX}.`);
-    }
-  });
-}
-
-/* ------------------------------------------------------------------ *
- * 3 — no popunder / social-bar / push plumbing anywhere.
- * ------------------------------------------------------------------ */
-
-// Real wiring only — the words may appear in comments explaining the ban.
 const BANNED = [
-  [/VITE_(\w*_)?(POP|POPUNDER|SOCIAL_BAR|PUSH)[\w]*\s*(=|\|\||\))/i, 'popunder / social-bar / push env var'],
-  [/\bpopunder\s*:/i, 'a popunder ad zone'],
+  [/millionairelucidlytransmitted|highperformanceformat|adsterratech|effectivecpmnetwork/i,
+   'an Adsterra serving domain'],
+  [/\badsterra\b/i, 'an Adsterra reference'],
+  [/\b(propellerads|hilltopads|popads|adcash|monetag|exoclick|juicyads|trafficstars)\b/i,
+   'a third-party ad network'],
+  [/googlesyndication|pagead2\.googlesyndication|adsbygoogle/i, 'Google AdSense'],
+  [/window\.atOptions/, 'an Adsterra ad-tag options object'],
+  [/\/invoke\.js/, 'an ad-network invoke.js tag'],
+  [/\bsmartlink\b/i, 'an Adsterra Smartlink'],
+  [/\bpopunder\b/i, 'a popunder'],
   [/\bsocialBar\b/, 'a social-bar ad zone'],
-  [/window\.open\s*\([^)]*(?:adsterra|highperformanceformat|millionairelucid)/i, 'a popunder window.open'],
+  [/VITE_(AD_DOMAIN|SMARTLINK_URL|ADSTERRA\w*|\w*_ENABLED\s*\)?\s*&&\s*\w*AD)/,
+   'an ad-network build variable'],
 ];
 
 const SCAN_DIRS = ['src', 'public'];
@@ -146,24 +64,55 @@ const collect = (dir) => {
 for (const d of SCAN_DIRS) if (existsSync(resolve(ROOT, d))) collect(resolve(ROOT, d));
 for (const f of SCAN_FILES) if (existsSync(resolve(ROOT, f))) filesToScan.push(resolve(ROOT, f));
 
+// This guard names the very things it bans, so it must not scan itself.
+const SELF = resolve(ROOT, 'scripts/check-ads.mjs');
+
 for (const file of filesToScan) {
+  if (file === SELF) continue;
   const lines = readFileSync(file, 'utf8').split('\n');
   lines.forEach((line, n) => {
+    // Strip comments — history is documented in prose all over this repo, and
+    // describing what was removed is not the same as shipping it.
     const code = line.replace(/\/\/.*$/, '').replace(/\/\*[\s\S]*?\*\//g, '');
-    if (/^\s*[*#]/.test(line)) return; // block-comment / .env comment line
+    if (/^\s*[*#]/.test(line) || /^\s*(\/\/|\{\/\*)/.test(line.trim())) return;
     for (const [re, what] of BANNED) {
       if (re.test(code)) errors.push(`${rel(file)}:${n + 1} looks like ${what}: ${line.trim()}`);
     }
   });
 }
 
+/* ------------------------------------------------------------------ *
+ * 2 — the deleted ad modules must not come back.
+ * ------------------------------------------------------------------ */
+
+const GONE = [
+  'src/config/ads.js',
+  'src/config/adNetworks.js',
+  'src/components/ads/AdsterraBanner.jsx',
+  'src/components/ads/SponsoredAd.jsx',
+  'src/components/AdSlot.jsx',
+  'src/components/RewardAdSlot.jsx',
+  'src/context/AdGeoContext.jsx',
+  'public/adframe.html',
+];
+
+for (const f of GONE) {
+  if (existsSync(resolve(ROOT, f))) {
+    errors.push(
+      `${f} exists again. It was deleted with the ad model on 2026-08-24.\n` +
+        `    Reintroducing an ad network is a deliberate decision — if that is what you\n` +
+        `    want, remove this check explicitly rather than letting the file slip back in.`
+    );
+  }
+}
+
 /* ------------------------------------------------------------------ */
 
 if (errors.length) {
-  console.error('\n[31m✗ AD POLICY VIOLATION[0m — see docs/AD-POLICY.md\n');
+  console.error('\n\x1b[31m✗ AD-NETWORK GUARD\x1b[0m — third-party advertising was removed from Truegle\n');
   errors.forEach((e) => console.error(`  • ${e}`));
   console.error('');
   process.exit(1);
 }
 
-console.log('✓ ad policy OK — landing page ad-free, ad iframes sandboxed, no popunders/social bars');
+console.log('✓ no third-party ad networks — Truegle serves no ads, sets no ad cookies');

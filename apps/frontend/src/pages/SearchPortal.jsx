@@ -10,7 +10,6 @@ import ErrorBoundary from '../components/ui/ErrorBoundary';
 import AIChatOverlay from '../components/ui/AIChatOverlay';
 import PermissionsTrigger from '../components/permissions/PermissionsTrigger';
 import AsSeenOn from '../components/Content/AsSeenOn';
-import AdSlot from '../components/AdSlot';
 import MultimediaInterface from '../components/ui/MultimediaInterface';
 import { SkeletonSearchResult, SkeletonCard } from '../components/ui/Skeleton';
 import { useToast, ToastProvider } from '../components/ui/ToastProvider';
@@ -2035,7 +2034,6 @@ export default function SearchPortal() {
             )) : (
               <div className="text-center py-12">
                 <p className="text-white/70 text-lg mb-8">If it's Trueth you're looking for, ya ain't goona' find it here.</p>
-                <AdSlot className="rounded-2xl" size="large" />
               </div>
             )}
 

@@ -1954,6 +1954,22 @@
         "body": "Was 0.5/0.35/0.15 — the two supporting signals together outweighed relevance, so a result matching 0.163 of the query beat one matching 0.600 (\"how do tides work\" returned games-industry + Bitcoin news above the actual answer). Three fixes: (1) weights rebalanced; (2) calculateRecency(date, isTimeSensitive) returns neutral 0.5 unless the query is time-sensitive AND a date exists — unknown date scored 0.3, a PENALTY, and SearXNG web results are mostly undated while news always has dates; (3) diversity applied AFTER sorting by relevance, so \"first from a domain\" means BEST from that domain rather than whichever provider answered earliest. NOTE search.ranking.test.js tests PrivateSearchService (serves routes/news.js), NOT SearchService — searchRanking.test.js covers /api/search.",
         "ts": "2026-08-21",
         "created": "2026-08-21"
+      },
+      "ads-removed-completely": {
+        "Id": "ads-removed-completely",
+        "Type": "decision",
+        "Label": "ADS REMOVED ENTIRELY 2026-08-24 — no revenue model, build-enforced",
+        "body": "Owner decision: Truegle is no longer run on profit/loss; it exists to offer an alternative to the search monopoly. Adsterra and ALL third-party advertising deleted. Removed: AdsterraBanner/SponsoredAd/AdSlot/RewardAdSlot/AdColorWrapper/AdBanner(x2)/AdCard, config/ads.js, config/adNetworks.js, AdGeoContext, public/adframe.html, ui/CookieConsent.jsx, ui/AdultConsentGate.jsx, backend routes/ads.js + services/GeoAdService.js + config/ad_zones.json + /api/ads mount, public/ads.txt (stale AdSense seller id), scripts/ad-verify.mjs, pages/RevenueCalculator.jsx + /revenue-calc route, and every ad-network origin in public/_headers CSP. ~30 JSX call sites stripped across 12 files. check-ads.mjs INVERTED: it now FAILS THE BUILD if any ad network/domain/tag or deleted ad module reappears. KEPT per owner: /advertise page (Adsterra referral block removed from it), Premium, rewards scaffolding. Rewards has NO funding source now — RewardsService.getOfferLink returns null unless REWARDS_OFFER_URL is set; routes stay unmounted. Truegle now sets ZERO cookies => no cookie banner. Do NOT propose re-adding ads.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "analytics-cloudflare-only": {
+        "Id": "analytics-cloudflare-only",
+        "Type": "decision",
+        "Label": "Analytics = Cloudflare Web Analytics only, cookieless + DNT/GPC-respecting",
+        "body": "src/utils/analytics.js initAnalytics() injects the CF beacon ONLY if VITE_CF_BEACON_TOKEN is set AND the visitor is not sending DNT/GPC. No cookies, no fingerprinting, no query capture (queries never appear in reported URL paths). CSP in public/_headers already allowed static.cloudflareinsights.com + cloudflareinsights.com, verified. OWNER ACTION PENDING: create the site in Cloudflare dash > Web Analytics, copy the token, set VITE_CF_BEACON_TOKEN on Vercel/Pages, redeploy — inert until then. /api/analytics fake seed (totalSearches 1500 etc) REMOVED; counters now start at 0, are process-local, reset on cold start, and every response carries ephemeral:true + a note saying they are not traffic numbers.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       }
     },
     "entity": {
@@ -2320,9 +2336,18 @@
         "Type": "thread",
         "Label": "HANDOFF contradicts itself on Search Console — unresolved",
         "body": "HANDOFF ~L2028 (SEO/Indexing SHIPPED): 'Bing Webmaster Tools: imported from Google Search Console (one click). 5 URLs submitted. Sitemap submitted.' HANDOFF ~L2425 service table: 'Search Console | Not started' AND 'Bing Webmaster | Not started'. Both cannot be true. Matters because GSC is the ONLY authoritative source of organic impressions/clicks/queries/position + Coverage (Google's own technical audit). Until it exists, no external SEO vendor claim about truegle.info traffic is verifiable — and once it exists, no vendor is needed for the diagnosis. ACTION: log into GSC, confirm property state, reconcile HANDOFF.",
-        "status": "open",
-        "ts": "2026-08-23",
+        "status": "done",
+        "ts": "2026-08-24",
         "created": "2026-08-23"
+      },
+      "gsc-setup-pending": {
+        "Id": "gsc-setup-pending",
+        "Type": "thread",
+        "Label": "Search Console + Bing still not set up — owner browser task",
+        "body": "HANDOFF contradicted itself (SEO section claimed Bing was imported from GSC; service table said both Not started). Nothing in the repo proves a property exists. GSC is the ONLY authoritative organic source (impressions/clicks/queries/position + Coverage = Google's own technical audit) and the only thing that settles the ~100x Cloudflare-vs-Adsterra measurement gap. Needs a browser login: add truegle.info property, verify via Cloudflare DNS TXT, submit sitemap.xml, request indexing for / and /search. Bing Webmaster imports from GSC in one click.",
+        "status": "open",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       }
     }
   },
@@ -2352,5 +2377,5 @@
       }
     }
   },
-  "updated": "2026-08-23"
+  "updated": "2026-08-24"
 }

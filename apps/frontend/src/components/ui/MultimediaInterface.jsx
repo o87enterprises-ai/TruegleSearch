@@ -1,7 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import AdsterraBanner from '../ads/AdsterraBanner';
-import SponsoredAd from '../ads/SponsoredAd';
 import {
   X,
   ExternalLink,
@@ -247,25 +245,14 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
 
   // Simple components for display
   const ImageGrid = ({ images, onSelect }) => {
-    const adCtx = searchQuery ? { query: searchQuery } : {};
-    const items = images.flatMap((img, i) => {
-      const card = (
+    const items = images.map((img) => (
         <div key={img.id} className="aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform" onClick={() => onSelect(img)}>
           <img src={img.url} alt={img.title} className="w-full h-full object-cover" />
           <div className="p-2 bg-black/50">
             <p className="text-white text-sm truncate">{img.title}</p>
           </div>
         </div>
-      );
-      if ((i + 1) % 6 === 0) {
-        return [card, (
-          <div key={`img-ad-${i}`} className="col-span-full py-1">
-            <SponsoredAd searchContext={adCtx} />
-          </div>
-        )];
-      }
-      return [card];
-    });
+    ));
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {items}
@@ -282,9 +269,7 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
   };
 
   const VideoGrid = ({ videos, onSelect }) => {
-    const adCtx = searchQuery ? { query: searchQuery } : {};
-    const items = videos.flatMap((vid, i) => {
-      const card = (
+    const items = videos.map((vid) => (
         <div key={vid.id} className="bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform" onClick={() => onSelect(vid)}>
           <div className="relative">
             <img src={vid.thumbnail} alt={vid.title} className="w-full aspect-video object-cover" />
@@ -308,17 +293,7 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
             </div>
           </div>
         </div>
-      );
-      // One sponsored (native, high-value) ad between every third video result.
-      if ((i + 1) % 3 === 0) {
-        return [card, (
-          <div key={`vid-ad-${i}`} className="col-span-full py-1">
-            <SponsoredAd searchContext={adCtx} />
-          </div>
-        )];
-      }
-      return [card];
-    });
+    ));
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {items}
@@ -692,11 +667,6 @@ function ImageMasonryGrid({ images, onSelect, searchContext }) {
               </div>
             </div>
           </motion.div>
-          {(index + 1) % 6 === 0 && index !== images.length - 1 && (
-            <div className="break-inside-avoid col-span-full flex justify-center py-1">
-              <AdsterraBanner format="banner468x60" searchContext={searchContext} />
-            </div>
-          )}
         </Fragment>
       ))}
     </div>
@@ -821,11 +791,6 @@ function VideoDomeGallery({ videos, onSelect, searchContext }) {
               </div>
             </div>
           </motion.div>
-          {(index + 1) % 4 === 0 && index !== videos.length - 1 && (
-            <div className="col-span-2 md:col-span-3 lg:col-span-4 flex justify-center py-1">
-              <AdsterraBanner format="banner320x50" searchContext={searchContext} />
-            </div>
-          )}
         </Fragment>
       ))}
     </div>

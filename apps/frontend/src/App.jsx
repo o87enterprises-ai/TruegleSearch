@@ -10,7 +10,6 @@ import {
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TokenProvider } from './context/TokenContext';
 import { RewardsProvider } from './context/RewardsContext';
-import { AdGeoProvider } from './context/AdGeoContext';
 import { SearchModeProvider } from './context/SearchModeContext';
 import { PlayerProvider } from './context/PlayerContext';
 import { TutorialProvider } from './context/TutorialContext';
@@ -19,7 +18,6 @@ import { ToastProvider } from './components/ui/ToastProvider';
 import { SettingsProvider } from './context/SettingsContext';
 import RefCapture from './components/RefCapture';
 import FreemiumTokenBar from './components/ui/FreemiumTokenBar';
-import CookieConsent from './components/ui/CookieConsent';
 import TruegleLogo from './components/ui/TruegleLogo';
 import Footer from './components/Footer';
 import ResultsPage from './components/ResultsPage';
@@ -49,7 +47,6 @@ import Advertise from './pages/Advertise';
 import Developers from './pages/Developers';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
-import RevenueCalculator from './pages/RevenueCalculator';
 import NotFound from "./pages/NotFound";
 import RootErrorBoundary from './components/ui/RootErrorBoundary';
 import RouteBoundary from './components/ui/RouteBoundary';
@@ -153,32 +150,29 @@ const App = () => {
       <AuthProvider>
         <TokenProvider>
           <RewardsProvider>
-            <AdGeoProvider>
-            <SearchModeProvider>
-              <PlayerProvider>
-              <SettingsProvider>
-                <MapProvider>
-                  <TutorialProvider>
-                    <ToastProvider position="top-right">
-                      {/* Skip to content link for accessibility */}
-                      <a href="#main-content" className="skip-to-content">
-                        Skip to main content
-                      </a>
-                      <RefCapture />
-                      <FreemiumTokenBar />
-                      {/* TODO(landing-flow): re-enable once the pill/chat mode
-                          flow is finalized and we've decided where the ads
-                          opt-in prompt should live (was auto-popping over the
-                          landing controls mid-iteration). */}
-                      {/* <CookieConsent /> */}
-                      <AppContent />
-                    </ToastProvider>
-                  </TutorialProvider>
-                </MapProvider>
-              </SettingsProvider>
-              </PlayerProvider>
-            </SearchModeProvider>
-            </AdGeoProvider>
+          <SearchModeProvider>
+            <PlayerProvider>
+            <SettingsProvider>
+              <MapProvider>
+                <TutorialProvider>
+                  <ToastProvider position="top-right">
+                    {/* Skip to content link for accessibility */}
+                    <a href="#main-content" className="skip-to-content">
+                      Skip to main content
+                    </a>
+                    <RefCapture />
+                    <FreemiumTokenBar />
+                    {/* TODO(landing-flow): re-enable once the pill/chat mode
+                        flow is finalized and we've decided where the ads
+                        opt-in prompt should live (was auto-popping over the
+                        landing controls mid-iteration). */}
+                    <AppContent />
+                  </ToastProvider>
+                </TutorialProvider>
+              </MapProvider>
+            </SettingsProvider>
+            </PlayerProvider>
+          </SearchModeProvider>
           </RewardsProvider>
         </TokenProvider>
       </AuthProvider>
@@ -361,7 +355,6 @@ const AppContent = () => {
         <Route path="/blog" element={<RouteBoundary><Blog /></RouteBoundary>} />
         <Route path="/blog/:slug" element={<RouteBoundary><BlogPost /></RouteBoundary>} />
         <Route path="/creator/:slug" element={<RouteBoundary><CreatorPage /></RouteBoundary>} />
-        <Route path="/revenue-calc" element={<RouteBoundary><RevenueCalculator /></RouteBoundary>} />
         {/* Onboarding Route */}
         <Route
           path="/onboarding"
@@ -394,12 +387,12 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
-        {/* REWARDS FEATURE: Temporarily disabled until we finalize a network with
-            S2S postback support. Adsterra Publishers does not support server-to-
-            server postbacks, so conversions can't be auto-credited. A manual
-            verification workflow (users forward confirmation emails, admin credits
-            via /api/admin/rewards/credit) will replace this. Route hidden so the
-            dashboard is neither visible nor reachable.
+        {/* REWARDS FEATURE: disabled. The program was funded by ad revenue, and
+            advertising was removed from Truegle on 2026-08-24 — so there is no
+            funding source and nothing to credit. The scaffolding is kept (a
+            manual admin-credit path exists at /api/admin/rewards/credit) in case
+            a non-ad funding model appears. Route hidden so the dashboard is
+            neither visible nor reachable.
         <Route
           path="/rewards"
           element={

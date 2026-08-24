@@ -1,7 +1,6 @@
 import React from 'react';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
-import AdSlot from './AdSlot';
 
 const { FiExternalLink, FiClock, FiEye, FiTag } = FiIcons;
 
@@ -91,16 +90,6 @@ const SearchResults = ({ results, loading, filters }) => {
             </div>
           </div>
 
-          {/* Inline Ad after every 3rd result */}
-          {(index + 1) % 3 === 0 && (
-            <div className="my-6">
-              <AdSlot
-                position={`results-inline-${Math.floor((index + 1) / 3)}`}
-                size="medium"
-                className="mx-auto"
-              />
-            </div>
-          )}
         </React.Fragment>
       ))}
 

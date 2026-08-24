@@ -21,7 +21,6 @@ import { fmtStamp, fmtStampFull, msgTime } from '../utils/formatTime';
 import { aiErrorMessage } from '../utils/aiError';
 import QueueButton from '../components/ui/QueueButton';
 import ChatShareButton from '../components/ui/ChatShareButton';
-import SponsoredAd from '../components/ads/SponsoredAd';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
 import FeedbackButtons from '../components/ui/FeedbackButtons';
 import PillModeRow from '../components/landing/PillModeRow';
@@ -989,23 +988,11 @@ export default function TruegleChat() {
                     )}
                   </>
                 )}
-                {/* One ad after the response — orange-outlined, "Sponsored". */}
-                {m.role === 'assistant' && m.id !== 1 && (
-                  <div className="my-3">
-                    <SponsoredAd />
-                  </div>
-                )}
                 <Citations
                   citations={m.role === 'assistant' ? mergeUrlCitations(m.citations, extractUrls(m.content)) : m.citations}
                   accent={accent}
                 />
                 {m.graph && <InvestigationGraph graph={m.graph} accent={accent} />}
-                {/* One ad after the final results links (citations). */}
-                {m.role === 'assistant' && m.id !== 1 && (
-                  <div className="mt-3">
-                    <SponsoredAd />
-                  </div>
-                )}
                 {m.role === 'assistant' && m.id !== 1 && (
                   <div className="mt-2 pt-2 border-t border-white/5 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1">

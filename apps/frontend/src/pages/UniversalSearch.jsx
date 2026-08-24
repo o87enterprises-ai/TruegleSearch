@@ -31,9 +31,6 @@ import TruegleLogo from '../components/ui/TruegleLogo';
 import SearchBar from '../components/ui/SearchBar';
 import MultimediaInterface from '../components/ui/MultimediaInterface';
 import InlineSummaryChat from '../components/search/InlineSummaryChat';
-import SponsoredAd from '../components/ads/SponsoredAd';
-import { SMARTLINK_URL } from '../config/ads';
-import AdultConsentGate from '../components/ui/AdultConsentGate';
 import { SkeletonSearchResult } from '../components/ui/Skeleton';
 import QuickAnswerCard from '../components/ui/QuickAnswerCard';
 import BusinessPanelCard from '../components/ui/BusinessPanelCard';
@@ -500,7 +497,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   useEffect(() => { setLensRerun([]); }, [query]);
 
   // Ad targeting context — prefer the most specific signal available.
-  // Passed to AdsterraBanner so Adsterra campaigns can be keyword-targeted
   // to match the user's active perspective or search mode.
   const adContext = (() => {
     const p = selectedPerspectives[0];
@@ -1734,11 +1730,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                   onClose={() => setActiveCategory('all')}
                   searchQuery={searchValue}
                 />
-                {/* One real (native, high-value) sponsored ad below the media
-                    grid — replaces the old stacked placeholder banners. */}
-                <div className="max-w-4xl mx-auto mt-4 mb-2">
-                  <SponsoredAd searchContext={adContext} />
-                </div>
               </>
             )}
           </AnimatePresence>
@@ -1780,9 +1771,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                   }}
                   detectedLocation={detectedLocation}
                 />
-                <div className="mt-4">
-                  <SponsoredAd searchContext={adContext} />
-                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -2121,15 +2109,9 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
               animate={{ opacity: 1, y: 0 }}
               className="max-w-4xl mx-auto mb-4"
             >
-              <SponsoredAd searchContext={adContext} />
             </motion.div>
           )}
 
-          <AdultConsentGate
-            isAuthenticated={isAuthenticated}
-            safeSearch={settings.safeSearch}
-            query={query}
-          />
 
           {/* No Summary Confirmation Modal — portalled to <body>. Inside the
               page's z-10 wrapper its z-50 is scoped to that wrapper, so it
@@ -2265,7 +2247,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
               {searchLoading ? (
                 <div className="space-y-4">
                   <div className="text-sm text-white/60 mb-4">Searching...</div>
-                  <SponsoredAd searchContext={adContext} />
                   {[1, 2, 3, 4, 5].map((i) => (
                     <SkeletonSearchResult key={i} />
                   ))}
@@ -2347,9 +2328,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                               currentQuery={lastSearchedQuery}
                               currentMode={mode}
                             />
-                            {(index + 1) % 3 === 0 && index !== searchResults.length - 1 && (
-                              <SponsoredAd searchContext={adContext} />
-                            )}
                           </Fragment>
                         ))}
                       </div>
@@ -2411,11 +2389,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                           currentMode={mode}
                         />
                       </div>
-                      {(index + 1) % 3 === 0 && index !== displayResults.length - 1 && (
-                        <div className="my-2">
-                          <SponsoredAd searchContext={adContext} />
-                        </div>
-                      )}
                     </Fragment>
                   ))}
 
@@ -2436,30 +2409,12 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                       </span>
                     </div>
                   )}
-
-                  {searchResults.length > 0 && SMARTLINK_URL && (
-                    <div className="mt-6 text-center">
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Sponsored</p>
-                      <a
-                        href={SMARTLINK_URL}
-                        target="_blank"
-                        rel="noopener noreferrer nofollow"
-                        className="text-sm text-blue-500 hover:text-blue-400 underline underline-offset-2"
-                      >
-                        Discover relevant offers →
-                      </a>
-                    </div>
-                  )}
                 </>
               )}
             </div>
 
             {/* Sidebar Column (same as SearchResults) */}
             <div className="lg:col-span-1 space-y-4">
-              {/* Ad Sidebar — a single sponsored unit (was two stacked). */}
-              <div className="sticky top-4 flex flex-col items-center">
-                {mode !== 'green' && <SponsoredAd searchContext={adContext} />}
-              </div>
             </div>
           </div>
         </div>
