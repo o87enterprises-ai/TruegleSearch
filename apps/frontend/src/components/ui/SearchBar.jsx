@@ -1388,8 +1388,23 @@ export default function SearchBar({
     // touch it here (and don't read `config` — it's declared further down).
     if (lineShaped) { el.style.height = ''; return; }
     const cap = chatShaped ? 132 : 240;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, cap)}px`;
+
+    // DEFERRED TO THE NEXT FRAME, ON PURPOSE. Setting height to 'auto' and then
+    // reading scrollHeight forces a synchronous layout. That is normally cheap,
+    // but this textarea sits inside a backdrop-blur subtree, so invalidating
+    // layout drags the compositor into re-blurring the region on the same tick
+    // as the keystroke. Real-user INP for this element was 1.9s and 3.8s.
+    //
+    // Running it in rAF lets the typed character paint first and the box resize
+    // on the following frame, which is imperceptible — the blur is untouched.
+    const id = requestAnimationFrame(() => {
+      const prev = el.style.height;
+      el.style.height = 'auto';
+      const next = `${Math.min(el.scrollHeight, cap)}px`;
+      // Writing the same value still invalidates layout, so only write a change.
+      el.style.height = next === prev ? prev : next;
+    });
+    return () => cancelAnimationFrame(id);
   }, [localValue, chatShaped, lineShaped]);
 
   // FOLLOW THE CARET. A single-line textarea scrolls sideways on its own while
@@ -1409,13 +1424,16 @@ export default function SearchBar({
     const el = inputRef.current;
     if (!el || !lineShaped) return;
     if (el.selectionStart !== el.value.length) return;
+    // scrollWidth is the SECOND forced layout per keystroke on this element;
+    // deferred for the same reason as the autogrow above.
     // Scroll to the maximum and let the browser clamp. Measured rather than
     // assumed: Chrome counts the end padding as scrollable, so at max scroll
     // the last character lands exactly at the CONTENT edge — flush against
     // the gutter mask, fully readable. Backing off by the padding (which
     // looks like the careful thing to do) under-scrolls by that much and
     // hides the tail of what was just typed.
-    el.scrollLeft = el.scrollWidth;
+    const id = requestAnimationFrame(() => { el.scrollLeft = el.scrollWidth; });
+    return () => cancelAnimationFrame(id);
   }, [localValue, lineShaped]);
 
   // Animate the morph, but ONLY the morph. A transition on height that is

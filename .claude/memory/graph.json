@@ -1144,6 +1144,14 @@
         "body": "OBSERVED LIVE: on the All tab, video and social results are fetched and MERGED into the same list as web results, then ranked by relevance with no notion of source type. A Dailymotion clip and a YouTube upload whose titles repeated the query verbatim therefore outranked BBC and NYT on a news query. FIX: SearchService.parityWeight(result) returns 0.6 for platform-ish sources (bias==='platform' OR category==='videos' OR category==='social') and 1 otherwise; rankResults takes a googleParity option and MULTIPLIES finalScore by it. Multiplicative on purpose so order WITHIN each group is unchanged and a markedly more relevant video still wins — it is a thumb on the scale, not a ceiling. Wired for mode==='blue-pill' and green ONLY; red-pill and purple deliberately excluded since they exist to surface exactly these non-institutional sources. NOTHING IS REMOVED — weighting, not filtering, which keeps it inside the no-censorship rule. Verified against the real observed ordering: before = youtube/dailymotion at 1-2, after = tennessean/bbc/nytimes/abc at 1-4 and videos at 5-6. 7 regression tests in __tests__/googleParity.test.js.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
+      },
+      "searchbar-inp-fix": {
+        "Id": "searchbar-inp-fix",
+        "Type": "decision",
+        "Label": "SearchBar INP: two forced synchronous layouts per keystroke, deferred to rAF",
+        "body": "Real-user INP for the search textarea was 1.9s and 3.8s, with 44 percent of interactions rated Poor (threshold is 500ms). CAUSE: two effects on [localValue] each forced a synchronous layout on every keystroke — the autogrow set style.height to auto then read scrollHeight, and the caret-follow read scrollWidth. Normally cheap, but this textarea sits inside a backdrop-blur subtree, so invalidating layout drags the compositor into re-blurring the region on the same tick as the keystroke. FIX: both deferred to requestAnimationFrame so the typed character paints first and the resize happens on the following frame; the autogrow also only writes style.height when the value actually changes, since writing the same value still invalidates layout. The blur and the visual design are untouched — the owner likes the animations and none were removed. Cleanup via cancelAnimationFrame on effect teardown.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       }
     },
     "thread": {
@@ -2572,6 +2580,14 @@
         "Type": "fact",
         "Label": "URL duplication root cause: the sitemap and the canonical tags disagreed on trailing slashes",
         "body": "GSC showed the same page indexed twice (/about/ AND /about, /fr/ AND /fr, /pt/, /nl/, /privacy/). CAUSE: prerender.mjs line ~71 emits canonical https://truegle.info<route> with NO trailing slash, but public/sitemap.xml listed five pages WITH one (/about/, /advertise/, /developers/, /privacy/, /terms/) while listing the rest without. Google crawled the sitemap URL, found a canonical pointing at a different URL, and kept both. FIXED by stripping the trailing slash from those five sitemap entries so sitemap and canonical agree; the root https://truegle.info/ correctly keeps its slash. Verified post-build: dist/about/index.html canonical and dist/sitemap.xml entry now both read https://truegle.info/about. STILL OWNER-SIDE: www.truegle.info and http://www.truegle.info also appear in GSC — Cloudflare Pages _redirects cannot match on HOST, so www->apex needs a Cloudflare Redirect Rule in the dashboard, not a code change.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "desktop-slow-hero": {
+        "Id": "desktop-slow-hero",
+        "Type": "fact",
+        "Label": "Desktop hero was blank for ~5s; logo-area does not exist on mobile at all",
+        "body": "MEASURED in real Chromium against the built dist, not theorised. BEFORE: .logo-area sat at opacity 0.00 at 3.0s, 3.7s AND 4.4s after load, reaching 1.00 only around 5.1s — a desktop visitor spent roughly five seconds looking at an empty hero. AFTER removing the CSS delay: 0.00 through 2.5s, 1.00 by 3.0s. Roughly a 2x improvement with every animation left intact. CAUSE: .logo-area had transition opacity 1s ease-out 1s — a one-second WAIT before a one-second fade — stacked on top of the JS choreography in BackgroundAnimation.jsx (INITIAL_DELAY 0.25 + LASER_DURATION 1.5 + PRISM_DELAY 1.25 + AURORA_DELAY 2.5 + AURORA_DURATION 1.5, so about 4.25s end to end). Only the CSS wait was removed; the laser, prism and aurora still perform. KEY FACT: .logo-area is NOT RENDERED ON MOBILE (querySelector returns null at every sample on 390x844), so this is desktop-only — which is exactly what the owner reported as animations firing sometimes on desktop but not always. NOTE the remaining 2.5s is the JS sequence, not CSS; cutting it further is a taste decision about the choreography, not a bug. VERIFICATION METHOD THAT WORKS: serve dist over a local http server and poll getComputedStyle opacity at fixed intervals from separate evaluate calls. An in-page rAF sampler via addInitScript reported NEVER within 8s and was wrong; polling in a tight loop reported 21s and was also wrong because evaluate round-trips are slow while the page runs a constant rAF loop.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
       }

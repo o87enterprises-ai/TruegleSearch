@@ -55,7 +55,15 @@
   justify-content: center;
   align-items: center;
   opacity: 0;
-  transition: opacity 1s ease-out 1s;
+  /* No delay before the brand appears. This was `opacity 1s ease-out 1s` — a
+     one-second wait BEFORE a one-second fade, layered on top of a background
+     choreography that already runs about four seconds. Measured in a real
+     browser at 1920x1080, the logo was still fully transparent 4.4 seconds
+     after load, so a desktop visitor spent roughly five seconds looking at an
+     empty hero and deciding whether the site was broken.
+     The laser, prism and aurora are untouched and still perform behind it —
+     only the wait before the brand shows up is gone. */
+  transition: opacity 0.45s ease-out;
   z-index: 20;
 }
 
