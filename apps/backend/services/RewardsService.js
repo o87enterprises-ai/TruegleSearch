@@ -106,19 +106,21 @@ class RewardsService {
   }
 
   /**
-   * The personalized offer link a user opens to earn. Completing any offer on
-   * the Adsterra Smartlink fires a conversion postback tagged with this user's
-   * ref, which credits their revenue-share (see recordConversion).
+   * The personalized offer link a user opens to earn.
+   *
+   * There is NO offer network wired up any more — Adsterra was removed
+   * 2026-08-24 and nothing replaced it, so rewards currently have no funding
+   * source and the routes stay unmounted (see server.js). This returns null
+   * unless REWARDS_OFFER_URL names a replacement, so callers degrade instead
+   * of sending users to a dead link.
    */
   static async getOfferLink(userId) {
+    const base = process.env.REWARDS_OFFER_URL;
+    if (!base) return null;
     const ref = await this.ensureRef(userId);
-    const base = process.env.REWARDS_OFFER_URL
-      || process.env.ADSTERRA_SMARTLINK_URL
-      || 'https://millionairelucidlytransmitted.com/g385gzr0?key=63a965f91d254672ac250654790b5b8c';
     const sep = base.includes('?') ? '&' : '?';
-    // Adsterra Direct Link passes SubIDs through as sub1..sub4; send the ref on
-    // sub1 (and a couple of common aliases) so attribution survives whatever
-    // macro the offer wall expects.
+    // Pass the ref on the common SubID macros so attribution survives whatever
+    // the replacement offer wall expects.
     return `${base}${sep}sub1=${encodeURIComponent(ref)}&subid=${encodeURIComponent(ref)}`;
   }
 

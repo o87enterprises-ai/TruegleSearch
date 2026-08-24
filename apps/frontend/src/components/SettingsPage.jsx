@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import SearchPageShell from './layout/SearchPageShell';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
-import AdSlot from './AdSlot';
 import Toggle from './ui/Toggle';
 import { useSettings } from '../context/SettingsContext';
 import { useRewards } from '../context/RewardsContext';
@@ -124,8 +123,6 @@ const SettingsPage = () => {
         </div>
 
         <div className="space-y-6">
-          {/* Top Ad Slot */}
-          <AdSlot position="settings-top" size="leaderboard" className="mx-auto" />
 
           {/* Privacy & Security */}
           <div className="p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">
@@ -196,8 +193,6 @@ const SettingsPage = () => {
             </div>
           </div>
 
-          {/* Middle Ad Slot */}
-          <AdSlot position="settings-middle" size="medium" className="mx-auto" />
 
           {/* Search Preferences */}
           <div className="p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">
@@ -278,16 +273,15 @@ const SettingsPage = () => {
 
               <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                 <p className="text-sm text-white/60">
-                  <strong className="text-white/80">Note:</strong> Truegle uses minimal, privacy-respecting
-                  ads to keep the service free. We never sell your data or track you across websites.
+                  <strong className="text-white/80">Note:</strong> Truegle serves no ads and sets no ad
+                  cookies. We never sell your data or track you across websites.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* REWARDS FEATURE: Temporarily disabled until we finalize a network with
-              S2S postback support (Adsterra Publishers has none) — moving to a
-              manual email-verification workflow. Rewards status + dashboard link
+          {/* REWARDS FEATURE: disabled — it was funded by ad revenue, and ads
+              were removed on 2026-08-24. Rewards status + dashboard link stay
               hidden from Settings.
           <div className="p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">
             <div className="flex items-center mb-4">
@@ -337,8 +331,6 @@ const SettingsPage = () => {
             </div>
           )}
 
-          {/* Bottom Ad Slot */}
-          <AdSlot position="settings-bottom" size="leaderboard" className="mx-auto" />
 
           {/* Privacy & Data */}
           <div className="p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">

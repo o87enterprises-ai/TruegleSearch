@@ -22,7 +22,6 @@ import { DeepSpaceBackground } from '../components/backgrounds/DeepSpaceBackgrou
 import DeepseekParticles from '../components/backgrounds/DeepseekParticles';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
 import AsSeenOn from '../components/Content/AsSeenOn';
-import AdSlot from '../components/AdSlot';
 import PermissionsTrigger from '../components/permissions/PermissionsTrigger';
 import { useToast } from '../components/ui/ToastProvider';
 import { MapViewWrapper } from '../components/map';
@@ -652,7 +651,6 @@ export default function BiasedResults() {
             animate={{ opacity: 1, y: 0 }}
             className="max-w-4xl mx-auto mb-6"
           >
-            <AdSlot className="rounded-2xl" size="large" />
           </motion.div>
 
           {/* Perspective Selector - Directly Below First Ad */}
@@ -822,7 +820,6 @@ export default function BiasedResults() {
             animate={{ opacity: 1 }}
             className="max-w-4xl mx-auto mb-4"
           >
-            <AdSlot className="rounded-2xl" size="large" />
           </motion.div>
 
           {/* Results Grid */}
@@ -842,12 +839,6 @@ export default function BiasedResults() {
 
               {searchResults.length > 0 ? searchResults.map((result, index) => (
                 <div key={result.id}>
-                  {/* Ad Banner after every 3rd result */}
-                  {index > 0 && index % 3 === 0 && (
-                    <div className="mb-4">
-                      <AdSlot className="rounded-2xl" size="large" />
-                    </div>
-                  )}
 
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -897,14 +888,9 @@ export default function BiasedResults() {
               )) : (
                 <div className="text-center py-12">
                   <p className="text-white/70 text-lg mb-8">If it's Trueth you're looking for, ya ain't goona' find it here.</p>
-                  <AdSlot className="rounded-2xl" size="large" />
                 </div>
               )}
 
-              {/* Bottom Ad Banner */}
-              <div className="mt-4">
-                <AdSlot className="rounded-2xl" size="large" />
-              </div>
 
               {/* Load More Button */}
               <div className="flex justify-center pt-6">
@@ -1047,16 +1033,8 @@ export default function BiasedResults() {
 
             {/* Sidebar with Multiple Sticky Ads */}
             <div className="hidden lg:block space-y-4">
-              {/* Sidebar Ad 1 */}
-              <div className="sticky top-4">
-                <AdSlot className="rounded-2xl" size="sidebar" />
-              </div>
 
-              {/* Sidebar Ad 2 */}
-              <AdSlot className="rounded-2xl" size="medium" />
 
-              {/* Sidebar Ad 3 */}
-              <AdSlot className="rounded-2xl" size="medium" />
             </div>
           </div>
         </div>
@@ -1108,7 +1086,6 @@ export default function BiasedResults() {
                 animate={{ opacity: 1, y: 0 }}
                 className="mx-6 mt-4"
               >
-                <AdSlot className="rounded-2xl" size="large" />
               </motion.div>
 
               {/* Messages Container */}
@@ -1161,9 +1138,6 @@ export default function BiasedResults() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <div className="mx-6 mb-4">
-                  <AdSlot size="large" />
-                </div>
               </motion.div>
 
               {/* Input Area */}

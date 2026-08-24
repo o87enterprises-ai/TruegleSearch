@@ -215,33 +215,20 @@ const ComponentShowcase = () => {
           <div className="space-y-6">
             <div>
               <p className="text-sm text-white/60 mb-2">Banner (728x90)</p>
-              <AdCard size="banner" />
             </div>
             <div>
               <p className="text-sm text-white/60 mb-2">Leaderboard (728x90)</p>
-              <AdCard size="leaderboard" />
             </div>
             <div className="flex gap-4">
               <div className="flex-1">
                 <p className="text-sm text-white/60 mb-2">Sidebar (300x250)</p>
-                <AdCard size="sidebar" />
               </div>
               <div className="flex-1">
                 <p className="text-sm text-white/60 mb-2">Square (250x250)</p>
-                <AdCard size="square" />
               </div>
             </div>
             <div>
               <p className="text-sm text-white/60 mb-2">With Ad Data</p>
-              <AdCard
-                size="banner"
-                adData={{
-                  title: 'Example Advertisement',
-                  image:
-                    'https://via.placeholder.com/728x90/00E5FF/000000?text=Ad+Placement',
-                  link: 'https://example.com',
-                }}
-              />
             </div>
           </div>
         </GlassCard> */}

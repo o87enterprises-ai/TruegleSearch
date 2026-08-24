@@ -22,7 +22,7 @@
  *              commodities. Yahoo is UNOFFICIAL - see NewsSources.js.
  *
  * WHERE THE USER IS: the country comes from the edge/CDN header the request
- * already carries (GeoAdService.countryFromHeaders - Cloudflare and Vercel both
+ * already carries (GeoService.countryFromHeaders - Cloudflare and Vercel both
  * set it for free). No geolocation prompt, no IP lookup service, no third
  * party, and nothing is stored against anybody. The client may also pass
  * ?country= to override it, which is what the feed's own region picker sends.
@@ -30,7 +30,7 @@
 const express = require('express');
 
 const router = express.Router();
-const GeoAdService = require('../services/GeoAdService');
+const GeoService = require('../services/GeoService');
 const logger = require('../utils/logger');
 const { printHeadlines, markets, COUNTRY } = require('../services/NewsSources');
 
@@ -94,7 +94,7 @@ async function videoCoverage(seed) {
 router.get('/feed', async (req, res) => {
   const country = COUNTRY.test(String(req.query.country || '').toUpperCase())
     ? String(req.query.country).toUpperCase()
-    : (await GeoAdService.detectCountry(req).catch(() => null)) || 'US';
+    : (await GeoService.detectCountry(req).catch(() => null)) || 'US';
 
   const printKey = `print:${country}`;
   const [printed, market] = await Promise.allSettled([

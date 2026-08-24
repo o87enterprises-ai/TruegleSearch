@@ -4,7 +4,6 @@ import { RefreshCw } from 'lucide-react';
 import { useRewards } from '../context/RewardsContext';
 import { useAuth } from '../context/AuthContext';
 import { rewardsAPI } from '../services/api';
-import RewardAdSlot from '../components/RewardAdSlot';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import LandingBackground from '../components/LandingBackground';
 import SearchBar from '../components/ui/SearchBar';
@@ -424,10 +423,6 @@ const RewardsDashboard = () => {
           </div>
         </div>
 
-        {/* Real, geo-targeted Adsterra native inventory — the highest-CPM
-            format, served for the visitor's country of origin. Adsterra fills a
-            native zone once per page, so a single slot is rendered; the
-            adRefreshKey remounts it for a fresh ad request on demand. */}
         <div className="mt-8 pt-6 border-t border-white/10">
           <div className="flex items-center justify-between mb-3">
             <div className="text-[10px] uppercase tracking-wider text-orange-400/80 font-mono">
@@ -440,9 +435,6 @@ const RewardsDashboard = () => {
               <RefreshCw size={13} />
               Refresh ad
             </button>
-          </div>
-          <div className="flex flex-col items-center gap-4">
-            <RewardAdSlot key={`na-${adRefreshKey}`} />
           </div>
           <p className="text-white/30 text-xs text-center mt-4">
             Rewards are earned by completing offers, not by viewing this ad — it

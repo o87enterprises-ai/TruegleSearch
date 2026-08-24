@@ -7,7 +7,6 @@ import MapPanel from './MapPanel';
 import TrafficCameras from './TrafficCameras';
 import DirectionsPanel from './DirectionsPanel';
 import LocationPermissionModal from './LocationPermissionModal';
-import AdBanner from './AdBanner';
 import MapPopOutFrame from './MapPopOutFrame';
 import { useMap } from './context/MapContext';
 import { USER_LOCATION_ZOOM, GEOLOCATION_OPTIONS } from './config/constants';
@@ -457,16 +456,12 @@ export default function MapViewWrapper({
         className="relative rounded-2xl overflow-hidden border-2 border-cyan-500/30 shadow-2xl bg-gradient-to-br from-neutral-900 to-neutral-800"
         style={{ display: 'flex', flexDirection: 'column', height: 600 }}
       >
-        {/* Top Ad Banner */}
-        <AdBanner position="top" />
 
         {/* Map Container - Removed redundant header controls */}
         <div style={{ flex: 1, position: 'relative' }}>
           {theMap}
         </div>
 
-        {/* Bottom Ad Banner */}
-        <AdBanner position="bottom" isDismissible={true} />
 
         {/* Traffic Legend (when traffic is enabled) */}
         <AnimatePresence>

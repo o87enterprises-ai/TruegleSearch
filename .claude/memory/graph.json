@@ -865,6 +865,86 @@
         "ts": "2026-08-21",
         "created": "2026-08-21"
       },
+      "analytics-endpoint-is-mock": {
+        "Id": "analytics-endpoint-is-mock",
+        "Type": "fact",
+        "Label": "/api/analytics serves FABRICATED data — never quote it",
+        "body": "apps/backend/routes/analytics.js is mounted live at server.js:313 but is scaffolding: module-level seeded constants apiUsage={totalSearches:1500,successful:1420,failed:80,avgResponseTime:380,popularQueries technology45/health38/education32} + 2 searchAnalytics rows dated Jan-2024. logSearch() increments ON TOP of the fake baseline into an in-memory array => resets every serverless cold start AND is permanently offset by the seed. Admin-gated so not public, and Advertise.jsx is qualitative (no hard numbers) so nothing fake has shipped. TRAP: HANDOFF Step 6 says /advertise needs 'real audience/traffic numbers' — filling that from /api/analytics would publish invented stats to advertisers. Fix = wire to real store or return 501, and delete the seed constants.",
+        "ts": "2026-08-23",
+        "created": "2026-08-23"
+      },
+      "traffic-truth-two-sources": {
+        "Id": "traffic-truth-two-sources",
+        "Type": "fact",
+        "Label": "Real traffic ground truth = Cloudflare vs Adsterra, ~100x apart, neither counts humans",
+        "body": "The ONLY two first-party traffic sources. Cloudflare 30d geo: US top, NL 6.5k, BR 5.2k, CA, FR 2.3k (>=14k from 3 countries; Cloudflare's default unit is REQUESTS not visitors). Adsterra 7d 2026-07-14..21: 320x50=35imp, 468x60=14imp, 300x250=7imp => ~56 imp/wk (~240/mo). Gap ~100x, explained by: (1) SPA page load = many requests; (2) deliberately-invited crawlers (llms.txt + robots.txt Allow GPTBot/PerplexityBot/ClaudeBot + IndexNow); (3) ~18% hardcore adblockers + render-gate means blocked=no impression; (4) CRITICAL — AD POLICY forbids ads on the landing page and the localized /de /es /fr /nl /pt pages ARE the SEO surface, so organic landing traffic generates ZERO Adsterra impressions BY DESIGN. SEO wins are structurally invisible in ad stats. No GA/Plausible/Umami/Matomo/PostHog anywhere (correct per no-tracking policy) => zero session measurement exists.",
+        "ts": "2026-08-23",
+        "created": "2026-08-23"
+      },
+      "modes-cannot-reorder": {
+        "Id": "modes-cannot-reorder",
+        "Type": "fact",
+        "Label": "ROOT CAUSE: all search modes return identical results in identical order",
+        "body": "Not an index problem — a ranking problem. (1) Every mode retrieves the SAME candidate set: modes are post-processing over one shared list, same query string, same providers. (2) SearchService.detectBias (~line 1766) is a HARDCODED 115-DOMAIN MAP (23 left, 23 alternative, 22 right, 16 center, 10 conspiracy, 9 unbiased, 7 independent, 5 mainstream) + a keyword fallback that only fires on politically-charged title/snippet text; everything else falls through to 'neutral'. (3) THEREFORE red-pill's boostAlternative is mathematically a NO-OP on ordinary queries: finalScore = finalScore*0.6 + biasTierWeight(bias)*0.4, and biasTierWeight('neutral') === 0.5 === the default fallback, so the transform is 0.6x+0.2 — strictly increasing, applied uniformly, sort order CANNOT change. VERIFIED EMPIRICALLY with 5 ordinary domains: blue and red produced identical ordering, scores differing by exactly that affine transform; when 2 sources were manually labelled, red reordered correctly (alternative to #1, mainstream to last). (4) Purple filters to a usually-empty bias set; green only strips AI-content domains; blue only pins the official result on brand queries. FIX ORDER: retrieve differently per mode (different engines/query per mode) > replace the 115-domain map with real data > make 'neutral' != default weight > pass per-mode 'engines' to SearXNG.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "searxng-truth": {
+        "Id": "searxng-truth",
+        "Type": "fact",
+        "Label": "SearXNG needs NO API keys but has NO index — it proxies Google/Bing/DDG",
+        "body": "CORRECTION to a previously muddled point. SearXNG genuinely requires no API key: config/env.js:158 'no API key required', SearchService.js:70 'no API key needed', and performSearXNGSearch (SearchService.js:1213) sends ONLY q/format/pageno/safesearch. It IS primary (SEARXNG_PRIMARY=true, paid providers only fire when it returns < SEARXNG_PRIMARY_MIN=5). BUT it is a metasearch PROXY with no index of its own — it scrapes Google/Bing/DDG/Brave/Startpage/Qwant. We removed the toll booth, not the gatekeeper. Our request sends NO 'engines' param, so the instance default engine set applies — setting 'engines' per mode is free, immediate source diversity. Real failure mode is CAPTCHAs/rate limits on datacenter IPs, not billing. Full build-your-own-SERP research: docs/OWN-SERP-PLAN.md (Common Crawl removes the crawl stage; Marginalia Search is the one-dev existence proof; recommended = Path B curated index on Tantivy).",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "geoservice-split": {
+        "Id": "geoservice-split",
+        "Type": "fact",
+        "Label": "GeoAdService split: country detection survived as services/GeoService.js",
+        "body": "When ads were removed, GeoAdService was deleted — but routes/news.js used it for REGIONAL NEWS selection, not ads (backend tests caught this). The country-detection half was extracted to services/GeoService.js (edge headers cf-ipcountry / x-vercel-ip-country first, cached ip-api fallback for public IPs only, 6h cache holding a 2-letter code and nothing else). The ad-zone half (tierOf/zonesForCountry/getAdConfig) went with the ads. routes/news.js repointed.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "local-pg-recipe-2026-08": {
+        "Id": "local-pg-recipe-2026-08",
+        "Type": "fact",
+        "Label": "Local test Postgres recipe that actually works in a fresh container",
+        "body": "su does NOT inherit PATH — use absolute binary paths. B=/usr/lib/postgresql/16/bin; rm -rf /tmp/pgdata-truegle; mkdir -p /tmp/pgdata-truegle; chown postgres /tmp/pgdata-truegle; su postgres -c \"$B/initdb -D /tmp/pgdata-truegle -U truegle --auth=trust\"; su postgres -c \"$B/pg_ctl -D /tmp/pgdata-truegle -l /tmp/pgdata-truegle/server.log -o '-k /tmp' start\". Then DATABASE_URL='postgresql://truegle@localhost/truegle_dev?sslmode=disable&host=/tmp'. Backend jest also needs JWT_SECRET + ENCRYPTION_KEY. KNOWN PRE-EXISTING: __tests__/new-endpoints.test.js has 4 failures (Apify/Hunter/Shodan/PayPal/Deepgram/Unsplash keys absent) — confirmed identical on a HEAD~2 worktree baseline, so do NOT chase them as a regression. Use --forceExit; the suite leaks a handle.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "socialfeed-flake": {
+        "Id": "socialfeed-flake",
+        "Type": "fact",
+        "Label": "socialFeed.test.js 'only the requested platforms are contacted' is FLAKY under parallel jest",
+        "body": "Alternates pass/fail across identical full-suite runs (4 vs 5 failures); passes 11/11 when the suite runs alone. Cause is shared axios.get mock state across parallel workers, not product code. Do NOT chase it as a regression. Baseline for the backend suite is 4 pre-existing failures in __tests__/new-endpoints.test.js (Hunter.io x2, Shodan, PayPal — absent third-party keys), confirmed identical on a pre-change worktree.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "real-traffic-numbers": {
+        "Id": "real-traffic-numbers",
+        "Type": "fact",
+        "Label": "REAL traffic, from Cloudflare dash 2026-08-24 — the 100x gap is RESOLVED",
+        "body": "30 days (Jul 25 - Aug 24): 3.88k UNIQUE VISITORS, 126.55k TOTAL REQUESTS, 4 GB served, 55.12% cached. Per-day uniques: max 372, min 131, typical ~200. 24h sample: 222 uniques / ~8.9k requests. Top countries BY REQUESTS: US 73,350 / France 16,718 / Sweden 3,781 / Switzerland 3,717 / Norway 2,980 (=79% of all requests). THE GAP EXPLAINED: 126,550 requests / 3,880 uniques = 32.6 requests per visitor, which is the SPA asset-load ratio, NOT bot inflation. And Adsterra's ~240 impressions/month against 3,880 visitors = only 6.2% of visitors ever registered an ad — landing pages carried no ads by policy plus adblock. Both halves of the 100x now accounted for. TRAFFIC MIX SHIFTED since the /nl /pt work: France went 2.3k -> 16,718 (now #2 by far), Netherlands and Brazil fell OUT of the top 5, and Sweden+Norway (6,761 combined) are new with NO localized page. /fr is now the highest-value localized page.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "real-traffic-2026-08": {
+        "Id": "real-traffic-2026-08",
+        "Type": "fact",
+        "Label": "REAL traffic numbers from Cloudflare dashboard — the 100x gap is resolved",
+        "body": "30 days to 2026-08-24: 3.88k UNIQUE VISITORS, 126.55k total requests, 55.12% cached, 4GB served (2GB cached). Per-day unique: max 372, min 131. 24h sample: 222 unique, ~8.9k requests. Top countries by REQUESTS (not visitors): US 73,350 / France 16,718 / Sweden 3,781 / Switzerland 3,717 / Norway 2,980. THIS RESOLVES the Cloudflare-vs-Adsterra puzzle: 126.55k requests / 3.88k visitors = 32.6 requests per visitor, exactly the SPA-asset explanation; and Adsterra's ~240 impressions/month against 3.88k visitors means only ~6 percent of visitors ever registered an impression (landing pages carried no ads by policy, plus adblock). TRAFFIC MIX HAS SHIFTED since the localized-page work: France went from 2.3k to 16.7k requests and is now a distant second to the US, while Netherlands and Brazil have dropped out of the top five entirely. Sweden, Switzerland and Norway are new entrants with NO localized pages. The /nl and /pt pages were built for traffic that has since left.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "thin-results-rootcause": {
+        "Id": "thin-results-rootcause",
+        "Type": "fact",
+        "Label": "Thin result pages were a logic bug, not a missing index",
+        "body": "SearXNG-primary was winner-take-all: any result count at or above SEARXNG_PRIMARY_MIN (default 5) set searxngServed and skipped Google, Bing and Brave entirely. A query where SearXNG managed five hits returned a FIVE-RESULT PAGE with three providers idle and nothing topping it up. Fixed in commit 18e547f: SearXNG results are now always kept, and the API providers are skipped only when SearXNG returns a FULL page (searxngSufficient, default 20, env SEARXNG_SUFFICIENT). Below that threshold results merge instead of one provider winning. The point of the primary setting is to avoid paying for queries SearXNG already answered well, not to cap the page.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
       "groq-key-pool": {
         "Id": "groq-key-pool",
         "Type": "fact",
@@ -1955,6 +2035,54 @@
         "ts": "2026-08-21",
         "created": "2026-08-21"
       },
+      "ads-removed-completely": {
+        "Id": "ads-removed-completely",
+        "Type": "decision",
+        "Label": "ADS REMOVED ENTIRELY 2026-08-24 — no revenue model, build-enforced",
+        "body": "Owner decision: Truegle is no longer run on profit/loss; it exists to offer an alternative to the search monopoly. Adsterra and ALL third-party advertising deleted. Removed: AdsterraBanner/SponsoredAd/AdSlot/RewardAdSlot/AdColorWrapper/AdBanner(x2)/AdCard, config/ads.js, config/adNetworks.js, AdGeoContext, public/adframe.html, ui/CookieConsent.jsx, ui/AdultConsentGate.jsx, backend routes/ads.js + services/GeoAdService.js + config/ad_zones.json + /api/ads mount, public/ads.txt (stale AdSense seller id), scripts/ad-verify.mjs, pages/RevenueCalculator.jsx + /revenue-calc route, and every ad-network origin in public/_headers CSP. ~30 JSX call sites stripped across 12 files. check-ads.mjs INVERTED: it now FAILS THE BUILD if any ad network/domain/tag or deleted ad module reappears. KEPT per owner: /advertise page (Adsterra referral block removed from it), Premium, rewards scaffolding. Rewards has NO funding source now — RewardsService.getOfferLink returns null unless REWARDS_OFFER_URL is set; routes stay unmounted. Truegle now sets ZERO cookies => no cookie banner. Do NOT propose re-adding ads.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "analytics-cloudflare-only": {
+        "Id": "analytics-cloudflare-only",
+        "Type": "decision",
+        "Label": "Analytics = Cloudflare Web Analytics only, cookieless + DNT/GPC-respecting",
+        "body": "src/utils/analytics.js initAnalytics() injects the CF beacon ONLY if VITE_CF_BEACON_TOKEN is set AND the visitor is not sending DNT/GPC. No cookies, no fingerprinting, no query capture (queries never appear in reported URL paths). CSP in public/_headers already allowed static.cloudflareinsights.com + cloudflareinsights.com, verified. OWNER ACTION PENDING: create the site in Cloudflare dash > Web Analytics, copy the token, set VITE_CF_BEACON_TOKEN on Vercel/Pages, redeploy — inert until then. /api/analytics fake seed (totalSearches 1500 etc) REMOVED; counters now start at 0, are process-local, reset on cold start, and every response carries ephemeral:true + a note saying they are not traffic numbers.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "google-cse-optional": {
+        "Id": "google-cse-optional",
+        "Type": "decision",
+        "Label": "GOOGLE_API_KEY/GOOGLE_SEARCH_ENGINE_ID now .optional() in config/env.js",
+        "body": "They were .required(), so the backend refused to BOOT without a Google CSE credential it no longer searches with (SearXNG has been primary since; the CSE key 403s on free-tier quota anyway). Verified every use site is guarded by 'this.googleApiKey && this.googleSearchEngineId', and performGoogleSearch/performGoogleImageSearch early-return when unset, so an absent key just drops Google from the fan-out. Boot verified without the keys.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "curated-source-lists": {
+        "Id": "curated-source-lists",
+        "Type": "decision",
+        "Label": "Bias classification moved to data/sourceBias.js — 374 curated domains, modes now diverge",
+        "body": "Replaced the inline 115-domain object literal in SearchService.detectBias. FIXED THREE SILENT BUGS: (1) duplicate keys — theintercept.com and substack.com each appeared twice, last-wins, so The Intercept was 'alternative' not 'left'; buildIndex() now THROWS on a domain claimed by two categories (it caught currentaffairs.org during authoring). (2) exact-match-only lookup — edition.cnn.com/amp.cnn.com/news.yahoo.com matched NOTHING; classify() now walks the host inward so subdomains resolve and the most specific match wins (greenwald.substack.com=independent while substack.com=platform). (3) platforms treated as sources — medium/substack/wordpress/rumble/odysee now 'platform', carrying no editorial claim. NEW 'unknown' category: unlisted is 'unknown', NOT 'neutral'; biasTierWeight unknown=0.65 (must differ from the 0.5 default or red-pill is a no-op). mapPerspectivesToBias expands neutral -> [neutral,unknown,platform] so purple still matches unrated. Also fixed extractDomain: .replace('www.','') was a SUBSTRING replace (wwww.x.com -> w.x.com), now anchored /^www\\./. VERIFIED: blue ranks CNN/Fox/Reuters top, red ranks Infowars/off-guardian/Taibbi top — modes diverge where they previously could not.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "searxng-topup": {
+        "Id": "searxng-topup",
+        "Type": "decision",
+        "Label": "FIXED thin results: SearXNG-primary was winner-take-all at 5 results",
+        "body": "ROOT CAUSE of 'results are way too thin': in performSearch, if SearXNG returned >= SEARXNG_PRIMARY_MIN (default 5) it set searxngServed=true and SKIPPED GOOGLE, BING AND BRAVE ENTIRELY. Five SearXNG hits therefore produced a five-result page with nothing topping it up. FIX: SearXNG results are now ALWAYS kept, and the API providers are skipped only when SearXNG returned a genuinely full page — new SEARXNG_SUFFICIENT env (default 20, floored at primaryMin). Below that we keep the SearXNG results AND top up from the other providers, then merge. primaryMin now only means 'instance is alive'. ALSO: dedup was exact-URL string match, so /a vs /a/ vs ?utm_source= twins all survived as separate results — a big part of why a page read as repetitive. New dedupeKey() normalises scheme, www., trailing slash, case and tracking params (utm_*, fbclid, gclid, msclkid, mc_eid, ref, source, igshid). STILL OPEN: SearXNG only ever fetches pageno 1, and Google CSE 403s on quota so that provider is effectively dead.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "serp-decisions-locked": {
+        "Id": "serp-decisions-locked",
+        "Type": "decision",
+        "Label": "Owner decisions on the Common Crawl index path",
+        "body": "1 BUDGET: stays 0 dollars. No ads until 50k DAILY visitors (currently 131-372/day, so ads are effectively off the table for a long time; treat all costs as pure expense). 2 COMPUTE: home PC tower, but no persistence yet — planning for the future, not now. 3 SLICE: owner deferred to me, constraint is 8-16 GB RAM. 4 SELECTION: curated for mainstream, RANDOM for rabbit hole — owner's own idea and a good one. 5 WET-vs-WARC, 6 ENGINE, 7 RANKING: deferred to me, with a hard constraint from 6 that whatever is chosen must impose the least possible content control — censorship is against project policy. 8 INTEGRATION: blend, or rabbit-hole mode only. OWNER'S STATED URGENCY: search results are too thin and too identical across pages, and that would damage public perception before launch — so fixing retrieval beats building an index.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
       "secrets-handover": {
         "Id": "secrets-handover",
         "Type": "decision",
@@ -2330,6 +2458,24 @@
         "status": "open",
         "ts": "2026-08-20",
         "created": "2026-08-20"
+      },
+      "gsc-status-contradiction": {
+        "Id": "gsc-status-contradiction",
+        "Type": "thread",
+        "Label": "HANDOFF contradicts itself on Search Console — unresolved",
+        "body": "HANDOFF ~L2028 (SEO/Indexing SHIPPED): 'Bing Webmaster Tools: imported from Google Search Console (one click). 5 URLs submitted. Sitemap submitted.' HANDOFF ~L2425 service table: 'Search Console | Not started' AND 'Bing Webmaster | Not started'. Both cannot be true. Matters because GSC is the ONLY authoritative source of organic impressions/clicks/queries/position + Coverage (Google's own technical audit). Until it exists, no external SEO vendor claim about truegle.info traffic is verifiable — and once it exists, no vendor is needed for the diagnosis. ACTION: log into GSC, confirm property state, reconcile HANDOFF.",
+        "status": "done",
+        "ts": "2026-08-24",
+        "created": "2026-08-23"
+      },
+      "gsc-setup-pending": {
+        "Id": "gsc-setup-pending",
+        "Type": "thread",
+        "Label": "Search Console + Bing still not set up — owner browser task",
+        "body": "HANDOFF contradicted itself (SEO section claimed Bing was imported from GSC; service table said both Not started). Nothing in the repo proves a property exists. GSC is the ONLY authoritative organic source (impressions/clicks/queries/position + Coverage = Google's own technical audit) and the only thing that settles the ~100x Cloudflare-vs-Adsterra measurement gap. Needs a browser login: add truegle.info property, verify via Cloudflare DNS TXT, submit sitemap.xml, request indexing for / and /search. Bing Webmaster imports from GSC in one click.",
+        "status": "open",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       },
       "unmerged-8-21-branch": {
         "Id": "unmerged-8-21-branch",

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../common/SafeIcon';
-import AdSlot from './AdSlot';
 
 const { FiSearch, FiShield, FiEye, FiLock } = FiIcons;
 
@@ -109,14 +108,6 @@ const SearchPage = ({ onSearch }) => {
         ))}
       </div>
 
-      {/* Ad Slot - Bottom of Page */}
-      <div className="mt-12 w-full max-w-4xl">
-        <AdSlot
-          position="search-bottom"
-          size="leaderboard"
-          className="mx-auto"
-        />
-      </div>
     </div>
   );
 };

@@ -168,53 +168,6 @@ const Advertise = () => {
           </div>
         </div>
 
-        {/* Adsterra Publisher Referral */}
-        <div className="mb-16 p-8 rounded-2xl bg-gradient-to-br from-yellow-500/8 to-orange-500/8 border border-yellow-500/20">
-          <div className="text-center mb-6">
-            <div className="inline-block text-xs uppercase tracking-widest text-yellow-400/80 mb-2">
-              For Website Owners &amp; Publishers
-            </div>
-            <h2 className="text-2xl font-bold mb-2">Monetize your site with Adsterra</h2>
-            <p className="text-white/60 max-w-xl mx-auto text-sm">
-              We partner with Adsterra to run ads on Truegle. If you own a website and want to
-              do the same, sign up through our referral link — we earn 5% of your revenue
-              lifetime at no cost to you, which helps keep Truegle development going.
-            </p>
-          </div>
-
-          {/* 728×90 referral banner */}
-          <div className="flex justify-center mb-5">
-            <a
-              href="https://beta.publishers.adsterra.com/referral/Pqd4tGsBZw"
-              rel="nofollow noopener noreferrer"
-              target="_blank"
-              aria-label="Join Adsterra as a publisher via Truegle's referral link"
-            >
-              <img
-                src="https://landings-cdn.adsterratech.com/referralBanners/png/728%20x%2090%20px.png"
-                alt="Adsterra — join as a publisher"
-                width={728}
-                height={90}
-                style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px' }}
-              />
-            </a>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a
-              href="https://beta.publishers.adsterra.com/referral/Pqd4tGsBZw"
-              rel="nofollow noopener noreferrer"
-              target="_blank"
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-yellow-500 to-orange-500 text-black font-bold text-sm hover:opacity-90 transition-all"
-            >
-              Join Adsterra as a publisher →
-            </a>
-            <p className="text-white/35 text-xs">
-              5% lifetime revenue share · no cost to you · instant approval for most sites
-            </p>
-          </div>
-        </div>
-
         {/* Contact */}
         <div className="text-center p-8 rounded-2xl bg-white/5 border border-white/10">
           <h2 className="text-2xl font-bold mb-2">Let's talk</h2>

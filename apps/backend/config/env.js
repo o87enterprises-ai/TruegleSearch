@@ -15,12 +15,21 @@ const envVarsSchema = Joi.object({
     .description('Encryption key for sensitive data'),
 
   // Search API Keys (These should NEVER be exposed to frontend)
+  //
+  // Google CSE is OPTIONAL. It was required back when it was the primary web
+  // provider; SearXNG has been primary since (SEARXNG_PRIMARY=true) and the CSE
+  // key currently 403s on its own free-tier quota. Requiring it meant the whole
+  // backend refused to boot over a credential it no longer searches with. Every
+  // call site in SearchService is already guarded by
+  // `this.googleApiKey && this.googleSearchEngineId`, and performGoogleSearch /
+  // performGoogleImageSearch early-return when unset, so an absent key simply
+  // drops Google from the provider fan-out.
   GOOGLE_API_KEY: Joi.string()
-    .required()
-    .description('Google Custom Search API Key'),
+    .optional()
+    .description('Google Custom Search API Key (optional — SearXNG is primary)'),
   GOOGLE_SEARCH_ENGINE_ID: Joi.string()
-    .required()
-    .description('Google Custom Search Engine ID'),
+    .optional()
+    .description('Google Custom Search Engine ID (optional — SearXNG is primary)'),
   NEWS_API_KEY: Joi.string().optional().description('NewsAPI.org API Key'),
   BING_API_KEY: Joi.string().optional().description('Bing Web Search API Key'),
   YOUTUBE_API_KEY: Joi.string().optional().description('YouTube Data API Key'),
@@ -163,7 +172,8 @@ const envVarsSchema = Joi.object({
   // SearXNG self-hosted instance URL (no API key required)
   SEARXNG_URL: Joi.string().optional().description('SearXNG instance URL e.g. https://xyz.ngrok-free.dev'),
   SEARXNG_PRIMARY: Joi.boolean().default(false).description('Query SearXNG first; paid API providers become fallback'),
-  SEARXNG_PRIMARY_MIN: Joi.number().integer().min(1).default(5).description('Min SearXNG results before the API providers are skipped'),
+  SEARXNG_PRIMARY_MIN: Joi.number().integer().min(1).default(5).description('Min SearXNG results for the instance to count as alive'),
+  SEARXNG_SUFFICIENT: Joi.number().integer().min(1).default(20).description('SearXNG results that count as a full page; below this the API providers top up'),
   // Anonymous "proxied page view" (Startpage-style). When the SearXNG host runs a
   // result proxy (Morty / SearXNG `result_proxy`), set these so the backend can
   // attach a signed proxy link to each result. URL points at the proxy root; the
@@ -406,6 +416,7 @@ const config = {
     url: envVars.SEARXNG_URL,
     primary: envVars.SEARXNG_PRIMARY,
     primaryMin: envVars.SEARXNG_PRIMARY_MIN,
+    sufficient: envVars.SEARXNG_SUFFICIENT,
     resultProxyUrl: envVars.SEARXNG_RESULT_PROXY_URL,
     resultProxyKey: envVars.SEARXNG_RESULT_PROXY_KEY,
   },

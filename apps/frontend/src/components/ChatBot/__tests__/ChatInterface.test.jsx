@@ -20,11 +20,6 @@ vi.mock('../../../services/api', () => ({
   }
 }));
 
-// Mock the AdBanner component
-vi.mock('../../ui/AdBanner', () => ({
-  default: ({ children }) => <div data-testid="ad-banner">{children}</div>
-}));
-
 // Mock framer-motion
 vi.mock('framer-motion', async () => {
   const actual = await vi.importActual('framer-motion');

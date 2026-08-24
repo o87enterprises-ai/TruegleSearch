@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import SearchFilters from './SearchFilters';
 import SearchResults from './SearchResults';
 import AISummary from './AISummary';
-import AdSlot from './AdSlot';
 import {
   performRealSearch,
   generateRealAISummary,
@@ -149,14 +148,6 @@ const ResultsPage = ({ searchQuery, filters, onFiltersChange }) => {
 
         <div className="lg:col-span-1">
           <div className="sticky top-6">
-            {/* Sidebar Ad */}
-            <div className="mb-4">
-              <AdSlot
-                position="results-sidebar"
-                size="sidebar"
-                className="w-full"
-              />
-            </div>
 
             <div className="bg-gray-50 p-4 rounded-lg mb-4">
               <h3 className="font-semibold mb-2">Search Tips</h3>

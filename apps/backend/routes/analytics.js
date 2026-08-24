@@ -14,47 +14,50 @@ const validateAnalyticsQuery = [
   query('dateTo').optional().isISO8601(),
 ];
 
-// Mock analytics data (in production, this would be from a database)
-let searchAnalytics = [
-  {
-    id: 1,
-    query: 'artificial intelligence',
-    source: 'google',
-    resultsCount: 10,
-    responseTime: 450,
-    timestamp: new Date('2024-01-15T10:30:00Z'),
-    userId: null,
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-  },
-  {
-    id: 2,
-    query: 'climate change news',
-    source: 'news',
-    resultsCount: 20,
-    responseTime: 320,
-    timestamp: new Date('2024-01-15T11:15:00Z'),
-    userId: 1,
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-  },
-];
+/*
+ * IN-MEMORY, PROCESS-LOCAL COUNTERS — NOT A REAL ANALYTICS STORE.
+ *
+ * This module used to ship SEEDED FAKE DATA: totalSearches started at 1500,
+ * with invented "popular queries" and two search rows dated January 2024.
+ * logSearch() then incremented on top of that baseline, so every number this
+ * endpoint returned was fiction plus a real delta — and anyone reading the
+ * admin dashboard, or filling the audience figures on /advertise from it, would
+ * have been quoting invented statistics. The seed was removed on 2026-08-24.
+ *
+ * What remains is honest but deliberately limited: counters start at zero and
+ * live only in this process. The backend runs serverless, so they reset on
+ * every cold start and each instance sees only its own traffic. Treat them as a
+ * live debugging aid, never as a traffic measurement — the response says so
+ * itself via `ephemeral: true`.
+ *
+ * For real numbers use Cloudflare Web Analytics (page views) and Google Search
+ * Console (organic impressions/clicks). Wiring this to a database would need a
+ * persistent store and a deliberate privacy decision about what may be logged —
+ * Truegle does not record user queries against identities.
+ */
+const PROCESS_STARTED = new Date();
+
+let searchAnalytics = [];
 
 let apiUsage = {
-  totalSearches: 1500,
-  successfulSearches: 1420,
-  failedSearches: 80,
-  averageResponseTime: 380,
-  popularQueries: [
-    { query: 'technology', count: 45 },
-    { query: 'health', count: 38 },
-    { query: 'education', count: 32 },
-  ],
-  sourceDistribution: {
-    google: 65,
-    news: 20,
-    youtube: 10,
-    bing: 5,
-  },
+  totalSearches: 0,
+  successfulSearches: 0,
+  failedSearches: 0,
+  averageResponseTime: 0,
+  popularQueries: [],
+  sourceDistribution: { google: 0, news: 0, youtube: 0, bing: 0 },
 };
+
+/** Wraps any payload with the caveats that make these numbers safe to read. */
+const withCaveat = (payload) => ({
+  ...payload,
+  ephemeral: true,
+  since: PROCESS_STARTED.toISOString(),
+  note:
+    'Process-local counters since this instance started; they reset on cold ' +
+    'start and cover only this instance. Not a traffic measurement — use ' +
+    'Cloudflare Web Analytics or Search Console.',
+});
 
 // Get search analytics (admin only)
 router.get(
@@ -107,18 +110,18 @@ router.get(
       parseInt(offset) + parseInt(limit)
     );
 
-    res.json({
+    res.json(withCaveat({
       analytics: paginatedAnalytics,
       total: filteredAnalytics.length,
       limit: parseInt(limit),
       offset: parseInt(offset),
-    });
+    }));
   }
 );
 
 // Get API usage statistics (admin only)
 router.get('/usage', authenticate, requireAdmin, (req, res) => {
-  res.json(apiUsage);
+  res.json(withCaveat(apiUsage));
 });
 
 // Get real-time dashboard data (admin only)
@@ -145,7 +148,7 @@ router.get('/dashboard', authenticate, requireAdmin, (req, res) => {
     };
   });
 
-  res.json({
+  res.json(withCaveat({
     recentActivity: {
       last24Hours: recentSearches,
       hourlyData,
@@ -156,7 +159,7 @@ router.get('/dashboard', authenticate, requireAdmin, (req, res) => {
       memoryUsage: process.memoryUsage(),
       timestamp: now.toISOString(),
     },
-  });
+  }));
 });
 
 // Log search activity (internal use)
@@ -192,10 +195,12 @@ const logSearch = (searchData) => {
   }
 
   // Update average response time
-  apiUsage.averageResponseTime =
-    (apiUsage.averageResponseTime * (apiUsage.successfulSearches - 1) +
-      searchData.responseTime) /
-    apiUsage.successfulSearches;
+  // successfulSearches was just incremented, so it is >= 1 here; the guard is
+  // belt-and-braces against a future caller reordering these updates.
+  apiUsage.averageResponseTime = apiUsage.successfulSearches
+    ? (apiUsage.averageResponseTime * (apiUsage.successfulSearches - 1) +
+        searchData.responseTime) / apiUsage.successfulSearches
+    : searchData.responseTime;
 };
 
 // Log failed search (internal use)

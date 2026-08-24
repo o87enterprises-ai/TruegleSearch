@@ -21,7 +21,7 @@ At the START of every session, before acting:
 2. These company skills in `.claude/skills/` are ALWAYS in force — apply them automatically, don't wait to be asked:
    - **ponytail** — engineering discipline (boot-don't-just-check, root cause, free-first).
    - **tech** — branch-per-session, privacy/no-tracking, security, secrets map, handoff hygiene.
-   - **financial** — $0 budget; flag any spend; keep the ledger.
+   - **financial** — $0 budget; flag any spend; keep the ledger. **No revenue model as of 2026-08-24** (ads removed); treat costs as pure expense.
    - **design** — brand + motion continuity on any UI.
    - **marketing / inference / caveman / user-task-instructions / executive-summary** — invoke by name when relevant.
 3. Default to terse: commands/instructions over prose unless asked. No re-deriving settled facts.
@@ -29,15 +29,19 @@ At the START of every session, before acting:
 ## 🔴 PERMANENT FACTS (do not re-derive, do not re-ask)
 - **Nephesh host:** NO free self-host box available (AWS free tier = 1 GB, OOMs; Oracle always-free used up; no home hardware/power/internet). Nephesh therefore runs on the **Groq free tier as substrate** — the Null-Prime mode prompts + attribution are applied at the `UnifiedAIService` layer, so responses are Nephesh-branded regardless of engine. Self-hosting is a later privacy upgrade (deploy kit ready in `nephesh/`). The AWS `searxng` t3.micro still can't host a model; give it a 1 GB swapfile for stability.
 - **EC2 access:** key is lost; use **EC2 Instance Connect** (browser) — no `.pem` recoverable. Box IP `44.236.219.63`, region **us-west-2 (Oregon)**, instance `i-0709a9d47e503384f`.
-- **AD POLICY (`docs/AD-POLICY.md`) — non-negotiable, build-enforced via `npm run check:ads`:**
-  (1) NO ads on the landing page (`/`, `/de|es|fr|nl|pt`), ever — not even in the footer.
-  (2) NO popunders / social bars / push / interstitials from ANY network, ever — only the
-  in-content native banner + Smartlink `<a href>`. (3) Ad iframes MUST keep
-  `sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"`; never grant
-  `allow-same-origin` or `allow-top-navigation*`. The missing sandbox on same-origin
-  `/adframe.html` is what let an ad redirect the whole tab to bulsis.net and brick the
-  site on 2026-08-01. CSP does not prevent this — only the sandbox does.
-- Adsterra API is dashboard-only; banner anti-adblock codes don't exist in this account; the adult toggle can't be disabled once on; Impact.com is closed until 50K/mo traffic. (Full detail in HANDOFF.md.)
+- **NO ADVERTISING (`docs/AD-POLICY.md`) — build-enforced via `npm run check:ads`:**
+  Truegle carries **no third-party ads at all** as of 2026-08-24. Adsterra and every ad
+  component, config, consent banner, and backend ad route were deleted. The project is no
+  longer run on a profit/loss basis — it exists to offer an alternative to the search
+  monopoly. The build fails if an ad network reappears. Do NOT propose ad monetization,
+  re-add a network, or "just try" another one; that is a product decision, not a code change.
+  Truegle now sets **zero cookies** — there is no cookie-consent banner because there is
+  nothing to consent to.
+- **Analytics:** Cloudflare Web Analytics only (`src/utils/analytics.js`) — cookieless, no
+  fingerprinting, inert unless `VITE_CF_BEACON_TOKEN` is set, skipped on DNT/GPC. Search
+  Console is the authoritative organic-search source (setup pending — needs a browser login).
+  `/api/analytics` counters are process-local and reset on cold start; they are NOT traffic
+  numbers and must never be quoted (they used to ship a fake 1500-search seed — removed).
 
 <!-- OPENSPEC:START -->
 # OpenSpec Instructions
