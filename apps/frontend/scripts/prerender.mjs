@@ -68,7 +68,14 @@ function setMetaContent(html, selectorAttr, selectorValue, content) {
 
 function buildPageHtml(baseHtml, route, renderedMarkup) {
   const { title, description, lang } = META[route];
-  const canonicalUrl = `https://truegle.info${route === '/' ? '/' : route}`;
+  // TRAILING SLASH ON PURPOSE. Every route prerender.mjs handles is written to
+  // dist/<route>/index.html, which Cloudflare Pages serves at a trailing-slash
+  // URL and 308-redirects the no-slash form to. The canonical must name the URL
+  // that is actually served, or Google sees the page at /about/ pointing its
+  // canonical at /about, follows that to a 308 back to /about/, and indexes both
+  // — which is exactly the duplication that showed up in Search Console. Root
+  // stays "/". Keep this in step with public/sitemap.xml.
+  const canonicalUrl = `https://truegle.info${route === '/' ? '/' : `${route}/`}`;
 
   let html = baseHtml;
   // Localized pages: set the document language so crawlers and hreflang agree.

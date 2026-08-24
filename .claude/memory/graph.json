@@ -2590,6 +2590,30 @@
         "body": "MEASURED in real Chromium against the built dist, not theorised. BEFORE: .logo-area sat at opacity 0.00 at 3.0s, 3.7s AND 4.4s after load, reaching 1.00 only around 5.1s — a desktop visitor spent roughly five seconds looking at an empty hero. AFTER removing the CSS delay: 0.00 through 2.5s, 1.00 by 3.0s. Roughly a 2x improvement with every animation left intact. CAUSE: .logo-area had transition opacity 1s ease-out 1s — a one-second WAIT before a one-second fade — stacked on top of the JS choreography in BackgroundAnimation.jsx (INITIAL_DELAY 0.25 + LASER_DURATION 1.5 + PRISM_DELAY 1.25 + AURORA_DELAY 2.5 + AURORA_DURATION 1.5, so about 4.25s end to end). Only the CSS wait was removed; the laser, prism and aurora still perform. KEY FACT: .logo-area is NOT RENDERED ON MOBILE (querySelector returns null at every sample on 390x844), so this is desktop-only — which is exactly what the owner reported as animations firing sometimes on desktop but not always. NOTE the remaining 2.5s is the JS sequence, not CSS; cutting it further is a taste decision about the choreography, not a bug. VERIFICATION METHOD THAT WORKS: serve dist over a local http server and poll getComputedStyle opacity at fixed intervals from separate evaluate calls. An in-page rAF sampler via addInitScript reported NEVER within 8s and was wrong; polling in a tight loop reported 21s and was also wrong because evaluate round-trips are slow while the page runs a constant rAF loop.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
+      },
+      "canonical-trailing-slash-truth": {
+        "Id": "canonical-trailing-slash-truth",
+        "Type": "fact",
+        "Label": "Cloudflare Pages serves prerendered pages WITH a trailing slash; canonical+sitemap must match",
+        "body": "VERIFIED LIVE from the laptop (network works there; the cloud sandbox is proxy-blocked). Cloudflare Pages serves every dist/<route>/index.html at a TRAILING-SLASH url and 308-redirects the no-slash form to it: /about 308 -> /about/, same for /privacy /terms /advertise /developers /privacy-resource-hub /blog and all /blog/* and localized /de /es /fr /nl /pt. SPA routes served via _redirects rewrite return 200 at the NO-slash form: /green /tube /feed /search. Root is /. THE BUG: prerender.mjs emitted canonical https://truegle.info<route> with NO slash, and an earlier fix THIS SESSION wrongly stripped slashes from the sitemap to match it — both the reverse of what the server serves, so Google saw /about/ (served) canonical->/about (no slash) ->308->/about/ and indexed both. FIX: prerender.mjs canonical = route==='/' ? '/' : route+'/'; sitemap.xml rewritten so prerendered pages + hreflang alternates carry the slash and SPA routes do not. Verified post-build: dist/about/index.html canonical = https://truegle.info/about/ matches served form. Note /green /tube /feed still take the SPA default canonical (root) — low priority, 3 app views.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "windows-build-fixed": {
+        "Id": "windows-build-fixed",
+        "Type": "fact",
+        "Label": "Windows frontend build was broken: build.mjs ran node.exe through cmd.exe shell",
+        "body": "apps/frontend/scripts/build.mjs used spawnSync(process.execPath, ['scripts/prerender.mjs'], {shell: win32}). process.execPath on Windows is C:\\Program Files\\nodejs\\node.exe; with shell:true cmd.exe splits it at the space and errors 'C:\\Program is not recognized'. Vite built fine, then prerender failed, so the whole build exited 1 on Windows ONLY (Linux/Vercel unaffected since shell was already false there). FIX: run() takes a per-call useShell param; npx (a .cmd shim) keeps the shell, the real node binary runs with shell:false. Build now exits 0 on the laptop. This matters because the owner now develops from a Windows laptop when the cloud sandbox is network-blocked.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "live-search-verified-2026-08-24": {
+        "Id": "live-search-verified-2026-08-24",
+        "Type": "fact",
+        "Label": "Live backend verified from laptop: blue parity + red coverage both working",
+        "body": "POSTed api.truegle.info/api/search (header X-Truegle-Client: any name) for 'uss abraham lincoln conditions'. BLUE top 6 all web/news via bing: cnn, usatoday, tennessean, bbc, time, nytimes — parity fix WORKS, no youtube/dailymotion leading. RED: 51 results from brave + mwmbl (independent indexes, no google/bing) — coverage fix WORKS, no longer the all-mwmbl clip-art junk from the screenshots. ENGINE AVAILABILITY (empirical, better than /config which is unreachable since SearXNG binds 127.0.0.1:8888 on the box): only bing (blue/green/purple), brave and mwmbl (red) ever answer. mojeek, marginalia, duckduckgo, wikipedia, google returned NOTHING for this query. To add mojeek/marginalia diversity to red-pill requires editing settings.yml on the EC2 box (EC2 Instance Connect) OR the engine shortcodes in data/modeEngines.js don't match the instance's enabled set — unconfirmed which. Purple currently resolves to bing only (10 results).",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       }
     }
   },

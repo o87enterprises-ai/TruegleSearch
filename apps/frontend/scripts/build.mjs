@@ -25,12 +25,18 @@ const env = {
 };
 
 /** npm ships `vite` and friends as .cmd shims on Windows, which need a shell to
- *  execute; on everything else a shell is unnecessary and best avoided. */
-const run = (command, args) => {
+ *  execute; on everything else a shell is unnecessary and best avoided.
+ *
+ *  A real executable must NOT go through the shell, though. `process.execPath`
+ *  is `C:\Program Files\nodejs\node.exe` on a default Windows install, and with
+ *  shell:true cmd.exe splits it at the space and tries to run `C:\Program` —
+ *  which broke the prerender step for exactly this reason. So the shell is opt-in
+ *  per call: on for the .cmd shims, off for a real binary. */
+const run = (command, args, useShell = process.platform === 'win32') => {
   const result = spawnSync(command, args, {
     stdio: 'inherit',
     env,
-    shell: process.platform === 'win32',
+    shell: useShell,
   });
   if (result.error) {
     console.error(`Failed to start ${command}: ${result.error.message}`);
@@ -39,5 +45,5 @@ const run = (command, args) => {
   if (result.status !== 0) process.exit(result.status ?? 1);
 };
 
-run('npx', ['vite', 'build']);
-run(process.execPath, ['scripts/prerender.mjs']);
+run('npx', ['vite', 'build']);           // .cmd shim on Windows → needs a shell
+run(process.execPath, ['scripts/prerender.mjs'], false); // real exe → no shell
