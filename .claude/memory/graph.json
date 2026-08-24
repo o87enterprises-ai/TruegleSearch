@@ -2614,6 +2614,22 @@
         "body": "POSTed api.truegle.info/api/search (header X-Truegle-Client: any name) for 'uss abraham lincoln conditions'. BLUE top 6 all web/news via bing: cnn, usatoday, tennessean, bbc, time, nytimes — parity fix WORKS, no youtube/dailymotion leading. RED: 51 results from brave + mwmbl (independent indexes, no google/bing) — coverage fix WORKS, no longer the all-mwmbl clip-art junk from the screenshots. ENGINE AVAILABILITY (empirical, better than /config which is unreachable since SearXNG binds 127.0.0.1:8888 on the box): only bing (blue/green/purple), brave and mwmbl (red) ever answer. mojeek, marginalia, duckduckgo, wikipedia, google returned NOTHING for this query. To add mojeek/marginalia diversity to red-pill requires editing settings.yml on the EC2 box (EC2 Instance Connect) OR the engine shortcodes in data/modeEngines.js don't match the instance's enabled set — unconfirmed which. Purple currently resolves to bing only (10 results).",
         "ts": "2026-08-24",
         "created": "2026-08-24"
+      },
+      "www-apex-redirect-live": {
+        "Id": "www-apex-redirect-live",
+        "Type": "fact",
+        "Label": "www->apex 301 redirect is LIVE on Cloudflare (created 2026-08-24 via API)",
+        "body": "Created a Cloudflare Dynamic Redirect rule on zone truegle.info (zone id af7726b91a5aa5f1fde4b03481cfcd2f, Free plan). Rule: expression (http.host eq www.truegle.info) -> redirect 301 to concat(https://truegle.info, http.request.uri.path), preserve_query_string=true. Ruleset id b0581c2550f94776a372e45f7ca77f01, phase http_request_dynamic_redirect. VERIFIED live: www.truegle.info/about/ ->301-> truegle.info/about/, query string preserved. This plus the canonical/sitemap/hreflang trailing-slash fixes fully resolves the URL-duplication that split ranking signals in Search Console. Do NOT recreate it.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "cloudflare-global-key-auth": {
+        "Id": "cloudflare-global-key-auth",
+        "Type": "fact",
+        "Label": "Cloudflare GLOBAL API KEY auths with X-Auth-Email + X-Auth-Key, NOT Bearer",
+        "body": "The account's Global API Key has a cfk_ prefix (new Cloudflare format) and is labelled Global API Key in My Profile > API Tokens. CRITICAL GOTCHA that wasted a whole round-trip: it does NOT work with Authorization: Bearer (returns 401 Invalid API Token on /user/tokens/verify). Global keys use headers X-Auth-Email: <cloudflare login email> + X-Auth-Key: <key>, tested against GET /client/v4/user. Cloudflare account login email = o87enterprises@gmail.com. Scoped API tokens (the other kind) DO use Bearer. Also: creating a Custom scoped token, the Dynamic Redirect permission is not reliably present in the Zone permissions dropdown, which is why the global key was the pragmatic path. NEVER store the key value in the repo or memory; the owner rotates it after each use. From the cloud sandbox api.cloudflare.com is proxy-blocked (403) — Cloudflare API work must be done from the owner's laptop session.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       }
     }
   },
