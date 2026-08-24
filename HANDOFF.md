@@ -3,6 +3,32 @@ _Last updated: 2026-08-24. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-08-24 (laptop session) — canonical/slash truth, live search verified, Windows build fixed
+
+Ran from the Windows laptop because the cloud sandbox is network-blocked; the
+laptop can reach the live site, which exposed things that were invisible before.
+
+- **Canonical/sitemap were pointing at the wrong URL form.** Cloudflare Pages
+  serves every prerendered page at a TRAILING-SLASH url (`/about/`) and 308s the
+  no-slash form to it; SPA routes (`/green /tube /feed`) serve at no-slash.
+  Canonicals + sitemap said no-slash, so Google indexed both forms of each page.
+  Fixed both to match what the server serves (`prerender.mjs`, `sitemap.xml`).
+  Verified post-build against the live 308s.
+- **Live search verified from the laptop.** Blue leads with news (cnn/bbc/nyt via
+  bing, no video on top) — parity fix works. Red returns brave+mwmbl, no
+  google/bing, no more mwmbl-only clip-art — coverage fix works. Only bing, brave,
+  mwmbl actually answer on the instance; mojeek/marginalia/duckduckgo return
+  nothing (would need settings.yml on the box, or the shortcodes in
+  `data/modeEngines.js` don't match — unconfirmed).
+- **Windows build fixed.** `build.mjs` ran the real node binary through cmd.exe,
+  splitting `C:\Program Files\...`. Shell is now opt-in per call.
+- **www → apex hard redirect: now OPTIONAL.** www pages already canonical to the
+  apex, so Google consolidates on its own. A 301 is belt-and-suspenders and needs
+  a fresh Cloudflare token (the one pasted in chat was rotated/dead) or a
+  dashboard action. Not blocking.
+
+---
+
 ## 📕 OPERATIONS: see `docs/RUNBOOK.md`
 
 Everything the agent cannot do from its sandbox — SearXNG recovery on the EC2
