@@ -532,7 +532,10 @@ class SearchService {
       // handled that above). Red-pill blends in a bias-tier weight so alternative/
       // independent sources rank above mainstream ones, instead of a crude tier sort.
       if (filters.sortBy !== 'date') {
-        finalResults = this.rankResults(query, finalResults, { boostAlternative: isRedPill });
+        finalResults = this.rankResults(query, finalResults, {
+          boostAlternative: isRedPill,
+          googleParity: mode === 'blue-pill' || isGreen,
+        });
       }
 
       // Green mode: strip results from known AI-generated-content domains.
@@ -721,6 +724,33 @@ class SearchService {
    * Bias-tier weight (0-1) used only in red-pill mode to favor alternative/
    * independent sources over mainstream ones without a crude tier-only sort.
    */
+  /**
+   * Google-parity source weighting — BLUE and GREEN only.
+   *
+   * On the "All" tab, video and social results are fetched and merged into the
+   * same list as web results, then ranked by relevance alone. A platform upload
+   * whose title happens to repeat the query verbatim therefore outranked the BBC
+   * and the New York Times on a news query, which is not what Google does and not
+   * what "mainstream mode" should mean. Observed live on 2026-08-24: a Dailymotion
+   * clip and a YouTube video sat above every news source on the page.
+   *
+   * Google does not hide videos — it surfaces them in their own block and lets
+   * web results lead. This mirrors that by WEIGHTING, not filtering: nothing is
+   * removed, and a video that is genuinely far more relevant still wins. It
+   * simply stops a title match on a user upload beating a wire report.
+   *
+   * Deliberately NOT applied to red-pill or purple. Those modes exist to surface
+   * exactly the non-institutional sources this de-emphasises, and the project
+   * rule is "blue page = Google parity", not "every page".
+   */
+  parityWeight(result) {
+    const isPlatform =
+      result.bias === 'platform' ||
+      result.category === 'videos' ||
+      result.category === 'social';
+    return isPlatform ? 0.6 : 1;
+  }
+
   biasTierWeight(bias) {
     const weights = {
       conspiracy: 1,
@@ -779,7 +809,7 @@ class SearchService {
    * get a strong navigational-score component so the official homepage always
    * surfaces at the top instead of social-media profiles or job boards.
    */
-  rankResults(query, results, { boostAlternative = false } = {}) {
+  rankResults(query, results, { boostAlternative = false, googleParity = false } = {}) {
     if (!results || results.length === 0) return [];
 
     const isNavigational = this.isNavigationalQuery(query);
@@ -830,6 +860,11 @@ class SearchService {
       if (boostAlternative) {
         finalScore = finalScore * 0.6 + this.biasTierWeight(result.bias) * 0.4;
       }
+
+      // Multiplicative on purpose: it demotes platform uploads without changing
+      // the order WITHIN each group, so a markedly more relevant video still
+      // outranks a marginal news item rather than being pinned below it.
+      if (googleParity) finalScore *= this.parityWeight(result);
 
       return { ...result, relevanceScore, recencyScore, diversityScore, finalScore };
     });
