@@ -390,6 +390,15 @@
         "Type": "thread",
         "Label": "IN PROGRESS: claude/truegle-sharing-player-ux-t3hi43 (15 commits, deliberately unmerged)",
         "body": "Branch claude/truegle-sharing-player-ux-t3hi43 (head c07766a) is 15 commits ahead of origin/main. NOT an oversight - owner confirmed 2026-08-24 the work is unfinished and deliberately parked. Both Vercel and Cloudflare build from main so none of it is live yet, which is intended. Contents: Cloudflare fronting SearXNG to close port 8080 (+ scripts/searxng-nginx.conf, docs/SEARXNG-CLOUDFLARE.md), RFC 9116 security.txt, email-to-services OSINT, OSINT phone bare-number fix, player queue UX + wheel-scroll, Overpass nearby provider needing no key, shared OSM category table. 22 files across apps/backend + apps/frontend. Only overlap with the Groq work is .claude/memory/graph.json. Do NOT merge it into main as a side effect of another sync - wait until the owner says it is ready.",
+        "status": "done",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "groq-legacy-vars-cleanup": {
+        "Id": "groq-legacy-vars-cleanup",
+        "Type": "thread",
+        "Label": "Remove legacy GROQ_API_KEY/_2/_3 from Vercel",
+        "body": "Still set in Vercel production as of 2026-08-24. The org-aware pool treats each ungrouped key as its own org, so these 3 make health report 7 orgs when there are really 4 - and a rate-limited org would waste one round-trip on its own legacy key. Fix: npx vercel env rm GROQ_API_KEY production (and _2, _3), then redeploy; health should then read orgs:4 keys:11. Zero quota cost: those keys sit inside orgs 1/2/3 which each still hold fresh keys.",
         "status": "open",
         "ts": "2026-08-24",
         "created": "2026-08-24"
@@ -2515,6 +2524,14 @@
         "Type": "fact",
         "Label": "gpt-oss bills reasoning tokens: always set reasoning_effort=low",
         "body": "MEASURED 2026-08-24 on openai/gpt-oss-120b: a six-word answer cost 251 completion tokens of which 235 were REASONING. With reasoning_effort='low' the same answer cost 66 total / 50 reasoning - about 4x cheaper. Groq free tier meters TPM/TPD, so unset reasoning effort silently eats the headroom the 4-org key pool was added to buy. GROQ_REASONING_EFFORT env var (default 'low') is sent ONLY to models matching /^openai\\/gpt-oss/ because others reject the parameter. Also: a reasoning model that exhausts max_tokens returns HTTP 200 with content:'' and finish_reason:'length' - a blank answer, not an error - so GroqService throws on that combination to trigger provider failover instead of shipping silence.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "groq-pool-live": {
+        "Id": "groq-pool-live",
+        "Type": "fact",
+        "Label": "Groq org-tapered key pool is LIVE and healthy (2026-08-24)",
+        "body": "Verified in production 2026-08-24 via GET https://api.truegle.info/api/ai/health -> providers.groq = {status:'healthy', keys:{orgs:7,keys:14,usableOrgs:7,coolingOrgs:0,disabledKeys:0}}. Config: GROQ_ORG_1_KEYS(3) GROQ_ORG_2_KEYS(3) GROQ_ORG_3_KEYS(2) GROQ_ORG_4_KEYS(3) = 4 real orgs / 11 keys, plus legacy GROQ_API_KEY/_2/_3 still set and counted as 3 phantom single-key orgs (they actually live INSIDE orgs 1,2,3 - suffixes 1b80/YCEZ/7sqv seen in the Groq console). PENDING CLEANUP: remove those 3 legacy vars so health reads orgs:4 keys:11; costs zero quota because each of those orgs still has fresh keys. Real quota multiplier is 4 orgs, NOT 14 keys.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
       }
