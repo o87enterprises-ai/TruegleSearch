@@ -2330,6 +2330,15 @@
         "status": "open",
         "ts": "2026-08-20",
         "created": "2026-08-20"
+      },
+      "unmerged-8-21-branch": {
+        "Id": "unmerged-8-21-branch",
+        "Type": "thread",
+        "Label": "15 commits parked on claude/truegle-sharing-player-ux-t3hi43 — unmerged, UNDEPLOYED",
+        "body": "As of 2026-08-24, branch claude/truegle-sharing-player-ux-t3hi43 (head c07766a) sits 15 commits ahead of origin/main and was never fast-forwarded to main. Both Vercel and Cloudflare build from main, so NONE of it is live: Cloudflare fronting SearXNG to close port 8080 (+ scripts/searxng-nginx.conf, docs/SEARXNG-CLOUDFLARE.md), RFC 9116 security.txt, email-to-services OSINT, OSINT phone bare-number fix, player queue UX + wheel-scroll, Overpass nearby-search provider needing no key, shared OSM category table. Touches 22 files across apps/backend and apps/frontend. Only overlap with the Groq work is .claude/memory/graph.json. Owner chose 2026-08-24 to ship the Groq branch to main alone and leave these parked — land them deliberately (they trigger a Cloudflare frontend deploy too, and the nginx/EC2 bits may need manual application).",
+        "status": "open",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       }
     }
   },
@@ -2359,5 +2368,5 @@
       }
     }
   },
-  "updated": "2026-08-23"
+  "updated": "2026-08-24"
 }

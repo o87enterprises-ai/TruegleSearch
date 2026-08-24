@@ -15,6 +15,26 @@ Third occurrence as of 2026-08-21.
 
 ---
 
+## ⚠️ PARKED, UNDEPLOYED — `claude/truegle-sharing-player-ux-t3hi43` (15 commits)
+
+Found 2026-08-24 while syncing the Groq work. That branch (head `c07766a`) is
+**15 commits ahead of `main` and was never fast-forwarded into it**. Both Vercel
+and Cloudflare build from `main`, so none of this is live:
+
+- Cloudflare fronting SearXNG so **port 8080 can close** (+ `scripts/searxng-nginx.conf`,
+  `docs/SEARXNG-CLOUDFLARE.md`) — the security-relevant one
+- RFC 9116 `security.txt`; email-to-services OSINT; OSINT phone bare-number fix
+- Player queue UX (persistent glow, pinned play, tabs, reel sizing) + wheel-scroll
+- Overpass nearby-search provider that needs no key; shared OSM category table
+
+22 files across `apps/backend` and `apps/frontend`. Only overlap with the Groq
+branch is `.claude/memory/graph.json`, so landing it later is a trivial merge.
+**Owner's call 2026-08-24: ship Groq alone, leave these parked.** Landing them
+triggers a Cloudflare frontend deploy as well, and the nginx/EC2 pieces may need
+applying by hand on the box.
+
+---
+
 ## 🗓️ SESSION LOG 2026-08-23 — Groq keys: unlimited pool, real tapering
 
 - **🔑 HOW TO HAND OVER NEW KEYS — `docs/SECRETS-MAP.md` (new, was missing).**
