@@ -880,6 +880,38 @@
         "body": "The ONLY two first-party traffic sources. Cloudflare 30d geo: US top, NL 6.5k, BR 5.2k, CA, FR 2.3k (>=14k from 3 countries; Cloudflare's default unit is REQUESTS not visitors). Adsterra 7d 2026-07-14..21: 320x50=35imp, 468x60=14imp, 300x250=7imp => ~56 imp/wk (~240/mo). Gap ~100x, explained by: (1) SPA page load = many requests; (2) deliberately-invited crawlers (llms.txt + robots.txt Allow GPTBot/PerplexityBot/ClaudeBot + IndexNow); (3) ~18% hardcore adblockers + render-gate means blocked=no impression; (4) CRITICAL — AD POLICY forbids ads on the landing page and the localized /de /es /fr /nl /pt pages ARE the SEO surface, so organic landing traffic generates ZERO Adsterra impressions BY DESIGN. SEO wins are structurally invisible in ad stats. No GA/Plausible/Umami/Matomo/PostHog anywhere (correct per no-tracking policy) => zero session measurement exists.",
         "ts": "2026-08-23",
         "created": "2026-08-23"
+      },
+      "modes-cannot-reorder": {
+        "Id": "modes-cannot-reorder",
+        "Type": "fact",
+        "Label": "ROOT CAUSE: all search modes return identical results in identical order",
+        "body": "Not an index problem — a ranking problem. (1) Every mode retrieves the SAME candidate set: modes are post-processing over one shared list, same query string, same providers. (2) SearchService.detectBias (~line 1766) is a HARDCODED 115-DOMAIN MAP (23 left, 23 alternative, 22 right, 16 center, 10 conspiracy, 9 unbiased, 7 independent, 5 mainstream) + a keyword fallback that only fires on politically-charged title/snippet text; everything else falls through to 'neutral'. (3) THEREFORE red-pill's boostAlternative is mathematically a NO-OP on ordinary queries: finalScore = finalScore*0.6 + biasTierWeight(bias)*0.4, and biasTierWeight('neutral') === 0.5 === the default fallback, so the transform is 0.6x+0.2 — strictly increasing, applied uniformly, sort order CANNOT change. VERIFIED EMPIRICALLY with 5 ordinary domains: blue and red produced identical ordering, scores differing by exactly that affine transform; when 2 sources were manually labelled, red reordered correctly (alternative to #1, mainstream to last). (4) Purple filters to a usually-empty bias set; green only strips AI-content domains; blue only pins the official result on brand queries. FIX ORDER: retrieve differently per mode (different engines/query per mode) > replace the 115-domain map with real data > make 'neutral' != default weight > pass per-mode  to SearXNG.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "searxng-truth": {
+        "Id": "searxng-truth",
+        "Type": "fact",
+        "Label": "SearXNG needs NO API keys but has NO index — it proxies Google/Bing/DDG",
+        "body": "CORRECTION to a previously muddled point. SearXNG genuinely requires no API key: config/env.js:158 'no API key required', SearchService.js:70 'no API key needed', and performSearXNGSearch (SearchService.js:1213) sends ONLY q/format/pageno/safesearch. It IS primary (SEARXNG_PRIMARY=true, paid providers only fire when it returns < SEARXNG_PRIMARY_MIN=5). BUT it is a metasearch PROXY with no index of its own — it scrapes Google/Bing/DDG/Brave/Startpage/Qwant. We removed the toll booth, not the gatekeeper. Our request sends NO  param, so the instance default engine set applies — setting  per mode is free, immediate source diversity. Real failure mode is CAPTCHAs/rate limits on datacenter IPs, not billing. Full build-your-own-SERP research: docs/OWN-SERP-PLAN.md (Common Crawl removes the crawl stage; Marginalia Search is the one-dev existence proof; recommended = Path B curated index on Tantivy).",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "geoservice-split": {
+        "Id": "geoservice-split",
+        "Type": "fact",
+        "Label": "GeoAdService split: country detection survived as services/GeoService.js",
+        "body": "When ads were removed, GeoAdService was deleted — but routes/news.js used it for REGIONAL NEWS selection, not ads (backend tests caught this). The country-detection half was extracted to services/GeoService.js (edge headers cf-ipcountry / x-vercel-ip-country first, cached ip-api fallback for public IPs only, 6h cache holding a 2-letter code and nothing else). The ad-zone half (tierOf/zonesForCountry/getAdConfig) went with the ads. routes/news.js repointed.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "local-pg-recipe-2026-08": {
+        "Id": "local-pg-recipe-2026-08",
+        "Type": "fact",
+        "Label": "Local test Postgres recipe that actually works in a fresh container",
+        "body": "su does NOT inherit PATH — use absolute binary paths. B=/usr/lib/postgresql/16/bin; rm -rf /tmp/pgdata-truegle; mkdir -p /tmp/pgdata-truegle; chown postgres /tmp/pgdata-truegle; su postgres -c \"$B/initdb -D /tmp/pgdata-truegle -U truegle --auth=trust\"; su postgres -c \"$B/pg_ctl -D /tmp/pgdata-truegle -l /tmp/pgdata-truegle/server.log -o '-k /tmp' start\". Then DATABASE_URL='postgresql://truegle@localhost/truegle_dev?sslmode=disable&host=/tmp'. Backend jest also needs JWT_SECRET + ENCRYPTION_KEY. KNOWN PRE-EXISTING: __tests__/new-endpoints.test.js has 4 failures (Apify/Hunter/Shodan/PayPal/Deepgram/Unsplash keys absent) — confirmed identical on a HEAD~2 worktree baseline, so do NOT chase them as a regression. Use --forceExit; the suite leaks a handle.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
       }
     },
     "decision": {
@@ -1968,6 +2000,14 @@
         "Type": "decision",
         "Label": "Analytics = Cloudflare Web Analytics only, cookieless + DNT/GPC-respecting",
         "body": "src/utils/analytics.js initAnalytics() injects the CF beacon ONLY if VITE_CF_BEACON_TOKEN is set AND the visitor is not sending DNT/GPC. No cookies, no fingerprinting, no query capture (queries never appear in reported URL paths). CSP in public/_headers already allowed static.cloudflareinsights.com + cloudflareinsights.com, verified. OWNER ACTION PENDING: create the site in Cloudflare dash > Web Analytics, copy the token, set VITE_CF_BEACON_TOKEN on Vercel/Pages, redeploy — inert until then. /api/analytics fake seed (totalSearches 1500 etc) REMOVED; counters now start at 0, are process-local, reset on cold start, and every response carries ephemeral:true + a note saying they are not traffic numbers.",
+        "ts": "2026-08-24",
+        "created": "2026-08-24"
+      },
+      "google-cse-optional": {
+        "Id": "google-cse-optional",
+        "Type": "decision",
+        "Label": "GOOGLE_API_KEY/GOOGLE_SEARCH_ENGINE_ID now .optional() in config/env.js",
+        "body": "They were .required(), so the backend refused to BOOT without a Google CSE credential it no longer searches with (SearXNG has been primary since; the CSE key 403s on free-tier quota anyway). Verified every use site is guarded by , and performGoogleSearch/performGoogleImageSearch early-return when unset, so an absent key just drops Google from the fan-out. Boot verified without the keys.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
       }
