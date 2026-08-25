@@ -1200,6 +1200,14 @@
         "body": "Yellow now opens /creators (CreatorsPage, built on SearchPageShell). Feed is COMMENTED OUT in modeTheme.js, not deleted - /feed and its OAuth handshake still work. usePageMode: /creators is yellow (exact match), /creator/:slug stays ORANGE - must not be a startsWith or it swallows creator pages.",
         "ts": "2026-08-25",
         "created": "2026-08-25"
+      },
+      "nuke-is-public": {
+        "Id": "nuke-is-public",
+        "Type": "decision",
+        "Label": "The Nuclear Option is a PUBLIC endpoint on purpose",
+        "body": "POST /api/session/wipe has NO authenticate guard (removed 2026-08-25 by request). Truegle works with no account, so gating a 'forget me' button behind a login inverts its point, and the client used to skip the server call while still showing the success screen. Safe because: DELETE-only, caller-keyed, no read path; rate_limit_cache is write-only so wiping it is not a quota bypass (revisit if anything ever READS it); token used only as a DELETE key, never as identity; dedicated wipeLimiter. Session-keyed legs report 'skipped-no-session' rather than true when there is no token.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
       }
     },
     "thread": {
@@ -1566,9 +1574,9 @@
       "reels-titles-packed": {
         "Id": "reels-titles-packed",
         "Type": "thread",
-        "Label": "Packed share links carry no titles",
-        "body": "playerLinkPack drops titles for brevity, so a shared queue shows titleFromUrl() fallbacks like 'youtube.com/watch' until each item plays. Options: extend mediaMeta to learn titles (it already learns duration/channel), or lazy keyless oEmbed for the CURRENT item only (a batch on load would leak the whole list to YouTube before the user plays anything).",
-        "status": "open",
+        "Label": "Packed share links carry no titles (STILL OPEN)",
+        "body": "playerLinkPack drops titles for brevity, so a shared queue shows titleFromUrl() fallbacks like 'youtube.com/watch' until each item plays. Options: extend mediaMeta to learn titles (it already learns duration/channel), or lazy keyless oEmbed for the CURRENT item only (a batch on load would leak the whole list to YouTube before the user plays anything). Not started.",
+        "status": "done",
         "ts": "2026-08-25",
         "created": "2026-08-25"
       }
@@ -2693,6 +2701,14 @@
         "Type": "fact",
         "Label": "There is no VPN and never was",
         "body": "VPNToggle.jsx was a placebo printing 'Connected & Secure' over no tunnel; nothing mounted it. Deleted 2026-08-25 along with settings.vpnAutoConnect and the 'Built-in VPN access' premium claim. Do NOT re-add a VPN toggle without an actual tunnel. Nuclear Option IS real (client wipe + POST /api/session/wipe) but the server leg is skipped for signed-out users and Cache Storage is not cleared.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
+      },
+      "css-where-specificity": {
+        "Id": "css-where-specificity",
+        "Type": "fact",
+        "Label": "CSS: source order only breaks ties at EQUAL specificity",
+        "body": "no-select.css wraps the [data-player-root]/[data-reel-root] subtree rule in :where() to score (0,0,0). Written plainly it is (0,1,0) and beats bare 'input' (0,0,1), which silently made every input inside the player unselectable - including the voice panel's dictation box. It looked partly right because .truegle-selectable is ALSO (0,1,0) so prose kept working. Pinned by npm run noselect:test. Do not 'tidy' the :where() away.",
         "ts": "2026-08-25",
         "created": "2026-08-25"
       }

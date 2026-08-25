@@ -32,6 +32,16 @@ _Last updated: 2026-08-25. Supersedes all prior handoff docs._
   premium claim. Nuclear Option is real; see the `no-vpn` memory fact for its two
   gaps.
 
+- **The Nuclear Option no longer needs an account.** The auth guard is off
+  `POST /api/session/wipe`; the client used to skip the call entirely when
+  signed out and still show the success screen. Also: Cache Storage was never
+  cleared despite the copy promising "cached results", and the result screen
+  claimed one outcome for two halves that can differ. All three fixed.
+- **`no-select.css` uses `:where()` and must keep doing so.** Written plainly
+  the subtree rule is (0,1,0) and beats bare `input` (0,0,1), which silently
+  made every input inside the player unselectable. `npm run noselect:test`
+  pins it (and was verified to go red when the bug is reintroduced).
+
 🔴 **Full screen on mobile is NOT the Fullscreen API** anywhere in the player or
 Reels. Entering real fullscreen hides the system bars and kills app-level chrome
 — "keep the notification bar visible" and "keep the clock persistent" are both
