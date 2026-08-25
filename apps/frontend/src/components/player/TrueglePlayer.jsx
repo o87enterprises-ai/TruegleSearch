@@ -90,31 +90,35 @@ export default function TrueglePlayer({
   // used while driving.
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [shareState, setShareState] = useState('idle');
-  const [nativeFullscreen, setNativeFullscreen] = useState(false);
-  // ── IMMERSIVE: FULL SCREEN THAT KEEPS THE PHONE'S STATUS BAR ──────────────
+  // ── FULL SCREEN IS THE FULLSCREEN API AGAIN ───────────────────────────────
   //
-  // "Make the native phone menu drop down area visible by making the phone
-  // header notifications bar visibly persistent in full screen."
+  // REVERTED 2026-08-25, and the reason is worth keeping because the idea
+  // sounded good. The ask was to keep the phone's notification shade reachable
+  // in full screen, which the Fullscreen API genuinely cannot do — hiding the
+  // system bars is what entering fullscreen MEANS on Android. So full screen
+  // was reimplemented on touch devices as a fixed box filling 100dvh with the
+  // safe-area inset left clear.
   //
-  // The Fullscreen API cannot do this. Hiding the system bars is what entering
-  // fullscreen MEANS on Android, there is no flag to keep them, and there is
-  // not going to be one — a page that could occupy the status bar could forge
-  // it. So on a phone, full screen is not the Fullscreen API at all: it is a
-  // fixed box filling the visual viewport, with the safe-area inset left
-  // clear. The picture is the same size and the notification shade is still
-  // one swipe away, which is the thing actually being asked for.
+  // It worked, and it cost more than it was worth. A fixed box is not a
+  // fullscreen element: it does not get the browser's own layout guarantees,
+  // it fights the address bar as that shows and hides, and the flex chain
+  // through to the picture resolved differently — which is how the video ended
+  // up small and letterboxed inside a large black field. The owner's verdict
+  // after living with it: "I didn't realize that making the native clock
+  // visible would break functionality so much."
   //
-  // Desktop keeps the real API: there is no status bar to preserve, and a
-  // browser's own chrome is genuinely worth escaping there.
-  const [immersive, setImmersive] = useState(false);
-  const fullscreen = nativeFullscreen || immersive;
+  // So the status bar loses. It is one swipe and an exit away in real full
+  // screen, and a player whose picture fills the screen is worth more than a
+  // clock that is visible while it doesn't. The drop-down search bar and the
+  // playlist — the parts that were WANTED — are untouched by this and stay.
+  const [fullscreen, setFullscreen] = useState(false);
 
   // Full screen is OURS, not the embed's. Handing it to YouTube's own button
   // gives their iframe the whole screen and takes our transport and list with
   // it; requesting it on this container keeps the controller bar and the
   // retracting list exactly where they were.
   useEffect(() => {
-    const sync = () => setNativeFullscreen(document.fullscreenElement === rootRef.current);
+    const sync = () => setFullscreen(document.fullscreenElement === rootRef.current);
     document.addEventListener('fullscreenchange', sync);
     return () => document.removeEventListener('fullscreenchange', sync);
   }, []);
@@ -122,39 +126,9 @@ export default function TrueglePlayer({
   const toggleFullscreen = useCallback(() => {
     const el = rootRef.current;
     if (!el) return;
-    if (touchDevice) { setImmersive((v) => !v); return; }
     if (document.fullscreenElement) document.exitFullscreen?.();
     else el.requestFullscreen?.().catch(() => { /* denied — stay inline */ });
-  }, [touchDevice]);
-
-  // Back gesture / back button leaves immersive rather than leaving the page.
-  // Without this, the one way out of a viewport-filling box is a button the
-  // user has to find, and the platform's own "go back" would navigate away
-  // from what they were watching.
-  useEffect(() => {
-    if (!immersive) return undefined;
-    const onPop = (e) => { e.preventDefault?.(); setImmersive(false); };
-    window.history.pushState({ truegleImmersive: true }, '');
-    window.addEventListener('popstate', onPop);
-    return () => {
-      window.removeEventListener('popstate', onPop);
-      // Only unwind the entry we pushed, and only if it is still the top one.
-      if (window.history.state?.truegleImmersive) window.history.back();
-    };
-  }, [immersive]);
-
-  // The status bar is the phone's, so it cannot be dimmed directly — but
-  // Android tints it from theme-color, so it can at least be made to match the
-  // black the player fills the rest of the screen with instead of glowing in
-  // the brand colour over a dark video.
-  useEffect(() => {
-    if (!immersive) return undefined;
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (!meta) return undefined;
-    const previous = meta.getAttribute('content');
-    meta.setAttribute('content', '#000000');
-    return () => meta.setAttribute('content', previous ?? '');
-  }, [immersive]);
+  }, []);
 
   // The transport's right-hand control, which changes with where the player
   // is — one button, one meaning, at all times:
@@ -611,21 +585,7 @@ export default function TrueglePlayer({
       data-player-root=""
       // `relative` so the lock sheet can cover exactly this component and
       // nothing else on the page.
-      className={`relative ${
-        immersive
-          ? 'fixed inset-0 z-[100] flex flex-col bg-black'
-          : fullscreen ? 'flex flex-col w-full h-full bg-black' : className
-      }`}
-      style={immersive ? {
-        // dvh, not vh: on a phone vh is the tallest the viewport ever gets, so
-        // a vh-sized box sits partly under the browser's own bar until it
-        // retracts. dvh follows the viewport as it actually is.
-        height: '100dvh',
-        // The inset the status bar occupies is left CLEAR rather than drawn
-        // into — that is the whole point of immersive over the Fullscreen API.
-        paddingTop: 'env(safe-area-inset-top, 0px)',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-      } : undefined}
+      className={`relative ${fullscreen ? 'flex flex-col w-full h-full bg-black' : className}`}
     >
       {/* `touchDevice &&`: a lock set on a phone and then resumed on a desktop
           (same account, restored state) would otherwise paint a sheet over a
