@@ -65,6 +65,7 @@ import { useSettings } from '../context/SettingsContext';
 import { isQuestionQuery, getQuickAnswer } from '../utils/queryIntent';
 import { classifyQuery, describeLink } from '../utils/urlQuery';
 import { useSearchStashContext } from '../context/SearchStashContext';
+import ReelsSurface from '../components/reels/ReelsSurface';
 import SingleLinkCard from '../components/search/SingleLinkCard';
 
 // Frontend mode -> the string /api/search and /api/ai/summary expect. Was
@@ -253,6 +254,19 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // Search state
   const [searchValue, setSearchValue] = useState(query);
   const [activeCategory, setActiveCategory] = useState('all');
+  // ── REELS IS A SURFACE, NOT A RESULT SHAPE ────────────────────────────────
+  // "When reels selection is made it opens to full screen 4 quarters." Picking
+  // the pill opens the grid rather than re-rendering the ordinary result list
+  // with taller thumbnails — a reel is watched, not read, and a list of links
+  // to vertical video was the wrong container for it.
+  //
+  // Closing it drops the category back to All, so the page underneath is not
+  // left showing a Reels pill over a list the pill no longer describes.
+  const [reelsOpen, setReelsOpen] = useState(false);
+  const selectCategory = useCallback((id) => {
+    setActiveCategory(id);
+    if (id === 'reels') setReelsOpen(true);
+  }, []);
   // Viewport-driven autoplay for the results feed: the visible playable result
   // plays, the rest stay still, and (optionally) the page walks itself down.
   const feed = useFeedAutoplay();
@@ -415,6 +429,31 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     }
   }, [lockedTube, playerCurrent, searchValue, setExpanded]);
 
+  // OSINT (ocean) exception: multi-select investigation classes that replace
+  // the content categories on the ocean page and tag the query with entity types.
+  const [osintClasses, setOsintClasses] = useState([]);
+  const toggleOsintClass = (id) =>
+    setOsintClasses((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const [searchResults, setSearchResults] = useState([]);
+  const [instantAnswer, setInstantAnswer] = useState(null);
+  const [quickAnswer, setQuickAnswer] = useState(null);
+  const [quickAnswerLoading, setQuickAnswerLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [lastSearchedQuery, setLastSearchedQuery] = useState(null);
+  // Distinguish "search failed" (provider/network error) from "0 genuine results"
+  // so users always get a clear message instead of a silent empty page.
+  const [searchError, setSearchError] = useState(false);
+
+  // Down-for-repairs: show a maintenance modal after consecutive search failures
+  const [showRepairsModal, setShowRepairsModal] = useState(false);
+  const consecutiveFailuresRef = useRef(0);
+  const REPAIRS_FAILURE_THRESHOLD = 2;
+
+  // THE PASTED-LINK CASE. When the query is a URL rather than prose, this
+  // holds what it turned out to be and the results list is suppressed — see
+  // handleSearch. A pasted link wants one destination, not ten pages about it.
+  const [linkQuery, setLinkQuery] = useState(null);
+
   // ── TUBE: PICKING SOMETHING PUTS THE LIST AWAY ───────────────────────────
   //
   // "selection made / play is pushed = input cleared / results dropped, random
@@ -455,30 +494,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     setSearchValue(prev.query);
     setSearchResults(prev.results);
   }), [searchStash]);
-  // OSINT (ocean) exception: multi-select investigation classes that replace
-  // the content categories on the ocean page and tag the query with entity types.
-  const [osintClasses, setOsintClasses] = useState([]);
-  const toggleOsintClass = (id) =>
-    setOsintClasses((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  const [searchResults, setSearchResults] = useState([]);
-  const [instantAnswer, setInstantAnswer] = useState(null);
-  const [quickAnswer, setQuickAnswer] = useState(null);
-  const [quickAnswerLoading, setQuickAnswerLoading] = useState(false);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [lastSearchedQuery, setLastSearchedQuery] = useState(null);
-  // Distinguish "search failed" (provider/network error) from "0 genuine results"
-  // so users always get a clear message instead of a silent empty page.
-  const [searchError, setSearchError] = useState(false);
 
-  // Down-for-repairs: show a maintenance modal after consecutive search failures
-  const [showRepairsModal, setShowRepairsModal] = useState(false);
-  const consecutiveFailuresRef = useRef(0);
-  const REPAIRS_FAILURE_THRESHOLD = 2;
-
-  // THE PASTED-LINK CASE. When the query is a URL rather than prose, this
-  // holds what it turned out to be and the results list is suppressed — see
-  // handleSearch. A pasted link wants one destination, not ten pages about it.
-  const [linkQuery, setLinkQuery] = useState(null);
 
   // AI state
   const [aiSummary, setAiSummary] = useState(null);
@@ -1762,7 +1778,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                 </div>
               ) : null}
               activeCategory={activeCategory}
-              onSelectCategory={setActiveCategory}
+              onSelectCategory={selectCategory}
               showMap={showMap || (autoOpenMap && !mapManuallyClosed)}
               onMapToggle={() => {
                 if (showMap || (autoOpenMap && !mapManuallyClosed)) {
@@ -2562,6 +2578,18 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
 
       {/* The follow-up chat now lives inline in the expanded summary card
           (InlineSummaryChat), not in a separate modal overlay. */}
+
+      {/* REELS. Mounted last so it layers over the whole page, and only while
+          open so its search and its embeds cost nothing the rest of the time.
+          It is a fixed box rather than a fullscreen element — see the note in
+          ReelsSurface for why the clock cannot survive the Fullscreen API. */}
+      {reelsOpen && (
+        <ReelsSurface
+          query={lastSearchedQuery || searchValue}
+          accent={MODE_COLORS[mode] || MODE_COLORS.blue}
+          onClose={() => { setReelsOpen(false); setActiveCategory('all'); }}
+        />
+      )}
     </div>
   );
 }
