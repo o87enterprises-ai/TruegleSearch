@@ -63,8 +63,16 @@ export default function PillModeRow({ activeMode, onSelect }) {
         whileHover={{ scale: 1.04 }}
         whileTap={{ scale: 0.96 }}
         title={activeMode === 'black' ? 'Click to switch mode' : 'Click to switch mode — hold to jump back to Chat'}
-        className={`relative overflow-hidden flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 ${solidTextClass(activeMode)}`}
+        className={`relative overflow-hidden flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 select-none ${solidTextClass(activeMode)}`}
         style={{
+          // touch-action:none is what makes the 2.2s hold actually reachable on
+          // a phone. Without it the platform claims the gesture first — Android
+          // begins a text selection at ~500ms and iOS pops the callout, both far
+          // under HOLD_MS — so the hold was being cancelled by the browser
+          // before it could fire, and the user got a highlighted label instead
+          // of a jump to Chat. Panning from a pill this small is not a gesture
+          // anyone wants, so there is nothing to trade away here.
+          touchAction: 'none',
           background: gradient || color,
           borderColor: gradient ? 'rgba(255,255,255,0.45)' : color,
           boxShadow: gradient ? 'inset 0 1px 0 rgba(255,255,255,0.75), inset 0 -1px 0 rgba(0,0,0,0.25)' : undefined,

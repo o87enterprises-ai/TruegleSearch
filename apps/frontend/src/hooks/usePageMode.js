@@ -25,7 +25,13 @@ export function usePageMode() {
   // before the redirect lands, so it should be Tube's colour, not OSINT's.
   if (pathname === '/shorts') return 'tube';
   if (pathname === '/tube') return 'tube';
-  if (pathname === '/extract' || pathname.startsWith('/feed')) return 'yellow';
+  // /creators (the roster) is the yellow pill's page. An individual creator
+  // page stays ORANGE — matched below, and this must not be a startsWith or it
+  // would swallow /creator/:slug and repaint every creator page yellow.
+  // /feed keeps its colour too: the page is parked, not deleted, so a direct
+  // link still themes correctly.
+  if (pathname === '/extract' || pathname === '/creators'
+    || pathname.startsWith('/feed')) return 'yellow';
   if (pathname.startsWith('/creator/')) return 'orange';
   if (pathname === '/search' || pathname.startsWith('/search/')) {
     return new URLSearchParams(search).get('mode') || 'blue';

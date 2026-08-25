@@ -51,7 +51,12 @@ export const MODE_LABELS = {
   ocean: 'Privacy / OSINT',
   green: 'Summarize',
   orange: 'Rewards',
-  yellow: 'Feed',
+  // Feed is COMMENTED OUT, not deleted — the social-feed page and its OAuth
+  // handshake are still there on /feed, they are just not what this pill
+  // opens any more. Restore this line and the /creators navigations below
+  // to put it back.
+  // yellow: 'Feed',
+  yellow: 'Creators',
   black: 'Chat',
   tube: 'Tube',
   unhinged: 'Unhinged',

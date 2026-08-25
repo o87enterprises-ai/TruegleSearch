@@ -8,6 +8,9 @@
 /* Import search components styles */
 @import './styles/search-components.css';
 
+/* Text-selection policy: chrome opts out, prose opts back in. */
+@import './styles/no-select.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

@@ -39,6 +39,7 @@ import ExtractPage from './pages/ExtractPage';
 import FeedPage from './pages/FeedPage';
 import FeedCallback from './pages/FeedCallback';
 import CreatorPage from './pages/CreatorPage';
+import CreatorsPage from './pages/CreatorsPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import About from './pages/About';
@@ -354,6 +355,9 @@ const AppContent = () => {
         {/* Blog / editorial content (crawlable publisher content for SEO + ads) */}
         <Route path="/blog" element={<RouteBoundary><Blog /></RouteBoundary>} />
         <Route path="/blog/:slug" element={<RouteBoundary><BlogPost /></RouteBoundary>} />
+        {/* The roster, and where the Creators pill lands. /creator/:slug
+            below is one creator; this is the set of them. */}
+        <Route path="/creators" element={<RouteBoundary><CreatorsPage /></RouteBoundary>} />
         <Route path="/creator/:slug" element={<RouteBoundary><CreatorPage /></RouteBoundary>} />
         {/* Onboarding Route */}
         <Route

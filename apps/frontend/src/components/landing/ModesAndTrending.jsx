@@ -81,18 +81,21 @@ const MODES = [
     exampleQuery: 'live jazz sets full length',
     path: '/tube?q=live+jazz+sets+full+length',
   },
+  // The Feed card is PARKED, not deleted — /feed and its OAuth handshake still
+  // work if reached directly. The yellow slot shows Creators for now; restore
+  // the old entry from git history to put Feed back on the landing page.
   {
-    id: 'feed',
-    label: 'The Feed',
-    tagline: 'Social · One place · No account',
-    description: 'The accounts you already read, in one endless feed on the search layout. Truegle reads only — it never posts, never votes, and never asks for a password; you sign in on the provider\'s own site. Typing searches just the accounts you connected.',
+    id: 'creators',
+    label: 'Creators',
+    tagline: 'Channels · Played here · They keep the view',
+    description: 'The creators Truegle hosts, with their uploads played on the site through the provider\'s own embed — so the view and the revenue still count for them. No account, no cookies, no tracking, and no algorithm deciding who you get to see.',
     color: 'from-yellow-500 to-amber-400',
     glow: 'shadow-yellow-500/20',
     border: 'border-yellow-500/30 hover:border-yellow-400/60',
     dot: 'bg-yellow-400',
     textAccent: 'text-yellow-300',
-    exampleQuery: 'everything you follow, one scroll',
-    path: '/feed',
+    exampleQuery: 'the channels we host',
+    path: '/creators',
   },
   {
     id: 'ocean',

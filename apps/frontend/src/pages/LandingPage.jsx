@@ -52,9 +52,10 @@ export default function LandingPage() {
     purple: { label: 'Wonderland',        sub: 'Isolate one perspective at a time',      color: 'from-purple-500 to-violet-700',   dot: 'bg-purple-400' },
     ocean:  { label: 'Privacy / OSINT',   sub: 'Digital investigation lens',             color: 'from-cyan-500 to-teal-700',       dot: 'bg-cyan-400' },
     orange: { label: 'Rewards',           sub: 'Earn a share of ad revenue',             color: 'from-orange-500 to-amber-700',    dot: 'bg-orange-400' },
-    // Yellow stopped being Transcripts when Extract was parked — the pill has
-    // gone to /feed for a while and the toast never caught up.
-    yellow: { label: 'Feed',             sub: 'Your social accounts, one scroll',       color: 'from-yellow-400 to-amber-600',    dot: 'bg-yellow-300' },
+    // Yellow stopped being Transcripts when Extract was parked, then spent a
+    // while on /feed. It is the CREATORS roster now (/creators); Feed is
+    // commented out in modeTheme.js rather than deleted.
+    yellow: { label: 'Creators',         sub: 'The channels we host, played here',      color: 'from-yellow-400 to-amber-600',    dot: 'bg-yellow-300' },
     tube:   { label: 'True Tube',        sub: 'Watch and queue without leaving search', color: 'from-slate-300 to-slate-500',     dot: 'bg-slate-300' },
   };
 
@@ -337,7 +338,7 @@ export default function LandingPage() {
                   } else if (pillMode === 'orange') {
                     navigate('/rewards');
                   } else if (pillMode === 'yellow') {
-                    navigate('/feed');
+                    navigate('/creators');
                   } else if (pillMode === 'tube') {
                     // True Tube owns /tube — that's the link people share.
                     navigate(q ? `/tube?q=${encodeURIComponent(q)}` : '/tube');

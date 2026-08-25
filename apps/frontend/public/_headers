@@ -52,6 +52,8 @@
   Content-Type: text/html; charset=utf-8
 /blog/*
   Content-Type: text/html; charset=utf-8
+/creators
+  Content-Type: text/html; charset=utf-8
 /creator/*
   Content-Type: text/html; charset=utf-8
 /green

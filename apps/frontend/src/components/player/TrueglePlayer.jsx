@@ -529,6 +529,11 @@ export default function TrueglePlayer({
   return (
     <div
       ref={rootRef}
+      // The player is an appliance, not a document: this marks the whole
+      // subtree non-selectable (styles/no-select.css) so rapid taps in full
+      // screen stop smearing a highlight across the overlay text. Inputs
+      // inside it are exempted there.
+      data-player-root=""
       // `relative` so the lock sheet can cover exactly this component and
       // nothing else on the page.
       className={`relative ${fullscreen ? 'flex flex-col w-full h-full bg-black' : className}`}

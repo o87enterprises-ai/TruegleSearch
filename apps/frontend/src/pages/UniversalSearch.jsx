@@ -690,7 +690,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     if (!q) return;
     if (pillMode === 'black') { navigate(`/chat?q=${encodeURIComponent(q)}`); return; }
     if (pillMode === 'orange') { navigate('/rewards'); return; }
-    if (pillMode === 'yellow') { navigate('/feed'); return; }
+    if (pillMode === 'yellow') { navigate('/creators'); return; }
     // Tube stays on this page — it is a mode of the search page, not a
     // separate route, which is what keeps its layout identical by construction.
     if (pillMode !== mode) {
@@ -1379,7 +1379,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                 <span className="truncate max-w-[320px]">{displayUrl}</span>
               </a>
 
-              <p className="text-sm text-white/70 mt-1 line-clamp-2">{result.snippet}</p>
+              <p className="truegle-selectable text-sm text-white/70 mt-1 line-clamp-2">{result.snippet}</p>
 
               <div className="flex items-center gap-3 mt-2 text-xs text-white/50 flex-wrap">
                 <span className="truncate max-w-[200px]">{result.sourceName || result.domain}</span>

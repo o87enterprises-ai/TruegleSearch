@@ -1,0 +1,82 @@
+/* ── Text selection: off on chrome, on for prose ────────────────────────────
+ *
+ * THE BUGS THIS FIXES, all three the same root cause:
+ *   • Rapid taps in the full-screen player select the words under the finger,
+ *     because a double/triple click IS "select word / select paragraph" and the
+ *     player's overlay is made of text.
+ *   • Long-pressing a pill-mode button highlights its label and pops the
+ *     platform's text-selection callout INSTEAD of firing the hold gesture —
+ *     Android starts a selection at ~500ms, which is under our hold threshold,
+ *     so the gesture never got the chance to win.
+ *   • Any button, icon or card can be dragged into a selection mid-interaction.
+ *
+ * The browser default is "everything is selectable", which is right for a
+ * document and wrong for an application surface. So: chrome opts OUT, prose
+ * opts back IN. Copying a search snippet still works; smearing a highlight
+ * across the transport bar does not.
+ *
+ * -webkit-touch-callout is the other half and is NOT optional on mobile: on
+ * iOS Safari and Android Chrome the long-press callout fires independently of
+ * user-select, and it is what actually eats the hold. */
+
+button,
+[role='button'],
+[role='tab'],
+[role='switch'],
+[role='menuitem'],
+label,
+summary,
+nav,
+select,
+option,
+svg,
+img,
+video,
+canvas,
+iframe,
+.truegle-noselect {
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Kill the grey/blue flash Android paints over a tapped control. It reads as a
+   rendering glitch on a dark UI, and it outlives the tap on a slow frame. */
+button,
+[role='button'],
+a,
+.truegle-noselect {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The player is an appliance, not a document. Everything inside it — the
+   transport, the lock sheet, the overlay titles, the list rows — is chrome, so
+   the whole subtree opts out in one place rather than per-element. Inputs
+   inside it are exempted below. */
+[data-player-root],
+[data-player-root] *,
+[data-reel-root],
+[data-reel-root] * {
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* ── The opt-back-in ────────────────────────────────────────────────────────
+ * Anything a person plausibly wants on their clipboard. Typing surfaces first
+ * (a non-selectable input cannot be corrected, only retyped), then prose.
+ * These come last so they win the cascade over the blanket rules above,
+ * including inside the player. */
+input,
+textarea,
+[contenteditable='true'],
+[contenteditable='true'] *,
+.truegle-selectable,
+.truegle-selectable * {
+  -webkit-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
