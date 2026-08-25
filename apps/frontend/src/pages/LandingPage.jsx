@@ -396,8 +396,12 @@ export default function LandingPage() {
                 feature card wedged between the bar and its own controls broke
                 that pairing and pushed the modes off a phone screen. Hidden in
                 Tube mode, where the bar already IS the player. */}
+            {/* mt-6: the card sat hard against the search bar and was catching
+                taps meant for the input. */}
             {pillMode !== 'tube' && (
-              <PlayerFeatureCard onOpen={() => { setPillMode('tube'); navigate('/tube'); }} />
+              <div className="mt-6">
+                <PlayerFeatureCard onOpen={() => { setPillMode('tube'); navigate('/tube'); }} />
+              </div>
             )}
 
           </div>

@@ -216,7 +216,7 @@ export default function TrafficCameras({ userLocation, isOpen, onClose }) {
                   </div>
                   <div className="flex items-center gap-1 text-xs text-white/60 ml-2">
                     <MapPin size={12} />
-                    <span>{camera.distance} mi</span>
+                    <span>{camera.formattedDistance || `${Math.round(camera.distance)} mi`}</span>
                   </div>
                 </div>
 
@@ -285,7 +285,7 @@ export default function TrafficCameras({ userLocation, isOpen, onClose }) {
                   </div>
                   <div>
                     <span className="text-white/60">Distance:</span>
-                    <span className="text-white ml-2">{selectedCamera.distance} mi</span>
+                    <span className="text-white ml-2">{selectedCamera.formattedDistance || `${Math.round(selectedCamera.distance)} mi`}</span>
                   </div>
                   <div>
                     <span className="text-white/60">Location:</span>
