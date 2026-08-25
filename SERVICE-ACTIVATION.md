@@ -80,11 +80,29 @@ with a subject like **"Report domain: truegle.info Submitter: google.com Report-
 and a small `.gz` attachment named `google.com!truegle.info!<start>!<end>.xml.gz` —
 that is normal, expected, and a sign the DNS is set up **correctly**.
 
-They are **DMARC aggregate reports**. A `_dmarc.truegle.info` TXT record is published
-containing `rua=mailto:…`, and that record is a standing request to every mailbox
+They are **DMARC aggregate reports**. A `_dmarc.truegle.info` TXT record exists
+containing a `rua=mailto:…` tag, and that tag is a standing request to every mailbox
 provider on the internet: *"send me a daily report of mail claiming to be from my
 domain."* Google is obeying it. Microsoft and Yahoo will do the same. The message body
 is empty because the entire report is the attachment.
+
+⚠️ **WHO PUBLISHED THAT RECORD IS NOT KNOWN.** The owner does not recall setting up
+email for `truegle.info` at all. What the reports *prove* is only that the record
+exists and its `rua` points at an inbox the owner reads — not who created it or when.
+
+Evidence that it was **not** an assistant session in this repo: `cloudflare-token-plan`
+(memory, 2026-07-21) records that no Cloudflare token was ever persisted anywhere, and
+that the Cloudflare MCP exposes Workers/KV/R2/D1/Hyperdrive + docs **only — no DNS or
+Zone tools**. DNS has never been reachable from here. The still-open `resend-domain-verify`
+thread corroborates it: adding Resend's DNS records is written up as a task for the
+OWNER to do by hand, which is not how it would read if a session could edit the zone.
+There are also no zone files in the repo and no commit that touches DNS records.
+
+That clears this repo. It cannot clear work done in another session or another project
+that was given a Cloudflare token directly — that is outside what is visible from here.
+The benign explanations worth checking first are a registrar or Cloudflare onboarding
+default, or a DMARC record added by hand while following an email-setup checklist
+(Resend recommends publishing one).
 
 **Nothing is being attacked, and nothing needs doing.** DMARC protects the domain from
 the DNS record alone — reading the reports is entirely optional and changes nothing

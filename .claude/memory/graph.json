@@ -2733,7 +2733,7 @@
         "Id": "dmarc-reports-are-normal",
         "Type": "fact",
         "Label": "Daily 'Report domain: truegle.info' emails are DMARC reports, NOT an incident",
-        "body": "noreply-dmarc-support@google.com sends a small .gz XML daily because _dmarc.truegle.info publishes rua=mailto:truegleai@proton.me. Empty body + attachment named google.com!truegle.info!<start>!<end>.xml.gz is the standard DMARC format. It means DNS is set up CORRECTLY. DMARC enforces from the DNS record alone - reading reports is optional. Options: filter/delete, drop rua= to stop them, or point rua= at Postmark's free digest (third party then sees our mail telemetry). Spoofing can ONLY be detected inside the report XML (per-record source_ip + dkim/spf pass-fail). Documented in SERVICE-ACTIVATION.md Step 4. User has said they will not open the attachments.",
+        "body": "noreply-dmarc-support@google.com sends a small .gz XML because _dmarc.truegle.info has a rua= tag pointing at an inbox the owner reads. Empty body + attachment named google.com!truegle.info!<start>!<end>.xml.gz is the standard DMARC format. WHO PUBLISHED THE RECORD IS UNKNOWN - owner does not recall setting up truegle email. NOT an assistant session in this repo: cloudflare-token-plan records no token was ever persisted and the Cloudflare MCP has NO DNS/Zone tools; resend-domain-verify writes DNS edits up as an owner task; no zone files, no DNS commits. Cannot clear other sessions/projects given a token directly. Reading reports is optional - DMARC enforces from DNS alone. Documented in SERVICE-ACTIVATION.md Step 4. Owner will not open the attachments.",
         "ts": "2026-08-25",
         "created": "2026-08-25"
       }
