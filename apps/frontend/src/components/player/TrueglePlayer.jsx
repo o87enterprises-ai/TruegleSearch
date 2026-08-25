@@ -9,6 +9,7 @@ import PlayerTransport, { PLAY_MODES, PLAY_MODE_LABEL } from './PlayerTransport'
 import PlayerOverlay from './PlayerOverlay';
 import PlayerListSlot from './PlayerListSlot';
 import PlayerLockOverlay from './PlayerLockOverlay';
+import FullscreenSearchBar from './FullscreenSearchBar';
 import PlayerProgress from './PlayerProgress';
 import { useEmbedPlayback } from '../../hooks/useEmbedPlayback';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
@@ -76,15 +77,44 @@ export default function TrueglePlayer({
   // viewport. It used to live inside PlayerListSlot; with two consumers that
   // would have been two identical round trips per keystroke.
   const search = usePlayerSearch(query, scope, provider);
+  // ── THE LOCKED VOICE PANEL ────────────────────────────────────────────────
+  // Its own query and therefore its own search: the host's `query` is the page's
+  // search bar, and speaking into a locked player must not rewrite what is in a
+  // box the user cannot see. Empty until something is actually said, so this
+  // costs one no-op hook and no request.
+  const [voiceQuery, setVoiceQuery] = useState('');
+  const voiceSearch = usePlayerSearch(voiceQuery, scope, provider);
+  // Drives the viewport shrink: "list drops down, viewport shrinks to
+  // accommodate". The picture gets smaller rather than being covered, because
+  // a list over the video means picking a track blind — and this exists to be
+  // used while driving.
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const [shareState, setShareState] = useState('idle');
-  const [fullscreen, setFullscreen] = useState(false);
+  const [nativeFullscreen, setNativeFullscreen] = useState(false);
+  // ── IMMERSIVE: FULL SCREEN THAT KEEPS THE PHONE'S STATUS BAR ──────────────
+  //
+  // "Make the native phone menu drop down area visible by making the phone
+  // header notifications bar visibly persistent in full screen."
+  //
+  // The Fullscreen API cannot do this. Hiding the system bars is what entering
+  // fullscreen MEANS on Android, there is no flag to keep them, and there is
+  // not going to be one — a page that could occupy the status bar could forge
+  // it. So on a phone, full screen is not the Fullscreen API at all: it is a
+  // fixed box filling the visual viewport, with the safe-area inset left
+  // clear. The picture is the same size and the notification shade is still
+  // one swipe away, which is the thing actually being asked for.
+  //
+  // Desktop keeps the real API: there is no status bar to preserve, and a
+  // browser's own chrome is genuinely worth escaping there.
+  const [immersive, setImmersive] = useState(false);
+  const fullscreen = nativeFullscreen || immersive;
 
   // Full screen is OURS, not the embed's. Handing it to YouTube's own button
   // gives their iframe the whole screen and takes our transport and list with
   // it; requesting it on this container keeps the controller bar and the
   // retracting list exactly where they were.
   useEffect(() => {
-    const sync = () => setFullscreen(document.fullscreenElement === rootRef.current);
+    const sync = () => setNativeFullscreen(document.fullscreenElement === rootRef.current);
     document.addEventListener('fullscreenchange', sync);
     return () => document.removeEventListener('fullscreenchange', sync);
   }, []);
@@ -92,9 +122,39 @@ export default function TrueglePlayer({
   const toggleFullscreen = useCallback(() => {
     const el = rootRef.current;
     if (!el) return;
+    if (touchDevice) { setImmersive((v) => !v); return; }
     if (document.fullscreenElement) document.exitFullscreen?.();
     else el.requestFullscreen?.().catch(() => { /* denied — stay inline */ });
-  }, []);
+  }, [touchDevice]);
+
+  // Back gesture / back button leaves immersive rather than leaving the page.
+  // Without this, the one way out of a viewport-filling box is a button the
+  // user has to find, and the platform's own "go back" would navigate away
+  // from what they were watching.
+  useEffect(() => {
+    if (!immersive) return undefined;
+    const onPop = (e) => { e.preventDefault?.(); setImmersive(false); };
+    window.history.pushState({ truegleImmersive: true }, '');
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      // Only unwind the entry we pushed, and only if it is still the top one.
+      if (window.history.state?.truegleImmersive) window.history.back();
+    };
+  }, [immersive]);
+
+  // The status bar is the phone's, so it cannot be dimmed directly — but
+  // Android tints it from theme-color, so it can at least be made to match the
+  // black the player fills the rest of the screen with instead of glowing in
+  // the brand colour over a dark video.
+  useEffect(() => {
+    if (!immersive) return undefined;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) return undefined;
+    const previous = meta.getAttribute('content');
+    meta.setAttribute('content', '#000000');
+    return () => meta.setAttribute('content', previous ?? '');
+  }, [immersive]);
 
   // The transport's right-hand control, which changes with where the player
   // is — one button, one meaning, at all times:
@@ -551,15 +611,65 @@ export default function TrueglePlayer({
       data-player-root=""
       // `relative` so the lock sheet can cover exactly this component and
       // nothing else on the page.
-      className={`relative ${fullscreen ? 'flex flex-col w-full h-full bg-black' : className}`}
+      className={`relative ${
+        immersive
+          ? 'fixed inset-0 z-[100] flex flex-col bg-black'
+          : fullscreen ? 'flex flex-col w-full h-full bg-black' : className
+      }`}
+      style={immersive ? {
+        // dvh, not vh: on a phone vh is the tallest the viewport ever gets, so
+        // a vh-sized box sits partly under the browser's own bar until it
+        // retracts. dvh follows the viewport as it actually is.
+        height: '100dvh',
+        // The inset the status bar occupies is left CLEAR rather than drawn
+        // into — that is the whole point of immersive over the Fullscreen API.
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      } : undefined}
     >
       {/* `touchDevice &&`: a lock set on a phone and then resumed on a desktop
           (same account, restored state) would otherwise paint a sheet over a
           player whose lock button is no longer offered. The state is left
           alone — it is still locked if that device goes back to touch — but it
           is never ENFORCED where it cannot be turned off. */}
+      {/* The drop-down bar. Full screen only — inline, the page's own search
+          bar is right there — and never while locked, where the microphone
+          panel is the way in instead. */}
+      {fullscreen && !locked && (
+        <FullscreenSearchBar
+          accent={accent}
+          results={voiceSearch.results || []}
+          loading={voiceSearch.loading}
+          onSearch={setVoiceQuery}
+          onSelect={(r) => { play(r); setVoiceQuery(''); }}
+          onVoice={onVoiceSearch}
+        />
+      )}
+
       {locked && touchDevice && (
-        <PlayerLockOverlay onUnlock={() => setLocked(false)} gestures={lockedGestures} />
+        <PlayerLockOverlay
+          onUnlock={() => setLocked(false)}
+          gestures={lockedGestures}
+          voice={{
+            volume,
+            setVolume,
+            results: voiceSearch.results || [],
+            loading: voiceSearch.loading,
+            onSearch: (q) => { setVoiceQuery(q); setVoiceOpen(true); },
+            onDismiss: () => { setVoiceQuery(''); setVoiceOpen(false); },
+            // A pick plays it and the list retracts — the player never leaves
+            // the locked state, because only the panel was ever unlocked.
+            onSelect: (r) => { play(r); setVoiceQuery(''); setVoiceOpen(false); },
+            // "If the playlist button is selected however, the input / results
+            // DO NOT return, and the lists menu opens." A different
+            // destination, so it clears the voice query on the way.
+            onOpenPlaylist: () => {
+              setVoiceQuery('');
+              setVoiceOpen(false);
+              setListOpen(true);
+            },
+          }}
+        />
       )}
       {/* 'hidden' clips the picture to nothing rather than unmounting it: an
           unmounted iframe stops playing and starts over when it comes back,
@@ -574,7 +684,14 @@ export default function TrueglePlayer({
         // `relative` outside full screen too: the click-to-pause overlay below
         // positions against this box, and without it the overlay escaped to
         // whichever ancestor happened to be positioned.
-        className={clipScreen ? 'max-h-0 overflow-hidden' : (fullscreen ? 'relative flex flex-1 min-h-0' : 'relative')}
+        className={`${clipScreen ? 'max-h-0 overflow-hidden' : (fullscreen ? 'relative flex flex-1 min-h-0' : 'relative')} transition-[max-height] duration-300 ease-out`}
+        // THE VIEWPORT SHRINKS FOR THE VOICE PANEL rather than being covered by
+        // it. `max-height` and not `height`: the screen letterboxes itself
+        // inside whatever box it is given, so capping the box scales the
+        // picture down and keeps it fully visible — setting a height would
+        // crop it instead, which is the opposite of the point. The media node
+        // is untouched, so nothing reloads and playback does not stutter.
+        style={voiceOpen && !clipScreen ? { maxHeight: '38%' } : undefined}
         aria-hidden={clipScreen}
       >
         <PlayerScreen

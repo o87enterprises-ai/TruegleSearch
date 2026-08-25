@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Lock, LockOpen } from 'lucide-react';
+import LockedVoicePanel from './LockedVoicePanel';
 
 // Locked controls — for a phone in a pocket.
 //
@@ -14,10 +15,27 @@ import { Lock, LockOpen } from 'lucide-react';
 // the failure mode of a hidden hold is "the button is broken".
 const HOLD_MS = 700;
 
-export default function PlayerLockOverlay({ onUnlock, gestures }) {
+export default function PlayerLockOverlay({ onUnlock, gestures, voice }) {
   const [progress, setProgress] = useState(0);
+  // THE CONTROLS ARE REVEALED, NOT PERSISTENT. A touch shows the padlock and
+  // the microphone; they fade again a few seconds later. Same reasoning as the
+  // lock itself — a live button sitting under a locked sheet is a button a
+  // pocket can find, and the microphone is the one control where that would be
+  // genuinely unpleasant.
+  const [revealed, setRevealed] = useState(true);
+  const revealTimer = useRef(null);
   const timer = useRef(null);
   const raf = useRef(null);
+
+  const reveal = useCallback(() => {
+    setRevealed(true);
+    clearTimeout(revealTimer.current);
+    revealTimer.current = setTimeout(() => setRevealed(false), 4000);
+  }, []);
+  useEffect(() => {
+    reveal();
+    return () => clearTimeout(revealTimer.current);
+  }, [reveal]);
 
   const stop = useCallback(() => {
     clearTimeout(timer.current);
@@ -50,7 +68,7 @@ export default function PlayerLockOverlay({ onUnlock, gestures }) {
   // instead. A lock that means "no controls" and a lock that means "different
   // controls" are the same sheet; the difference is whether anybody bothered to
   // listen.
-  const gate = useCallback((fn) => (e) => { swallow(e); fn?.(e); }, [swallow]);
+  const gate = useCallback((fn) => (e) => { swallow(e); reveal(); fn?.(e); }, [swallow, reveal]);
   const g = gestures?.handlers || {};
   const dim = gestures?.dim || 0;
 
@@ -79,7 +97,9 @@ export default function PlayerLockOverlay({ onUnlock, gestures }) {
         onContextMenu={swallow}
         title="Hold to unlock"
         aria-label="Hold to unlock the player controls"
-        className="relative flex items-center justify-center w-14 h-14 rounded-full bg-black/70 border border-white/20 text-white/80 hover:text-white transition-colors"
+        className={`relative flex items-center justify-center w-14 h-14 rounded-full bg-black/70 border border-white/20 text-white/80 hover:text-white transition-opacity duration-500 ${
+          revealed || progress > 0 ? 'opacity-100' : 'opacity-0'
+        }`}
         style={{ touchAction: 'none' }}
       >
         {/* The ring is the whole reason a hold is discoverable. */}
@@ -96,9 +116,33 @@ export default function PlayerLockOverlay({ onUnlock, gestures }) {
         {progress > 0 ? <LockOpen size={20} /> : <Lock size={20} />}
       </button>
 
-      <span className="absolute bottom-2 text-[10px] uppercase tracking-wider text-white/50 pointer-events-none">
+      <span
+        className={`absolute bottom-2 text-[10px] uppercase tracking-wider text-white/50 pointer-events-none transition-opacity duration-500 ${
+          revealed || progress > 0 ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
         {progress > 0 ? 'Keep holding…' : 'Controls locked — hold to unlock'}
       </span>
+
+      {/* ── Voice, above the sheet ──────────────────────────────────────────
+          The one region that takes input while locked. The lock is about the
+          TRANSPORT — it exists so a pocket cannot skip the track — and choosing
+          what to play next was never the danger, so opening this up costs the
+          lock nothing. See LockedVoicePanel. */}
+      {voice && (
+        <LockedVoicePanel
+          visible={revealed}
+          dim={dim}
+          volume={voice.volume}
+          onVolume={voice.setVolume}
+          onSearch={voice.onSearch}
+          onDismiss={voice.onDismiss}
+          results={voice.results}
+          loading={voice.loading}
+          onSelect={voice.onSelect}
+          onOpenPlaylist={voice.onOpenPlaylist}
+        />
+      )}
 
       {/* THE DIMMER, and it is drawn LAST so it covers the padlock too.
           "As if the screen was off" means the padlock is not glowing in the
