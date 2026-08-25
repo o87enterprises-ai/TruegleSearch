@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Share2, X, Check, Copy } from 'lucide-react';
 import { PLATFORMS } from '../../config/sharePlatforms';
 
@@ -39,15 +40,89 @@ export function buildShareText(message, { full = true } = {}) {
  * a share intent with a trimmed body (platforms cap length) that always points
  * back to /chat.
  */
+// Above the early-access banner (z-60/70) and the Reels surface (z-80), below
+// PageClock (z-9997) and the nav button (z-9998) — those two stay on top on
+// purpose everywhere else, so a share menu should not be the one thing that
+// covers the clock.
+const MENU_Z = 9990;
+const MENU_W = 224;   // w-56
+const GAP = 8;
+const MARGIN = 8;     // keep clear of the screen edge on a narrow phone
+
 export default function ChatShareButton({ message }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [pos, setPos] = useState(null);
   const ref = useRef(null);
+  const menuRef = useRef(null);
+
+  /* WHY THIS MENU IS PORTALLED, and why bumping z-index could never fix it.
+   *
+   * It used to be `absolute … z-50` inside the message bubble, and it rendered
+   * UNDERNEATH later messages. The reason is not the number: each message is a
+   * framer-motion div animating `opacity` and `y`, and BOTH of those create a
+   * stacking context. z-50 therefore only ranks the menu against its own
+   * bubble's children — against a sibling message it does not compete at all,
+   * because the whole bubble is one layer and later siblings paint over it.
+   * z-[9999] inside that same box would have changed nothing.
+   *
+   * The only fix is to leave the ancestor. A portal to <body> puts the menu in
+   * the root stacking context where its z-index is finally meaningful, and it
+   * also escapes any `overflow: hidden` on the way up — which would have
+   * clipped it even if the layering had been right. */
+  const place = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const menuH = menuRef.current?.offsetHeight || 0;
+    // Prefer opening upward (the original design), but flip below when there
+    // is not room above — near the top of the thread it would be off-screen.
+    const openUp = menuH === 0 ? true : r.top > menuH + GAP;
+    const top = openUp ? Math.max(MARGIN, r.top - menuH - GAP) : r.bottom + GAP;
+    // Clamp horizontally so a button near the right edge does not push the
+    // menu off a phone screen.
+    const left = Math.min(
+      Math.max(MARGIN, r.left),
+      Math.max(MARGIN, window.innerWidth - MENU_W - MARGIN),
+    );
+    setPos({ top, left });
+  }, []);
+
+  // Measure once mounted (offsetHeight is 0 before the first paint), then keep
+  // it pinned to the trigger while the thread scrolls underneath.
+  useEffect(() => {
+    if (!open) { setPos(null); return undefined; }
+    place();
+    const raf = requestAnimationFrame(place);
+    window.addEventListener('scroll', place, true);  // capture: inner scrollers too
+    window.addEventListener('resize', place);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open, place]);
 
   useEffect(() => {
-    const onClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    if (open) document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
+    // The menu now lives outside `ref`'s subtree, so "outside" has to mean
+    // outside BOTH the trigger and the portalled menu — checking only the
+    // trigger would close it on its own buttons.
+    const onDown = (e) => {
+      if (ref.current?.contains(e.target)) return;
+      if (menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    if (open) {
+      // pointerdown, not mousedown: touch does not always emulate mouse events
+      // reliably, and this menu is mostly used on a phone.
+      document.addEventListener('pointerdown', onDown);
+      document.addEventListener('keydown', onKey);
+    }
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
   const handleCopy = () => {
@@ -81,8 +156,22 @@ export default function ChatShareButton({ message }) {
         <Share2 size={12} /> Share
       </button>
 
-      {open && (
-        <div className="absolute bottom-6 left-0 z-50 w-56 bg-[#0d0d1a] border border-white/15 rounded-xl shadow-2xl shadow-black/60 overflow-hidden">
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label="Share answer"
+          className="fixed w-56 bg-[#0d0d1a] border border-white/15 rounded-xl shadow-2xl shadow-black/60 overflow-hidden"
+          style={{
+            zIndex: MENU_Z,
+            top: pos?.top ?? 0,
+            left: pos?.left ?? 0,
+            // Hidden until measured. Without this the menu paints once at 0,0
+            // and visibly jumps into place — offsetHeight is not knowable until
+            // after the first render.
+            visibility: pos ? 'visible' : 'hidden',
+          }}
+        >
           <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
             <span className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">Share answer</span>
             <button onClick={() => setOpen(false)} className="text-white/30 hover:text-white">
@@ -113,7 +202,8 @@ export default function ChatShareButton({ message }) {
               "Copy full answer" includes every source, image, and video link.
             </p>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

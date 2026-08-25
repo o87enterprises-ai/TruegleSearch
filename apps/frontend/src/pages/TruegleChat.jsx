@@ -17,6 +17,7 @@ import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent, solidTextClas
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import { canPreview, opensOnLabel } from '../utils/embeddable';
 import { classifyQuery, describeLink } from '../utils/urlQuery';
+import { filterCitations } from '../utils/citationRelevance';
 import ChatLinkAction from '../components/chat/ChatLinkAction';
 import ChatLocationMap from '../components/chat/ChatLocationMap';
 import { fmtStamp, fmtStampFull, msgTime } from '../utils/formatTime';
@@ -110,7 +111,23 @@ async function fetchCitations(query, backendMode, signal) {
   const pics = imgResults.slice(0, 6);
 
   if (links.length === 0 && videos.length === 0 && pics.length === 0) return null;
-  return { links, videos, pics };
+
+  // GATE THEM AGAINST THE QUESTION BEFORE THEY BECOME "Sources:".
+  //
+  // Whatever /api/search returns used to be attached verbatim. Asked about
+  // Tartaria the search keyed on the common word "theory" and the answer
+  // shipped citing a clothing retailer and a dictionary entry, under a heading
+  // that reads as its evidence base. Nothing was fabricated and the impression
+  // was still false — which is the thing Mandate B is actually about.
+  //
+  // An answer with no sources, honestly unsourced, beats a sourced-looking one
+  // that isn't. See utils/citationRelevance for why the bar is set as low as it
+  // is: this drops non-sequiturs, it does not curate.
+  const filtered = filterCitations({ links, videos, pics }, query);
+  if (filtered.links.length === 0 && filtered.videos.length === 0 && filtered.pics.length === 0) {
+    return null;
+  }
+  return filtered;
 }
 
 // Turn fetched citations into a compact text block the model can actually
