@@ -42,6 +42,18 @@ _Last updated: 2026-08-25. Supersedes all prior handoff docs._
   made every input inside the player unselectable. `npm run noselect:test`
   pins it (and was verified to go red when the bug is reintroduced).
 
+- **Packed share links resolve their titles now.** `/api/media/titles` proxies
+  keyless oEmbed server-side — never from the browser, which would leak the
+  viewer's IP to YouTube before they play anything and is CSP-blocked anyway.
+  Allowlisted hosts only; the allowlist IS the SSRF defence (25 tests).
+
+⚠️ **`origin/main` was force-pushed backwards on 2026-08-25**, dropping
+`6043ec8` ("Keep the map's place…", 298 insertions across Globe3D,
+TrafficCameras, TruegleMap, nasaGibsHelper, nepheshPrompts). It was NOT
+resurrected — undoing a deliberate force-push is the author's call. It survives
+on the local `main` branch in the session container; recover with
+`git cherry-pick 6043ec8` if it was dropped by accident.
+
 🔴 **Full screen on mobile is NOT the Fullscreen API** anywhere in the player or
 Reels. Entering real fullscreen hides the system bars and kills app-level chrome
 — "keep the notification bar visible" and "keep the clock persistent" are both

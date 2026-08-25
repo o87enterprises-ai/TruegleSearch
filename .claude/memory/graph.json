@@ -1208,6 +1208,14 @@
         "body": "POST /api/session/wipe has NO authenticate guard (removed 2026-08-25 by request). Truegle works with no account, so gating a 'forget me' button behind a login inverts its point, and the client used to skip the server call while still showing the success screen. Safe because: DELETE-only, caller-keyed, no read path; rate_limit_cache is write-only so wiping it is not a quota bypass (revisit if anything ever READS it); token used only as a DELETE key, never as identity; dedicated wipeLimiter. Session-keyed legs report 'skipped-no-session' rather than true when there is no token.",
         "ts": "2026-08-25",
         "created": "2026-08-25"
+      },
+      "oembed-title-proxy": {
+        "Id": "oembed-title-proxy",
+        "Type": "decision",
+        "Label": "Titles for packed links go through OUR backend",
+        "body": "services/OembedService.js + GET|POST /api/media/titles. Keyless oEmbed (youtube/vimeo/soundcloud/dailymotion), allowlisted hosts only - it fetches outbound for unauthenticated callers so the allowlist IS the SSRF defence. Never fetch oEmbed from the browser: it leaks the viewer's IP to the provider before they play anything, AND connect-src does not list youtube.com. Only the visible window is resolved, never the whole queue (that would enumerate a friend's playlist). cacheGet returns undefined for absent vs null for cached-miss - conflating them silently disabled miss caching.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
       }
     },
     "thread": {
@@ -1577,6 +1585,15 @@
         "Label": "Packed share links carry no titles (STILL OPEN)",
         "body": "playerLinkPack drops titles for brevity, so a shared queue shows titleFromUrl() fallbacks like 'youtube.com/watch' until each item plays. Options: extend mediaMeta to learn titles (it already learns duration/channel), or lazy keyless oEmbed for the CURRENT item only (a batch on load would leak the whole list to YouTube before the user plays anything). Not started.",
         "status": "done",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
+      },
+      "main-force-pushed": {
+        "Id": "main-force-pushed",
+        "Type": "thread",
+        "Label": "origin/main was force-pushed backwards, dropping 6043ec8",
+        "body": "On 2026-08-25 origin/main moved 6043ec8 -> bab1bd1 (forced update), dropping 'Keep the map's place, name what's on it, and let Nephesh point at our own tools' (298 insertions: Globe3D, TrafficCameras, TruegleMap, nasaGibsHelper, nepheshPrompts). It still exists on the LOCAL main branch in this container. NOT resurrected - undoing someone's deliberate force-push is their call. Recover with: git cherry-pick 6043ec8",
+        "status": "open",
         "ts": "2026-08-25",
         "created": "2026-08-25"
       }
