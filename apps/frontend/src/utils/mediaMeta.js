@@ -28,8 +28,17 @@ let meta = read();
 let version = 0;
 const listeners = new Set();
 
-/** Remember what playback taught us. Only writes when something changed. */
-export function learnMeta(source, { duration, channel } = {}) {
+/**
+ * Remember what playback — or a title lookup — taught us. Only writes when
+ * something changed.
+ *
+ * `title` was added for PACKED SHARE LINKS. Those carry an id and no title (it
+ * is where the 87% length saving comes from), so a shared queue arrives showing
+ * "youtube.com/watch" until something fills it in. utils/resolveTitles asks our
+ * backend and lands the answer here, which means it is remembered like duration
+ * and channel: resolved once, shown everywhere that track appears afterwards.
+ */
+export function learnMeta(source, { duration, channel, title } = {}) {
   const key = mediaKey(source);
   if (!key) return;
   const prev = meta[key] || {};
@@ -37,7 +46,8 @@ export function learnMeta(source, { duration, channel } = {}) {
   // A duration of 0 is "not known yet", not "zero seconds".
   if (typeof duration === 'number' && duration > 0 && Math.round(duration) !== prev.d) next.d = Math.round(duration);
   if (channel && channel !== prev.c) next.c = String(channel).slice(0, 80);
-  if (next.d === prev.d && next.c === prev.c) return;
+  if (title && title !== prev.t) next.t = String(title).slice(0, 200);
+  if (next.d === prev.d && next.c === prev.c && next.t === prev.t) return;
 
   meta = { ...meta, [key]: next };
   // Bounded: this is a convenience cache, not a library.

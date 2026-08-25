@@ -5,6 +5,7 @@ const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
 const { rateLimitSearch } = require('../middleware/rateLimit');
 const { MediaService } = require('../services/MediaService');
+const OembedService = require('../services/OembedService');
 
 const ERRORS = {
   INVALID: 400,
@@ -126,6 +127,42 @@ router.post('/scores', rateLimitSearch, async (req, res) => {
  * itself) reported as unplayable. Keys only — no metadata, because every
  * visitor fetches this.
  */
+/**
+ * GET  /api/media/titles?u=…&u=…
+ * POST /api/media/titles   { urls: [...] }
+ *
+ * PUBLIC. Titles for links that only carry an id — see OembedService for why
+ * this is a server route rather than a fetch from the page (privacy first, and
+ * the CSP second). Rate-limited because it makes outbound requests on the
+ * caller's behalf; the allowlist in the service is what stops it being a way
+ * to fetch anything else.
+ *
+ * Both verbs exist because a packed queue can carry 25 URLs, which is past
+ * what belongs in a query string.
+ */
+async function titlesHandler(urls, res) {
+  try {
+    const found = await OembedService.lookupMany(urls);
+    // Cache at the edge too. A title does not change, and a shared playlist is
+    // opened by many people from one link.
+    res.set('Cache-Control', 'public, max-age=21600');
+    return res.json({ titles: found });
+  } catch (err) {
+    return mapError(err, res);
+  }
+}
+
+router.get('/titles', rateLimitSearch, async (req, res) => {
+  const raw = req.query.u;
+  const urls = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+  return titlesHandler(urls, res);
+});
+
+router.post('/titles', rateLimitSearch, async (req, res) => {
+  const urls = Array.isArray(req.body?.urls) ? req.body.urls : [];
+  return titlesHandler(urls, res);
+});
+
 router.get('/broken', async (req, res) => {
   const keys = await MediaService.brokenKeys({ limit: req.query.limit });
   return res.json({ success: true, keys });

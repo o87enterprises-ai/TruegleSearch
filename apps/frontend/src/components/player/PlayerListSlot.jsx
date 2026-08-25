@@ -9,6 +9,7 @@ import { hasRetention, forgetRetention } from '../../utils/retention';
 import { isPlaylistUrl, importPlaylist, importMessage } from '../../utils/playlistImport';
 import { reportBroken, useBrokenFlag, useBrokenVersion, withoutBroken } from '../../utils/broken';
 import { useMediaMeta, formatDuration } from '../../utils/mediaMeta';
+import { resolveTitles } from '../../utils/resolveTitles';
 import { publishedLabel } from '../../utils/published';
 import { SORTS, sortResults, fetchScores, datedCount } from '../../utils/resultSort';
 import PlayerLibrary from './PlayerLibrary';
@@ -117,6 +118,22 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
   // utils/mediaMeta.js. Subscribing here is what makes a row fill in its
   // length the moment that track has been played once.
   const metaFor = useMediaMeta();
+
+  // FILL IN THE TITLES A PACKED SHARE LINK COULD NOT CARRY.
+  //
+  // A queue arriving from /tube?p=… has ids and no titles, so it renders as
+  // "youtube.com/watch" over and over. This asks our backend for the real ones
+  // (never the provider directly — see utils/resolveTitles for why) and the
+  // answers land in mediaMeta, which this row already reads.
+  //
+  // The visible window only, not the whole queue: one request naming every
+  // track somebody was sent, before they have played any of them, is the
+  // difference between looking up what is playing and enumerating a friend's
+  // playlist.
+  useEffect(() => {
+    if (!queue || queue.length === 0) return;
+    resolveTitles(queue.slice(0, 8));
+  }, [queue]);
   const [showingResults, setShowingResults] = useState(false);
   const revertTimer = useRef(null);
 
@@ -505,7 +522,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
               <span className="text-[10px] text-white/30 w-4 shrink-0">{i + 1}</span>
               <button type="button" onClick={() => jump(i)} title="Play now"
                 className="text-[11px] text-white/70 hover:text-white truncate flex-1 text-left">
-                {q.title || q.src}
+                {metaFor(q)?.t || q.title || q.src}
               </button>
               <button type="button" onClick={() => removeFromQueue(i)} title="Remove"
                 className="flex items-center justify-center w-8 h-8 rounded text-white/30 hover:text-white hover:bg-white/10 transition-colors">
