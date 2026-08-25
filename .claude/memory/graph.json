@@ -1216,6 +1216,14 @@
         "body": "services/OembedService.js + GET|POST /api/media/titles. Keyless oEmbed (youtube/vimeo/soundcloud/dailymotion), allowlisted hosts only - it fetches outbound for unauthenticated callers so the allowlist IS the SSRF defence. Never fetch oEmbed from the browser: it leaks the viewer's IP to the provider before they play anything, AND connect-src does not list youtube.com. Only the visible window is resolved, never the whole queue (that would enumerate a friend's playlist). cacheGet returns undefined for absent vs null for cached-miss - conflating them silently disabled miss caching.",
         "ts": "2026-08-25",
         "created": "2026-08-25"
+      },
+      "mandate-d-structural-neutrality": {
+        "Id": "mandate-d-structural-neutrality",
+        "Type": "decision",
+        "Label": "Neutrality is STRUCTURAL — the opinion hides in headings, not sentences",
+        "body": "MANDATE D in nepheshPrompts.js (v2026-08-25.1). Mandate A banned stating a view; the Tartaria answer had NO first-person opinion and still read as advocacy because the verdict rode in the framing: 'what the record ACTUALLY SHOWS' vs 'what the theory CLAIMS', a 'mainstream explanation' column vs 'claims', 'historians regard', a bolded 'KEY POINT' asserting the disputed conclusion, 'the part the theory gets right'. Those mechanisms are now banned by name. THE LINE: a verdict tied to EVIDENCE is REQUIRED (user can check a treaty); a verdict tied to AUTHORITY/consensus is forbidden (they cannot check a consensus). Still explicitly allowed: true/false rulings with reasons, pros-cons tables, probabilities with documented variables. Swap test before sending.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
       }
     },
     "thread": {
@@ -2734,6 +2742,22 @@
         "Type": "fact",
         "Label": "Daily 'Report domain: truegle.info' emails are DMARC reports, NOT an incident",
         "body": "noreply-dmarc-support@google.com sends a small .gz XML because _dmarc.truegle.info has a rua= tag pointing at an inbox the owner reads. Empty body + attachment named google.com!truegle.info!<start>!<end>.xml.gz is the standard DMARC format. WHO PUBLISHED THE RECORD IS UNKNOWN - owner does not recall setting up truegle email. NOT an assistant session in this repo: cloudflare-token-plan records no token was ever persisted and the Cloudflare MCP has NO DNS/Zone tools; resend-domain-verify writes DNS edits up as an owner task; no zone files, no DNS commits. Cannot clear other sessions/projects given a token directly. Reading reports is optional - DMARC enforces from DNS alone. Documented in SERVICE-ACTIVATION.md Step 4. Owner will not open the attachments.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
+      },
+      "stacking-context-not-zindex": {
+        "Id": "stacking-context-not-zindex",
+        "Type": "fact",
+        "Label": "A z-index cannot escape an ancestor stacking context",
+        "body": "ChatShareButton's menu rendered UNDER later messages. Cause was NOT the number: each message is a framer-motion div animating opacity AND transform, both of which create a stacking context, so z-50 only ranked the menu inside its own bubble. z-9999 there would change nothing. Fix = createPortal to document.body + position from trigger getBoundingClientRect (flip below when no room above, clamp to viewport), z-9990 (above banner z-60/70 and Reels z-80, below PageClock z-9997 and nav z-9998). Click-outside must check BOTH trigger ref and menu ref once portalled, and use pointerdown not mousedown for touch. Proven via elementFromPoint in a real browser.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
+      },
+      "citations-need-relevance-gate": {
+        "Id": "citations-need-relevance-gate",
+        "Type": "fact",
+        "Label": "Chat citations were never checked against the question",
+        "body": "fetchCitations in TruegleChat ran the raw question through /api/search and printed whatever came back under 'Sources:'. A Tartaria question cited theory.com (CLOTHING RETAILER) + Merriam-Webster 'theory' + a lucide-static/icons/ampersands.svg 'image' - search keyed on the common word 'theory' while the model answered from training knowledge. Nothing fabricated, impression false = Mandate B. FIX: utils/citationRelevance.js requires one shared DISTINCTIVE word; the vocabulary of enquiry (theory/history/evidence/facts/claims) counts as COMMON because that is what the bad match keyed on. Bar deliberately low - no distinctive terms in the question keeps everything, since silently emptying the source list is worse. Matching is on STEMS (>=5 shared chars) not prefixes: a prefix rule threw away 'Tartary', the spelling on the actual maps. npm run citations:test (25).",
         "ts": "2026-08-25",
         "created": "2026-08-25"
       }
