@@ -2728,6 +2728,14 @@
         "body": "no-select.css wraps the [data-player-root]/[data-reel-root] subtree rule in :where() to score (0,0,0). Written plainly it is (0,1,0) and beats bare 'input' (0,0,1), which silently made every input inside the player unselectable - including the voice panel's dictation box. It looked partly right because .truegle-selectable is ALSO (0,1,0) so prose kept working. Pinned by npm run noselect:test. Do not 'tidy' the :where() away.",
         "ts": "2026-08-25",
         "created": "2026-08-25"
+      },
+      "dmarc-reports-are-normal": {
+        "Id": "dmarc-reports-are-normal",
+        "Type": "fact",
+        "Label": "Daily 'Report domain: truegle.info' emails are DMARC reports, NOT an incident",
+        "body": "noreply-dmarc-support@google.com sends a small .gz XML daily because _dmarc.truegle.info publishes rua=mailto:truegleai@proton.me. Empty body + attachment named google.com!truegle.info!<start>!<end>.xml.gz is the standard DMARC format. It means DNS is set up CORRECTLY. DMARC enforces from the DNS record alone - reading reports is optional. Options: filter/delete, drop rua= to stop them, or point rua= at Postmark's free digest (third party then sees our mail telemetry). Spoofing can ONLY be detected inside the report XML (per-record source_ip + dkim/spf pass-fail). Documented in SERVICE-ACTIVATION.md Step 4. User has said they will not open the attachments.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
       }
     }
   },

@@ -73,6 +73,50 @@ this is not blocking testers.
 
 **Verify:** Resend domain shows "Verified". Confirm `RESEND_API_KEY` is set on Vercel (it is).
 
+### Those daily "Report domain: truegle.info" emails are NOT a problem
+
+If `truegleai@proton.me` starts receiving mail from `noreply-dmarc-support@google.com`
+with a subject like **"Report domain: truegle.info Submitter: google.com Report-ID: …"**
+and a small `.gz` attachment named `google.com!truegle.info!<start>!<end>.xml.gz` —
+that is normal, expected, and a sign the DNS is set up **correctly**.
+
+They are **DMARC aggregate reports**. A `_dmarc.truegle.info` TXT record is published
+containing `rua=mailto:…`, and that record is a standing request to every mailbox
+provider on the internet: *"send me a daily report of mail claiming to be from my
+domain."* Google is obeying it. Microsoft and Yahoo will do the same. The message body
+is empty because the entire report is the attachment.
+
+**Nothing is being attacked, and nothing needs doing.** DMARC protects the domain from
+the DNS record alone — reading the reports is entirely optional and changes nothing
+about enforcement.
+
+Three ways to handle them; pick one and stop thinking about it:
+
+| Option | What happens | Trade-off |
+|---|---|---|
+| **Filter or delete them** | Reports keep arriving, you ignore them | You never learn if someone spoofs the domain |
+| **Drop `rua=` from the DNS record** | Mail stops entirely | Same as above, but no inbox clutter |
+| **Point `rua=` at a free digest service** | Plain-English weekly summary instead of XML | A third party receives the reports |
+
+For the third option, Postmark's DMARC digests (`dmarc.postmarkapp.com`) are free and
+send readable summaries. Weigh it against the no-third-parties stance in
+`docs/AD-POLICY.md` and the general privacy posture: the reports contain sending IPs
+and volumes for our domain — no user data — but it is still handing our mail telemetry
+to somebody else.
+
+**If you ever DO want to know whether the domain is being spoofed**, that answer only
+exists inside the report XML. Each `<record>` block carries a sending IP, a message
+count and `dkim`/`spf` pass-fail results. What matters:
+- **Fails from IPs we recognise** (Resend, Vercel) → our own mail is not authenticating,
+  so password-reset mail will be landing in spam. Worth fixing.
+- **Fails from IPs we do not recognise** → somebody is sending mail as `truegle.info`.
+  This is the case DMARC exists to catch.
+- **Everything passing** → pure background noise.
+
+Checking the DNS record itself needs no attachment opening at all — `mxtoolbox.com/dmarc.aspx`
+with `truegle.info` shows the published policy in a browser. Note that shows the POLICY,
+not the reports, so it confirms the setup is right but says nothing about spoofing.
+
 ---
 
 ## Step 5 — AdSense review  🚧 needs legal pages first
