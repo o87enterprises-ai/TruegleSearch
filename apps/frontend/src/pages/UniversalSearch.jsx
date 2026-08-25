@@ -66,6 +66,7 @@ import { isQuestionQuery, getQuickAnswer } from '../utils/queryIntent';
 import { classifyQuery, describeLink } from '../utils/urlQuery';
 import { useSearchStashContext } from '../context/SearchStashContext';
 import ReelsSurface from '../components/reels/ReelsSurface';
+import { cachedVideos } from '../content/creatorVideos';
 import SingleLinkCard from '../components/search/SingleLinkCard';
 
 // Frontend mode -> the string /api/search and /api/ai/summary expect. Was
@@ -318,6 +319,21 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   const [creatorVideos, setCreatorVideos] = useState([]);
   useEffect(() => {
     if (!creator) { setCreatorVideos([]); return undefined; }
+
+    // THE FLAT FILE FIRST, and when it answers the API is never called.
+    //
+    // This page used to spend one YouTube quota unit per visitor per load
+    // re-fetching a list that barely changes, against a 10,000/day allowance —
+    // and when that ran out mid-day the creator pages simply stopped having
+    // videos on them. content/creatorVideos.txt ships with the build, so a
+    // cached channel renders instantly, offline, and for free.
+    //
+    // The API stays as the FALLBACK rather than being removed: a channel that
+    // is not in the file works exactly as it did before. So seeding the file is
+    // a pure win per channel and forgetting one costs nothing.
+    const cached = cachedVideos(creator.slug);
+    if (cached) { setCreatorVideos(cached); return undefined; }
+
     let live = true;
     api.get(`/creators/${creator.channelId}/videos`)
       .then((r) => {

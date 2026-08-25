@@ -1,0 +1,49 @@
+# Creator videos — a flat file, on purpose.
+#
+# WHY A TEXT FILE AND NOT A DATABASE. Every creator page used to ask the
+# YouTube Data API for the channel's uploads on each load. That is one quota
+# unit per visitor per page against a 10,000/day allowance, spent re-fetching a
+# list that barely changes — and when the quota runs out mid-day the creator
+# pages simply stop having videos on them.
+#
+# This ships with the build. No migration, no write path, no row that can go
+# missing, nothing to pay for, and it is served from the same CDN as the rest
+# of the bundle. A thousand videos is roughly 60 KB of text, which is smaller
+# than one of the thumbnails on the page.
+#
+# THE API IS NOW THE FALLBACK, not the default: a channel listed here never
+# calls it, a channel that is not listed still works exactly as before. So
+# adding a creator here is a pure win and forgetting to costs nothing.
+#
+# ── FORMAT ────────────────────────────────────────────────────────────────
+#
+#   channelSlug | videoId | title
+#
+# One video per line, pipe-separated, newest first. Blank lines and lines
+# starting with # are ignored. A title may contain anything except a pipe.
+#
+# THE EMBED URL IS NOT STORED, deliberately, even though "pre-store the embed
+# codes" is the obvious reading of the ask. Two reasons:
+#
+#   1. It is derivable. getPlayable() turns a video id into the embed URL we
+#      actually use, and it is the ONE place that decides what that is —
+#      currently youtube-nocookie.com, chosen for privacy. Writing embed URLs
+#      into this file would copy that decision into data, so the day the embed
+#      host changes, every line here silently keeps pointing at the old one.
+#   2. It is ~45 bytes per line of pure duplication.
+#
+# Storing the id keeps this file the list of WHAT, and leaves HOW to the code
+# that already owns it.
+#
+# ── ADDING A CREATOR ──────────────────────────────────────────────────────
+#
+# The slug must match content/creators.js. Ids are the 11-character YouTube
+# video id — the v= parameter, or the last path segment of a youtu.be link.
+#
+#   npm run creators:fetch -- <slug>     (writes lines here; needs a YT key)
+#
+# or paste them by hand — the format is deliberately simple enough for that.
+#
+# Nothing below this line yet: the loader treats an empty file as "no channel
+# is cached", so every creator page keeps using the API until entries land
+# here. Seeding it is a one-time job per channel and does not block anything.
