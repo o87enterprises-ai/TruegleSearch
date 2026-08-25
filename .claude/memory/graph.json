@@ -1152,6 +1152,54 @@
         "body": "Real-user INP for the search textarea was 1.9s and 3.8s, with 44 percent of interactions rated Poor (threshold is 500ms). CAUSE: two effects on [localValue] each forced a synchronous layout on every keystroke — the autogrow set style.height to auto then read scrollHeight, and the caret-follow read scrollWidth. Normally cheap, but this textarea sits inside a backdrop-blur subtree, so invalidating layout drags the compositor into re-blurring the region on the same tick as the keystroke. FIX: both deferred to requestAnimationFrame so the typed character paints first and the resize happens on the following frame; the autogrow also only writes style.height when the value actually changes, since writing the same value still invalidates layout. The blur and the visual design are untouched — the owner likes the animations and none were removed. Cleanup via cancelAnimationFrame on effect teardown.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
+      },
+      "reels-surface": {
+        "Id": "reels-surface",
+        "Type": "decision",
+        "Label": "Reels is its own full-screen surface",
+        "body": "Reels pill opens ReelsSurface (quad grid + vertical player), not a result list. Full screen is a fixed z-80 box, NOT the Fullscreen API, because entering real fullscreen kills app-level chrome and PageClock must persist. Same reason TrueglePlayer uses 'immersive' mode on touch devices.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
+      },
+      "no-select-policy": {
+        "Id": "no-select-policy",
+        "Type": "decision",
+        "Label": "Text selection: chrome opts out, prose opts in",
+        "body": "styles/no-select.css sets user-select:none + -webkit-touch-callout:none on buttons/icons/media and the [data-player-root]/[data-reel-root] subtrees; inputs and .truegle-selectable opt back in. -webkit-touch-callout is NOT optional on mobile - the long-press callout fires independently of user-select and is what ate the pill-mode hold. Pills also need touchAction:none.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
+      },
+      "pasted-link-routing": {
+        "Id": "pasted-link-routing",
+        "Type": "decision",
+        "Label": "A pasted link opens, it is not searched",
+        "body": "utils/urlQuery.classifyQuery() gates the submit path. Playable -> navigate to /tube. Non-playable -> skip the provider fetch entirely and render ONE SingleLinkCard under the AI summary. Bare hostnames stay searches on purpose (a scheme-less string needs a path/query) - hijacking a real query is worse than missing a link. getVideoEmbed now handles /playlist?list= via videoseries.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
+      },
+      "link-shortener": {
+        "Id": "link-shortener",
+        "Type": "decision",
+        "Label": "Short links pack ids, no storage, no third party",
+        "body": "utils/playerLinkPack.js: one-char host code + id instead of full URLs. 25-track queue 2816->353 chars (87% off). Rejected third-party shorteners (leaks every shared link) and a backend short-code table (a share link that can expire/break). Queues pack, single tracks keep their title. Packed entries still go through getPlayable.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
+      },
+      "lock-is-touch-only": {
+        "Id": "lock-is-touch-only",
+        "Type": "decision",
+        "Label": "The player lock is touch-only",
+        "body": "useTouchDevice() gates it (pointer:coarse and hover:none, NOT viewport width - a narrow laptop window is still a laptop). On desktop the lock's only effect was removing the controls then demanding a 700ms hold to restore them. A lock restored from a phone is never enforced on a desktop that cannot undo it.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
+      },
+      "yellow-pill-creators": {
+        "Id": "yellow-pill-creators",
+        "Type": "decision",
+        "Label": "Yellow pill = Creators, Feed is parked",
+        "body": "Yellow now opens /creators (CreatorsPage, built on SearchPageShell). Feed is COMMENTED OUT in modeTheme.js, not deleted - /feed and its OAuth handshake still work. usePageMode: /creators is yellow (exact match), /creator/:slug stays ORANGE - must not be a startsWith or it swallows creator pages.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
       }
     },
     "thread": {
@@ -1514,6 +1562,15 @@
         "status": "open",
         "ts": "2026-08-24",
         "created": "2026-08-24"
+      },
+      "reels-titles-packed": {
+        "Id": "reels-titles-packed",
+        "Type": "thread",
+        "Label": "Packed share links carry no titles",
+        "body": "playerLinkPack drops titles for brevity, so a shared queue shows titleFromUrl() fallbacks like 'youtube.com/watch' until each item plays. Options: extend mediaMeta to learn titles (it already learns duration/channel), or lazy keyless oEmbed for the CURRENT item only (a batch on load would leak the whole list to YouTube before the user plays anything).",
+        "status": "open",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
       }
     },
     "entity": {
@@ -2630,6 +2687,14 @@
         "body": "The account's Global API Key has a cfk_ prefix (new Cloudflare format) and is labelled Global API Key in My Profile > API Tokens. CRITICAL GOTCHA that wasted a whole round-trip: it does NOT work with Authorization: Bearer (returns 401 Invalid API Token on /user/tokens/verify). Global keys use headers X-Auth-Email: <cloudflare login email> + X-Auth-Key: <key>, tested against GET /client/v4/user. Cloudflare account login email = o87enterprises@gmail.com. Scoped API tokens (the other kind) DO use Bearer. Also: creating a Custom scoped token, the Dynamic Redirect permission is not reliably present in the Zone permissions dropdown, which is why the global key was the pragmatic path. NEVER store the key value in the repo or memory; the owner rotates it after each use. From the cloud sandbox api.cloudflare.com is proxy-blocked (403) — Cloudflare API work must be done from the owner's laptop session.",
         "ts": "2026-08-24",
         "created": "2026-08-24"
+      },
+      "no-vpn": {
+        "Id": "no-vpn",
+        "Type": "fact",
+        "Label": "There is no VPN and never was",
+        "body": "VPNToggle.jsx was a placebo printing 'Connected & Secure' over no tunnel; nothing mounted it. Deleted 2026-08-25 along with settings.vpnAutoConnect and the 'Built-in VPN access' premium claim. Do NOT re-add a VPN toggle without an actual tunnel. Nuclear Option IS real (client wipe + POST /api/session/wipe) but the server leg is skipped for signed-out users and Cache Storage is not cleared.",
+        "ts": "2026-08-25",
+        "created": "2026-08-25"
       }
     }
   },
@@ -2659,5 +2724,5 @@
       }
     }
   },
-  "updated": "2026-08-24"
+  "updated": "2026-08-25"
 }

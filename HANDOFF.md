@@ -1,5 +1,42 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-08-24. Supersedes all prior handoff docs._
+_Last updated: 2026-08-25. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ 2026-08-25 — pills, pasted links, Reels, voice-on-lock (branch `claude/pills-reels-tube-ui-xpz5u5`)
+
+- **The UI stopped highlighting itself.** Three reported bugs, one cause: the
+  browser default is "everything is selectable". `styles/no-select.css` — chrome
+  opts out, prose opts back in. `-webkit-touch-callout: none` matters as much as
+  `user-select`: on mobile the callout fires independently and is what ate the
+  2.2s pill-mode hold. Pills also take `touch-action: none`.
+- **Yellow pill → Creators** (`/creators`, new `CreatorsPage` on
+  `SearchPageShell`). Feed is commented out in `modeTheme.js`, not deleted —
+  `/feed` and its OAuth handshake still work. `/creator/:slug` stays ORANGE.
+- **A pasted link opens instead of being searched.** This was the HTTP-vs-HTTPS
+  bug: `getVideoEmbed` never handled `/playlist?list=`, and nothing asked whether
+  the query was a URL. Playable → the player; non-playable → ONE link card, no
+  provider fetch. Chat ends an answer about a link WITH the link.
+- **Short share links, free, nothing stored.** 25-track queue 2,816 → 353 chars
+  (87% off) by packing host-code + id. Old `u=`/`t=` links still resolve.
+- **Link health check** — structural, local, free. Deliberately NOT a blocklist
+  lookup: every free reputation API works by being sent the URL.
+- **Tube puts the list down on selection** and hands it back (`SearchStashContext`)
+  via a button or one tap in the top band of the locked player.
+- **Voice on the locked player.** The lock is about the TRANSPORT, so the search
+  panel above it costs the lock nothing. Ducks rather than pauses. Spelling mode
+  maps recogniser SOUNDS back to letters ("be"→b, "you"→u) — 33 fixtures.
+- **Reels is its own surface**: full-screen 2×2 grid → vertical player, no
+  transport, no queue, drawn next.
+- **The VPN toggle was a placebo and is gone**, with its "Built-in VPN access"
+  premium claim. Nuclear Option is real; see the `no-vpn` memory fact for its two
+  gaps.
+
+🔴 **Full screen on mobile is NOT the Fullscreen API** anywhere in the player or
+Reels. Entering real fullscreen hides the system bars and kills app-level chrome
+— "keep the notification bar visible" and "keep the clock persistent" are both
+incompatible with `requestFullscreen()`. Both use a fixed box + safe-area insets
+instead. Do not "fix" this back to the Fullscreen API.
 
 ---
 
