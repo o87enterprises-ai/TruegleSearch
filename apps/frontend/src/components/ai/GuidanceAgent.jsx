@@ -69,7 +69,9 @@ const GuidanceAgent = () => {
   const guidanceMessages = [
     'Try searching for unbiased news sources',
     'Use voice search by clicking the microphone',
-    'Enable VPN for private browsing',
+    // Was 'Enable VPN for private browsing' — there is no VPN to enable
+    // (see ShareForPremiumButton). Replaced with something Truegle does.
+    'Truegle sets no cookies — nothing to accept, nothing to clear',
     'Check bias analysis for different perspectives',
   ];
 

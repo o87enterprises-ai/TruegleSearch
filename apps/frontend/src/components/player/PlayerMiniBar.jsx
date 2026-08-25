@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Maximize2, Lock, X } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
+import { useTouchDevice } from '../../hooks/useTouchDevice';
 
 // THE minimized player. One footprint, everywhere.
 //
@@ -21,6 +22,7 @@ import { usePlayer } from '../../context/PlayerContext';
 // player's chrome while the media node keeps playing behind it, because
 // unmounting an iframe restarts the track.
 export default function PlayerMiniBar({ onExpand, onClose, accent = '#f43f5e', className = '' }) {
+  const touchDevice = useTouchDevice();
   const {
     current, paused, history, queue,
     togglePause, prev, skipNext, setLocked,
@@ -76,11 +78,16 @@ export default function PlayerMiniBar({ onExpand, onClose, accent = '#f43f5e', c
         aria-label="Expand the player" className={btn} style={{ color: accent }}>
         <Maximize2 size={16} />
       </button>
-      <button type="button" onClick={() => setLocked(true)}
-        title="Lock the controls — hold the padlock to unlock"
-        aria-label="Lock the player controls" className={btn}>
-        <Lock size={15} />
-      </button>
+      {/* Touch only — see useTouchDevice. On a desktop this button's whole
+          effect is to take the controls away and ask for a 700ms hold to give
+          them back, which is a trap rather than a feature. */}
+      {touchDevice && (
+        <button type="button" onClick={() => setLocked(true)}
+          title="Lock the controls — hold the padlock to unlock"
+          aria-label="Lock the player controls" className={btn}>
+          <Lock size={15} />
+        </button>
+      )}
       {onClose && (
         <button type="button" onClick={onClose} title="Close player (keeps your queue)"
           aria-label="Close player" className={btn}>

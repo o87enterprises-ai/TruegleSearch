@@ -43,7 +43,6 @@ export const SettingsProvider = ({ children }) => {
     cookiePreference: 'all', // 'all', 'necessary', 'none'
     dataCollection: false,
     saveHistory: true, // persist recent searches in localStorage (off = no search history stored)
-    vpnAutoConnect: false,
     defaultFilters: 'all',
     resultsPerPage: 10,
     language: detectBrowserLanguage(), // engine language, synced to browser by default

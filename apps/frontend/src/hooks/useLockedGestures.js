@@ -23,12 +23,25 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 //   two taps then hold, LEFT third    → back
 //   two taps then hold, MIDDLE third  → voice search
 //   two taps then hold, RIGHT third   → skip
+//   ONE tap, top band, middle         → bring the last search back
 //   shake the phone                   → shuffle
 //
 // The two kinds of hold are told apart by what came BEFORE them: a hold that
 // follows a tap is a command, a hold that follows nothing is the dimmer. That
 // is the only ambiguity in the set, and tap count resolves it without either
 // gesture needing its own corner of the screen.
+//
+// THE ONE SINGLE-TAP GESTURE, and why it is safe to have one at all. Every
+// other gesture needs two taps precisely because one tap is what a pocket
+// produces. Recall gets an exception because it is confined to a small band —
+// the middle of the TOP of the picture — and because it is the only harmless
+// one in the set: it shows a list. It does not skip, pause, or lose your place.
+//
+// It waits DOUBLE_MS before firing, so a double-tap that happens to land in
+// the band is still a play/pause and not a recall followed by one. The band
+// also starts below TOP_SAFE_PCT so it never fights the phone's own
+// notification shade, which is the gesture the user is actually reaching for
+// when their finger is at the very top of the screen.
 //
 // Everything here is deliberate and slow on purpose. These run under a LOCK,
 // whose whole job is to ignore what a pocket does, so nothing fires on a single
@@ -41,6 +54,9 @@ const SLOP_PX = 12;        // a press that moves further than this is a slide
 const DIM_TRAVEL_PX = 220; // finger travel for the full range
 const SHAKE_DELTA = 24;    // summed acceleration change that counts as a shake
 const SHAKE_GAP_MS = 1200; // one shake cannot fire twice
+const TOP_BAND_PCT = 0.22; // recall band: the top fifth of the picture…
+const TOP_SAFE_PCT = 0.04; // …starting below the phone's own pull-down area
+const MID_BAND = [0.25, 0.75]; // …and only its middle, horizontally
 
 /** Which third of the box a press landed in. */
 export function zoneOf(x, width) {
@@ -58,6 +74,7 @@ export function useLockedGestures({
   onPrev,
   onVoice,
   onShuffle,
+  onRecall,
 } = {}) {
   // 0 = normal, 1 = fully dark. It lives here rather than in the player because
   // the gestures own it and nothing else sets it.
@@ -71,25 +88,40 @@ export function useLockedGestures({
   const holdTimer = useRef(null);
   const dimFrom = useRef(0);
   const acted = useRef(false);   // a hold already fired for this press
+  // A single tap in the recall band waits out DOUBLE_MS before it fires, so a
+  // double-tap landing there stays a play/pause. Cancelled by the second tap.
+  const recallTimer = useRef(null);
 
   const clearHold = () => { clearTimeout(holdTimer.current); holdTimer.current = null; };
-  useEffect(() => clearHold, []);
+  const clearRecall = () => { clearTimeout(recallTimer.current); recallTimer.current = null; };
+  useEffect(() => () => { clearHold(); clearRecall(); }, []);
 
   // Leaving locked mode gives the screen back. A dim that outlived the lock
   // would be a black rectangle with no gesture left to undo it.
   useEffect(() => {
-    if (!enabled) { setDim(0); setSliding(false); tapCount.current = 0; }
+    if (!enabled) { setDim(0); setSliding(false); tapCount.current = 0; clearRecall(); }
   }, [enabled]);
 
   const onPointerDown = useCallback((e) => {
     if (!enabled) return;
-    const box = e.currentTarget?.getBoundingClientRect?.() || { left: 0, width: 0 };
+    const box = e.currentTarget?.getBoundingClientRect?.() || { left: 0, top: 0, width: 0, height: 0 };
     const x = e.clientX - box.left;
+    const y = e.clientY - box.top;
+    // The recall band: the middle of the top of the picture, below the strip
+    // the phone reserves for its own pull-down.
+    const inRecall = box.height > 0 && box.width > 0
+      && y >= box.height * TOP_SAFE_PCT
+      && y <= box.height * TOP_BAND_PCT
+      && x >= box.width * MID_BAND[0]
+      && x <= box.width * MID_BAND[1];
     if (Date.now() - lastTap.current > DOUBLE_MS) tapCount.current = 0;
     acted.current = false;
+    // A second tap anywhere cancels a recall that was still waiting — that
+    // press was the first half of a double, not a recall.
+    clearRecall();
     press.current = {
       t: Date.now(), x: e.clientX, y: e.clientY,
-      zone: zoneOf(x, box.width), taps: tapCount.current,
+      zone: zoneOf(x, box.width), taps: tapCount.current, recall: inRecall,
     };
     dimFrom.current = dim;
 
@@ -142,8 +174,19 @@ export function useLockedGestures({
       // why this is decided on the way UP rather than the way down.
       tapCount.current = 0;
       onTogglePause?.();
+      return;
     }
-  }, [enabled, sliding, onTogglePause]);
+    // One tap, in the band, with a search to come back to. Deferred so the
+    // double-tap above still wins if a second tap is on its way.
+    if (p.recall && onRecall) {
+      clearRecall();
+      recallTimer.current = setTimeout(() => {
+        recallTimer.current = null;
+        tapCount.current = 0;
+        onRecall();
+      }, DOUBLE_MS);
+    }
+  }, [enabled, sliding, onTogglePause, onRecall]);
 
   // ── shake to shuffle ──────────────────────────────────────────────────────
   // Listened for only while locked. A motion listener running on every page is

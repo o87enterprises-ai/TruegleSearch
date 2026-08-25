@@ -179,17 +179,10 @@ const SettingsPage = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-medium text-white">VPN Auto-Connect</h3>
-                  <p className="text-sm text-white/60">Automatically enable VPN protection</p>
-                </div>
-                <Toggle
-                  checked={settings.vpnAutoConnect}
-                  onChange={(v) => handleSettingChange('vpnAutoConnect', v)}
-                  label="VPN Auto-Connect"
-                />
-              </div>
+              {/* "VPN Auto-Connect" removed 2026-08-25. It stored a boolean
+                  nothing read, over a VPN that did not exist. A privacy switch
+                  that does nothing is worse than no switch: it tells someone
+                  they are protected while they are not. */}
             </div>
           </div>
 

@@ -214,13 +214,19 @@ export default function ShareForPremiumButton({
                         <Check size={16} className="text-green-400" />
                         Unlimited OSINT & SEO tools
                       </li>
+                      {/* "Built-in VPN access" was removed 2026-08-25: there
+                          was no VPN. VPNToggle.jsx flipped a boolean and
+                          printed "Connected & Secure" over no tunnel at all,
+                          and nothing even mounted it — so this was selling a
+                          security feature that did not exist.
+
+                          "Ad-free search experience" went with it for the
+                          opposite reason: Truegle carries no third-party ads
+                          on ANY tier (docs/AD-POLICY.md), so listing ad-free
+                          as a premium perk implied the free tier has ads. */}
                       <li className="flex items-center gap-2">
                         <Check size={16} className="text-green-400" />
-                        Ad-free search experience
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check size={16} className="text-green-400" />
-                        Built-in VPN access
+                        No ads and no cookies — on every tier, not just this one
                       </li>
                       <li className="flex items-center gap-2">
                         <Check size={16} className="text-green-400" />

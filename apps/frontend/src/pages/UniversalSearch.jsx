@@ -64,6 +64,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { isQuestionQuery, getQuickAnswer } from '../utils/queryIntent';
 import { classifyQuery, describeLink } from '../utils/urlQuery';
+import { useSearchStashContext } from '../context/SearchStashContext';
 import SingleLinkCard from '../components/search/SingleLinkCard';
 
 // Frontend mode -> the string /api/search and /api/ai/summary expect. Was
@@ -413,6 +414,47 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
       setExpanded(true);
     }
   }, [lockedTube, playerCurrent, searchValue, setExpanded]);
+
+  // ── TUBE: PICKING SOMETHING PUTS THE LIST AWAY ───────────────────────────
+  //
+  // "selection made / play is pushed = input cleared / results dropped, random
+  // next flow unless interrupted by user."
+  //
+  // Once you have chosen, the list has done its job — Tube becomes a player,
+  // not a page of search results with a video on top. The random-next flow that
+  // takes over from here already exists: TrueglePlayer's advance() falls
+  // through to useUpNext.pick() when nothing is queued, so the clip that ends
+  // is followed by a drawn one (related and, a fixed fraction of the time,
+  // deliberately not).
+  //
+  // Nothing is DISCARDED, only put down — see useSearchStash. The list comes
+  // back on demand, which is the only thing that makes clearing it reasonable.
+  const searchStash = useSearchStashContext();
+  const clearedFor = useRef(null);
+  useEffect(() => {
+    if (!lockedTube) return;
+    const key = playerCurrent?.src || null;
+    // Only on a NEW selection. Without this the effect re-fires on every
+    // unrelated re-render and re-clears an input the user has started retyping.
+    if (!key || clearedFor.current === key) return;
+    clearedFor.current = key;
+    searchStash.stashSearch(searchValue, searchResults);
+    setSearchValue('');
+    setSearchResults([]);
+    setLinkQuery(null);
+  }, [lockedTube, playerCurrent, searchValue, searchResults, searchStash]);
+
+  // Bringing it back: the input and the list return exactly as they were,
+  // including the track that is playing, so the next pick is made from the
+  // same list rather than from a freshly-reordered one.
+  //
+  // Registered with the context rather than called directly, because the
+  // gesture that triggers it lives on the locked player — which MiniPlayer
+  // mounts at app level, outside this tree entirely.
+  useEffect(() => searchStash.registerApply((prev) => {
+    setSearchValue(prev.query);
+    setSearchResults(prev.results);
+  }), [searchStash]);
   // OSINT (ocean) exception: multi-select investigation classes that replace
   // the content categories on the ocean page and tag the query with entity types.
   const [osintClasses, setOsintClasses] = useState([]);
@@ -2330,6 +2372,23 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                           : 'No results yet - try searching!'}
                       </span>
                     </div>
+                  )}
+
+                  {/* BACK TO YOUR RESULTS. Tube clears the list when you pick
+                      something (see the stash effect above), so this is the
+                      visible way back — the locked player's top-tap gesture is
+                      the same action, but it only exists on a phone, and a
+                      list you can only reopen with an undiscoverable gesture is
+                      a list you have lost. */}
+                  {lockedTube && searchStash.hasStash && displayResults.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={searchStash.recall}
+                      className="w-full mb-4 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/25 text-sm text-white/70 hover:text-white transition-colors text-left"
+                    >
+                      <span className="font-semibold">Back to your results</span>
+                      <span className="text-white/40"> — the list you picked this from</span>
+                    </button>
                   )}
 
                   {/* THE SINGLE LINK CARD. Sits where the result list would

@@ -12,6 +12,7 @@ import { TokenProvider } from './context/TokenContext';
 import { RewardsProvider } from './context/RewardsContext';
 import { SearchModeProvider } from './context/SearchModeContext';
 import { PlayerProvider } from './context/PlayerContext';
+import { SearchStashProvider } from './context/SearchStashContext';
 import { TutorialProvider } from './context/TutorialContext';
 import { MapProvider } from './components/map';
 import { ToastProvider } from './components/ui/ToastProvider';
@@ -153,6 +154,9 @@ const App = () => {
           <RewardsProvider>
           <SearchModeProvider>
             <PlayerProvider>
+            {/* Inside PlayerProvider: the stash exists so the PLAYER can put a
+                search list down and hand it back (SearchStashContext). */}
+            <SearchStashProvider>
             <SettingsProvider>
               <MapProvider>
                 <TutorialProvider>
@@ -172,6 +176,7 @@ const App = () => {
                 </TutorialProvider>
               </MapProvider>
             </SettingsProvider>
+            </SearchStashProvider>
             </PlayerProvider>
           </SearchModeProvider>
           </RewardsProvider>

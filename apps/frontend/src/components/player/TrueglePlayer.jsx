@@ -2,6 +2,7 @@ import { useRef, useCallback, useState, useEffect } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
 import { usePageMode } from '../../hooks/usePageMode';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
+import { useTouchDevice } from '../../hooks/useTouchDevice';
 import { buildPlayerLink } from '../../utils/playerLink';
 import PlayerScreen from './PlayerScreen';
 import PlayerTransport, { PLAY_MODES, PLAY_MODE_LABEL } from './PlayerTransport';
@@ -22,6 +23,7 @@ import { learnMeta } from '../../utils/mediaMeta';
 import { recordWatch } from '../../utils/watchHistory';
 import { copyText } from '../../utils/clipboard';
 import { mediaKey } from '../../utils/videoEmbed';
+import { useSearchStashContext } from '../../context/SearchStashContext';
 
 // THE player. There is only one, and this is it.
 //
@@ -63,6 +65,9 @@ export default function TrueglePlayer({
     feedActive, feed: feedRest, feedNext,
   } = usePlayer();
   const pageMode = usePageMode();
+  const stash = useSearchStashContext();
+  // The lock is a phone feature — see useTouchDevice.
+  const touchDevice = useTouchDevice();
   const mediaRef = useRef(null);
   const frameRef = useRef(null);
   const rootRef = useRef(null);
@@ -405,6 +410,11 @@ export default function TrueglePlayer({
     // in from outside when a host offers one. Absent, the middle third simply
     // does nothing rather than pretending.
     onVoice: onVoiceSearch,
+    // One tap in the middle of the top band brings back the list you picked
+    // from — the counterpart to Tube clearing it when you pressed play. Passed
+    // only when there IS something to come back to, so the gesture is inert
+    // rather than mysteriously doing nothing on a page with no stashed search.
+    onRecall: stash.hasStash ? stash.recall : undefined,
   });
 
   const clickTimer = useRef(null);
@@ -486,7 +496,12 @@ export default function TrueglePlayer({
       // On the normal row it was an eleventh button competing with the two
       // controls people actually reach for, and it pushed full screen and
       // pop-out off the end.
-      showLock={fullscreen}
+      // TOUCH DEVICES ONLY, as well as full screen only. The lock exists to
+      // stop a pocket from skipping the track; a desktop has no pocket and no
+      // stray presses, so there the control only ever removes the controls and
+      // then demands a 700ms hold to get them back. Removed rather than
+      // disabled — a visibly dead button is its own support question.
+      showLock={fullscreen && touchDevice}
       onLock={() => setLocked(true)}
       playMode={playMode}
       onCyclePlayMode={() => setPlayMode(PLAY_MODES[(PLAY_MODES.indexOf(playMode) + 1) % PLAY_MODES.length])}
@@ -538,7 +553,14 @@ export default function TrueglePlayer({
       // nothing else on the page.
       className={`relative ${fullscreen ? 'flex flex-col w-full h-full bg-black' : className}`}
     >
-      {locked && <PlayerLockOverlay onUnlock={() => setLocked(false)} gestures={lockedGestures} />}
+      {/* `touchDevice &&`: a lock set on a phone and then resumed on a desktop
+          (same account, restored state) would otherwise paint a sheet over a
+          player whose lock button is no longer offered. The state is left
+          alone — it is still locked if that device goes back to touch — but it
+          is never ENFORCED where it cannot be turned off. */}
+      {locked && touchDevice && (
+        <PlayerLockOverlay onUnlock={() => setLocked(false)} gestures={lockedGestures} />
+      )}
       {/* 'hidden' clips the picture to nothing rather than unmounting it: an
           unmounted iframe stops playing and starts over when it comes back,
           which is the opposite of what "hide the video, keep listening" means.
