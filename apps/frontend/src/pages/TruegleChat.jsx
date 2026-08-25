@@ -16,6 +16,8 @@ import { FREE_ACCESS_MODE } from '../config/access';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent, solidTextClass } from '../config/modeTheme';
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import { canPreview, opensOnLabel } from '../utils/embeddable';
+import { classifyQuery, describeLink } from '../utils/urlQuery';
+import ChatLinkAction from '../components/chat/ChatLinkAction';
 import ChatLocationMap from '../components/chat/ChatLocationMap';
 import { fmtStamp, fmtStampFull, msgTime } from '../utils/formatTime';
 import { aiErrorMessage } from '../utils/aiError';
@@ -590,7 +592,17 @@ export default function TruegleChat() {
       setLoading(false);
       return;
     }
-    setMessages((prev) => [...prev, { id: Date.now() + 1, role: 'assistant', content, citations, graph, createdAt: Date.now() }]);
+    // WHEN THE QUESTION WAS A LINK, END WITH THE LINK. The model explains what
+    // the URL is — it is good at that — but it has no way to hand back a
+    // working "play this" button, so its answer used to trail off having
+    // described a video it could not open. This attaches the real thing:
+    // Truegle's own player link when we can host it, the destination when we
+    // cannot. Computed here rather than parsed out of the prose so it is the
+    // URL the user actually pasted, not one the model retyped.
+    const linkInfo = classifyQuery(query);
+    setMessages((prev) => [...prev, {
+      id: Date.now() + 1, role: 'assistant', content, citations, graph, linkInfo, createdAt: Date.now(),
+    }]);
     setLoading(false);
   };
 
@@ -987,6 +999,12 @@ export default function TruegleChat() {
                       </div>
                     )}
                   </>
+                )}
+                {/* The answer ended talking about a link — so end WITH the
+                    link. Play it here when Truegle can host it, open it when
+                    it cannot. */}
+                {m.role === 'assistant' && m.linkInfo && (
+                  <ChatLinkAction info={m.linkInfo} description={describeLink(m.linkInfo)} />
                 )}
                 <Citations
                   citations={m.role === 'assistant' ? mergeUrlCitations(m.citations, extractUrls(m.content)) : m.citations}

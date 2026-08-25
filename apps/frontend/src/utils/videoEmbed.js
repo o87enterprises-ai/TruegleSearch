@@ -19,9 +19,32 @@ export function getVideoEmbed(url) {
     // Truegle player link must never do.
     if (host === 'youtube.com' || host.endsWith('.youtube.com')
       || host === 'youtube-nocookie.com' || host.endsWith('.youtube-nocookie.com')) {
+      // A playlist id, if there is one. YouTube ids are conservative about
+      // their alphabet, and this value is interpolated into an embed URL, so
+      // anything outside it is dropped rather than passed through.
+      const listId = (() => {
+        const l = u.searchParams.get('list');
+        return l && /^[A-Za-z0-9_-]{2,64}$/.test(l) ? l : null;
+      })();
       if (u.pathname === '/watch') {
         const id = u.searchParams.get('v');
-        return id ? `https://www.youtube.com/embed/${id}` : null;
+        if (!id) return null;
+        // Keep the playlist when the link carries one: /watch?v=X&list=Y means
+        // "this video, in that playlist", and dropping the list turned a queue
+        // someone shared into a single track.
+        return listId
+          ? `https://www.youtube.com/embed/${id}?list=${listId}`
+          : `https://www.youtube.com/embed/${id}`;
+      }
+      // A BARE PLAYLIST — /playlist?list=… — which is what YouTube's own share
+      // sheet hands you for an album or a mix, and what this function used to
+      // return null for. That null was the whole bug behind "I pasted a
+      // playlist and got web results about HTTPS": nothing recognised the link
+      // as playable, so it fell through to an ordinary text search. videoseries
+      // is YouTube's official entry point for playing a list with no
+      // particular video chosen.
+      if (u.pathname === '/playlist') {
+        return listId ? `https://www.youtube.com/embed/videoseries?list=${listId}` : null;
       }
       if (u.pathname.startsWith('/shorts/')) {
         const id = u.pathname.split('/')[2];

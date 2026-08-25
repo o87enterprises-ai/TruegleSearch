@@ -63,6 +63,19 @@ import useDeviceTier from '../hooks/useDeviceTier';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { isQuestionQuery, getQuickAnswer } from '../utils/queryIntent';
+import { classifyQuery, describeLink } from '../utils/urlQuery';
+import SingleLinkCard from '../components/search/SingleLinkCard';
+
+// Frontend mode -> the string /api/search and /api/ai/summary expect. Was
+// inlined in handleSearch; the pasted-link path needs the same mapping and a
+// second copy is how the two drift apart.
+// ('green' makes the backend filter AI-generated-content domains.)
+const modeToBackend = (mode) => ({
+  red: 'red-pill',
+  purple: 'purple',
+  ocean: 'ocean',
+  green: 'green',
+}[mode] || 'blue-pill');
 import { LITE_BG, PERSPECTIVE_COLORS, getModeAccent, MODE_LABELS, MODE_COLORS } from '../config/modeTheme';
 
 // The five selectable flows. The active `mode` (from URL/toggle) is the PRIMARY
@@ -420,6 +433,11 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   const consecutiveFailuresRef = useRef(0);
   const REPAIRS_FAILURE_THRESHOLD = 2;
 
+  // THE PASTED-LINK CASE. When the query is a URL rather than prose, this
+  // holds what it turned out to be and the results list is suppressed — see
+  // handleSearch. A pasted link wants one destination, not ten pages about it.
+  const [linkQuery, setLinkQuery] = useState(null);
+
   // AI state
   const [aiSummary, setAiSummary] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -688,6 +706,24 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   const submitSearch = () => {
     const q = searchValue.trim();
     if (!q) return;
+
+    // A PASTED LINK IS NOT A SEARCH. If it is something the player can host,
+    // open it — the player IS the answer, and a list of pages about the link
+    // never was. This runs before the pill routing on purpose: pasting a video
+    // means "play this" whatever mode happens to be selected, and Chat is the
+    // one exception because there the ASK is for an explanation of the link.
+    if (pillMode !== 'black') {
+      const link = classifyQuery(q);
+      if (link?.kind === 'playable' && link.playerLink) {
+        // Navigate within the SPA rather than assigning window.location: the
+        // player link is our own /tube route and a full page load would drop
+        // anything already playing.
+        const target = link.playerLink.replace(/^https?:\/\/[^/]+/, '');
+        navigate(target);
+        return;
+      }
+    }
+
     if (pillMode === 'black') { navigate(`/chat?q=${encodeURIComponent(q)}`); return; }
     if (pillMode === 'orange') { navigate('/rewards'); return; }
     if (pillMode === 'yellow') { navigate('/creators'); return; }
@@ -726,6 +762,34 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     // tapped, landing them on an ordinary list.
     if (selectedUrl) params.set('sel', selectedUrl);
     window.history.replaceState({}, '', `${lockedPath || '/search'}?${params.toString()}`);
+
+    // Classify BEFORE fetching. A URL that isn't playable still isn't a
+    // search: the user knows the page they want. The AI summary above still
+    // runs (it is what says WHAT the link is), but the result list below is
+    // replaced by a single link card — see displayResults / the render.
+    const link = classifyQuery(searchValue.trim());
+    setLinkQuery(link);
+
+    // SKIP THE PROVIDER FETCH ENTIRELY for a pasted link. Searching a URL as
+    // if it were prose is what produced the original bug — a playlist link came
+    // back as a page about HTTP vs HTTPS — and those results then fed the AI
+    // summary, so the summary was about HTTPS too. There is nothing to salvage
+    // in that list; the link itself is the only source, so it is the only thing
+    // handed to the summary.
+    if (link) {
+      setSearchResults([]);
+      setSearchError(false);
+      setSearchLoading(false);
+      if (!isAiFree(mode) && sessionSummaryChoice !== 'none') {
+        fetchAiSummary(searchValue, [{
+          title: link.title,
+          url: link.url,
+          snippet: describeLink(link),
+          sourceName: link.host,
+        }], modeToBackend(mode));
+      }
+      return;
+    }
 
     setSearchLoading(true);
     setAiSummary(null);
@@ -784,12 +848,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
       const filterCategoryBias = FILTER_CATEGORY_BIAS_MAP[filters.category];
       const effectiveBias = filters.bias !== 'all' ? filters.bias : (filterCategoryBias || filters.bias);
 
-      // Determine backend mode string
-      let backendMode = 'blue-pill';
-      if (mode === 'red') backendMode = 'red-pill';
-      else if (mode === 'purple') backendMode = 'purple';
-      else if (mode === 'ocean') backendMode = 'ocean';
-      else if (mode === 'green') backendMode = 'green'; // backend filters AI-generated-content domains
+      const backendMode = modeToBackend(mode);
 
       const response = await fetch(
         `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/search`,
@@ -1157,7 +1216,12 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // A lens that matches nothing shows the unfiltered results rather than an
   // empty page — the fold's status bar is already saying "0 of 20 read this
   // way", which is the useful version of that information.
-  const displayResults = lensView.active && lensView.count > 0 ? lensView.matched : searchResults;
+  const rawDisplayResults = lensView.active && lensView.count > 0 ? lensView.matched : searchResults;
+  // A pasted link shows ONE card, never a list. Emptying the list here rather
+  // than branching at each render site keeps every downstream consumer — the
+  // count line, the autoplay feed, the lens counts — consistent with what is
+  // actually on screen.
+  const displayResults = linkQuery ? [] : rawDisplayResults;
 
   // ── THE FEED PLAYS THROUGH THE PLAYER ─────────────────────────────────────
   //
@@ -2253,15 +2317,32 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                 </div>
               ) : (
                 <>
-                  <div className="text-sm mb-4">
-                    <span className={modeAccent.count}>
-                      {displayResults.length > 0
-                        ? (lensView.active && lensView.count > 0
-                          ? `${displayResults.length} of ${searchResults.length} results, read through your lens`
-                          : `About ${displayResults.length} results`)
-                        : 'No results yet - try searching!'}
-                    </span>
-                  </div>
+                  {/* A link query has no count to report — it has a
+                      destination. Saying "No results yet - try searching!"
+                      under a perfectly good link read as a failure. */}
+                  {!linkQuery && (
+                    <div className="text-sm mb-4">
+                      <span className={modeAccent.count}>
+                        {displayResults.length > 0
+                          ? (lensView.active && lensView.count > 0
+                            ? `${displayResults.length} of ${searchResults.length} results, read through your lens`
+                            : `About ${displayResults.length} results`)
+                          : 'No results yet - try searching!'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* THE SINGLE LINK CARD. Sits where the result list would
+                      have been, under the AI summary above, so the summary
+                      still explains what the link is and this says where it
+                      goes. One destination, one button. */}
+                  {linkQuery && (
+                    <SingleLinkCard
+                      info={linkQuery}
+                      description={describeLink(linkQuery)}
+                      className="mb-4"
+                    />
+                  )}
 
                   {/* The local panel, when the query turned out to be about a
                       real place. It REPLACES the quick answer rather than

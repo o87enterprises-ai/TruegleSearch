@@ -356,10 +356,13 @@ export async function onRequest(context) {
   } else if (isLink) {
     try { html = injectLinkPreview(html, url); } catch { /* keep the shell */ }
   } else if (isTube) {
-    // A shared queue (/tube?u=…) gets the clip's own card; the bare page gets
-    // True Tube's.
+    // A shared queue gets the clip's own card; the bare page gets True Tube's.
+    // `p` is the packed queue form (utils/playerLinkPack) — it carries the same
+    // sources in ~90% fewer characters, and parsePlayerParams already reads
+    // both, so it must count as a shared queue here too or a short link would
+    // silently preview as the generic page.
     try {
-      html = url.searchParams.has('u')
+      html = (url.searchParams.has('u') || url.searchParams.has('p'))
         ? injectWatchPreview(html, url)
         : injectTubePreview(html);
     } catch { /* keep the shell */ }

@@ -1,6 +1,7 @@
 // Explicit .js extension: this module is also imported by the Cloudflare Pages
 // middleware, which is bundled outside Vite's resolver.
 import { getPlayable } from './videoEmbed.js';
+import { packSources, unpackSources, PACK_PARAM } from './playerLinkPack.js';
 
 // ── Truegle player links (/tube) ───────────────────────────────────────────
 // A Truegle player link is a share URL that opens the recipient straight into
@@ -42,9 +43,24 @@ const cleanTitle = (t) => (typeof t === 'string' ? t.trim().slice(0, MAX_TITLE) 
  * @param {string} [origin] defaults to the current site origin
  * @returns {string|null} absolute URL, or null if nothing was playable
  */
-export function buildPlayerLink(items, origin) {
+export function buildPlayerLink(items, origin, { compact = 'auto' } = {}) {
   const list = (Array.isArray(items) ? items : [items]).filter(Boolean).slice(0, MAX_ITEMS);
   const base = origin || (typeof window !== 'undefined' ? window.location.origin : 'https://truegle.info');
+
+  // A QUEUE gets the packed form; a single track keeps its title.
+  //
+  // Repeating u= and t= for 25 tracks runs to ~3,900 characters, which is past
+  // where a link survives being pasted. Packing drops that by ~90% at the cost
+  // of the titles (see playerLinkPack for why they cannot come along). For one
+  // track that trade is backwards — the URL was never too long, and the title
+  // is what makes the preview readable — so the threshold is where the length
+  // actually starts to hurt rather than a flag someone has to remember.
+  const wantsPack = compact === true || (compact === 'auto' && list.length > 3);
+  if (wantsPack) {
+    const packed = packSources(list);
+    if (packed) return `${base}${PLAYER_LINK_PATH}?${PACK_PARAM}=${packed}`;
+  }
+
   const params = new URLSearchParams();
   for (const it of list) {
     const url = it.pageUrl || it.url;
@@ -63,14 +79,23 @@ export function buildPlayerLink(items, origin) {
  */
 export function parsePlayerParams(search) {
   const params = new URLSearchParams(search || '');
-  const urls = params.getAll('u').slice(0, MAX_ITEMS);
+  // The packed queue form (see playerLinkPack). Unpacks to plain URLs and then
+  // goes through EXACTLY the same getPlayable gate as a `u` value below —
+  // packing is a shorter way to write a link, never a way around the check
+  // that decides what the player is allowed to host.
+  const packed = unpackSources(params.get(PACK_PARAM));
+  // Both forms are accepted at once so an old link and a new one can be
+  // concatenated by hand without one silently winning.
+  const urls = [...packed, ...params.getAll('u')].slice(0, MAX_ITEMS);
+  // Titles line up with the `u` values, which now start after the packed ones.
   const titles = params.getAll('t');
+  const titleAt = (i) => (i < packed.length ? '' : titles[i - packed.length]);
   const sources = [];
   const rejected = [];
   urls.forEach((url, i) => {
     const playable = getPlayable(url);
     if (!playable) { rejected.push(String(url).slice(0, 200)); return; }
-    sources.push({ ...playable, title: cleanTitle(titles[i]) || titleFromUrl(url), pageUrl: url });
+    sources.push({ ...playable, title: cleanTitle(titleAt(i)) || titleFromUrl(url), pageUrl: url });
   });
   return { sources, rejected };
 }
