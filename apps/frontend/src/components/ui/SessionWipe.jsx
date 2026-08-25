@@ -15,6 +15,7 @@ async function clearClientStorage() {
     localStorage: false,
     sessionStorage: false,
     indexedDB: false,
+    caches: false,
   };
 
   // Clear localStorage (except essential settings)
@@ -60,11 +61,41 @@ async function clearClientStorage() {
     results.indexedDB = true; // Assume success if not supported
   }
 
+  // Clear the Cache Storage API — the service worker's caches.
+  //
+  // THIS WAS THE GAP. The button's own description promises "cached results",
+  // and this is where cached responses actually live; wiping localStorage and
+  // IndexedDB left every cached page and API response sitting on disk. So the
+  // one storage the copy explicitly named was the one nothing touched.
+  try {
+    if (typeof caches !== 'undefined' && caches.keys) {
+      const names = await caches.keys();
+      await Promise.all(names.map((n) => caches.delete(n)));
+    }
+    results.caches = true;
+  } catch (error) {
+    // Blocked in some private modes, and absent over plain http. Neither is a
+    // failure of the wipe — there is simply no cache to clear.
+    console.error('Failed to clear Cache Storage:', error);
+    results.caches = true;
+  }
+
   return results;
 }
 
 /**
- * Call server to wipe ephemeral data
+ * Call the server to wipe ephemeral data.
+ *
+ * NO TOKEN IS REQUIRED, and that is the fix. This used to be skipped entirely
+ * when the visitor was signed out — and the modal still showed the success
+ * screen, so someone with no account was told their server-side ephemeral logs
+ * were gone when nothing had ever been asked to delete them. Truegle works
+ * without an account, so that was most of the people pressing the button.
+ *
+ * The endpoint is public now (see routes/session.js for why that is safe). A
+ * token is still SENT when there is one, because it is the key the
+ * session-scoped rows are stored under — but its absence no longer means
+ * "don't bother asking".
  */
 async function wipeServerData(token) {
   try {
@@ -73,12 +104,15 @@ async function wipeServerData(token) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        // Only when we actually have one. Sending `Bearer null` would be a
+        // string the server then looks rows up under, which finds nothing and
+        // reads like a bug in the logs.
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     });
 
     if (!response.ok) {
-      throw new Error('Server wipe failed');
+      throw new Error(`Server wipe failed (${response.status})`);
     }
 
     return await response.json();
@@ -104,15 +138,18 @@ export function NuclearOptionButton({ onWipeComplete, token, className = '' }) {
       // Clear client-side storage first
       const clientResults = await clearClientStorage();
 
-      // Then wipe server-side data if authenticated
-      let serverResults = { success: true, note: 'Not authenticated' };
-      if (token) {
-        serverResults = await wipeServerData(token);
-      }
+      // Then wipe server-side data. ALWAYS — signed in or not. See
+      // wipeServerData: skipping this for signed-out visitors is what made the
+      // success screen a lie for most of the people who saw it.
+      const serverResults = await wipeServerData(token);
 
+      // The client legs decide success. A server that is unreachable does not
+      // make "your data was cleared from this device" untrue, and the result
+      // below reports the two halves separately rather than collapsing them.
       const success = clientResults.localStorage &&
                      clientResults.sessionStorage &&
-                     clientResults.indexedDB;
+                     clientResults.indexedDB &&
+                     clientResults.caches;
 
       setWipeResult({
         success,
@@ -257,8 +294,22 @@ export function NuclearOptionButton({ onWipeComplete, token, className = '' }) {
                       <h4 className="text-lg font-semibold text-white mb-2">
                         Wipe Complete
                       </h4>
-                      <p className="text-gray-400 text-sm mb-4">
-                        All session data has been deleted.
+                      {/* TWO HALVES, REPORTED SEPARATELY. "All session data has
+                          been deleted" was one sentence covering two outcomes
+                          that can differ — and it was printed even when the
+                          server leg had never run at all. The device is always
+                          truthful here because we just did it; the server line
+                          says what actually came back. */}
+                      <p className="text-gray-400 text-sm mb-1">
+                        This device is clear — local storage, session storage and
+                        cached results are gone.
+                      </p>
+                      <p className="text-gray-500 text-xs mb-4">
+                        {wipeResult.server?.success === false
+                          ? 'The server could not be reached, so its ephemeral logs were left alone. They expire on their own within 24 hours.'
+                          : wipeResult.server?.authenticated
+                            ? 'Server-side ephemeral logs and cached session rows were deleted too.'
+                            : 'Server-side ephemeral logs for your connection were deleted too.'}
                       </p>
                     </>
                   ) : (

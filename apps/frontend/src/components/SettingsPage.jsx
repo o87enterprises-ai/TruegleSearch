@@ -366,8 +366,13 @@ const SettingsPage = () => {
             <div className="flex items-center justify-between gap-4 py-3">
               <div>
                 <h3 className="font-medium text-white">Clear all data on this device</h3>
+                {/* This sentence was aspirational until 2026-08-25: cached
+                    results were never touched (Cache Storage was skipped), and
+                    the server leg was gated behind a login so most visitors
+                    never got it. Both are real now — hence the last clause. */}
                 <p className="text-sm text-white/60">
-                  Wipe local storage, session data, and cached results, plus server-side ephemeral logs.
+                  Wipe local storage, session data, and cached results, plus server-side
+                  ephemeral logs. No account needed.
                 </p>
               </div>
               <NuclearOptionButton token={localStorage.getItem('truegle_token')} />
