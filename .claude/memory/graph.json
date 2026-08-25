@@ -1593,7 +1593,7 @@
         "Type": "thread",
         "Label": "origin/main was force-pushed backwards, dropping 6043ec8",
         "body": "On 2026-08-25 origin/main moved 6043ec8 -> bab1bd1 (forced update), dropping 'Keep the map's place, name what's on it, and let Nephesh point at our own tools' (298 insertions: Globe3D, TrafficCameras, TruegleMap, nasaGibsHelper, nepheshPrompts). It still exists on the LOCAL main branch in this container. NOT resurrected - undoing someone's deliberate force-push is their call. Recover with: git cherry-pick 6043ec8",
-        "status": "open",
+        "status": "done",
         "ts": "2026-08-25",
         "created": "2026-08-25"
       }
@@ -2325,16 +2325,16 @@
         "Id": "map-view-reset-cause",
         "Type": "fact",
         "Label": "The map 'reset' on view change was a centre never synced",
-        "body": "Panning the flat map only updated TruegleMap's LOCAL viewState; handleMoveEnd pushed the zoom into MapContext but never the centre. Globe3D and AzimuthalFlat are handed state.center, so they got wherever the map was last FLOWN to — and switching back re-applied that stale centre to the flat map through the state.center effect. Nothing was resetting; the two halves had never been told where the user had gone. handleMoveEnd now calls actions.setCenter({lat,lng}) too, and the state.center effect bails when the values already match (otherwise every pan bounces back through it and re-sets viewState to what it already holds).",
-        "ts": "2026-08-17",
+        "body": "Panning the flat map only updated TruegleMap's LOCAL viewState; handleMoveEnd pushed the zoom into MapContext but never the centre. Globe3D and AzimuthalFlat are handed state.center, so they got wherever the map was last FLOWN to - and switching back re-applied that stale centre to the flat map through the state.center effect. Nothing was resetting; the two halves had never been told where the user had gone. handleMoveEnd now calls actions.setCenter({lat,lng}) too, and the state.center effect bails when the values already match (otherwise every pan bounces back through it and re-sets viewState to what it already holds).",
+        "ts": "2026-08-25",
         "created": "2026-08-17"
       },
       "globe-texture-projection": {
         "Id": "globe-texture-projection",
         "Type": "fact",
         "Label": "The globe was textured with an AZIMUTHAL image",
-        "body": "Globe3D's primary texture was assets/images/Azimuthal-satellite-view.png — 600x543, an azimuthal projection. Wrapping that on a sphere maps a polar disc onto a lat/lon grid: every continent in the wrong place and the poles smeared. The NASA fallback was no better — getNASAEarthTextureUrl requested WMTS tile 0/0/0 calling it 'the entire world in one tile', but the EPSG:4326 grid is 2x1 at level zero, so that URL is the WESTERN HEMISPHERE at 1:1. A sphere needs EQUIRECTANGULAR: GIBS WMS GetMap with BBOX=-90,-180,90,180 at 2048x1024 returns exactly that, keyless. NASA is now primary, the local file is the fallback, and the camera moved from z=10 to z=16 (a radius-5 globe overflowed a short wide map area and was cropped into a featureless wall). Two leftover debug spheres — red at the north pole, green on the prime meridian — were the brightest objects on the globe and are gone. TEXTURE STILL UNVERIFIED: the sandbox denies gibs.earthdata.nasa.gov like every other map host.",
-        "ts": "2026-08-17",
+        "body": "Globe3D's primary texture was assets/images/Azimuthal-satellite-view.png - 600x543, an azimuthal projection. Wrapping that on a sphere maps a polar disc onto a lat/lon grid: every continent in the wrong place and the poles smeared. The NASA fallback was no better - getNASAEarthTextureUrl requested WMTS tile 0/0/0 calling it 'the entire world in one tile', but the EPSG:4326 grid is 2x1 at level zero, so that URL is the WESTERN HEMISPHERE at 1:1. A sphere needs EQUIRECTANGULAR: GIBS WMS GetMap with BBOX=-90,-180,90,180 at 2048x1024 returns exactly that, keyless. NASA is now primary, the local file is the fallback, and the camera moved from z=10 to z=16 (a radius-5 globe overflowed a short wide map area and was cropped into a featureless wall). Two leftover debug spheres - red at the north pole, green on the prime meridian - were the brightest objects on the globe and are gone. TEXTURE STILL UNVERIFIED: the sandbox denies gibs.earthdata.nasa.gov like every other map host.",
+        "ts": "2026-08-25",
         "created": "2026-08-17"
       },
       "watermark-footer-placement": {
