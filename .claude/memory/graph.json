@@ -1248,6 +1248,14 @@
         "body": "buildEquirectangularEarth() in components/map/utils/earthTexture.js composites 16 Esri World Imagery tiles at z=2 and resamples Mercator->equirectangular per row, filling the +/-85 polar caps. Esri first because the flat satellite basemap already uses it; NASA GIBS second; plain ocean sphere last. Azimuthal-satellite-view.png is NEVER a sphere texture. Verified by verify-globe-texture.mjs incl. a rendered-pixel check.",
         "ts": "2026-08-26",
         "created": "2026-08-26"
+      },
+      "route-options-are-pairs": {
+        "Id": "route-options-are-pairs",
+        "Type": "decision",
+        "Label": "Route options = request params + a picking rule",
+        "body": "components/map/utils/routeOptions.js. Five options (fastest/least-traffic/economic/highway/scenic) each map to exclude+profile+annotations AND a rule for choosing among alternatives. fastest and least-traffic send the SAME request and disagree on the answer. alternatives=true is ONE Directions request - never fire one per option. toRoutes()/getRoutes() in mapApi are the plural path; toRoute() drops all but routes[0]. Congestion needs a Mapbox key, so least-traffic is disabled without one rather than faking it.",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
       }
     },
     "thread": {

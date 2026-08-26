@@ -128,6 +128,22 @@ function toRoute(payload, { minutes = false } = {}) {
 
 const toRadarRoute = (payload) => toRoute(payload, { minutes: true });
 
+/**
+ * EVERY route a request returned, not just the first.
+ *
+ * toRoute() takes `routes[0]` and drops the rest, which is correct for "draw
+ * me a line" and fatally wrong for route options: `alternatives=true` puts the
+ * candidates in that same array, so the picker in utils/routeOptions had
+ * nothing to choose between and four of the five options would have been
+ * labels over an identical route.
+ */
+function toRoutes(payload, opts = {}) {
+  const list = Array.isArray(payload) ? payload : (payload?.routes || [payload]);
+  return list.map((r) => toRoute(r, opts)).filter((r) => r && r.geometry);
+}
+
+const toRadarRoutes = (payload) => toRoutes(payload, { minutes: true });
+
 // ── OVERPASS: the part that makes "near me" a real question ─────────────────
 //
 // Overpass is OpenStreetMap's query API. It is the only keyless thing here
@@ -323,6 +339,22 @@ class MapApiService {
    * Places near a point. `options.query` is the free-text part ("coffee",
    * "hardware store") and `near` is what makes it near.
    */
+  /**
+   * All candidate routes for a journey, for the route-option picker.
+   *
+   * Deliberately a SEPARATE method rather than a flag on getDirections: the
+   * two have different return shapes (one route vs many), and every existing
+   * caller of getDirections wants exactly one.
+   */
+  async getRoutes(origin, destination, options = {}) {
+    return this.cached(
+      `routes:${origin.lat},${origin.lng}:${destination.lat},${destination.lng}:${JSON.stringify(options)}`,
+      () => this.tryProviders(
+        (provider) => this.getRoutesWithProvider(provider, origin, destination, options), 'routes',
+      ),
+    );
+  }
+
   async searchPlaces(near, options = {}) {
     return this.cached(`places:${near.lat},${near.lng}:${JSON.stringify(options)}`, () => this.tryProviders(
       (provider) => this.searchPlacesWithProvider(provider, near, options), 'places',
@@ -363,6 +395,12 @@ class MapApiService {
       case 'directions':
         // A route without a line cannot be drawn, so it is not a route.
         return !!(result.geometry && result.geometry.coordinates?.length > 1);
+      case 'routes':
+        // At least one drawable route. Zero is a failed provider, not an
+        // answer — otherwise the ladder would stop at the first provider that
+        // politely returned nothing.
+        return Array.isArray(result) && result.length > 0
+          && !!result[0].geometry?.coordinates?.length;
       case 'distance':
         return Number.isFinite(result.distance);
       default:
@@ -427,6 +465,20 @@ class MapApiService {
       case 'tomtom': return this.viaBackend('/api/maps/directions', { origin, destination, options, provider: 'tomtom' }, toRoute);
       case 'radar': return this.viaBackend('/api/radar/directions', { origin, destination, options }, toRadarRoute);
       case 'leaflet': return this.routeWithOSRM(origin, destination, { ...options, overview: 'full' });
+      default: throw new Error(`Unknown provider: ${provider}`);
+    }
+  }
+
+  getRoutesWithProvider(provider, origin, destination, options) {
+    switch (provider) {
+      case 'mapbox': return this.viaBackend('/api/maps/directions', { origin, destination, options, provider: 'mapbox' }, toRoutes);
+      case 'tomtom': return this.viaBackend('/api/maps/directions', { origin, destination, options, provider: 'tomtom' }, toRoutes);
+      case 'radar': return this.viaBackend('/api/radar/directions', { origin, destination, options }, toRadarRoutes);
+      // OSRM's public server DOES return alternatives, so the keyless floor
+      // still offers a choice — it just has no congestion data, which is why
+      // routeOptions marks "least traffic" unavailable without a key.
+      case 'leaflet': return this.routeWithOSRM(origin, destination, { ...options, overview: 'full', all: true })
+        .then((r) => (Array.isArray(r) ? r : [r].filter(Boolean)));
       default: throw new Error(`Unknown provider: ${provider}`);
     }
   }
@@ -588,13 +640,26 @@ class MapApiService {
    * routing never worked at all.
    */
   async routeWithOSRM(origin, destination, options = {}) {
-    const profile = options.profile || 'driving';
+    // OSRM has no driving-traffic profile — it is a static road graph — so a
+    // request for one has to be flattened or the demo server 400s.
+    const profile = (options.profile || 'driving').replace('driving-traffic', 'driving');
     const pair = `${origin.lng},${origin.lat};${destination.lng},${destination.lat}`;
+    const exclude = Array.isArray(options.exclude)
+      // OSRM's car profile knows `motorway`, `toll` and `ferry`; anything else
+      // is rejected outright rather than ignored, so the list is filtered.
+      ? options.exclude.filter((e) => ['motorway', 'toll', 'ferry'].includes(e))
+      : [];
     const response = await axios.get(`https://router.project-osrm.org/route/v1/${profile}/${pair}`, {
-      params: { overview: options.overview ?? 'full', geometries: 'geojson' },
+      params: {
+        overview: options.overview ?? 'full',
+        geometries: 'geojson',
+        ...(options.alternatives ? { alternatives: 'true' } : {}),
+        ...(exclude.length ? { exclude: exclude.join(',') } : {}),
+      },
     });
     if (response.data?.code !== 'Ok') throw new Error(response.data?.message || 'OSRM routing failed');
-    return toRoute(response.data.routes);
+    // `all` asks for every candidate; the single-route callers still get one.
+    return options.all ? toRoutes(response.data.routes) : toRoute(response.data.routes);
   }
 
   // ── cache ─────────────────────────────────────────────────────────────────

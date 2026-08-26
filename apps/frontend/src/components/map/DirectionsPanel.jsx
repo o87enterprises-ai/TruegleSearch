@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Navigation, MapPin, X, ArrowRight, Clock, TrendingUp, Camera } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Navigation, MapPin, X, ArrowRight, Clock, TrendingUp, Camera, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import LocationAutocomplete from './LocationAutocomplete';
 import { useMap } from './context/MapContext';
@@ -7,6 +7,11 @@ import { fetchCamerasAlongRoute } from './services/dotCameraService';
 import MapApiService from './services/mapApi';
 import { useLiveNavigation } from './hooks/useLiveNavigation';
 import CameraView from './CameraView';
+import {
+  ROUTE_OPTIONS, DEFAULT_OPTION, paramsFor, pickRoute, isAvailable,
+  formatDuration as fmtDuration, formatDistance as fmtDistance,
+} from './utils/routeOptions';
+import { hasMapboxToken } from './config/basemap';
 
 // The panel's travel modes, in the vocabulary the routers use. OSRM profiles
 // are driving/walking/cycling; sending it "car" routes nothing.
@@ -33,6 +38,23 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
   const [camerasAlongRoute, setCamerasAlongRoute] = useState([]);
   const [loadingCameras, setLoadingCameras] = useState(false);
   const [imageRefreshTimestamp, setImageRefreshTimestamp] = useState(Date.now());
+  // Which of the five route options is selected, and what the picker had to
+  // say about its choice ("Least congestion of the routes found").
+  const [routeOption, setRouteOption] = useState(DEFAULT_OPTION);
+  const [routeReason, setRouteReason] = useState('');
+  // Every candidate the last request returned, so switching option re-picks
+  // from what we already have instead of asking the router again.
+  const [candidates, setCandidates] = useState([]);
+  // COLLAPSE, asked for directly: once a route is on the map the panel is
+  // covering the thing it just drew. Minimised it keeps the summary line and
+  // gives the map back.
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Congestion data needs the driving-traffic profile, which needs a key. With
+  // no key the option is shown disabled rather than hidden — "why is there no
+  // least-traffic option" is a worse question than a greyed-out one with a
+  // reason on it.
+  const trafficAvailable = hasMapboxToken;
 
   // Live GPS navigation over whatever route is currently on screen. A re-route
   // replaces the line in place, so the map and the panel stay in step without
@@ -48,6 +70,26 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
       onRouteCalculated?.(fresh);
     }, [onRouteCalculated]),
   });
+
+  // SWITCHING OPTION RE-ASKS, because the options are different questions:
+  // scenic excludes motorways, economic excludes tolls, least-traffic wants
+  // congestion annotations. Re-picking from the previous response would give
+  // an answer to the wrong question.
+  //
+  // It is not wasteful: mapApi caches on the full option set for five minutes,
+  // so flipping back and forth costs one request per option and nothing after.
+  // The ref guard is what stops this firing on the first render and on every
+  // unrelated re-render — only an actual CHANGE of option recalculates.
+  const lastOption = useRef(routeOption);
+  useEffect(() => {
+    if (lastOption.current === routeOption) return;
+    lastOption.current = routeOption;
+    if (route) calculateRouteRef.current?.();
+  }, [routeOption, route]);
+
+  // calculateRoute is defined below; the effect above must not depend on its
+  // identity or it would re-run every time the callback is rebuilt.
+  const calculateRouteRef = useRef(null);
 
   // Set origin to user location when available
   useEffect(() => {
@@ -220,13 +262,22 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
       // Whichever provider can answer. The service normalises to metres and
       // SECONDS, so the ×60 that used to live here — correct only for Radar,
       // and an hour-long lie for everyone else — is gone.
-      const result = await MapApiService.getDirections(
+      // ONE request, several candidates. `alternatives` rides along in the
+      // same response, so all five options cost what one option cost — see
+      // utils/routeOptions. Firing a request per option would turn a single
+      // call into five against the same free tier.
+      const params = paramsFor(routeOption, { mode: travelMode });
+      const result = await MapApiService.getRoutes(
         { lat: finalOriginCoords.latitude, lng: finalOriginCoords.longitude },
         { lat: finalDestCoords.latitude, lng: finalDestCoords.longitude },
-        { mode: travelMode, profile: PROFILE_BY_MODE[travelMode] || 'driving', units: 'imperial' },
+        { mode: travelMode, units: 'imperial', ...params },
       );
 
-      const routeData = result?.data;
+      const found = Array.isArray(result?.data) ? result.data : [];
+      setCandidates(found);
+      const chosen = pickRoute(routeOption, found);
+      setRouteReason(chosen?.reason || '');
+      const routeData = chosen?.route;
       if (routeData?.geometry) {
         const calculatedRoute = {
           distance: routeData.distance,
@@ -287,7 +338,12 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
     } finally {
       setLoading(false);
     }
-  }, [origin, destination, originCoords, destCoords, travelMode, onRouteCalculated, actions, findCamerasAlongRoute]);
+  }, [origin, destination, originCoords, destCoords, travelMode, routeOption, onRouteCalculated, actions, findCamerasAlongRoute]);
+
+  // The effect above calls through this ref rather than depending on
+  // calculateRoute directly — depending on the callback would re-run the
+  // effect every time the callback is rebuilt, which is every render.
+  calculateRouteRef.current = calculateRoute;
 
   const formatDuration = (seconds) => {
     const hours = Math.floor(seconds / 3600);
@@ -332,18 +388,45 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
           </div>
           <div>
             <h2 className="text-lg font-bold text-white">Directions</h2>
-            <p className="text-xs text-blue-400">Get turn-by-turn navigation</p>
+            {/* Collapsed, the subtitle becomes the ANSWER. A minimised panel
+                that still says "Get turn-by-turn navigation" has given up the
+                map without giving anything back. */}
+            <p className="text-xs text-blue-400">
+              {collapsed && route
+                ? `${fmtDuration(route.duration)} · ${fmtDistance(route.distance)}`
+                : 'Get turn-by-turn navigation'}
+            </p>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          title="Close"
-        >
-          <X size={20} className="text-white" />
-        </button>
+        <div className="flex items-center gap-1">
+          {/* MINIMISE. Once a route is drawn the panel is sitting on top of the
+              thing it just drew — on a phone it covers most of it. Collapsing
+              keeps the summary and hands the map back. */}
+          <button
+            onClick={() => setCollapsed((v) => !v)}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            title={collapsed ? 'Expand directions' : 'Minimise — keep the route, show the map'}
+            aria-expanded={!collapsed}
+          >
+            {collapsed
+              ? <ChevronDown size={18} className="text-white" />
+              : <ChevronUp size={18} className="text-white" />}
+          </button>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            title="Close"
+          >
+            <X size={20} className="text-white" />
+          </button>
+        </div>
       </div>
 
+      {/* Everything below the header folds away. The ROUTE ITSELF is untouched
+          — it lives on the map, not in this panel — so minimising never costs
+          the thing that was just calculated. */}
+      {!collapsed && (
+      <>
       {/* Input Form */}
       <div className="p-4 space-y-3 border-b border-neutral-700/50">
         {/* Origin Input with Autocomplete */}
@@ -405,6 +488,44 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
           ))}
         </div>
 
+        {/* ROUTE OPTIONS — driving only. Excluding tolls from a walk, or asking
+            for live traffic on a cycle path, is a control with nothing behind
+            it, so the row is simply absent for foot and bike. */}
+        {travelMode === 'car' && (
+          <div>
+            <div className="flex flex-wrap gap-1.5">
+              {ROUTE_OPTIONS.map((opt) => {
+                const usable = isAvailable(opt.id, { hasTraffic: trafficAvailable });
+                const active = routeOption === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    disabled={!usable}
+                    onClick={() => setRouteOption(opt.id)}
+                    // Disabled options say WHY on hover rather than just being
+                    // dead — "why can't I pick that" is the question a greyed
+                    // control otherwise leaves unanswered.
+                    title={usable ? opt.hint : `${opt.hint} — needs live traffic data, which isn’t configured`}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all border ${
+                      active
+                        ? 'bg-blue-500/20 border-blue-400/50 text-blue-200'
+                        : usable
+                          ? 'bg-neutral-800/50 border-neutral-700/50 text-neutral-400 hover:text-white hover:border-neutral-600'
+                          : 'bg-neutral-900/50 border-neutral-800 text-neutral-600 cursor-not-allowed'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-neutral-500 mt-1.5">
+              {ROUTE_OPTIONS.find((o) => o.id === routeOption)?.hint}
+            </p>
+          </div>
+        )}
+
         {/* Calculate Button */}
         <button
           onClick={calculateRoute}
@@ -440,11 +561,24 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
             <div className="bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-xl p-4 border border-blue-500/30">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-white">Route Summary</h3>
+                {/* This said "Fastest route" unconditionally, which becomes a
+                    false claim the moment any other option is chosen. It names
+                    the option actually in force. */}
                 <div className="flex items-center gap-2 text-xs text-blue-400">
                   <TrendingUp size={12} />
-                  <span>Fastest route</span>
+                  <span>{ROUTE_OPTIONS.find((o) => o.id === routeOption)?.label || 'Route'}</span>
                 </div>
               </div>
+              {/* WHY this route, in words that can be checked against the map.
+                  It also carries the honest case: when there is no congestion
+                  data, "least traffic" says so instead of quietly handing back
+                  the quickest route under a label promising something else. */}
+              {routeReason && (
+                <p className="text-[11px] text-blue-200/70 mb-3">
+                  {routeReason}
+                  {candidates.length > 1 && ` · ${candidates.length} routes compared`}
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <div className="flex items-center gap-1 text-xs text-white/60 mb-1">
@@ -622,6 +756,8 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
           </div>
         )}
       </div>
+      </>
+      )}
     </motion.div>
   );
 }

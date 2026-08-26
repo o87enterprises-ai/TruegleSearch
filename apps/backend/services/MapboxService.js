@@ -118,10 +118,27 @@ class MapboxService {
       alternatives = false,
       steps = false,
       geometries = 'geojson',
+      // ROUTE OPTIONS. `exclude` is how "scenic" (no motorways) and "economic"
+      // (no tolls) are actually expressed — no router has those words. See
+      // components/map/utils/routeOptions.js for the full translation.
+      exclude = [],
+      // `congestion` is the per-segment traffic classification, and the ONLY
+      // thing that makes "least traffic" mean anything. It is available on the
+      // driving-traffic profile alone; asking for it elsewhere is silently
+      // ignored by Mapbox rather than an error.
+      annotations = [],
     } = options;
 
     // Format coordinates: lon,lat;lon,lat
     const coordsString = coordinates.map((c) => `${c.lon},${c.lat}`).join(';');
+
+    const excludeList = (Array.isArray(exclude) ? exclude : [])
+      // Allowlisted, not passed through: this value goes into a URL, and an
+      // unrecognised token makes Mapbox reject the whole request — so a typo
+      // upstream would break routing entirely rather than degrade it.
+      .filter((e) => ['motorway', 'toll', 'ferry', 'unpaved', 'cash_only_tolls'].includes(e));
+    const annotationList = (Array.isArray(annotations) ? annotations : [])
+      .filter((a) => ['duration', 'distance', 'speed', 'congestion', 'congestion_numeric'].includes(a));
 
     try {
       const response = await axios.get(
@@ -132,6 +149,12 @@ class MapboxService {
             alternatives,
             steps,
             geometries,
+            ...(excludeList.length ? { exclude: excludeList.join(',') } : {}),
+            // Mapbox requires overview=full alongside annotations, and rejects
+            // the request without it.
+            ...(annotationList.length
+              ? { annotations: annotationList.join(','), overview: 'full' }
+              : {}),
           },
           timeout: 10000,
         }
@@ -260,6 +283,9 @@ class MapboxService {
       return null;
     }
 
+    // `legs` is kept whole ON PURPOSE: leg.annotation.congestion is what the
+    // "least traffic" option scores on, and an earlier version of this mapper
+    // that picked out only distance/duration/steps discarded it silently.
     return data.routes.map((route) => ({
       distance: route.distance, // meters
       duration: route.duration, // seconds
