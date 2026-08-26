@@ -91,8 +91,10 @@ export const BASEMAP_STYLES = {
   }),
 };
 
-/** The order the style toggle walks. */
-export const BASEMAP_ORDER = ['standard', 'dark', 'light', 'satellite'];
+/** The order the style toggle walks. Satellite leads because it is the
+ *  default (see TruegleMap's `style` prop), so the first press of the toggle
+ *  moves AWAY from what is on screen rather than appearing to do nothing. */
+export const BASEMAP_ORDER = ['satellite', 'standard', 'dark', 'light'];
 
 export const getBasemapStyle = (name) => BASEMAP_STYLES[name] || BASEMAP_STYLES.standard;
 

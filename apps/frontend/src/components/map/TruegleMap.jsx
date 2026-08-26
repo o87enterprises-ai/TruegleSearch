@@ -37,7 +37,12 @@ import './styles/TruegleMap.css';
 
 export default function TruegleMap({
   provider = 'mapbox',
-  style = 'standard',
+  // SATELLITE IS THE DEFAULT. Asked for directly, and it is also the view that
+  // makes an unlabelled map legible: the keyless raster styles carry no place
+  // labels at low zoom, so a road map of an unfamiliar area opens as grey
+  // shapes. Imagery reads as somewhere real immediately. The style toggle
+  // still walks the full BASEMAP_ORDER from here.
+  style = 'satellite',
   center = [-98.5795, 39.8283],
   zoom = 4,
   showTraffic = false,
@@ -70,7 +75,7 @@ export default function TruegleMap({
   const [markers, setMarkers] = useState([]);
   const [selectedMarker, setSelectedMarker] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [fullscreenMapStyle, setFullscreenMapStyle] = useState('standard');
+  const [fullscreenMapStyle, setFullscreenMapStyle] = useState('satellite');
   const [showTrafficFS, setShowTrafficFS] = useState(false);
   const [showCamerasFS, setShowCamerasFS] = useState(false);
   const [showEnhancedCameraSearch, setShowEnhancedCameraSearch] = useState(false);

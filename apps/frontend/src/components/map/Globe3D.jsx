@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Sphere, Stars, Text } from '@react-three/drei';
 import * as THREE from 'three';
@@ -8,8 +8,8 @@ import { GlobeMarker } from './globe/GlobeMarker';
 import { GlobeRoute } from './globe/GlobeRoute';
 import { GlobeTraffic } from './globe/GlobeTraffic';
 import { getNASAEarthTextureUrl, GIBS_ATTRIBUTION } from './utils/nasaGibsHelper';
+import { buildEquirectangularEarth, EARTH_ATTRIBUTION } from './utils/earthTexture';
 import './styles/AzimuthalGlobe.css';
-import satelliteImage from '../../assets/images/Azimuthal-satellite-view.png';
 
 const globeRadius = GLOBE_3D_CONFIG.globeRadius;
 
@@ -27,88 +27,113 @@ const globeRadius = GLOBE_3D_CONFIG.globeRadius;
  * using getTomTomSatelliteTileUrl() from utils/tomtomTileHelper.js to fetch
  * real-time satellite tiles based on user's zoom level and position.
  */
-function EarthSphere({ radius, textureUrl, onTextureSourceChange }) {
+function EarthSphere({ radius, onTextureSourceChange }) {
   const [texture, setTexture] = useState(null);
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    const loader = new THREE.TextureLoader();
-    // Cross-origin is required or the texture taints the canvas; GIBS sends
-    // Access-Control-Allow-Origin.
-    loader.setCrossOrigin('anonymous');
+    let cancelled = false;
 
-    // NASA FIRST, and the local file is no longer a candidate for the sphere.
-    //
-    // The bundled Azimuthal-satellite-view.png is exactly what its name says:
-    // an AZIMUTHAL projection, 600x543. Wrapping that around a sphere maps a
-    // polar disc onto a lat/lon grid — every continent lands in the wrong
-    // place, at the wrong shape, and the poles smear. It was the PRIMARY
-    // texture, which is why the globe never looked like Earth. A sphere needs
-    // an equirectangular image and NASA's Blue Marble is one, free and
-    // keyless. If that cannot be reached, a plain ocean-blue sphere is a
-    // more honest globe than a misprojected photograph.
-    loader.load(
-      getNASAEarthTextureUrl('BLUE_MARBLE'),
-      (loadedTexture) => {
-        configureTexture(loadedTexture);
-        setTexture(loadedTexture);
-        onTextureSourceChange?.('nasa');
-      },
-      undefined,
-      (primaryError) => {
-        console.warn('⚠️ NASA Blue Marble unavailable, falling back:', primaryError?.message || primaryError);
-
-        loader.load(
-          textureUrl,
-          (loadedTexture) => {
-            configureTexture(loadedTexture);
-            setTexture(loadedTexture);
-            onTextureSourceChange?.('local');
-          },
-          undefined,
-          (nasaError) => {
-            console.warn('⚠️ NASA GIBS fallback failed, using solid color:', nasaError);
-            setLoadError(true);
-            onTextureSourceChange?.('fallback');
-          }
-        );
-      }
-    );
-
-    function configureTexture(tex) {
-      // Configure texture for optimal appearance on sphere
-      tex.wrapS = THREE.ClampToEdgeWrapping;
+    const apply = (tex, source) => {
+      if (cancelled) return;
+      // ClampToEdge on S leaves a seam where longitude wraps; the texture IS
+      // the whole world, so the horizontal axis has to repeat.
+      tex.wrapS = THREE.RepeatWrapping;
       tex.wrapT = THREE.ClampToEdgeWrapping;
       tex.minFilter = THREE.LinearFilter;
       tex.magFilter = THREE.LinearFilter;
-    }
-  }, [textureUrl, onTextureSourceChange]);
+      tex.needsUpdate = true;
+      setTexture(tex);
+      onTextureSourceChange?.(source);
+    };
+
+    // ORDER MATTERS, and it is the opposite of what it was.
+    //
+    // Esri first: it is the same host the flat satellite basemap already
+    // draws, so if the 2D map works the globe works. NASA GIBS second — it is
+    // genuinely better imagery, but it is a public science service with no
+    // uptime promise, and depending on it FIRST is what left users looking at
+    // a blank sphere.
+    //
+    // The bundled Azimuthal-satellite-view.png is no longer in this chain at
+    // all. It is an azimuthal projection; wrapping a polar disc onto a lat/lon
+    // sphere is what produced the featureless pale ball people reported as
+    // "the globe doesn't render". A plain ocean sphere is a more honest Earth
+    // than a misprojected photograph of one.
+    buildEquirectangularEarth()
+      .then((canvas) => {
+        if (cancelled) return;
+        apply(new THREE.CanvasTexture(canvas), 'esri');
+      })
+      .catch((esriError) => {
+        if (cancelled) return;
+        console.warn('Esri imagery unavailable, trying NASA:', esriError?.message || esriError);
+        const loader = new THREE.TextureLoader();
+        loader.setCrossOrigin('anonymous');
+        loader.load(
+          getNASAEarthTextureUrl('BLUE_MARBLE'),
+          (tex) => apply(tex, 'nasa'),
+          undefined,
+          () => {
+            if (cancelled) return;
+            console.warn('NASA Blue Marble unavailable too; using a plain ocean sphere.');
+            setLoadError(true);
+            onTextureSourceChange?.('fallback');
+          },
+        );
+      });
+
+    return () => { cancelled = true; };
+  }, [onTextureSourceChange]);
 
   return (
     <group>
-      <mesh>
-        <Sphere args={[radius, 64, 64]}>
-          {texture && !loadError ? (
-            <meshStandardMaterial
-              map={texture}
-              color="#ffffff"
-              emissive="#000000"
-              metalness={0.1}
-              roughness={0.9}
-              transparent={true}
-              opacity={1}
-            />
-          ) : (
-            <meshStandardMaterial
-              color="#1a4d2e"
-              emissive="#0a0a15"
-              metalness={0.1}
-              roughness={0.8}
-              wireframe={false}
-            />
-          )}
-        </Sphere>
-      </mesh>
+      {/* No wrapping <mesh>: drei's <Sphere> IS a mesh, and the outer one had
+          neither geometry nor material of its own — an empty object in the
+          scene graph that only made the tree harder to read. */}
+      <Sphere args={[radius, 64, 64]}>
+        {texture && !loadError ? (
+          // SATELLITE IMAGERY IS ALREADY LIT. It is a photograph of a sunlit
+          // Earth, so the scene lights are a SECOND sun on top of the one in
+          // the picture. At the old intensities that pushed every pixel past
+          // 1.0 and the globe rendered pure white with the texture bound and
+          // sampling correctly — which is why this looked like a texture
+          // failure for so long. Roughness 1 and no metalness keep the
+          // remaining light purely diffuse, so shading adds depth to the
+          // imagery instead of a specular sheen that is not on the real Earth.
+          <meshStandardMaterial
+            // KEYED, and this is load-bearing rather than tidiness.
+            //
+            // The texture arrives asynchronously, so React updates `map` on a
+            // material three.js has ALREADY compiled a shader program for —
+            // and that program has no texture sampling in it. Without a
+            // recompile the map is simply not read, so the sphere rendered
+            // `color` alone: pure white, with the texture bound, uploaded and
+            // sampling correctly. It looked exactly like a failed download and
+            // sent the search off in the wrong direction twice.
+            //
+            // Changing the key makes React mount a NEW material once the
+            // texture exists, which compiles the right program by
+            // construction — no needsUpdate flag to remember on a future edit.
+            key={texture ? 'earth-textured' : 'earth-pending'}
+            map={texture}
+            color="#ffffff"
+            emissive="#000000"
+            metalness={0}
+            roughness={1}
+          />
+        ) : (
+          // Ocean blue, not a washed-out grey: when every source has failed
+          // this should look like a deliberate plain Earth rather than like a
+          // texture that half-loaded.
+          <meshStandardMaterial
+            color="#12385c"
+            emissive="#04101c"
+            metalness={0.1}
+            roughness={0.8}
+          />
+        )}
+      </Sphere>
 
       <mesh>
         <Sphere args={[radius + 0.01, 32, 32]}>
@@ -142,27 +167,13 @@ export default function Globe3D({
   const [textureSource, setTextureSource] = useState('loading');
 
 
-  const displayMarkers = useMemo(() => {
-    if (markers.length === 0) {
-      return [
-        { id: 'test-1', lat: 40.7128, lng: -74.0060, name: 'New York', category: 'RESTAURANT' },
-        { id: 'test-2', lat: 51.5074, lng: -0.1278, name: 'London', category: 'HOTEL' },
-        { id: 'test-3', lat: 35.6762, lng: 139.6503, name: 'Tokyo', category: 'ENTERTAINMENT' },
-        { id: 'test-4', lat: -33.8688, lng: 151.2093, name: 'Sydney', category: 'SHOP' },
-        { id: 'test-5', lat: 39.9042, lng: 116.4074, name: 'Beijing', category: 'TRANSPORT' },
-      ];
-    }
-    return markers;
-  }, [markers]);
-
-  useEffect(() => {
-    console.log('🌍 Globe3D initial render:', {
-      center,
-      rotation,
-      markersCount: markers.length,
-      displayMarkersCount: displayMarkers.length
-    });
-  }, []);
+  // NO PLACEHOLDER PINS. This used to substitute five hardcoded markers — New
+  // York, London, Tokyo, Sydney, Beijing — whenever the real list was empty.
+  // They were scaffolding that shipped: a user who opened the globe before
+  // searching saw five pins on cities they had never asked about, which reads
+  // as results rather than as a demo. An empty globe is the correct answer to
+  // "nothing has been searched yet".
+  const displayMarkers = markers;
 
   const handleResetView = useCallback(() => {
     if (controlsRef.current) {
@@ -301,14 +312,16 @@ export default function Globe3D({
             gl.setPixelRatio(Math.min(window.devicePixelRatio, 2));
           }}
         >
-          <ambientLight intensity={0.8} />
-          <directionalLight position={[10, 10, 5]} intensity={1.5} />
-          <pointLight position={[10, 10, 10]} intensity={0.5} />
+          {/* Satellite imagery is already a photograph of a LIT Earth, so the
+              scene lights are a second sun on top of the one in the picture.
+              Kept modest so shading adds relief rather than blowing the
+              imagery towards white. */}
+          <ambientLight intensity={0.55} />
+          <directionalLight position={[10, 10, 5]} intensity={0.8} />
 
           <group ref={groupRef} rotation={[rotation.x, rotation.y, 0]}>
             <EarthSphere
               radius={globeRadius}
-              textureUrl={satelliteImage}
               onTextureSourceChange={setTextureSource}
             />
 
@@ -385,13 +398,16 @@ export default function Globe3D({
         </button>
       </div>
 
-      {/* NASA GIBS Attribution (when using NASA imagery) */}
-      {textureSource === 'nasa' && (
+      {/* Credit follows the imagery ACTUALLY on the sphere. Both providers
+          require attribution, and crediting the one that failed is worse than
+          crediting nobody — it tells the reader the picture came from a source
+          it did not come from. */}
+      {(textureSource === 'nasa' || textureSource === 'esri') && (
         <div
           className="absolute bottom-2 left-2 text-xs text-white/60 bg-black/40 px-2 py-1 rounded"
           style={{ maxWidth: '300px', fontSize: '9px' }}
         >
-          {GIBS_ATTRIBUTION}
+          {textureSource === 'nasa' ? GIBS_ATTRIBUTION : EARTH_ATTRIBUTION}
         </div>
       )}
     </div>
