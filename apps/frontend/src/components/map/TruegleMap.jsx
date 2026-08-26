@@ -53,6 +53,9 @@ export default function TruegleMap({
   onMarkerClick = null,
   onClose = null,
   userLocation: initialUserLocation = null,
+  // Why the wrapper has no position, when it has none — see utils/geolocation.
+  // null means "no attempt has failed", which is not the same as "denied".
+  locationProblem = null,
   // Whether the map is currently floating over the page, and how to switch.
   // Owned by MapViewWrapper — the map draws the control, the wrapper decides
   // where the map lives, the same split the player uses.
@@ -830,25 +833,33 @@ export default function TruegleMap({
     );
   }, [userLocation, initialUserLocation]);
 
-  // The Location button's three honest states.
+  // The Location button's four honest states.
   //
   //   lit      — we have your position AND it is inside the current viewport
   //   located  — we have it, but you have panned away from yourself
-  //   unknown  — no position (never granted, denied, or not asked yet)
+  //   blocked  — an attempt already failed, and we know why
+  //   unknown  — nothing has been tried yet
   //
-  // Pressing it does the same thing throughout; what changes is what it TELLS
-  // you. A button that looks identical whether or not the map has found you is
-  // the reason "is my location even on?" is a question people have to answer
-  // by squinting for a blue dot.
-  const locationState = !userLocation ? 'unknown' : (locationOnScreen ? 'lit' : 'located');
+  // BLOCKED IS THE ONE THAT WAS MISSING, and its absence is what read as the
+  // permission state being lost. Whether the browser had refused, the device
+  // had location switched off, or nothing had ever been asked, the button
+  // looked identical and offered "Find my location" — so pressing it after a
+  // refusal did nothing visible, over and over.
+  const locationState = userLocation
+    ? (locationOnScreen ? 'lit' : 'located')
+    : (locationProblem ? 'blocked' : 'unknown');
   const locationBtnClass = {
     lit: 'bg-blue-500/25 text-blue-300 ring-1 ring-blue-400/70 shadow-lg shadow-blue-500/40',
     located: 'bg-neutral-800 text-blue-400/70 hover:bg-neutral-700',
+    blocked: 'bg-amber-500/15 text-amber-300/80 hover:bg-amber-500/25',
     unknown: 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-blue-400',
   }[locationState];
   const locationBtnTitle = {
     lit: userAddress ? `Your location — ${userAddress}` : 'Your location is on screen',
     located: 'Your location is off screen — press to go back to it',
+    // The title carries the real reason, so hovering answers "why is there no
+    // blue dot?" without opening anything.
+    blocked: locationProblem?.title || 'Location unavailable — press for details',
     unknown: 'Find my location',
   }[locationState];
 

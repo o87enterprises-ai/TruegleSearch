@@ -2832,6 +2832,14 @@
         "body": "Temporary Geocoding (geocoding/v5/mapbox.places) = 100k req/mo FREE but results MUST NOT be stored. Permanent Geocoding (storage allowed) free tier = ZERO - never switch to it, never add a geocode DB column/disk cache. Directions/Matrix/Isochrone/Map Matching/Optimization = 100k each. Raster Tiles 750k. Static Tiles 200k. Vector Tiles 200k. GL JS map loads 50k. Static Images 50k. Search Box sessions 500. Current 5-min in-memory cache in mapApi is compliant.",
         "ts": "2026-08-26",
         "created": "2026-08-26"
+      },
+      "geolocation-code2-ambiguous": {
+        "Id": "geolocation-code2-ambiguous",
+        "Type": "fact",
+        "Label": "POSITION_UNAVAILABLE needs the Permissions API to disambiguate",
+        "body": "Geolocation error code 2 means BOTH 'OS location services off' and 'device cannot get a fix'. Only navigator.permissions tells them apart: permission=granted + code 2 => device toggle off (browser is fine); permission=prompt/unknown + code 2 => no fix. Read the permission BEFORE prompting - after, it reflects the answer just given. utils/geolocation.js owns this; never label a timeout or code 2 as 'permission denied'. Test stub gotcha: delete navigator.geolocation is a NO-OP (prototype accessor) - override with Object.defineProperty value undefined.",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
       }
     }
   },

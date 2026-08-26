@@ -10,6 +10,7 @@ import LocationPermissionModal from './LocationPermissionModal';
 import MapPopOutFrame from './MapPopOutFrame';
 import { useMap } from './context/MapContext';
 import { USER_LOCATION_ZOOM, GEOLOCATION_OPTIONS } from './config/constants';
+import { requestPosition } from '../../utils/geolocation';
 import MapApiService from './services/mapApi';
 import { useBottomDockClaim } from '../../hooks/useBottomDock';
 // No logo here. TruegleMap — the only thing this mounts — draws the single
@@ -46,6 +47,11 @@ export default function MapViewWrapper({
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showGlobe, setShowGlobe] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
+  // WHY we don't have a position, when we don't. Carried down so the Location
+  // button can say the true thing rather than offering "Find my location" to
+  // someone whose browser has already refused — which is what made the
+  // permission state look like it kept getting lost.
+  const [locationProblem, setLocationProblem] = useState(null);
   const [currentLocationMarker, setCurrentLocationMarker] = useState(null);
   const [routeData, setRouteData] = useState(null);
   const [mapCenter, setMapCenter] = useState([-98.5795, 39.8283]);
@@ -108,12 +114,19 @@ export default function MapViewWrapper({
       detectedLocation.type === 'geolocation' ||
       detectedLocation.type === 'directions';
     if (isOpen && !userLocation && needsUserPosition && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const location = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          };
+      // requestPosition resolves rather than rejecting, and carries a real
+      // diagnosis when it fails — the difference between a browser permission,
+      // a switched-off device and a GPS timeout. The old callback threw all
+      // three away into a console.log, so the map simply did not know where
+      // you were and had nothing to say about why.
+      requestPosition(GEOLOCATION_OPTIONS).then((result) => {
+        if (!result.ok) {
+          setLocationProblem(result);
+          return;
+        }
+        setLocationProblem(null);
+        {
+          const location = result.position;
           setUserLocation(location);
 
           // THE DOT IS DRAWN WHENEVER WE KNOW WHERE YOU ARE.
@@ -145,12 +158,8 @@ export default function MapViewWrapper({
             setMapZoom(USER_LOCATION_ZOOM);
             actions.flyTo(location, USER_LOCATION_ZOOM);
           }
-        },
-        (error) => {
-          console.log('Geolocation error:', error.message);
-        },
-        GEOLOCATION_OPTIONS
-      );
+        }
+      });
     }
   }, [isOpen, detectedLocation, userLocation]); // actions.flyTo is stable, no need to include in deps
 
@@ -405,6 +414,7 @@ export default function MapViewWrapper({
       zoom={mapZoom}
       showTraffic={showTraffic}
       userLocation={userLocation}
+      locationProblem={locationProblem}
       onClose={handleClose}
       poppedOut={poppedOut}
       onTogglePopOut={() => setPoppedOut((v) => !v)}

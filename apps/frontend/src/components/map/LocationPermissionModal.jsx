@@ -1,76 +1,37 @@
 import { useState } from 'react';
 import { MapPin, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { requestPosition } from '../../utils/geolocation';
 
 /**
  * LocationPermissionModal Component
  * Asks for user's location permission and handles the result
  */
 export default function LocationPermissionModal({ isOpen, onClose, onLocationGranted, onLocationDenied }) {
-  const [status, setStatus] = useState('idle'); // idle, requesting, granted, denied, error
-  const [errorMessage, setErrorMessage] = useState('');
+  const [status, setStatus] = useState('idle'); // idle, requesting, granted, failed
+  // The whole diagnosis, not just a sentence — see utils/geolocation.
+  const [problem, setProblem] = useState(null);
 
   const requestLocation = async () => {
     setStatus('requesting');
-    setErrorMessage('');
+    setProblem(null);
 
-    if (!navigator.geolocation) {
-      setStatus('error');
-      setErrorMessage('Geolocation is not supported by your browser');
-      if (onLocationDenied) {
-        onLocationDenied('Geolocation not supported');
-      }
+    const result = await requestPosition();
+
+    if (result.ok) {
+      setStatus('granted');
+      onLocationGranted?.(result.position);
+      setTimeout(() => onClose(), 1500);
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const location = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy
-        };
-        setStatus('granted');
-
-        if (onLocationGranted) {
-          onLocationGranted(location);
-        }
-
-        // Auto-close after success
-        setTimeout(() => {
-          onClose();
-        }, 1500);
-      },
-      (error) => {
-        setStatus('denied');
-        let message = 'Unable to retrieve your location';
-
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            message = 'Location permission denied. Please enable location access in your browser settings.';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            message = 'Location information is unavailable.';
-            break;
-          case error.TIMEOUT:
-            message = 'Location request timed out. Please try again.';
-            break;
-          default:
-            message = 'An unknown error occurred.';
-        }
-
-        setErrorMessage(message);
-
-        if (onLocationDenied) {
-          onLocationDenied(message);
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
+    // ONE failure state, not two, and never labelled "denied" by default.
+    // The old code set status='denied' for every error, so a GPS timeout and a
+    // switched-off device both told the user they had refused a permission
+    // they had in fact granted. What the failure IS now lives in `problem`.
+    setStatus('failed');
+    setProblem(result);
+    onLocationDenied?.(result.message);
   };
 
   if (!isOpen) return null;
@@ -102,13 +63,13 @@ export default function LocationPermissionModal({ isOpen, onClose, onLocationGra
                 <div className="flex items-center gap-3">
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
                     status === 'granted' ? 'bg-green-500/20' :
-                    status === 'denied' || status === 'error' ? 'bg-red-500/20' :
+                    status === 'failed' ? 'bg-amber-500/20' :
                     'bg-gradient-to-br from-blue-500 to-purple-600'
                   }`}>
                     {status === 'granted' ? (
                       <CheckCircle size={24} className="text-green-400" />
-                    ) : status === 'denied' || status === 'error' ? (
-                      <AlertCircle size={24} className="text-red-400" />
+                    ) : status === 'failed' ? (
+                      <AlertCircle size={24} className="text-amber-400" />
                     ) : status === 'requesting' ? (
                       <Loader2 size={24} className="text-white animate-spin" />
                     ) : (
@@ -116,16 +77,19 @@ export default function LocationPermissionModal({ isOpen, onClose, onLocationGra
                     )}
                   </div>
                   <div>
+                    {/* The heading NAMES the actual problem. "Permission
+                        Denied" over a switched-off phone toggle is not just
+                        unhelpful, it is wrong, and it sends people to a
+                        browser setting that was never the obstacle. */}
                     <h2 className="text-xl font-bold text-white">
                       {status === 'granted' ? 'Location Granted' :
-                       status === 'denied' ? 'Permission Denied' :
-                       status === 'error' ? 'Location Error' :
+                       status === 'failed' ? (problem?.title || 'Couldn’t get a location') :
                        status === 'requesting' ? 'Getting Location...' :
                        'Enable Location'}
                     </h2>
                     <p className="text-sm text-neutral-400 mt-1">
                       {status === 'granted' ? 'Successfully got your location' :
-                       status === 'denied' || status === 'error' ? 'Could not access location' :
+                       status === 'failed' ? 'Here’s what to check' :
                        status === 'requesting' ? 'Accessing your device location' :
                        'We need your location for directions'}
                     </p>
@@ -202,23 +166,44 @@ export default function LocationPermissionModal({ isOpen, onClose, onLocationGra
                 </div>
               )}
 
-              {(status === 'denied' || status === 'error') && (
+              {status === 'failed' && (
                 <div className="space-y-4">
-                  <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-                    <p className="text-sm text-red-400">{errorMessage}</p>
+                  <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                    <p className="text-sm text-amber-200/90">{problem?.message}</p>
                   </div>
 
-                  {status === 'denied' && (
+                  {/* Browser steps ONLY when the browser is the obstacle. They
+                      used to show for every failure, which is how someone with
+                      a switched-off phone toggle ended up repeatedly setting an
+                      already-correct browser permission. */}
+                  {problem?.kind === 'browser-denied' && (
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-white">To enable location access:</p>
                       <ol className="text-xs text-white/70 space-y-1 list-decimal list-inside">
-                        <li>Click the lock icon in your browser's address bar</li>
-                        <li>Find "Location" in the permissions list</li>
-                        <li>Change it to "Allow"</li>
+                        <li>Tap the icon at the left of the address bar</li>
+                        <li>Find &quot;Location&quot; in the permissions list</li>
+                        <li>Change it to &quot;Allow&quot;</li>
                         <li>Refresh this page and try again</li>
                       </ol>
                     </div>
                   )}
+
+                  {problem?.kind === 'device-off' && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-white">Where to turn it on:</p>
+                      <ul className="text-xs text-white/70 space-y-1 list-disc list-inside">
+                        <li><strong>Android:</strong> Settings → Location</li>
+                        <li><strong>iPhone:</strong> Settings → Privacy &amp; Security → Location Services</li>
+                        <li><strong>Windows:</strong> Settings → Privacy → Location</li>
+                        <li><strong>macOS:</strong> System Settings → Privacy &amp; Security → Location Services</li>
+                      </ul>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-white/40">
+                    You can also just type a place name into the search box — the map works
+                    without knowing where you are.
+                  </p>
                 </div>
               )}
             </div>
@@ -243,7 +228,7 @@ export default function LocationPermissionModal({ isOpen, onClose, onLocationGra
                 </>
               )}
 
-              {(status === 'denied' || status === 'error') && (
+              {status === 'failed' && (
                 <>
                   <button
                     onClick={onClose}
