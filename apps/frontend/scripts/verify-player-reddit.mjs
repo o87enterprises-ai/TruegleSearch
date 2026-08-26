@@ -79,10 +79,26 @@ async function run(query, { feedWorks = true, indexWorks = true } = {}) {
         nextCursor: {}, errors: {},
       });
     }
-    // The index path — the old route, kept as the fallback. It answers with a
-    // DIFFERENT post so the two sources can be told apart in the list.
+    // TWO DIFFERENT CALLERS HIT /api/search, and conflating them is what made
+    // this fixture lie to itself.
+    //
+    //   1. The PAGE's own search, fired by UniversalSearch on mount. It carries
+    //      `mode` and the raw query with the bang still on it.
+    //   2. The PLAYER's index rung — the fallback this test is actually about.
+    //      It carries the stripped query and a category, and it only runs when
+    //      the earlier rungs came back empty.
+    //
+    // Answering (1) with a playable Reddit permalink handed the player
+    // something to play before its ladder ever started, so redditDirect() was
+    // never reached and every assertion below failed — while the product was
+    // fine. The page search is what it is in production for a cold social
+    // index: empty.
     if (u.pathname.includes('/api/search')) {
+      const isPageSearch = !!body?.mode;
+      if (isPageSearch) return json({ results: [] });
       if (!indexWorks) return json({ results: [] });
+      // A DIFFERENT post from the Reddit stub, so the two sources are
+      // distinguishable in the rendered list.
       return json({ results: [
         { title: 'Indexed cat thread', url: 'https://www.reddit.com/r/cats/comments/zzz999/indexed_cat_thread/' },
       ] });
@@ -127,8 +143,12 @@ check(/Another cat/.test(a.text), '…and so does the second one');
 // It used to be the only route, which is why an unconfigured SearXNG was
 // indistinguishable from Reddit having nothing.
 const b = await run('!reddit cats', { feedWorks: false });
-check(b.calls.some((c) => c.path.includes('/api/search')),
-  'when Reddit is unreachable the search still falls through to the index');
+// Not just "some /api/search happened": the PAGE's search always happens, so
+// that version of this check passed even when the ladder never ran. It has to
+// be the player's own rung — the one carrying the stripped query.
+check(b.calls.some((c) => c.path.includes('/api/search') && !c.body?.mode && c.body?.query === 'cats'),
+  'when Reddit is unreachable the search still falls through to the index',
+  b.calls.filter((c) => c.path.includes('/api/search')).map((c) => JSON.stringify(c.body?.query)).join(' · '));
 check(/Indexed cat thread/.test(b.text),
   '…and what the index found is shown rather than an empty list');
 

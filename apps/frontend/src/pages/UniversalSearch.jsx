@@ -494,6 +494,24 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     // Only on a NEW selection. Without this the effect re-fires on every
     // unrelated re-render and re-clears an input the user has started retyping.
     if (!key || clearedFor.current === key) return;
+
+    // A SELECTION THE USER MADE is the only thing that puts the list down, and
+    // `playerCurrent` changing is not proof of one. A track becomes current
+    // without anyone picking it all the time: autoplay restoring the last
+    // session, the trending deck settling, a queued clip starting.
+    //
+    // That was a real bug, not a hypothetical. Opening /tube?q=cats mounts the
+    // page with the query already in the box and its search still debouncing.
+    // If anything started playing in that window this effect fired, blanked
+    // searchValue, and the pending search then ran on an empty string and
+    // returned nothing — so a SHARED TUBE LINK showed "No results yet, try
+    // searching!" while quietly discarding the query it was opened with.
+    //
+    // If there is no list on screen, nothing was picked from one. Claim the key
+    // on the way out regardless: results arriving later for a track that is
+    // ALREADY playing must not then look like a fresh selection.
+    if (!searchResults?.length) { clearedFor.current = key; return; }
+
     clearedFor.current = key;
     searchStash.stashSearch(searchValue, searchResults);
     setSearchValue('');
