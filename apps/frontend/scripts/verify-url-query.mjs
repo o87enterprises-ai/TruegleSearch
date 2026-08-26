@@ -88,6 +88,28 @@ for (const hostile of [
   ok(`${hostile.split(':')[0]}: is refused`, asUrl(hostile) === null, String(asUrl(hostile)));
 }
 
+// ── X / Twitter ────────────────────────────────────────────────────────────
+// The DIRECT iframe, never the oEmbed <script> widget — see videoEmbed for why
+// (our CSP blocks platform.twitter.com scripts, and running X's JS on the page
+// is the tracking surface the player exists to avoid).
+for (const [url, label] of [
+  ['https://x.com/someone/status/1234567890123456789', 'x.com'],
+  ['https://twitter.com/someone/status/1234567890123456789', 'twitter.com'],
+  ['https://mobile.twitter.com/someone/status/1234567890123456789', 'mobile subdomain'],
+]) {
+  const r = classifyQuery(url, ORIGIN);
+  ok(`a tweet on ${label} is playable`, r?.kind === 'playable', r?.kind);
+  ok(`…via the Tweet.html iframe, not a script widget`,
+    r?.media?.src?.startsWith('https://platform.twitter.com/embed/Tweet.html?id=1234567890123456789'),
+    r?.media?.src);
+}
+ok('the tweet embed asks X not to track (dnt)',
+  classifyQuery('https://x.com/a/status/1234567890123456789', ORIGIN)?.media?.src?.includes('dnt=true'));
+ok('an X profile with no status id is not playable',
+  classifyQuery('https://x.com/someone', ORIGIN)?.kind === 'link');
+ok('a non-numeric status id is refused rather than interpolated',
+  classifyQuery('https://x.com/a/status/notanid', ORIGIN)?.kind === 'link');
+
 // ── Non-playable links become ONE link, not a result list ──────────────────
 const article = classifyQuery('https://en.wikipedia.org/wiki/HTTPS', ORIGIN);
 ok('an ordinary article link is a link, not playable', article?.kind === 'link', article?.kind);

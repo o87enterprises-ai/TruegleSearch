@@ -232,6 +232,33 @@ export function getPlayable(url) {
       const id = /\/video\/(\d+)/.exec(u.pathname)?.[1];
       return id ? { kind: 'tiktok', src: `https://www.tiktok.com/embed/v2/${id}`, vertical: true } : null;
     }
+    // X / Twitter → the DIRECT IFRAME embed, not the documented oEmbed.
+    //
+    // publish.twitter.com/oembed is keyless and returns a <blockquote> plus a
+    // <script src="platform.twitter.com/widgets.js">. That script is unusable
+    // here for two reasons and either alone settles it: our CSP script-src does
+    // not list platform.twitter.com, and running X's JavaScript on the page is
+    // precisely the third-party tracking surface this player exists to avoid.
+    //
+    // Tweet.html is the iframe the widget script would have created anyway,
+    // addressed directly by tweet id. Same content, no script, and it drops
+    // into the existing sandboxed <iframe> path with no special casing.
+    //
+    // WHAT THIS COSTS, said plainly: the frame is served BY X, so opening one
+    // tells X the viewer's IP — exactly as a YouTube or TikTok embed already
+    // does. It is not a new category of exposure, but it is not nothing.
+    //
+    // Needs `frame-src https://platform.twitter.com` in public/_headers.
+    if (host === 'twitter.com' || host.endsWith('.twitter.com')
+      || host === 'x.com' || host.endsWith('.x.com')) {
+      // /<handle>/status/<id> — the id is all that matters; the handle in the
+      // URL is not verified by the embed and can be anything.
+      const id = /\/status(?:es)?\/(\d{5,25})/.exec(u.pathname)?.[1];
+      return id ? {
+        kind: 'twitter',
+        src: `https://platform.twitter.com/embed/Tweet.html?id=${id}&theme=dark&dnt=true`,
+      } : null;
+    }
     // Reddit → the official redditmedia embed, which is the ONLY way Reddit
     // content plays outside Reddit without a library.
     //

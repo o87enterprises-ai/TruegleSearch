@@ -200,6 +200,26 @@ export default function TrueglePlayer({
   // restarted. See PlayerContext for why the queue is left untouched
   // underneath rather than replaced.
   const followFeed = feedActive && feedRest.length > 0;
+  /* THE QUEUE IS A ONE-SHOT; UP NEXT IS THE DEFAULT.
+   *
+   * Reported as two complaints that turned out to be one: "currently defaults
+   * to queue next but should default to up next", and "Up Next should NEVER
+   * play any already indexed videos".
+   *
+   * Up Next was never the culprit — candidatesFor() filters on hasSeen() and
+   * pick() has no bypass, so it returns null rather than a video you have
+   * watched. The repeats came from the QUEUE, which this checked FIRST and
+   * which holds whatever you put in it, watched or not. `queueArmed` latches
+   * true the moment anything is added by hand, so one "Add to queue" captured
+   * every subsequent advance for the rest of the session.
+   *
+   * So the queue keeps its job and loses its grip: while it HAS items it plays,
+   * because that is what a queue is for and taking that away would break the
+   * button. The moment it empties, `followQueue` goes false on its own and
+   * Up Next takes over permanently — no re-arming, no mode to remember.
+   * playMode !== 'auto' (repeat-one, shuffle) still wins over both; those are
+   * explicit instructions.
+   */
   const advance = useCallback(async () => {
     if (followFeed) { feedNext(); return; }
     if (followQueue || playMode !== 'auto' || !current) { next(); return; }
