@@ -249,7 +249,7 @@ function overpassClauses(subject, near, radius) {
 
 /** Metres between two points. Only used to sort, so the spherical law of
  *  cosines is plenty — no need for haversine's precision at these distances. */
-function metresBetween(a, b) {
+export function metresBetween(a, b) {
   const R = 6371000;
   const toRad = (d) => (d * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);
@@ -397,11 +397,15 @@ class MapApiService {
 
   // ── dispatch ──────────────────────────────────────────────────────────────
 
+  // `options.near` biases a geocode toward the user. Every provider below can
+  // take the hint in its own dialect; none of them is FILTERED by it, so a
+  // query with no nearby match still answers.
   geocodeWithProvider(provider, query, options) {
+    const { near = null, ...rest } = options || {};
     switch (provider) {
-      case 'mapbox': return this.viaBackend('/api/maps/geocode', { query, options, provider: 'mapbox' }, toPlaces);
-      case 'tomtom': return this.viaBackend('/api/maps/geocode', { query, options, provider: 'tomtom' }, toPlaces);
-      case 'radar': return this.viaBackend('/api/radar/geocode', { query, options }, toPlaces);
+      case 'mapbox': return this.viaBackend('/api/maps/geocode', { query, options: rest, near, provider: 'mapbox' }, toPlaces);
+      case 'tomtom': return this.viaBackend('/api/maps/geocode', { query, options: rest, near, provider: 'tomtom' }, toPlaces);
+      case 'radar': return this.viaBackend('/api/radar/geocode', { query, options: rest, near }, toPlaces);
       case 'leaflet': return this.geocodeWithOSM(query, options);
       default: throw new Error(`Unknown provider: ${provider}`);
     }
@@ -457,8 +461,19 @@ class MapApiService {
   // ── OpenStreetMap, the keyless floor ──────────────────────────────────────
 
   async geocodeWithOSM(query, options = {}) {
+    // Nominatim's proximity is a `viewbox` — and deliberately WITHOUT
+    // `bounded=1`, which would turn the hint into a hard filter and make a
+    // query with nothing in the box return nothing at all. Unbounded, the box
+    // only lifts what is inside it up the ranking.
+    const near = options.near;
+    const box = near && Number.isFinite(near.lat) && Number.isFinite(near.lng)
+      // ~1 degree ≈ 111 km: wide enough to cover a rural trip to town.
+      ? { viewbox: [near.lng - 1, near.lat + 1, near.lng + 1, near.lat - 1].join(','), bounded: 0 }
+      : {};
     const response = await axios.get('https://nominatim.openstreetmap.org/search', {
-      params: { q: query, format: 'json', limit: options.limit || 10, addressdetails: 1 },
+      params: {
+        q: query, format: 'json', limit: options.limit || 10, addressdetails: 1, ...box,
+      },
       headers: { 'User-Agent': 'Truegle/1.0' },
     });
     return toPlaces(response.data);

@@ -1,4 +1,4 @@
-import MapApiService from '../services/mapApi';
+import MapApiService, { metresBetween } from '../services/mapApi';
 import { parseLocalQuery } from '../../../hooks/useLocationDetection';
 
 // What the map's search bar does with what you typed.
@@ -41,13 +41,64 @@ const toRow = (p) => ({
 
 const rowsFrom = (result) => (result?.data || []).map(toRow).filter((r) => r.position);
 
-const nearby = async (near, query, limit) => rowsFrom(
-  await MapApiService.searchPlaces(near, { query, radius: 5000, limit }),
+// HOW FAR "NEAR" IS depends entirely on where you live, and 5 km was a city
+// assumption baked in as a constant.
+//
+// That is the "Walmart means the most popular one nationally" bug. In Cottage
+// Grove the nearest Walmart is tens of kilometres away, so the 5 km search
+// found nothing, the code fell through to a plain geocode with no position
+// attached, and a global geocoder ranks a bare brand name by prominence — the
+// same Walmart for everybody in the country.
+//
+// Widening the ring to 80 km for everyone would be worse, not better: a city
+// user typing "coffee" would get results across three suburbs ranked above the
+// shop on their corner. So the radius CLIMBS, and stops at the first ring that
+// answers. A city keeps its tight first result; a rural user keeps searching
+// until the answer is real.
+const RADII_M = [5000, 25000, 80000];
+
+const nearby = async (near, query, limit) => {
+  for (const radius of RADII_M) {
+    // PER-RING, not around the loop. searchPlaces THROWS when no provider
+    // returns a usable result, and an empty ring is the normal case here — so
+    // a single try/catch around the whole loop would let the first empty ring
+    // abort the climb, which is the exact failure the ladder exists to fix.
+    try {
+      const rows = rowsFrom(
+        await MapApiService.searchPlaces(near, { query, radius, limit }),
+      );
+      if (rows.length) return rows;
+    } catch { /* this ring found nothing; try a wider one */ }
+  }
+  return [];
+};
+
+// `near` is a RANKING HINT, never a filter — see mapApi.geocodeWithProvider.
+// Passing it means a name that exists in many places resolves to the closest
+// one; omitting it (because we do not know where the user is) behaves exactly
+// as before.
+const geocode = async (query, limit, near = null) => rowsFrom(
+  await MapApiService.geocode(query, near ? { limit, near } : { limit }),
 );
 
-const geocode = async (query, limit) => rowsFrom(
-  await MapApiService.geocode(query, { limit }),
-);
+// Closest first, when we know where the user is and the provider did not
+// already say. A geocoder returns no distances at all, so without this a
+// proximity-ranked list still arrives in the provider's order — which is the
+// order it thinks is most PROMINENT, not the order that is nearest.
+function byDistanceFrom(near, rows) {
+  if (!near) return rows;
+  return rows
+    .map((r) => ({
+      ...r,
+      distance: typeof r.distance === 'number' ? r.distance
+        : (r.position ? metresBetween(near, r.position) : null),
+    }))
+    .sort((a, b) => {
+      if (a.distance == null) return b.distance == null ? 0 : 1;
+      if (b.distance == null) return -1;
+      return a.distance - b.distance;
+    });
+}
 
 /**
  * Resolve what was typed into places to show.
@@ -81,7 +132,7 @@ export async function searchMapQuery(query, { near = null, limit = 10 } = {}) {
 
   // "coffee in austin" — resolve the WHERE, then search for the WHAT around it.
   if (parsed?.type === 'place' && parsed.subject) {
-    const anchors = await geocode(parsed.place, 1).catch(() => []);
+    const anchors = await geocode(parsed.place, 1, near).catch(() => []);
     const anchor = anchors[0]?.position;
     if (anchor) {
       const rows = await nearby(anchor, parsed.subject, limit).catch(() => []);
@@ -91,10 +142,11 @@ export async function searchMapQuery(query, { near = null, limit = 10 } = {}) {
     }
   }
 
-  // A street address or a postcode is a geocoder question, full stop.
+  // A street address or a postcode is a geocoder question, full stop — but
+  // still a biased one: "123 Main St" exists in thousands of towns.
   if (looksLikeAddress(q)) {
-    const rows = await geocode(q, limit).catch(() => []);
-    if (rows.length) return { rows, needsLocation: false, kind: 'address' };
+    const rows = await geocode(q, limit, near).catch(() => []);
+    if (rows.length) return { rows: byDistanceFrom(near, rows), needsLocation: false, kind: 'address' };
     // Fall through: an "address" that geocodes to nothing may just be a name.
   }
 
@@ -103,10 +155,13 @@ export async function searchMapQuery(query, { near = null, limit = 10 } = {}) {
   // one a global geocoder happens to rank first.
   if (near) {
     const rows = await nearby(near, q, limit).catch(() => []);
-    if (rows.length) return { rows, needsLocation: false, kind: 'nearby-name' };
+    if (rows.length) return { rows: byDistanceFrom(near, rows), needsLocation: false, kind: 'nearby-name' };
   }
 
-  return { rows: await geocode(q, limit).catch(() => []), needsLocation: false, kind: 'geocode' };
+  // The last rung. It used to throw the position away entirely, which is what
+  // turned "Walmart" into whichever Walmart the geocoder likes best.
+  const rows = await geocode(q, limit, near).catch(() => []);
+  return { rows: byDistanceFrom(near, rows), needsLocation: false, kind: 'geocode' };
 }
 
 /** "450 m" / "2.3 km" — for the dropdown, when the distance is known. */

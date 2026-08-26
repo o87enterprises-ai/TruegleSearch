@@ -19,11 +19,19 @@ router.post('/geocode', async (req, res) => {
       });
     }
 
+    // `near` biases the ranking toward the user without filtering anything
+    // out — see MapboxService.geocode. It is optional: a request without it
+    // behaves exactly as before.
+    const { near = null } = req.body;
+    const geocodeOptions = near && Number.isFinite(near.lat) && Number.isFinite(near.lng)
+      ? { ...options, proximity: [near.lng, near.lat] }
+      : options;
+
     let result;
     if (provider === 'mapbox') {
-      result = await MapboxService.geocode(query, options);
+      result = await MapboxService.geocode(query, geocodeOptions);
     } else if (provider === 'tomtom') {
-      result = await TomTomService.geocode(query, options);
+      result = await TomTomService.geocode(query, geocodeOptions);
     } else {
       return res.status(400).json({
         error: 'Invalid provider',

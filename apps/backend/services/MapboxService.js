@@ -21,7 +21,16 @@ class MapboxService {
       throw new Error('Mapbox access token not configured');
     }
 
-    const { limit = 1, types = null, country = 'us' } = options;
+    // PROXIMITY IS WHY "WALMART" MEANS THE ONE DOWN THE ROAD.
+    //
+    // Without it Mapbox ranks a bare brand name by global prominence, so every
+    // user in the country gets the same Walmart — the reported bug. `proximity`
+    // is a free bias, not a filter: it reorders by closeness to a point and
+    // still returns distant matches when there is nothing near, which is
+    // exactly the behaviour wanted. Costs nothing extra on the request.
+    const {
+      limit = 1, types = null, country = 'us', proximity = null,
+    } = options;
 
     try {
       const response = await axios.get(
@@ -32,6 +41,7 @@ class MapboxService {
             limit,
             types,
             country,
+            proximity: proximity ? `${proximity[0]},${proximity[1]}` : null,
           },
           timeout: 10000,
         }
