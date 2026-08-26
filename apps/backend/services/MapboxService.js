@@ -3,6 +3,23 @@
  *
  * Use as alternative/backup to Radar and TomTom
  * Supports geocoding, directions, static maps, places
+ *
+ * ── TEMPORARY GEOCODING ONLY. DO NOT PERSIST RESULTS. ──────────────────────
+ *
+ * Every geocoding call below hits /geocoding/v5/mapbox.places, which is the
+ * TEMPORARY Geocoding API: 100,000 requests a month free, on the condition
+ * that results are not stored. The Permanent Geocoding API — the one that
+ * allows storage — has a free tier of ZERO, so writing a geocode result to a
+ * database or a file would move this project from free to billed without
+ * anything in the code looking like a spend.
+ *
+ * What exists today and is fine: mapApi's five-minute in-memory cache on the
+ * client. What must not be added: a geocode column, a lookup table, a
+ * warm-the-cache job, or a disk cache. See CLAUDE.md — this project runs at $0
+ * and any spend is flagged before it is incurred.
+ *
+ * Other free tiers in play, for reference: Directions, Matrix and Isochrone
+ * 100k/month each; Raster Tiles 750k; Static Tiles 200k.
  */
 const axios = require('axios');
 const config = require('../config/env');

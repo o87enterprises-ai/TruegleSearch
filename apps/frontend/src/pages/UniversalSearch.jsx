@@ -247,12 +247,39 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   const [showNoSummaryConfirm, setShowNoSummaryConfirm] = useState(false);
   const [summaryCollapsed, setSummaryCollapsed] = useState(false);
 
-  // First-search modal: shown exactly once ever (localStorage, not sessionStorage).
-  // Skip entirely if user already has a saved preference.
-  const [showFirstSearchModal, setShowFirstSearchModal] = useState(false);
-  const [firstSearchDone, setFirstSearchDone] = useState(
-    () => localStorage.getItem('truegle_mode_pref_asked') === 'true'
+  // GREEN MODE EXPLAINER — shown when someone first CHOOSES green, never before.
+  //
+  // It used to fire after the first successful search on any AI mode, which
+  // meant a full-screen dialog interrupting a search nobody had asked a
+  // question about, offering to turn off a feature they had not yet seen. It
+  // also sat over the results as an opaque z-9999 backdrop that swallowed
+  // every click until answered.
+  //
+  // Now it explains green mode at the moment green mode is picked, once ever,
+  // and dismisses on any click outside. `truegle_green_explained` is a new key
+  // rather than a reuse of `truegle_mode_pref_asked`: that old flag records
+  // that the OLD question was asked, and reusing it would silently deny the
+  // new explainer to everyone who ever saw the old dialog.
+  const [showGreenIntro, setShowGreenIntro] = useState(false);
+  const greenExplained = useRef(
+    (() => { try { return localStorage.getItem('truegle_green_explained') === 'true'; } catch { return true; } })(),
   );
+
+  // KEYED ON THE MODE, not on a click handler. Green is reachable by several
+  // routes — the pill on this page (which calls setPillMode, not the mode
+  // handler), the pill on the landing page, a shared ?mode=green link — and
+  // hooking any single one of them would leave the others silent. Watching
+  // what the mode actually IS covers all of them with one rule.
+  //
+  // lockedGreen (/green) is excluded: that route is green by definition, so
+  // there is no choice being explained, and a modal over a page someone
+  // deliberately bookmarked is just an obstacle.
+  useEffect(() => {
+    if (mode !== 'green' || lockedGreen || greenExplained.current) return;
+    greenExplained.current = true;
+    try { localStorage.setItem('truegle_green_explained', 'true'); } catch { /* private mode */ }
+    setShowGreenIntro(true);
+  }, [mode, lockedGreen]);
 
   // Search state
   const [searchValue, setSearchValue] = useState(query);
@@ -1010,16 +1037,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
       // Successful response — clear the consecutive-failure streak
       consecutiveFailuresRef.current = 0;
       if (showRepairsModal) setShowRepairsModal(false);
-
-      // Show green-mode preference modal exactly once ever (localStorage).
-      // Never on an already-AI-free mode: offering to "disable smart features"
-      // on Tube, which has no AI on it at all, is a dialog with nothing to
-      // agree to — and it lands right on top of the player.
-      if (!firstSearchDone && !isAiFree(mode)) {
-        setFirstSearchDone(true);
-        localStorage.setItem('truegle_mode_pref_asked', 'true');
-        setShowFirstSearchModal(true);
-      }
 
       // Fetch summary only if not green mode and not dismissed
       if (!isAiFree(mode) && sessionSummaryChoice !== 'none' && results.length > 0) {
@@ -2317,55 +2334,57 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
             )}
           </AnimatePresence>, document.body)}
 
-          {/* First-Search Modal: Disable Smart Features? — portalled for the
-              same reason as the one above. */}
+          {/* GREEN MODE EXPLAINER — portalled to <body> for the same reason as
+              the dialog above: inside the page's z-10 wrapper its z-index is
+              scoped to that wrapper and the fixed player paints over it.
+
+              It EXPLAINS rather than asks. The old version was a question
+              ("Disable Smart Features? Yes / No") fired after an unrelated
+              search — but by the time this runs the user has already chosen
+              green, so there is nothing left to decide. Any click outside
+              closes it, and it is never shown again. */}
           {createPortal(
           <AnimatePresence>
-            {showFirstSearchModal && (
+            {showGreenIntro && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
+                onClick={() => setShowGreenIntro(false)}
                 className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
               >
                 <motion.div
                   initial={{ scale: 0.95, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.95, opacity: 0 }}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="About Green Mode"
+                  // The card is inside the backdrop, so a click on it would
+                  // bubble up and close the thing being read.
+                  onClick={(e) => e.stopPropagation()}
                   className="bg-[#0f1a0f] border border-green-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-10 h-10 rounded-xl bg-green-500/20 border border-green-500/30 flex items-center justify-center">
                       <Sparkles size={18} className="text-green-400" />
                     </div>
-                    <h3 className="text-white font-bold text-lg">Disable Smart Features?</h3>
+                    <h3 className="text-white font-bold text-lg">You&apos;re in Green Mode</h3>
                   </div>
                   <p className="text-white/60 text-sm mb-1">
-                    Switch to <strong className="text-green-400">Green Mode</strong> for search with
-                    zero AI — no summaries, no answer card, no assistant. Nothing is generated, so no
-                    model runs on your query at all.
+                    Search with <strong className="text-green-400">zero AI</strong> — no summaries,
+                    no answer card, no assistant. Nothing is generated, so no model runs on your
+                    query at all.
                   </p>
-                  <p className="text-white/40 text-xs mb-5">Your choice is saved — we won't ask again. Change it anytime via the pill toggle.</p>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        setShowFirstSearchModal(false);
-                        handlePillModeChange('green');
-                      }}
-                      className="flex-1 py-2 rounded-xl bg-green-500/20 hover:bg-green-500/30 text-green-300 font-semibold text-sm border border-green-500/40 transition-all"
-                    >
-                      Yes, go Green
-                    </button>
-                    <button
-                      onClick={() => {
-                        localStorage.setItem('truegle_mode_pref', 'blue');
-                        setShowFirstSearchModal(false);
-                      }}
-                      className="flex-1 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold text-sm transition-all"
-                    >
-                      No, keep Smart features
-                    </button>
-                  </div>
+                  <p className="text-white/40 text-xs mb-5">
+                    Switch back any time with the pill. You&apos;ll only see this once.
+                  </p>
+                  <button
+                    onClick={() => setShowGreenIntro(false)}
+                    className="w-full py-2 rounded-xl bg-green-500/20 hover:bg-green-500/30 text-green-300 font-semibold text-sm border border-green-500/40 transition-all"
+                  >
+                    Got it
+                  </button>
                 </motion.div>
               </motion.div>
             )}

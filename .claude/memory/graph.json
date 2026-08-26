@@ -2824,6 +2824,14 @@
         "body": "Three stacked faults, each producing a plausible white ball: (1) fallback texture was the AZIMUTHAL png wrapped on a sphere; (2) Mercator tiles pasted onto UV without inverse-Mercator; (3) THE REAL ONE - React set map= on an already-compiled three.js material, so the shader had no texture sampling and drew color alone (white) with the texture bound and correct. Fix: key the material on texture arrival. Diagnostic that settled it: swap to meshBasicMaterial with a magenta tint - imagery appeared instantly, ruling out taint and lighting.",
         "ts": "2026-08-26",
         "created": "2026-08-26"
+      },
+      "mapbox-free-tiers": {
+        "Id": "mapbox-free-tiers",
+        "Type": "fact",
+        "Label": "Mapbox free tiers and the storage trap",
+        "body": "Temporary Geocoding (geocoding/v5/mapbox.places) = 100k req/mo FREE but results MUST NOT be stored. Permanent Geocoding (storage allowed) free tier = ZERO - never switch to it, never add a geocode DB column/disk cache. Directions/Matrix/Isochrone/Map Matching/Optimization = 100k each. Raster Tiles 750k. Static Tiles 200k. Vector Tiles 200k. GL JS map loads 50k. Static Images 50k. Search Box sessions 500. Current 5-min in-memory cache in mapApi is compliant.",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
       }
     }
   },
