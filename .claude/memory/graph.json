@@ -1224,6 +1224,14 @@
         "body": "MANDATE D in nepheshPrompts.js (v2026-08-25.1). Mandate A banned stating a view; the Tartaria answer had NO first-person opinion and still read as advocacy because the verdict rode in the framing: 'what the record ACTUALLY SHOWS' vs 'what the theory CLAIMS', a 'mainstream explanation' column vs 'claims', 'historians regard', a bolded 'KEY POINT' asserting the disputed conclusion, 'the part the theory gets right'. Those mechanisms are now banned by name. THE LINE: a verdict tied to EVIDENCE is REQUIRED (user can check a treaty); a verdict tied to AUTHORITY/consensus is forbidden (they cannot check a consensus). Still explicitly allowed: true/false rulings with reasons, pros-cons tables, probabilities with documented variables. Swap test before sending.",
         "ts": "2026-08-25",
         "created": "2026-08-25"
+      },
+      "x-embeds-iframe-not-script": {
+        "Id": "x-embeds-iframe-not-script",
+        "Type": "decision",
+        "Label": "X/Twitter clips embed via Tweet.html iframe, never the oEmbed script",
+        "body": "publish.twitter.com/oembed is keyless but returns a <script src=platform.twitter.com/widgets.js> — unusable: CSP script-src does not list it AND running X's JS on the page is the tracking surface the player avoids. Use https://platform.twitter.com/embed/Tweet.html?id=<id>&theme=dark&dnt=true directly in the existing sandboxed iframe. Needs frame-src + child-src platform.twitter.com in public/_headers (done). Cost: X sees the viewer's IP, same as YouTube/TikTok embeds already do.",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
       }
     },
     "thread": {
@@ -2760,6 +2768,14 @@
         "body": "fetchCitations in TruegleChat ran the raw question through /api/search and printed whatever came back under 'Sources:'. A Tartaria question cited theory.com (CLOTHING RETAILER) + Merriam-Webster 'theory' + a lucide-static/icons/ampersands.svg 'image' - search keyed on the common word 'theory' while the model answered from training knowledge. Nothing fabricated, impression false = Mandate B. FIX: utils/citationRelevance.js requires one shared DISTINCTIVE word; the vocabulary of enquiry (theory/history/evidence/facts/claims) counts as COMMON because that is what the bad match keyed on. Bar deliberately low - no distinctive terms in the question keeps everything, since silently emptying the source list is worse. Matching is on STEMS (>=5 shared chars) not prefixes: a prefix rule threw away 'Tartary', the spelling on the actual maps. npm run citations:test (25).",
         "ts": "2026-08-25",
         "created": "2026-08-25"
+      },
+      "upnext-never-repeats": {
+        "Id": "upnext-never-repeats",
+        "Type": "fact",
+        "Label": "Up Next already never serves a seen video — repeats come from the QUEUE",
+        "body": "useUpNext.candidatesFor filters on hasSeen() (line ~116) and pick() has NO bypass — it returns null rather than a watched video. advance() checks followFeed, then followQueue, then upNext. followQueue = queueArmed && queue.length > 0, so the queue is ALREADY a one-shot: when it empties Up Next takes over permanently. queueArmed latches true on any byUser enqueue. Reported 'defaults to queue next' = the queue playing its own (possibly watched) items. NOT changed - no reproducible path where Up Next itself repeats, and a speculative fix risks breaking Add-to-queue.",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
       }
     }
   },
@@ -2789,5 +2805,5 @@
       }
     }
   },
-  "updated": "2026-08-25"
+  "updated": "2026-08-26"
 }
