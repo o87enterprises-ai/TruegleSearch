@@ -201,6 +201,29 @@ const OSM_CATEGORIES = [
   [/\b(shop|shops|store|stores|shopping)\b/i, ['shop']],
 ];
 
+/**
+ * THE GENERAL SWEEP — "what is around here", asked with no subject.
+ *
+ * This is not a search TERM, and the bug was treating it as one. The caller
+ * used to pass the literal string "restaurant cafe shop", which is a question
+ * no geocoder can answer: Mapbox and TomTom match it as free text and return
+ * zero features, Nominatim likewise, and Overpass took the FIRST category
+ * whose regex hit anywhere in it — `cafe` — so it searched for cafes alone.
+ * A town with no cafe inside the radius therefore came back empty from all
+ * four providers at once, and the ladder reported "no usable result" for
+ * every one of them: a map with nothing on it and no way to tell that from
+ * an outage.
+ *
+ * A sweep is a UNION OF MAP TAGS, and Overpass is the only provider here that
+ * accepts one. The keyed geocoders decline it in searchPlacesWithProvider
+ * rather than answering it emptily.
+ */
+const SWEEP_TAGS = [
+  'amenity=cafe', 'amenity=restaurant', 'amenity=fast_food',
+  'shop=supermarket', 'shop=convenience', 'amenity=fuel',
+  'amenity=pharmacy', 'amenity=bank',
+];
+
 // The category word(s) a query OPENS with — "taxi" in "taxi cottage grove
 // oregon" — or null.
 //
@@ -242,16 +265,21 @@ const overpassEscape = (v) => String(v).replace(/["\\]/g, '\\$&');
  * places and a building outline in others; `out center` gives a way its
  * centroid so both come back with usable coordinates.
  */
-function overpassClauses(subject, near, radius) {
+function overpassClauses(subject, near, radius, { sweep = false } = {}) {
   const at = `(around:${Math.round(radius)},${near.lat},${near.lng})`;
+  const clausesFor = (tags) => tags.flatMap((tag) => {
+    const [key, value] = tag.split('=');
+    const filter = value ? `["${key}"="${value}"]` : `["${key}"]`;
+    return [`node${filter}${at}`, `way${filter}${at}`];
+  }).join(';');
+
+  // A sweep asks for everything worth pinning at once — see SWEEP_TAGS.
+  if (sweep) return clausesFor(SWEEP_TAGS);
+
   const matched = OSM_CATEGORIES.find(([re]) => re.test(subject));
 
   if (matched) {
-    return matched[1].flatMap((tag) => {
-      const [key, value] = tag.split('=');
-      const filter = value ? `["${key}"="${value}"]` : `["${key}"]`;
-      return [`node${filter}${at}`, `way${filter}${at}`];
-    }).join(';');
+    return clausesFor(matched[1]);
   }
 
   // Not a category we know — treat it as a name. `~` is a case-insensitive
@@ -484,6 +512,13 @@ class MapApiService {
   }
 
   searchPlacesWithProvider(provider, near, options) {
+    // Declining is not the same as failing, but it must not look like an empty
+    // answer either: a geocoder handed a sweep returns zero rows, and zero rows
+    // is exactly what a broken provider returns. Saying so keeps the on-screen
+    // reason honest and costs three pointless upstream calls less.
+    if (options?.sweep && provider !== 'leaflet') {
+      return Promise.reject(new Error('a general sweep needs OpenStreetMap tags'));
+    }
     switch (provider) {
       case 'mapbox': return this.viaBackend('/api/maps/places', { near, options, provider: 'mapbox' }, toPlaces);
       case 'tomtom': return this.viaBackend('/api/maps/places', { near, options, provider: 'tomtom' }, toPlaces);
@@ -506,8 +541,18 @@ class MapApiService {
 
   /** POST to one of our own routes, peel the envelope, normalise the payload. */
   async viaBackend(path, body, normalise) {
-    const response = await axios.post(`${BACKEND_URL}${path}`, body);
-    return normalise(unwrap(response.data));
+    try {
+      const response = await axios.post(`${BACKEND_URL}${path}`, body);
+      return normalise(unwrap(response.data));
+    } catch (error) {
+      // The backend explains itself in the body. This string is printed
+      // straight onto the map by MapViewWrapper, and "Radar live secret key is
+      // not set" is something you can act on where "Request failed with status
+      // code 503" sends you looking for an outage that is not there.
+      const said = error.response?.data?.message || error.response?.data?.error;
+      if (said) throw new Error(said);
+      throw error;
+    }
   }
 
   // ── OpenStreetMap, the keyless floor ──────────────────────────────────────
@@ -572,6 +617,10 @@ class MapApiService {
     } catch (error) {
       log('Overpass unavailable, falling back to Nominatim:', error.message);
     }
+    // Nominatim searches TEXT. A sweep has no text to search — handing it one
+    // is how "restaurant cafe shop" reached a geocoder in the first place —
+    // so a failed sweep stays failed rather than becoming a nonsense query.
+    if (options.sweep) return [];
     return this.searchPlacesWithNominatim(near, options);
   }
 
@@ -579,9 +628,12 @@ class MapApiService {
     const radius = Math.min(options.radius || 5000, 50000);
     const limit = options.limit || 20;
     const subject = String(options.query || '').trim();
-    if (!subject) return [];
+    const sweep = !!options.sweep;
+    // No subject and no sweep is not a question; it used to be answered with
+    // a hardcoded category string, which is what broke.
+    if (!subject && !sweep) return [];
 
-    const clauses = overpassClauses(subject, near, radius);
+    const clauses = overpassClauses(subject, near, radius, { sweep });
     if (!clauses) return [];
 
     const ql = `[out:json][timeout:20];(${clauses});out center ${limit};`;

@@ -3,6 +3,54 @@ _Last updated: 2026-08-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-08-26 — the empty map: one 500 and three false negatives (branch `claude/pills-reels-context-window-vyqwo5`)
+
+Picked up after the `pills-reels-tube-ui` session blew its context window. Nothing
+was lost — that branch, `main` and this one were all at `a755ac0` with a clean
+tree. The reported symptom was "500 errors and no data from all 3 providers,
+still broken after new API keys".
+
+🔴 **It was never the API keys.** The browser console said:
+
+```
+mapbox: no usable result · radar: Request failed with status code 500 ·
+tomtom: no usable result · leaflet: no usable result
+```
+
+That is ONE 500 and THREE providers answering successfully and being rejected.
+Two unrelated faults wearing one costume:
+
+- **The sweep was a sentence.** Opening the map with no business typed ran a
+  search for the literal words `restaurant cafe shop`. No geocoder can answer
+  that — Mapbox, TomTom and Nominatim all return zero features — and
+  `overpassClauses` matched the FIRST category regex that hit anywhere in the
+  string (`cafe`), so even OpenStreetMap searched cafes alone. A town with no
+  cafe within 5 km came back empty from all four at once. A sweep is now a
+  flag served by a UNION of `SWEEP_TAGS`; the keyed providers decline it out
+  loud rather than returning nothing, and a failed sweep never decays into a
+  text query. `npm run places:test`.
+- **Radar has no key, and said so as a 500.** Radar is optional, but every
+  handler turns any throw into a 500 and the service 401s on every call
+  without a key. `isConfigured()` + a router guard now answers 503 with the
+  reason and spends no upstream request. `viaBackend` surfaces that reason
+  instead of "Request failed with status code NNN". `npm run radar:test`.
+  Production needs `RADAR_LIVE_SECRET_KEY` specifically — `config.env ===
+  'development'` is what selects the test keys.
+
+**Lesson:** "no usable result" and a 500 are different failures and were read
+as one. The ladder was already reporting them separately and correctly; the
+summary "all three providers are down" was ours, not the app's.
+
+⚠️ **Not fixed, seen in the same console dump** — separate from the map data
+bug and not investigated:
+- `WebGL creation failed: tryANGLE / Exhausted GL driver options` repeatedly,
+  from `vendor-*.js` — the 3D globe cannot get a context on that phone. It
+  needs a 2D fallback rather than retrying.
+- `Cookie "_truegle_no_track" has been rejected ... SameSite`. CLAUDE.md
+  states Truegle sets ZERO cookies. Either the doc or the code is wrong.
+- The Cloudflare beacon fails its `sha512` integrity check and is CORS-blocked,
+  so Web Analytics is not recording.
+
 ## 🗓️ 2026-08-25 — pills, pasted links, Reels, voice-on-lock (branch `claude/pills-reels-tube-ui-xpz5u5`)
 
 - **The UI stopped highlighting itself.** Three reported bugs, one cause: the

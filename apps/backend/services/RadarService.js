@@ -11,12 +11,25 @@ class RadarService {
       ? config.maps.radar.test.publishableKey
       : config.maps.radar.live.publishableKey;
     this.baseUrl = 'https://api.radar.io/v1';
+    // Radar is OPTIONAL — the map ladder runs on Mapbox, TomTom and
+    // OpenStreetMap without it. Without a key every call still went out, came
+    // back 401, and was rethrown as a bare Error that the router answered with
+    // 500. On screen that read "radar: Request failed with status code 500",
+    // which is indistinguishable from Radar being down and sent us replacing
+    // API keys that were never the problem.
+    this.configured = Boolean(this.secretKey);
     this.axiosInstance = axios.create({
       baseURL: this.baseUrl,
       headers: {
         'Authorization': this.secretKey,
       },
     });
+  }
+
+  /** Whether a key exists at all. Routers check this BEFORE spending a
+   *  request, so an absent optional credential never looks like an outage. */
+  isConfigured() {
+    return this.configured;
   }
 
   async forwardGeocode(query) {

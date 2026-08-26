@@ -234,12 +234,23 @@ export default function MapViewWrapper({
         // WHAT THE USER ASKED FOR. This was hardcoded to
         // 'restaurant cafe shop', so "coffee near me" got your position, a
         // correct map — and a scatter of restaurants. The one word that made
-        // the query a question was never used. An empty subject (the query was
-        // just a place) falls back to a general sweep, which is the only case
-        // the old constant was ever right for.
-        const query = subject || 'restaurant cafe shop';
-        const result = await MapApiService.searchPlaces(location, { query, radius: 5000, limit: 20 });
-        setNearbyStatus({ state: (result?.data || []).length ? 'found' : 'empty', query, reason: '' });
+        // the query a question was never used.
+        //
+        // An empty subject (the query was just a place) is a general SWEEP.
+        // That used to be spelled by passing the words "restaurant cafe shop"
+        // as the search term, which no geocoder can answer — see SWEEP_TAGS in
+        // mapApi. A sweep is now a flag, served by OpenStreetMap tags, and it
+        // is the ONLY thing that changed about the subject path below.
+        const sweep = !subject;
+        const result = await MapApiService.searchPlaces(
+          location,
+          sweep ? { sweep: true, radius: 5000, limit: 20 } : { query: subject, radius: 5000, limit: 20 },
+        );
+        setNearbyStatus({
+          state: (result?.data || []).length ? 'found' : 'empty',
+          query: subject || '',
+          reason: '',
+        });
         for (const place of result?.data || []) {
           actions.addMarker({
             id: `place-${place.position.lat.toFixed(5)}-${place.position.lng.toFixed(5)}`,

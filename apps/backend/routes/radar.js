@@ -2,6 +2,23 @@ const express = require('express');
 const router = express.Router();
 const RadarService = require('../services/RadarService');
 
+// Radar is optional, and "not configured" is not a server fault.
+//
+// Every handler below turns any upstream failure into a 500. With no key the
+// upstream failure is a 401 on every single call, so an unconfigured Radar
+// reported itself as a broken server — the ladder in mapApi.js printed
+// "radar: Request failed with status code 500" on the map, which reads as an
+// outage and cost a round of API-key replacement to rule out. 503 with the
+// reason is the truth, and it spends no upstream request to say it.
+router.use((req, res, next) => {
+  if (RadarService.isConfigured()) return next();
+  return res.status(503).json({
+    success: false,
+    error: 'Radar not configured',
+    message: `Radar ${process.env.NODE_ENV === 'development' ? 'test' : 'live'} secret key is not set`,
+  });
+});
+
 router.post('/geocode', async (req, res) => {
   try {
     const { query } = req.body;
