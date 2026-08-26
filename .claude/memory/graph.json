@@ -1232,6 +1232,14 @@
         "body": "publish.twitter.com/oembed is keyless but returns a <script src=platform.twitter.com/widgets.js> — unusable: CSP script-src does not list it AND running X's JS on the page is the tracking surface the player avoids. Use https://platform.twitter.com/embed/Tweet.html?id=<id>&theme=dark&dnt=true directly in the existing sandboxed iframe. Needs frame-src + child-src platform.twitter.com in public/_headers (done). Cost: X sees the viewer's IP, same as YouTube/TikTok embeds already do.",
         "ts": "2026-08-26",
         "created": "2026-08-26"
+      },
+      "tube-clear-needs-a-list": {
+        "Id": "tube-clear-needs-a-list",
+        "Type": "decision",
+        "Label": "Tube only clears the input when results are on screen",
+        "body": "The clear-on-selection effect keyed off playerCurrent changing, which also fires for autoplay/trending/queue - so /tube?q=X blanked the query mid-debounce and shared links showed 'No results yet'. Now requires searchResults.length; claims clearedFor key on the early return so late results for an already-playing track are not read as a new selection.",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
       }
     },
     "thread": {
@@ -2774,6 +2782,30 @@
         "Type": "fact",
         "Label": "Up Next already never serves a seen video — repeats come from the QUEUE",
         "body": "useUpNext.candidatesFor filters on hasSeen() (line ~116) and pick() has NO bypass — it returns null rather than a watched video. advance() checks followFeed, then followQueue, then upNext. followQueue = queueArmed && queue.length > 0, so the queue is ALREADY a one-shot: when it empties Up Next takes over permanently. queueArmed latches true on any byUser enqueue. Reported 'defaults to queue next' = the queue playing its own (possibly watched) items. NOT changed - no reproducible path where Up Next itself repeats, and a speculative fix risks breaking Add-to-queue.",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
+      },
+      "iframe-ip-exposure": {
+        "Id": "iframe-ip-exposure",
+        "Type": "fact",
+        "Label": "Embeds expose the viewer IP, search does not",
+        "body": "An iframe is NOT proxied: the browser connects directly to youtube-nocookie/platform.twitter/tiktok, so those hosts see the VIEWER's IP. Search IS proxied (backend queries the provider, provider sees Truegle). Hiding embed IPs would mean relaying every byte of every stream - impossible at $0. Privacy Policy now states this plainly (Embedded Players & Media section).",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
+      },
+      "local-main-stale": {
+        "Id": "local-main-stale",
+        "Type": "fact",
+        "Label": "Local main branch is divergent - push branch:main instead",
+        "body": "Local 'main' sits at 6043ec8, ahead 50/behind 90 vs origin/main, so 'git merge --ff-only' fails with 'unrelated histories'. origin/main is the truth. Correct move: git push origin <branch>:main (non-force fast-forward). Do NOT force-push main and do NOT reset local main without asking.",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
+      },
+      "mapbox-two-tokens": {
+        "Id": "mapbox-two-tokens",
+        "Type": "fact",
+        "Label": "Mapbox needs TWO tokens with opposite settings",
+        "body": "Backend MAPBOX_ACCESS_TOKEN (MapboxService geocoding /geocoding/v5/mapbox.places) is server-side from Vercel - NO Referer, so a URL-restricted token is REJECTED: leave it unrestricted. Frontend VITE_MAPBOX_ACCESS_TOKEN (traffic tiles api.mapbox.com/v4/mapbox.mapbox-traffic-v1) is inlined into the JS bundle and publicly readable - MUST be URL-restricted to truegle.info. Default public scopes geocode fine; no extra scope needed. Basemap is MapLibre+free raster tiles and needs no key at all.",
         "ts": "2026-08-26",
         "created": "2026-08-26"
       }
