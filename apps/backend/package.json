@@ -15,6 +15,7 @@
     "osint:test": "node scripts/verify-osint.mjs",
     "truecode:probe": "node scripts/probe-truecode.mjs",
     "cameras:test": "node scripts/verify-cameras.mjs",
+    "cookies:test": "node scripts/verify-no-cookies.mjs",
     "radar:test": "node scripts/verify-radar-optional.mjs"
   },
   "dependencies": {

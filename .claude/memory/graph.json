@@ -2872,6 +2872,30 @@
         "body": "Radar is OPTIONAL but routes/radar.js turned every throw into 500, and RadarService throws a bare Error('Places search failed') on any upstream error. With no key every call 401s, so an absent optional credential surfaced on the map as 'radar: Request failed with status code 500' — reads as an outage, and cost a round of API-key replacement to rule out. FIX: RadarService.isConfigured() + a router.use guard answering 503 {error:'Radar not configured', message:'Radar live secret key is not set'} without spending an upstream request; mapApi's viaBackend now surfaces the backend's message instead of 'Request failed with status code NNN'. NOTE config.env==='development' picks TEST keys, so production needs RADAR_LIVE_SECRET_KEY specifically. Guard: npm run radar:test (6).",
         "ts": "2026-08-26",
         "created": "2026-08-26"
+      },
+      "webgl-gates-every-map": {
+        "Id": "webgl-gates-every-map",
+        "Type": "fact",
+        "Label": "No WebGL means no map at all — MapLibre included",
+        "body": "Every map surface needs a WebGL context: MapLibre (STANDARD view, via react-map-gl/maplibre), Globe3D and AzimuthalFlat. On a device that cannot create one, MapLibre does NOT throw anything React can catch — its Map constructor calls _setupPainter, the context request fails, and it logs 'Failed to create WebGL context ... Exhausted GL driver options' on repeat while the user looks at an empty rectangle. WebGLErrorBoundary wrapped only the two 3D views and its fallback text promised to 'switch to the standard map', which is MapLibre — the very thing that just failed. FIX: utils/webgl.js hasWebGL() probes ONCE before anything mounts and keeps the driver's own statusMessage; TruegleMap branches to RasterMapFallback (plain Leaflet + OSM raster tiles, no GPU) before the mapViewMode ternary. Guard: npm run webgl:test (11).",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
+      },
+      "named-chunk-equals-preload": {
+        "Id": "named-chunk-equals-preload",
+        "Type": "fact",
+        "Label": "Naming a manualChunk makes index.html preload it for EVERY visitor",
+        "body": "vite.config.js manualChunks: a named chunk ('leaflet') gets a <link rel=modulepreload> in index.html plus an eager stylesheet link, so every visitor downloads it; falling through to the catch-all 'return vendor' buries it in the eager 1.9MB bundle instead. Measured both ways for leaflet (148KB js + 16KB css). The ONLY placement that stays on-demand is a BARE return before the catch-all, which leaves Rollup to put it in the async chunk created by a dynamic import — the pattern hls.js already used and documented. Needs BOTH halves: the bare return AND React.lazy on the component, since a static import of the component re-anchors the chunk to the entry graph. Verify with: grep -o '<link[^>]*leaflet[^>]*>' dist/index.html (must be empty) and confirm the code lands in its own async chunk.",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
+      },
+      "zero-cookies-now-true": {
+        "Id": "zero-cookies-now-true",
+        "Type": "fact",
+        "Label": "The zero-cookie claim was false by exactly one line",
+        "body": "noTrackMiddleware in apps/backend/middleware/privacy.js sent 'Set-Cookie: _truegle_no_track=1; Path=/; HttpOnly; SameSite=Strict; Max-Age=0' on EVERY response — the only Set-Cookie anywhere in the backend. Max-Age=0 means delete-immediately so nothing was ever stored and no tracking happened, but browsers announced the rejection in the console on every cross-site request (how it was found), and res.setHeader REPLACES rather than appends so it would have silently dropped any future cookie set earlier in the chain. Vestigial from the ad-script era. Removed; Tk:N and nosniff kept. Also removed a latent window.analytics.track('webgl_error') call in WebGLErrorBoundary — dead (nothing sets window.analytics) but exactly the per-user event tracking this project does not do. Guard: npm run cookies:test (4).",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
       }
     }
   },

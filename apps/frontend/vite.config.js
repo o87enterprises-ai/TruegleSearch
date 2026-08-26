@@ -67,7 +67,18 @@ export default defineConfig(({ mode }) => {
           if (/[\\/]node_modules[\\/](three|three-stdlib|troika[^\\/]*|postprocessing|meshline)[\\/]/.test(id)) return 'three'
           if (/[\\/]node_modules[\\/](mapbox-gl|@mapbox)[\\/]/.test(id)) return 'mapbox'
           if (/[\\/]node_modules[\\/]echarts[\\/]/.test(id)) return 'echarts'
-          if (/[\\/]node_modules[\\/]leaflet[\\/]/.test(id)) return 'leaflet'
+          // Leaflet, on exactly the hls.js footing described below, and for
+          // the same reason. It exists only for RasterMapFallback — the map
+          // for devices that cannot create a WebGL context — which is
+          // React.lazy'd and imports leaflet inside an effect. Both other
+          // placements were measured here too: naming it ('leaflet') put a
+          // modulepreload for 148 KB in index.html, and falling through to
+          // `return 'vendor'` below buried it in the eager 1.9 MB bundle.
+          // A bare return leaves it for Rollup to put in the async chunk.
+          //
+          // The pattern is anchored so it cannot also catch react-leaflet,
+          // which imports React and must stay in `vendor`.
+          if (/[\\/]node_modules[\\/]leaflet[\\/]/.test(id)) return
           // HLS playback for traffic cameras. Deliberately left UNASSIGNED so
           // Rollup places it in the async chunk created by CameraView's
           // dynamic import — 185KB gzipped that is fetched the first time

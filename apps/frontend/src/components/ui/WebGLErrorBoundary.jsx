@@ -45,14 +45,12 @@ class WebGLErrorBoundary extends React.Component {
       errorType: this.categorizeError(error),
     });
 
-    // Send error to monitoring service if available
-    if (window.analytics) {
-      window.analytics.track('webgl_error', {
-        error: error.message,
-        component: this.props.componentName || 'Unknown',
-        errorType: this.categorizeError(error),
-      });
-    }
+    // NO ANALYTICS CALL HERE. This used to fire window.analytics.track(...)
+    // with the component name and error text. Nothing sets window.analytics —
+    // utils/analytics.js is Cloudflare Web Analytics and exposes no such
+    // object — so it never ran, but it is exactly the shape of the per-user
+    // event tracking this project does not do. The console already carries
+    // everything above for anyone debugging.
 
     // Attempt recovery based on error type
     this.handleWebGLError(error);

@@ -3,6 +3,59 @@ _Last updated: 2026-08-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-08-26 (later) — the other half: no WebGL, no map at all
+
+The same console dump carried a second, unrelated failure that the empty-places
+work did not touch. Both are now fixed on `claude/pills-reels-context-window-vyqwo5`.
+
+🔴 **Every map surface needs WebGL — MapLibre included.** The repeated
+`Failed to create WebGL context … Exhausted GL driver options` came from
+`_setupPainter`, which is MapLibre's own initialiser, not Globe3D. MapLibre
+does not fail in a way React can catch: it logs and leaves an empty rectangle.
+`WebGLErrorBoundary` wrapped only Globe3D and AzimuthalFlat, and its fallback
+text promised to "switch to the standard map" — which IS MapLibre, the thing
+that had just failed. So on that phone there was no map at all, on top of there
+being no places to put on it.
+
+- `utils/webgl.js` — `hasWebGL()` asks once, before anything mounts, and keeps
+  the driver's own `statusMessage`. `npm run webgl:test`.
+- `RasterMapFallback.jsx` — a real map on OSM raster tiles (plain Leaflet,
+  imperative API, no GPU): pans, zooms, draws the found places and a route
+  line, and says why it is the simplified one.
+- `TruegleMap` branches to it **before** the view-mode ternary, so no WebGL
+  surface is ever mounted on a device that cannot serve one.
+
+⚠️ **A named manualChunk is a preload for every visitor.** Wiring the fallback
+tripped this twice, and both were measured:
+`return 'leaflet'` put a `modulepreload` for 148 KB plus an eager stylesheet in
+`index.html`; deleting the rule let the catch-all `return 'vendor'` bury it in
+the eager bundle, which grew 1.7 MB → 1.9 MB. The only on-demand placement is a
+**bare `return`** before the catch-all — the pattern `hls.js` already used and
+documented — *and* `React.lazy` on the component, since a static import
+re-anchors the chunk to the entry graph. Both halves are required. Verify with
+`grep -o '<link[^>]*leaflet[^>]*>' dist/index.html` — it must come back empty.
+
+✅ **Truegle now really does set zero cookies.** The claim was false by exactly
+one line: `noTrackMiddleware` sent `_truegle_no_track=1; … Max-Age=0` on every
+response — the only `Set-Cookie` in the backend. `Max-Age=0` meant nothing was
+ever stored, so no tracking happened, but browsers announced the rejection on
+every cross-site request (which is how it surfaced), and `res.setHeader`
+replaces rather than appends, so it would have silently dropped any cookie set
+earlier in the chain. Vestigial from the ad-script era. `npm run cookies:test`
+pins it. Also removed a dead `window.analytics.track('webgl_error')` call in
+`WebGLErrorBoundary` — nothing sets `window.analytics`, but it is exactly the
+per-user event tracking this project does not do.
+
+ℹ️ **The Cloudflare beacon failure is not ours and needs no fix.** The
+integrity-hash mismatch and CORS error are Firefox's Enhanced Tracking
+Protection blocking `static.cloudflareinsights.com` — the console says so two
+lines earlier. Note the failing URL carries a `/v…` suffix, which is
+Cloudflare's **automatic edge injection**, not `utils/analytics.js` (that stays
+inert without `VITE_CF_BEACON_TOKEN`). Worth knowing there are potentially two
+beacons, only one of which lives in this repo.
+
+---
+
 ## 🗓️ 2026-08-26 — the empty map: one 500 and three false negatives (branch `claude/pills-reels-context-window-vyqwo5`)
 
 Picked up after the `pills-reels-tube-ui` session blew its context window. Nothing

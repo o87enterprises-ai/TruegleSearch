@@ -102,13 +102,18 @@ const noTrackMiddleware = (req, res, next) => {
   res.setHeader('Tk', 'N'); // Tracking Status: Not tracking
   res.setHeader('X-Content-Type-Options', 'nosniff');
 
-  // Remove any tracking-related cookies from request
-  // (In case third-party scripts try to set them)
-  res.setHeader(
-    'Set-Cookie',
-    '_truegle_no_track=1; Path=/; HttpOnly; SameSite=Strict; Max-Age=0'
-  );
-
+  // NO Set-Cookie HERE, OR ANYWHERE. This used to send
+  //   _truegle_no_track=1; Path=/; HttpOnly; SameSite=Strict; Max-Age=0
+  // on every response. Max-Age=0 means "delete immediately", so it never
+  // stored anything — it was a leftover from the era of third-party ad
+  // scripts, written to clear cookies they might have set. Those scripts are
+  // gone (docs/AD-POLICY.md), nothing anywhere reads this name, and the header
+  // had two costs: it made every cross-site response carry a Set-Cookie that
+  // browsers reject out loud in the console, and res.setHeader REPLACES rather
+  // than appends, so any future cookie set earlier in the chain would have
+  // been silently dropped by this line.
+  //
+  // Truegle sets zero cookies. `npm run cookies:test` keeps it that way.
   next();
 };
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 // MapLibre, not Mapbox — see config/basemap.js for why (no token exists, and
 // borrowing Mapbox's SDK for someone else's tiles would breach its licence).
 // The stylesheet import is load-bearing — it positions the canvas and the
@@ -29,6 +29,13 @@ import LocationPermissionModal from './LocationPermissionModal';
 import Globe3D from './Globe3D';
 import AzimuthalFlat from './AzimuthalFlat';
 import WebGLErrorBoundary from '../ui/WebGLErrorBoundary';
+// LAZY ON PURPOSE. A static import puts Leaflet's 148 KB of JS and 16 KB of
+// CSS behind a modulepreload in index.html, so every visitor downloads a
+// fallback that only a device without WebGL will ever render. React.lazy keeps
+// the whole subtree — Leaflet included — in its own chunk, fetched at the
+// moment it is actually needed.
+const RasterMapFallback = lazy(() => import('./RasterMapFallback'));
+import { hasWebGL, webglFailureReason } from '../../utils/webgl';
 import EnhancedCameraSearch from './EnhancedCameraSearch';
 import CameraView from './CameraView';
 import { searchMapQuery, formatDistance } from './utils/mapSearch';
@@ -69,6 +76,11 @@ export default function TruegleMap({
   className = '',
 }) {
   const { state, actions } = useMap();
+  // Asked ONCE, before anything that needs a GPU mounts. hasWebGL caches its
+  // own answer, but a ref keeps it stable across re-renders even if a future
+  // caller resets the probe.
+  const [webglOK] = useState(() => hasWebGL());
+  const [webglReason] = useState(() => webglFailureReason());
   const mapRef = useRef(null);
   const [viewState, setViewState] = useState({
     longitude: center[0],
@@ -1112,7 +1124,24 @@ export default function TruegleMap({
           '--truegle-map-bottom-clearance': bottomClearance,
         }}
       >
-      {state.mapViewMode === MAP_VIEW_MODES.STANDARD ? (
+      {/* NO WEBGL, NO MAPLIBRE. Every branch below this one needs a WebGL
+          context — the standard map as much as the two 3D views — so on a
+          device that cannot give one there is nothing to fall back TO, and
+          MapLibre does not fail in a way React can catch: it logs
+          "Exhausted GL driver options" from _setupPainter and leaves an empty
+          rectangle. Asking first is the only place this can be handled. */}
+      {!webglOK ? (
+        <Suspense fallback={<div style={{ width: '100%', height: '100%', background: '#0a0a0a' }} />}>
+        <RasterMapFallback
+          viewState={viewState}
+          markers={markers}
+          routes={state.routes || []}
+          reason={webglReason}
+          onMarkerClick={handleMarkerClick}
+          onMoveEnd={handleMoveEnd}
+        />
+        </Suspense>
+      ) : state.mapViewMode === MAP_VIEW_MODES.STANDARD ? (
         <BaseMap
           ref={mapRef}
           {...viewState}
