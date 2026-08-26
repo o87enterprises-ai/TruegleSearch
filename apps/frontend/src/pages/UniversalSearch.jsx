@@ -79,7 +79,7 @@ const modeToBackend = (mode) => ({
   ocean: 'ocean',
   green: 'green',
 }[mode] || 'blue-pill');
-import { LITE_BG, PERSPECTIVE_COLORS, getModeAccent, MODE_LABELS, MODE_COLORS } from '../config/modeTheme';
+import { LITE_BG, PERSPECTIVE_COLORS, getModeAccent, MODE_LABELS, MODE_COLORS, normalizePillMode } from '../config/modeTheme';
 
 // The five selectable flows. The active `mode` (from URL/toggle) is the PRIMARY
 // — it drives which sources/results are fetched. Additional lenses selected
@@ -191,7 +191,9 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // Single cycling pill (same control as the landing page). Reflects the
   // current search mode; cycling stages a new one and submitting navigates to
   // it (black = Chat -> /chat, orange/yellow -> their page, else /search?mode=).
-  const [pillMode, setPillMode] = useState(mode);
+  // normalize: `?mode=orange` is still a URL people hold, and Rewards was
+  // retired with advertising — it would submit straight into the 404.
+  const [pillMode, setPillMode] = useState(() => normalizePillMode(mode));
   // Cycling the pill to Chat has to change the row UNDER the bar too. It
   // didn't: the categories are driven by `mode`, which only updates on submit,
   // so the pill said Chat while All / Local / Maps / Pics / Reels sat
@@ -799,7 +801,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     }
 
     if (pillMode === 'black') { navigate(`/chat?q=${encodeURIComponent(q)}`); return; }
-    if (pillMode === 'orange') { navigate('/rewards'); return; }
     if (pillMode === 'yellow') { navigate('/creators'); return; }
     // Tube stays on this page — it is a mode of the search page, not a
     // separate route, which is what keeps its layout identical by construction.

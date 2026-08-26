@@ -21,7 +21,7 @@ import ModesAndTrending from '../components/landing/ModesAndTrending';
 import ChatModeRow from '../components/landing/ChatModeRow';
 import CategoryModeRow from '../components/landing/CategoryModeRow';
 import PillModeRow from '../components/landing/PillModeRow';
-import { MODE_COLORS, searchThemeFor, searchGradientFor, searchIconFor } from '../config/modeTheme';
+import { MODE_COLORS, searchThemeFor, searchGradientFor, searchIconFor, normalizePillMode } from '../config/modeTheme';
 import { useUnhingedGate } from '../hooks/useUnhingedGate';
 import ThreeCards from '../components/landing/ThreeCards';
 import PlayerFeatureCard from '../components/landing/PlayerFeatureCard';
@@ -40,7 +40,7 @@ export default function LandingPage() {
   // Single-select — one active at a time. Black = Chat, the default state,
   // no navigation. Every other color navigates immediately when clicked.
   const [pillMode, setPillMode] = useState(() => {
-    return localStorage.getItem('truegle_pill_mode_pref') || 'black';
+    return normalizePillMode(localStorage.getItem('truegle_pill_mode_pref'));
   });
   const [pillToast, setPillToast] = useState(null); // { label, sub, color }
 
@@ -51,7 +51,6 @@ export default function LandingPage() {
     red:    { label: 'Rabbit Hole',       sub: 'Full spectrum — all perspectives',       color: 'from-red-600 to-red-800',         dot: 'bg-red-400' },
     purple: { label: 'Wonderland',        sub: 'Isolate one perspective at a time',      color: 'from-purple-500 to-violet-700',   dot: 'bg-purple-400' },
     ocean:  { label: 'Privacy / OSINT',   sub: 'Digital investigation lens',             color: 'from-cyan-500 to-teal-700',       dot: 'bg-cyan-400' },
-    orange: { label: 'Rewards',           sub: 'Earn a share of ad revenue',             color: 'from-orange-500 to-amber-700',    dot: 'bg-orange-400' },
     // Yellow stopped being Transcripts when Extract was parked, then spent a
     // while on /feed. It is the CREATORS roster now (/creators); Feed is
     // commented out in modeTheme.js rather than deleted.
@@ -335,8 +334,6 @@ export default function LandingPage() {
                   const q = searchQuery.trim();
                   if (pillMode === 'black') {
                     navigate(q ? `/chat?q=${encodeURIComponent(q)}` : '/chat');
-                  } else if (pillMode === 'orange') {
-                    navigate('/rewards');
                   } else if (pillMode === 'yellow') {
                     navigate('/creators');
                   } else if (pillMode === 'tube') {

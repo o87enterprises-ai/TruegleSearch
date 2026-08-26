@@ -42,6 +42,28 @@ export const MODE_COLORS = {
 export const BRAND_GRADIENT =
   'linear-gradient(135deg, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #a855f7)';
 
+/* RETIRED PILL MODES.
+ *
+ * 'orange' (Rewards) was funded by advertising, which was removed on
+ * 2026-08-24, and its /rewards route is commented out in App.jsx. The pill was
+ * already gone from PillModeRow's CYCLE — but that is not enough on its own,
+ * because the chosen mode is PERSISTED. A visitor who picked Rewards before it
+ * was retired still has `truegle_pill_mode_pref: 'orange'` in local storage,
+ * and `/search?mode=orange` is still a URL anyone can hold. Both routes led
+ * straight to the 404 page on the next search.
+ *
+ * normalizePillMode is the single gate: anything retired or unrecognised
+ * resolves to Chat. Retiring a mode in future means adding it here, not
+ * hunting for every navigate() that mentions it.
+ */
+const RETIRED_MODES = new Set(['orange']);
+
+export const normalizePillMode = (stored) => {
+  const m = typeof stored === 'string' ? stored : '';
+  if (!m || RETIRED_MODES.has(m)) return 'black';
+  return m;
+};
+
 export const MODE_LABELS = {
   blue: 'Mainstream',
   red: 'Rabbit Hole',
@@ -50,7 +72,8 @@ export const MODE_LABELS = {
   purple: 'Wonderland',
   ocean: 'Privacy / OSINT',
   green: 'Summarize',
-  orange: 'Rewards',
+  // orange: 'Rewards' — RETIRED 2026-08-24 with advertising. See
+  // RETIRED_MODES above; normalizePillMode() maps it back to Chat.
   // Feed is COMMENTED OUT, not deleted — the social-feed page and its OAuth
   // handshake are still there on /feed, they are just not what this pill
   // opens any more. Restore this line and the /creators navigations below
