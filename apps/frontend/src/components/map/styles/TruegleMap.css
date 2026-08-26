@@ -178,6 +178,28 @@
   z-index: 100;
 }
 
+/* A camera pin. `position: relative` is load-bearing for the same reason it is
+   on .truegle-marker: the hover preview is absolutely positioned against this,
+   and without it the preview escapes to the nearest positioned ancestor — the
+   map container — so every camera's frame stacks in one corner.
+
+   The hover z-index has to beat other pins too, or a preview opens UNDERNEATH
+   the neighbouring markers it overlaps. */
+.truegle-camera-marker {
+  position: relative;
+  cursor: pointer;
+  outline: none;
+}
+
+.truegle-camera-marker:hover,
+.truegle-camera-marker:focus-visible {
+  z-index: 200;
+}
+
+.truegle-camera-marker:focus-visible > div:first-child {
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.9);
+}
+
 .truegle-cluster {
   cursor: pointer;
   transition: all 0.2s ease;

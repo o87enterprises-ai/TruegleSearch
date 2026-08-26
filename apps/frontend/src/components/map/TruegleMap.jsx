@@ -30,6 +30,7 @@ import Globe3D from './Globe3D';
 import AzimuthalFlat from './AzimuthalFlat';
 import WebGLErrorBoundary from '../ui/WebGLErrorBoundary';
 import EnhancedCameraSearch from './EnhancedCameraSearch';
+import CameraView from './CameraView';
 import { searchMapQuery, formatDistance } from './utils/mapSearch';
 import MapApiService from './services/mapApi';
 import backgroundImage from '../../assets/images/Azimuthal-satellite-view.png';
@@ -82,6 +83,20 @@ export default function TruegleMap({
   const [showTrafficFS, setShowTrafficFS] = useState(false);
   const [showCamerasFS, setShowCamerasFS] = useState(false);
   const [showEnhancedCameraSearch, setShowEnhancedCameraSearch] = useState(false);
+  // Which camera pin the pointer is over, and which one is open full size.
+  // Hover state lives HERE rather than inside each marker because only one
+  // preview may be mounted at a time — see the CAMERA branch of MarkerElement.
+  const [hoveredCameraId, setHoveredCameraId] = useState(null);
+  const [openCamera, setOpenCamera] = useState(null);
+
+  // Escape closes the open camera. Registered only while one is open so this
+  // never competes with the other Escape handlers on the page.
+  useEffect(() => {
+    if (!openCamera) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setOpenCamera(null); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [openCamera]);
   const [showDirectionsFS, setShowDirectionsFS] = useState(false);
   const [showLocationModalFS, setShowLocationModalFS] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
@@ -954,6 +969,61 @@ export default function TruegleMap({
       );
     }
 
+    // ── A CAMERA PIN SHOWS WHAT THE CAMERA SEES ──────────────────────────
+    //
+    // Cameras used to render as the same anonymous teardrop as everything
+    // else, so finding out whether one was pointed at your route meant
+    // tapping it, reading a panel, and closing it again — for each of them.
+    //
+    // The pin is a camera glyph, hovering it plays the live frame, and a click
+    // opens it full size. The preview is deliberately SMALL and only mounted
+    // on hover: these are real streams, and mounting one per pin would have
+    // twenty cameras polling at once behind a map nobody is looking at.
+    if (marker.category === 'CAMERA') {
+      const hovered = hoveredCameraId === marker.id;
+      return (
+        <div
+          className="truegle-camera-marker group"
+          style={{ transform: 'translate(-50%, -50%)', position: 'relative' }}
+          tabIndex={0}
+          role="button"
+          aria-label={`Traffic camera: ${marker.name || 'unnamed'}`}
+          onMouseEnter={() => setHoveredCameraId(marker.id)}
+          onMouseLeave={() => setHoveredCameraId((id) => (id === marker.id ? null : id))}
+          onFocus={() => setHoveredCameraId(marker.id)}
+          onBlur={() => setHoveredCameraId((id) => (id === marker.id ? null : id))}
+          onClick={(e) => { e.stopPropagation(); setOpenCamera(marker); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenCamera(marker); }
+          }}
+        >
+          <div
+            className={`flex items-center justify-center w-7 h-7 rounded-lg border transition-all cursor-pointer ${
+              hovered
+                ? 'bg-amber-500/90 border-amber-300 scale-110 shadow-lg shadow-amber-500/40'
+                : 'bg-neutral-900/90 border-amber-400/60 hover:border-amber-300'
+            }`}
+          >
+            <Camera size={15} className={hovered ? 'text-neutral-900' : 'text-amber-400'} />
+          </div>
+
+          {/* The live frame. Mounted ONLY while hovered — see above. */}
+          {hovered && (marker.imageUrl || marker.streamUrl) && (
+            <div className="pointer-events-none absolute left-1/2 bottom-full mb-2 -translate-x-1/2 z-20">
+              <div className="w-52 rounded-lg overflow-hidden border border-amber-400/50 bg-neutral-900 shadow-2xl">
+                <div className="aspect-video bg-black">
+                  <CameraView camera={marker} className="w-full h-full object-cover" />
+                </div>
+                <div className="px-2 py-1 text-[10px] text-white/80 truncate">
+                  {marker.name || 'Traffic camera'}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     const color = getMarkerColor(marker.category);
     // WHAT THE PIN IS. Four identical teardrops told the reader that four
     // things exist and nothing about which is which — every one had to be
@@ -1697,6 +1767,60 @@ export default function TruegleMap({
         )}
       </AnimatePresence>
 
+      {/* ── ONE CAMERA, FULL SIZE ────────────────────────────────────────────
+          Click a pin and it opens here. Deliberately a plain overlay rather
+          than a portal: it belongs to the map, and closing the map should take
+          it with it — a portalled dialog would outlive the thing it describes.
+
+          Escape and a click on the backdrop both close it. The frame itself
+          stops propagation, so clicking the picture you are watching does not
+          dismiss it. */}
+      <AnimatePresence>
+        {openCamera && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setOpenCamera(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              role="dialog"
+              aria-modal="true"
+              aria-label={openCamera.name || 'Traffic camera'}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-2xl rounded-xl overflow-hidden border border-amber-400/40 bg-neutral-900 shadow-2xl"
+            >
+              <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Camera size={14} className="text-amber-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm text-white truncate">{openCamera.name || 'Traffic camera'}</p>
+                    {openCamera.address && (
+                      <p className="text-[11px] text-white/45 truncate">{openCamera.address}</p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenCamera(null)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0"
+                  title="Close camera"
+                >
+                  <X size={16} className="text-white" />
+                </button>
+              </div>
+              <div className="aspect-video bg-black">
+                <CameraView camera={openCamera} className="w-full h-full object-contain" />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Enhanced Camera Search Modal - Positioned below top bar */}
       <AnimatePresence>
         {showEnhancedCameraSearch && (
@@ -1712,7 +1836,14 @@ export default function TruegleMap({
                     lng: camera.location.lng,
                     name: camera.name,
                     category: 'CAMERA',
-                    address: `${camera.roadName || ''} - ${camera.city}, ${camera.state}`
+                    address: `${camera.roadName || ''} - ${camera.city}, ${camera.state}`,
+                    // THE PICTURE HAS TO TRAVEL WITH THE PIN. Without these the
+                    // marker knows a camera exists and nothing about what it
+                    // sees, so the pin could only ever be a dot — there is
+                    // nothing to preview and nothing to open. addMarker spreads
+                    // the whole object, so extra fields survive.
+                    imageUrl: camera.imageUrl || null,
+                    streamUrl: camera.streamUrl || null,
                   });
 
                   // Fly to camera location

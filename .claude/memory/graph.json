@@ -2848,6 +2848,14 @@
         "body": "Geolocation error code 2 means BOTH 'OS location services off' and 'device cannot get a fix'. Only navigator.permissions tells them apart: permission=granted + code 2 => device toggle off (browser is fine); permission=prompt/unknown + code 2 => no fix. Read the permission BEFORE prompting - after, it reflects the answer just given. utils/geolocation.js owns this; never label a timeout or code 2 as 'permission denied'. Test stub gotcha: delete navigator.geolocation is a NO-OP (prototype accessor) - override with Object.defineProperty value undefined.",
         "ts": "2026-08-26",
         "created": "2026-08-26"
+      },
+      "map-marker-position-relative": {
+        "Id": "map-marker-position-relative",
+        "Type": "fact",
+        "Label": "Map marker previews need position:relative on the pin",
+        "body": "Any absolutely-positioned hover label/preview on a map marker MUST have position:relative on the marker element, or it anchors to #truegle-map-container and every marker's popup stacks in one corner. .truegle-marker and .truegle-camera-marker both carry it. Test it by MEASURING geometry (dx/dy from pin) - an escaped preview renders fine, just in the wrong place, so asserting existence proves nothing.",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
       }
     }
   },
