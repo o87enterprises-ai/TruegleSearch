@@ -1240,6 +1240,14 @@
         "body": "The clear-on-selection effect keyed off playerCurrent changing, which also fires for autoplay/trending/queue - so /tube?q=X blanked the query mid-debounce and shared links showed 'No results yet'. Now requires searchResults.length; claims clearedFor key on the early return so late results for an already-playing track are not read as a new selection.",
         "ts": "2026-08-26",
         "created": "2026-08-26"
+      },
+      "globe-earth-from-esri": {
+        "Id": "globe-earth-from-esri",
+        "Type": "decision",
+        "Label": "Globe texture is composited from Esri tiles, not NASA",
+        "body": "buildEquirectangularEarth() in components/map/utils/earthTexture.js composites 16 Esri World Imagery tiles at z=2 and resamples Mercator->equirectangular per row, filling the +/-85 polar caps. Esri first because the flat satellite basemap already uses it; NASA GIBS second; plain ocean sphere last. Azimuthal-satellite-view.png is NEVER a sphere texture. Verified by verify-globe-texture.mjs incl. a rendered-pixel check.",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
       }
     },
     "thread": {
@@ -2806,6 +2814,14 @@
         "Type": "fact",
         "Label": "Mapbox needs TWO tokens with opposite settings",
         "body": "Backend MAPBOX_ACCESS_TOKEN (MapboxService geocoding /geocoding/v5/mapbox.places) is server-side from Vercel - NO Referer, so a URL-restricted token is REJECTED: leave it unrestricted. Frontend VITE_MAPBOX_ACCESS_TOKEN (traffic tiles api.mapbox.com/v4/mapbox.mapbox-traffic-v1) is inlined into the JS bundle and publicly readable - MUST be URL-restricted to truegle.info. Default public scopes geocode fine; no extra scope needed. Basemap is MapLibre+free raster tiles and needs no key at all.",
+        "ts": "2026-08-26",
+        "created": "2026-08-26"
+      },
+      "globe-white-sphere-cause": {
+        "Id": "globe-white-sphere-cause",
+        "Type": "fact",
+        "Label": "White globe = material compiled before the map arrived",
+        "body": "Three stacked faults, each producing a plausible white ball: (1) fallback texture was the AZIMUTHAL png wrapped on a sphere; (2) Mercator tiles pasted onto UV without inverse-Mercator; (3) THE REAL ONE - React set map= on an already-compiled three.js material, so the shader had no texture sampling and drew color alone (white) with the texture bound and correct. Fix: key the material on texture arrival. Diagnostic that settled it: swap to meshBasicMaterial with a magenta tint - imagery appeared instantly, ruling out taint and lighting.",
         "ts": "2026-08-26",
         "created": "2026-08-26"
       }
