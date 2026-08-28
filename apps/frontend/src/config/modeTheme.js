@@ -89,7 +89,7 @@ export const MODE_LABELS = {
 // landing pill). Deliberately short — the full write-up per mode already
 // lives in TutorialModal's STEPS; this is a hover popover, not a modal.
 export const MODE_HINT_TEXT = {
-  black: 'This pill drives your search mode — click it to cycle, or press and hold to jump straight back to Chat.',
+  black: "Chat: talk directly with TrueGLE's AI instead of searching — ask follow-ups, brainstorm, or just chat.",
   tube: 'Tube mode searches video-first, across TrueTube and other video sources.',
   blue: 'Mainstream: clean, fast, unbiased results from multiple sources — the everyday default.',
   green: 'Summarize/Green: raw, unprocessed results — no AI summaries, no smart features, nothing added.',
