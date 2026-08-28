@@ -21,7 +21,8 @@ import ModesAndTrending from '../components/landing/ModesAndTrending';
 import ChatModeRow from '../components/landing/ChatModeRow';
 import CategoryModeRow from '../components/landing/CategoryModeRow';
 import PillModeRow from '../components/landing/PillModeRow';
-import { MODE_COLORS, searchThemeFor, searchGradientFor, searchIconFor, normalizePillMode } from '../config/modeTheme';
+import { MODE_COLORS, MODE_HINT_TEXT, searchThemeFor, searchGradientFor, searchIconFor, normalizePillMode } from '../config/modeTheme';
+import HoverHint from '../components/ui/HoverHint';
 import { useUnhingedGate } from '../hooks/useUnhingedGate';
 import ThreeCards from '../components/landing/ThreeCards';
 import PlayerFeatureCard from '../components/landing/PlayerFeatureCard';
@@ -269,7 +270,15 @@ export default function LandingPage() {
 
             {/* Pill Mode (single cycling pill, search mode selector) — ABOVE the search bar */}
             <div className="mb-3">
-              <PillModeRow activeMode={pillMode} onSelect={handlePillModeSelect} />
+              <HoverHint
+                isEntryPoint
+                label="click here"
+                layout="top-right"
+                elementExplain="This is the mode pill — click it to cycle through Truegle's search modes, or press and hold to jump straight back to Chat."
+                modeExplain={MODE_HINT_TEXT[pillMode]}
+              >
+                <PillModeRow activeMode={pillMode} onSelect={handlePillModeSelect} />
+              </HoverHint>
             </div>
 
             {/* Search Bar */}

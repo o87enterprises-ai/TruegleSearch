@@ -23,12 +23,16 @@ export const TutorialProvider = ({ children }) => {
         dismissed: {},
         neverShowAgain: false,
         lastSeen: null,
+        // null = not asked yet, true = opted into site-wide hover hints,
+        // false = declined. See HoverHint / ChalkArrow.
+        hintsOptIn: null,
       };
     } catch {
       return {
         dismissed: {},
         neverShowAgain: false,
         lastSeen: null,
+        hintsOptIn: null,
       };
     }
   });
@@ -149,6 +153,14 @@ export const TutorialProvider = ({ children }) => {
     }));
   }, []);
 
+  /**
+   * Site-wide hover-hint opt-in (the chalk-arrow tutorial). true = show hints
+   * on every page, false = never show them again, null = not decided yet.
+   */
+  const setHintsOptIn = useCallback((value) => {
+    setPreferences(prev => ({ ...prev, hintsOptIn: value }));
+  }, []);
+
   // Manually open the main onboarding tutorial (e.g. from the footer link).
   const openTutorial = useCallback(() => {
     setActiveTutorial('main');
@@ -180,6 +192,8 @@ export const TutorialProvider = ({ children }) => {
     resetTutorials,
     setNeverShowAgain,
     markSeen,
+    hintsOptIn: preferences.hintsOptIn,
+    setHintsOptIn,
   };
 
   return (

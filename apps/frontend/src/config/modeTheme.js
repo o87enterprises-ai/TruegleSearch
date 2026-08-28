@@ -85,6 +85,19 @@ export const MODE_LABELS = {
   unhinged: 'Unhinged',
 };
 
+// One-line explanations for the hover-hint tutorial (HoverHint on the
+// landing pill). Deliberately short — the full write-up per mode already
+// lives in TutorialModal's STEPS; this is a hover popover, not a modal.
+export const MODE_HINT_TEXT = {
+  black: 'This pill drives your search mode — click it to cycle, or press and hold to jump straight back to Chat.',
+  tube: 'Tube mode searches video-first, across TrueTube and other video sources.',
+  blue: 'Mainstream: clean, fast, unbiased results from multiple sources — the everyday default.',
+  green: 'Summarize/Green: raw, unprocessed results — no AI summaries, no smart features, nothing added.',
+  red: 'Rabbit Hole: surfaces perspectives across the whole political/ideological spectrum, each one labeled.',
+  ocean: 'Privacy / OSINT: open-source intelligence tools for research and investigation.',
+  yellow: 'Creators: the pill for creator content and the tools built around it.',
+};
+
 // GREEN MEANS TWO DIFFERENT THINGS, and this is where they part company.
 //
 // On CHAT it is a lens: "Summarize", concise plain-language answers — which is
