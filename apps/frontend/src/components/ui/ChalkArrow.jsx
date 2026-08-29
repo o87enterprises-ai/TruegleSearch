@@ -15,11 +15,16 @@ const usePrefersReducedMotion = () => {
 
 // Which quadrant the arrow+label sit in, relative to the element they point
 // at. The path/label are mirrored so the arrowhead always lands on the target.
+// Each path runs FROM the end near the label TO the end near the target, so
+// the arrowhead (drawn at the path's second point) always lands closest to
+// whatever this is pointing at, not floating off toward the label.
 const LAYOUTS = {
-  'top-right': { wrap: '-top-14 right-0 items-end text-right', path: 'M4 44C22 34 34 18 44 4', head: 'M44 4l-11 1M44 4l-2 11' },
-  'top-left': { wrap: '-top-14 left-0 items-start text-left', path: 'M44 44C26 34 14 18 4 4', head: 'M4 4l11 1M4 4l2 11' },
-  'bottom-right': { wrap: '-bottom-14 right-0 items-end text-right', path: 'M4 4C22 14 34 30 44 44', head: 'M44 44l-2-11M44 44l-11-1' },
-  'bottom-left': { wrap: '-bottom-14 left-0 items-start text-left', path: 'M44 4C26 14 14 30 4 44', head: 'M4 44l2-11M4 44l11-1' },
+  // Block sits ABOVE the target -> must point DOWN.
+  'top-right': { wrap: '-top-14 right-0 items-end text-right', path: 'M40 6C30 16 18 30 10 42', head: 'M10 42l11-2M10 42l2-11' },
+  'top-left': { wrap: '-top-14 left-0 items-start text-left', path: 'M8 6C18 16 30 30 38 42', head: 'M38 42l-11-2M38 42l-2-11' },
+  // Block sits BELOW the target -> must point UP.
+  'bottom-right': { wrap: '-bottom-14 right-0 items-end text-right', path: 'M40 42C30 32 18 18 10 6', head: 'M10 6l11 2M10 6l2 11' },
+  'bottom-left': { wrap: '-bottom-14 left-0 items-start text-left', path: 'M8 42C18 32 30 18 38 6', head: 'M38 6l-11 2M38 6l-2 11' },
 };
 
 /**
