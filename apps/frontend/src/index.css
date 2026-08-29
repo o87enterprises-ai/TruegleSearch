@@ -498,12 +498,6 @@ body {
   color: #111827;
 }
 
-/* Hand-written "chalk" accent — used only by the hover-hint tutorial
-   arrows (ChalkArrow/HoverHint), never for real UI copy. */
-.font-chalk {
-  font-family: 'Kalam', cursive;
-}
-
 /* Apply design system typography scale to heading elements */
 h1 {
   font-size: var(--ds-font-size-h1);

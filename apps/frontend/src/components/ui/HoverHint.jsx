@@ -1,19 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import ChalkArrow from './ChalkArrow';
 import { useTutorials } from '../../context/TutorialContext';
 
 /**
- * Wraps a UI element with a chalk-arrow affordance + hover/tap popover that
- * explains it. Site-wide opt-in is gated through TutorialContext:
+ * Wraps a UI element with a hover/tap popover that explains it. Site-wide
+ * opt-in is gated through TutorialContext:
  *
  *  - hintsOptIn === false → renders children only, nothing else, ever.
- *  - hintsOptIn === true  → chalk arrow always visible near the element;
- *    hover/tap shows `elementExplain` then `modeExplain`.
+ *  - hintsOptIn === true  → hover/tap shows `elementExplain` then `modeExplain`.
  *  - hintsOptIn === null (undecided) → only the designated `isEntryPoint`
- *    hotspot (one per site, the landing pill) shows a "click here" arrow;
- *    hovering/tapping it shows the opt-in invite instead of the real content.
- *    Every other hotspot stays fully inert until the visitor opts in.
+ *    hotspot (one per site, the landing pill) reacts at all; hovering/tapping
+ *    it shows the opt-in invite instead of the real content. Every other
+ *    hotspot stays fully inert until the visitor opts in.
  *
  * `elementExplain` / `modeExplain` may be strings or functions of nothing
  * (call site closes over current mode) — kept as plain strings/nodes here,
@@ -22,10 +20,6 @@ import { useTutorials } from '../../context/TutorialContext';
  */
 export default function HoverHint({
   children,
-  label = 'click here',
-  arrowFrom,
-  arrowTo,
-  arrowBow,
   elementExplain,
   modeExplain,
   isEntryPoint = false,
@@ -65,15 +59,6 @@ export default function HoverHint({
       onClick={() => setPinned((p) => !p)}
     >
       {children}
-
-      <ChalkArrow
-        label={label}
-        color={color}
-        from={arrowFrom}
-        to={arrowTo}
-        bow={arrowBow}
-        muted={hintsOptIn === true && !open}
-      />
 
       <AnimatePresence>
         {open && (

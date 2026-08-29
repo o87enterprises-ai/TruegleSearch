@@ -24,7 +24,7 @@ export const TutorialProvider = ({ children }) => {
         neverShowAgain: false,
         lastSeen: null,
         // null = not asked yet, true = opted into site-wide hover hints,
-        // false = declined. See HoverHint / ChalkArrow.
+        // false = declined. See HoverHint.
         hintsOptIn: null,
       };
     } catch {
