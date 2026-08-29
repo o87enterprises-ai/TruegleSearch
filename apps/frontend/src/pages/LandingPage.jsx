@@ -273,7 +273,9 @@ export default function LandingPage() {
               <HoverHint
                 isEntryPoint
                 label="click here"
-                layout="top-right"
+                arrowFrom={{ x: 36, y: -60 }}
+                arrowTo={{ x: 6, y: 20 }}
+                arrowBow={14}
                 elementExplain="This is the mode pill — click it to cycle through Truegle's search modes, or press and hold to jump straight back to Chat."
                 modeExplain={MODE_HINT_TEXT[pillMode]}
               >

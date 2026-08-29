@@ -23,7 +23,9 @@ import { useTutorials } from '../../context/TutorialContext';
 export default function HoverHint({
   children,
   label = 'click here',
-  layout = 'top-right',
+  arrowFrom,
+  arrowTo,
+  arrowBow,
   elementExplain,
   modeExplain,
   isEntryPoint = false,
@@ -64,7 +66,14 @@ export default function HoverHint({
     >
       {children}
 
-      <ChalkArrow label={label} color={color} layout={layout} muted={hintsOptIn === true && !open} />
+      <ChalkArrow
+        label={label}
+        color={color}
+        from={arrowFrom}
+        to={arrowTo}
+        bow={arrowBow}
+        muted={hintsOptIn === true && !open}
+      />
 
       <AnimatePresence>
         {open && (
