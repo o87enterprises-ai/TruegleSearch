@@ -1102,6 +1102,15 @@ export default function TruegleChat() {
               <div className="w-full">{chatInputBox}</div>
             </motion.div>
           )}
+          {/* Reserves exactly the room the footer-docked/floating video player
+              takes at the bottom of the screen, if one is open — otherwise
+              0px, a no-op. Sitting BEFORE endRef means the existing
+              scroll-to-bottom effect lands here too, so the input ends up
+              sitting above the player instead of underneath it, with no
+              separate scroll logic needed. The keyboard is free to cover the
+              player when the input is focused — that's fine, only the input
+              itself needs to stay clear. */}
+          <div aria-hidden="true" style={{ height: 'var(--truegle-player-h, 0px)' }} />
           <div ref={endRef} />
         </div>
       </div>

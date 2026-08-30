@@ -353,9 +353,20 @@ export default function MiniPlayer() {
   // A slot can't know how tall the player is, and the player can't be in the
   // page's layout, so the height crosses as a CSS variable — the slot reserves
   // exactly the room the frame occupies and the page never jumps.
+  //
+  // Also kept live whenever the player is FOOTER-docked: that presentation
+  // pins across the bottom the same way a slot does, but of its own pages
+  // that manage their own internal scroll (e.g. TruegleChat's fixed-height
+  // shell) can't benefit from the body.paddingBottom reservation below —
+  // body scroll never applies inside an overflow-hidden shell. Those pages
+  // read this var directly to reserve their own extra scroll room instead.
   useEffect(() => {
     const el = frameRef.current;
-    if (!docked || !el) return undefined;
+    const active = docked || (footerDock && !!current);
+    if (!active || !el) {
+      document.documentElement.style.removeProperty('--truegle-player-h');
+      return undefined;
+    }
     const apply = () => document.documentElement.style.setProperty(
       '--truegle-player-h', `${Math.round(el.getBoundingClientRect().height)}px`);
     apply();
@@ -365,7 +376,7 @@ export default function MiniPlayer() {
       ro?.disconnect();
       document.documentElement.style.removeProperty('--truegle-player-h');
     };
-  }, [docked]);
+  }, [docked, footerDock, current]);
 
   // ── Media Session: lock-screen controls + background audio (native only) ──
   useEffect(() => {
