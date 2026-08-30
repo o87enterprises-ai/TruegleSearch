@@ -23,6 +23,7 @@ import CategoryModeRow from '../components/landing/CategoryModeRow';
 import PillModeRow from '../components/landing/PillModeRow';
 import { MODE_COLORS, MODE_HINT_TEXT, searchThemeFor, searchGradientFor, searchIconFor, normalizePillMode } from '../config/modeTheme';
 import HoverHint from '../components/ui/HoverHint';
+import CreatorsRoster from '../components/creators/CreatorsRoster';
 import { useUnhingedGate } from '../hooks/useUnhingedGate';
 import ThreeCards from '../components/landing/ThreeCards';
 import PlayerFeatureCard from '../components/landing/PlayerFeatureCard';
@@ -394,15 +395,26 @@ export default function LandingPage() {
 
 
 
+            {/* Creators pill — same spot the video player takes in Tube mode:
+                the real thing instead of a promo card, filtered live by
+                whatever's already typed in the search bar above. Submitting
+                still goes to /creators (see onSearch), this is the preview. */}
+            {pillMode === 'yellow' && (
+              <div className="mt-6 w-full">
+                <CreatorsRoster query={searchQuery} onClearFilter={() => setSearchQuery('')} compact />
+              </div>
+            )}
+
             {/* Player introduction — BELOW the mode rows, not above them.
                 The chat modes and search categories qualify the box you are
                 about to type in, so they belong against it; an unrelated
                 feature card wedged between the bar and its own controls broke
                 that pairing and pushed the modes off a phone screen. Hidden in
-                Tube mode, where the bar already IS the player. */}
+                Tube mode, where the bar already IS the player. Hidden in
+                Creators mode too, now that the roster fills that spot instead. */}
             {/* mt-6: the card sat hard against the search bar and was catching
                 taps meant for the input. */}
-            {pillMode !== 'tube' && (
+            {pillMode !== 'tube' && pillMode !== 'yellow' && (
               <div className="mt-6">
                 <PlayerFeatureCard onOpen={() => { setPillMode('tube'); navigate('/tube'); }} />
               </div>
