@@ -28,7 +28,7 @@ import LetterGlitch from '../components/backgrounds/LetterGlitch';
 
 // Components
 import TruegleLogo from '../components/ui/TruegleLogo';
-import SearchBar from '../components/ui/SearchBar';
+import SearchBar, { CategoryBar } from '../components/ui/SearchBar';
 import MultimediaInterface from '../components/ui/MultimediaInterface';
 import InlineSummaryChat from '../components/search/InlineSummaryChat';
 import { SkeletonSearchResult } from '../components/ui/Skeleton';
@@ -1825,6 +1825,34 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                   ) : (
                     <div className="px-1.5 py-1 bg-black/30">
                       <TrueglePlayer presentation="collapsed" accent={MODE_COLORS.tube} />
+                    </div>
+                  )}
+
+                  {/* Docking the player took over showCategories' usual spot
+                      inside the bar (singleLine has no room for it) — so it
+                      never showed at all while docked. Same row, same
+                      activeCategory/selectCategory wiring, just relocated to
+                      under the player instead of dropped. Chat lenses take
+                      this slot when the pill is Chat, same as the undocked bar. */}
+                  {pillMode !== 'black' && (
+                    <div className="px-3 pb-2 pt-1 bg-black/30">
+                      <CategoryBar
+                        activeCategory={activeCategory}
+                        onSelectCategory={selectCategory}
+                        value={searchValue}
+                        themeColor="cyan"
+                        showMap={showMap || (autoOpenMap && !mapManuallyClosed)}
+                        onMapToggle={() => {
+                          if (showMap || (autoOpenMap && !mapManuallyClosed)) {
+                            setShowMap(false);
+                            setMapManuallyClosed(true);
+                          } else {
+                            setShowMap(true);
+                            setMapManuallyClosed(false);
+                          }
+                        }}
+                        isLocationQuery={isLocationQuery}
+                      />
                     </div>
                   )}
                 </div>
