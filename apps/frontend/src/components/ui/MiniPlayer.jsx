@@ -473,6 +473,13 @@ export default function MiniPlayer() {
       transform: 'translateX(-50%)',
       bottom: feedbackOffset + keyboardInset,
       width: 'min(calc(100vw - 1rem), 48rem)',
+      // Anchored only by `bottom`, with no ceiling — so tall content (the
+      // results list open) grew straight past the top of the screen once the
+      // keyboard ate into `visible`, taking the frame's own search bar off
+      // the top edge with it. The docked and floating paths above already
+      // guard against this exact failure; footerDock never did.
+      maxHeight: `${Math.max(minH, Math.round(visible - (feedbackOffset + keyboardInset) - 8))}px`,
+      overflowY: 'auto',
     }
     : pos
       ? {
