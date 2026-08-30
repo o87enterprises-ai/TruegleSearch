@@ -31,7 +31,7 @@ const fmtSubs = (n) => {
 // every mount is pure waste.
 const aboutCache = new Map();
 
-export default function CreatorHeader({ creator, latest, onPlayLatest }) {
+export default function CreatorHeader({ creator, recentVideos = [], onPlayVideo }) {
   const [about, setAbout] = useState(() => aboutCache.get(creator.channelId) || null);
 
   useEffect(() => {
@@ -88,51 +88,61 @@ export default function CreatorHeader({ creator, latest, onPlayLatest }) {
 
       {/* ── creator card ── */}
       <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm overflow-hidden">
-        <div className="flex gap-3 p-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-semibold text-white/90 truncate">{name}</span>
-              {about?.handle && <span className="text-[11px] text-white/35">{about.handle}</span>}
-              {subs && (
-                <span className="flex items-center gap-1 text-[11px] text-white/35">
-                  <Users size={11} /> {subs}
-                </span>
-              )}
-            </div>
-            {bio ? (
-              <p className="mt-1 text-[12px] text-white/50 leading-snug line-clamp-3">{bio}</p>
-            ) : (
-              <p className="mt-1 text-[12px] text-white/25 leading-snug">
-                {about ? 'This channel has no description yet.' : 'Loading the channel…'}
-              </p>
+        <div className="p-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-white/90 truncate">{name}</span>
+            {about?.handle && <span className="text-[11px] text-white/35">{about.handle}</span>}
+            {subs && (
+              <span className="flex items-center gap-1 text-[11px] text-white/35">
+                <Users size={11} /> {subs}
+              </span>
             )}
           </div>
+          {bio ? (
+            <p className="mt-1 text-[12px] text-white/50 leading-snug line-clamp-3">{bio}</p>
+          ) : (
+            <p className="mt-1 text-[12px] text-white/25 leading-snug">
+              {about ? 'This channel has no description yet.' : 'Loading the channel…'}
+            </p>
+          )}
 
-          {/* Latest upload — the thing most people came for, one tap away. */}
-          {latest && (
-            <button
-              type="button"
-              onClick={() => onPlayLatest?.(latest)}
-              title={`Play the latest: ${latest.title || ''}`}
-              aria-label={`Play the latest upload, ${latest.title || name}`}
-              className="group relative shrink-0 w-28 sm:w-36 rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition-colors"
-            >
-              {latest.thumbnail ? (
-                <img src={latest.thumbnail} alt="" loading="lazy"
-                  className="w-full aspect-video object-cover opacity-85 group-hover:opacity-100 transition-opacity"
-                  onError={(e) => { e.target.style.visibility = 'hidden'; }} />
-              ) : (
-                <span className="block w-full aspect-video bg-white/[0.06]" />
-              )}
-              <span className="absolute inset-0 flex items-center justify-center">
-                <span className="w-7 h-7 rounded-full bg-black/60 backdrop-blur flex items-center justify-center">
-                  <Play size={13} className="text-white ml-0.5" fill="currentColor" />
-                </span>
-              </span>
-              <span className="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-gradient-to-t from-black/90 to-transparent">
-                <span className="block text-[9px] uppercase tracking-wider text-white/60">Latest</span>
-              </span>
-            </button>
+          {/* Recent uploads, newest first — up to 4, right here in the
+              viewport instead of buried in the results below. The point is
+              choice: someone who's already seen the latest can jump straight
+              to the next one back rather than re-watching or hunting for it.
+              Eager-loaded (not lazy) since this is always above the fold the
+              moment a creator is selected. */}
+          {recentVideos.length > 0 && (
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {recentVideos.map((v, i) => (
+                <button
+                  key={v.url || v.thumbnail || i}
+                  type="button"
+                  onClick={() => onPlayVideo?.(v)}
+                  title={v.title || ''}
+                  aria-label={i === 0 ? `Play the latest upload, ${v.title || name}` : `Play ${v.title || 'this upload'}`}
+                  className="group relative rounded-lg overflow-hidden border border-white/10 hover:border-white/30 transition-colors"
+                >
+                  {v.thumbnail ? (
+                    <img src={v.thumbnail} alt="" loading="eager"
+                      className="w-full aspect-video object-cover opacity-85 group-hover:opacity-100 transition-opacity"
+                      onError={(e) => { e.target.style.visibility = 'hidden'; }} />
+                  ) : (
+                    <span className="block w-full aspect-video bg-white/[0.06]" />
+                  )}
+                  <span className="absolute inset-0 flex items-center justify-center">
+                    <span className="w-7 h-7 rounded-full bg-black/60 backdrop-blur flex items-center justify-center">
+                      <Play size={13} className="text-white ml-0.5" fill="currentColor" />
+                    </span>
+                  </span>
+                  {i === 0 && (
+                    <span className="absolute inset-x-0 bottom-0 px-1.5 py-1 bg-gradient-to-t from-black/90 to-transparent">
+                      <span className="block text-[9px] uppercase tracking-wider text-white/60">Latest</span>
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>

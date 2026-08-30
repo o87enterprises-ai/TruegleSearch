@@ -1737,8 +1737,8 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
           {creator && (
             <CreatorHeader
               creator={creator}
-              latest={creatorLatest}
-              onPlayLatest={playCreatorVideo}
+              recentVideos={creatorVideos.slice(0, 4)}
+              onPlayVideo={playCreatorVideo}
             />
           )}
 
