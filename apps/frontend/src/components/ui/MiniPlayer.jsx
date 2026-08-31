@@ -539,7 +539,7 @@ export default function MiniPlayer() {
             : 'z-[9996] max-w-[calc(100vw-1rem)] rounded-xl'
         }`}
       >
-      <div className={`relative overflow-hidden bg-[#0d0d14]/95 backdrop-blur-xl ${docked ? 'rounded-b-[14px]' : 'rounded-[10px]'}`}>
+      <div className={`relative overflow-hidden bg-[#0d0d14]/95 ${docked ? 'rounded-b-[14px]' : 'rounded-[10px]'}`}>
         {/* Move mode: the WHOLE player becomes the drag handle, including the
             video area — an iframe swallows pointer events, so without this
             overlay "move" could only ever be started from the grab bar, which
@@ -568,7 +568,7 @@ export default function MiniPlayer() {
         <div
           onPointerDown={footerDock ? undefined : startMove}
           style={{ touchAction: footerDock ? 'auto' : 'none', background: tint }}
-          className={`sticky top-0 z-40 flex items-center gap-1.5 px-2 min-h-[44px] border-b backdrop-blur-xl ${footerDock ? '' : 'cursor-move'} ${
+          className={`sticky top-0 z-40 flex items-center gap-1.5 px-2 min-h-[44px] border-b ${footerDock ? '' : 'cursor-move'} ${
             'border-white/10'
           }`}
         >
