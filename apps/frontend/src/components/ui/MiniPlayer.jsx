@@ -328,19 +328,36 @@ export default function MiniPlayer() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  // FOOTERDOCK AND DOCKED ARE NOT MUTUALLY EXCLUSIVE AS BOOLEANS, only as
+  // styles — footerDock defaults on for any narrow viewport (see its
+  // definition above) independently of whether a page also renders a
+  // [data-player-slot]. A page that has both (every docked page — /tube,
+  // /creator/:slug — on a phone) left these two effects firing for a frame
+  // that was not actually footer-anchored: the style ternary below already
+  // picks `docked` and positions the frame with `top: slot.top`, which tracks
+  // the page's own in-flow slot and needs no extra reservation of its own —
+  // "the slot reserves exactly the room the frame occupies" is the whole
+  // design. Reserving MORE on top of that, sized for a bottom-pinned bar that
+  // was not the one on screen, is not "extra safety" — it is stacking a second,
+  // wrongly-sized reservation onto a page whose scroll math was already right,
+  // which is the "why can't I get past this" the docked pages were reporting.
+  // `!docked` makes these agree with the style ternary and with line ~683's
+  // grab-bar condition, which already draws this line correctly.
+  const footerAnchored = footerDock && !docked;
+
   // Pinned across the bottom, the player is competing for the same strip as
   // the early-access feedback bar — and it loses, because that bar is z-[60]
   // and full width. Claiming the dock collapses the bar to its chip for as
   // long as the player is down here, which hands back the height the player is
   // squeezed by. Released automatically when it floats again or closes.
-  useBottomDockClaim(footerDock && !!current);
+  useBottomDockClaim(footerAnchored && !!current);
 
   // Footer dock covers the bottom of the page, so the page gets that height
   // back as extra scroll — otherwise the last few lines of every page sit
   // permanently underneath the player and can never be read.
   useEffect(() => {
     const el = frameRef.current;
-    if (!footerDock || !el) { document.body.style.paddingBottom = ''; return; }
+    if (!footerAnchored || !el) { document.body.style.paddingBottom = ''; return; }
     const apply = () => {
       document.body.style.paddingBottom = `${el.getBoundingClientRect().height + feedbackOffset + 24}px`;
     };
@@ -348,7 +365,7 @@ export default function MiniPlayer() {
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(apply) : null;
     ro?.observe(el);
     return () => { ro?.disconnect(); document.body.style.paddingBottom = ''; };
-  }, [footerDock, feedbackOffset, minimized, current]);
+  }, [footerAnchored, feedbackOffset, minimized, current]);
 
   // A slot can't know how tall the player is, and the player can't be in the
   // page's layout, so the height crosses as a CSS variable — the slot reserves
