@@ -355,6 +355,19 @@ const SOCIAL_DOMAINS = ['instagram', 'linkedin', 'twitter', 'x', 'facebook', 'ti
  * Multi-word queries match sub+root concatenation: "dash cloudflare" →
  * dash.cloudflare.com (0.97) over cloudflare.com (0.75) over blog posts (~0).
  *
+ * A QUERY THAT IS ITSELF A DOMAIN is handled separately, below, because the
+ * flattening above cannot see one: norm("reddit.com") is "redditcom" while the
+ * host's root label is "reddit", so no branch could match them. It fell through
+ * to the 0.5 substring tier, and then the social-profile penalty asked
+ * `root !== q` — "unless the user is searching for the platform itself", which
+ * is precisely what typing reddit.com is — and 'reddit' !== 'redditcom' let it
+ * through, so reddit.com's OWN homepage took the ×0.2 written for stray profile
+ * pages and scored 0.1. Typing the more explicit form of a query made the right
+ * answer score ten times worse, and since nav score is 70 % of the rank on these
+ * queries, the site whose address you typed sank down its own results page.
+ * Reported as "the Reddit link is way too far down"; it applied to every social
+ * platform typed with its TLD, and cost every other domain query half its score.
+ *
  * @param {string} query - raw user query (e.g. "dash cloudflare")
  * @param {string} url   - candidate result URL
  * @returns {number} 0..1 (0 = no navigational signal)
@@ -408,7 +421,51 @@ function scoreNavigationalMatch(query, url) {
   const isSocial = SOCIAL_DOMAINS.includes(root);
   if (isSocial && root !== q) score *= 0.2;
 
+  // The domain reading of the query, scored host-to-host, and taken as the
+  // BETTER of the two rather than replacing the flattened one. Taking the max
+  // is what makes this incapable of regressing anything: a query the old path
+  // already scored well (say "node.js" → nodejs.org, which flattens to a clean
+  // root match) keeps that score even if it also happens to parse as a host.
+  const qHost = parseQueryHost(query);
+  if (qHost) {
+    let domainBase = 0;
+    if (hostname === qHost.host) {
+      domainBase = 1.0;                       // reddit.com → reddit.com
+    } else if (root === norm(qHost.root)) {
+      domainBase = 0.9;                       // reddit.com → old.reddit.com
+    }
+    // Path depth still decides: typing a domain asks for its homepage, so a
+    // deep thread on that same host stays below it. No social penalty here —
+    // typing a platform's address IS asking for that platform.
+    const domainScore = domainBase * (isHomepage ? 1.0 : isShallow ? 0.85 : 0.6);
+    score = Math.max(score, domainScore);
+  }
+
   return Math.min(score, 1.0);
+}
+
+/**
+ * Read a query as a hostname, when it is one. Returns null for anything that
+ * isn't — multi-word queries, bare words, and version-ish strings like "3.5".
+ *
+ * Deliberately permissive about the TLD (any 2+ letter final label) rather than
+ * carrying a TLD list: a wrong POSITIVE here cannot hurt, because the caller
+ * only ever takes the max of this and the existing score.
+ */
+function parseQueryHost(query) {
+  const raw = String(query || '').trim().toLowerCase();
+  if (!raw || /\s/.test(raw)) return null;
+  let host = raw;
+  if (host.includes('://')) {
+    try { host = new URL(host).hostname; } catch { return null; }
+  } else {
+    host = host.split('/')[0];               // reddit.com/r/aww → reddit.com
+  }
+  host = host.replace(/^www\./, '').replace(/\.$/, '').split(':')[0];
+  const labels = host.split('.').filter(Boolean);
+  if (labels.length < 2) return null;
+  if (!/^[a-z]{2,}$/.test(labels[labels.length - 1])) return null;
+  return { host, root: labels[labels.length - 2] };
 }
 
 /**

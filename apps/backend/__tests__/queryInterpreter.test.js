@@ -265,6 +265,64 @@ describe('QueryInterpreter.scoreNavigationalMatch', () => {
     expect(s('aws', 'https://aws.amazon.com/')).toBeGreaterThan(s('aws', 'https://amazon.com/'));
   });
 
+  /**
+   * Reported as "the Reddit link is way too far down" on the query `reddit.com`.
+   *
+   * norm() strips the dot, so the query flattened to "redditcom" while the
+   * host's root label stayed "reddit" — nothing could match, it fell to the 0.5
+   * substring tier, and then the social-profile penalty's `root !== q` guard
+   * ("unless they are searching for the platform itself") failed to notice that
+   * they were, and applied ×0.2 to reddit.com's own homepage. 0.1, for the most
+   * explicit navigational query a person can type.
+   */
+  describe('a query that IS a domain', () => {
+    it('puts the site you typed the address of first', () => {
+      expect(s('reddit.com', 'https://www.reddit.com/')).toBe(1.0);
+    });
+
+    it('scores the same whether or not the TLD is typed', () => {
+      // The bug in one line: the MORE explicit query scored 10x worse.
+      expect(s('reddit.com', 'https://www.reddit.com/'))
+        .toBe(s('reddit', 'https://www.reddit.com/'));
+    });
+
+    it('covers every social platform, which took the profile penalty', () => {
+      expect(s('youtube.com', 'https://www.youtube.com/')).toBe(1.0);
+      expect(s('twitter.com', 'https://twitter.com/')).toBe(1.0);
+      expect(s('facebook.com', 'https://www.facebook.com/')).toBe(1.0);
+      expect(s('instagram.com', 'https://www.instagram.com/')).toBe(1.0);
+    });
+
+    it('and every other domain query, which was losing half its score', () => {
+      expect(s('google.com', 'https://www.google.com/')).toBe(1.0);
+      expect(s('cloudflare.com', 'https://www.cloudflare.com/')).toBe(1.0);
+    });
+
+    it('accepts the forms people actually type', () => {
+      expect(s('www.reddit.com', 'https://www.reddit.com/')).toBe(1.0);
+      expect(s('https://reddit.com', 'https://www.reddit.com/')).toBe(1.0);
+      expect(s('reddit.com/r/aww', 'https://www.reddit.com/')).toBe(1.0);
+    });
+
+    it('still wants the homepage, not a deep page on the same host', () => {
+      const home = s('reddit.com', 'https://www.reddit.com/');
+      const thread = s('reddit.com', 'https://www.reddit.com/r/AskReddit/comments/x/y/');
+      expect(thread).toBeLessThan(home);
+      expect(thread).toBeGreaterThan(0);
+    });
+
+    it('does not hand the score to a different brand or an article about it', () => {
+      expect(s('reddit.com', 'https://www.redditinc.com/')).toBeLessThan(0.5);
+      expect(s('reddit.com', 'https://en.wikipedia.org/wiki/Reddit')).toBeLessThan(0.5);
+    });
+
+    it('leaves dotted non-domains alone ("node.js" still finds nodejs.org)', () => {
+      // The domain reading is taken as the BETTER of two, never a replacement,
+      // so a query that only looks like a host cannot lose its real match.
+      expect(s('node.js', 'https://nodejs.org/')).toBe(1.0);
+    });
+  });
+
   it('penalizes social profile pages, except when the platform IS the query', () => {
     const profile = s('google', 'https://www.youtube.com/Google');
     const homepage = s('google', 'https://www.google.com/');
