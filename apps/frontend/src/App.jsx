@@ -7,6 +7,7 @@ import {
   Navigate,
   useLocation,
 } from 'react-router-dom';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TokenProvider } from './context/TokenContext';
 import { RewardsProvider } from './context/RewardsContext';
@@ -270,7 +271,24 @@ const AppContent = () => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
   };
 
-  const location = useLocation();
+  const routerLocation = useLocation();
+  const isOnline = useOnlineStatus();
+  // WITH NO NETWORK AT ALL, every route past the app shell needs a live
+  // backend to be anything but a blank/loading state — search, chat, maps,
+  // creators, all of it. Rather than let each one render its own half-broken
+  // "stuck loading" separately, route straight to the one page built to be
+  // worth landing on with nothing behind it: the 404 page and its offline
+  // easter egg (see NotFound.jsx, and the service worker that now makes it
+  // reachable with zero network — public/sw.js).
+  //
+  // Only the MATCH changes, via a synthetic pathname `<Routes>` cannot
+  // otherwise resolve to any real route — the actual address bar is never
+  // touched, so reconnecting resumes exactly the page it already said. This
+  // is client-side routing standing in for a redirect on purpose: a real
+  // navigation would itself need the network that just went away.
+  const location = isOnline
+    ? routerLocation
+    : { ...routerLocation, pathname: '/__truegle_offline__', key: 'offline' };
 
   // All pages should allow scrolling with min-h-screen
   const containerClassNames = "relative w-screen min-h-screen bg-black overflow-y-auto";

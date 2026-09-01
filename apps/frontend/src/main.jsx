@@ -34,3 +34,16 @@ try {
   dismissLoader();
   renderEmergencyFallback(err?.message || 'App failed to start');
 }
+
+// PRODUCTION ONLY. A service worker caching Vite's dev-server responses is a
+// stale-code generator, not a feature — every "why isn't my change showing
+// up" report in a project with one starts here. `after load` so registering
+// it never competes with the app's own first paint for the network.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // No offline shell this session — the app still works with a
+      // connection, which is the only thing that was ever guaranteed.
+    });
+  });
+}
