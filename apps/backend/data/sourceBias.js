@@ -204,6 +204,38 @@ const PLATFORM = [
   'quora.com', 'linktr.ee', 'notion.site', 'wixsite.com', 'weebly.com',
 ];
 
+/**
+ * Discussion and Q&A hosts — an ORTHOGONAL axis to the categories above, not
+ * another one of them.
+ *
+ * These sites are already (correctly) 'platform': the bias of a Reddit thread
+ * is whatever its posters are, so the host claims no editorial position. But
+ * 'platform' is also what YouTube, Rumble and TikTok are, and the blue-page
+ * parity weight leans on that label to stop a media UPLOAD whose title happens
+ * to repeat the query from beating a wire report.
+ *
+ * A forum thread is not a media upload. It is a text document, and Google
+ * surfaces this exact set prominently — it ships a "Forums" filter and a
+ * "Discussions and forums" block, and ranks Reddit near the top for opinion,
+ * experience and troubleshooting queries. Demoting these on the page whose
+ * whole brief is Google parity produced the opposite of parity: the Reddit
+ * result buried far below where any other engine puts it.
+ *
+ * So this list exists to EXEMPT, never to boost. A thread still has to earn
+ * its rank on relevance like everything else; it just stops being handed a
+ * 40 % penalty for being a discussion.
+ *
+ * Deliberately not a CATEGORIES entry: buildIndex() throws on a domain listed
+ * twice, and these belong in PLATFORM for bias purposes. Two different
+ * questions, two different lookups.
+ */
+const DISCUSSION = [
+  'reddit.com', 'news.ycombinator.com', 'quora.com',
+  'stackoverflow.com', 'stackexchange.com', 'serverfault.com', 'superuser.com',
+  'askubuntu.com', 'mathoverflow.net',
+  'discourse.org', 'lemmy.world', 'lobste.rs',
+];
+
 const CATEGORIES = {
   left: LEFT,
   right: RIGHT,
@@ -257,23 +289,50 @@ const INDEX = buildIndex();
  * "unknown", never as "neutral".
  */
 function classify(hostname) {
-  if (!hostname || typeof hostname !== 'string') return null;
+  const host = normalizeHost(hostname);
+  if (!host) return null;
+  return lookupHost(host, (candidate) => INDEX.get(candidate) || null);
+}
+
+/** URL or hostname → bare registrable host, or '' when there isn't one. */
+function normalizeHost(hostname) {
+  if (!hostname || typeof hostname !== 'string') return '';
   let host = hostname.trim().toLowerCase();
   if (host.includes('://')) {
     try { host = new URL(host).hostname; } catch { /* fall through */ }
   }
-  host = host.replace(/^www\./, '').replace(/\.$/, '').split(':')[0];
-  if (!host) return null;
+  return host.replace(/^www\./, '').replace(/\.$/, '').split(':')[0];
+}
 
-  // Walk from the full host inward: a.b.example.com → b.example.com →
-  // example.com. The first hit is therefore the longest possible match.
+/**
+ * Walk from the full host inward: a.b.example.com → b.example.com →
+ * example.com, returning the first hit. The first hit is therefore the longest
+ * possible match, which is what lets a per-author subdomain beat its platform.
+ *
+ * Shared by classify() and isDiscussion() on purpose — two copies of a host
+ * matcher is precisely the silent drift this file was written to end.
+ */
+function lookupHost(host, probe) {
   const parts = host.split('.');
   for (let i = 0; i < parts.length - 1; i++) {
-    const candidate = parts.slice(i).join('.');
-    const hit = INDEX.get(candidate);
+    const hit = probe(parts.slice(i).join('.'));
     if (hit) return hit;
   }
   return null;
+}
+
+const DISCUSSION_INDEX = new Set(
+  DISCUSSION.map((d) => String(d).trim().toLowerCase().replace(/^www\./, '')),
+);
+
+/**
+ * Is this host a discussion/Q&A forum? See the DISCUSSION list for why this is
+ * a separate question from classify()'s editorial category.
+ */
+function isDiscussion(hostname) {
+  const host = normalizeHost(hostname);
+  if (!host) return false;
+  return lookupHost(host, (candidate) => DISCUSSION_INDEX.has(candidate)) === true;
 }
 
 /** Every category name, for validation and tests. */
@@ -287,4 +346,4 @@ function stats() {
   return out;
 }
 
-module.exports = { classify, stats, CATEGORY_NAMES, CATEGORIES };
+module.exports = { classify, isDiscussion, stats, CATEGORY_NAMES, CATEGORIES, DISCUSSION };

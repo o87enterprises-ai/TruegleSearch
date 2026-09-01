@@ -79,4 +79,57 @@ describe('Google-parity ranking (blue and green)', () => {
     const ranked = svc.rankResults(QUERY, fixture(), { boostAlternative: true });
     expect(firstIndexOf(ranked, 'videos')).toBeLessThan(firstIndexOf(ranked, 'web'));
   });
+
+  /**
+   * The second half of parity, reported after the first was fixed: the Reddit
+   * link sat near the bottom of every mainstream page.
+   *
+   * Reddit is 'platform' (a thread's bias is its posters') AND 'social' (it is),
+   * so the original isPlatform test discounted it 40 % — while Google ranks that
+   * same thread at or near the top, ships a Forums filter, and runs a
+   * "Discussions and forums" block. Parity that buries forums is not parity.
+   *
+   * A forum thread is a text document, not the media upload the discount was
+   * written to stop.
+   */
+  describe('discussion forums are exempt from the parity discount', () => {
+    const forumFixture = () =>
+      svc.categorizeByBias([
+        { title: 'Best budget mechanical keyboard? : r/MechanicalKeyboards', url: 'https://reddit.com/r/MechanicalKeyboards/comments/abc/best_budget_mechanical_keyboard/', snippet: 'What is the best budget mechanical keyboard right now?', category: 'social', date: '2026-08-10' },
+        { title: 'BEST BUDGET MECHANICAL KEYBOARD 2026!!', url: 'https://youtube.com/watch?v=xyz', snippet: 'best budget mechanical keyboard review', category: 'videos', date: '2026-08-12' },
+        { title: 'The 5 Best Mechanical Keyboards', url: 'https://nytimes.com/wirecutter/reviews/best-mechanical-keyboards/', snippet: 'We tested mechanical keyboards.', category: 'web', date: '2026-06-15' },
+      ].map((r) => ({ ...r, domain: svc.extractDomain(r.url) })));
+
+    const KB_QUERY = 'best budget mechanical keyboard';
+
+    test('a forum thread is not discounted', () => {
+      expect(svc.parityWeight({ category: 'social', bias: 'platform', domain: 'reddit.com' })).toBe(1);
+      expect(svc.parityWeight({ category: 'web', bias: 'unknown', domain: 'news.ycombinator.com' })).toBe(1);
+      expect(svc.parityWeight({ category: 'web', bias: 'neutral', domain: 'stackoverflow.com' })).toBe(1);
+      // Subdomains and full URLs resolve the same way classify() does.
+      expect(svc.parityWeight({ category: 'social', bias: 'platform', domain: 'old.reddit.com' })).toBe(1);
+    });
+
+    test('media uploads are still discounted — the 2026-08-24 fix stands', () => {
+      expect(svc.parityWeight({ category: 'videos', bias: 'platform', domain: 'youtube.com' })).toBeLessThan(1);
+      expect(svc.parityWeight({ category: 'social', bias: 'platform', domain: 'tiktok.com' })).toBeLessThan(1);
+      expect(svc.parityWeight({ category: 'videos', bias: 'platform', domain: 'dailymotion.com' })).toBeLessThan(1);
+    });
+
+    test('the on-topic thread is no longer buried under the page', () => {
+      const ranked = svc.rankResults(KB_QUERY, forumFixture(), { googleParity: true });
+      const reddit = ranked.findIndex((r) => r.domain === 'reddit.com');
+      const video = ranked.findIndex((r) => r.domain === 'youtube.com');
+      expect(reddit).toBeGreaterThanOrEqual(0);
+      expect(reddit).toBeLessThan(video);
+    });
+
+    test('exemption does not reclassify the source — it is still a platform', () => {
+      // The bias label is a separate axis and must not have moved: claiming an
+      // editorial position for a host whose authors are the voices is the thing
+      // sourceBias.js exists to refuse.
+      const [thread] = forumFixture().filter((r) => r.domain === 'reddit.com');
+      expect(thread.bias).toBe('platform');
+    });
+  });
 });

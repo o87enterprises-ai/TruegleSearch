@@ -744,6 +744,22 @@ class SearchService {
    * rule is "blue page = Google parity", not "every page".
    */
   parityWeight(result) {
+    // DISCUSSION FORUMS ARE EXEMPT, and this exemption is the whole reason the
+    // check is not just "is it a platform".
+    //
+    // Reddit is 'platform' (right — a thread's bias is its posters') and
+    // 'social' (right — it is), so the original test demoted every Reddit
+    // result by 40 % on the blue page. Reported repeatedly as "the Reddit link
+    // is way too far down", and it is: Google ranks that same thread near the
+    // top, ships a Forums filter and a "Discussions and forums" block. A page
+    // whose brief is Google parity was doing the opposite of Google.
+    //
+    // The upload it was written to stop — a video whose title repeats the query
+    // beating a wire report — is a MEDIA upload, and those are still weighted
+    // down below. A forum thread is a text document and now ranks on relevance
+    // like any other one.
+    if (sourceBias.isDiscussion(result.domain || result.url || '')) return 1;
+
     const isPlatform =
       result.bias === 'platform' ||
       result.category === 'videos' ||
