@@ -33,6 +33,7 @@ import LandingBackground from '../components/LandingBackground';
 import FeaturedCreator from '../components/FeaturedCreator';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import SearchBar from '../components/ui/SearchBar';
+import TrailGameLink from '../components/ui/TrailGameLink';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -611,8 +612,8 @@ export default function LandingPage() {
               <AnonymousSearchLink />
             </div>
 
-            <div className="mt-8 text-center text-body-small text-gray-500">
-              © 2025 Truegle. All rights reserved.
+            <div className="mt-8 text-center">
+              <TrailGameLink />
             </div>
           </div>
         </footer>
