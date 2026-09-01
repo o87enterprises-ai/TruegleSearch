@@ -108,11 +108,18 @@ export default function ReelsSurface({ query = '', onClose, accent = '#f43f5e' }
   // "Endless scroll": the grid tops itself up from the same draw the player
   // uses, so scrolling past the search results does not hit a wall.
   const needMore = useRef(false);
+  // NO QUERY MEANS NO SUBJECT, so there is nothing for the feed to be "about"
+  // and it should open somewhere different every time. With a query the deck
+  // is the search above (usePlayerSearch), and the top-up stays taste-ranked so
+  // it keeps relating to what was asked for. Swiping is unaffected either way:
+  // upNext.pick() always mixes its own fixed fraction of exploration in, which
+  // is the "related + random" the feed is supposed to feel like.
+  const idle = !query.trim();
   const fillMore = useCallback(async () => {
     if (needMore.current) return;
     needMore.current = true;
     try {
-      const batch = await upNext.fill(open || null, 6);
+      const batch = await upNext.fill(open || null, 6, { random: idle });
       if (batch?.length) {
         setDrawn((prev) => {
           const seen = new Set(prev.map((d) => d.src));
@@ -122,7 +129,7 @@ export default function ReelsSurface({ query = '', onClose, accent = '#f43f5e' }
     } finally {
       needMore.current = false;
     }
-  }, [upNext, open]);
+  }, [upNext, open, idle]);
 
   return (
     <div

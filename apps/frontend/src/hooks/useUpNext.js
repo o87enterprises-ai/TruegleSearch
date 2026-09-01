@@ -253,7 +253,29 @@ export function useUpNext() {
    * @returns an array of sources, newest interest first. May be shorter than
    *          `count`, and is empty when the backend has nothing to offer.
    */
-  const fill = useCallback(async (current, count = 6) => {
+  const fill = useCallback(async (current, count = 6, { random = false } = {}) => {
+    // RANDOM MODE — what an idle feed with no query should look like.
+    //
+    // The ranked path is seeded by taste, and a browser with no taste profile
+    // yet has nothing to rank by: every weight is zero, so the draw collapses
+    // onto the head of `trending` (ORDER BY score DESC) and hands back the same
+    // few clips on every launch. That is the reported "fixed 6 or 8 results
+    // that are always first" — not a cache, just a ranking with nothing to say.
+    //
+    // Exploration already exists for precisely this shape of problem (a random
+    // depth into the pool, a random seed word, scored flat), so opening with no
+    // query uses it wholesale rather than as the usual one-in-five garnish.
+    if (random) {
+      const { scored: wild, seenRate: wildRate } = await candidatesFor(current, { wide: true, explore: true });
+      const picked = draw(wild, count, Math.random, poolFor(wildRate));
+      if (picked.length) {
+        markAllSeen(picked);
+        return picked;
+      }
+      // A young pool can have no tail to reach into. Falling through to the
+      // ranked path is better than handing back an empty feed.
+    }
+
     const { scored, seenRate } = await candidatesFor(current, { wide: true });
     // A queue gets its exploration by construction rather than by coin-flip: a
     // batch of six drawn at a 1-in-5 rate could easily come back with none, and

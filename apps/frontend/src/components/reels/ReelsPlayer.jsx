@@ -104,8 +104,6 @@ export default function ReelsPlayer({
     <div
       className="absolute inset-0 z-20 bg-black overflow-hidden"
       data-reel-root=""
-      onPointerDown={onPointerDown}
-      onPointerUp={onPointerUp}
       style={{ touchAction: 'pan-y' }}
     >
       {/* The picture. `key` on the src so switching reels REPLACES the frame
@@ -126,6 +124,24 @@ export default function ReelsPlayer({
         />
       </AnimatePresence>
 
+      {/* THE SWIPE SURFACE, and the reason swiping did nothing at all.
+          An <iframe> swallows pointer events: they are delivered to the
+          embedded player's own document and never cross back into ours, so
+          handlers on the container behind it are never called. The picture
+          IS the whole screen here, so every swipe landed on the iframe and
+          the feed could only be moved by the buttons.
+          MiniPlayer already hit this and covers its video with a drag layer
+          for the same reason; reels never got one.
+          Transparent, above the picture, BELOW the controls (which are z-20)
+          so the buttons still take their own taps. */}
+      <div
+        className="absolute inset-0 z-10"
+        style={{ touchAction: 'pan-y' }}
+        onPointerDown={onPointerDown}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => { start.current = null; }}
+      />
+
       {/* Back to the feed. Offset far enough down to clear TWO things: the
           notification shade, which owns the top row of the screen and wins
           every gesture there, and the site's own nav button, which is fixed at
@@ -136,7 +152,7 @@ export default function ReelsPlayer({
         onClick={onBack}
         aria-label="Back to the reels feed"
         title="Back to the feed"
-        className={`absolute left-3 ${btn} text-white/80`}
+        className={`absolute left-3 z-20 ${btn} text-white/80`}
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 68px)' }}
       >
         <ChevronLeft size={20} />
@@ -146,7 +162,7 @@ export default function ReelsPlayer({
           height — the same place every vertical feed puts them, because that is
           where a thumb already is. */}
       <div
-        className="absolute right-3 flex flex-col items-center gap-3"
+        className="absolute right-3 z-20 flex flex-col items-center gap-3"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}
       >
         <button
@@ -183,7 +199,7 @@ export default function ReelsPlayer({
       {/* Who made it and what it is. Left-aligned and stopping short of the
           rail so the two never overlap on a narrow phone. */}
       <div
-        className="absolute left-3 right-20 pointer-events-none"
+        className="absolute left-3 right-20 z-20 pointer-events-none"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)' }}
       >
         {reel.channel && (
@@ -200,7 +216,7 @@ export default function ReelsPlayer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-x-0 top-1/2 flex justify-center pointer-events-none"
+            className="absolute inset-x-0 top-1/2 z-20 flex justify-center pointer-events-none"
           >
             <span className="px-3 py-1.5 rounded-full bg-black/70 text-[11px] text-white/70">
               Swipe up for the next one

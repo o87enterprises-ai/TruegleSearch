@@ -46,6 +46,16 @@ export function shortFormPlatform(url) {
   return null;
 }
 
+// The ceiling on a reel, in seconds.
+//
+// Short-form URL forms are NOT a length guarantee, which is how full-length
+// videos got into the feed. TikTok now allows uploads up to sixty minutes, and
+// a tiktok.com/…/video/… link is a reel by URL form no matter how long it runs;
+// the submitted pool takes anything that classifies, so one pasted hour-long
+// TikTok sat in the feed as a "reel". A reel is a thing you watch in a breath,
+// so length is now an actual condition rather than an assumption.
+export const REEL_MAX_SECONDS = 180;
+
 /**
  * Is this result a REEL — genuinely short-form content from a short-form
  * surface — rather than merely a short video?
@@ -56,11 +66,20 @@ export function shortFormPlatform(url) {
  * decided by the URL form, which is definitive:
  *   youtube.com/shorts/…  ·  tiktok.com/…/video/…  ·  instagram.com/reel/…
  *   facebook.com/reel/…
- * Duration is only ever used as a tie-breaker on a result we already have a
- * short-form marker for (see asReel).
+ *
+ * But the URL form is a floor, not a ceiling: it says WHERE this came from,
+ * not how long it is. So a KNOWN duration over REEL_MAX_SECONDS now
+ * disqualifies it. Note the asymmetry, which is deliberate — an UNKNOWN
+ * duration still passes, because most search rows carry no duration at all and
+ * requiring one would empty the feed to punish the providers that are stingy
+ * with metadata. We drop what we can prove is too long, not what we can't
+ * prove is short.
  */
 export function isShortForm(result) {
-  return !!shortFormPlatform(result?.url);
+  if (!shortFormPlatform(result?.url)) return false;
+  const seconds = parseDurationSeconds(result?.duration);
+  if (seconds != null && seconds > REEL_MAX_SECONDS) return false;
+  return true;
 }
 
 // A YouTube Short is reachable at BOTH /shorts/<id> and /watch?v=<id>, so a
@@ -72,7 +91,7 @@ export function isShortForm(result) {
 // Both conditions are required. The tag without the duration catches videos
 // *about* Shorts; the duration without the tag is the bug we just removed.
 const SHORTS_TAG = /#shorts?\b/i;
-const YOUTUBE_SHORT_MAX_SECONDS = 180; // YouTube's own Shorts ceiling
+const YOUTUBE_SHORT_MAX_SECONDS = REEL_MAX_SECONDS; // one ceiling, not two
 
 function youtubeVideoId(url) {
   try {

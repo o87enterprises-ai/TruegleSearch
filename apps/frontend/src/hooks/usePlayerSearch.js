@@ -10,6 +10,16 @@ import { isShortForm, asReel } from '../utils/shortForm';
 // accept, or a redirect, while the thumbnail is unmistakably i.ytimg.com/vi/<id>.
 // That id is enough to play it, so recover it rather than throwing the result
 // away: this is the difference between "59 results" and "nothing here can play".
+/** Fisher-Yates on a copy — never sort the caller's array in place. */
+function shuffled(rows) {
+  const out = [...(rows || [])];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 const YT_THUMB = /\/vi(?:_webp)?\/([\w-]{6,20})\//;
 function fromThumbnail(image) {
   const id = typeof image === 'string' ? YT_THUMB.exec(image)?.[1] : null;
@@ -358,11 +368,21 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         // `src`. Keying on src is why the list looked padded with repeats and
         // why auto-advance rolled straight into another copy of the same clip.
         const seen = new Set();
-        // Submitted reels lead in the Shorts scope for the same reason
-        // community submissions lead everywhere else: somebody vouched that
-        // they play, and they are the only rows the web index does not carry.
-        const seed = shortsScope ? [...reelRows, ...communityRows] : communityRows;
-        const merged = [...seed, ...webRows].filter((row) => {
+        // THE SUBMITTED POOL IS A POOL, NOT AN ANSWER — and pinning it to the
+        // top of the Shorts deck is why the feed opened on the same handful of
+        // clips every single time. /api/reels is `ORDER BY created_at DESC`, a
+        // fixed list in a fixed order, so leading with it meant the identical
+        // first six or eight reels on every launch and every query. It also
+        // put clips that have nothing to do with what was typed above the ones
+        // that do.
+        //
+        // Community submissions still lead OUTSIDE Shorts, where the reason
+        // holds: somebody vouched that those play, and they are rows the web
+        // index does not carry. Inside Shorts the query's own results lead,
+        // and the pool is shuffled in behind them — still reachable, no longer
+        // the fixed front page of a feed that is supposed to feel endless.
+        const tail = shortsScope ? shuffled(reelRows) : [];
+        const merged = [...communityRows, ...webRows, ...tail].filter((row) => {
           const key = row && (mediaKey(row) || row.src);
           if (!key || seen.has(key)) return false;
           seen.add(key);
