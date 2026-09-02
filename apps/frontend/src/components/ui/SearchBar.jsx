@@ -4,7 +4,7 @@ import {
   Image, Video, Users, DollarSign, Trophy, Music, ShoppingBag, Briefcase,
   BookOpen, Newspaper, Globe, Heart, Film, Mic, Code, Gamepad2, Utensils,
   Plane, Home, MapPin, Map, Star, Navigation, Phone, Clock, Mail, ExternalLink,
-  Camera, Paperclip, Shield, EyeOff, Eye, Play, Plus, PictureInPicture2, Clapperboard
+  Camera, Paperclip, Shield, EyeOff, Eye, Play, Plus, PictureInPicture2, Clapperboard, Joystick
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { completeFrom } from '../../utils/autocomplete';
@@ -42,6 +42,7 @@ const searchCategories = [
   { id: 'podcasts', label: 'Podcasts', icon: Mic },
   { id: 'tech', label: 'Tech', icon: Code },
   { id: 'gaming', label: 'Gaming', icon: Gamepad2 },
+  { id: 'games', label: 'Games', icon: Joystick },
   { id: 'food', label: 'Food', icon: Utensils },
   { id: 'travel', label: 'Travel', icon: Plane },
   { id: 'lifestyle', label: 'Lifestyle', icon: Home },
