@@ -25,11 +25,17 @@ export function usePageMode() {
   // before the redirect lands, so it should be Tube's colour, not OSINT's.
   if (pathname === '/shorts') return 'tube';
   if (pathname === '/tube') return 'tube';
-  // /creators (the roster) is the yellow pill's page. An individual creator
-  // page stays ORANGE — matched below, and this must not be a startsWith or it
-  // would swallow /creator/:slug and repaint every creator page yellow.
-  // /feed keeps its colour too: the page is parked, not deleted, so a direct
-  // link still themes correctly.
+  // /feed/tube is TUBE, not Feed — it is Tube's content on the feed layout, and
+  // it sets mode="tube" on the shell itself, so anything reading the page mode
+  // for chrome has to agree or the two disagree on screen. Checked BEFORE the
+  // /feed prefix below, which would otherwise swallow it.
+  if (pathname === '/feed/tube') return 'tube';
+  // /feed is the yellow pill's page again (the pill was repointed at /creators
+  // for a while, which left the feed reachable only by typing the URL).
+  // /creators keeps the colour too — it is a creator roster reached from the
+  // feed's Browse row now rather than from a pill of its own. An individual
+  // creator page stays ORANGE, matched below, and that must not be a startsWith
+  // or it would swallow /creator/:slug and repaint every creator page yellow.
   if (pathname === '/extract' || pathname === '/creators'
     || pathname.startsWith('/feed')) return 'yellow';
   if (pathname.startsWith('/creator/')) return 'orange';

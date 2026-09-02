@@ -12,6 +12,7 @@
     "clear-cache": "node scripts/clear-prompt-cache.js",
     "news:test": "node scripts/verify-news.mjs",
     "redditauth:test": "node scripts/verify-reddit-auth.mjs",
+    "feedsources:test": "node scripts/verify-feed-sources.mjs",
     "ai:test": "node scripts/verify-ai-fallback.mjs",
     "osint:test": "node scripts/verify-osint.mjs",
     "truecode:probe": "node scripts/probe-truecode.mjs",

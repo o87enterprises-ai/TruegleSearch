@@ -20,7 +20,7 @@ const ITEMS = [
   // Yellow's drawer entry follows the yellow pill, which opens the creator
   // roster now. Extract stays parked (its route still resolves) and Feed is
   // commented out alongside it in modeTheme.js.
-  { label: 'Creators',     mode: 'yellow', path: '/creators' },
+  { label: 'Feed',         mode: 'yellow', path: '/feed' },
   // 'Shorts' removed 2026-08-09 — folded into Tube as the Shorts scope.
   { label: 'Tube',         mode: 'tube',   path: '/tube' },
   // 'Rewards' removed 2026-07-24 — ad-pay/rewards program paused.
@@ -48,7 +48,7 @@ export default function BrandBar() {
     if (item.path === '/chat') return location.pathname === '/chat';
     // Exact match, not startsWith: /creators is the roster and /creator/:slug
     // is one creator — a prefix test would light this entry on both.
-    if (item.path === '/creators') return location.pathname === '/creators';
+    if (item.path === '/feed') return location.pathname.startsWith('/feed');
     if (item.path === '/rewards') return location.pathname === '/rewards';
     // Modes that own a route of their own, rather than a ?mode= on /search.
     if (item.path === '/tube') return location.pathname === '/tube';

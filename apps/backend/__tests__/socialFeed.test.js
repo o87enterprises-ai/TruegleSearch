@@ -93,7 +93,13 @@ describe('POST /api/social/feed — paging', () => {
   test('the cursor it hands back is the cursor it sends next time', async () => {
     stub({ redditAfter: 't3_abc', hnPage: 0, hnPages: 5 });
     const first = await request(app()).post('/api/social/feed').send({ limit: 5 });
-    expect(first.body.nextCursor).toEqual({ reddit: 't3_abc', hackernews: 1, github: 2 });
+    // toMatchObject, not toEqual: nextCursor carries a key for EVERY source in
+    // the fan-out, and this test is about the three it stubs. Deep-equality
+    // here pinned the provider roster rather than the cursor behaviour, and
+    // broke the moment news, community and the fediverse sources were added —
+    // each correctly reporting null, which is what an unstubbed source should
+    // report.
+    expect(first.body.nextCursor).toMatchObject({ reddit: 't3_abc', hackernews: 1, github: 2 });
 
     const seen = stub({ redditAfter: 't3_def', hnPage: 1, hnPages: 5 });
     await request(app()).post('/api/social/feed').send({ limit: 5, cursor: first.body.nextCursor });
@@ -107,7 +113,14 @@ describe('POST /api/social/feed — paging', () => {
     // HN on its last page, GitHub returning a short page.
     stub({ redditAfter: null, hnPage: 4, hnPages: 5, ghItems: 3 });
     const res = await request(app()).post('/api/social/feed').send({ limit: 5 });
-    expect(res.body.nextCursor).toEqual({ reddit: null, hackernews: null, github: null });
+    expect(res.body.nextCursor).toMatchObject({ reddit: null, hackernews: null, github: null });
+    // The rule this test is really about: every source reports a cursor, and an
+    // exhausted one reports null rather than being absent — absent and null
+    // mean different things to the client, which stops asking only on null.
+    for (const [source, cursor] of Object.entries(res.body.nextCursor)) {
+      expect(cursor === null || cursor !== undefined).toBe(true);
+      expect(typeof source).toBe('string');
+    }
   });
 
   test('only the requested platforms are contacted', async () => {

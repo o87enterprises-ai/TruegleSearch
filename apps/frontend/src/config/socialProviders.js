@@ -52,6 +52,54 @@ export const PROVIDERS = [
   // BACKEND_PLATFORMS below for what that did — and they are their own pills
   // now because they are their own things. Keyless, accountless, and the note
   // says so rather than inventing a sign-in that does not exist.
+  // KEYLESS AND OURS TO KEEP. These two are why the feed stopped depending on
+  // whether GitHub felt like answering: News has no key and no observed quota,
+  // and Community is our own table, so it answers whenever the database does.
+  // Between them the timeline stays full even when every third-party social
+  // API refuses at once — which, with Reddit already blocked from the
+  // deployment, is not a hypothetical.
+  // THE OPEN FEDIVERSE. These are the social platforms that can actually be
+  // read: federated networks whose public timelines are public infrastructure,
+  // so anonymous reading is the documented purpose of the endpoint rather than
+  // a gap. No account, no key, no tier to buy.
+  {
+    id: 'mastodon',
+    label: 'Mastodon',
+    colour: '#6364FF',
+    status: 'open',
+    note: 'Public timeline — no account, no key',
+  },
+  {
+    id: 'bluesky',
+    label: 'Bluesky',
+    colour: '#0085FF',
+    status: 'open',
+    note: 'Public API — no account, no key',
+  },
+  {
+    id: 'lemmy',
+    label: 'Lemmy',
+    colour: '#00BC8C',
+    status: 'open',
+    note: 'Public — link aggregation, like Reddit but open',
+  },
+  {
+    id: 'news',
+    label: 'News',
+    colour: '#4285F4',
+    status: 'open',
+    note: 'Public — Google News, no account, no key',
+  },
+  {
+    id: 'community',
+    label: 'Community',
+    colour: '#10b981',
+    status: 'open',
+    // The lawful route to the platforms with no free read API at all: somebody
+    // posts a link, it plays through that platform's own embed, the creator
+    // keeps the view. Nothing is copied or re-hosted.
+    note: 'Links people posted here — no account needed',
+  },
   {
     id: 'hackernews',
     label: 'Hacker News',
@@ -81,6 +129,18 @@ export const PROVIDERS = [
     // The free tier is effectively write-only; meaningful reads start at $200
     // a month, which is revenue-gated per the $0 budget.
     note: 'Read access starts at $200/mo — waiting on revenue',
+  },
+  {
+    id: 'truthsocial',
+    label: 'Truth Social',
+    colour: '#5448EE',
+    // It is a Mastodon fork, so it LOOKS like it should work exactly the way
+    // Mastodon does above — which is why this needs saying rather than being
+    // left off the list. It gates the public timeline behind authentication and
+    // its terms forbid automated access, so the one open door in the software
+    // is shut in the deployment.
+    status: 'soon',
+    note: 'Public timeline needs an account; their terms forbid automated reading',
   },
   {
     id: 'tiktok',
@@ -143,6 +203,11 @@ export const BACKEND_PLATFORMS = {
   reddit: ['reddit'],
   hackernews: ['hackernews'],
   github: ['github'],
+  news: ['news'],
+  community: ['community'],
+  mastodon: ['mastodon'],
+  bluesky: ['bluesky'],
+  lemmy: ['lemmy'],
 };
 
 export const platformsFor = (connectedIds = []) => [

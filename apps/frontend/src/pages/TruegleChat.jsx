@@ -509,7 +509,7 @@ export default function TruegleChat() {
     // Pill mode is the search selector (same as landing): if it's on a non-Chat
     // color, sending leaves chat and opens that /search page instead of chatting.
     if (pillMode !== 'black') {
-      if (pillMode === 'yellow') { navigate('/creators'); return; }
+      if (pillMode === 'yellow') { navigate('/feed'); return; }
       const catParam = searchCategory && searchCategory !== 'all' ? `&category=${searchCategory}` : '';
       navigate(`/search?q=${encodeURIComponent(text)}&mode=${pillMode}${catParam}`);
       return;

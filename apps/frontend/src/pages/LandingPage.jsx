@@ -344,7 +344,7 @@ export default function LandingPage() {
                   if (pillMode === 'black') {
                     navigate(q ? `/chat?q=${encodeURIComponent(q)}` : '/chat');
                   } else if (pillMode === 'yellow') {
-                    navigate('/creators');
+                    navigate('/feed');
                   } else if (pillMode === 'tube') {
                     // True Tube owns /tube — that's the link people share.
                     navigate(q ? `/tube?q=${encodeURIComponent(q)}` : '/tube');
