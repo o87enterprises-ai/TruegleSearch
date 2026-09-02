@@ -205,6 +205,9 @@ const envVarsSchema = Joi.object({
   // free. Absent by default: the adapter runs in demo mode until both are set.
   REDDIT_CLIENT_ID: Joi.string().optional().description('Reddit OAuth client id'),
   REDDIT_CLIENT_SECRET: Joi.string().optional().description('Reddit OAuth client secret'),
+  // Reddit rejects generic agents outright and 429s them fast. Named here so
+  // it is configurable per deployment rather than hardcoded in the fetcher.
+  REDDIT_USER_AGENT: Joi.string().optional().description('Reddit API User-Agent, e.g. TruegleSearch/1.0 by u/name'),
 
   // Google OAuth
 
@@ -482,6 +485,7 @@ const config = {
   reddit: {
     clientId: envVars.REDDIT_CLIENT_ID,
     clientSecret: envVars.REDDIT_CLIENT_SECRET,
+    userAgent: envVars.REDDIT_USER_AGENT || 'TruegleSearch/1.0 (aggregated feed; +https://truegle.info)',
   },
 
   // Unsplash API

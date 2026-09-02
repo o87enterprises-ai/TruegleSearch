@@ -11,6 +11,7 @@
     "test:ngrok": "node scripts/test-ngrok.js",
     "clear-cache": "node scripts/clear-prompt-cache.js",
     "news:test": "node scripts/verify-news.mjs",
+    "redditauth:test": "node scripts/verify-reddit-auth.mjs",
     "ai:test": "node scripts/verify-ai-fallback.mjs",
     "osint:test": "node scripts/verify-osint.mjs",
     "truecode:probe": "node scripts/probe-truecode.mjs",
