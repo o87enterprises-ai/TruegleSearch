@@ -36,6 +36,7 @@ import QuickAnswerCard from '../components/ui/QuickAnswerCard';
 import BusinessPanelCard from '../components/ui/BusinessPanelCard';
 import { usePlacePanel } from '../hooks/usePlacePanel';
 import AsSeenOn from '../components/Content/AsSeenOn';
+import GamesPanel from '../components/games/GamesPanel';
 import PerspectiveSelector from '../components/search/PerspectiveSelector';
 import RabbitHoleFold from '../components/search/RabbitHoleFold';
 import { readThroughLens } from '../utils/perspectiveLens';
@@ -2011,6 +2012,23 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                   </div>
                   <AsSeenOn searchQuery={searchValue} />
                 </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Games Panel — the touch-only emulator library (see PR notes:
+              "games scrollable search categories"). Same shell/lifecycle as
+              the shopping panel above. */}
+          <AnimatePresence>
+            {activeCategory === 'games' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="max-w-4xl mx-auto mb-6 overflow-hidden"
+              >
+                <GamesPanel onClose={() => setActiveCategory('all')} />
               </motion.div>
             )}
           </AnimatePresence>
