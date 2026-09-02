@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { roundRobin } from '../utils/roundRobin';
+import { hasSeenPost, markPostsSeen, forgetPostsSeen } from '../utils/feedSeen';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -24,7 +26,15 @@ const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 const PAGE = 20;
 const emptyCursor = () => ({});
 
-export function useSocialFeed({ query = '', platforms = [], enabled = true } = {}) {
+export function useSocialFeed({
+  query = '', platforms = [], enabled = true,
+  // OPT-IN, so the behaviour every existing caller and its browser suite
+  // depends on is untouched. /feed/tube and the aggregated feed want the
+  // round-robin ordering and the persistent ledger; the plain social feed
+  // wants the server's date-sorted merge it has always had.
+  interleave = false,
+  rememberSeen = false,
+} = {}) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,6 +43,12 @@ export function useSocialFeed({ query = '', platforms = [], enabled = true } = {
   // the page so "Reddit refused this request" reaches the reader instead of
   // an empty list that explains nothing.
   const [platformErrors, setPlatformErrors] = useState([]);
+  // EVERYTHING HERE HAS ALREADY BEEN SEEN — a distinct outcome from "this
+  // feed is empty" and from "this feed is broken", and the only one of the
+  // three the reader can actually do something about. Without it the
+  // never-repeat ledger renders a blank page explaining nothing, which is
+  // the same unreportable failure the upstream-errors field was added to fix.
+  const [allSeen, setAllSeen] = useState(false);
 
   const cursor = useRef(emptyCursor());
   const seen = useRef(new Set());
@@ -104,15 +120,60 @@ export function useSocialFeed({ query = '', platforms = [], enabled = true } = {
       const live = Object.fromEntries(Object.entries(next).filter(([, v]) => v !== null && v !== undefined));
       cursor.current = live;
 
+      // ONE FROM EACH SOURCE IN TURN, when asked for.
+      //
+      // The server sends BOTH a merged `results` (sorted newest first) and the
+      // per-platform arrays it was built from. Date-sorting the union lets the
+      // fastest-posting source take every slot at the top — see
+      // utils/roundRobin.js — so the aggregated feed rebuilds the page from
+      // `platforms` instead. Everything else below is identical either way.
+      //
+      // FALLING BACK TO `results` IS NOT OPTIONAL. A response carrying posts
+      // in `results` but no per-platform arrays interleaves to NOTHING, and
+      // the feed renders empty while reporting no error at all — the worst
+      // possible failure, because it looks like "there is nothing to show".
+      // Caught by feedpage:test the first time this ran. Any response shape
+      // that has posts must produce posts.
+      const merged = data.results || [];
+      const interleaved = interleave ? roundRobin(data.platforms || {}) : [];
+      const ordered = interleaved.length ? interleaved : merged;
+
       const fresh = [];
-      for (const row of data.results || []) {
+      const repeats = [];
+      for (const row of ordered) {
         const id = `${row.platform}:${row.id}`;
+        // In-session dedupe stays absolute: the same post must never appear
+        // twice in one list, whatever else happens.
         if (seen.current.has(id)) continue;
+        // The persistent ledger, when the caller wants "never twice" to
+        // survive a reload rather than just a render. Held aside rather than
+        // dropped — see the fallback immediately below.
+        if (rememberSeen && hasSeenPost(id)) { repeats.push({ ...row, _key: id, _repeat: true }); continue; }
         seen.current.add(id);
         fresh.push({ ...row, _key: id });
       }
 
-      setItems((prev) => (first ? fresh : [...prev, ...fresh]));
+      // ── REPEATING IS THE LAST RESORT, AND IT BEATS AN EMPTY PAGE ───────────
+      //
+      // Never-repeat is the rule, not a suicide pact. When the ledger has
+      // already seen everything this page returned, honouring it strictly
+      // renders nothing — and a blank feed is worse than a familiar one: it
+      // looks broken, it explains nothing, and it is the exact unreportable
+      // failure the upstream-errors panel exists to prevent. So the suppressed
+      // rows are served instead, flagged `_repeat` so the UI can say quietly
+      // that this is ground already covered.
+      //
+      // Only ever a fallback: if there is a single genuinely new post, the
+      // repeats stay held back and the rule holds.
+      const usingRepeats = fresh.length === 0 && repeats.length > 0;
+      const pageRows = usingRepeats ? repeats : fresh;
+      // Marking repeats as seen-in-session too, so one scroll cannot cycle the
+      // same handful forever.
+      for (const r of pageRows) seen.current.add(r._key);
+      if (rememberSeen && fresh.length) markPostsSeen(fresh.map((r) => r._key));
+      setAllSeen(usingRepeats);
+
+      setItems((prev) => (first ? pageRows : [...prev, ...pageRows]));
 
       // A FAILURE IS NOT AN ENDING.
       //
@@ -131,7 +192,7 @@ export function useSocialFeed({ query = '', platforms = [], enabled = true } = {
       // came back with nothing new at all — that is the same situation from
       // the reader's side, and it prevents an infinite scroll that loads
       // forever and shows nothing.
-      setDone(!allFailed && (!Object.keys(live).length || (!first && fresh.length === 0)));
+      setDone(!allFailed && (!Object.keys(live).length || (!first && pageRows.length === 0)));
     } catch (e) {
       if (e.name === 'AbortError') return;
       setError('That feed is unreachable right now.');
@@ -139,7 +200,7 @@ export function useSocialFeed({ query = '', platforms = [], enabled = true } = {
     } finally {
       if (forKey === activeKey.current) { setLoading(false); inFlight.current = false; }
     }
-  }, [enabled, query, platforms.join(','), done]);
+  }, [enabled, query, platforms.join(','), done, interleave, rememberSeen]);
 
   // A new query or a changed provider set is a NEW feed, not more of the old
   // one: reset the cursors and the dedupe ledger before asking.
@@ -174,8 +235,22 @@ export function useSocialFeed({ query = '', platforms = [], enabled = true } = {
     el.__feedObserver = io;
   }, [fetchPage]);
 
+  // Forget the ledger and start over. This is the "unless the user returns to
+  // their history" half of never-repeat: it has to be reachable, or the rule
+  // is just a feed that quietly runs out and stays empty.
+  const showSeenAgain = useCallback(() => {
+    forgetPostsSeen();
+    seen.current = new Set();
+    cursor.current = emptyCursor();
+    setAllSeen(false);
+    setDone(false);
+    setItems([]);
+    fetchPage(true);
+  }, [fetchPage]);
+
   return {
     items, loading, error, done, sentinel, platformErrors, loadMore: () => fetchPage(false),
+    allSeen, showSeenAgain,
   };
 }
 
