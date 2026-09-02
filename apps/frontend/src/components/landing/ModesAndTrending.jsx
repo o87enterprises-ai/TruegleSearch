@@ -95,7 +95,7 @@ const MODES = [
     dot: 'bg-yellow-400',
     textAccent: 'text-yellow-300',
     exampleQuery: 'the channels we host',
-    path: '/creators',
+    path: '/feed',
   },
   {
     id: 'ocean',

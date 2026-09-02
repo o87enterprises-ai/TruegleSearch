@@ -283,9 +283,23 @@ check(searched[0]?.body?.query === 'raspberry pi', '…for what was typed', sear
 // the assertion is that the request carries EXACTLY the switched-on servers and
 // nothing else. A source that cannot serve a feed (Reddit, today) must never
 // appear, which is the half that actually caught the original bug.
-check(searched.every((c) => JSON.stringify([...c.body.platforms].sort()) === JSON.stringify(['github', 'hackernews'])),
+// DERIVED FROM THE PAGE, not a hardcoded pair. This listed ['github',
+// 'hackernews'] and broke the moment five more keyless sources were added —
+// which is a test pinning today's provider roster rather than the rule. The
+// rule is: the request carries exactly the servers that are switched on.
+const usable = await page.evaluate(async () => {
+  const open = () => document.querySelector('[data-feed-servers-toggle]');
+  if (!document.querySelector('[data-feed-server]')) open()?.click();
+  await new Promise((r) => setTimeout(r, 100));
+  return [...document.querySelectorAll('[data-feed-server][data-usable="yes"]')]
+    .map((b) => b.dataset.feedServer).sort();
+});
+await page.keyboard.press('Escape');
+check(usable.length >= 5, 'the feed has more than a couple of keyless sources to draw on',
+  `${usable.length}: ${usable.join(',')}`);
+check(searched.every((c) => JSON.stringify([...c.body.platforms].sort()) === JSON.stringify(usable)),
   '…and only across the servers that are switched on, with nothing smuggled in',
-  JSON.stringify(searched[0]?.body?.platforms));
+  `sent ${JSON.stringify(searched[0]?.body?.platforms)} vs usable ${JSON.stringify(usable)}`);
 check(searched.every((c) => !c.body.platforms.includes('reddit')),
   '…never a source that cannot serve a feed at all',
   JSON.stringify(searched[0]?.body?.platforms));
@@ -294,23 +308,28 @@ check(searched.every((c) => !c.body.platforms.includes('reddit')),
 // Hacker News and GitHub are keyless and accountless. Sending them round the
 // OAuth handshake would be theatre, and the kind that teaches people to expect
 // Truegle to ask for logins it does not need.
+//
+// REWRITTEN for default-all. This used to click the pill and WAIT for the feed
+// request that switching the source on triggered — but every keyless source is
+// already on from the first paint now, so that request never comes and the wait
+// could only ever time out. What is still worth pinning is the rule the section
+// was named for: touching a public source must not start a handshake.
 calls.length = 0;
-// Reachable from the CONNECTED state: the arrival pills are gone by now, and
-// "you can only add one, ever" would be a dead end. ConnectedRow carries the
-// not-yet-added ones. Hacker News is the second source here because GitHub is
-// already on from §3 — adding a source must not replace the one before it.
 await page.click('[data-provider="hackernews"]');
-await until(() => calls.some((c) => (c.body?.platforms || []).includes('hackernews')),
-  { what: 'Hacker News to reach the feed request' });
-check(!calls.some((c) => c.path.includes('/social-auth/hackernews')),
-  'switching on a public source involves no handshake',
-  calls.map((c) => c.path).join(' '));
-const withHn = calls.filter((c) => c.path === '/api/social/feed');
-check(withHn.some((c) => (c.body.platforms || []).includes('hackernews')),
-  '…and it does reach the feed request', JSON.stringify(withHn[0]?.body?.platforms));
-check(withHn.every((c) => (c.body.platforms || []).includes('github')),
-  '…alongside the source already connected, not instead of it',
-  JSON.stringify(withHn[0]?.body?.platforms));
+// A negative needs a moment to have failed to happen; there is no event for
+// "no request was made". Kept short and kept explained.
+await page.waitForTimeout(800);
+check(!calls.some((c) => c.path.includes('/social-auth/')),
+  'switching on a public source involves no handshake at all',
+  calls.map((c) => c.path).join(' ') || '(no calls)');
+check(await page.evaluate(() => JSON.parse(localStorage.getItem('truegle_feed_connections') || '[]')
+  .some((c) => c.provider === 'hackernews')),
+  '…and is recorded locally, with no account anywhere');
+// It was already in the feed request before the click, because it is keyless
+// and therefore on by default — which is the whole point of default-all.
+check(searched.every((c) => (c.body.platforms || []).includes('hackernews')),
+  '…having already been in the feed request, since a keyless source needs no permission',
+  JSON.stringify(searched[0]?.body?.platforms));
 
 // ── 6. the mode pill cycles rather than navigating ──────────────────────────
 // It shipped navigating on the click, which meant one press threw you off the

@@ -74,12 +74,13 @@ export const MODE_LABELS = {
   green: 'Summarize',
   // orange: 'Rewards' — RETIRED 2026-08-24 with advertising. See
   // RETIRED_MODES above; normalizePillMode() maps it back to Chat.
-  // Feed is COMMENTED OUT, not deleted — the social-feed page and its OAuth
-  // handshake are still there on /feed, they are just not what this pill
-  // opens any more. Restore this line and the /creators navigations below
-  // to put it back.
-  // yellow: 'Feed',
-  yellow: 'Creators',
+  // RESTORED 2026-09-02. Feed was commented out and the pill repointed at
+  // /creators, which left /feed reachable only by typing the URL — the
+  // aggregated feed had no way in at all. Creators is not lost: it becomes a
+  // BROWSE CATEGORY inside the feed ("Entertainment"), which is where the
+  // rehaul spec puts it, rather than owning a top-level pill of its own.
+  yellow: 'Feed',
+  // yellow: 'Creators',
   black: 'Chat',
   tube: 'Tube',
   unhinged: 'Unhinged',
@@ -95,7 +96,7 @@ export const MODE_HINT_TEXT = {
   green: 'Summarize/Green: raw, unprocessed results — no AI summaries, no smart features, nothing added.',
   red: 'Rabbit Hole: surfaces perspectives across the whole political/ideological spectrum, each one labeled.',
   ocean: 'Privacy / OSINT: open-source intelligence tools for research and investigation.',
-  yellow: 'Creators: the pill for creator content and the tools built around it.',
+  yellow: 'Feed: every source you follow in one timeline — social, news, video and community posts.',
 };
 
 // GREEN MEANS TWO DIFFERENT THINGS, and this is where they part company.

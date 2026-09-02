@@ -1,4 +1,5 @@
 import { ArrowUp, MessageCircle, ExternalLink, Code, Star, GitFork } from 'lucide-react';
+import { PROVIDERS } from '../../config/socialProviders';
 
 // One post, one card, per platform.
 //
@@ -109,10 +110,92 @@ export const GitHubCard = ({ post }) => (
 
 const BY_PLATFORM = { Reddit: RedditCard, 'Hacker News': HNCard, GitHub: GitHubCard };
 
-/** Pick the right card for a row. An unknown platform renders nothing rather
- *  than a broken half-card — the feed is merged from several sources and a new
- *  one appearing before its card exists should be invisible, not ugly. */
+// Which provider a row came from, by its display name, so the generic card can
+// find the colour. PROVIDERS is keyed by id ('hackernews') while a row carries
+// a label ('Hacker News'), and the feed is merged from both — so match on
+// either rather than assuming one.
+const COLOUR_BY_PLATFORM = PROVIDERS.reduce((acc, p) => {
+  acc[p.label.toLowerCase()] = p.colour;
+  acc[p.id.toLowerCase()] = p.colour;
+  return acc;
+}, {});
+
+const colourFor = (platform) => COLOUR_BY_PLATFORM[String(platform || '').toLowerCase()] || '#64748b';
+
+/**
+ * The card for any source without a hand-built one.
+ *
+ * WHY THIS EXISTS AND WHY IT IS NOT `return null`.
+ *
+ * This dispatch used to render NOTHING for an unrecognised platform, on the
+ * reasoning that invisible beats ugly. That was survivable while three sources
+ * existed and all three had cards. The moment News, Community, Mastodon,
+ * Bluesky and Lemmy were added to the fan-out, it became a silent hole: the
+ * backend returned posts, the round-robin dealt them into the timeline, and the
+ * page rendered blank rows for five of eight sources with no error anywhere.
+ * A feed that drops posts quietly is unreportable — the only symptom is a
+ * shorter list than there should be, and nobody can see what is missing.
+ *
+ * So: every row renders. A source without bespoke styling gets this, in its own
+ * provider colour, which is also what the spec asks for — a container two-toned
+ * to the provider it came from, saying where it is from without a logo.
+ */
+export const GenericCard = ({ post }) => {
+  const colour = colourFor(post.platform);
+  return (
+    <a
+      href={post.permalink || post.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      data-feed-card={post.platform}
+      className="block rounded-xl border p-3 transition-colors"
+      style={{
+        // Two-toned: a wash of the provider's colour behind a border of the
+        // same colour, so the card reads as belonging to that source.
+        background: `${colour}14`,
+        borderColor: `${colour}33`,
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${colour}66`; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = `${colour}33`; }}
+    >
+      <div className="flex items-start gap-2.5">
+        {post.thumbnail && (
+          <img
+            src={post.thumbnail}
+            alt=""
+            loading="lazy"
+            className="w-14 h-14 rounded-lg object-cover shrink-0"
+          />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: colour }} />
+            <span className="text-[11px] font-medium" style={{ color: colour }}>{post.platform}</span>
+            {post.subreddit && <span className="text-[11px] text-white/35 truncate">{post.subreddit}</span>}
+          </div>
+          <p className="text-sm text-white/90 leading-snug line-clamp-2">{post.title}</p>
+          {post.snippet && post.snippet !== post.title && (
+            <p className="text-xs text-white/45 mt-1 line-clamp-2">{post.snippet}</p>
+          )}
+          <div className="flex items-center gap-2 mt-1.5 text-[11px] text-white/35">
+            {post.author && <span className="truncate">{post.author}</span>}
+            {/* Rendered only where the source actually reports one. These are
+                null rather than 0 for sources that do not publish a score, so
+                a real zero and "no such number" stay distinguishable. */}
+            {typeof post.score === 'number' && <span>▲ {fmt(post.score)}</span>}
+            {typeof post.comments === 'number' && <span>{fmt(post.comments)} comments</span>}
+          </div>
+        </div>
+      </div>
+    </a>
+  );
+};
+
+/** Pick the right card for a row. Anything without a bespoke card gets the
+ *  generic one in its provider's colour — never nothing, because a dropped row
+ *  is invisible and therefore unreportable. */
 export default function FeedCard({ post }) {
-  const Card = BY_PLATFORM[post?.platform];
-  return Card ? <Card post={post} /> : null;
+  if (!post?.platform) return null;
+  const Card = BY_PLATFORM[post.platform] || GenericCard;
+  return <Card post={post} />;
 }
