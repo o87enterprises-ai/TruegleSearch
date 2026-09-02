@@ -5,7 +5,9 @@ import { Loader2, Plus, X } from 'lucide-react';
 import SearchPageShell from '../components/layout/SearchPageShell';
 import SearchBar from '../components/ui/SearchBar';
 import FeedCard from '../components/feed/FeedCards';
-import { PROVIDERS, byId, platformsFor, needsAuth } from '../config/socialProviders';
+import { PROVIDERS, byId, platformsFor, needsAuth, isConnectable } from '../config/socialProviders';
+import FeedServers from '../components/feed/FeedServers';
+import FeedModeSelector from '../components/feed/FeedModeSelector';
 import { useSocialConnections, connect as connectSource } from '../hooks/useSocialConnections';
 import { useSocialFeed } from '../hooks/useSocialFeed';
 
@@ -38,8 +40,32 @@ export default function FeedPage() {
   const [busy, setBusy] = useState('');
   const [failed, setFailed] = useState('');
 
-  const platforms = useMemo(() => platformsFor(ids), [ids.join(',')]);
-  const feed = useSocialFeed({ query: submitted, platforms, enabled: platforms.length > 0 });
+  // SERVERS — default all, per spec. Everything keyless is on for a brand-new
+  // visitor, so the feed has something in it the moment the page opens rather
+  // than opening empty behind a "connect something first" gate. Sources that
+  // need an account are not in this default (see FeedServers): switching one
+  // on for somebody who has not connected it would fetch nothing and surface
+  // an error they did not cause.
+  const [servers, setServers] = useState(() => PROVIDERS.filter((p) => isConnectable(p.id)).map((p) => p.id));
+
+  // What actually gets asked for: the servers switched on here, plus anything
+  // connected through an account. A connected source the visitor has since
+  // switched off in the dropdown stays off — the dropdown is the control.
+  const activeIds = useMemo(
+    () => [...new Set([...servers, ...ids])].filter((id) => servers.includes(id)),
+    [servers.join(','), ids.join(',')],
+  );
+  const platforms = useMemo(() => platformsFor(activeIds), [activeIds.join(',')]);
+  const feed = useSocialFeed({
+    query: submitted,
+    platforms,
+    enabled: platforms.length > 0,
+    // The aggregated timeline: one post from every source in turn rather than
+    // the server's date-sorted merge, and never the same post twice even
+    // across a reload. See utils/roundRobin.js and utils/feedSeen.js.
+    interleave: true,
+    rememberSeen: true,
+  });
 
   // A handshake that failed hands its reason over on the navigation rather than
   // in the URL — the exchange itself happens in FeedCallback, which owns
@@ -130,9 +156,27 @@ export default function FeedPage() {
       {/* Which state the page is in, for the browser test to wait on. Timing
           a cold boot with a fixed sleep is how a suite starts failing on a
           slower machine for reasons that have nothing to do with the code. */}
-      <div data-feed-state={connections.length ? 'connected' : 'arrival'} hidden />
+      <div data-feed-state={platforms.length ? 'connected' : 'arrival'} hidden />
 
-      {connections.length === 0 ? (
+      {/* THE CHROME: which servers feed the timeline, and what the bar
+          searches. Both sit under the search bar because both change what the
+          thing directly above them does. */}
+      <div className="max-w-4xl mx-auto mb-4 flex flex-wrap items-center justify-between gap-2">
+        <FeedModeSelector active="feed" query={query} />
+        <FeedServers selected={servers} onChange={setServers} />
+      </div>
+
+      {/* NO LONGER A GATE.
+          This page used to render a full-screen "connect an account first"
+          arrival state and ask for no feed at all until somebody did. That
+          made the first run an empty page with homework on it, and it is not
+          what the aggregated feed is for — the keyless sources need no
+          account and are on by default now, so there is always something to
+          show. Connecting an account is still offered, as an affordance in the
+          row below rather than a wall in front. The only way to reach a truly
+          empty state now is to switch every server off, which FeedServers
+          refuses to let happen. */}
+      {platforms.length === 0 ? (
         <ArrivalState onConnect={start} busy={busy} />
       ) : (
         <>
@@ -264,7 +308,7 @@ function ConnectedRow({ connections, onDisconnect, onConnect, busy }) {
 }
 
 function FeedList({ feed, query }) {
-  const { items, loading, error, done, sentinel } = feed;
+  const { items, loading, error, done, sentinel, allSeen } = feed;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -284,7 +328,21 @@ function FeedList({ feed, query }) {
 
       {error && <p className="text-red-300/70 text-sm py-6 text-center">{error}</p>}
 
-      {!loading && !items.length && !error && (
+      {/* GROUND ALREADY COVERED — said quietly, above the posts.
+          The never-repeat ledger holds back what has been shown before, but
+          when that would leave the page with nothing at all the held-back rows
+          are served anyway (see useSocialFeed): a familiar feed beats a blank
+          one, which looks broken and explains nothing. This is the note that
+          keeps that honest, rather than silently re-serving old posts as if
+          they were new. */}
+      {allSeen && !!items.length && (
+        <p data-feed-all-seen="" className="text-white/35 text-[11px] mb-3">
+          You&apos;re caught up — showing posts you&apos;ve already seen until these sources
+          have something new.
+        </p>
+      )}
+
+      {!loading && !items.length && !error && !allSeen && (
         <p className="text-white/40 text-sm py-10 text-center">
           {query ? `Nothing came back for “${query}”.` : 'Nothing to show yet.'}
         </p>

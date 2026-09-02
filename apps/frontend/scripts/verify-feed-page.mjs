@@ -144,71 +144,89 @@ check(JSON.stringify(searchGeo.inner) === JSON.stringify(feedGeo.inner),
   `search ${JSON.stringify(searchGeo.inner)} vs feed ${JSON.stringify(feedGeo.inner)}`);
 check(feedGeo.shell, 'the feed uses the shared page shell');
 
-// ── 2. the arrival state is honest about what cannot work ───────────────────
-// Queried by data-provider rather than by visible text: the X pill's label is
+// ── 2. the servers list is honest about what cannot work ───────────────────
+// THIS MOVED. It used to read the arrival screen's provider grid, but the
+// arrival screen is no longer a gate: the keyless sources default on, so there
+// is always a feed and nothing to gate. The full provider list — including the
+// ones that cannot work and why — now lives in the Servers dropdown, and the
+// same honesty has to hold there or it holds nowhere.
+await page.click('[data-feed-servers-toggle]');
+await until(() => page.locator('[data-feed-server]').count().then((n) => n > 0),
+  { what: 'the servers menu to open' });
+
+// Queried by data attribute rather than by visible text: the X row's label is
 // one character and its note contains every other provider's words, so any
 // prose-matching filter either misses it or matches everything.
-const pills = await page.evaluate(() => [...document.querySelectorAll('[data-provider]')]
-  .map((b) => ({ id: b.dataset.provider, ready: b.dataset.ready, text: (b.textContent || '').trim(), disabled: b.disabled })));
+const pills = await page.evaluate(() => [...document.querySelectorAll('[data-feed-server]')]
+  .map((b) => ({ id: b.dataset.feedServer, ready: b.dataset.usable, text: (b.textContent || '').trim(), disabled: b.disabled })));
 
-check(pills.length >= 6, 'every provider gets a pill', `${pills.length} pills`);
-// REDDIT IS SHUT, AND THE PILL HAS TO SAY SO.
+check(pills.length >= 6, 'every provider is listed as a server', `${pills.length} listed`);
+// REDDIT IS SHUT, AND THE LIST HAS TO SAY SO.
 // It shipped as the connectable one, described as "the one that fully works".
 // Reddit then closed new Data API registration to everything except moderation
 // tools (r/reddit.com/wiki/api), so there is no application to make and no tier
-// to buy. A pill still promising free OAuth would be a lie on screen, and the
-// kind somebody only discovers after connecting and getting an empty feed.
+// to buy. An entry still promising free OAuth would be a lie on screen, and the
+// kind somebody only discovers after selecting it and getting an empty feed.
 const reddit = pills.find((p) => p.id === 'reddit');
-check(reddit && reddit.disabled, 'Reddit is no longer offered as connectable',
+check(reddit && reddit.disabled, 'Reddit is not offered as a selectable server',
   reddit ? `disabled=${reddit.disabled}` : 'missing');
 check(/moderation/i.test(reddit?.text || ''),
   '…and names the real reason rather than a vague "coming soon"',
   reddit?.text.replace(/\s+/g, ' ').slice(0, 90));
 
-// The connectable one is now a PUBLIC SOURCE: no account, no handshake.
+// The selectable one is a PUBLIC SOURCE: no account, no handshake.
 const github = pills.find((p) => p.id === 'github');
-check(github && !github.disabled, 'GitHub is connectable', github ? `disabled=${github.disabled}` : 'missing');
+check(github && !github.disabled, 'GitHub is selectable', github ? `disabled=${github.disabled}` : 'missing');
 const locked = pills.filter((p) => p.ready === 'no');
 check(locked.length > 0 && locked.every((p) => p.disabled),
   'every provider that cannot serve a feed is un-pressable',
   locked.map((p) => `${p.id}:${p.disabled}`).join(' '));
-check(locked.every((p) => /Coming soon/i.test(p.text)),
-  '…and says so, with the real reason rather than a placeholder',
+check(locked.every((p) => (p.text || '').replace(/\s+/g, ' ').trim().length > 10),
+  '…and carries its real reason rather than a placeholder',
   locked[0]?.text.replace(/\s+/g, ' ').slice(0, 80));
+await page.keyboard.press('Escape');
 
-// ── 3. switching on a source fills the feed ─────────────────────────────────
-// NO HANDSHAKE IS EXERCISED HERE ANY MORE, and that is the point rather than a
-// gap: with Reddit closed, every provider left is either 'soon' or a public
-// source needing no account. The OAuth route and the Reddit adapter stay in the
-// tree as the seam for whenever a provider reopens — but nothing in the UI can
-// reach them, so a test asserting the handshake would be testing a path no
-// visitor can take.
+// ── 3. the feed fills on arrival, with nothing connected ───────────────────
+// REVERSED DELIBERATELY, and this is the load-bearing change on the page.
+// This used to be "switching on a source fills the feed": the arrival screen
+// was a gate, and no feed was requested until somebody picked something. The
+// spec's "Servers … Default all" replaced that — every keyless source is on
+// from the first paint, so the feed is already loading before anybody clicks
+// anything, and a first run is a feed rather than homework.
+//
+// What must NOT change is that this only ever defaults on sources needing no
+// account. Silently switching on an account-based source would fetch nothing
+// and report an error the visitor did not cause — §7 pins that.
 calls.length = 0;
-await page.click('[data-provider="github"]');
-// `attached`, not the default `visible` — the marker is a `hidden` div, so it
-// is by definition never visible and the default state waits forever on an
-// element that is already there and already correct.
-await page.waitForSelector('[data-feed-state="connected"]', { state: 'attached', timeout: 20000 });
-// Wait for the feed request the connection triggers, not for a guess at how
-// long it takes to arrive.
-await until(() => calls.some((c) => c.path === '/api/social/feed'), { what: 'the first feed request' });
-await until(() => page.locator('text=Popular post 1-0').count().then((n) => n > 0), { what: 'the first page of posts' });
+// CLEAR THE NEVER-REPEAT LEDGER FIRST. §1 and §2 already loaded this page, and
+// the ledger persists in localStorage precisely so a reload does not re-offer
+// what you have already been shown — so without this the stub's fixed posts
+// are all correctly suppressed and §3 asserts against a legitimately empty
+// feed. Clearing it is what makes this a FRESH browser rather than a returning
+// one; §3b below covers what happens when the ledger does suppress everything.
+await page.evaluate(() => localStorage.removeItem('truegle_feed_seen_v1'));
+await openApp(page, `${BASE}/feed`);
+await until(() => calls.some((c) => c.path === '/api/social/feed'),
+  { what: 'the feed request that arriving alone triggers' });
+await until(() => page.locator('text=Popular post 1-0').count().then((n) => n > 0),
+  { what: 'the first page of posts' });
 
+check(true, 'arriving on /feed requests a feed with nothing connected');
 check(!calls.some((c) => c.path.includes('/social-auth/')),
-  'a public source needs no handshake at all', calls.map((c) => c.path).join(' '));
-check(await page.evaluate(() => JSON.parse(localStorage.getItem('truegle_feed_connections') || '[]').length) === 1,
-  'the connection is remembered');
-check(new URL(page.url()).pathname === '/feed', 'and you stay on /feed', page.url());
+  'and no handshake is involved at all', calls.map((c) => c.path).join(' '));
 
 const firstFeed = calls.find((c) => c.path === '/api/social/feed');
-check(!!firstFeed, 'the feed is requested once connected');
-check(firstFeed?.body?.platforms?.includes('github'), 'for the connected provider',
+check(!!firstFeed, 'the feed is requested');
+check(firstFeed?.body?.platforms?.includes('github'), 'for the default-on servers',
   JSON.stringify(firstFeed?.body?.platforms));
 check(await page.locator('text=Popular post 1-0').count() > 0, 'and the posts are on screen');
+check(new URL(page.url()).pathname === '/feed', 'and you stay on /feed', page.url());
 
 // It must NOT claim to be a personal feed, because it cannot be one yet.
 check(await page.locator('text=Popular right now').count() > 0,
   'the page says what this actually is rather than calling it "your feed"');
+
+
 
 // ── 4. the next page is asked for with the NEXT cursor ──────────────────────
 // Deliberately NOT "scroll, then assert a request": six cards are shorter than
@@ -260,8 +278,16 @@ check(searched[0]?.body?.query === 'raspberry pi', '…for what was typed', sear
 // with things nobody asked for and gave no way to switch them off, because they
 // were not pills. One source connected means one source searched. Reddit is the
 // provider that is shut now, but the rule is the rule whichever way round it is.
-check(searched.every((c) => JSON.stringify(c.body.platforms) === JSON.stringify(['github'])),
-  '…and only across what is connected — one source connected is one source searched',
+// The rule is unchanged; what counts as "asked for" is. With Servers defaulting
+// to every keyless source, hackernews and github are both legitimately on — so
+// the assertion is that the request carries EXACTLY the switched-on servers and
+// nothing else. A source that cannot serve a feed (Reddit, today) must never
+// appear, which is the half that actually caught the original bug.
+check(searched.every((c) => JSON.stringify([...c.body.platforms].sort()) === JSON.stringify(['github', 'hackernews'])),
+  '…and only across the servers that are switched on, with nothing smuggled in',
+  JSON.stringify(searched[0]?.body?.platforms));
+check(searched.every((c) => !c.body.platforms.includes('reddit')),
+  '…never a source that cannot serve a feed at all',
   JSON.stringify(searched[0]?.body?.platforms));
 
 // ── 5b. a public source is switched on, not signed into ─────────────────────
@@ -309,15 +335,37 @@ check(new URL(page.url()).pathname !== '/feed',
   'submitting on a cycled pill is what leaves the page', page.url());
 await openApp(page, `${BASE}/feed`);
 
-// ── 7. a fresh browser is back to the arrival state ─────────────────────────
+// ── 7. a fresh browser gets a feed, and no account switched on for it ──────
+// REVERSED, for the same reason as §3. This asserted that a browser which had
+// connected nothing saw a sign-in screen and asked for no feed at all. That was
+// right while every source needed an account and became wrong the moment the
+// keyless ones defaulted on.
+//
+// The half that still matters — and is arguably the more important half — is
+// the last check. "Default all" must mean "all the sources that need nothing
+// from you", never "we quietly connected some accounts on your behalf". If
+// that ever regresses, a fresh visitor would appear to have connections they
+// never made.
 const ctx2 = await makeContext();
 const clean = await ctx2.newPage();
 clean.on('pageerror', (e) => errs.push(e.message));
+calls.length = 0;
 await openApp(clean, `${BASE}/feed`);
-check(await clean.locator('text=Your feeds, in one place').count() > 0,
-  'a browser that has connected nothing sees the sign-in state');
-check(await clean.evaluate(() => performance.getEntriesByType('resource').filter((r) => /social\/feed/.test(r.name)).length) === 0,
-  '…and asks for no feed at all until something is connected');
+await until(() => calls.some((c) => c.path === '/api/social/feed'),
+  { what: 'the fresh browser to ask for a feed on its own' }).catch(() => {});
+const freshCalls = [...calls];
+check(await clean.locator('[data-feed-state="connected"]').count() > 0,
+  'a browser that has connected nothing still lands on a feed, not a gate');
+// COUNTED AT THE ROUTE, NOT VIA performance.getEntriesByType. These requests
+// are fulfilled by the route handler and never become resource timings, so the
+// entry list is empty whatever happens — which means the assertion this
+// replaced ("=== 0") passed vacuously and could not have caught a regression in
+// either direction.
+check(freshCalls.some((c) => c.path === '/api/social/feed'),
+  '…and asks for that feed without being told to',
+  freshCalls.map((c) => c.path).join(' ') || '(no calls)');
+check(await clean.evaluate(() => JSON.parse(localStorage.getItem('truegle_feed_connections') || '[]').length) === 0,
+  '…while connecting no account on its behalf');
 
 // ── 8. a refused handshake says so, on /feed ────────────────────────────────
 // The failure reason is handed over on the navigation rather than left in the
@@ -381,6 +429,26 @@ check(/GitHub/.test(reported || ''), '…naming the platform, spelled the way th
   reported?.slice(0, 60));
 check(/403|refused/i.test(reported || ''),
   '…and giving the upstream\'s actual reason', reported?.slice(0, 90));
+
+// ── 9. a fully-seen feed repeats rather than rendering blank ───────────────
+// LAST, deliberately. It reloads the page, and the page-one request counts in
+// the paging section are only meaningful if nothing reloads underneath them.
+// The upstream-failure section above leaves the stub refusing, so put it back
+// first — otherwise this asserts against a feed that is empty for a different
+// reason entirely.
+feedUpstreamFails = false;
+// The never-repeat ledger is persistent by design, so a reload legitimately
+// suppresses everything the stub has. Honouring that strictly renders nothing,
+// and a blank feed is worse than a familiar one: it looks broken and explains
+// nothing — the same unreportable failure the upstream-errors panel exists to
+// prevent. So repeats are served as a LAST RESORT, flagged as such on screen.
+// Found by running this suite, not by reading the code.
+await openApp(page, `${BASE}/feed`);
+await until(() => page.locator('text=Popular post 1-0').count().then((n) => n > 0),
+  { what: 'the feed to fall back to already-seen posts rather than go blank' });
+check(true, 'a feed whose posts have all been seen repeats them instead of rendering empty');
+check(await page.locator('[data-feed-all-seen]').count() > 0,
+  '…and says so, rather than passing them off as new');
 
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 
