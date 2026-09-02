@@ -40,6 +40,7 @@ import FeelingBiasedPage from './pages/FeelingBiasedPage';
 import ExtractPage from './pages/ExtractPage';
 import FeedPage from './pages/FeedPage';
 import FeedCallback from './pages/FeedCallback';
+import FeedTubePage from './pages/FeedTubePage';
 import CreatorPage from './pages/CreatorPage';
 import CreatorsPage from './pages/CreatorsPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -357,6 +358,10 @@ const AppContent = () => {
             handshake; FeedPage mounts once, on /feed, already connected. */}
         <Route path="/feed" element={<RouteBoundary><FeedPage /></RouteBoundary>} />
         <Route path="/feed/callback" element={<RouteBoundary><FeedCallback /></RouteBoundary>} />
+        {/* Tube on the new feed layout. A sibling route, not a flag on
+            /tube: the player-over-grid shape is not a variant of the
+            search results list, and /tube keeps working untouched. */}
+        <Route path="/feed/tube" element={<RouteBoundary><FeedTubePage /></RouteBoundary>} />
         {/* PARKED, not deleted. The yellow pill and the hamburger point at
             /feed now, so nothing links here, but a direct link should still
             work rather than 404 — the extraction tool is waiting to be folded

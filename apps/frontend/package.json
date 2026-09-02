@@ -23,6 +23,7 @@
     "trail:browser": "node scripts/verify-trail-browser.mjs",
     "vault:browser": "node scripts/verify-vault-browser.mjs",
     "feedpage:test": "node scripts/verify-feed-page.mjs",
+    "feedtube:test": "node scripts/verify-feed-tube.mjs",
     "cameraview:test": "node scripts/verify-camera-view.mjs",
     "mapui:test": "node scripts/verify-map-ui.mjs",
     "chatmap:test": "node scripts/verify-chat-map.mjs",
