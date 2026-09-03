@@ -161,29 +161,38 @@ const pills = await page.evaluate(() => [...document.querySelectorAll('[data-fee
   .map((b) => ({ id: b.dataset.feedServer, ready: b.dataset.usable, text: (b.textContent || '').trim(), disabled: b.disabled })));
 
 check(pills.length >= 6, 'every provider is listed as a server', `${pills.length} listed`);
-// REDDIT IS SHUT, AND THE LIST HAS TO SAY SO.
-// It shipped as the connectable one, described as "the one that fully works".
-// Reddit then closed new Data API registration to everything except moderation
-// tools (r/reddit.com/wiki/api), so there is no application to make and no tier
-// to buy. An entry still promising free OAuth would be a lie on screen, and the
-// kind somebody only discovers after selecting it and getting an empty feed.
-const reddit = pills.find((p) => p.id === 'reddit');
-check(reddit && reddit.disabled, 'Reddit is not offered as a selectable server',
-  reddit ? `disabled=${reddit.disabled}` : 'missing');
-check(/moderation/i.test(reddit?.text || ''),
-  '…and names the real reason rather than a vague "coming soon"',
-  reddit?.text.replace(/\s+/g, ' ').slice(0, 90));
 
-// The selectable one is a PUBLIC SOURCE: no account, no handshake.
+// EVERY PROVIDER IS READABLE NOW, so this no longer asserts that specific ones
+// are greyed — it asserts the RULE that survives either way.
+//
+// The four checks this replaces pinned a roster: "Reddit is disabled", "its
+// note says moderation", "some provider is un-pressable". All were true while
+// the feed read platforms through their own APIs and most of those APIs were
+// shut. The feed reads public pages through our own search index now, so there
+// is no API to be shut out of and nothing is greyed. A test asserting that
+// something MUST be broken is a test that fights the fix.
+//
+// What still has to hold: anything that cannot work says so and cannot be
+// pressed, and anything selectable carries a real explanation rather than a
+// placeholder.
+const locked = pills.filter((p) => p.ready === 'no');
+check(locked.every((p) => p.disabled),
+  'any provider that cannot serve a feed is un-pressable',
+  locked.length ? locked.map((p) => `${p.id}:${p.disabled}`).join(' ') : 'none are locked today');
+check(pills.every((p) => (p.text || '').replace(/\s+/g, ' ').trim().length > 10),
+  'every provider carries a real explanation, not a placeholder',
+  pills.find((p) => (p.text || '').trim().length <= 10)?.id || 'all have one');
+
+// Reddit specifically, because it is the one that has moved twice: it shipped
+// connectable, went grey when Reddit closed the Data API, and is readable again
+// now WITHOUT a credential because its posts are public pages like any other.
+const reddit = pills.find((p) => p.id === 'reddit');
+check(reddit && !reddit.disabled,
+  'Reddit is selectable again — read as public pages, not through its API',
+  reddit ? `disabled=${reddit.disabled}` : 'missing');
+
 const github = pills.find((p) => p.id === 'github');
 check(github && !github.disabled, 'GitHub is selectable', github ? `disabled=${github.disabled}` : 'missing');
-const locked = pills.filter((p) => p.ready === 'no');
-check(locked.length > 0 && locked.every((p) => p.disabled),
-  'every provider that cannot serve a feed is un-pressable',
-  locked.map((p) => `${p.id}:${p.disabled}`).join(' '));
-check(locked.every((p) => (p.text || '').replace(/\s+/g, ' ').trim().length > 10),
-  '…and carries its real reason rather than a placeholder',
-  locked[0]?.text.replace(/\s+/g, ' ').slice(0, 80));
 await page.keyboard.press('Escape');
 
 // ── 3. the feed fills on arrival, with nothing connected ───────────────────
@@ -300,9 +309,13 @@ check(usable.length >= 5, 'the feed has more than a couple of keyless sources to
 check(searched.every((c) => JSON.stringify([...c.body.platforms].sort()) === JSON.stringify(usable)),
   '…and only across the servers that are switched on, with nothing smuggled in',
   `sent ${JSON.stringify(searched[0]?.body?.platforms)} vs usable ${JSON.stringify(usable)}`);
-check(searched.every((c) => !c.body.platforms.includes('reddit')),
-  '…never a source that cannot serve a feed at all',
-  JSON.stringify(searched[0]?.body?.platforms));
+// The rule this replaces was "never send reddit", which was right while Reddit
+// was the one source that could not answer and is wrong now that it can. The
+// durable version: never send a platform the page does not list as usable —
+// which catches a source being smuggled into the request whichever source it is.
+check(searched.every((c) => (c.body.platforms || []).every((pl) => usable.includes(pl))),
+  '…and never a platform the page does not offer',
+  `sent ${JSON.stringify(searched[0]?.body?.platforms)}`);
 
 // ── 5b. a public source is switched on, not signed into ─────────────────────
 // Hacker News and GitHub are keyless and accountless. Sending them round the
