@@ -1272,6 +1272,14 @@
         "body": "Freemium token meter DELETED (component, localStorage counter, SHOW_TOKEN_METER flag) — it claimed 10/day and enforced nothing. Replaced by exactly one gate: OSINT_FREE_INVESTIGATIONS=1 in config/access.js, enforced in src/utils/osintGate.js + OSINTToolsPanel.run(). Signed-out visitor gets 1 investigation; re-running the SAME subject is free (adding a tool mid-investigation is not a new one); a different subject is walled with a free-account CTA (no purchase — there is no paid tier). localStorage-based = product nudge, NOT security; real enforcement would be per-IP in apps/backend/routes/osint.js, whose six lookup routes are still public and unrate-limited. Test: npm run osintgate:test (10 assertions).",
         "ts": "2026-09-03",
         "created": "2026-09-03"
+      },
+      "creators-fetch-via-backend": {
+        "Id": "creators-fetch-via-backend",
+        "Type": "decision",
+        "Label": "creators:fetch seeds the flat file through the deployed backend",
+        "body": "creatorVideos.txt told people to run 'npm run creators:fetch' — a script that never existed, which is why the cache shipped empty (not a missing key). Now written: apps/frontend/scripts/fetch-creator-videos.mjs. Calls GET $BACKEND/api/creators/playlist?url=UU<channelid minus UC> (channel uploads ARE a playlist; backend pages to 500 @1 quota unit/50). Slug->channelId parsed from content/creators.js. Rewrites one slug's block, preserves header + other slugs, strips pipes/newlines from titles. CRITICAL: if the reply says source:'rss' the backend has no key and returns only ~15 videos — script exits 1 and says so, because 15 rows look identical to a good seed. Usage: npm run creators:fetch -- <slug|all> [--backend <url>]. Test: npm run creatorsfetch:test (11 assertions, stub backend subprocess).",
+        "ts": "2026-09-03",
+        "created": "2026-09-03"
       }
     },
     "thread": {
@@ -2878,6 +2886,14 @@
         "Type": "fact",
         "Label": "Sign-in/up copy no longer promises ads or a meter",
         "body": "SignInPage + SignUpPage carried live copy contradicting docs/AD-POLICY.md and the deleted meter: \"We'll let the advertisers pay for that\" (x2), \"Ad rewards program — earn cash from ads you see\", \"10 searches/day\", \"10 free searches today\", \"Full ad-free premium access\" (implied the free tier has ads), \"Already paid for premium?\". All rewritten to the truth: no ads, no cookies, unlimited search, one free OSINT investigation. check:ads scans for network domains/tags only — it does NOT catch prose, so ad claims in copy need a human eye.",
+        "ts": "2026-09-03",
+        "created": "2026-09-03"
+      },
+      "yt-key-in-vercel": {
+        "Id": "yt-key-in-vercel",
+        "Type": "fact",
+        "Label": "YOUTUBE_API_KEY lives in the Vercel backend env",
+        "body": "Owner confirmed 2026-09-03: YOUTUBE_API_KEY is set on the Vercel backend deployment (backend-seven-khaki-60.vercel.app), NOT needed locally. Never ask for it again. Seeding tooling must fetch THROUGH the backend so the key is never copied to a laptop. NOTE: this sandbox CANNOT reach that backend — agent proxy returns connect_rejected/403 on CONNECT to *.vercel.app and truegle.info — so creators:fetch must be run by the owner or any machine with normal egress.",
         "ts": "2026-09-03",
         "created": "2026-09-03"
       }
