@@ -50,20 +50,30 @@ export default function GameBoyPlayer({ game, onClose }) {
 
   const createHandler = useCallback((button) => ({
     onPointerDown: (e) => {
-      e.currentTarget.setPointerCapture(e.pointerId);
       e.preventDefault();
       gameboyCore.resumeAudio();
       gameboyCore.setInput(button, true);
+      // Best-effort: capture so a finger sliding off the button still
+      // delivers pointerup/pointercancel here instead of going silent.
+      // Some browsers reject capture for touch-synthesized pointers that
+      // aren't "active" by their bookkeeping — that must never block the
+      // actual input above, which is why it's called last, in a try/catch.
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        // Input already registered above; capture is a reliability bonus.
+      }
     },
     onPointerUp: (e) => {
       e.preventDefault();
       gameboyCore.setInput(button, false);
     },
     onPointerCancel: (e) => {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-      gameboyCore.setInput(button, false);
-    },
-    onPointerLeave: (e) => {
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        // Nothing to release — fine.
+      }
       gameboyCore.setInput(button, false);
     },
   }), []);
