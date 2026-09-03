@@ -654,6 +654,17 @@ function normaliseCommunity(rows) {
     comments: null,
     thumbnail: r.poster || null,
     flair: r.kind || null,
+    // ADDITIVE — every other field above is unchanged. `r` already went
+    // through MediaService.toSource() (via list()/search() above), which
+    // resolved `src`/`kind`/`vertical` from MediaService.classifyMedia() at
+    // submit time. Carrying them through means the feed client can trust that
+    // classification directly instead of re-deriving it a second time from
+    // `url` with getPlayable() — a plain client-side call would get the same
+    // answer for a well-formed submission, but this is the one source that
+    // was already vetted, so there is no reason to guess again.
+    src: r.src || null,
+    kind: r.kind || null,
+    ...(r.vertical ? { vertical: true } : {}),
   }));
 }
 

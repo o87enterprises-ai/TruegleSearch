@@ -12,6 +12,8 @@ import FeedBrowse from '../components/feed/FeedBrowse';
 import { categoryById, platformsForCategory } from '../config/feedCategories';
 import { useSocialConnections, connect as connectSource } from '../hooks/useSocialConnections';
 import { useSocialFeed } from '../hooks/useSocialFeed';
+import { useFeedFocus } from '../hooks/useFeedFocus';
+import { usePlayer } from '../context/PlayerContext';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -36,6 +38,10 @@ export default function FeedPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { connections, ids, disconnect } = useSocialConnections();
+  // Only `poppedOut` is read here — the slot's whole job is to exist or not,
+  // MiniPlayer (mounted once, above <Routes>) does everything else once it
+  // finds the slot in the DOM.
+  const { poppedOut } = usePlayer();
   const [query, setQuery] = useState('');
   const [submitted, setSubmitted] = useState('');
   const [pillMode, setPillMode] = useState('yellow');
@@ -210,6 +216,24 @@ export default function FeedPage() {
         </div>
       </div>
 
+      {/* THE PLAYER'S BOX. Empty on purpose, mirroring FeedTubePage — the one
+          player is mounted above <Routes> and positions itself over this slot
+          when it finds one; rendering it here directly would unmount its
+          <iframe> the moment it popped out, restarting whatever was playing.
+          Its height comes from the player itself via --truegle-player-h, so
+          the page reserves exactly the room it needs and nothing jumps when
+          playback starts.
+
+          COLLAPSES ON POP-OUT, per the accepted design: once the player is
+          popped out to its floating bottom-right corner, that floating window
+          IS the player frame — a second, empty slot here would just be dead
+          space, so the feed reclaims it instead. */}
+      {!poppedOut && (
+        <div className="max-w-4xl mx-auto mb-4">
+          <div data-player-slot aria-hidden="true" style={{ height: 'var(--truegle-player-h, 0px)' }} />
+        </div>
+      )}
+
       {/* Which category is open, and the way back. Back goes to the rows rather
           than to Home: you arrived from Browse, so that is where returning
           means. */}
@@ -373,6 +397,11 @@ function ConnectedRow({ connections, onDisconnect, onConnect, busy }) {
 
 function FeedList({ feed, query }) {
   const { items, loading, error, done, sentinel, allSeen } = feed;
+  // Which card is nearest the vertical center of the viewport, purely for the
+  // enlarge/play-button treatment — nothing here ever autoplays. See
+  // useFeedFocus's own header for why it's a sibling of useFeedAutoplay
+  // rather than a reuse of it.
+  const { activeIndex, register } = useFeedFocus();
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -387,7 +416,11 @@ function FeedList({ feed, query }) {
       )}
 
       <div className="space-y-3">
-        {items.map((post) => <FeedCard key={post._key} post={post} />)}
+        {items.map((post, idx) => (
+          <div key={post._key} ref={(el) => register(idx, el)}>
+            <FeedCard post={post} focused={idx === activeIndex} />
+          </div>
+        ))}
       </div>
 
       {error && <p className="text-red-300/70 text-sm py-6 text-center">{error}</p>}
