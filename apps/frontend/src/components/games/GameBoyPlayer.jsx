@@ -41,23 +41,36 @@ export default function GameBoyPlayer({ game, onClose }) {
     return () => {
       mounted = false;
       gameboyCore.stop();
+      // Clear any stuck button state on unmount to prevent phantom inputs.
+      ['up', 'down', 'left', 'right', 'a', 'b', 'start', 'select'].forEach((btn) => {
+        gameboyCore.setInput(btn, false);
+      });
     };
   }, [game]);
 
-  const press = useCallback((button) => (e) => {
-    e.preventDefault();
-    gameboyCore.resumeAudio();
-    gameboyCore.setInput(button, true);
-  }, []);
-
-  const release = useCallback((button) => (e) => {
-    e?.preventDefault();
-    gameboyCore.setInput(button, false);
-  }, []);
+  const createHandler = useCallback((button) => ({
+    onPointerDown: (e) => {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      gameboyCore.resumeAudio();
+      gameboyCore.setInput(button, true);
+    },
+    onPointerUp: (e) => {
+      e.preventDefault();
+      gameboyCore.setInput(button, false);
+    },
+    onPointerCancel: (e) => {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+      gameboyCore.setInput(button, false);
+    },
+    onPointerLeave: (e) => {
+      gameboyCore.setInput(button, false);
+    },
+  }), []);
 
   if (!game) return null;
 
-  const dpadBtn = 'absolute w-9 h-9 flex items-center justify-center bg-white/10 active:bg-white/25 text-white/80 select-none touch-none';
+  const dpadBtn = 'absolute w-12 h-12 flex items-center justify-center bg-white/10 active:bg-white/25 text-white/80 select-none';
 
   // Portalled to <body> — a "fixed" overlay nested inside a Framer Motion
   // ancestor otherwise gets trapped by that ancestor's transform (any
@@ -128,39 +141,39 @@ export default function GameBoyPlayer({ game, onClose }) {
           {/* D-pad */}
           <div className="relative w-24 h-24">
             <button aria-label="Up" className={`${dpadBtn} top-0 left-1/2 -translate-x-1/2 rounded-t-md`}
-              onTouchStart={press('up')} onTouchEnd={release('up')}
-              onMouseDown={press('up')} onMouseUp={release('up')} onMouseLeave={release('up')}>▲</button>
+              style={{ touchAction: 'none' }}
+              {...createHandler('up')}>▲</button>
             <button aria-label="Down" className={`${dpadBtn} bottom-0 left-1/2 -translate-x-1/2 rounded-b-md`}
-              onTouchStart={press('down')} onTouchEnd={release('down')}
-              onMouseDown={press('down')} onMouseUp={release('down')} onMouseLeave={release('down')}>▼</button>
+              style={{ touchAction: 'none' }}
+              {...createHandler('down')}>▼</button>
             <button aria-label="Left" className={`${dpadBtn} left-0 top-1/2 -translate-y-1/2 rounded-l-md`}
-              onTouchStart={press('left')} onTouchEnd={release('left')}
-              onMouseDown={press('left')} onMouseUp={release('left')} onMouseLeave={release('left')}>◀</button>
+              style={{ touchAction: 'none' }}
+              {...createHandler('left')}>◀</button>
             <button aria-label="Right" className={`${dpadBtn} right-0 top-1/2 -translate-y-1/2 rounded-r-md`}
-              onTouchStart={press('right')} onTouchEnd={release('right')}
-              onMouseDown={press('right')} onMouseUp={release('right')} onMouseLeave={release('right')}>▶</button>
-            <div className="absolute w-9 h-9 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/5" />
+              style={{ touchAction: 'none' }}
+              {...createHandler('right')}>▶</button>
+            <div className="absolute w-6 h-6 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/5" />
           </div>
 
           {/* A / B */}
           <div className="flex items-end gap-3">
-            <button aria-label="B" className="w-12 h-12 rounded-full bg-rose-500/80 active:bg-rose-400 text-white font-bold text-sm select-none touch-none"
-              onTouchStart={press('b')} onTouchEnd={release('b')}
-              onMouseDown={press('b')} onMouseUp={release('b')} onMouseLeave={release('b')}>B</button>
-            <button aria-label="A" className="w-12 h-12 rounded-full bg-emerald-500/80 active:bg-emerald-400 text-white font-bold text-sm select-none touch-none -translate-y-3"
-              onTouchStart={press('a')} onTouchEnd={release('a')}
-              onMouseDown={press('a')} onMouseUp={release('a')} onMouseLeave={release('a')}>A</button>
+            <button aria-label="B" className="w-14 h-14 rounded-full bg-rose-500/80 active:bg-rose-400 text-white font-bold text-sm select-none"
+              style={{ touchAction: 'none' }}
+              {...createHandler('b')}>B</button>
+            <button aria-label="A" className="w-14 h-14 rounded-full bg-emerald-500/80 active:bg-emerald-400 text-white font-bold text-sm select-none -translate-y-3"
+              style={{ touchAction: 'none' }}
+              {...createHandler('a')}>A</button>
           </div>
         </div>
 
         {/* Start / Select */}
         <div className="flex items-center justify-center gap-6 pb-5">
-          <button className="px-4 py-1.5 rounded-full bg-white/10 active:bg-white/20 text-[10px] tracking-wide text-white/70 select-none touch-none"
-            onTouchStart={press('select')} onTouchEnd={release('select')}
-            onMouseDown={press('select')} onMouseUp={release('select')} onMouseLeave={release('select')}>SELECT</button>
-          <button className="px-4 py-1.5 rounded-full bg-white/10 active:bg-white/20 text-[10px] tracking-wide text-white/70 select-none touch-none"
-            onTouchStart={press('start')} onTouchEnd={release('start')}
-            onMouseDown={press('start')} onMouseUp={release('start')} onMouseLeave={release('start')}>START</button>
+          <button className="px-4 py-1.5 min-h-11 rounded-full bg-white/10 active:bg-white/20 text-[10px] tracking-wide text-white/70 select-none"
+            style={{ touchAction: 'none' }}
+            {...createHandler('select')}>SELECT</button>
+          <button className="px-4 py-1.5 min-h-11 rounded-full bg-white/10 active:bg-white/20 text-[10px] tracking-wide text-white/70 select-none"
+            style={{ touchAction: 'none' }}
+            {...createHandler('start')}>START</button>
         </div>
 
         {/* Attribution — required by the game's license */}

@@ -126,6 +126,42 @@ export const GAMEBOY_LIBRARY = [
     license: 'MIT',
     licenseUrl: 'https://github.com/bbbbbr/GBcorp/blob/master/LICENSE',
   },
+  {
+    id: 'fgb',
+    name: 'FGB',
+    tagline: 'A weird and wonderful action odyssey',
+    romPath: '/roms/fgb.gb',
+    icon: '🌋',
+    color: '#c0511f',
+    developer: 'Abe Pralle (AbePralle)',
+    sourceUrl: 'https://github.com/AbePralle/FGB',
+    license: 'MIT (code) / CC (assets)',
+    licenseUrl: 'https://github.com/AbePralle/FGB/blob/main/LICENSE',
+  },
+  {
+    id: 'minesweepgb',
+    name: 'minesweepGB',
+    tagline: 'Classic Minesweeper, pocket-sized',
+    romPath: '/roms/minesweepgb.gb',
+    icon: '💣',
+    color: '#95a5a6',
+    developer: 'lancekindle',
+    sourceUrl: 'https://github.com/lancekindle/minesweepGB',
+    license: 'GPL-3.0',
+    licenseUrl: 'https://www.gnu.org/licenses/gpl-3.0.html',
+  },
+  {
+    id: 'quadratino',
+    name: 'Quadratino',
+    tagline: 'A pocket-sized snake clone',
+    romPath: '/roms/quadratino.gb',
+    icon: '🟩',
+    color: '#27ae60',
+    developer: 'Antonio Vivace (avivace)',
+    sourceUrl: 'https://github.com/avivace/quadratino',
+    license: 'GPL-3.0',
+    licenseUrl: 'https://www.gnu.org/licenses/gpl-3.0.html',
+  },
 ];
 
 // Titles considered and rejected during verification — kept here so the
@@ -156,3 +192,34 @@ export const GAMEBOY_LIBRARY = [
 //   - gb-archive/infinity-gbc, SimonLarsen/tobutobugirl-dx: real and
 //     licensed, but require bespoke/ancient toolchains (custom GBDK forks,
 //     multiple compiler versions) well beyond the effort/value here.
+//   - "Deadeus" (izma.itch.io/deadeus): a paid GB Studio game, not open
+//     source — the repo path a user-supplied list cited (izma/deadeus)
+//     doesn't exist (404).
+//   - "Dangan GB" (snorpung.itch.io/dangan-gb): itch.io-only, no GitHub
+//     repo — itch.io is blocked by this environment's egress proxy and
+//     there's no source to build from.
+//   - "Taiyaki" / "Fabulous Museum of Fish", "Swordbird Song": don't appear
+//     anywhere in gbdev/awesome-gbdev (the canonical open-source GB games
+//     list) or in a direct search — likely hallucinated citations from a
+//     user-supplied list.
+//   - DonaldHays/bubblefactory, brovador/GBsnake: real, but no LICENSE file
+//     — default copyright applies, no redistribution right.
+//   - rubfi/gbc-atari-boxing: no LICENSE file, and it's an explicit clone
+//     of Activision's Atari 2600 Boxing — two independent reasons to skip.
+//   - l0k1/superhappyfunbubbletime: GPL-2.0 (fine), but the author's own
+//     README calls it pre-alpha and "not in a workable/playable condition,"
+//     with no prebuilt ROM.
+//   - rnegron/dino-gb (MIT): builds clean with GBDK-2020, no compile
+//     errors — but the produced ROM renders a solid blank white screen in
+//     WasmBoy (checked every pixel, not just a sparse sample, across
+//     several button-press sequences). Same class of bug as 2048-gb: a
+//     real emulation incompatibility, not a build or licensing issue.
+//   - cppchriscpp/SquishyTheTurtle (MIT): the C code itself built fine
+//     after fixing one real bug (a `sys_time` extern redeclaration in
+//     main.h dropped the `volatile` qualifier the GBDK-2020 header uses,
+//     which modern SDCC rejects as a mismatch) — but its graphics pipeline
+//     converts .z80 tile/map data into assembly via a bespoke sed script
+//     targeting the old asxxxx assembler's syntax, and the generated .s
+//     files don't parse under the modern sdas assembler GBDK-2020 ships.
+//     That's a different, deeper problem than the legacy-syntax fix
+//     toolkit targets — rejected rather than rewriting its build pipeline.
