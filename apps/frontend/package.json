@@ -43,6 +43,7 @@
     "geo:test": "node scripts/verify-geolocation.mjs",
     "routeopts:test": "node scripts/verify-route-options.mjs",
     "campins:test": "node scripts/verify-camera-pins.mjs",
+    "osintgate:test": "node scripts/verify-osint-gate.mjs",
     "map:test": "esbuild scripts/verify-map-api.mjs --bundle --format=esm --platform=node --alias:axios=./scripts/stubs/axios.mjs --define:import.meta.env='{\"DEV\":false}' --outfile=dev/.build/map-test.mjs --log-level=error && node dev/.build/map-test.mjs",
     "vault:test": "esbuild scripts/verify-encyclopedia.mjs --bundle --format=esm --platform=node --loader:.md=text --outfile=dev/.build/vault-test.mjs --log-level=error && node dev/.build/vault-test.mjs",
     "player:test": "esbuild scripts/verify-player.mjs --bundle --format=esm --platform=node --outfile=dev/.build/player-test.mjs --external:esbuild --log-level=error && node dev/.build/player-test.mjs",

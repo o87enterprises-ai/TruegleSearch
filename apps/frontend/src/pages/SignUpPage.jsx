@@ -25,7 +25,7 @@ const PREMIUM_TIERS = [
     period: '/mo',
     strikethrough: '$9.99',
     discount: '50% off launch price',
-    description: 'Full ad-free premium access, billed monthly.',
+    description: 'Supports the project. Billed monthly. (Nothing here is ad-supported.)',
     ctaLabel: 'Subscribe — $4.99/mo',
     input: null,
   },
@@ -73,12 +73,9 @@ export default function SignUpPage() {
   const [notifyEmail, setNotifyEmail] = useState('');
   const [notifySaved, setNotifySaved] = useState(false);
 
-  const startFreemium = () => {
-    localStorage.setItem('truegle_freemium', 'true');
-    localStorage.setItem('truegle_freemium_searches', '0');
-    localStorage.setItem('truegle_freemium_tokens', '10');
-    setStep('confirmed');
-  };
+  // Nothing to enrol in any more — the daily token quota this used to seed died
+  // with the freemium meter. The button now only advances the page.
+  const startFree = () => setStep('confirmed');
 
   const saveNotifyEmail = (e) => {
     e.preventDefault();
@@ -122,24 +119,24 @@ export default function SignUpPage() {
                 exit={{ opacity: 0, y: -12 }}
                 className="space-y-4"
               >
-                {/* ── Freemium hero card (primary / active) ─────────────── */}
+                {/* ── Free-access hero card (primary / active) ──────────── */}
                 <div className="bg-gradient-to-br from-white/8 to-white/4 border border-white/15 rounded-2xl p-6 backdrop-blur-xl">
                   <div className="flex items-center gap-2 mb-1">
                     <Zap size={18} className="text-cyan-400" />
                     <span className="text-white font-bold text-lg">Start Searching — Free</span>
                   </div>
                   <p className="text-white/55 text-sm mb-5">
-                    No account, no credit card, no tracking beyond search. 10 searches per day
-                    with ad-supported quota refills.
+                    No account, no credit card, no cookies, no ads. Search as much as you
+                    like — there is no meter and nothing to top up.
                   </p>
 
                   <ul className="space-y-2 mb-6">
                     {[
                       'Core web, image & news search',
-                      '10 searches/day',
+                      'Unlimited searches — no daily cap',
                       'Quick Answer cards & AI snippets',
-                      'Ad rewards program — earn cash from ads you see',
-                      'Upgrade to premium anytime',
+                      'No ads, no cookies, no tracking',
+                      'One free OSINT investigation — an account lifts the limit',
                     ].map((f) => (
                       <li key={f} className="flex items-start gap-2 text-sm text-white/70">
                         <Check size={13} className="text-cyan-400 flex-shrink-0 mt-0.5" />
@@ -149,7 +146,7 @@ export default function SignUpPage() {
                   </ul>
 
                   <button
-                    onClick={startFreemium}
+                    onClick={startFree}
                     className="w-full py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyan-900/40"
                   >
                     <Zap size={16} />
@@ -287,7 +284,7 @@ export default function SignUpPage() {
               </motion.div>
             )}
 
-            {/* ── Freemium confirmed ─────────────────────────────────────── */}
+            {/* ── Free access confirmed ──────────────────────────────────── */}
             {step === 'confirmed' && (
               <motion.div
                 key="confirmed"
@@ -306,8 +303,8 @@ export default function SignUpPage() {
 
                 <h2 className="text-xl font-bold text-white mb-1">You're in.</h2>
                 <p className="text-white/55 text-sm mb-6">
-                  You have <span className="text-white font-semibold">10 free searches</span> today.
-                  Premium plans are coming soon — enter your email on the signup page to be first in line.
+                  Search as much as you like — there is no daily limit and nothing to buy.
+                  An account only lifts the one-investigation limit on OSINT.
                 </p>
 
                 <button

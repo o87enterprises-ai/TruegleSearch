@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Markdown from './Markdown';
 import {
   Server, Shield, AtSign, Search, Loader2, ExternalLink, X, MapPin, Mail, Phone,
-  Check, Minus, FileText, Download, Share2, Send, Sparkles, PanelBottom,
+  Check, Minus, FileText, Download, Share2, Send, Sparkles, PanelBottom, Lock,
 } from 'lucide-react';
 import { aiAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { OSINT_FREE_INVESTIGATIONS } from '../../config/access';
+import { canInvestigate, consumeInvestigation, investigationsRemaining } from '../../utils/osintGate';
 import LETTERHEAD_LOGO from '../../assets/osintLetterheadLogo';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
@@ -242,6 +246,13 @@ export default function OSINTToolsPanel({ initialQuery = '' }) {
   const [previewBlocked, setPreviewBlocked] = useState(false);
   const [splitUrl, setSplitUrl] = useState(null);          // below-debrief split view
   const [splitBlocked, setSplitBlocked] = useState(false);
+  const [gated, setGated] = useState(false);               // free investigation spent
+
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  // Read once per render rather than held in state: the only thing that moves
+  // it is run(), which re-renders anyway.
+  const freeLeft = isAuthenticated ? Infinity : investigationsRemaining();
 
   const panelRef = useRef(null);
   const chatEndRef = useRef(null);
@@ -276,6 +287,18 @@ export default function OSINTToolsPanel({ initialQuery = '' }) {
     e?.preventDefault();
     const q = input.trim();
     if (!q || selected.size === 0 || running) return;
+
+    // THE ONE GATE ON THE SITE. Every other surface is unmetered; a single
+    // investigation fans out to six third-party lookup APIs on free-tier
+    // quotas and then spends an AI call, so a signed-out visitor gets
+    // OSINT_FREE_INVESTIGATIONS of them. Re-running the SAME subject is free —
+    // adding a tool to the investigation you are already in is not a new one.
+    if (!canInvestigate({ isAuthenticated, subject: q })) {
+      setGated(true);
+      return;
+    }
+    consumeInvestigation({ isAuthenticated, subject: q });
+    setGated(false);
     setRunning(true);
     const ent = parseEntities(q);
     const entries = await Promise.all(
@@ -408,6 +431,13 @@ export default function OSINTToolsPanel({ initialQuery = '' }) {
       <div className="mb-4 text-center">
         <img src={LETTERHEAD_LOGO} alt="TrueGLE OSINT" className="h-14 mx-auto" />
         <p className="text-xs text-cyan-300/50 mt-1">free recon · no key required · pick one or more tools</p>
+        {!isAuthenticated && (
+          <p className="text-[11px] text-cyan-300/40 mt-0.5" data-osint-quota>
+            {freeLeft > 0
+              ? `${freeLeft} free investigation${freeLeft === 1 ? '' : 's'} left · a free account lifts the limit`
+              : 'Free investigation used · a free account lifts the limit'}
+          </p>
+        )}
       </div>
 
       {/* Multi-select tool tabs */}
@@ -447,6 +477,53 @@ export default function OSINTToolsPanel({ initialQuery = '' }) {
       {/* Parsed-entity chips — shows how the query was identified & where each
           part is routed, so a mixed blob doesn't get crammed into every tool. */}
       <ParsedChips input={input} />
+
+      {/* ── The one gate ────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {gated && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            role="status"
+            data-osint-gate
+            className="mt-4 p-4 rounded-xl bg-black/40 border border-cyan-500/30"
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-cyan-500/10 flex-shrink-0">
+                <Lock size={16} className="text-cyan-300" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-white text-sm font-semibold">
+                  That is your free investigation used.
+                </p>
+                <p className="text-white/55 text-xs mt-1 leading-relaxed">
+                  OSINT is the only metered thing on Truegle — every run queries several
+                  third-party services on our behalf. An account lifts the limit, costs
+                  nothing, and is not a paid tier: there isn&apos;t one. Everything else here
+                  stays free and unmetered, signed in or not.
+                </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/auth/signup')}
+                    className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-[#001020] text-xs font-semibold transition-colors"
+                  >
+                    Create a free account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/auth/login')}
+                    className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-xs transition-colors"
+                  >
+                    Sign in
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── INTEL SECTION ──────────────────────────────────────────────── */}
       <AnimatePresence>
