@@ -12,16 +12,27 @@
 // When true, all login walls and token/premium gates are bypassed app-wide.
 export const FREE_ACCESS_MODE = true;
 
-// The freemium meter — the "⚡ 10/10 · N searches today · Upgrade" strip pinned
-// across the bottom of every page.
+// THE FREEMIUM METER IS GONE. It was the "⚡ 10/10 · N searches today ·
+// Upgrade" strip pinned across the bottom of every page, and it measured
+// nothing: consumeFreemiumSearch() never had a call site and FREE_ACCESS_MODE
+// bypassed every gate anyway, so it sat at 10/10 forever — a permanent claim of
+// a limit that did not exist, occupying a strip of screen the player and the
+// map both need. It was flagged off first; now the bar, the localStorage
+// counter and the flag are all deleted rather than left as furniture nobody
+// dares remove.
 //
-// It measured nothing. consumeFreemiumSearch() in TokenContext has no call
-// sites, and FREE_ACCESS_MODE bypasses every gate anyway, so the bar sat at
-// 10/10 forever: a permanent claim of a limit that does not exist, occupying a
-// strip of screen the player and the map both need. Off until metering is real
-// — the context, the counter and the component all stay, so turning it back on
-// is this one flag.
-export const SHOW_TOKEN_METER = false;
+// ONE gate survives, below. Everything else on Truegle is free and ungated.
+
+// How many OSINT investigations a signed-out visitor gets before being asked to
+// make a (free) account. OSINT is the one expensive surface — each run fans out
+// to third-party lookup APIs on free-tier quotas and then to the AI analyst —
+// so it is the one place where unlimited anonymous use costs us something real.
+//
+// This is a product nudge, not a security boundary: the count lives in the
+// visitor's own localStorage and clearing it resets them. The backend routes it
+// calls are public. If it ever needs teeth, that belongs in
+// apps/backend/routes/osint.js, per-IP, not here.
+export const OSINT_FREE_INVESTIGATIONS = 1;
 
 // When true, show the dismissible "early access / pre-production" banner so
 // users understand the site isn't open to the world yet and are invited to
