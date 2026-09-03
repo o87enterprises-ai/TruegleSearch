@@ -482,6 +482,49 @@ check(true, 'a feed whose posts have all been seen repeats them instead of rende
 check(await page.locator('[data-feed-all-seen]').count() > 0,
   '…and says so, rather than passing them off as new');
 
+// ── 10. Browse: the category rows ──────────────────────────────────────────
+// The spec's Browse view: rows stacked vertically, each a horizontal preview,
+// click one to open it as a vertical feed, back returns to the rows.
+//
+// Worth a browser test rather than a unit one because the ways this breaks are
+// all invisible from the outside — a row that renders no cards looks exactly
+// like a row still loading, and a category whose sources are all switched off
+// must render as ABSENT rather than as an empty heading implying it is broken.
+feedUpstreamFails = false;
+await openApp(page, `${BASE}/feed`);
+await page.click('[data-feed-view="browse"]');
+await until(() => page.locator('[data-feed-browse]').count().then((n) => n > 0),
+  { what: 'the browse view' });
+
+const rows = await page.locator('[data-browse-row]').evaluateAll(
+  (els) => els.map((e) => e.getAttribute('data-browse-row')));
+check(rows.length >= 3, 'browse shows several category rows', rows.join(','));
+
+// Each row is its own request with its own source set — a row must not be
+// waiting on another row's sources.
+await until(() => page.locator('[data-browse-row] [data-feed-card], [data-browse-row] a').count().then((n) => n > 0),
+  { what: 'cards inside a category row' });
+check(true, '…and the rows fill with cards');
+
+// Opening a category narrows the timeline to that category and offers the way
+// back. Back goes to Browse, not Home: that is where you came from.
+const first = rows[0];
+await page.click(`[data-browse-open="${first}"]`);
+await until(() => page.locator('[data-browse-back]').count().then((n) => n > 0),
+  { what: 'the opened category view' });
+check(await page.locator('[data-feed-browse]').count() === 0,
+  'opening a category replaces the rows with that category\'s feed');
+
+await page.click('[data-browse-back]');
+await until(() => page.locator('[data-feed-browse]').count().then((n) => n > 0),
+  { what: 'the rows to come back' });
+check(true, '…and Back returns to the rows rather than to Home');
+
+await page.click('[data-feed-view="home"]');
+await until(() => page.locator('[data-feed-browse]').count().then((n) => n === 0),
+  { what: 'Home to replace Browse' });
+check(true, 'Home switches back to the timeline');
+
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 
 console.log([...ok, ...bad].join('\n'));
