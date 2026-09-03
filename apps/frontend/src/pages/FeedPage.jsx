@@ -8,6 +8,8 @@ import FeedCard from '../components/feed/FeedCards';
 import { PROVIDERS, byId, platformsFor, needsAuth, isConnectable } from '../config/socialProviders';
 import FeedServers from '../components/feed/FeedServers';
 import FeedModeSelector from '../components/feed/FeedModeSelector';
+import FeedBrowse from '../components/feed/FeedBrowse';
+import { categoryById, platformsForCategory } from '../config/feedCategories';
 import { useSocialConnections, connect as connectSource } from '../hooks/useSocialConnections';
 import { useSocialFeed } from '../hooks/useSocialFeed';
 
@@ -48,6 +50,15 @@ export default function FeedPage() {
   // an error they did not cause.
   const [servers, setServers] = useState(() => PROVIDERS.filter((p) => isConnectable(p.id)).map((p) => p.id));
 
+  // WHICH OF THE THREE VIEWS IS ON SCREEN.
+  //   'home'      the randomized timeline across every switched-on source
+  //   'browse'    the category rows, each a horizontal preview
+  //   <id>        one category, opened as a vertical feed
+  // Back from a category goes to 'browse', not 'home' — you came from the rows
+  // and that is where you expect to land.
+  const [view, setView] = useState('home');
+  const openCategory = view !== 'home' && view !== 'browse' ? categoryById(view) : null;
+
   // What actually gets asked for: the servers switched on here, plus anything
   // connected through an account. A connected source the visitor has since
   // switched off in the dropdown stays off — the dropdown is the control.
@@ -55,9 +66,18 @@ export default function FeedPage() {
     () => [...new Set([...servers, ...ids])].filter((id) => servers.includes(id)),
     [servers.join(','), ids.join(',')],
   );
-  const platforms = useMemo(() => platformsFor(activeIds), [activeIds.join(',')]);
+  // An opened category narrows the timeline to its own sources; home uses all
+  // of them. Intersected with what Servers has switched on either way, so a
+  // source turned off is off everywhere.
+  const platforms = useMemo(() => {
+    const all = platformsFor(activeIds);
+    if (!openCategory) return all;
+    return platformsForCategory(openCategory, all);
+  }, [activeIds.join(','), openCategory?.id]);
   const feed = useSocialFeed({
-    query: submitted,
+    // An opened category with a topic seeds the query, unless the visitor has
+    // typed something — what they typed always wins over the category's seed.
+    query: submitted || openCategory?.topic || '',
     platforms,
     enabled: platforms.length > 0,
     // The aggregated timeline: one post from every source in turn rather than
@@ -163,8 +183,50 @@ export default function FeedPage() {
           thing directly above them does. */}
       <div className="max-w-4xl mx-auto mb-4 flex flex-wrap items-center justify-between gap-2">
         <FeedModeSelector active="feed" query={query} />
-        <FeedServers selected={servers} onChange={setServers} />
+        <div className="flex items-center gap-2">
+          {/* HOME / BROWSE. Home is the randomized timeline; Browse is the
+              category rows. An opened category counts as Browse, because that
+              is where its Back button returns to. */}
+          <div className="inline-flex rounded-full p-0.5 border border-white/15" role="group" aria-label="View">
+            {[['home', 'Home'], ['browse', 'Browse']].map(([id, label]) => {
+              const on = id === 'home' ? view === 'home' : view !== 'home';
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  data-feed-view={id}
+                  aria-current={on ? 'page' : undefined}
+                  onClick={() => setView(id)}
+                  className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                    on ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white/80'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <FeedServers selected={servers} onChange={setServers} />
+        </div>
       </div>
+
+      {/* Which category is open, and the way back. Back goes to the rows rather
+          than to Home: you arrived from Browse, so that is where returning
+          means. */}
+      {openCategory && (
+        <div className="max-w-4xl mx-auto mb-3 flex items-center gap-2">
+          <button
+            type="button"
+            data-browse-back=""
+            onClick={() => setView('browse')}
+            className="px-2.5 py-1 text-xs rounded-full border border-white/15 text-white/60 hover:text-white hover:border-white/30 transition-colors"
+          >
+            ← Browse
+          </button>
+          <span className="text-white/80 text-sm font-semibold">{openCategory.label}</span>
+          <span className="text-white/35 text-xs">{openCategory.blurb}</span>
+        </div>
+      )}
 
       {/* NO LONGER A GATE.
           This page used to render a full-screen "connect an account first"
@@ -176,7 +238,9 @@ export default function FeedPage() {
           row below rather than a wall in front. The only way to reach a truly
           empty state now is to switch every server off, which FeedServers
           refuses to let happen. */}
-      {platforms.length === 0 ? (
+      {view === 'browse' ? (
+        <FeedBrowse enabledIds={platformsFor(activeIds)} onOpen={setView} />
+      ) : platforms.length === 0 ? (
         <ArrivalState onConnect={start} busy={busy} />
       ) : (
         <>

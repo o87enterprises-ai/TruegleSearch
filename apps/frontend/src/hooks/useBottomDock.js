@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
  * Who owns the bottom strip of the screen.
  *
  * THE PROBLEM: page furniture pins itself to the bottom and never gives that
- * height back. The freemium meter did it on every page (now off — see
- * SHOW_TOKEN_METER), and the early-access feedback bar still does: full width,
+ * height back. The freemium meter did it on every page (since deleted), and the
+ * early-access feedback bar still does: full width,
  * z-[60], and on a phone its copy wraps to four lines. Anything that docks
  * there afterwards — the footer-docked player, the map with its own control
  * bars — has to sit ON TOP of that, so the component the visitor is actually

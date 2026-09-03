@@ -40,10 +40,21 @@
 # The slug must match content/creators.js. Ids are the 11-character YouTube
 # video id — the v= parameter, or the last path segment of a youtu.be link.
 #
-#   npm run creators:fetch -- <slug>     (writes lines here; needs a YT key)
+#   npm run creators:fetch -- <slug>     one creator
+#   npm run creators:fetch -- all         everyone in content/creators.js
 #
-# or paste them by hand — the format is deliberately simple enough for that.
+# NO KEY ON YOUR MACHINE. That command fetches THROUGH the deployed backend,
+# which already holds YOUTUBE_API_KEY, so seeding never puts a second copy of
+# the key on a laptop. Point it elsewhere with --backend <url> if you are
+# running your own. It rewrites one creator's block at a time and leaves the
+# others alone, so re-running to top up a channel is safe.
 #
-# Nothing below this line yet: the loader treats an empty file as "no channel
-# is cached", so every creator page keeps using the API until entries land
-# here. Seeding it is a one-time job per channel and does not block anything.
+# IF IT SAYS "via rss" IT FAILED. Without a key the backend falls back to
+# YouTube's RSS feed, which returns the newest ~15 videos and no more —
+# indistinguishable by eye from a good seed. The command exits non-zero and
+# says so rather than letting fifteen rows pass for a whole channel.
+#
+# Or paste lines by hand — the format is deliberately simple enough for that.
+#
+# The loader treats a channel with no lines here as "not cached", so it keeps
+# using the API. Seeding is a one-time job per channel and blocks nothing.

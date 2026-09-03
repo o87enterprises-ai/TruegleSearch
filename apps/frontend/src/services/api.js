@@ -88,15 +88,9 @@ const subscriptionAPI = {
   getStatus: () => api.get('/subscription/status'),
 };
 
-// Ads API
-const adsAPI = {
-  getAds: (perspective, query) =>
-    api.get('/ads', { params: { perspective, query } }),
-  trackImpression: (adId, perspective) =>
-    api.post('/ads/impression', { adId, perspective }),
-  trackClick: (adId, perspective) =>
-    api.post('/ads/click', { adId, perspective }),
-};
+// No ads API. Truegle carries no third-party advertising (docs/AD-POLICY.md)
+// and the backend's /ads routes were deleted with the rest of it — this client
+// was the last thing still pointing at them, and nothing called it.
 
 // Tokens API
 const tokensAPI = {
@@ -208,7 +202,6 @@ export {
   authAPI,
   searchAPI,
   subscriptionAPI,
-  adsAPI,
   tokensAPI,
   rewardsAPI,
   aiAPI,

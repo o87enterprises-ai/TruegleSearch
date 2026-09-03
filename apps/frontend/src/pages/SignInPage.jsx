@@ -113,12 +113,10 @@ export default function SignInPage() {
     }
   };
 
-  const continueFreemium = () => {
-    localStorage.setItem('truegle_freemium', 'true');
-    localStorage.setItem('truegle_freemium_searches', '0');
-    localStorage.setItem('truegle_freemium_tokens', '10');
-    navigate('/search');
-  };
+  // No account is needed for anything except a second OSINT investigation, so
+  // this button is just a way past the form. It used to seed a localStorage
+  // token quota for the freemium meter; the meter is gone and so is the quota.
+  const continueWithoutAccount = () => navigate('/search');
 
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-start p-4 sm:p-6 md:p-8 overflow-y-auto">
@@ -196,7 +194,7 @@ export default function SignInPage() {
             </p>
           </div>
 
-          {/* Freemium Message - Shown when coming from media interfaces */}
+          {/* Shown when arriving from a media interface that used to imply a paywall. */}
           {showFreemiumMessage && (
             <motion.div
               initial={{ opacity: 0, y: -20 }}
@@ -206,10 +204,10 @@ export default function SignInPage() {
               <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-cyan-500/30 via-purple-500/30 to-cyan-500/30 blur opacity-50 animate-pulse"></div>
               <div className="relative z-10">
                 <h2 className="text-2xl font-bold text-center text-cyan-400 mb-4">
-                  🎉 Premium Features Free!
+                  Free, and not paid for by ads
                 </h2>
                 <p className="text-white text-center text-lg">
-                  Here, use our premium features for free. If you want to give us money, of course we'll accept it. But we won't make you pay us to use our service. We'll let the advertisers pay for that 🤣. Truegle. Truly Freemium.
+                  Everything is free, and there is no paid tier to upsell you to. No ads, no cookies, no tracking — Truegle is not run for profit. An account only exists so your settings and investigations follow you between devices.
                 </p>
               </div>
             </motion.div>
@@ -283,18 +281,18 @@ export default function SignInPage() {
 
             <button
               type="button"
-              onClick={continueFreemium}
+              onClick={continueWithoutAccount}
               className="w-full flex items-center justify-center gap-2 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white text-sm rounded-xl transition-all"
             >
               <Zap size={14} />
-              Continue Free (10 searches/day)
+              Continue without an account
             </button>
           </form>
 
           <p className="text-center text-gray-500 text-xs">
-            Already paid for premium?{' '}
+            No account yet?{' '}
             <button type="button" onClick={() => navigate('/auth/signup')} className="text-cyan-400 hover:text-cyan-300">
-              Get premium access
+              Create one — free
             </button>
           </p>
         </motion.div>
@@ -336,10 +334,10 @@ export default function SignInPage() {
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/20 via-purple-500/20 to-cyan-500/20 blur-xl animate-pulse"></div>
             <div className="relative z-10">
               <h2 className="text-3xl font-bold text-cyan-400 mb-6">
-                🎉 Premium Features Free!
+                Free, and not paid for by ads
               </h2>
               <p className="text-white text-lg mb-6 max-w-2xl mx-auto">
-                Here, use our premium features for free. If you want to give us money, of course we'll accept it. But we won't make you pay us to use our service. We'll let the advertisers pay for that 🤣. Truegle. Truly Freemium.
+                Everything is free, and there is no paid tier to upsell you to. No ads, no cookies, no tracking — Truegle is not run for profit. An account only exists so your settings and investigations follow you between devices.
               </p>
 
               {/* Remember Me Checkbox */}

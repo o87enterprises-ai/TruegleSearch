@@ -19,7 +19,6 @@ import { MapProvider } from './components/map';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { SettingsProvider } from './context/SettingsContext';
 import RefCapture from './components/RefCapture';
-import FreemiumTokenBar from './components/ui/FreemiumTokenBar';
 import TruegleLogo from './components/ui/TruegleLogo';
 import Footer from './components/Footer';
 import ResultsPage from './components/ResultsPage';
@@ -168,7 +167,6 @@ const App = () => {
                       Skip to main content
                     </a>
                     <RefCapture />
-                    <FreemiumTokenBar />
                     {/* TODO(landing-flow): re-enable once the pill/chat mode
                         flow is finalized and we've decided where the ads
                         opt-in prompt should live (was auto-popping over the
