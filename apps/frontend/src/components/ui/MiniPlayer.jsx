@@ -64,7 +64,16 @@ export default function MiniPlayer() {
   // every mobile player puts itself. The pop-out control still switches it,
   // and that choice is remembered.
   const narrow = useNarrowViewport();
-  const footerDock = dock === 'footer' || (!dock && narrow);
+  // THE FEED PLAYER NEVER FOOTER-DOCKS. Its three states are the lens, the
+  // bottom-right corner, and gone — a bar pinned across the width of the
+  // screen is none of them, and a full-width bar cannot be 9:16 either.
+  //
+  // This is what put a landscape player across the bottom of a phone: the
+  // footer is the DEFAULT on a narrow viewport (below), so on a phone the
+  // feed player went there without anybody choosing it. On the feed deck the
+  // corner is the only dock.
+  const feedDeck = activeDeck === 'feed';
+  const footerDock = !feedDeck && (dock === 'footer' || (!dock && narrow));
   // A fixed element is positioned against the layout viewport, which Android
   // doesn't shrink for the keyboard — so the player (and the input inside it)
   // ended up underneath it. Lift by exactly what the keyboard covers.
@@ -513,6 +522,17 @@ export default function MiniPlayer() {
     const base = BANNER_CLEARANCE + keyboardInset;
     if (!pageBar) return base;
     if (pageBar.bottom <= 0 || pageBar.top >= visible) return base;
+    // ONLY LIFT FOR A BAR THE PLAYER WOULD ACTUALLY COVER — one in the lower
+    // half of the screen, where a bottom-anchored window sits.
+    //
+    // Without this the rule fires for a search bar near the TOP of the page,
+    // and "clear it" then means lifting the window by almost the whole
+    // viewport: measured on a phone, the feed's corner player was pushed to
+    // y = -129, i.e. its header and close button off the top of the screen
+    // with no way to reach them. Feed's bar is at the top of the page, which
+    // is how this surfaced — the rule was written for a bar down beside the
+    // player and quietly assumed one.
+    if (pageBar.top < visible / 2) return base;
     return Math.max(base, Math.round(visible - pageBar.top + 8));
   })();
 
@@ -681,7 +701,19 @@ export default function MiniPlayer() {
               the page's bar — that separation is the point of having two.
               Enter blurs, which retracts the on-screen keyboard and uncovers
               the results underneath; it also forces the list open, so pressing
-              enter always visibly does something. */}
+              enter always visibly does something.
+
+              NOT ON THE FEED DECK. This bar searches TUBE's corpus — creators,
+              trending, the video index — and "the feed player is for viewing
+              the social feed playable content only". A search box that
+              silently changes which player you are holding is worse than no
+              search box, and the feed player is meant to be the one WITHOUT a
+              bar attached to it. The title takes the space instead. */}
+          {feedDeck ? (
+            <span className="flex-1 min-w-0 truncate px-2 text-xs text-white/60">
+              {title || 'From your feed'}
+            </span>
+          ) : (
           <form
             onSubmit={(e) => { e.preventDefault(); submitPlayerQuery(); }}
             onPointerDown={(e) => e.stopPropagation()}
@@ -709,6 +741,7 @@ export default function MiniPlayer() {
               </button>
             )}
           </form>
+          )}
           {/* Footer dock: two named states. Watch = the picture. Hidden = the
               controls only, still playing — the "listening while I read the
               results" case, which is most of what a dock at the bottom of a
@@ -723,7 +756,13 @@ export default function MiniPlayer() {
           </button>
           {/* Where the window lives. It left the transport when that slot became
               the move control, and it belongs with the other window chrome
-              anyway. */}
+              anyway.
+
+              NOT ON THE FEED DECK, which has no footer state to switch to —
+              its three are the lens, the corner and gone. Offering a control
+              that cannot do anything is the same dead button the move toggle
+              used to be. */}
+          {!feedDeck && (
           <button
             type="button"
             onClick={() => setDock(footerDock ? 'float' : 'footer')}
@@ -733,6 +772,7 @@ export default function MiniPlayer() {
           >
             {footerDock ? <PictureInPicture2 size={15} /> : <PanelBottom size={15} />}
           </button>
+          )}
           {/* Close puts the player away; it does NOT empty the queue. Clearing
               is explicit, in the list. */}
           <button type="button" onClick={close} title="Close player (keeps your queue)" className={ctrl}>

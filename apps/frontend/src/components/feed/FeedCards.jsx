@@ -208,18 +208,23 @@ export const GenericCard = ({ post }) => {
 // no interception, no sheet — the chrome below only ever activates for a post
 // something in videoEmbed.js actually recognises.
 //
-// SCROLLING PAST NEVER MOUNTS AN IFRAME — only PLAYING one does. Enlarging on
-// focus alone is a CSS transform on the existing card; the badge and center
-// button are absolutely-positioned overlays, and a merely-focused card shows
-// its poster same as ever. The one exception is the card that is ACTUALLY
-// PLAYING: while it is both focused and not popped out, it becomes
-// `[data-player-slot]` itself, and the one app-wide media node (mounted once
-// in MiniPlayer, above <Routes> — see PlayerScreen.jsx) docks directly into
-// it, the same slot mechanism FeedTubePage and UniversalSearch already use,
-// just anchored to a card instead of a fixed box. Nothing here creates a
-// second iframe or a second player: every play/queue action still hands off
-// to the one global player via usePlayer()/useFeedCursor, so at most one
-// decoder is ever running, no matter how many playable posts scroll by.
+// NO CARD EVER HOLDS THE PICTURE. Not while scrolling past, and not while
+// playing either: the media lives in the LENS, a fixed frame centred in the
+// viewport that the feed scrolls behind (see MiniPlayer's lens note). A card
+// is always the same card — poster, badge, play button — whatever is on.
+//
+// It was not always so, and the reason it changed is worth keeping: the
+// playing card used to become `[data-player-slot]` and host the frame
+// itself. Once the picture was portrait that made the card TALLER THAN THE
+// VIEWPORT, which pushed its own controls under the page's fixed feedback
+// bar where the clicks were swallowed, and moved the card's own centre so
+// focus jumped to a neighbour and stopped the playback that had just
+// started. A card that grows into a player chases itself out of focus.
+//
+// So: every play/queue action hands off to the one global player via
+// usePlayer()/useFeedCursor, at most one decoder ever runs, and the feed
+// stays a list of fixed-size cards no matter how many playable posts are in
+// it.
 
 /** Trust a pre-classified source (Community, from routes/social.js's
  *  normaliseCommunity) over re-deriving it — that row was already run
