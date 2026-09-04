@@ -1,16 +1,20 @@
 /* Playable media in feed cards, in a real browser.
  *
- * The core invariant this whole feature rests on: a feed card NEVER decodes
- * its own video. Enlarging on focus is a CSS transform; the play badge and
- * the center play button are static overlays; every actual play/queue action
- * hands off to the ONE global player. If a card ever mounts a live <iframe>
- * of its own, scrolling past a hundred playable posts would spend a hundred
- * decoders on nothing anybody asked to watch — which is exactly the failure
- * this suite is built to catch before it ships.
+ * The core invariant this whole feature rests on: SCROLLING PAST a card never
+ * decodes its own video. Enlarging on focus is a CSS transform; the play
+ * badge and the center play button are static overlays. That invariant does
+ * NOT mean zero iframes ever, though — pressing play on the focused card
+ * turns it into the app's ONE [data-player-slot], and the one shared media
+ * node (mounted once in MiniPlayer, above <Routes>) docks directly into it.
+ * So the real invariant, and what this suite actually enforces at every step,
+ * is AT MOST ONE iframe anywhere on the page, and it only ever appears inside
+ * the card that is both focused and actually playing.
  *
  * Also covers: the play badge on a playable card, the center play button
  * appearing only on the focused card, the tap-to-open action sheet's three
- * options, and that a non-playable card is completely untouched.
+ * options, a non-playable card being completely untouched, scrolling the
+ * playing card out of focus stopping it (the card falls back to a poster),
+ * and popping out moving the same live frame to the corner without a restart.
  *
  * SCROLLING NOTE: bringing a card into view is not enough to focus it —
  * Playwright's scrollIntoViewIfNeeded() only scrolls the minimum distance to
@@ -128,7 +132,7 @@ await until(() => page.locator('[data-feed-action="play-center"]').count().then(
   { what: 'the centered playable card to show its play button' });
 check(true, 'centering a playable card reveals its center play button');
 check(await page.locator('[data-feed-card-wrap] iframe').count() === 0,
-  '…and STILL no iframe — the button is a static overlay, not a mounted preview');
+  '…and STILL no iframe — focus alone is a static overlay, nothing has played yet');
 
 // The GitHub card, centered instead, must never grow a play button — it has
 // none to show, focused or not.
@@ -137,20 +141,12 @@ await page.waitForTimeout(400);
 check(await page.locator('[data-feed-action="play-center"]').count() === 0,
   'the non-playable card never grows a play button, even while it holds focus');
 
-// ── clicking the center button plays immediately, no sheet ─────────────────
+// ── tapping the card body (not the center button) opens the sheet ──────────
+// Done BEFORE anything plays: once the youtube card is actually live it stops
+// being a clickable poster (see below) and has no sheet-opening body to tap.
 await centerOn(page.locator('[data-feed-card-wrap="youtube"]'));
 await until(() => page.locator('[data-feed-action="play-center"]').count().then((n) => n === 1),
   { what: 'the play button to return once re-centered' });
-await page.click('[data-feed-action="play-center"]');
-await until(() => page.locator('[data-mini]').count().then((n) => n > 0),
-  { what: 'the global player to pick up the click' });
-check(await page.locator('[data-feed-card-actions]').count() === 0,
-  'the center button skips the action sheet entirely');
-check(true, 'and something actually starts in the global player frame');
-check(await page.locator('[data-feed-card-wrap] iframe').count() === 0,
-  '…and the card itself still holds no iframe — playback lives in the player, not the card');
-
-// ── tapping the card body (not the center button) opens the sheet ──────────
 const box = await page.locator('[data-feed-card-wrap="youtube"]').boundingBox();
 // Top-left corner: away from both the top-right badge and the dead-center
 // play button, so this reliably hits the wrapper rather than an overlay.
@@ -162,15 +158,71 @@ check(await page.locator('[data-feed-action="play"]').count() === 1, '…offerin
 check(await page.locator('[data-feed-action="queue"]').count() === 1, '…offering Add to queue');
 check(await page.locator('[data-feed-action="open-link"]').count() === 1, '…and Open link');
 
-// ── add to queue works, and closes the sheet ────────────────────────────────
-await page.click('[data-feed-action="queue"]');
+// Closed via Escape rather than pressing an action: "Add to queue" on an
+// IDLE player starts it playing too (queueing into nothing plays it instead
+// — see verify-player-engine.mjs), which would make this card go live here
+// instead of where the test below means to trigger that.
+await page.keyboard.press('Escape');
 await until(() => page.locator('[data-feed-card-actions]').count().then((n) => n === 0),
-  { what: 'the sheet to close after queueing' });
-check(true, 'add to queue closes the sheet');
-
-// ── zero iframes, checked one last time after every interaction above ──────
+  { what: 'Escape to close the sheet' });
+check(true, 'Escape closes the action sheet without acting on it');
 check(await page.locator('[data-feed-card-wrap] iframe').count() === 0,
-  'still zero iframes inside a feed card after playing, queueing and opening the sheet');
+  '…and nothing has started playing yet');
+
+// ── clicking the center button plays, no sheet, and the card BECOMES the
+//    slot — the one shared iframe docks directly inside it ────────────────
+await until(() => page.locator('[data-feed-action="play-center"]').count().then((n) => n === 1),
+  { what: 'the play button still present after the sheet interactions' });
+await page.click('[data-feed-action="play-center"]');
+await until(() => page.locator('[data-feed-card-wrap="youtube"][data-feed-live="yes"]').count().then((n) => n === 1),
+  { what: 'the played card to become the live slot' });
+check(await page.locator('[data-feed-card-actions]').count() === 0,
+  'the center button skips the action sheet entirely');
+await until(() => page.locator('iframe').count().then((n) => n === 1),
+  { what: 'the one shared iframe to mount' });
+check(await page.locator('iframe').count() === 1,
+  'exactly one iframe exists anywhere on the page — never a second decoder');
+// NOT a DOM-containment check: the shared frame is mounted once, above
+// <Routes> (see MiniPlayer.jsx), and docks over the slot by CSS position
+// alone — "one node, moved by geometry" is the whole point, so it is never a
+// literal descendant of [data-player-slot]. What actually proves docking is
+// the frame's rect matching the slot's rect.
+const slotBox = await page.locator('[data-feed-card-wrap="youtube"][data-feed-live="yes"] [data-player-slot]').boundingBox();
+const frameBox = await page.locator('[data-mini]').boundingBox();
+check(!!slotBox && !!frameBox
+  && Math.abs(slotBox.x - frameBox.x) < 2 && Math.abs(slotBox.y - frameBox.y) < 2,
+  '…and it is positioned exactly over the playing card’s own slot, not floating separately',
+  `slot=${JSON.stringify(slotBox)} frame=${JSON.stringify(frameBox)}`);
+
+// ── scrolling the playing card out of focus stops it ────────────────────────
+// "It stops and the next centered card then begins thumbnail preview and can
+// be clicked to play" — the owner's own words for this behaviour.
+await centerOn(page.locator('a[href="https://github.com/example/repo"]'));
+await until(() => page.locator('[data-feed-live="yes"]').count().then((n) => n === 0),
+  { what: 'scrolling away to stop the live card' });
+check(true, 'scrolling the playing card out of focus stops it');
+check(await page.locator('iframe').count() === 0,
+  '…and the shared iframe is gone with it, not orphaned somewhere else');
+check(await page.locator('[data-feed-card-wrap="youtube"]').count() === 1,
+  '…the card itself is still there, just back to being a poster');
+
+// ── popping out moves the SAME live frame to the corner, without a restart ──
+await centerOn(page.locator('[data-feed-card-wrap="youtube"]'));
+await until(() => page.locator('[data-feed-action="play-center"]').count().then((n) => n === 1),
+  { what: 'the play button to return once re-centered' });
+await page.click('[data-feed-action="play-center"]');
+await until(() => page.locator('[data-feed-card-wrap="youtube"][data-feed-live="yes"]').count().then((n) => n === 1),
+  { what: 'the card to go live again' });
+await page.click('button[aria-label="Pop out the player"]');
+await until(() => page.locator('[data-feed-live="yes"]').count().then((n) => n === 0),
+  { what: 'popping out to collapse the card back to a poster' });
+check(true, 'popping out collapses the live card back to a poster');
+check(await page.locator('iframe').count() === 1,
+  '…the same one iframe is still mounted — moved, not torn down and restarted');
+check(await page.locator('[data-feed-card-wrap] iframe').count() === 0,
+  '…no longer inside any card…');
+check(await page.locator('[data-mini] iframe').count() === 1,
+  '…it now sits in the floating corner window instead');
 
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 

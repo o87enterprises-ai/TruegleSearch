@@ -206,12 +206,18 @@ export const GenericCard = ({ post }) => {
 // no interception, no sheet — the chrome below only ever activates for a post
 // something in videoEmbed.js actually recognises.
 //
-// NOTHING HERE EVER MOUNTS AN IFRAME. Enlarging is a CSS transform on the
-// existing card; the badge and center button are absolutely-positioned
-// overlays. Every actual play/queue action hands off to the ONE global
-// player via usePlayer() — a feed card never decodes its own video, so
-// scrolling past a hundred playable posts never spends a single decoder on
-// anything nobody chose to watch.
+// SCROLLING PAST NEVER MOUNTS AN IFRAME — only PLAYING one does. Enlarging on
+// focus alone is a CSS transform on the existing card; the badge and center
+// button are absolutely-positioned overlays, and a merely-focused card shows
+// its poster same as ever. The one exception is the card that is ACTUALLY
+// PLAYING: while it is both focused and not popped out, it becomes
+// `[data-player-slot]` itself, and the one app-wide media node (mounted once
+// in MiniPlayer, above <Routes> — see PlayerScreen.jsx) docks directly into
+// it, the same slot mechanism FeedTubePage and UniversalSearch already use,
+// just anchored to a card instead of a fixed box. Nothing here creates a
+// second iframe or a second player: every play/queue action still hands off
+// to the one global player via usePlayer()/useFeedCursor, so at most one
+// decoder is ever running, no matter how many playable posts scroll by.
 
 /** Trust a pre-classified source (Community, from routes/social.js's
  *  normaliseCommunity) over re-deriving it — that row was already run
@@ -234,10 +240,16 @@ function classify(post) {
  *
  *  `focused` — true when this is the card useFeedFocus has determined is
  *  nearest the vertical center of the viewport. Purely a rendering signal;
- *  the caller owns registering the wrapper element with that hook. */
-export default function FeedCard({ post, focused = false }) {
+ *  the caller owns registering the wrapper element with that hook.
+ *
+ *  `onPlay` — starts playback via the caller's feed-follow cursor (see
+ *  useFeedCursor), so the fullscreen player has this feed's own rows to
+ *  swipe through afterwards. Optional: a caller with no cursor of its own
+ *  (Browse's horizontal strips) omits it and gets the plain playNow this
+ *  always did — FeedCardActions carries that fallback. */
+export default function FeedCard({ post, focused = false, onPlay }) {
   const [sheetOpen, setSheetOpen] = useState(false);
-  const { playNow } = usePlayer();
+  const { current, poppedOut, playNow } = usePlayer();
 
   const playable = useMemo(() => classify(post), [post]);
 
@@ -268,6 +280,12 @@ export default function FeedCard({ post, focused = false }) {
     ...(playable.vertical ? { vertical: true } : {}),
   };
 
+  // THIS is the card actually playing, docked in place rather than popped
+  // out. `pageUrl` is the identity: it's set to the same `link` here and in
+  // useFeedCursor's own rows, so the comparison is exact by construction —
+  // no need to reach for videoEmbed's looser cross-URL identity here.
+  const isLive = focused && !poppedOut && current?.pageUrl === link;
+
   const openSheet = (e) => {
     // The inner card is still a real <a href>; without this the click would
     // both navigate away AND open the sheet on top of the navigation.
@@ -275,11 +293,33 @@ export default function FeedCard({ post, focused = false }) {
     setSheetOpen(true);
   };
 
-  const playNowFromCenter = (e) => {
+  const playCenter = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    playNow(source);
+    if (onPlay) onPlay(); else playNow(source);
   };
+
+  if (isLive) {
+    // THE SLOT LIVES HERE NOW, not in a fixed box elsewhere on the page —
+    // MiniPlayer (mounted once, above <Routes>) finds this element by
+    // [data-player-slot] and positions the one shared media node directly
+    // over it, the exact mechanism FeedTubePage/UniversalSearch already use
+    // for their own fixed boxes (down to the wrapper styling, copied from
+    // FeedTubePage.jsx). The frame renders its own title/chrome, so nothing
+    // is duplicated here. Losing focus (scroll) or popping out both end
+    // this — see FeedList's stop-on-scroll-away effect and the `!poppedOut`
+    // check above — so this branch is never rendered for more than one card
+    // at a time.
+    return (
+      <div
+        data-feed-card-wrap={playable.kind}
+        data-feed-live="yes"
+        className="relative rounded-xl border border-white/20 bg-black/30 px-1.5 py-1 shadow-2xl shadow-black/40"
+      >
+        <div data-player-slot aria-hidden="true" style={{ height: 'var(--truegle-player-h, 220px)' }} />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -306,7 +346,7 @@ export default function FeedCard({ post, focused = false }) {
           type="button"
           data-feed-action="play-center"
           aria-label="Play"
-          onClick={playNowFromCenter}
+          onClick={playCenter}
           className="absolute inset-0 m-auto w-14 h-14 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/75 transition-colors"
         >
           <Play size={24} className="ml-1" fill="currentColor" />
@@ -319,6 +359,7 @@ export default function FeedCard({ post, focused = false }) {
         source={source}
         link={link}
         title={post.title}
+        onPlay={onPlay}
       />
     </div>
   );

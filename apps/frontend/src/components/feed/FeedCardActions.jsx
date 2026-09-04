@@ -21,8 +21,13 @@ import { usePlayer } from '../../context/PlayerContext';
 // menu (Open link, Cancel) rather than offering an action that would do
 // nothing.
 
-export default function FeedCardActions({ open, onClose, source, link, title }) {
+export default function FeedCardActions({ open, onClose, source, link, title, onPlay }) {
   const { playNow, enqueue } = usePlayer();
+  // Vertical-feed callers pass onPlay — it starts the feed-follow cursor
+  // (see useFeedCursor) so a later fullscreen swipe has this list to walk,
+  // not just this one track. Callers with no cursor of their own (Browse's
+  // horizontal strips) fall back to the plain playNow they always used.
+  const play = onPlay || (() => playNow(source));
 
   useEffect(() => {
     if (!open) return undefined;
@@ -62,7 +67,7 @@ export default function FeedCardActions({ open, onClose, source, link, title }) 
             type="button"
             role="menuitem"
             data-feed-action="play"
-            onClick={() => { playNow(source); onClose(); }}
+            onClick={() => { play(); onClose(); }}
             className={item}
           >
             <Play size={18} className="shrink-0" />
