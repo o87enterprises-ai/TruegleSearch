@@ -141,15 +141,14 @@ check(JSON.stringify(searchGeo.outer) === JSON.stringify(feedGeo.outer),
   `search ${JSON.stringify(searchGeo.outer)} vs feed ${JSON.stringify(feedGeo.outer)}`);
 check(feedGeo.shell, 'the feed uses the shared page shell');
 
-// Feed has no search bar any more (see the header note in FeedPage.jsx) —
-// deliberately, not a regression. `.max-w-4xl` is no longer a
-// search-bar-only selector on this page (FeedPage's own chrome row uses the
-// same rail width), so the old parity check against `searchGeo.inner` would
-// now silently compare the search bar to an unrelated row that just happens
-// to share a class — a coincidental pass, not a real one. A textarea is what
-// SearchBar actually renders, and is unambiguous either way.
-check(await page.locator('textarea').count() === 0,
-  'the search bar is gone from /feed — no textarea anywhere on the page');
+// The search bar is back (it searches THE FEEDS — see §5), and so is the
+// rail it sits in. `.max-w-4xl` is no longer a search-bar-only selector on
+// this page though (FeedPage's own chrome row uses the same rail width), so
+// the old `searchGeo.inner` parity check could pass on the wrong element
+// entirely. A textarea is what SearchBar actually renders, and is
+// unambiguous.
+check(await page.locator('textarea').count() === 1,
+  'the feed has its own search bar');
 // THE PILL STAYS, though — brand continuity and quick navigation, per the
 // owner. It just navigates immediately now instead of waiting on a submit
 // that no longer exists. PillModeRow's own button title always starts with
@@ -292,17 +291,22 @@ check(calls.filter((c) => c.path === '/api/social/feed').length === 0,
 // with things nobody asked for and gave no way to switch them off, because they
 // were not pills. One source connected means one source searched. Reddit is the
 // provider that is shut now, but the rule is the rule whichever way round it is.
-//
-// FORMERLY DERIVED FROM A TYPED SEARCH — the query box that produced it is
-// gone (see FeedPage.jsx's header note), so this now reads the arrival
-// request instead of a searched one. The rule under test is unchanged: the
-// request carries exactly the servers that are switched on, nothing smuggled
-// in and nothing missing.
 calls.length = 0;
-await openApp(page, `${BASE}/feed`);
-await until(() => calls.some((c) => c.path === '/api/social/feed'),
-  { what: 'the arrival request to check the platform set' });
+await page.fill('textarea', 'raspberry pi');
+await page.keyboard.press('Enter');
+await until(() => calls.some((c) => c.path === '/api/social/feed' && c.body?.query === 'raspberry pi'),
+  { what: 'the typed query to reach the feed' });
 const arrived = calls.filter((c) => c.path === '/api/social/feed');
+check(arrived.length > 0, 'typing searches the feed', `${arrived.length} requests`);
+check(arrived[0]?.body?.query === 'raspberry pi', '…for what was typed', arrived[0]?.body?.query);
+// THE BAR SEARCHES THE FEEDS, NOT THE WEB. Submitting must stay on /feed and
+// go to /api/social/feed — never /api/search, and never a navigation to the
+// web results page. Going to the web is what the pill is for (§6).
+check(new URL(page.url()).pathname === '/feed',
+  '…without leaving the feed page', page.url());
+check(!calls.some((c) => c.path === '/api/search'),
+  '…and without asking the web index for anything',
+  calls.map((c) => c.path).join(' '));
 // DERIVED FROM THE PAGE, not a hardcoded pair. This listed ['github',
 // 'hackernews'] and broke the moment five more keyless sources were added —
 // which is a test pinning today's provider roster rather than the rule. The
@@ -468,14 +472,21 @@ check(await sad.locator('text=Reddit turned that down.').count() > 0,
 check(await sad.evaluate(() => JSON.parse(localStorage.getItem('truegle_feed_connections') || '[]').length) === 0,
   '…and records no connection for a handshake that did not succeed');
 
-// ── an upstream that refuses says so ────────────────────────────────────────
+// ── an upstream that refuses greys out, where the sources are ───────────────
 //
-// This is the bug behind "the feed won't load". The route answers 200 with an
-// empty list and the reason in `errors`; the hook fetched that field and threw
-// it away, so a BLOCKED platform and a platform with nothing to show rendered
-// identically — a blank page. Worse, a failed platform reports a null cursor
-// exactly like an exhausted one, so the feed marked itself finished on page
-// one and the sentinel never asked again.
+// The underlying bug this guards is unchanged: the route answers 200 with an
+// empty list and the reason in `errors`, and the hook used to fetch that
+// field and throw it away — so a BLOCKED platform and a platform with
+// nothing to show rendered identically, as a blank page with nothing to
+// report.
+//
+// WHERE IT SURFACES CHANGED. It used to be an amber banner above the feed
+// quoting the upstream verbatim ("HTTP 403 — GitHub refused this request").
+// The owner's call: drop the banner. A status code is not something a
+// visitor can act on, and a page that leads with one reads as broken even
+// when the other fifteen sources worked. The same fact now greys the source
+// out in the Servers dropdown with "service coming soon" — next to the only
+// action available, which is switching it off.
 feedUpstreamFails = true;
 const ctxErr = await makeContext();
 const errPage = await ctxErr.newPage();
@@ -487,24 +498,28 @@ await errPage.addInitScript(() => {
 });
 await openApp(errPage, `${BASE}/feed`);
 
-// Wait for the PANEL, not for the page. openApp returns as soon as the app has
+// Wait for the ROW, not for the page. openApp returns as soon as the app has
 // rendered, which is well before the seeded connection's feed request has gone
-// out and come back — so reading this straight away caught an empty document
-// about one run in three. The old four-second sleep hid that by being longer
-// than the round trip, which is exactly the kind of thing a fixed sleep hides
-// until the day it does not.
-const reported = await until(async () => errPage.evaluate(() => {
-  const box = document.querySelector('[data-feed-upstream-errors]');
-  return box ? box.innerText.replace(/\s+/g, ' ').trim() : null;
-}), { what: 'the upstream error panel' }).catch(() => null);
-check(!!reported, 'a refused upstream is reported on the page, not swallowed');
-// `GitHub`, not `Github`. The panel used to `capitalize` the raw platform id,
-// which produced "Github" and "Hackernews" — machine-generated-looking, and
-// wrong in a way people notice.
-check(/GitHub/.test(reported || ''), '…naming the platform, spelled the way the platform spells it',
-  reported?.slice(0, 60));
-check(/403|refused/i.test(reported || ''),
-  '…and giving the upstream\'s actual reason', reported?.slice(0, 90));
+// out and come back — so reading this straight away caught the pre-failure
+// state about one run in three. The old four-second sleep hid that by being
+// longer than the round trip, which is exactly the kind of thing a fixed
+// sleep hides until the day it does not.
+await errPage.click('[data-feed-servers-toggle]');
+const downRow = await until(async () => errPage.evaluate(() => {
+  const el = document.querySelector('[data-feed-server="github"][data-down="yes"]');
+  return el ? { text: (el.textContent || '').replace(/\s+/g, ' ').trim(), title: el.getAttribute('title'), disabled: el.disabled } : null;
+}), { what: 'GitHub to grey out in the Servers dropdown' }).catch(() => null);
+check(!!downRow, 'a refused upstream greys out in the Servers list rather than being swallowed');
+check(downRow?.disabled === true, '…and is un-pressable while it is down');
+check(/coming soon/i.test(downRow?.title || ''),
+  '…saying "service coming soon" on hover, not an HTTP status', downRow?.title);
+check(/coming soon/i.test(downRow?.text || ''),
+  '…and on the row itself', downRow?.text?.slice(0, 80));
+// The banner is gone for good — a status code quoted at the top of a working
+// page is the thing this replaced.
+check(await errPage.locator('[data-feed-upstream-errors]').count() === 0,
+  '…and no verbose error banner is rendered above the feed any more');
+await errPage.keyboard.press('Escape');
 
 // ── 9. a fully-seen feed repeats rather than rendering blank ───────────────
 // LAST, deliberately. It reloads the page, and the page-one request counts in

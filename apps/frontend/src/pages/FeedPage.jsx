@@ -3,8 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader2, Plus, X } from 'lucide-react';
 import SearchPageShell from '../components/layout/SearchPageShell';
+import SearchBar from '../components/ui/SearchBar';
 import FeedCard from '../components/feed/FeedCards';
-import { PROVIDERS, byId, platformsFor, needsAuth, isConnectable } from '../config/socialProviders';
+import { PROVIDERS, platformsFor, needsAuth, isConnectable } from '../config/socialProviders';
 import FeedServers from '../components/feed/FeedServers';
 import FeedModeSelector from '../components/feed/FeedModeSelector';
 import FeedBrowse from '../components/feed/FeedBrowse';
@@ -34,14 +35,18 @@ const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 // The layout does not change between them, which is the point: this is the
 // search page with a different thing under the bar, not a second design.
 //
-// NO SEARCH BAR HERE ANY MORE, on purpose. It searched the feeds by typed
-// query — a capability this page has stopped offering, not moved elsewhere.
+// THE SEARCH BAR SEARCHES THE FEEDS, AND ONLY THE FEEDS. It is not a web
+// search box that happens to live here: submitting sends the query to
+// /api/social/feed across the servers switched on in the dropdown, and the
+// results replace the timeline in place. It never leaves the page and never
+// reaches the web index — going to the web is what the pill is for.
 //
-// THE COLOUR PILL STAYS, though — brand continuity across every search-family
-// page, and a quick way off Feed that costs nothing. It used to navigate only
-// via the search bar's own submit ("cycles, never navigates by itself" — see
-// PillModeRow's own header). With no bar to submit through, cycling it now
-// navigates immediately instead, same as FeedModeSelector already does.
+// THE COLOUR PILL navigates on the click now, rather than waiting for a
+// submit to carry it ("cycles, never navigates by itself" was the old rule —
+// see PillModeRow's own header). That split is deliberate: the bar means
+// "search what I am looking at", the pill means "take me somewhere else",
+// and neither can be mistaken for the other.
+//
 // EITHER WAY THE PLAYER QUEUE SURVIVES: PlayerContext is mounted once, above
 // <Routes> (App.jsx) — a route change is invisible to it. Only an explicit
 // stop/close touches what's playing or queued, and clicking a mode pill is
@@ -52,6 +57,8 @@ export default function FeedPage() {
   const location = useLocation();
   const { connections, ids, disconnect } = useSocialConnections();
   const { setPoppedOut } = usePlayer();
+  const [query, setQuery] = useState('');
+  const [submitted, setSubmitted] = useState('');
   const [busy, setBusy] = useState('');
   const [failed, setFailed] = useState('');
 
@@ -105,9 +112,9 @@ export default function FeedPage() {
     return platformsForCategory(openCategory, all);
   }, [activeIds.join(','), openCategory?.id]);
   const feed = useSocialFeed({
-    // The category's own seed topic, when one is open. There is no typed
-    // override any more — see the search bar removal below.
-    query: openCategory?.topic || '',
+    // An opened category with a topic seeds the query, unless the visitor has
+    // typed something — what they typed always wins over the category's seed.
+    query: submitted || openCategory?.topic || '',
     platforms,
     enabled: platforms.length > 0,
     // The aggregated timeline: one post from every source in turn rather than
@@ -139,10 +146,10 @@ export default function FeedPage() {
     window.location.assign(`${BACKEND}/api/social-auth/${id}/start?return=/feed`);
   }, []);
 
-  // The pill cycles and navigates in the same click — there is no submit
-  // step to defer to any more. 'yellow' is Feed, i.e. here already, so that
-  // one leg is a no-op; every other leg matches FeedModeSelector's own
-  // routes exactly.
+  // The pill cycles and navigates in the same click — the search bar is for
+  // searching the feeds, not for carrying a query somewhere else. 'yellow' is
+  // Feed, i.e. here already, so that leg is a no-op; every other leg matches
+  // FeedModeSelector's own routes exactly.
   const onPill = useCallback((next) => {
     if (next === 'yellow') return;
     if (next === 'black') { navigate('/chat'); return; }
@@ -150,36 +157,51 @@ export default function FeedPage() {
     navigate(`/search?mode=${next}`);
   }, [navigate]);
 
+  // SEARCHES THE FEEDS IN PLACE — never the web. `submitted` feeds straight
+  // back into useSocialFeed's query above, which asks /api/social/feed across
+  // the switched-on servers only.
+  const submit = useCallback(() => setSubmitted(query.trim()), [query]);
+
+  // Which sources answered with a failure this time round. Handed to
+  // FeedServers so those rows grey out and say "service coming soon" rather
+  // than the page shouting an HTTP status at somebody who cannot act on it.
+  const downProviders = useMemo(
+    () => (feed.platformErrors || []).map((e) => e.platform).filter(Boolean),
+    [feed.platformErrors],
+  );
+
+  const searchBar = (
+    <SearchBar
+      value={query}
+      showSearchButton={false}
+      showBiasedButton={false}
+      showUnbiasedButton={false}
+      showCategories={false}
+      onChange={setQuery}
+      onSubmit={submit}
+      onSearch={submit}
+      onClear={() => { setQuery(''); setSubmitted(''); }}
+      placeholder="Search these feeds…"
+    />
+  );
+
   return (
-    <SearchPageShell mode="yellow" pillMode="yellow" onPillSelect={onPill}>
+    <SearchPageShell mode="yellow" pillMode="yellow" onPillSelect={onPill} searchBar={searchBar}>
       {failed && (
         <div className="max-w-4xl mx-auto mb-4 px-4 py-3 rounded-xl bg-red-950/30 border border-red-500/30 text-red-200 text-sm">
           {failed}
         </div>
       )}
 
-      {/* WHY THE FEED IS EMPTY, when it is.
-          The server reports per-platform failures and this page used to
-          discard them, so "Reddit refused this request" and "Reddit had
-          nothing to show" both rendered as a blank page. An empty feed with
-          no explanation is unreportable — there is nothing for anyone to
-          describe except the absence. */}
-      {(feed.platformErrors || []).length > 0 && (
-        <div
-          data-feed-upstream-errors=""
-          className="max-w-4xl mx-auto mb-4 px-4 py-3 rounded-xl bg-amber-950/25 border border-amber-500/30 text-amber-100/90 text-sm"
-        >
-          {feed.platformErrors.map(({ platform, reason }) => (
-            <p key={platform} className="leading-snug">
-              {/* The provider's own name, not `capitalize` on the id — that
-                  rendered "Github" and "Hackernews", which is how a page
-                  starts looking machine-generated. */}
-              <span className="font-semibold">{byId(platform)?.label || platform}</span> didn&apos;t answer —{' '}
-              <span className="text-amber-200/70">{reason}</span>
-            </p>
-          ))}
-        </div>
-      )}
+      {/* A FAILING UPSTREAM IS SHOWN WHERE THE SOURCES ARE, NOT AS A BANNER.
+          This used to be an amber panel quoting each upstream's own words
+          ("HTTP 403 — GitHub refused this request") above the feed. That is
+          the right information in the wrong place and the wrong voice: a
+          visitor cannot act on a status code, and it made a working page
+          read as broken. The same fact now greys the source out inside the
+          Servers dropdown with "service coming soon" on it, which is where
+          somebody would go to do the only thing they can do about it —
+          switch it off. See `downProviders` above and FeedServers. */}
 
       {/* Which state the page is in, for the browser test to wait on. Timing
           a cold boot with a fixed sleep is how a suite starts failing on a
@@ -214,7 +236,7 @@ export default function FeedPage() {
               );
             })}
           </div>
-          <FeedServers selected={servers} onChange={setServers} />
+          <FeedServers selected={servers} onChange={setServers} down={downProviders} />
         </div>
       </div>
 

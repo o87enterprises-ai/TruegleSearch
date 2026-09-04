@@ -26,8 +26,22 @@ import { PROVIDERS, isConnectable } from '../../config/socialProviders';
 // A source that cannot work yet is still LISTED, greyed, with its real reason
 // on it. "Why is X missing" is a worse question than "why is X grey", because
 // only the second one has a visible answer.
+//
+// ── TWO WAYS TO BE UNAVAILABLE, ONE APPEARANCE ──────────────────────────────
+//
+// `isConnectable` is the STATIC answer: this source has no way to serve a
+// feed at all. `down` is the LIVE one: it answered this request with a
+// failure. They used to be presented completely differently — the first
+// greyed the row here, the second raised an amber panel above the feed
+// quoting the upstream's own words ("HTTP 403 — GitHub refused this
+// request"). That panel is gone: a status code is not something a visitor
+// can act on, and a page that shouts one reads as broken even when
+// everything else on it worked. A source that did not answer now greys out
+// here, the same as one that never could, and says "service coming soon" —
+// which is both true and the only thing worth saying to somebody whose only
+// available action is to switch it off.
 
-export default function FeedServers({ selected = [], onChange }) {
+export default function FeedServers({ selected = [], onChange, down = [] }) {
   const [open, setOpen] = useState(false);
   const box = useRef(null);
 
@@ -46,7 +60,8 @@ export default function FeedServers({ selected = [], onChange }) {
     };
   }, [open]);
 
-  const available = PROVIDERS.filter((p) => isConnectable(p.id));
+  const downSet = new Set(down);
+  const available = PROVIDERS.filter((p) => isConnectable(p.id) && !downSet.has(p.id));
   const toggle = (id) => {
     const has = selected.includes(id);
     // Never let the last one be switched off. An empty selection is not a
@@ -90,8 +105,12 @@ export default function FeedServers({ selected = [], onChange }) {
           className="absolute z-30 mt-1.5 w-64 max-h-80 overflow-y-auto rounded-xl border border-white/15 bg-[#0b0e12]/95 backdrop-blur-sm p-1 shadow-2xl"
         >
           {PROVIDERS.map((p) => {
-            const usable = isConnectable(p.id);
+            const isDown = downSet.has(p.id);
+            const usable = isConnectable(p.id) && !isDown;
             const on = selected.includes(p.id);
+            // "Service coming soon" for a source that is down right now, its
+            // own standing reason for one that never could serve a feed.
+            const note = isDown ? 'Service coming soon' : p.note;
             return (
               <button
                 key={p.id}
@@ -100,9 +119,10 @@ export default function FeedServers({ selected = [], onChange }) {
                 aria-selected={on}
                 data-feed-server={p.id}
                 data-usable={usable ? 'yes' : 'no'}
+                data-down={isDown ? 'yes' : undefined}
                 disabled={!usable}
                 onClick={() => usable && toggle(p.id)}
-                title={p.note}
+                title={note}
                 className={`w-full flex items-start gap-2 px-2.5 py-2 rounded-lg text-left transition-colors ${
                   usable ? 'hover:bg-white/[0.07] cursor-pointer' : 'opacity-40 cursor-not-allowed'
                 }`}
@@ -113,7 +133,7 @@ export default function FeedServers({ selected = [], onChange }) {
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm text-white/90 truncate">{p.label}</span>
-                  <span className="block text-[10px] leading-tight text-white/40 truncate">{p.note}</span>
+                  <span className="block text-[10px] leading-tight text-white/40 truncate">{note}</span>
                 </span>
                 {on && <Check size={14} className="text-emerald-400 shrink-0 mt-0.5" />}
               </button>
