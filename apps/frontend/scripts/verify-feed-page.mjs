@@ -141,21 +141,21 @@ check(JSON.stringify(searchGeo.outer) === JSON.stringify(feedGeo.outer),
   `search ${JSON.stringify(searchGeo.outer)} vs feed ${JSON.stringify(feedGeo.outer)}`);
 check(feedGeo.shell, 'the feed uses the shared page shell');
 
-// Feed has no search bar or mode pill any more (see the header note in
-// FeedPage.jsx) — deliberately, not a regression. `.max-w-4xl` is no longer
-// a search-bar-only selector on this page (FeedPage's own chrome row uses
-// the same rail width), so the old parity check against `searchGeo.inner`
-// would now silently compare the search bar to an unrelated row that just
-// happens to share a class — a coincidental pass, not a real one. A
-// textarea is what SearchBar actually renders, and is unambiguous either
-// way.
+// Feed has no search bar any more (see the header note in FeedPage.jsx) —
+// deliberately, not a regression. `.max-w-4xl` is no longer a
+// search-bar-only selector on this page (FeedPage's own chrome row uses the
+// same rail width), so the old parity check against `searchGeo.inner` would
+// now silently compare the search bar to an unrelated row that just happens
+// to share a class — a coincidental pass, not a real one. A textarea is what
+// SearchBar actually renders, and is unambiguous either way.
 check(await page.locator('textarea').count() === 0,
   'the search bar is gone from /feed — no textarea anywhere on the page');
-// PillModeRow's own button title always starts with this (PillModeRow.jsx;
-// the rest varies with the active mode) — a class-based selector risks a
-// false match against something else that happens to share a utility class.
-check(await page.locator('button[title^="Click to switch mode"]').count() === 0,
-  '…and the mode pill above it is gone with it (FeedModeSelector is the only mode-switcher now)');
+// THE PILL STAYS, though — brand continuity and quick navigation, per the
+// owner. It just navigates immediately now instead of waiting on a submit
+// that no longer exists. PillModeRow's own button title always starts with
+// this regardless of active mode (PillModeRow.jsx).
+check(await page.locator('button[title^="Click to switch mode"]').count() === 1,
+  'the mode pill is still on the page, brand continuity across the search family');
 
 // ── 2. the servers list is honest about what cannot work ───────────────────
 // THIS MOVED. It used to read the arrival screen's provider grid, but the
@@ -355,10 +355,37 @@ check(arrived.every((c) => (c.body.platforms || []).includes('hackernews')),
   '…having already been in the feed request, since a keyless source needs no permission',
   JSON.stringify(arrived[0]?.body?.platforms));
 
-// ── 6. removed — the mode pill and the search bar it depended on are both
-// gone from /feed. See §1's absence checks and FeedPage.jsx's header note.
-// FeedModeSelector (already covered implicitly — its buttons are what §10
-// clicks) is the only mode-switcher here now.
+// ── 6. the mode pill navigates immediately, without losing the player ──────
+// REVERSED from the old rule on purpose. It used to cycle only, and wait for
+// the search bar's own submit to actually go anywhere — that submit no
+// longer exists (see FeedPage.jsx's header note), so the pill would be a
+// colour-cycling control that did nothing if it kept the old behaviour. The
+// owner's call: keep the pill (brand continuity, quick navigation), make it
+// navigate on the click.
+//
+// THE OTHER HALF OF THE POINT: it must not cost the player anything.
+// PlayerContext lives above <Routes>, so a route change is invisible to it —
+// but that is exactly the kind of thing a regression could quietly break
+// (an effect firing on unmount, say), so it is asserted here rather than
+// assumed. Seeded directly into the persisted queue rather than built by
+// clicking through the UI — this section is about the pill, not about how a
+// queue gets built.
+await page.evaluate(() => {
+  localStorage.setItem('truegle_player_queue_v2', JSON.stringify({
+    current: null,
+    queue: [{ kind: 'youtube', src: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', title: 'Queued track' }],
+    history: [],
+  }));
+});
+await openApp(page, `${BASE}/feed`);
+await page.click('button[title^="Click to switch mode"]');
+await until(() => new URL(page.url()).pathname !== '/feed',
+  { what: 'the pill click to navigate on its own, with no submit step' });
+check(new URL(page.url()).pathname === '/chat',
+  'clicking the pill from Feed advances the cycle straight to Chat', page.url());
+check(await page.evaluate(() => JSON.parse(localStorage.getItem('truegle_player_queue_v2') || '{}').queue?.length) === 1,
+  '…and the queued track is still there — the pill navigates, it does not touch the player');
+await openApp(page, `${BASE}/feed`);
 
 // ── 7. a fresh browser gets a feed, and no account switched on for it ──────
 // REVERSED, for the same reason as §3. This asserted that a browser which had

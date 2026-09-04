@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader2, Plus, X } from 'lucide-react';
 import SearchPageShell from '../components/layout/SearchPageShell';
@@ -35,13 +35,20 @@ const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 // search page with a different thing under the bar, not a second design.
 //
 // NO SEARCH BAR HERE ANY MORE, on purpose. It searched the feeds by typed
-// query — a capability this page has stopped offering, not moved elsewhere —
-// and the pill above it (`PillModeRow`) only ever navigated by way of the
-// bar's own submit, so keeping the pill without the bar would have left a
-// colour-cycling control that did nothing. `FeedModeSelector` below already
-// covers Feed/Tube/Web/Chat navigation on its own, with no submit step.
+// query — a capability this page has stopped offering, not moved elsewhere.
+//
+// THE COLOUR PILL STAYS, though — brand continuity across every search-family
+// page, and a quick way off Feed that costs nothing. It used to navigate only
+// via the search bar's own submit ("cycles, never navigates by itself" — see
+// PillModeRow's own header). With no bar to submit through, cycling it now
+// navigates immediately instead, same as FeedModeSelector already does.
+// EITHER WAY THE PLAYER QUEUE SURVIVES: PlayerContext is mounted once, above
+// <Routes> (App.jsx) — a route change is invisible to it. Only an explicit
+// stop/close touches what's playing or queued, and clicking a mode pill is
+// neither.
 
 export default function FeedPage() {
+  const navigate = useNavigate();
   const location = useLocation();
   const { connections, ids, disconnect } = useSocialConnections();
   const { setPoppedOut } = usePlayer();
@@ -132,8 +139,19 @@ export default function FeedPage() {
     window.location.assign(`${BACKEND}/api/social-auth/${id}/start?return=/feed`);
   }, []);
 
+  // The pill cycles and navigates in the same click — there is no submit
+  // step to defer to any more. 'yellow' is Feed, i.e. here already, so that
+  // one leg is a no-op; every other leg matches FeedModeSelector's own
+  // routes exactly.
+  const onPill = useCallback((next) => {
+    if (next === 'yellow') return;
+    if (next === 'black') { navigate('/chat'); return; }
+    if (next === 'tube') { navigate('/feed/tube'); return; }
+    navigate(`/search?mode=${next}`);
+  }, [navigate]);
+
   return (
-    <SearchPageShell mode="yellow">
+    <SearchPageShell mode="yellow" pillMode="yellow" onPillSelect={onPill}>
       {failed && (
         <div className="max-w-4xl mx-auto mb-4 px-4 py-3 rounded-xl bg-red-950/30 border border-red-500/30 text-red-200 text-sm">
           {failed}
@@ -168,10 +186,9 @@ export default function FeedPage() {
           slower machine for reasons that have nothing to do with the code. */}
       <div data-feed-state={platforms.length ? 'connected' : 'arrival'} hidden />
 
-      {/* THE CHROME: which mode this is, which view is open, and which
-          servers feed the timeline. No search bar above this any more — see
-          the header note — so this row is the top of the page now, not a
-          second row under one. */}
+      {/* THE CHROME: which view is open, and which servers feed the
+          timeline. Sits directly under the pill now — no search bar row
+          between them any more, see the header note. */}
       <div className="max-w-4xl mx-auto mb-4 flex flex-wrap items-center justify-between gap-2">
         <FeedModeSelector active="feed" />
         <div className="flex items-center gap-2">
