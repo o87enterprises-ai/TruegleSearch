@@ -303,59 +303,24 @@ export function getPlayable(url) {
       }
       return null;
     }
-    // Instagram / Facebook / Truth Social → the platforms' own script-free
-    // post embeds, the same family as the X block above: an iframe served
-    // directly by the platform, no oEmbed key, no widgets.js. The rule that
-    // ruled out Instagram/Facebook Reels a few lines up (line 230) was about
-    // their oEmbed API specifically, which IS gated behind app review — this
-    // is a different, older door: the plain embed iframe every "embed this
-    // post" button on the web already points at, unauthenticated.
+    // ── META PLAYS NOWHERE BUT META ─────────────────────────────────────────
     //
-    // UNVERIFIED FROM THIS ENVIRONMENT. Every outbound host is blocked by the
-    // sandbox's egress proxy, Instagram/Facebook/Truth Social included, so
-    // these three are written to the platforms' documented URL shape and have
-    // never once been loaded from here — the same position the Reddit OAuth
-    // code was in before an owner ran it for real. Do not trust these as
-    // working until scripts/verify-feed-embeds.mjs has been run somewhere
-    // that can actually reach them.
+    // Instagram and Facebook USED to be classified here, pointed at the
+    // platforms' own keyless post embeds (/embed/captioned/ and
+    // plugins/post.php). Written to the documented shape, never once loaded
+    // from this sandbox — every outbound host is blocked here — and when an
+    // owner finally ran them on a real device they did not render. The
+    // owner's call, and the right one: stop trying.
     //
-    // Same IP-exposure note as X above: the iframe is served BY the platform,
-    // so it sees the viewer's IP. Not a new category of cost, but real.
+    // So there is deliberately NO RULE for either. They stay in the feed as
+    // cards, they are simply never playable, which means no play badge, no
+    // "Open in app", and no embed to fail in front of somebody. Following one
+    // goes to Meta's own site through the leaving-Truegle warning — see
+    // utils/externalSites.js — because that is what actually happens and
+    // saying so is better than a broken frame that implies otherwise.
     //
-    // Needs frame-src/child-src entries in public/_headers for all three.
-    if (host === 'instagram.com' || host.endsWith('.instagram.com')) {
-      // Only a post or reel URL carries a shortcode. A profile root has
-      // nothing to embed, and returning null for it is correct, not a gap.
-      const m = /^\/(p|reel)\/([A-Za-z0-9_-]{5,15})/.exec(u.pathname);
-      if (!m) return null;
-      return {
-        kind: 'instagram',
-        src: `https://www.instagram.com/${m[1]}/${m[2]}/embed/captioned/`,
-        ...(vertical ? { vertical: true } : {}),
-      };
-    }
-    if (host === 'facebook.com' || host.endsWith('.facebook.com') || host === 'fb.watch') {
-      // Meta's plugin embed is shaped differently from every other rule in
-      // this file: it takes the ORIGINAL page URL as a query parameter rather
-      // than rewriting the path. video.php for a video, post.php otherwise —
-      // both keyless, both script-free. A bare profile or page root carries no
-      // id in any of these shapes, so it is refused rather than guessed at.
-      // Trailing-slash tolerant: Facebook's own share sheet hands out both
-      // /watch and /watch/ for the same page, and an exact-equality check
-      // against only one of them silently refused the other.
-      const isVideoUrl = /\/(?:[^/]+\/videos|reel)\/\d+/.test(u.pathname)
-        || (/^\/watch\/?$/.test(u.pathname) && /^\d+$/.test(u.searchParams.get('v') || ''))
-        || host === 'fb.watch';
-      const isPostUrl = /\/[^/]+\/posts\/\d+/.test(u.pathname)
-        || (u.pathname === '/permalink.php' && /^\d+$/.test(u.searchParams.get('story_fbid') || ''));
-      if (!isVideoUrl && !isPostUrl) return null;
-      return {
-        kind: 'facebook',
-        src: `https://www.facebook.com/plugins/${isVideoUrl ? 'video' : 'post'}.php`
-          + `?href=${encodeURIComponent(url)}&show_text=false`,
-        ...(vertical ? { vertical: true } : {}),
-      };
-    }
+    // DO NOT RE-ADD A META EMBED without loading it on a real device first.
+    // Both were written from the documentation and both were wrong.
     if (host === 'truthsocial.com' || host.endsWith('.truthsocial.com')) {
       // Truth Social runs Mastodon/Rebased software under its own skin, so it
       // carries the same /@user/<id>/embed route every Mastodon instance does.

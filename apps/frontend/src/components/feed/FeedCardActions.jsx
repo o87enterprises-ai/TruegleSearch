@@ -1,7 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Play, ListPlus, ExternalLink, X } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
+import ExternalSiteWarning from './ExternalSiteWarning';
+import { gatedSite } from '../../utils/externalSites';
 
 // The action sheet a tapped feed card opens: Open in app / Add to queue /
 // Open link. Three actions, always in that order, always the same three
@@ -23,6 +25,8 @@ import { usePlayer } from '../../context/PlayerContext';
 
 export default function FeedCardActions({ open, onClose, source, link, title, onPlay }) {
   const { playNow, enqueue, requestFullscreen } = usePlayer();
+  const [warnOpen, setWarnOpen] = useState(false);
+  const gated = gatedSite(link);
   // Vertical-feed callers pass onPlay — it starts the feed-follow cursor
   // (see useFeedCursor) so a later fullscreen swipe has this list to walk,
   // not just this one track. Callers with no cursor of their own (Browse's
@@ -98,17 +102,23 @@ export default function FeedCardActions({ open, onClose, source, link, title, on
           </button>
         )}
 
+        {/* A gated site (Facebook, Instagram — see utils/externalSites.js)
+            gets the leaving-Truegle warning instead of an immediate jump.
+            Still an <a> either way, so the URL is visible on hover and
+            middle-click behaves; the gated one just intercepts the plain
+            left-click, which is the one that would otherwise leave without
+            saying anything. */}
         <a
           href={link}
-          target="_blank"
+          target={gated ? undefined : '_blank'}
           rel="noopener noreferrer"
           role="menuitem"
           data-feed-action="open-link"
-          onClick={onClose}
+          onClick={gated ? (e) => { e.preventDefault(); setWarnOpen(true); } : onClose}
           className={item}
         >
           <ExternalLink size={18} className="shrink-0" />
-          Open link
+          {gated ? `Open on ${gated}` : 'Open link'}
         </a>
 
         <button
@@ -120,6 +130,18 @@ export default function FeedCardActions({ open, onClose, source, link, title, on
           Cancel
         </button>
       </div>
+
+      {/* Rendered inside the sheet's own portal, and layered above it — the
+          sheet stays open behind the warning so "Stay here" lands back on the
+          menu rather than dumping the reader out to the feed. */}
+      {gated && (
+        <ExternalSiteWarning
+          open={warnOpen}
+          site={gated}
+          url={link}
+          onClose={() => { setWarnOpen(false); onClose(); }}
+        />
+      )}
     </div>,
     document.body,
   );

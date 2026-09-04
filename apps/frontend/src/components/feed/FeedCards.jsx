@@ -4,6 +4,8 @@ import { PROVIDERS } from '../../config/socialProviders';
 import { getPlayable } from '../../utils/videoEmbed';
 import { usePlayer } from '../../context/PlayerContext';
 import FeedCardActions from './FeedCardActions';
+import ExternalSiteWarning from './ExternalSiteWarning';
+import { gatedSite } from '../../utils/externalSites';
 
 // One post, one card, per platform.
 //
@@ -249,23 +251,39 @@ function classify(post) {
  *  always did — FeedCardActions carries that fallback. */
 export default function FeedCard({ post, focused = false, onPlay }) {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [warnOpen, setWarnOpen] = useState(false);
   const { current, poppedOut, playNow } = usePlayer();
 
   const playable = useMemo(() => classify(post), [post]);
+  // Facebook and Instagram cannot be read in-app at all, so following one
+  // really does leave Truegle — said once, before it happens. See
+  // utils/externalSites.js.
+  const gated = gatedSite(post?.permalink || post?.url);
 
   if (!post?.platform) return null;
   const Card = BY_PLATFORM[post.platform] || GenericCard;
 
   if (!playable) {
     // Still enlarges on focus — that rhythm is a feed-wide thing, not a
-    // video-only one — but no click interception, no badge, no sheet: a
-    // plain link to wherever the post points, same as it has always been.
+    // video-only one — but no badge and no sheet: a plain link to wherever
+    // the post points, same as it has always been. The ONE exception is a
+    // gated site, where the click is intercepted to explain what following
+    // it costs before it costs it.
     return (
       <div
         data-feed-focused={focused ? 'yes' : undefined}
         className={`transition-transform duration-200 ${focused ? 'z-10 scale-[1.02]' : ''}`}
+        onClick={gated ? (e) => { e.preventDefault(); setWarnOpen(true); } : undefined}
       >
         <Card post={post} />
+        {gated && (
+          <ExternalSiteWarning
+            open={warnOpen}
+            site={gated}
+            url={post.permalink || post.url}
+            onClose={() => setWarnOpen(false)}
+          />
+        )}
       </div>
     );
   }

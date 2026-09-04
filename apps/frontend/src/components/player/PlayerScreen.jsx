@@ -51,7 +51,26 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   }
 
   const { kind, src, title } = source;
-  const isVideoIframe = ['youtube', 'vimeo', 'tiktok', 'dailymotion', 'rumble', 'odysee', 'reddit'].includes(kind);
+  // EVERY KIND THAT IS AN IFRAME HAS TO BE LISTED HERE. This list is the only
+  // thing standing between an embed and the <audio> fallback at the bottom of
+  // this component, and that fallback fails SILENTLY-ish: it hands an HTML
+  // embed page to an <audio> element, which renders a dead transport and
+  // plays nothing.
+  //
+  // That is exactly what happened to twitter/truthsocial — and to
+  // instagram/facebook before they were dropped (see videoEmbed.js). Four
+  // kinds were added to getPlayable() without being added here, so every one
+  // of them classified as playable, showed a play badge, mounted... an audio
+  // element pointed at a web page. Reported as "the inline iframe centered
+  // player is not properly firing", and it was not the iframe: there was no
+  // iframe. ADD THE KIND HERE IN THE SAME COMMIT AS THE getPlayable() RULE.
+  const isVideoIframe = ['youtube', 'vimeo', 'tiktok', 'dailymotion', 'rumble', 'odysee', 'reddit',
+    'twitter', 'truthsocial'].includes(kind);
+  // Post embeds are CARDS, not video players — a tweet or a Truth is text,
+  // sized to its own content, with no controls to reach. Same reasoning as
+  // the TikTok note below: err tall and lose a band of background rather
+  // than err short and clip the post.
+  const isPostCard = kind === 'twitter' || kind === 'truthsocial';
   const isSoundcloud = kind === 'soundcloud';
   // Shorts / Reels / TikToks are shot 9:16. Boxing them into a 16:9 frame
   // wastes most of the player and shrinks the clip to a stamp.
@@ -70,7 +89,9 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // 9:16. An approximation on purpose — the caption is text and re-wraps, so the
   // true height moves with the words. Erring slightly tall costs a thin band of
   // background; erring short costs the controls.
-  const ratio = kind === 'tiktok' ? '9 / 21' : (vertical ? '9 / 16' : '16 / 9');
+  const ratio = kind === 'tiktok' ? '9 / 21'
+    : isPostCard ? '3 / 4'
+      : (vertical ? '9 / 16' : '16 / 9');
 
   // A 9:16 clip is ~1.78× its width tall — at phone width that is taller than
   // the whole viewport, which pushed the transport row off the bottom of the
