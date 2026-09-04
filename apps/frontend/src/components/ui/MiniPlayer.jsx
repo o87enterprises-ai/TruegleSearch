@@ -513,7 +513,13 @@ export default function MiniPlayer() {
         overflowY: 'auto',
       }
       : {
-        left: 16,
+        // The default corner, before anyone has ever dragged the player —
+        // `pos` stays null until a drag sets it (see the resize handler
+        // above), so this is a ONE-TIME default, not a re-applied rule. It
+        // used to be bottom-left; `right` rather than a computed `left` is
+        // what actually anchors the box to the corner regardless of its own
+        // width, without touching the drag-and-remember behavior below it.
+        right: 16,
         bottom: liftedBottom,
         width,
         maxHeight: `${Math.max(140, Math.round(visible - liftedBottom - 16))}px`,

@@ -45,8 +45,13 @@ export const PROVIDERS = [
     // That also makes the 403 our deployment gets on keyless reads permanent:
     // Reddit blocks datacenter IPs, and the authenticated path that would lift
     // it is the one now closed to us. We do not route around that.
-    status: 'soon',
-    note: 'Reddit closed its API to everyone but moderation tools',
+    // STILL TRUE that Reddit's Data API is shut to us — that has not changed and
+    // is not being re-litigated. What changed is that the feed stopped needing
+    // it: the backend tries the keyless JSON endpoints first (which work from a
+    // laptop and 403 from the deployment), then falls back to reading Reddit's
+    // public pages through our own search index, like any other public site.
+    status: 'open',
+    note: 'Public posts, via search — no account',
   },
   // PUBLIC SOURCES. These used to be smuggled in under Reddit — see
   // BACKEND_PLATFORMS below for what that did — and they are their own pills
@@ -118,54 +123,68 @@ export const PROVIDERS = [
     id: 'pinterest',
     label: 'Pinterest',
     colour: '#E60023',
-    status: 'soon',
-    note: 'Needs app review before it can read your boards',
+    status: 'open',
+    note: 'Public pins, via search — no account',
   },
+  // ── READ THROUGH SEARCH, NOT THROUGH AN API ───────────────────────────────
+  //
+  // These six carried notes explaining an API limitation, and every one of
+  // those notes was true: X reads start at $200/mo, Instagram's Basic Display
+  // shut down in 2024, Facebook will not grant user_posts to non-partners,
+  // TikTok's Display API returns only your own posts. None of that changed.
+  //
+  // What changed is that we stopped asking for an API. Each of these platforms
+  // still publishes pages a signed-out visitor can read and a search engine
+  // indexes, and Truegle already runs a SearXNG instance that queries those
+  // indexes. So the feed reads them the way a person following a link does —
+  // no key, no account, no approval queue, and nothing gated behind a login.
+  //
+  // The honest caveat, which the note carries: how much any one of them yields
+  // depends on how much of that platform is publicly indexed. X post pages are
+  // indexed heavily. Instagram and Facebook keep most content behind a login,
+  // so expect less from them — the round-robin gives the slot to another source
+  // rather than padding the timeline.
   {
     id: 'x',
     label: 'X',
     colour: '#FFFFFF',
-    status: 'soon',
-    // The free tier is effectively write-only; meaningful reads start at $200
-    // a month, which is revenue-gated per the $0 budget.
-    note: 'Read access starts at $200/mo — waiting on revenue',
+    status: 'open',
+    note: 'Public posts, via search — no account',
   },
   {
     id: 'truthsocial',
     label: 'Truth Social',
     colour: '#5448EE',
-    // It is a Mastodon fork, so it LOOKS like it should work exactly the way
-    // Mastodon does above — which is why this needs saying rather than being
-    // left off the list. It gates the public timeline behind authentication and
-    // its terms forbid automated access, so the one open door in the software
-    // is shut in the deployment.
-    status: 'soon',
-    note: 'Public timeline needs an account; their terms forbid automated reading',
+    status: 'open',
+    note: 'Public posts, via search — no account',
   },
   {
     id: 'tiktok',
     label: 'TikTok',
     colour: '#69C9D0',
-    status: 'soon',
-    // The Display API returns the logged-in user's OWN videos. That is not a
-    // feed, and calling it one on the pill would be a lie.
-    note: 'Their API returns only your own posts, not a feed',
+    status: 'open',
+    note: 'Public videos, via search — no account',
   },
   {
     id: 'instagram',
     label: 'Instagram',
     colour: '#E1306C',
-    status: 'soon',
-    // Basic Display shut down in Dec 2024. Graph needs a Professional account
-    // plus a linked Page plus review, and still will not hand over a home feed.
-    note: 'Basic Display shut down in 2024; Graph will not serve a home feed',
+    status: 'open',
+    note: 'Public posts only — most of Instagram is behind a login',
   },
   {
     id: 'facebook',
     label: 'Facebook',
     colour: '#1877F2',
-    status: 'soon',
-    note: 'user_posts is not granted to non-partners',
+    status: 'open',
+    note: 'Public posts only — most of Facebook is behind a login',
+  },
+  {
+    id: 'rumble',
+    label: 'Rumble',
+    colour: '#85C742',
+    status: 'open',
+    note: 'Public videos, via search — no account',
   },
 ];
 
@@ -201,6 +220,7 @@ export const needsAuth = (id) => byId(id)?.status === 'demo';
  */
 export const BACKEND_PLATFORMS = {
   reddit: ['reddit'],
+  pinterest: ['pinterest'],
   hackernews: ['hackernews'],
   github: ['github'],
   news: ['news'],
@@ -208,6 +228,13 @@ export const BACKEND_PLATFORMS = {
   mastodon: ['mastodon'],
   bluesky: ['bluesky'],
   lemmy: ['lemmy'],
+  // Read through SearXNG rather than an API — see the block above.
+  x: ['x'],
+  instagram: ['instagram'],
+  facebook: ['facebook'],
+  tiktok: ['tiktok'],
+  rumble: ['rumble'],
+  truthsocial: ['truthsocial'],
 };
 
 export const platformsFor = (connectedIds = []) => [

@@ -114,6 +114,18 @@ const KEY_RULES = [
   // A Reddit post is identified by its post id, which is the same in the
   // permalink and in the redditmedia embed we build from it.
   [/redd(?:it|itmedia)\.com\/r\/[A-Za-z0-9_]+\/comments\/([a-z0-9]{4,10})/i, 'reddit'],
+  // Matches both the original post URL and our own embed src — the shortcode
+  // is unchanged either way, so one rule covers both.
+  [/instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]{5,15})/i, 'instagram'],
+  // Facebook's embed src carries the real id only inside an encoded `href=`
+  // query param, which this table can't decode — so this rule is written
+  // against the ORIGINAL url shape instead. mediaKey() already tries
+  // input.pageUrl as a second pass when input.src doesn't match anything,
+  // which is exactly what makes this work: the src won't match, the pageUrl
+  // will. Deliberately does not capture the page/user slug — see
+  // urlFromKey() below for why that matters.
+  [/facebook\.com\/(?:[^/]+\/videos\/|watch\/?\?v=|reel\/|[^/]+\/posts\/|permalink\.php\?story_fbid=)(\d+)/i, 'facebook'],
+  [/truthsocial\.com\/(@[A-Za-z0-9_.]+\/\d+)/i, 'truthsocial'],
 ];
 
 export function mediaKey(input) {
@@ -164,6 +176,13 @@ export function urlFromKey(key) {
     // own pageUrl for that.
     case 'reddit': return `https://www.reddit.com/comments/${id}`;
     case 'soundcloud': return `https://soundcloud.com/${id}`;
+    case 'instagram': return `https://www.instagram.com/p/${id}/`;
+    case 'truthsocial': return `https://truthsocial.com/${id}`;
+    // No case for 'facebook': the key rule above deliberately captures only
+    // the numeric id, never the page/user slug a Facebook URL also needs —
+    // there is no universal id-only redirect the way Reddit's bare comment
+    // path has, so there is nothing honest to rebuild here. The pool row
+    // keeps its own pageUrl for that, same reasoning as the Reddit case above.
     default: return null;
   }
 }
@@ -186,6 +205,8 @@ function isVerticalSource(url) {
     const host = u.hostname.replace(/^www\./, '');
     if ((host === 'youtube.com' || host.endsWith('.youtube.com')) && u.pathname.startsWith('/shorts/')) return true;
     if (host === 'tiktok.com' || host.endsWith('.tiktok.com')) return true;
+    if ((host === 'instagram.com' || host.endsWith('.instagram.com')) && u.pathname.startsWith('/reel/')) return true;
+    if ((host === 'facebook.com' || host.endsWith('.facebook.com')) && u.pathname.startsWith('/reel/')) return true;
     return false;
   } catch {
     return false;
@@ -281,6 +302,65 @@ export function getPlayable(url) {
         };
       }
       return null;
+    }
+    // Instagram / Facebook / Truth Social → the platforms' own script-free
+    // post embeds, the same family as the X block above: an iframe served
+    // directly by the platform, no oEmbed key, no widgets.js. The rule that
+    // ruled out Instagram/Facebook Reels a few lines up (line 230) was about
+    // their oEmbed API specifically, which IS gated behind app review — this
+    // is a different, older door: the plain embed iframe every "embed this
+    // post" button on the web already points at, unauthenticated.
+    //
+    // UNVERIFIED FROM THIS ENVIRONMENT. Every outbound host is blocked by the
+    // sandbox's egress proxy, Instagram/Facebook/Truth Social included, so
+    // these three are written to the platforms' documented URL shape and have
+    // never once been loaded from here — the same position the Reddit OAuth
+    // code was in before an owner ran it for real. Do not trust these as
+    // working until scripts/verify-feed-embeds.mjs has been run somewhere
+    // that can actually reach them.
+    //
+    // Same IP-exposure note as X above: the iframe is served BY the platform,
+    // so it sees the viewer's IP. Not a new category of cost, but real.
+    //
+    // Needs frame-src/child-src entries in public/_headers for all three.
+    if (host === 'instagram.com' || host.endsWith('.instagram.com')) {
+      // Only a post or reel URL carries a shortcode. A profile root has
+      // nothing to embed, and returning null for it is correct, not a gap.
+      const m = /^\/(p|reel)\/([A-Za-z0-9_-]{5,15})/.exec(u.pathname);
+      if (!m) return null;
+      return {
+        kind: 'instagram',
+        src: `https://www.instagram.com/${m[1]}/${m[2]}/embed/captioned/`,
+        ...(vertical ? { vertical: true } : {}),
+      };
+    }
+    if (host === 'facebook.com' || host.endsWith('.facebook.com') || host === 'fb.watch') {
+      // Meta's plugin embed is shaped differently from every other rule in
+      // this file: it takes the ORIGINAL page URL as a query parameter rather
+      // than rewriting the path. video.php for a video, post.php otherwise —
+      // both keyless, both script-free. A bare profile or page root carries no
+      // id in any of these shapes, so it is refused rather than guessed at.
+      // Trailing-slash tolerant: Facebook's own share sheet hands out both
+      // /watch and /watch/ for the same page, and an exact-equality check
+      // against only one of them silently refused the other.
+      const isVideoUrl = /\/(?:[^/]+\/videos|reel)\/\d+/.test(u.pathname)
+        || (/^\/watch\/?$/.test(u.pathname) && /^\d+$/.test(u.searchParams.get('v') || ''))
+        || host === 'fb.watch';
+      const isPostUrl = /\/[^/]+\/posts\/\d+/.test(u.pathname)
+        || (u.pathname === '/permalink.php' && /^\d+$/.test(u.searchParams.get('story_fbid') || ''));
+      if (!isVideoUrl && !isPostUrl) return null;
+      return {
+        kind: 'facebook',
+        src: `https://www.facebook.com/plugins/${isVideoUrl ? 'video' : 'post'}.php`
+          + `?href=${encodeURIComponent(url)}&show_text=false`,
+        ...(vertical ? { vertical: true } : {}),
+      };
+    }
+    if (host === 'truthsocial.com' || host.endsWith('.truthsocial.com')) {
+      // Truth Social runs Mastodon/Rebased software under its own skin, so it
+      // carries the same /@user/<id>/embed route every Mastodon instance does.
+      const m = /^\/(@[A-Za-z0-9_.]+\/\d+)/.exec(u.pathname);
+      return m ? { kind: 'truthsocial', src: `https://truthsocial.com/${m[1]}/embed` } : null;
     }
     // SoundCloud → official widget player (full tracks, artist-friendly, no
     // OAuth). src is the fully-built widget URL so the player renders it as-is.

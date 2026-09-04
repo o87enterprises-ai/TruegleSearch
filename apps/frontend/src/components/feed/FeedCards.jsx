@@ -1,5 +1,9 @@
-import { ArrowUp, MessageCircle, ExternalLink, Code, Star, GitFork } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ArrowUp, MessageCircle, ExternalLink, Code, Star, GitFork, Play } from 'lucide-react';
 import { PROVIDERS } from '../../config/socialProviders';
+import { getPlayable } from '../../utils/videoEmbed';
+import { usePlayer } from '../../context/PlayerContext';
+import FeedCardActions from './FeedCardActions';
 
 // One post, one card, per platform.
 //
@@ -191,11 +195,131 @@ export const GenericCard = ({ post }) => {
   );
 };
 
+// ── playable media in the feed ───────────────────────────────────────────────
+//
+// "Resembles the vids tab": a playable post gets a small always-visible play
+// badge, enlarges when it's the card centered on screen (see useFeedFocus),
+// and — only while centered — a large center play button that starts
+// playback immediately. Tapping anywhere else on a playable card opens
+// FeedCardActions (Open in app / Add to queue / Open link). A NON-playable
+// card is untouched: the exact same plain outbound `<a>` it has always been,
+// no interception, no sheet — the chrome below only ever activates for a post
+// something in videoEmbed.js actually recognises.
+//
+// NOTHING HERE EVER MOUNTS AN IFRAME. Enlarging is a CSS transform on the
+// existing card; the badge and center button are absolutely-positioned
+// overlays. Every actual play/queue action hands off to the ONE global
+// player via usePlayer() — a feed card never decodes its own video, so
+// scrolling past a hundred playable posts never spends a single decoder on
+// anything nobody chose to watch.
+
+/** Trust a pre-classified source (Community, from routes/social.js's
+ *  normaliseCommunity) over re-deriving it — that row was already run
+ *  through MediaService.classifyMedia() at submit time. Everything else
+ *  falls back to running getPlayable() on the URLs the post already carries,
+ *  permalink preferred: a Reddit post's `url` can point at whatever the post
+ *  links to, but its `permalink` is always the post itself, which is what
+ *  the embed actually needs. */
+function classify(post) {
+  if (!post) return null;
+  if (post.src && post.kind) {
+    return { kind: post.kind, src: post.src, vertical: !!post.vertical };
+  }
+  return getPlayable(post.permalink) || getPlayable(post.url) || null;
+}
+
 /** Pick the right card for a row. Anything without a bespoke card gets the
  *  generic one in its provider's colour — never nothing, because a dropped row
- *  is invisible and therefore unreportable. */
-export default function FeedCard({ post }) {
+ *  is invisible and therefore unreportable.
+ *
+ *  `focused` — true when this is the card useFeedFocus has determined is
+ *  nearest the vertical center of the viewport. Purely a rendering signal;
+ *  the caller owns registering the wrapper element with that hook. */
+export default function FeedCard({ post, focused = false }) {
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const { playNow } = usePlayer();
+
+  const playable = useMemo(() => classify(post), [post]);
+
   if (!post?.platform) return null;
   const Card = BY_PLATFORM[post.platform] || GenericCard;
-  return <Card post={post} />;
+
+  if (!playable) {
+    // Still enlarges on focus — that rhythm is a feed-wide thing, not a
+    // video-only one — but no click interception, no badge, no sheet: a
+    // plain link to wherever the post points, same as it has always been.
+    return (
+      <div
+        data-feed-focused={focused ? 'yes' : undefined}
+        className={`transition-transform duration-200 ${focused ? 'z-10 scale-[1.02]' : ''}`}
+      >
+        <Card post={post} />
+      </div>
+    );
+  }
+
+  const link = post.permalink || post.url;
+  const source = {
+    kind: playable.kind,
+    src: playable.src,
+    title: post.title,
+    pageUrl: link,
+    poster: post.thumbnail || null,
+    ...(playable.vertical ? { vertical: true } : {}),
+  };
+
+  const openSheet = (e) => {
+    // The inner card is still a real <a href>; without this the click would
+    // both navigate away AND open the sheet on top of the navigation.
+    e.preventDefault();
+    setSheetOpen(true);
+  };
+
+  const playNowFromCenter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    playNow(source);
+  };
+
+  return (
+    <div
+      data-feed-card-wrap={playable.kind}
+      data-feed-focused={focused ? 'yes' : undefined}
+      onClick={openSheet}
+      className={`relative transition-transform duration-200 ${focused ? 'z-10 scale-[1.02] shadow-2xl shadow-black/40' : ''}`}
+    >
+      <Card post={post} />
+
+      {/* The always-visible badge — playability has to read while scrolling
+          past, not only once a card happens to be centered. */}
+      <span
+        aria-hidden="true"
+        className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 rounded-full bg-black/70 backdrop-blur-sm pointer-events-none"
+      >
+        <Play size={11} className="text-white ml-0.5" fill="currentColor" />
+      </span>
+
+      {/* THE CENTER PLAY BUTTON — only while this card holds focus. Clicking
+          it skips the sheet entirely: "defaults to auto play in app". */}
+      {focused && (
+        <button
+          type="button"
+          data-feed-action="play-center"
+          aria-label="Play"
+          onClick={playNowFromCenter}
+          className="absolute inset-0 m-auto w-14 h-14 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/75 transition-colors"
+        >
+          <Play size={24} className="ml-1" fill="currentColor" />
+        </button>
+      )}
+
+      <FeedCardActions
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        source={source}
+        link={link}
+        title={post.title}
+      />
+    </div>
+  );
 }

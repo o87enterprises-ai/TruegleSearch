@@ -439,6 +439,31 @@ async function fetchNews(query, limit, cursor) {
   };
 }
 
+// ── public posts, via our own SearXNG ───────────────────────────────────────
+//
+// The platforms below have no free read API — that was the whole reason they
+// sat greyed out. What they DO have is public web pages a signed-out visitor
+// can read and a search engine indexes, and we already run a metasearch
+// instance that queries those indexes. So these are `site:<domain> <topic>`
+// searches, not API calls: no key, no developer account, no approval queue.
+//
+// A query-less home feed has nothing to search for, which is the one real
+// problem here. services/feed/FeedSeeds.js solves it — trending searches from
+// our own visitors, then today's headlines, then a static rotation.
+const {
+  fetchPublicSocial, PLATFORM_DOMAINS, isConfigured: publicSocialConfigured,
+} = require('../services/feed/PublicSocialSource');
+const { seedTopics, seedForPage } = require('../services/feed/FeedSeeds');
+
+async function fetchViaSearx(platform, query, limit, cursor, seeds) {
+  const page = Number.isInteger(cursor) && cursor > 0 ? cursor : 1;
+  // A typed query IS the topic. Only the home feed needs seeding, and each page
+  // walks to the next seed so a long scroll broadens rather than repeating one
+  // subject forever.
+  const topic = query || seedForPage(seeds, page);
+  return fetchPublicSocial({ platform, topic, limit, cursor: page });
+}
+
 // ── the open fediverse: Mastodon, Bluesky, Lemmy ────────────────────────────
 //
 // These three are the answer to "which social platforms can we actually read".
@@ -629,6 +654,17 @@ function normaliseCommunity(rows) {
     comments: null,
     thumbnail: r.poster || null,
     flair: r.kind || null,
+    // ADDITIVE — every other field above is unchanged. `r` already went
+    // through MediaService.toSource() (via list()/search() above), which
+    // resolved `src`/`kind`/`vertical` from MediaService.classifyMedia() at
+    // submit time. Carrying them through means the feed client can trust that
+    // classification directly instead of re-deriving it a second time from
+    // `url` with getPlayable() — a plain client-side call would get the same
+    // answer for a well-formed submission, but this is the one source that
+    // was already vetted, so there is no reason to guess again.
+    src: r.src || null,
+    kind: r.kind || null,
+    ...(r.vertical ? { vertical: true } : {}),
   }));
 }
 
@@ -672,6 +708,32 @@ async function fetchReddit(query, limit, after) {
       tried.push(`${new URL(host).host}: ${upstreamReason(err)}`);
     }
   }
+  // ── THE KEYLESS DOORS ARE ALL SHUT. TRY THE PUBLIC INDEX. ─────────────────
+  //
+  // Every host above 403s from the deployment — confirmed in production, not
+  // suspected. The old answer was "register an OAuth app", and that door turned
+  // out to be shut too: Reddit limits new Data API registration to moderation
+  // tools, and the Devvit app we do have carries no OAuth credential.
+  //
+  // But Reddit posts are PUBLIC WEB PAGES, indexed like any other, and we run a
+  // metasearch instance that queries those indexes. So rather than a credential
+  // we cannot get, this reads what is already public — the same way a person
+  // following a search result would. No key, no account, no approval.
+  //
+  // Only reached when the keyless walk has failed, so a deployment that CAN
+  // read Reddit directly still gets the richer JSON (scores, comment counts,
+  // subreddits) that search results do not carry.
+  if (publicSocialConfigured()) {
+    try {
+      const viaSearch = await fetchPublicSocial({
+        platform: 'reddit', topic: query || 'reddit', limit, cursor: 1,
+      });
+      if (viaSearch.items.length) return viaSearch;
+    } catch (searxErr) {
+      tried.push(`searxng: ${searxErr.message}`);
+    }
+  }
+
   // Carries WHICH host said WHAT. "Reddit unavailable" on its own cannot tell
   // a blocked deployment IP from an outage from a bad query, and that
   // difference is the whole diagnosis.
@@ -737,10 +799,21 @@ router.post('/feed', async (req, res) => {
     const want = (p) => all || requestedPlatforms.includes(p);
     const NONE = { items: [], next: null };
 
+    // ONE seed lookup per request, not one per source. Six platforms searching
+    // the same topic is the point — it is a timeline about what is happening,
+    // not six unrelated searches — and it also means one trending query rather
+    // than six. Cached for ten minutes inside FeedSeeds.
+    // Reddit is excluded: it has its own source, which tries the keyless JSON
+    // endpoints first and only then falls back to this same SearXNG path.
+    // Listing it here too would fetch it twice.
+    const SEARX_IDS = Object.keys(PLATFORM_DOMAINS).filter((id) => id !== 'reddit');
+    const needSeeds = !q && SEARX_IDS.some((id) => want(id));
+    const seeds = needSeeds ? await seedTopics(6) : [];
+
     // Kick off all requested platform fetches in parallel; each is
     // independently fault-tolerant — a single failure doesn't kill the rest.
     const [redditResult, hnResult, ghResult, newsResult, communityResult,
-           mastodonResult, blueskyResult, lemmyResult] = await Promise.allSettled([
+           mastodonResult, blueskyResult, lemmyResult, ...searxResults] = await Promise.allSettled([
       want('reddit') ? fetchReddit(q, limit, cur.reddit) : Promise.resolve(NONE),
       want('hackernews') ? fetchHackerNews(q, limit, cur.hackernews) : Promise.resolve(NONE),
       want('github') ? fetchGitHub(q, limit, cur.github) : Promise.resolve(NONE),
@@ -749,6 +822,11 @@ router.post('/feed', async (req, res) => {
       want('mastodon') ? fetchMastodon(q, limit, cur.mastodon) : Promise.resolve(NONE),
       want('bluesky') ? fetchBluesky(q, limit, cur.bluesky) : Promise.resolve(NONE),
       want('lemmy') ? fetchLemmy(q, limit, cur.lemmy) : Promise.resolve(NONE),
+      // The SearXNG-backed platforms, in the fixed order of SEARX_IDS so the
+      // results can be zipped back onto their ids below.
+      ...SEARX_IDS.map((id) => (want(id)
+        ? fetchViaSearx(id, q, limit, cur[id], seeds)
+        : Promise.resolve(NONE))),
     ]);
 
     const settle = (r) => (r.status === 'fulfilled' ? r.value : NONE);
@@ -761,6 +839,22 @@ router.post('/feed', async (req, res) => {
     const bluesky = settle(blueskyResult).items;
     const lemmy = settle(lemmyResult).items;
 
+    // Zip the SearXNG results back onto their ids. Built as objects rather than
+    // named consts because there are six of them and they are all identical —
+    // spreading these into the response keeps `platforms`, `nextCursor` and
+    // `errors` the same shape they have always been, one key per source.
+    const searxItems = {};
+    const searxCursors = {};
+    const searxErrors = {};
+    SEARX_IDS.forEach((id, i) => {
+      const r = searxResults[i];
+      searxItems[id] = settle(r).items;
+      searxCursors[id] = settle(r).next;
+      searxErrors[id] = r.status === 'rejected' ? (r.reason?.message || 'unavailable') : null;
+      if (r.status === 'rejected') logger.warn(`${id} feed failed:`, r.reason?.message);
+    });
+    const searxAll = SEARX_IDS.flatMap((id) => searxItems[id]);
+
     if (redditResult.status === 'rejected') logger.warn('Reddit feed failed:', redditResult.reason?.message);
     if (hnResult.status === 'rejected') logger.warn('HN feed failed:', hnResult.reason?.message);
     if (ghResult.status === 'rejected') logger.warn('GitHub feed failed:', ghResult.reason?.message);
@@ -772,7 +866,7 @@ router.post('/feed', async (req, res) => {
 
     // Merged chronological feed across all platforms
     const all_results = [...reddit, ...hackernews, ...github, ...news, ...community,
-      ...mastodon, ...bluesky, ...lemmy].sort((a, b) => {
+      ...mastodon, ...bluesky, ...lemmy, ...searxAll].sort((a, b) => {
       if (!a.date && !b.date) return 0;
       if (!a.date) return 1;
       if (!b.date) return -1;
@@ -782,7 +876,9 @@ router.post('/feed', async (req, res) => {
     return res.json({
       query: q,
       results: all_results,
-      platforms: { reddit, hackernews, github, news, community, mastodon, bluesky, lemmy },
+      platforms: {
+        reddit, hackernews, github, news, community, mastodon, bluesky, lemmy, ...searxItems,
+      },
       // What to send back to continue. A platform that has run out reports
       // null, which is how the client knows to stop asking rather than
       // spinning on an endpoint that will keep returning the same page.
@@ -795,6 +891,7 @@ router.post('/feed', async (req, res) => {
         mastodon: settle(mastodonResult).next,
         bluesky: settle(blueskyResult).next,
         lemmy: settle(lemmyResult).next,
+        ...searxCursors,
       },
       // WHY, not just THAT.
       //
@@ -813,6 +910,7 @@ router.post('/feed', async (req, res) => {
         mastodon: mastodonResult.status === 'rejected' ? (mastodonResult.reason?.message || 'unavailable') : null,
         bluesky: blueskyResult.status === 'rejected' ? (blueskyResult.reason?.message || 'unavailable') : null,
         lemmy: lemmyResult.status === 'rejected' ? (lemmyResult.reason?.message || 'unavailable') : null,
+        ...searxErrors,
       },
     });
   } catch (error) {

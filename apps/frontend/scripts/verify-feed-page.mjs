@@ -161,29 +161,38 @@ const pills = await page.evaluate(() => [...document.querySelectorAll('[data-fee
   .map((b) => ({ id: b.dataset.feedServer, ready: b.dataset.usable, text: (b.textContent || '').trim(), disabled: b.disabled })));
 
 check(pills.length >= 6, 'every provider is listed as a server', `${pills.length} listed`);
-// REDDIT IS SHUT, AND THE LIST HAS TO SAY SO.
-// It shipped as the connectable one, described as "the one that fully works".
-// Reddit then closed new Data API registration to everything except moderation
-// tools (r/reddit.com/wiki/api), so there is no application to make and no tier
-// to buy. An entry still promising free OAuth would be a lie on screen, and the
-// kind somebody only discovers after selecting it and getting an empty feed.
-const reddit = pills.find((p) => p.id === 'reddit');
-check(reddit && reddit.disabled, 'Reddit is not offered as a selectable server',
-  reddit ? `disabled=${reddit.disabled}` : 'missing');
-check(/moderation/i.test(reddit?.text || ''),
-  '…and names the real reason rather than a vague "coming soon"',
-  reddit?.text.replace(/\s+/g, ' ').slice(0, 90));
 
-// The selectable one is a PUBLIC SOURCE: no account, no handshake.
+// EVERY PROVIDER IS READABLE NOW, so this no longer asserts that specific ones
+// are greyed — it asserts the RULE that survives either way.
+//
+// The four checks this replaces pinned a roster: "Reddit is disabled", "its
+// note says moderation", "some provider is un-pressable". All were true while
+// the feed read platforms through their own APIs and most of those APIs were
+// shut. The feed reads public pages through our own search index now, so there
+// is no API to be shut out of and nothing is greyed. A test asserting that
+// something MUST be broken is a test that fights the fix.
+//
+// What still has to hold: anything that cannot work says so and cannot be
+// pressed, and anything selectable carries a real explanation rather than a
+// placeholder.
+const locked = pills.filter((p) => p.ready === 'no');
+check(locked.every((p) => p.disabled),
+  'any provider that cannot serve a feed is un-pressable',
+  locked.length ? locked.map((p) => `${p.id}:${p.disabled}`).join(' ') : 'none are locked today');
+check(pills.every((p) => (p.text || '').replace(/\s+/g, ' ').trim().length > 10),
+  'every provider carries a real explanation, not a placeholder',
+  pills.find((p) => (p.text || '').trim().length <= 10)?.id || 'all have one');
+
+// Reddit specifically, because it is the one that has moved twice: it shipped
+// connectable, went grey when Reddit closed the Data API, and is readable again
+// now WITHOUT a credential because its posts are public pages like any other.
+const reddit = pills.find((p) => p.id === 'reddit');
+check(reddit && !reddit.disabled,
+  'Reddit is selectable again — read as public pages, not through its API',
+  reddit ? `disabled=${reddit.disabled}` : 'missing');
+
 const github = pills.find((p) => p.id === 'github');
 check(github && !github.disabled, 'GitHub is selectable', github ? `disabled=${github.disabled}` : 'missing');
-const locked = pills.filter((p) => p.ready === 'no');
-check(locked.length > 0 && locked.every((p) => p.disabled),
-  'every provider that cannot serve a feed is un-pressable',
-  locked.map((p) => `${p.id}:${p.disabled}`).join(' '));
-check(locked.every((p) => (p.text || '').replace(/\s+/g, ' ').trim().length > 10),
-  '…and carries its real reason rather than a placeholder',
-  locked[0]?.text.replace(/\s+/g, ' ').slice(0, 80));
 await page.keyboard.press('Escape');
 
 // ── 3. the feed fills on arrival, with nothing connected ───────────────────
@@ -300,9 +309,13 @@ check(usable.length >= 5, 'the feed has more than a couple of keyless sources to
 check(searched.every((c) => JSON.stringify([...c.body.platforms].sort()) === JSON.stringify(usable)),
   '…and only across the servers that are switched on, with nothing smuggled in',
   `sent ${JSON.stringify(searched[0]?.body?.platforms)} vs usable ${JSON.stringify(usable)}`);
-check(searched.every((c) => !c.body.platforms.includes('reddit')),
-  '…never a source that cannot serve a feed at all',
-  JSON.stringify(searched[0]?.body?.platforms));
+// The rule this replaces was "never send reddit", which was right while Reddit
+// was the one source that could not answer and is wrong now that it can. The
+// durable version: never send a platform the page does not list as usable —
+// which catches a source being smuggled into the request whichever source it is.
+check(searched.every((c) => (c.body.platforms || []).every((pl) => usable.includes(pl))),
+  '…and never a platform the page does not offer',
+  `sent ${JSON.stringify(searched[0]?.body?.platforms)}`);
 
 // ── 5b. a public source is switched on, not signed into ─────────────────────
 // Hacker News and GitHub are keyless and accountless. Sending them round the
@@ -468,6 +481,49 @@ await until(() => page.locator('text=Popular post 1-0').count().then((n) => n > 
 check(true, 'a feed whose posts have all been seen repeats them instead of rendering empty');
 check(await page.locator('[data-feed-all-seen]').count() > 0,
   '…and says so, rather than passing them off as new');
+
+// ── 10. Browse: the category rows ──────────────────────────────────────────
+// The spec's Browse view: rows stacked vertically, each a horizontal preview,
+// click one to open it as a vertical feed, back returns to the rows.
+//
+// Worth a browser test rather than a unit one because the ways this breaks are
+// all invisible from the outside — a row that renders no cards looks exactly
+// like a row still loading, and a category whose sources are all switched off
+// must render as ABSENT rather than as an empty heading implying it is broken.
+feedUpstreamFails = false;
+await openApp(page, `${BASE}/feed`);
+await page.click('[data-feed-view="browse"]');
+await until(() => page.locator('[data-feed-browse]').count().then((n) => n > 0),
+  { what: 'the browse view' });
+
+const rows = await page.locator('[data-browse-row]').evaluateAll(
+  (els) => els.map((e) => e.getAttribute('data-browse-row')));
+check(rows.length >= 3, 'browse shows several category rows', rows.join(','));
+
+// Each row is its own request with its own source set — a row must not be
+// waiting on another row's sources.
+await until(() => page.locator('[data-browse-row] [data-feed-card], [data-browse-row] a').count().then((n) => n > 0),
+  { what: 'cards inside a category row' });
+check(true, '…and the rows fill with cards');
+
+// Opening a category narrows the timeline to that category and offers the way
+// back. Back goes to Browse, not Home: that is where you came from.
+const first = rows[0];
+await page.click(`[data-browse-open="${first}"]`);
+await until(() => page.locator('[data-browse-back]').count().then((n) => n > 0),
+  { what: 'the opened category view' });
+check(await page.locator('[data-feed-browse]').count() === 0,
+  'opening a category replaces the rows with that category\'s feed');
+
+await page.click('[data-browse-back]');
+await until(() => page.locator('[data-feed-browse]').count().then((n) => n > 0),
+  { what: 'the rows to come back' });
+check(true, '…and Back returns to the rows rather than to Home');
+
+await page.click('[data-feed-view="home"]');
+await until(() => page.locator('[data-feed-browse]').count().then((n) => n === 0),
+  { what: 'Home to replace Browse' });
+check(true, 'Home switches back to the timeline');
 
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 

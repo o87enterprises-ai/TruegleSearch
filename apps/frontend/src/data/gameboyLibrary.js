@@ -162,6 +162,18 @@ export const GAMEBOY_LIBRARY = [
     license: 'GPL-3.0',
     licenseUrl: 'https://www.gnu.org/licenses/gpl-3.0.html',
   },
+  {
+    id: 'squishy-turtle',
+    name: 'Squishy the Turtle',
+    tagline: 'A Ludum Dare platformer, shell and all',
+    romPath: '/roms/squishy-turtle.gb',
+    icon: '🐢',
+    color: '#2ecc71',
+    developer: 'Chris Anderson (cppchriscpp)',
+    sourceUrl: 'https://github.com/cppchriscpp/SquishyTheTurtle',
+    license: 'MIT',
+    licenseUrl: 'https://github.com/cppchriscpp/SquishyTheTurtle/blob/master/LICENSE',
+  },
 ];
 
 // Titles considered and rejected during verification — kept here so the
@@ -214,12 +226,3 @@ export const GAMEBOY_LIBRARY = [
 //     WasmBoy (checked every pixel, not just a sparse sample, across
 //     several button-press sequences). Same class of bug as 2048-gb: a
 //     real emulation incompatibility, not a build or licensing issue.
-//   - cppchriscpp/SquishyTheTurtle (MIT): the C code itself built fine
-//     after fixing one real bug (a `sys_time` extern redeclaration in
-//     main.h dropped the `volatile` qualifier the GBDK-2020 header uses,
-//     which modern SDCC rejects as a mismatch) — but its graphics pipeline
-//     converts .z80 tile/map data into assembly via a bespoke sed script
-//     targeting the old asxxxx assembler's syntax, and the generated .s
-//     files don't parse under the modern sdas assembler GBDK-2020 ships.
-//     That's a different, deeper problem than the legacy-syntax fix
-//     toolkit targets — rejected rather than rewriting its build pipeline.

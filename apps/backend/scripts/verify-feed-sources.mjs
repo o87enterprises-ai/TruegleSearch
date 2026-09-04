@@ -96,6 +96,34 @@ try {
   check(typeof v.counts?.score === 'number', 'lemmy: post has counts.score');
 } catch (e) { note.push(`SKIP lemmy — ${e.message}`); }
 
+// ── SearXNG: the public-social sources ──────────────────────────────────────
+// These six ride one self-hosted instance. If it is unset or down, all six go
+// quiet at once — which is worth knowing before a deploy rather than after.
+const SEARX = process.env.SEARXNG_URL;
+if (!SEARX) {
+  note.push('SKIP searxng — SEARXNG_URL is not set, so the public-social sources cannot run');
+} else {
+  try {
+    // The exact query shape the adapter builds: domain-only site:, no OR-group.
+    const q = encodeURIComponent('site:x.com news');
+    const r = await get(`${SEARX}/search?q=${q}&format=json&categories=general&pageno=1`);
+    const d = await r.json();
+    reached += 1;
+    const rows = Array.isArray(d.results) ? d.results : [];
+    check(rows.length > 0, 'searxng: a site:-scoped query returns results', `${rows.length}`);
+    const row = rows[0] || {};
+    check(str(row.url), 'searxng: result has a url — the adapter uses it as the post id');
+    check(typeof row.title === 'string', 'searxng: result has a title');
+    check('content' in row, 'searxng: result has a content field for the snippet');
+    // The filter that stops another platform's page being labelled as this one.
+    const onX = rows.filter((x) => {
+      try { const h = new URL(x.url).hostname; return h === 'x.com' || h.endsWith('.x.com'); } catch { return false; }
+    });
+    check(onX.length > 0, 'searxng: at least one result is actually on the asked-for domain',
+      `${onX.length} of ${rows.length} — the adapter drops the rest`);
+  } catch (e) { note.push(`SKIP searxng — ${e.message}`); }
+}
+
 ok.forEach((l) => console.log(l));
 note.forEach((l) => console.log(l));
 if (!reached) {
