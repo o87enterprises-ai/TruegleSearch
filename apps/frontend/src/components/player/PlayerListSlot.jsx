@@ -165,7 +165,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
   useEffect(() => () => clearTimeout(revertTimer.current), []);
 
   const add = (source) => {
-    enqueue(source);
+    enqueue(source, { deck: 'tube' });
     setAdded(source.src);
     setTimeout(() => setAdded(null), 1500);
     scheduleRevert();
@@ -402,7 +402,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
                 // Without this the panel sat on results forever once you had
                 // picked, and the up-next list (and everything under it) was
                 // unreachable until you cleared the search.
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); playNow(r); scheduleRevert(); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); playNow(r, 'tube'); scheduleRevert(); }}
                 title="Play now — comes back to what you were on afterwards"
                 aria-label={`Play ${r.title || 'this'} now`}
                 className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg border border-white/15 text-white/70 hover:text-white hover:bg-white/10 transition-colors"

@@ -76,8 +76,8 @@ export default function PlayerStarters({ compact = false }) {
   // Play the latest, and line the channel up behind it.
   const startChannel = useCallback((row) => {
     clearQueue();
-    play(row.latest);
-    if (row.rest.length) enqueueMany(row.rest);
+    play(row.latest, 'tube');
+    if (row.rest.length) enqueueMany(row.rest, 'tube');
   }, [play, enqueueMany, clearQueue]);
 
   const cardH = compact ? 'h-16' : 'h-20';

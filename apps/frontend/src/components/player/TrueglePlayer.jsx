@@ -63,8 +63,14 @@ export default function TrueglePlayer({
     current, queue, history, paused, dock, locked, setLocked,
     next, skipNext, prev, stop, togglePause, setPoppedOut, setDock, play,
     enqueueMany, playMode, setPlayMode, queueArmed, volume, setVolume,
-    feedActive, feed: feedRest, feedNext,
+    feedActive, feed: feedRest, feedNext, activeDeck,
   } = usePlayer();
+  // THE FEED DECK PLAYS FEED CONTENT, FULL STOP. Up Next draws on Tube's
+  // corpus (creators, trending, search — see useUpNext), which is exactly
+  // what the feed player is not for: "the feed player is for viewing the
+  // social feed playable content only". So on the feed deck an exhausted
+  // feed simply stops, rather than wandering off into Tube's library.
+  const onFeedDeck = activeDeck === 'feed';
   const pageMode = usePageMode();
   const stash = useSearchStashContext();
   // The lock is a phone feature — see useTouchDevice.
@@ -222,11 +228,11 @@ export default function TrueglePlayer({
    */
   const advance = useCallback(async () => {
     if (followFeed) { feedNext(); return; }
-    if (followQueue || playMode !== 'auto' || !current) { next(); return; }
+    if (followQueue || playMode !== 'auto' || !current || onFeedDeck) { next(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) { play(nextUp); return; }
     next();
-  }, [followFeed, feedNext, followQueue, playMode, current, next, play, upNext]);
+  }, [followFeed, feedNext, followQueue, playMode, current, next, play, upNext, onFeedDeck]);
 
   // A manual Next must always go somewhere. With an empty queue it used to do
   // nothing at all, which is what "I hit next and nothing happened" was: the
@@ -236,10 +242,10 @@ export default function TrueglePlayer({
     // Swiping or pressing Next during a feed walks the feed — "play the feed as
     // is". Only an exhausted feed falls through to finding something new.
     if (followFeed) { feedNext(); return; }
-    if (followQueue || !current) { skipNext(); return; }
+    if (followQueue || !current || onFeedDeck) { skipNext(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) play(nextUp); else skipNext();
-  }, [followFeed, feedNext, followQueue, current, upNext, play, skipNext]);
+  }, [followFeed, feedNext, followQueue, current, upNext, play, skipNext, onFeedDeck]);
 
   // AN EMPTY VIEWPORT FILLS ITSELF. Landing on the player with nothing playing
   // and nothing queued used to be a dead end — the only way forward was to go
@@ -254,10 +260,13 @@ export default function TrueglePlayer({
   //     mounts the component in a collapsed bar doesn't fetch a feed nobody
   //     asked for;
   //   · never while locked — the lock means "leave this alone".
+  //   · never on the feed deck, which is not Tube's to fill — an empty feed
+  //     player is finished, not waiting to be topped up with creators and
+  //     trending videos nobody scrolled past.
   const filling = useRef(false);
   const visible = presentation !== 'collapsed';
   useEffect(() => {
-    if (locked || !visible) return;
+    if (locked || !visible || onFeedDeck) return;
     if (current || queue.length > 0) { filling.current = false; return; }
     if (filling.current) return;
     filling.current = true;
@@ -270,7 +279,7 @@ export default function TrueglePlayer({
       enqueueMany(batch);
     })();
     return () => { cancelled = true; };
-  }, [current, queue.length, locked, visible, upNext, enqueueMany]);
+  }, [current, queue.length, locked, visible, upNext, enqueueMany, onFeedDeck]);
 
   const embed = useEmbedPlayback({
     frameRef,
@@ -595,9 +604,38 @@ export default function TrueglePlayer({
   // the controls floating on it — asking for full screen IS asking to watch.
   const clipScreen = hideScreen && !fullscreen;
 
+  // Built once and placed by the branch below, rather than written twice —
+  // the feed deck boxes it into a portrait column, everything else lets it
+  // fill its container, and the props are identical either way.
+  const screen = (
+    <PlayerScreen
+      // Unmounting is now the LAST resort, not the definition of pause.
+      // An embed we can command pauses in place and keeps its position;
+      // only the platforms that give us no control channel still have to
+      // be torn down, and those are the ones where resuming restarts.
+      source={paused && !embed.canCommand ? null : current}
+      mediaRef={mediaRef}
+      frameRef={frameRef}
+      onEnded={advance}
+      fill={fullscreen}
+      compact={presentation === 'popped'}
+      maxHeight={presentation === 'popped' ? 320 : 420}
+      browse={search.results}
+      browseLoading={search.loading}
+      browseMore={search.more}
+      onBrowseMore={search.loadMore}
+      browseLoadingMore={search.loadingMore}
+    />
+  );
+
   return (
     <div
       ref={rootRef}
+      // Which player this is. The feed deck and the Tube deck share this
+      // component and are not the same player — see the two-deck note in
+      // PlayerContext — so the surface says which one is on screen, for
+      // styling and for the browser tests that assert they stay separate.
+      data-player-deck={activeDeck}
       // The player is an appliance, not a document: this marks the whole
       // subtree non-selectable (styles/no-select.css) so rapid taps in full
       // screen stop smearing a highlight across the overlay text. Inputs
@@ -664,7 +702,7 @@ export default function TrueglePlayer({
         // `relative` outside full screen too: the click-to-pause overlay below
         // positions against this box, and without it the overlay escaped to
         // whichever ancestor happened to be positioned.
-        className={`${clipScreen ? 'max-h-0 overflow-hidden' : (fullscreen ? 'relative flex flex-1 min-h-0' : 'relative')} transition-[max-height] duration-300 ease-out`}
+        className={`${clipScreen ? 'max-h-0 overflow-hidden' : (fullscreen ? `relative flex flex-1 min-h-0${onFeedDeck ? ' justify-center' : ''}` : 'relative')} transition-[max-height] duration-300 ease-out`}
         // THE VIEWPORT SHRINKS FOR THE VOICE PANEL rather than being covered by
         // it. `max-height` and not `height`: the screen letterboxes itself
         // inside whatever box it is given, so capping the box scales the
@@ -674,24 +712,22 @@ export default function TrueglePlayer({
         style={voiceOpen && !clipScreen ? { maxHeight: '38%' } : undefined}
         aria-hidden={clipScreen}
       >
-        <PlayerScreen
-          // Unmounting is now the LAST resort, not the definition of pause.
-          // An embed we can command pauses in place and keeps its position;
-          // only the platforms that give us no control channel still have to
-          // be torn down, and those are the ones where resuming restarts.
-          source={paused && !embed.canCommand ? null : current}
-          mediaRef={mediaRef}
-          frameRef={frameRef}
-          onEnded={advance}
-          fill={fullscreen}
-          compact={presentation === 'popped'}
-          maxHeight={presentation === 'popped' ? 320 : 420}
-          browse={search.results}
-          browseLoading={search.loading}
-          browseMore={search.more}
-          onBrowseMore={search.loadMore}
-          browseLoadingMore={search.loadingMore}
-        />
+        {/* THE FEED PLAYER IS 9:16, FULL SCREEN INCLUDED. "The feed player is
+            only 9x16 even when full screen with a horizontal video playing" —
+            so on the feed deck the picture is boxed into a portrait column
+            and centred, rather than filling a landscape screen the way Tube's
+            does. That shape IS the visible difference between the two
+            players: same frame, unmistakably not the same thing. A landscape
+            clip letterboxes inside the column, which is the honest result of
+            asking for a portrait player. */}
+        {onFeedDeck && fullscreen ? (
+          <div
+            data-player-portrait=""
+            className="relative h-full aspect-[9/16] max-w-full mx-auto"
+          >
+            {screen}
+          </div>
+        ) : screen}
         {/* The controls that sit ON the picture: thumbs, share, play mode. They
             are always mounted and fade rather than appearing, so nothing pops
             in over the video — and they take no width from the transport row

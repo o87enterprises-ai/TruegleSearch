@@ -26,9 +26,38 @@ export const usePlayer = () => {
 // search bar; `expanded` is whether the docked form is showing its screen.
 // Both live here rather than in a component so the presentation can change
 // without remounting the media node and restarting playback.
+// ── TWO DECKS, ONE FRAME ────────────────────────────────────────────────────
+//
+// Tube and Feed are separate players that happen to share a frame. Playing
+// something from the feed must not inherit Tube's queue, and starting a feed
+// clip must not throw away the album somebody had lined up in Tube — "the
+// tube player will keep its own state in memory when shifting to the feed
+// scroll play function", and going back to Tube afterwards finds it exactly
+// as it was.
+//
+// HOW, WITHOUT REWRITING EVERY CONSUMER: the ACTIVE deck's media state stays
+// flat on the state object, exactly where `current`/`queue`/`history` have
+// always been, so every reducer case and every usePlayer() caller is
+// untouched. The INACTIVE deck's copy of those same six fields waits in
+// `stashed`. Switching decks swaps them over. That is the whole mechanism —
+// no per-deck plumbing threaded through thirty call sites, and the pure
+// reducer tests in verify-player-engine.mjs keep testing what they always did.
+export const DECK_MEDIA_KEYS = ['current', 'queue', 'history', 'queueArmed', 'feedActive', 'feed'];
+const EMPTY_MEDIA = {
+  current: null, queue: [], history: [], queueArmed: false, feedActive: false, feed: [],
+};
+
 export const INITIAL = {
   current: null, queue: [], history: [], minimized: false,
   paused: false, expanded: false, poppedOut: false,
+  // Which deck's media is currently flat on this object: 'tube' or 'feed'.
+  // Tube is the default because it is every surface that is not the feed —
+  // search, creators, a pasted link, the Tube page itself.
+  activeDeck: 'tube',
+  // The other deck's six media fields, held verbatim until it is switched
+  // back to. Session-only: like `feed` below, a deck you were half way
+  // through is something you are doing now, not a setting — see loadState.
+  stashed: {},
   // Where the popped-out player lives: 'float' = the draggable window,
   // 'footer' = pinned across the bottom of the page above the feedback bar.
   // null = nobody has chosen, so the surface picks: a floating window covers
@@ -98,8 +127,45 @@ const replay = (source) => ({ ...source, playToken: (source.playToken || 0) + 1 
 // pure functions and are where the queue-versus-discovery rule actually lives,
 // so testing them directly is testing the thing rather than a React wrapper
 // around it.
+// The actions that MEAN "start playing this thing", as opposed to the
+// transport actions that move around inside whatever is already playing.
+// Only these can move the player between decks, and only when the caller
+// says so: `dispatch({ type:'play', source, deck:'feed' })`. Everything
+// else — Next, Prev, pause, the feed cursor — stays on whichever deck is
+// already live, so an automatic advance can never yank the frame from one
+// deck to the other underneath somebody.
+const ORIGIN_ACTIONS = new Set(['play', 'playNow', 'enqueue', 'enqueueMany', 'playList', 'startFeed']);
+
 export function reducer(s, a) {
+  // An origin action naming a deck other than the live one switches first,
+  // then plays into it — so the deck it lands in is the one it asked for,
+  // with that deck's own queue and history underneath it.
+  if (ORIGIN_ACTIONS.has(a.type) && a.deck && a.deck !== s.activeDeck) {
+    const moved = reducer(s, { type: 'switchDeck', name: a.deck });
+    return reducer(moved, { ...a, deck: undefined });
+  }
+
   switch (a.type) {
+    case 'switchDeck': {
+      const name = a.name === 'feed' ? 'feed' : 'tube';
+      if (name === s.activeDeck) return s;
+      // What is on the table goes back in its own box; the incoming deck's
+      // box is emptied onto the table. A deck that has never been used comes
+      // back empty rather than undefined, so the flat fields are always the
+      // shape every consumer expects.
+      const outgoing = {};
+      for (const k of DECK_MEDIA_KEYS) outgoing[k] = s[k];
+      const incoming = s.stashed?.[name] || EMPTY_MEDIA;
+      return {
+        ...s,
+        ...incoming,
+        activeDeck: name,
+        stashed: { ...s.stashed, [s.activeDeck]: outgoing },
+        // Whatever the incoming deck was doing, it is not mid-pause from a
+        // session the user has since forgotten about.
+        paused: false,
+      };
+    }
     case 'play': { // interrupt: play now, remembering what was playing
       if (!a.source?.src) return s;
       const history = s.current && !sameSrc(s.current, a.source) ? [...s.history, s.current] : s.history;
@@ -392,16 +458,22 @@ export const PlayerProvider = ({ children }) => {
     } catch { /* private mode / quota — the queue just won't survive a reload */ }
   }, [state.current, state.queue, state.history, state.poppedOut, state.expanded, state.minimized, state.dock, state.footerView, state.locked, state.volume]);
 
-  const play = useCallback((source) => dispatch({ type: 'play', source }), []);
-  const playNow = useCallback((source) => dispatch({ type: 'playNow', source }), []);
+  // `deck` is optional on every origin action below. Omitted, the media
+  // lands on whichever deck is already live — which is what an automatic
+  // advance or an in-place control wants. Passed ('feed' from the feed's own
+  // play paths, 'tube' from Tube/search/creators), it moves the frame to
+  // that deck first, finding that deck's own queue and history intact.
+  const play = useCallback((source, deck) => dispatch({ type: 'play', source, deck }), []);
+  const playNow = useCallback((source, deck) => dispatch({ type: 'playNow', source, deck }), []);
+  const switchDeck = useCallback((name) => dispatch({ type: 'switchDeck', name }), []);
   // `byUser` says a person pressed Add to queue, as opposed to the player
   // topping itself up. Defaults TRUE: every existing call site is a button, and
   // a default that silently disarmed the queue would be the more surprising of
   // the two mistakes. Automatic fills pass false explicitly.
-  const enqueue = useCallback((source, { byUser = true } = {}) => dispatch({ type: 'enqueue', source, byUser }), []);
+  const enqueue = useCallback((source, { byUser = true, deck } = {}) => dispatch({ type: 'enqueue', source, byUser, deck }), []);
   // Shared links and automatic top-ups: these put things in the list without
   // anyone asking for the list to take over, so they never arm it.
-  const enqueueMany = useCallback((sources) => dispatch({ type: 'enqueueMany', sources }), []);
+  const enqueueMany = useCallback((sources, deck) => dispatch({ type: 'enqueueMany', sources, deck }), []);
   // Automatic advance (a track ended) honours the play mode; the transport's
   // Next button passes manual so it always moves.
   const next = useCallback(() => dispatch({ type: 'next' }), []);
@@ -415,10 +487,10 @@ export const PlayerProvider = ({ children }) => {
   // to add to it or pick an entry first.
   const armQueue = useCallback(() => dispatch({ type: 'armQueue' }), []);
   // Play a saved list: it becomes the queue, and the queue is followed.
-  const playList = useCallback((sources) => dispatch({ type: 'playList', sources }), []);
+  const playList = useCallback((sources, deck) => dispatch({ type: 'playList', sources, deck }), []);
   // Play the search results, ahead of the queue. See the reducer for what this
   // does and does not do to the queue.
-  const startFeed = useCallback((sources) => dispatch({ type: 'startFeed', sources }), []);
+  const startFeed = useCallback((sources, deck) => dispatch({ type: 'startFeed', sources, deck }), []);
   const appendFeed = useCallback((sources) => dispatch({ type: 'appendFeed', sources }), []);
   const feedNext = useCallback(() => dispatch({ type: 'feedNext' }), []);
   const stopFeed = useCallback(() => dispatch({ type: 'stopFeed' }), []);
@@ -438,11 +510,11 @@ export const PlayerProvider = ({ children }) => {
     () => ({
       ...state,
       play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
-      startFeed, appendFeed, feedNext, stopFeed, playList,
+      startFeed, appendFeed, feedNext, stopFeed, playList, switchDeck,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume,
     }),
     [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
-      startFeed, appendFeed, feedNext, stopFeed, playList,
+      startFeed, appendFeed, feedNext, stopFeed, playList, switchDeck,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode, setLocked, setVolume]
   );
 

@@ -145,12 +145,12 @@ export default function PlayerBrowse({
     release();
     if (wasHeld) return;                     // holding is looking, not choosing
     clearQueue();
-    play(source);
-    if (rest.length) enqueueMany(rest);
+    play(source, 'tube');
+    if (rest.length) enqueueMany(rest, 'tube');
   }, [held, release, clearQueue, play, enqueueMany]);
 
   const add = useCallback((source) => {
-    enqueue(source);
+    enqueue(source, { deck: 'tube' });
     setAdded(mediaKey(source));
     setTimeout(() => setAdded(null), 1500);
   }, [enqueue]);

@@ -47,7 +47,7 @@ export default function QueueAddMenu() {
   // them unmount the panel.
   const addSources = useCallback((sources, key) => {
     if (!sources.length) return;
-    enqueueMany(sources);
+    enqueueMany(sources, 'tube');
     setAdded(key ?? sources[0].src);
     setTimeout(() => setAdded(null), 1600);
   }, [enqueueMany]);

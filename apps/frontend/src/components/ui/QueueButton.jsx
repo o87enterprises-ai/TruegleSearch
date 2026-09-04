@@ -56,7 +56,7 @@ export default function QueueButton({
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            if (followingQueue) playNow(source); else play(source);
+            if (followingQueue) playNow(source, 'tube'); else play(source, 'tube');
             setStarted(true);
             setTimeout(() => setStarted(false), 1400);
           }}
@@ -75,7 +75,7 @@ export default function QueueButton({
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          enqueue(source);
+          enqueue(source, { deck: 'tube' });
           setAdded(true);
           setTimeout(() => setAdded(false), 1400);
           onAdded?.();

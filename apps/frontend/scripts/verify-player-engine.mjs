@@ -184,6 +184,68 @@ check(!afterReload.feedActive && afterReload.feed.length === 0,
 check(run(INITIAL, { type: 'startFeed', sources: [] }).feedActive === false,
   'a search with nothing playable starts no feed');
 
+// ── 3c. two decks: Feed and Tube do not share a queue ───────────────────────
+// The owner's rule: "the player from feed should NOT carry state from Tube
+// player", and "the tube player will keep its own state in memory when
+// shifting from the tube player active to the feed scroll play function".
+// So each deck keeps its own current/queue/history, and switching between
+// them is a swap, not a merge.
+{
+  // A Tube session: something playing, two things queued behind it.
+  const tube = run(INITIAL,
+    { type: 'play', source: yt('tube1') },
+    { type: 'enqueue', source: yt('tube2'), byUser: true },
+    { type: 'enqueue', source: yt('tube3'), byUser: true });
+  check(tube.activeDeck === 'tube', 'the player starts on the Tube deck', tube.activeDeck);
+
+  // Now play something from the feed. It must land on its OWN deck.
+  const onFeed = run(tube, { type: 'play', source: yt('feed1'), deck: 'feed' });
+  check(onFeed.activeDeck === 'feed', 'playing from the feed switches to the Feed deck');
+  check(onFeed.current.title === 'Video feed1', '…and plays the feed clip', onFeed.current.title);
+  check(onFeed.queue.length === 0,
+    '…on an empty queue — the feed does NOT inherit what Tube had lined up',
+    `${onFeed.queue.length} inherited`);
+  check(onFeed.history.every((h) => !h.title.startsWith('Video tube')),
+    '…and does not inherit Tube\'s history either',
+    onFeed.history.map((h) => h.title).join(', ') || 'empty');
+
+  // Tube's session is not gone — it is waiting.
+  const back = run(onFeed, { type: 'switchDeck', name: 'tube' });
+  check(back.activeDeck === 'tube', 'switching back returns to the Tube deck');
+  check(back.current.title === 'Video tube1',
+    '…still playing exactly what it was', back.current.title);
+  check(back.queue.length === 2 && back.queue.every((q) => q.title.startsWith('Video tube')),
+    '…with its own queue intact, untouched by the feed',
+    back.queue.map((q) => q.title).join(', '));
+
+  // And the feed deck is likewise held, not discarded, while Tube is live.
+  const backToFeed = run(back, { type: 'switchDeck', name: 'feed' });
+  check(backToFeed.current.title === 'Video feed1',
+    'the feed deck is held in memory too, not discarded', backToFeed.current.title);
+
+  // A feed queue of its own — "It will have a queue for the user to line up
+  // clips they want to see" — stays entirely separate from Tube's.
+  const feedQueued = run(backToFeed, { type: 'enqueue', source: yt('feed2'), byUser: true, deck: 'feed' });
+  check(feedQueued.queue.length === 1 && feedQueued.queue[0].title === 'Video feed2',
+    'the feed builds its own queue', feedQueued.queue.map((q) => q.title).join(', '));
+  const tubeUnchanged = run(feedQueued, { type: 'switchDeck', name: 'tube' });
+  check(tubeUnchanged.queue.length === 2,
+    '…without adding anything to Tube\'s', `${tubeUnchanged.queue.length}`);
+
+  // TRANSPORT DOES NOT MOVE DECKS. An automatic advance, a Next press, a
+  // pause — all of it stays on whichever deck is live, or the frame would
+  // jump between players underneath somebody mid-watch.
+  const advanced = run(feedQueued, { type: 'next', manual: true });
+  check(advanced.activeDeck === 'feed',
+    'pressing Next stays on the deck it was already on', advanced.activeDeck);
+
+  // Playing something with no deck named lands wherever the player already
+  // is, rather than silently teleporting to Tube.
+  const unnamed = run(feedQueued, { type: 'play', source: yt('feed3') });
+  check(unnamed.activeDeck === 'feed',
+    'an unnamed play stays on the live deck — only a named one switches');
+}
+
 // ── 3b. pressing play on a saved list ───────────────────────────────────────
 // REPORTED: "it did add to list but combined with que … there were no play
 // buttons on the list". Both were the same missing statement of intent: the

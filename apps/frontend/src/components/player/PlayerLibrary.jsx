@@ -97,11 +97,11 @@ function HistoryTab({ accent, rowH, maxH }) {
     <div className={`overflow-y-auto ${maxH}`}>
       {entries.map((e) => (
         <div key={e.key} className={`flex items-center gap-2 px-2 ${rowH} hover:bg-white/5`}>
-          <button type="button" onClick={() => playNow(toSource(e))} title="Play again"
+          <button type="button" onClick={() => playNow(toSource(e), 'tube')} title="Play again"
             className="flex items-center justify-center w-6 shrink-0 text-white/30 hover:text-white transition-colors">
             <Play size={12} />
           </button>
-          <button type="button" onClick={() => playNow(toSource(e))}
+          <button type="button" onClick={() => playNow(toSource(e), 'tube')}
             className="min-w-0 flex-1 text-left">
             <span className="block text-[11px] text-white/70 hover:text-white truncate">{e.title || e.src}</span>
             {e.channel && <span className="block text-[9px] text-white/30 truncate">{e.channel}</span>}
@@ -185,7 +185,7 @@ function PlaylistsTab({ accent, rowH, maxH }) {
                   already queued and — correctly for its other callers — never
                   arms the queue, so autoplay walked off into discovery after
                   the first track instead of playing the list. */}
-              <button type="button" onClick={() => playList(p.items.map(toSource))}
+              <button type="button" onClick={() => playList(p.items.map(toSource), 'tube')}
                 disabled={!p.items.length} title="Play this list"
                 className="flex items-center justify-center w-8 h-8 rounded text-white/30 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors">
                 <Play size={13} />
@@ -203,7 +203,7 @@ function PlaylistsTab({ accent, rowH, maxH }) {
                 {/* A row plays. It used to enqueue, so pressing one while
                     something was on looked like nothing happened at all —
                     reported as "there were no play buttons on the list". */}
-                <button type="button" onClick={() => playNow(toSource(it))}
+                <button type="button" onClick={() => playNow(toSource(it), 'tube')}
                   title="Play this"
                   className="min-w-0 flex-1 text-left text-[10px] text-white/55 hover:text-white truncate">
                   {it.title || it.src}

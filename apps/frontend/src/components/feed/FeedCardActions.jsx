@@ -27,7 +27,7 @@ export default function FeedCardActions({ open, onClose, source, link, title, on
   // (see useFeedCursor) so a later fullscreen swipe has this list to walk,
   // not just this one track. Callers with no cursor of their own (Browse's
   // horizontal strips) fall back to the plain playNow they always used.
-  const play = onPlay || (() => playNow(source));
+  const play = onPlay || (() => playNow(source, 'feed'));
 
   useEffect(() => {
     if (!open) return undefined;
@@ -80,7 +80,7 @@ export default function FeedCardActions({ open, onClose, source, link, title, on
             type="button"
             role="menuitem"
             data-feed-action="queue"
-            onClick={() => { enqueue(source); onClose(); }}
+            onClick={() => { enqueue(source, { deck: 'feed' }); onClose(); }}
             className={item}
           >
             <ListPlus size={18} className="shrink-0" />

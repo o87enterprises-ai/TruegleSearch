@@ -296,7 +296,7 @@ export default function FeedCard({ post, focused = false, onPlay }) {
   const playCenter = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (onPlay) onPlay(); else playNow(source);
+    if (onPlay) onPlay(); else playNow(source, 'feed');
   };
 
   if (isLive) {

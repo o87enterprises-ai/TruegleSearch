@@ -1369,7 +1369,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     const at = playerCurrent?.src
       ? feedSources.findIndex((f) => f.src === playerCurrent.src)
       : -1;
-    startFeed(at > 0 ? feedSources.slice(at) : feedSources);
+    startFeed(at > 0 ? feedSources.slice(at) : feedSources, 'tube');
   }, [feed.autoplay, feedSources, startFeed, stopFeed, playerCurrent]);
 
   // A NEW SEARCH ENDS THE FEED. Typing a different query is a deliberate change

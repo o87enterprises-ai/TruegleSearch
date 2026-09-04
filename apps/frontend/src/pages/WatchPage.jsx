@@ -28,8 +28,8 @@ export default function WatchPage() {
   useEffect(() => {
     if (!sources.length || started.current === search) return;
     started.current = search;
-    play(sources[0]);
-    if (sources.length > 1) enqueueMany(sources.slice(1));
+    play(sources[0], 'tube');
+    if (sources.length > 1) enqueueMany(sources.slice(1), 'tube');
   }, [search, sources, play, enqueueMany]);
 
   useEffect(() => {
@@ -39,8 +39,8 @@ export default function WatchPage() {
 
   const replay = () => {
     if (!sources.length) return;
-    play(sources[0]);
-    if (sources.length > 1) enqueueMany(sources.slice(1));
+    play(sources[0], 'tube');
+    if (sources.length > 1) enqueueMany(sources.slice(1), 'tube');
   };
 
   return (
