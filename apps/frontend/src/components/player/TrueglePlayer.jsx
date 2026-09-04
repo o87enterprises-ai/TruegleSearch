@@ -1,4 +1,5 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
+import { X, Bookmark } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { usePageMode } from '../../hooks/usePageMode';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
@@ -18,6 +19,7 @@ import { useSwipeNav } from '../../hooks/useSwipeNav';
 import { useOverlayReveal } from '../../hooks/useOverlayReveal';
 import { useLockedGestures } from '../../hooks/useLockedGestures';
 import { rate, useRating, signalPlay } from '../../utils/taste';
+import { playlists, createPlaylist, addToPlaylist } from '../../utils/playlists';
 import { recordRetention } from '../../utils/retention';
 import { reportBroken } from '../../utils/broken';
 import { learnMeta } from '../../utils/mediaMeta';
@@ -63,7 +65,7 @@ export default function TrueglePlayer({
     current, queue, history, paused, dock, locked, setLocked,
     next, skipNext, prev, stop, togglePause, setPoppedOut, setDock, play,
     enqueueMany, playMode, setPlayMode, queueArmed, volume, setVolume,
-    feedActive, feed: feedRest, feedNext, activeDeck,
+    feedActive, feed: feedRest, feedNext, activeDeck, fullscreenNonce,
   } = usePlayer();
   // THE FEED DECK PLAYS FEED CONTENT, FULL STOP. Up Next draws on Tube's
   // corpus (creators, trending, search — see useUpNext), which is exactly
@@ -135,6 +137,46 @@ export default function TrueglePlayer({
     if (document.fullscreenElement) document.exitFullscreen?.();
     else el.requestFullscreen?.().catch(() => { /* denied — stay inline */ });
   }, []);
+
+  // ASKED FOR FROM OUTSIDE: "Open in app" on a feed card plays the card and
+  // takes the player full screen in the same press, so the card becomes the
+  // whole view without leaving the feed. Only the deck that was asked for
+  // responds — this component renders for both decks, and both reacting
+  // would fight over the one fullscreen element.
+  //
+  // A REQUEST, NOT A STATE. The nonce means a second Open-in-app is
+  // distinguishable from the first; skipping the initial value means merely
+  // mounting the player never forces full screen on anybody. Browsers only
+  // grant this from inside the gesture that asked, which is why the request
+  // travels rather than a flag being set and read later.
+  // ── the feed's one save ─────────────────────────────────────────────────
+  // "A singular save for creating a playlist from feed content." One button,
+  // one list, no picker: choosing a destination is the friction that stops
+  // people saving anything at all mid-scroll, and the feed's saves are one
+  // collection by definition. The list is made on the first save and added
+  // to after that; the full playlist machinery (rename, reorder, delete)
+  // already exists in the library for anyone who wants it later.
+  const FEED_SAVES = 'Feed saves';
+  const [savedState, setSavedState] = useState('idle'); // idle | saved | already
+  const saveToFeedList = useCallback(() => {
+    if (!current) return;
+    const existing = playlists().find((p) => p.name === FEED_SAVES);
+    const id = existing ? existing.id : createPlaylist(FEED_SAVES, []);
+    if (!id) return;
+    // addToPlaylist refuses a duplicate, which is the honest answer to
+    // pressing save twice — say so rather than showing a tick that lied.
+    setSavedState(addToPlaylist(id, current) ? 'saved' : 'already');
+    setTimeout(() => setSavedState('idle'), 1800);
+  }, [current]);
+
+  const seenFullscreenNonce = useRef(fullscreenNonce);
+  useEffect(() => {
+    if (fullscreenNonce === seenFullscreenNonce.current) return;
+    seenFullscreenNonce.current = fullscreenNonce;
+    if (!onFeedDeck || presentation === 'collapsed') return;
+    if (document.fullscreenElement) return;
+    rootRef.current?.requestFullscreen?.().catch(() => { /* denied — stay inline */ });
+  }, [fullscreenNonce, onFeedDeck, presentation]);
 
   // The transport's right-hand control, which changes with where the player
   // is — one button, one meaning, at all times:
@@ -645,6 +687,48 @@ export default function TrueglePlayer({
       // nothing else on the page.
       className={`relative ${fullscreen ? 'flex flex-col w-full h-full bg-black' : className}`}
     >
+      {/* THE WAY BACK TO THE FEED, one press, top corner. The feed player's
+          full screen IS the feed card blown up, so leaving it has to feel
+          like closing a card rather than exiting a video player — the
+          transport's own full-screen toggle is at the bottom of the screen
+          and reads as neither. Feed deck only: Tube's full screen is a
+          destination in itself, not something a reader is passing through.
+          Never while locked, which is the one state that means "ignore
+          every control". */}
+      {fullscreen && onFeedDeck && !locked && (
+        <button
+          type="button"
+          data-feed-fullscreen-close=""
+          aria-label="Close and return to the feed"
+          title="Back to the feed"
+          onClick={() => document.exitFullscreen?.()}
+          className="absolute top-3 right-3 z-40 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm
+                     flex items-center justify-center text-white/90 hover:bg-black/80 hover:text-white
+                     transition-colors"
+        >
+          <X size={20} />
+        </button>
+      )}
+
+      {/* THE FEED'S ONE SAVE. Feed deck only — Tube has the full library and
+          its own add-to-playlist menu; this is the one-press version for
+          something you are watching mid-scroll and want to keep. */}
+      {onFeedDeck && current && !locked && (
+        <button
+          type="button"
+          data-feed-save=""
+          data-saved={savedState}
+          aria-label={savedState === 'already' ? 'Already in your feed saves' : 'Save to your feed playlist'}
+          title={savedState === 'already' ? 'Already saved' : 'Save to Feed saves'}
+          onClick={saveToFeedList}
+          className={`absolute ${fullscreen ? 'top-3 left-3 w-10 h-10' : 'top-2 left-2 w-8 h-8'} z-40 rounded-full
+                      bg-black/60 backdrop-blur-sm flex items-center justify-center transition-colors
+                      hover:bg-black/80 ${savedState === 'idle' ? 'text-white/80 hover:text-white' : 'text-emerald-300'}`}
+        >
+          <Bookmark size={fullscreen ? 18 : 15} fill={savedState === 'saved' ? 'currentColor' : 'none'} />
+        </button>
+      )}
+
       {/* `touchDevice &&`: a lock set on a phone and then resumed on a desktop
           (same account, restored state) would otherwise paint a sheet over a
           player whose lock button is no longer offered. The state is left

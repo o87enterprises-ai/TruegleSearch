@@ -225,6 +225,29 @@ check(!!slotBox && !!frameBox
   '…and it is positioned exactly over the playing card’s own slot, not floating separately',
   `slot=${JSON.stringify(slotBox)} frame=${JSON.stringify(frameBox)}`);
 
+// ── the feed plays on its OWN deck, and offers its own one-press save ──────
+// "The player from feed should NOT carry state from Tube player." The deck
+// swap itself is covered exhaustively against the pure reducer in
+// verify-player-engine.mjs; what this pins is the wiring — that the feed's
+// play path actually asks for the feed deck rather than defaulting into
+// Tube's.
+check(await page.locator('[data-player-deck="feed"]').count() > 0,
+  'playing from the feed puts the player on the FEED deck, not Tube\'s',
+  await page.locator('[data-player-root]').getAttribute('data-player-deck').catch(() => 'none'));
+check(await page.locator('[data-feed-save]').count() === 1,
+  '…and offers the feed\'s single save — one press, one list, no picker');
+
+// Saving twice is honest about the second press rather than showing a tick
+// that lied: addToPlaylist refuses a duplicate and the button says so.
+await page.click('[data-feed-save]');
+await until(() => page.locator('[data-feed-save][data-saved="saved"]').count().then((n) => n === 1),
+  { what: 'the save to confirm' });
+check(true, 'pressing save adds the clip to the feed playlist');
+check(await page.evaluate(() => {
+  const raw = localStorage.getItem('truegle_playlists_v1') || localStorage.getItem('truegle_playlists') || '[]';
+  try { return JSON.parse(raw).some((p) => p.name === 'Feed saves' && p.items.length === 1); } catch { return false; }
+}), '…into a "Feed saves" list built from feed content');
+
 // ── scrolling the playing card out of focus stops it ────────────────────────
 // "It stops and the next centered card then begins thumbnail preview and can
 // be clicked to play" — the owner's own words for this behaviour.

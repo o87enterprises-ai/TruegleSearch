@@ -22,12 +22,22 @@ import { usePlayer } from '../../context/PlayerContext';
 // nothing.
 
 export default function FeedCardActions({ open, onClose, source, link, title, onPlay }) {
-  const { playNow, enqueue } = usePlayer();
+  const { playNow, enqueue, requestFullscreen } = usePlayer();
   // Vertical-feed callers pass onPlay — it starts the feed-follow cursor
   // (see useFeedCursor) so a later fullscreen swipe has this list to walk,
   // not just this one track. Callers with no cursor of their own (Browse's
   // horizontal strips) fall back to the plain playNow they always used.
-  const play = onPlay || (() => playNow(source, 'feed'));
+  //
+  // "OPEN IN APP" MEANS EXACTLY THAT: the card becomes the whole view, right
+  // here, rather than the reader being sent off to the platform's own site
+  // to look at it. So it plays AND goes full screen in the one press — the
+  // player is 9:16 on this deck, swipes walk to the next card, and the X in
+  // the corner drops straight back into the feed where they left off. The
+  // point is not to break somebody's scroll to read one post.
+  const play = () => {
+    if (onPlay) onPlay(); else playNow(source, 'feed');
+    requestFullscreen();
+  };
 
   useEffect(() => {
     if (!open) return undefined;

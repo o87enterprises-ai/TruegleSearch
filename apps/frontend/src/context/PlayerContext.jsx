@@ -58,6 +58,12 @@ export const INITIAL = {
   // back to. Session-only: like `feed` below, a deck you were half way
   // through is something you are doing now, not a setting — see loadState.
   stashed: {},
+  // A counter, not a boolean. "Take me full screen" is an EVENT — the second
+  // request has to be distinguishable from the first, and the browser will
+  // only grant it from inside the gesture that asked, so the player watches
+  // this bump and calls requestFullscreen() itself. A boolean would latch,
+  // and leaving full screen would then fight whatever set it.
+  fullscreenNonce: 0,
   // Where the popped-out player lives: 'float' = the draggable window,
   // 'footer' = pinned across the bottom of the page above the feedback bar.
   // null = nobody has chosen, so the surface picks: a floating window covers
@@ -146,6 +152,8 @@ export function reducer(s, a) {
   }
 
   switch (a.type) {
+    case 'requestFullscreen':
+      return { ...s, fullscreenNonce: s.fullscreenNonce + 1 };
     case 'switchDeck': {
       const name = a.name === 'feed' ? 'feed' : 'tube';
       if (name === s.activeDeck) return s;
@@ -466,6 +474,9 @@ export const PlayerProvider = ({ children }) => {
   const play = useCallback((source, deck) => dispatch({ type: 'play', source, deck }), []);
   const playNow = useCallback((source, deck) => dispatch({ type: 'playNow', source, deck }), []);
   const switchDeck = useCallback((name) => dispatch({ type: 'switchDeck', name }), []);
+  // "Open in app" on a feed card: play it AND take the player full screen, so
+  // the card becomes the whole view without the reader leaving the feed.
+  const requestFullscreen = useCallback(() => dispatch({ type: 'requestFullscreen' }), []);
   // `byUser` says a person pressed Add to queue, as opposed to the player
   // topping itself up. Defaults TRUE: every existing call site is a button, and
   // a default that silently disarmed the queue would be the more surprising of
@@ -510,11 +521,11 @@ export const PlayerProvider = ({ children }) => {
     () => ({
       ...state,
       play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
-      startFeed, appendFeed, feedNext, stopFeed, playList, switchDeck,
+      startFeed, appendFeed, feedNext, stopFeed, playList, switchDeck, requestFullscreen,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume,
     }),
     [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
-      startFeed, appendFeed, feedNext, stopFeed, playList, switchDeck,
+      startFeed, appendFeed, feedNext, stopFeed, playList, switchDeck, requestFullscreen,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode, setLocked, setVolume]
   );
 
