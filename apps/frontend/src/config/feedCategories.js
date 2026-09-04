@@ -61,6 +61,14 @@ export const CATEGORIES = [
     platforms: ['instagram', 'facebook', 'pinterest', 'x'],
     topic: 'entertainment',
   },
+  {
+    id: 'creators',
+    label: 'Creators',
+    blurb: "Truegle's partner roster — new uploads",
+    // Curated, not searched — no `topic`, same reasoning as `live`/News: the
+    // row is the roster's own latest uploads, not a query against it.
+    platforms: ['creators'],
+  },
 ];
 
 export const categoryById = (id) => CATEGORIES.find((c) => c.id === id) || null;

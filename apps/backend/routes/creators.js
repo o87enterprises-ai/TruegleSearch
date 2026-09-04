@@ -3,6 +3,7 @@ const router = express.Router();
 const logger = require('../utils/logger');
 const { query } = require('../db/connection');
 const gateway = require('../services/YouTubeGateway');
+const roster = require('../config/creatorsRoster');
 
 /*
  * Creator hub — YouTube channel feed proxy.
@@ -147,18 +148,17 @@ async function aboutViaChannelPage(channelId) {
   };
 }
 
-router.get('/:channelId/videos', async (req, res) => {
-  const { channelId } = req.params;
-  // YouTube channel IDs are "UC" + 22 url-safe chars; validate defensively.
-  if (!/^[A-Za-z0-9_-]{10,40}$/.test(channelId)) {
-    return res.status(400).json({ error: 'invalid_channel', videos: [] });
-  }
-
+/**
+ * One channel's videos, cache-first. Shared by the per-channel route below
+ * and by fetchCreatorsFeed(), which fans this out across the whole roster —
+ * both need the exact same cache/fallback/stale behaviour, so this is the
+ * one place it lives.
+ */
+async function getChannelVideos(channelId) {
   const hit = cache.get(channelId);
   if (hit && Date.now() - hit.at < TTL_MS) {
-    return res.json({ videos: hit.videos, cached: true });
+    return { videos: hit.videos, cached: true, stale: false };
   }
-
   try {
     // Prefer the YouTube Data API when a key is configured — it's reliable from
     // datacenter IPs (Vercel), unlike the RSS feed which YouTube rate-limits
@@ -169,12 +169,95 @@ router.get('/:channelId/videos', async (req, res) => {
     }
     if (!videos || videos.length === 0) videos = await fetchViaRss(channelId);
     cache.set(channelId, { at: Date.now(), videos });
-    return res.json({ videos });
+    return { videos, cached: false, stale: false };
   } catch (err) {
     logger.warn('Creator video fetch failed:', { channelId, error: err.message });
-    if (hit) return res.json({ videos: hit.videos, stale: true }); // serve stale on error
+    if (hit) return { videos: hit.videos, cached: false, stale: true }; // serve stale on error
+    throw err;
+  }
+}
+
+router.get('/:channelId/videos', async (req, res) => {
+  const { channelId } = req.params;
+  // YouTube channel IDs are "UC" + 22 url-safe chars; validate defensively.
+  if (!/^[A-Za-z0-9_-]{10,40}$/.test(channelId)) {
+    return res.status(400).json({ error: 'invalid_channel', videos: [] });
+  }
+
+  try {
+    const { videos, cached, stale } = await getChannelVideos(channelId);
+    return res.json({ videos, ...(cached ? { cached: true } : {}), ...(stale ? { stale: true } : {}) });
+  } catch (err) {
     return res.status(502).json({ error: 'rss_unavailable', videos: [] });
   }
+});
+
+/**
+ * Feed-shaped rows across the whole partner roster, newest first — the
+ * adapter POST /api/social/feed fans out to for platform id 'creators' (see
+ * routes/social.js), and GET /feed below calls directly for standalone use.
+ *
+ * A channel that fails (rate-limited, no videos, network error) is dropped
+ * rather than failing the whole call — ten sources fanning out means one bad
+ * channel must not blank the other nine, same reasoning as fetchReddit's
+ * per-host tolerance in social.js.
+ *
+ * `query`, when given, filters by title/channel name rather than searching
+ * anything upstream — the roster is small and curated, not indexed.
+ */
+async function fetchCreatorsFeed(query, limit = 20, cursor) {
+  const settled = await Promise.allSettled(
+    roster.map((c) => getChannelVideos(c.channelId).then((r) => ({ creator: c, videos: r.videos }))),
+  );
+
+  let items = [];
+  for (const r of settled) {
+    if (r.status !== 'fulfilled') continue;
+    const { creator, videos } = r.value;
+    for (const v of videos) {
+      items.push({
+        id: v.url,
+        platform: 'Truegle Creators',
+        title: v.title || creator.name,
+        url: v.url,
+        permalink: v.url,
+        snippet: null,
+        author: creator.name,
+        subreddit: null,
+        date: v.published || null,
+        // NULL, not 0 — a search result and an RSS entry both carry no vote
+        // count, and 0 would claim one that was actually never measured.
+        score: null,
+        comments: null,
+        thumbnail: v.thumbnail || null,
+        flair: null,
+      });
+    }
+  }
+
+  items.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+  if (query) {
+    const q = String(query).toLowerCase();
+    items = items.filter((it) => it.title.toLowerCase().includes(q) || it.author.toLowerCase().includes(q));
+  }
+
+  const offset = Number.isInteger(cursor) ? cursor : 0;
+  const page = items.slice(offset, offset + limit);
+  return { items: page, next: offset + limit < items.length ? offset + limit : null };
+}
+
+/**
+ * GET /api/creators/feed?query=&limit=&cursor=
+ * → { items: [...], next } — the same shape fetchCreatorsFeed returns,
+ * for standalone use outside the /api/social/feed aggregate.
+ */
+router.get('/feed', async (req, res) => {
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+  const rawCursor = parseInt(req.query.cursor, 10);
+  const cursor = Number.isInteger(rawCursor) ? rawCursor : undefined;
+  const result = await fetchCreatorsFeed(req.query.query || '', limit, cursor);
+  res.json(result);
 });
 
 /*
@@ -513,5 +596,10 @@ function decode(s) {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'");
 }
+
+// Attached to the router function so routes/social.js can call the fetch
+// logic directly (no HTTP self-call) while GET /feed above stays the normal
+// standalone entry point — same require, two ways in.
+router.fetchCreatorsFeed = fetchCreatorsFeed;
 
 module.exports = router;

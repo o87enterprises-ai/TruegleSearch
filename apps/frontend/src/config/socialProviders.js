@@ -186,6 +186,19 @@ export const PROVIDERS = [
     status: 'open',
     note: 'Public videos, via search — no account',
   },
+  // OUR OWN ROSTER, NOT A THIRD-PARTY AD NETWORK. "Sponsored" names Truegle's
+  // partner-creator program (content/creators.js, the same roster /creators
+  // and FeaturedCreator already use) — their own uploads, fetched via YouTube's
+  // free per-channel RSS/Data API, same as every /creator/:slug page. No
+  // conflict with the no-advertising policy: nothing is bought or auctioned,
+  // it's the site's existing creator relationships surfaced in one more place.
+  {
+    id: 'creators',
+    label: 'Truegle Sponsored Creators',
+    colour: '#a855f7',
+    status: 'open',
+    note: "Our partner creators' own uploads — no account needed",
+  },
 ];
 
 export const PROVIDER_IDS = PROVIDERS.map((p) => p.id);
@@ -235,6 +248,7 @@ export const BACKEND_PLATFORMS = {
   tiktok: ['tiktok'],
   rumble: ['rumble'],
   truthsocial: ['truthsocial'],
+  creators: ['creators'],
 };
 
 export const platformsFor = (connectedIds = []) => [

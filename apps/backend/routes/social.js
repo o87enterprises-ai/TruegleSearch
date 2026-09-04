@@ -3,6 +3,10 @@ const axios = require('axios');
 const router = express.Router();
 const config = require('../config/env');
 const logger = require('../utils/logger');
+// The creators router exposes its feed-fetch function on itself so this file
+// can call it directly rather than round-tripping through HTTP — see the
+// comment above module.exports in routes/creators.js.
+const { fetchCreatorsFeed } = require('./creators');
 
 // Social media search using Apify API
 router.post('/search', async (req, res) => {
@@ -775,8 +779,10 @@ async function fetchGitHub(query, limit, page = 1) {
  * body: { query?: string, platforms?: string[], cursor?: {…}, limit?: number }
  *
  * platforms defaults to every source below when omitted or ['all']:
- * reddit, hackernews, github, news (Google News RSS, keyless) and community
- * (our own submitted-media pool, which answers whenever Postgres does).
+ * reddit, hackernews, github, news (Google News RSS, keyless), community
+ * (our own submitted-media pool, which answers whenever Postgres does) and
+ * creators (the partner-roster's own uploads, fanned out across their
+ * channels — see fetchCreatorsFeed in routes/creators.js).
  * QUERY IS OPTIONAL: with one this searches, without one it returns the
  * popular listing — which is what an unauthenticated "home feed" honestly is.
  * `cursor` is the previous response's `nextCursor`, per platform.
@@ -813,7 +819,7 @@ router.post('/feed', async (req, res) => {
     // Kick off all requested platform fetches in parallel; each is
     // independently fault-tolerant — a single failure doesn't kill the rest.
     const [redditResult, hnResult, ghResult, newsResult, communityResult,
-           mastodonResult, blueskyResult, lemmyResult, ...searxResults] = await Promise.allSettled([
+           mastodonResult, blueskyResult, lemmyResult, creatorsResult, ...searxResults] = await Promise.allSettled([
       want('reddit') ? fetchReddit(q, limit, cur.reddit) : Promise.resolve(NONE),
       want('hackernews') ? fetchHackerNews(q, limit, cur.hackernews) : Promise.resolve(NONE),
       want('github') ? fetchGitHub(q, limit, cur.github) : Promise.resolve(NONE),
@@ -822,6 +828,7 @@ router.post('/feed', async (req, res) => {
       want('mastodon') ? fetchMastodon(q, limit, cur.mastodon) : Promise.resolve(NONE),
       want('bluesky') ? fetchBluesky(q, limit, cur.bluesky) : Promise.resolve(NONE),
       want('lemmy') ? fetchLemmy(q, limit, cur.lemmy) : Promise.resolve(NONE),
+      want('creators') ? fetchCreatorsFeed(q, limit, cur.creators) : Promise.resolve(NONE),
       // The SearXNG-backed platforms, in the fixed order of SEARX_IDS so the
       // results can be zipped back onto their ids below.
       ...SEARX_IDS.map((id) => (want(id)
@@ -838,6 +845,7 @@ router.post('/feed', async (req, res) => {
     const mastodon = settle(mastodonResult).items;
     const bluesky = settle(blueskyResult).items;
     const lemmy = settle(lemmyResult).items;
+    const creators = settle(creatorsResult).items;
 
     // Zip the SearXNG results back onto their ids. Built as objects rather than
     // named consts because there are six of them and they are all identical —
@@ -863,10 +871,11 @@ router.post('/feed', async (req, res) => {
     if (mastodonResult.status === 'rejected') logger.warn('Mastodon feed failed:', mastodonResult.reason?.message);
     if (blueskyResult.status === 'rejected') logger.warn('Bluesky feed failed:', blueskyResult.reason?.message);
     if (lemmyResult.status === 'rejected') logger.warn('Lemmy feed failed:', lemmyResult.reason?.message);
+    if (creatorsResult.status === 'rejected') logger.warn('Creators feed failed:', creatorsResult.reason?.message);
 
     // Merged chronological feed across all platforms
     const all_results = [...reddit, ...hackernews, ...github, ...news, ...community,
-      ...mastodon, ...bluesky, ...lemmy, ...searxAll].sort((a, b) => {
+      ...mastodon, ...bluesky, ...lemmy, ...creators, ...searxAll].sort((a, b) => {
       if (!a.date && !b.date) return 0;
       if (!a.date) return 1;
       if (!b.date) return -1;
@@ -877,7 +886,7 @@ router.post('/feed', async (req, res) => {
       query: q,
       results: all_results,
       platforms: {
-        reddit, hackernews, github, news, community, mastodon, bluesky, lemmy, ...searxItems,
+        reddit, hackernews, github, news, community, mastodon, bluesky, lemmy, creators, ...searxItems,
       },
       // What to send back to continue. A platform that has run out reports
       // null, which is how the client knows to stop asking rather than
@@ -891,6 +900,7 @@ router.post('/feed', async (req, res) => {
         mastodon: settle(mastodonResult).next,
         bluesky: settle(blueskyResult).next,
         lemmy: settle(lemmyResult).next,
+        creators: settle(creatorsResult).next,
         ...searxCursors,
       },
       // WHY, not just THAT.
@@ -910,6 +920,7 @@ router.post('/feed', async (req, res) => {
         mastodon: mastodonResult.status === 'rejected' ? (mastodonResult.reason?.message || 'unavailable') : null,
         bluesky: blueskyResult.status === 'rejected' ? (blueskyResult.reason?.message || 'unavailable') : null,
         lemmy: lemmyResult.status === 'rejected' ? (lemmyResult.reason?.message || 'unavailable') : null,
+        creators: creatorsResult.status === 'rejected' ? (creatorsResult.reason?.message || 'unavailable') : null,
         ...searxErrors,
       },
     });
