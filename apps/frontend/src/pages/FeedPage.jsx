@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader2, Plus, X } from 'lucide-react';
 import SearchPageShell from '../components/layout/SearchPageShell';
-import SearchBar from '../components/ui/SearchBar';
 import FeedCard from '../components/feed/FeedCards';
 import { PROVIDERS, byId, platformsFor, needsAuth, isConnectable } from '../config/socialProviders';
 import FeedServers from '../components/feed/FeedServers';
@@ -34,16 +33,37 @@ const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 //
 // The layout does not change between them, which is the point: this is the
 // search page with a different thing under the bar, not a second design.
+//
+// NO SEARCH BAR HERE ANY MORE, on purpose. It searched the feeds by typed
+// query — a capability this page has stopped offering, not moved elsewhere —
+// and the pill above it (`PillModeRow`) only ever navigated by way of the
+// bar's own submit, so keeping the pill without the bar would have left a
+// colour-cycling control that did nothing. `FeedModeSelector` below already
+// covers Feed/Tube/Web/Chat navigation on its own, with no submit step.
 
 export default function FeedPage() {
-  const navigate = useNavigate();
   const location = useLocation();
   const { connections, ids, disconnect } = useSocialConnections();
-  const [query, setQuery] = useState('');
-  const [submitted, setSubmitted] = useState('');
-  const [pillMode, setPillMode] = useState('yellow');
+  const { setPoppedOut } = usePlayer();
   const [busy, setBusy] = useState('');
   const [failed, setFailed] = useState('');
+
+  // DEFAULT THE PLAYER TO POPPED OUT, ONCE, EVER, IN THIS BROWSER. Feed no
+  // longer has a permanent in-page dock (see Stage 3's per-card slot and the
+  // search bar removal below) — the floating 9:16 corner is the intended
+  // default experience here now, not something you have to discover the
+  // pop-out button to reach. The marker is what makes this a DEFAULT rather
+  // than a standing override: fires once, so a visitor who later docks back
+  // in on purpose stays docked on their next visit — PlayerContext already
+  // persists poppedOut/dock across reloads (see loadState() there).
+  useEffect(() => {
+    try {
+      const KEY = 'truegle_feed_defaulted_pop_v1';
+      if (localStorage.getItem(KEY)) return;
+      localStorage.setItem(KEY, '1');
+      setPoppedOut(true);
+    } catch { /* private mode / quota — the default just won't stick */ }
+  }, [setPoppedOut]);
 
   // SERVERS — default all, per spec. Everything keyless is on for a brand-new
   // visitor, so the feed has something in it the moment the page opens rather
@@ -78,9 +98,9 @@ export default function FeedPage() {
     return platformsForCategory(openCategory, all);
   }, [activeIds.join(','), openCategory?.id]);
   const feed = useSocialFeed({
-    // An opened category with a topic seeds the query, unless the visitor has
-    // typed something — what they typed always wins over the category's seed.
-    query: submitted || openCategory?.topic || '',
+    // The category's own seed topic, when one is open. There is no typed
+    // override any more — see the search bar removal below.
+    query: openCategory?.topic || '',
     platforms,
     enabled: platforms.length > 0,
     // The aggregated timeline: one post from every source in turn rather than
@@ -112,41 +132,8 @@ export default function FeedPage() {
     window.location.assign(`${BACKEND}/api/social-auth/${id}/start?return=/feed`);
   }, []);
 
-  // The pill CYCLES, it does not navigate. This is the model every other page
-  // uses (UniversalSearch:671, LandingPage, TruegleChat): one click advances the
-  // mode, and where a submit goes is decided at submit time. Navigating on the
-  // click instead meant a single press launched you off the feed into Chat and
-  // there was no way to reach blue, green or red from here at all — the cycle
-  // has to be walkable.
-  const onPill = useCallback((next) => setPillMode(next), []);
-
-  const submit = useCallback(() => {
-    const q = query.trim();
-    // Yellow is this page, so a submit searches the feeds in place. Any other
-    // mode means the pill was cycled away, and the submit is what carries the
-    // query there — matching submitSearch() on the search page.
-    if (pillMode === 'yellow') { setSubmitted(q); return; }
-    if (pillMode === 'black') { navigate(q ? `/chat?q=${encodeURIComponent(q)}` : '/chat'); return; }
-    if (pillMode === 'tube') { navigate(q ? `/tube?q=${encodeURIComponent(q)}` : '/tube'); return; }
-    navigate(`/search?mode=${pillMode}${q ? `&q=${encodeURIComponent(q)}` : ''}`);
-  }, [pillMode, query, navigate]);
-
-  const searchBar = (
-    <SearchBar
-      value={query}
-      showSearchButton={false}
-      showBiasedButton={false}
-      showUnbiasedButton={false}
-      showCategories={false}
-      onChange={setQuery}
-      onSubmit={submit}
-      onSearch={submit}
-      placeholder={connections.length ? 'Search your feeds…' : 'Connect an account to search it'}
-    />
-  );
-
   return (
-    <SearchPageShell mode="yellow" pillMode={pillMode} onPillSelect={onPill} searchBar={searchBar}>
+    <SearchPageShell mode="yellow">
       {failed && (
         <div className="max-w-4xl mx-auto mb-4 px-4 py-3 rounded-xl bg-red-950/30 border border-red-500/30 text-red-200 text-sm">
           {failed}
@@ -181,11 +168,12 @@ export default function FeedPage() {
           slower machine for reasons that have nothing to do with the code. */}
       <div data-feed-state={platforms.length ? 'connected' : 'arrival'} hidden />
 
-      {/* THE CHROME: which servers feed the timeline, and what the bar
-          searches. Both sit under the search bar because both change what the
-          thing directly above them does. */}
+      {/* THE CHROME: which mode this is, which view is open, and which
+          servers feed the timeline. No search bar above this any more — see
+          the header note — so this row is the top of the page now, not a
+          second row under one. */}
       <div className="max-w-4xl mx-auto mb-4 flex flex-wrap items-center justify-between gap-2">
-        <FeedModeSelector active="feed" query={query} />
+        <FeedModeSelector active="feed" />
         <div className="flex items-center gap-2">
           {/* HOME / BROWSE. Home is the randomized timeline; Browse is the
               category rows. An opened category counts as Browse, because that
@@ -253,7 +241,7 @@ export default function FeedPage() {
       ) : (
         <>
           <ConnectedRow connections={connections} onDisconnect={disconnect} onConnect={start} busy={busy} />
-          <FeedList feed={feed} query={submitted} />
+          <FeedList feed={feed} />
         </>
       )}
     </SearchPageShell>
@@ -379,7 +367,7 @@ function ConnectedRow({ connections, onDisconnect, onConnect, busy }) {
   );
 }
 
-function FeedList({ feed, query }) {
+function FeedList({ feed }) {
   const { items, loading, error, done, sentinel, allSeen } = feed;
   // Which card is nearest the vertical center of the viewport, purely for the
   // enlarge/play-button treatment — nothing here ever autoplays. See
@@ -410,13 +398,13 @@ function FeedList({ feed, query }) {
     <div className="max-w-4xl mx-auto">
       {/* Said plainly rather than implied. Without OAuth there is no personal
           front page on any of these, so calling this "your feed" would be a
-          claim the data cannot support. */}
-      {!query && (
-        <p className="text-white/30 text-[11px] mb-3">
-          Popular right now. A personal feed needs a provider to grant one — see the notes on
-          each account.
-        </p>
-      )}
+          claim the data cannot support. Unconditional now — there is no more
+          typed query to distinguish "popular" from "searched", see the
+          search bar removal above. */}
+      <p className="text-white/30 text-[11px] mb-3">
+        Popular right now. A personal feed needs a provider to grant one — see the notes on
+        each account.
+      </p>
 
       <div className="space-y-3">
         {items.map((post, idx) => (
@@ -443,9 +431,7 @@ function FeedList({ feed, query }) {
       )}
 
       {!loading && !items.length && !error && !allSeen && (
-        <p className="text-white/40 text-sm py-10 text-center">
-          {query ? `Nothing came back for “${query}”.` : 'Nothing to show yet.'}
-        </p>
+        <p className="text-white/40 text-sm py-10 text-center">Nothing to show yet.</p>
       )}
 
       {loading && (

@@ -139,10 +139,23 @@ check(!!searchGeo.outer && !!feedGeo.outer, 'both pages render the outer rail',
 check(JSON.stringify(searchGeo.outer) === JSON.stringify(feedGeo.outer),
   '/feed and /search put the outer rail in exactly the same place',
   `search ${JSON.stringify(searchGeo.outer)} vs feed ${JSON.stringify(feedGeo.outer)}`);
-check(JSON.stringify(searchGeo.inner) === JSON.stringify(feedGeo.inner),
-  '…and the search-bar rail too',
-  `search ${JSON.stringify(searchGeo.inner)} vs feed ${JSON.stringify(feedGeo.inner)}`);
 check(feedGeo.shell, 'the feed uses the shared page shell');
+
+// Feed has no search bar or mode pill any more (see the header note in
+// FeedPage.jsx) — deliberately, not a regression. `.max-w-4xl` is no longer
+// a search-bar-only selector on this page (FeedPage's own chrome row uses
+// the same rail width), so the old parity check against `searchGeo.inner`
+// would now silently compare the search bar to an unrelated row that just
+// happens to share a class — a coincidental pass, not a real one. A
+// textarea is what SearchBar actually renders, and is unambiguous either
+// way.
+check(await page.locator('textarea').count() === 0,
+  'the search bar is gone from /feed — no textarea anywhere on the page');
+// PillModeRow's own button title always starts with this (PillModeRow.jsx;
+// the rest varies with the active mode) — a class-based selector risks a
+// false match against something else that happens to share a utility class.
+check(await page.locator('button[title^="Click to switch mode"]').count() === 0,
+  '…and the mode pill above it is gone with it (FeedModeSelector is the only mode-switcher now)');
 
 // ── 2. the servers list is honest about what cannot work ───────────────────
 // THIS MOVED. It used to read the arrival screen's provider grid, but the
@@ -272,26 +285,24 @@ await page.waitForTimeout(1200);
 check(calls.filter((c) => c.path === '/api/social/feed').length === 0,
   'an exhausted feed stops asking instead of spinning on a dead cursor');
 
-// ── 5. typing searches only the connected accounts ──────────────────────────
-calls.length = 0;
-await page.fill('textarea', 'raspberry pi');
-await page.keyboard.press('Enter');
-await until(() => calls.some((c) => c.path === '/api/social/feed' && c.body?.query === 'raspberry pi'),
-  { what: 'the typed query to reach the feed' });
-const searched = calls.filter((c) => c.path === '/api/social/feed');
-check(searched.length > 0, 'typing searches the feed', `${searched.length} requests`);
-check(searched[0]?.body?.query === 'raspberry pi', '…for what was typed', searched[0]?.body?.query);
+// ── 5. the servers list carries exactly what's switched on ─────────────────
 // REPORTED: "Feed (reddit) is pulling GitHub results." It was. Connecting one
 // source used to send platforms: ['reddit','hackernews','github'], on the
 // reasoning that the keyless two may as well ride along — which padded the feed
 // with things nobody asked for and gave no way to switch them off, because they
 // were not pills. One source connected means one source searched. Reddit is the
 // provider that is shut now, but the rule is the rule whichever way round it is.
-// The rule is unchanged; what counts as "asked for" is. With Servers defaulting
-// to every keyless source, hackernews and github are both legitimately on — so
-// the assertion is that the request carries EXACTLY the switched-on servers and
-// nothing else. A source that cannot serve a feed (Reddit, today) must never
-// appear, which is the half that actually caught the original bug.
+//
+// FORMERLY DERIVED FROM A TYPED SEARCH — the query box that produced it is
+// gone (see FeedPage.jsx's header note), so this now reads the arrival
+// request instead of a searched one. The rule under test is unchanged: the
+// request carries exactly the servers that are switched on, nothing smuggled
+// in and nothing missing.
+calls.length = 0;
+await openApp(page, `${BASE}/feed`);
+await until(() => calls.some((c) => c.path === '/api/social/feed'),
+  { what: 'the arrival request to check the platform set' });
+const arrived = calls.filter((c) => c.path === '/api/social/feed');
 // DERIVED FROM THE PAGE, not a hardcoded pair. This listed ['github',
 // 'hackernews'] and broke the moment five more keyless sources were added —
 // which is a test pinning today's provider roster rather than the rule. The
@@ -306,16 +317,16 @@ const usable = await page.evaluate(async () => {
 await page.keyboard.press('Escape');
 check(usable.length >= 5, 'the feed has more than a couple of keyless sources to draw on',
   `${usable.length}: ${usable.join(',')}`);
-check(searched.every((c) => JSON.stringify([...c.body.platforms].sort()) === JSON.stringify(usable)),
+check(arrived.every((c) => JSON.stringify([...c.body.platforms].sort()) === JSON.stringify(usable)),
   '…and only across the servers that are switched on, with nothing smuggled in',
-  `sent ${JSON.stringify(searched[0]?.body?.platforms)} vs usable ${JSON.stringify(usable)}`);
+  `sent ${JSON.stringify(arrived[0]?.body?.platforms)} vs usable ${JSON.stringify(usable)}`);
 // The rule this replaces was "never send reddit", which was right while Reddit
 // was the one source that could not answer and is wrong now that it can. The
 // durable version: never send a platform the page does not list as usable —
 // which catches a source being smuggled into the request whichever source it is.
-check(searched.every((c) => (c.body.platforms || []).every((pl) => usable.includes(pl))),
+check(arrived.every((c) => (c.body.platforms || []).every((pl) => usable.includes(pl))),
   '…and never a platform the page does not offer',
-  `sent ${JSON.stringify(searched[0]?.body?.platforms)}`);
+  `sent ${JSON.stringify(arrived[0]?.body?.platforms)}`);
 
 // ── 5b. a public source is switched on, not signed into ─────────────────────
 // Hacker News and GitHub are keyless and accountless. Sending them round the
@@ -340,32 +351,14 @@ check(await page.evaluate(() => JSON.parse(localStorage.getItem('truegle_feed_co
   '…and is recorded locally, with no account anywhere');
 // It was already in the feed request before the click, because it is keyless
 // and therefore on by default — which is the whole point of default-all.
-check(searched.every((c) => (c.body.platforms || []).includes('hackernews')),
+check(arrived.every((c) => (c.body.platforms || []).includes('hackernews')),
   '…having already been in the feed request, since a keyless source needs no permission',
-  JSON.stringify(searched[0]?.body?.platforms));
+  JSON.stringify(arrived[0]?.body?.platforms));
 
-// ── 6. the mode pill cycles rather than navigating ──────────────────────────
-// It shipped navigating on the click, which meant one press threw you off the
-// feed into /chat and blue/green/red were unreachable from here — you cannot
-// walk a cycle if the first step leaves the page. Every other page cycles on
-// click and decides where a submit goes at submit time.
-const pillText = () => page.locator('.relative.z-20 button').first().innerText();
-const before = await pillText();
-await page.locator('.relative.z-20 button').first().click();
-await until(async () => (await pillText()).trim() !== before.trim(), { what: 'the pill to advance' });
-check(new URL(page.url()).pathname === '/feed',
-  'clicking the mode pill stays on the feed instead of navigating away', page.url());
-check((await pillText()).trim() !== before.trim(),
-  '…and advances the mode, so the whole cycle is reachable',
-  `${before.trim()} → ${(await pillText()).trim()}`);
-
-// Submitting is what carries the query to the mode now selected.
-await page.fill('textarea', 'hello');
-await page.keyboard.press('Enter');
-await until(() => new URL(page.url()).pathname !== '/feed', { what: 'the submit to navigate' });
-check(new URL(page.url()).pathname !== '/feed',
-  'submitting on a cycled pill is what leaves the page', page.url());
-await openApp(page, `${BASE}/feed`);
+// ── 6. removed — the mode pill and the search bar it depended on are both
+// gone from /feed. See §1's absence checks and FeedPage.jsx's header note.
+// FeedModeSelector (already covered implicitly — its buttons are what §10
+// clicks) is the only mode-switcher here now.
 
 // ── 7. a fresh browser gets a feed, and no account switched on for it ──────
 // REVERSED, for the same reason as §3. This asserted that a browser which had
@@ -398,6 +391,30 @@ check(freshCalls.some((c) => c.path === '/api/social/feed'),
   freshCalls.map((c) => c.path).join(' ') || '(no calls)');
 check(await clean.evaluate(() => JSON.parse(localStorage.getItem('truegle_feed_connections') || '[]').length) === 0,
   '…while connecting no account on its behalf');
+
+// ── 7b. Feed defaults the player to popped-out, once ────────────────────────
+// New instruction: the floating 9:16 corner is Feed's intended default
+// experience now, not something reachable only by finding the pop-out
+// button. Fires once ever per browser — PlayerContext already persists
+// poppedOut across reloads (see loadState() there), so a later visit where
+// the user has explicitly docked back in must not be forced back out.
+// `clean` is already a fresh context with nothing in localStorage, from §7.
+const QUEUE_KEY = 'truegle_player_queue_v2';
+check(await clean.evaluate(() => localStorage.getItem('truegle_feed_defaulted_pop_v1') === '1'),
+  'the one-time default marker is set after a fresh visit to /feed');
+check(await clean.evaluate((k) => JSON.parse(localStorage.getItem(k) || '{}').poppedOut === true, QUEUE_KEY),
+  '…and the player is popped out as a result');
+
+// Simulate the user explicitly docking back in, then reload: the default
+// must not re-fire and fight that choice — it is a DEFAULT, not a standing
+// override.
+await clean.evaluate((k) => {
+  const saved = JSON.parse(localStorage.getItem(k) || '{}');
+  localStorage.setItem(k, JSON.stringify({ ...saved, poppedOut: false }));
+}, QUEUE_KEY);
+await openApp(clean, `${BASE}/feed`);
+check(await clean.evaluate((k) => JSON.parse(localStorage.getItem(k) || '{}').poppedOut === false, QUEUE_KEY),
+  'a later visit does not re-force pop-out once the marker exists — the default fires once, not every load');
 
 // ── 8. a refused handshake says so, on /feed ────────────────────────────────
 // The failure reason is handed over on the navigation rather than left in the

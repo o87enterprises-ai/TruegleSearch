@@ -70,6 +70,8 @@ export default [
     files: [
       '**/verify-*-browser.mjs',
       '**/verify-feed-page.mjs',
+      '**/verify-feed-playable.mjs',
+      '**/verify-player-engine.mjs',
       '**/verify-camera-view.mjs',
       '**/verify-map-ui.mjs',
       '**/verify-player-reddit.mjs',

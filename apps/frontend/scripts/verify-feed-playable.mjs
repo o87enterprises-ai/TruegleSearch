@@ -107,8 +107,31 @@ await ctx.route('**/api/**', async (route) => {
   return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
 });
 const page = await ctx.newPage();
+// Feed now defaults the player to popped-out on a browser's FIRST-EVER visit
+// (see FeedPage.jsx) — a real onboarding default, covered by feedpage:test.
+// This suite is about a different thing: the centered-card / pop-out
+// MECHANICS themselves (Stage 3), which only engage while docked in-page.
+// Seeding the marker up front simulates a returning visitor whose
+// preference is already "docked" — the state most of a session is actually
+// in — so the assertions below test the mechanism, not the onboarding
+// default that would otherwise short-circuit every one of them.
+await page.addInitScript(() => {
+  localStorage.setItem('truegle_feed_defaulted_pop_v1', '1');
+});
 const errs = [];
-page.on('pageerror', (e) => errs.push(e.message));
+// The YouTube URL below is real — this suite stubs the app's own API
+// (**/api/**) but has no way to intercept an <iframe> embed's own
+// navigation, so once a card goes live the frame does try to reach
+// youtube-nocookie.com for real. This sandbox has no outbound network, and
+// separately Chromium throws "Access is denied for this document" from a
+// blocked cross-origin document reading its OWN localStorage under
+// third-party storage partitioning — neither has anything to do with this
+// app's code, so it is the one page error filtered out here rather than
+// silencing pageerror entirely.
+page.on('pageerror', (e) => {
+  if (/Access is denied for this document/i.test(e.message)) return;
+  errs.push(e.message);
+});
 
 await openApp(page, `${BASE}/feed`);
 await until(() => page.locator('[data-feed-card-wrap]').count().then((n) => n > 0),
@@ -187,6 +210,14 @@ check(await page.locator('iframe').count() === 1,
 // alone — "one node, moved by geometry" is the whole point, so it is never a
 // literal descendant of [data-player-slot]. What actually proves docking is
 // the frame's rect matching the slot's rect.
+//
+// SETTLE FIRST. MiniPlayer's own slot geometry updates on scroll/resize and
+// a 250ms poll (MiniPlayer.jsx) — a genuinely separate render pass from the
+// slot div appearing in the DOM, which is all the two `until()`s above
+// wait for. Reading the frame's rect in that gap caught the frame still at
+// its PREVIOUS (footer/floating) position and size, not a docking failure —
+// found by running this suite, not by reading the code.
+await page.waitForTimeout(400);
 const slotBox = await page.locator('[data-feed-card-wrap="youtube"][data-feed-live="yes"] [data-player-slot]').boundingBox();
 const frameBox = await page.locator('[data-mini]').boundingBox();
 check(!!slotBox && !!frameBox
