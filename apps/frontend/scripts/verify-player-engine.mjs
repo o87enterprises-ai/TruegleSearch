@@ -137,6 +137,24 @@ check(walked.feed.length === 0, '…and runs out at the end rather than looping'
 check(run(walked, { type: 'feedNext' }).current.title === 'Video f3',
   'an exhausted feed stays put — the player falls through to discovery instead');
 
+// ── 3a. topping up a running feed (infinite-scroll pages growing it) ────────
+// A feed page keeps loading more rows after startFeed already claimed
+// `current` — re-calling startFeed for that would replay the "start where
+// you already are" jump every time the page grows. appendFeed only ever
+// adds to the tail and only while a feed is actually running.
+const topped = run(withFeed, { type: 'appendFeed', sources: [yt('f4'), yt('f5')] });
+check(topped.feed.length === 4 && topped.feed[topped.feed.length - 1].title === 'Video f5',
+  'appendFeed grows the tail of a running feed', topped.feed.map((f) => f.title).join(', '));
+check(topped.current.title === 'Video f1', '…without touching what is already playing');
+
+const noDupe = run(withFeed, { type: 'appendFeed', sources: [yt('f1'), yt('f2'), yt('f6')] });
+check(noDupe.feed.length === 3 && noDupe.feed.some((f) => f.title === 'Video f6'),
+  '…and skips anything already current or already queued in the feed',
+  noDupe.feed.map((f) => f.title).join(', '));
+
+check(run(built, { type: 'appendFeed', sources: [yt('f1')] }).feed.length === 0,
+  'appendFeed with no feed running is a no-op — nothing to top up');
+
 // Every way a feed ends.
 for (const [label, action] of [['Stop', { type: 'stop' }], ['Close', { type: 'close' }],
   ['stopFeed', { type: 'stopFeed' }]]) {

@@ -239,6 +239,21 @@ export function reducer(s, a) {
       const history = s.current ? [...s.history, s.current] : s.history;
       return { ...s, current: nx, feed: rest, history, paused: false };
     }
+    case 'appendFeed': {
+      // Tops up the ALREADY-RUNNING feed as more rows load — an infinite-scroll
+      // page's feed grows after startFeed already claimed `current`, and
+      // re-calling startFeed for that would replay the "start where you
+      // already are" jump on every page load. This only ever appends to the
+      // tail, and only while a feed is actually active: a page with nothing
+      // playing has no feed to top up.
+      if (!s.feedActive) return s;
+      const list = (a.sources || []).filter((x) => x?.src);
+      if (!list.length) return s;
+      const known = [s.current, ...s.feed].filter(Boolean);
+      const fresh = list.filter((x) => !known.some((k) => sameSrc(k, x)));
+      if (!fresh.length) return s;
+      return { ...s, feed: [...s.feed, ...fresh] };
+    }
     case 'stopFeed':
       // The feed's remaining items go with it. They are search results, not a
       // list anybody assembled — keeping them would mean a stopped feed quietly
@@ -404,6 +419,7 @@ export const PlayerProvider = ({ children }) => {
   // Play the search results, ahead of the queue. See the reducer for what this
   // does and does not do to the queue.
   const startFeed = useCallback((sources) => dispatch({ type: 'startFeed', sources }), []);
+  const appendFeed = useCallback((sources) => dispatch({ type: 'appendFeed', sources }), []);
   const feedNext = useCallback(() => dispatch({ type: 'feedNext' }), []);
   const stopFeed = useCallback(() => dispatch({ type: 'stopFeed' }), []);
   const setVolume = useCallback((value) => dispatch({ type: 'setVolume', value }), []);
@@ -422,11 +438,11 @@ export const PlayerProvider = ({ children }) => {
     () => ({
       ...state,
       play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
-      startFeed, feedNext, stopFeed, playList,
+      startFeed, appendFeed, feedNext, stopFeed, playList,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume,
     }),
     [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
-      startFeed, feedNext, stopFeed, playList,
+      startFeed, appendFeed, feedNext, stopFeed, playList,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode, setLocked, setVolume]
   );
 
