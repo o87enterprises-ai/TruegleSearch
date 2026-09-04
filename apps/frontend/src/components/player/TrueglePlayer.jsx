@@ -636,7 +636,15 @@ export default function TrueglePlayer({
   );
 
   // Collapsed lives inside the search bar's own row — no chrome of its own.
-  if (presentation === 'collapsed') return transport;
+  //
+  // THE FEED PLAYER HAS NO COLLAPSED STATE. Its three states are: in the
+  // centred card, docked bottom-right at 9:16, or gone. "No player default
+  // on the search bar… it needs a completely collapsed state that
+  // disappears and never drops out of the search bar" — so on the feed deck
+  // this renders NOTHING rather than a transport strip wedged into a bar.
+  // Nothing is lost: the docked corner window is the state that carries the
+  // controls, and it is one press away.
+  if (presentation === 'collapsed') return onFeedDeck ? null : transport;
 
   // The list retracts into the player rather than staying pinned open — the
   // bottom list button is the only thing that shows or hides it.
@@ -660,6 +668,7 @@ export default function TrueglePlayer({
       frameRef={frameRef}
       onEnded={advance}
       fill={fullscreen}
+      portrait={onFeedDeck}
       compact={presentation === 'popped'}
       maxHeight={presentation === 'popped' ? 320 : 420}
       browse={search.results}
@@ -786,7 +795,7 @@ export default function TrueglePlayer({
         // `relative` outside full screen too: the click-to-pause overlay below
         // positions against this box, and without it the overlay escaped to
         // whichever ancestor happened to be positioned.
-        className={`${clipScreen ? 'max-h-0 overflow-hidden' : (fullscreen ? `relative flex flex-1 min-h-0${onFeedDeck ? ' justify-center' : ''}` : 'relative')} transition-[max-height] duration-300 ease-out`}
+        className={`${clipScreen ? 'max-h-0 overflow-hidden' : (fullscreen ? 'relative flex flex-1 min-h-0' : 'relative')} transition-[max-height] duration-300 ease-out`}
         // THE VIEWPORT SHRINKS FOR THE VOICE PANEL rather than being covered by
         // it. `max-height` and not `height`: the screen letterboxes itself
         // inside whatever box it is given, so capping the box scales the
@@ -796,22 +805,15 @@ export default function TrueglePlayer({
         style={voiceOpen && !clipScreen ? { maxHeight: '38%' } : undefined}
         aria-hidden={clipScreen}
       >
-        {/* THE FEED PLAYER IS 9:16, FULL SCREEN INCLUDED. "The feed player is
-            only 9x16 even when full screen with a horizontal video playing" —
-            so on the feed deck the picture is boxed into a portrait column
-            and centred, rather than filling a landscape screen the way Tube's
-            does. That shape IS the visible difference between the two
-            players: same frame, unmistakably not the same thing. A landscape
-            clip letterboxes inside the column, which is the honest result of
-            asking for a portrait player. */}
-        {onFeedDeck && fullscreen ? (
-          <div
-            data-player-portrait=""
-            className="relative h-full aspect-[9/16] max-w-full mx-auto"
-          >
-            {screen}
-          </div>
-        ) : screen}
+        {/* THE FEED PLAYER IS 9:16 IN EVERY STATE — docked, popped out and
+            full screen alike, with anything wider letterboxed into it. That
+            shape is what makes the feed player recognisably not the Tube
+            player rather than the same frame at a different size.
+            The box itself belongs to PlayerScreen (`portrait`), NOT to a
+            wrapper here: wrapping it broke the flex chain full screen relies
+            on and collapsed the picture to zero height — audio over a black
+            screen. See the note by boxStyle in PlayerScreen.jsx. */}
+        {screen}
         {/* The controls that sit ON the picture: thumbs, share, play mode. They
             are always mounted and fade rather than appearing, so nothing pops
             in over the video — and they take no width from the transport row

@@ -298,11 +298,12 @@ export default function FeedCard({ post, focused = false, onPlay }) {
     ...(playable.vertical ? { vertical: true } : {}),
   };
 
-  // THIS is the card actually playing, docked in place rather than popped
-  // out. `pageUrl` is the identity: it's set to the same `link` here and in
-  // useFeedCursor's own rows, so the comparison is exact by construction —
-  // no need to reach for videoEmbed's looser cross-URL identity here.
-  const isLive = focused && !poppedOut && current?.pageUrl === link;
+  // THIS is the card whose media is loaded in the lens. `pageUrl` is the
+  // identity: it's set to the same `link` here and in useFeedCursor's own
+  // rows, so the comparison is exact by construction. It only dims the
+  // card's own play affordance now — the picture itself is in the lens, not
+  // in here (see the note above).
+  const isLive = !poppedOut && current?.pageUrl === link;
 
   const openSheet = (e) => {
     // The inner card is still a real <a href>; without this the click would
@@ -317,32 +318,31 @@ export default function FeedCard({ post, focused = false, onPlay }) {
     if (onPlay) onPlay(); else playNow(source, 'feed');
   };
 
-  if (isLive) {
-    // THE SLOT LIVES HERE NOW, not in a fixed box elsewhere on the page —
-    // MiniPlayer (mounted once, above <Routes>) finds this element by
-    // [data-player-slot] and positions the one shared media node directly
-    // over it, the exact mechanism FeedTubePage/UniversalSearch already use
-    // for their own fixed boxes (down to the wrapper styling, copied from
-    // FeedTubePage.jsx). The frame renders its own title/chrome, so nothing
-    // is duplicated here. Losing focus (scroll) or popping out both end
-    // this — see FeedList's stop-on-scroll-away effect and the `!poppedOut`
-    // check above — so this branch is never rendered for more than one card
-    // at a time.
-    return (
-      <div
-        data-feed-card-wrap={playable.kind}
-        data-feed-live="yes"
-        className="relative rounded-xl border border-white/20 bg-black/30 px-1.5 py-1 shadow-2xl shadow-black/40"
-      >
-        <div data-player-slot aria-hidden="true" style={{ height: 'var(--truegle-player-h, 220px)' }} />
-      </div>
-    );
-  }
+  // THE CARD NEVER GROWS INTO A PLAYER. It used to: the playing card hosted
+  // a [data-player-slot] and the frame docked into it, so the card became
+  // the player. That could not survive the portrait rule, and it failed in
+  // two ways at once, both measured rather than reasoned about:
+  //
+  //   · A 9:16 picture made the card TALLER THAN THE VIEWPORT, pushing its
+  //     own controls down under the page's fixed feedback bar, which then
+  //     swallowed the clicks.
+  //   · Growing moved the card's own centre, which moved which card
+  //     useFeedFocus considered centred, which stopped the playback that
+  //     had just started. The card chased itself out of focus.
+  //
+  // The lens fixes both by not being in the feed at all: it is a fixed frame
+  // in the viewport that the feed scrolls behind (see MiniPlayer's lens
+  // mode). Cards stay cards — poster, badge, play button — at a constant
+  // size, whatever is playing.
 
   return (
     <div
       data-feed-card-wrap={playable.kind}
       data-feed-focused={focused ? 'yes' : undefined}
+      // Which card the lens is currently showing. Not a size or layout
+      // change — the card must stay exactly the same shape whether it is
+      // playing or not, which is the whole point of the lens being separate.
+      data-feed-in-lens={isLive ? 'yes' : undefined}
       onClick={openSheet}
       className={`relative transition-transform duration-200 ${focused ? 'z-10 scale-[1.02] shadow-2xl shadow-black/40' : ''}`}
     >

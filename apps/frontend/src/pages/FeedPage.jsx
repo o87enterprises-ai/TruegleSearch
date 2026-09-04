@@ -240,10 +240,15 @@ export default function FeedPage() {
         </div>
       </div>
 
-      {/* NO FIXED PLAYER BOX HERE ANYMORE. The slot moved onto whichever card
-          is actually playing — see FeedCard's `isLive` branch in
-          FeedCards.jsx and useFeedCursor.js. A centered card XOR a popped-out
-          corner window, never a third empty box sitting idle between them. */}
+      {/* THE LENS ANCHOR. Not a slot and not a box — it reserves no space and
+          renders nothing. All MiniPlayer reads from it is where this page's
+          content column sits horizontally; everything vertical is the
+          viewport's, which is what keeps the lens still while the feed
+          scrolls behind it. See the lens note in MiniPlayer.jsx.
+
+          Its presence is also the opt-in: the feed player is a lens HERE, and
+          the bottom-right corner window anywhere else it follows you to. */}
+      <div data-player-lens aria-hidden="true" className="max-w-4xl mx-auto h-0" />
 
       {/* Which category is open, and the way back. Back goes to the rows rather
           than to Home: you arrived from Browse, so that is where returning

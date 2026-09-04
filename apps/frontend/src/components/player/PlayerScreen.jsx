@@ -28,6 +28,9 @@ function withPlaybackChannel(kind, src) {
 
 const PlayerScreen = forwardRef(function PlayerScreen({
   source, mediaRef, frameRef, onEnded, maxHeight, fill = false, compact = false,
+  // Lock the picture to 9:16 in every state and letterbox anything wider —
+  // the feed player is portrait-native. See the note above `ratio`.
+  portrait = false,
   // What the current search turned up. With nothing playing, the viewport
   // becomes a swipeable deck of those results instead of a black rectangle.
   browse = null, browseLoading = false,
@@ -89,9 +92,22 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // 9:16. An approximation on purpose — the caption is text and re-wraps, so the
   // true height moves with the words. Erring slightly tall costs a thin band of
   // background; erring short costs the controls.
-  const ratio = kind === 'tiktok' ? '9 / 21'
-    : isPostCard ? '3 / 4'
-      : (vertical ? '9 / 16' : '16 / 9');
+  // ── PORTRAIT NATIVE, LIKE TIKTOK ────────────────────────────────────────
+  //
+  // The feed player is 9:16 in EVERY state — docked, popped out, full screen.
+  // Not "9:16 when the clip is vertical": 9:16 full stop. A widescreen video
+  // is letterboxed into it, black band above and below, exactly the way a
+  // landscape clip looks on TikTok. The owner's rule, and it is what makes
+  // the feed player recognisably not the Tube player rather than the same
+  // frame at a different size.
+  //
+  // Letterboxing is free for an iframe — YouTube and the rest fit their own
+  // picture to the box we give them — and for a native <video> it is
+  // object-contain, already set below.
+  const ratio = portrait ? '9 / 16'
+    : kind === 'tiktok' ? '9 / 21'
+      : isPostCard ? '3 / 4'
+        : (vertical ? '9 / 16' : '16 / 9');
 
   // A 9:16 clip is ~1.78× its width tall — at phone width that is taller than
   // the whole viewport, which pushed the transport row off the bottom of the
@@ -111,24 +127,60 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // the page's search bar, which in a landscape phone is much less than that.
   // The picture then overflowed a frame it was supposed to fit inside and
   // pushed the transport row out of the bottom of it.
-  const cap = compact
-    ? 'min(42svh, var(--truegle-player-cap, 100svh))'
+  // PORTRAIT DOES NOT READ --truegle-player-cap, and that is not an oversight.
+  // That variable is the FRAME's measured leftover height, published by
+  // MiniPlayer from `frameHeight - chromeHeight`. With a landscape picture
+  // that is stable. With a portrait one it is a feedback loop: a 9:16 picture
+  // makes the frame taller, which makes the measured chrome bigger, which
+  // shrinks the cap, which shrinks the picture… settling on the 100px floor.
+  // Measured in a browser, not reasoned about: the corner picture came out
+  // 56×100, correct ratio and useless size. A viewport figure has no such
+  // loop — it does not depend on the thing it is sizing.
+  const cap = portrait
+    ? (compact ? 'min(52svh, 60vh)' : 'min(62svh, 72vh)')
+    : compact
+      ? 'min(42svh, var(--truegle-player-cap, 100svh))'
     // TikTok gets more height than a bare reel because a fifth of its box is
     // the card's own chrome rather than picture — at 58svh the CLIP came out
     // noticeably smaller than a YouTube Short beside it, for the same box.
     : `min(${kind === 'tiktok' ? '68svh' : (vertical ? '58svh' : '62svh')}, var(--truegle-player-cap, 100svh))`;
-  const boxStyle = fill ? undefined : {
-    aspectRatio: ratio,
-    maxHeight: cap,
-    // width:auto lets max-height win and the box shrink sideways rather than
-    // overflow — that's what produces the side bars on a reel.
-    width: 'auto',
-    maxWidth: '100%',
-    margin: '0 auto',
-  };
+  // FULL SCREEN IS THE ONE PLACE THE BOX IS NORMALLY UNCONSTRAINED — the
+  // picture fills the screen and the flex chain does the sizing. A portrait
+  // player cannot do that: it has to hold 9:16 against a landscape screen,
+  // so it keeps a real box there too, sized by HEIGHT (the scarce dimension
+  // in full screen) with the width falling out of the ratio.
+  //
+  // THIS BOX MUST STAY INSIDE THIS COMPONENT. It was briefly a wrapper div
+  // in TrueglePlayer instead, and that broke full screen completely: this
+  // component's root is `flex-1 min-h-0`, i.e. it expects to BE the flex
+  // item of the fullscreen column. With a plain block div in between, the
+  // flex sizing stopped applying, its height resolved to `auto`, and the
+  // `h-full` box below resolved against auto to ZERO — a 0px-tall iframe.
+  // Playing audio over a black screen, which is exactly what that was.
+  const boxStyle = fill
+    ? (portrait ? {
+      aspectRatio: ratio, height: '100%', width: 'auto', maxWidth: '100%', margin: '0 auto',
+    } : undefined)
+    : {
+      aspectRatio: ratio,
+      maxHeight: cap,
+      // width:auto lets max-height win and the box shrink sideways rather than
+      // overflow — that's what produces the side bars on a reel.
+      width: 'auto',
+      maxWidth: '100%',
+      margin: '0 auto',
+    };
 
   return (
-    <div ref={ref} data-player-screen className={`relative w-full bg-black ${fill ? 'flex-1 min-h-0' : ''}`}>
+    <div
+      ref={ref}
+      data-player-screen
+      data-portrait={portrait ? 'yes' : undefined}
+      // Portrait in full screen has to CENTRE its column against a landscape
+      // screen, so the root becomes the flex container that does it. Outside
+      // full screen the box centres itself with `margin: 0 auto` as before.
+      className={`relative w-full bg-black ${fill ? `flex-1 min-h-0${portrait ? ' flex justify-center' : ''}` : ''}`}
+    >
       {isSoundcloud ? (
         <iframe
           key={src}
@@ -140,7 +192,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
           allow="autoplay"
         />
       ) : isVideoIframe ? (
-        <div className={fill ? 'relative w-full h-full' : 'relative'} style={boxStyle}>
+        <div className={fill && !portrait ? 'relative w-full h-full' : 'relative'} style={boxStyle}>
           <iframe
             ref={frameRef}
             key={source.playToken ? `${src}#${source.playToken}` : src}
@@ -153,8 +205,10 @@ const PlayerScreen = forwardRef(function PlayerScreen({
           />
         </div>
       ) : kind === 'video' ? (
+        // object-contain IS the letterbox for a native file: the black bands
+        // above and below a widescreen clip in a portrait box come from here.
         <video ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay playsInline onEnded={onEnded}
-          style={fill ? undefined : { maxHeight: maxHeight ? `min(${maxHeight}px, ${cap})` : cap }}
+          style={fill ? undefined : { ...(portrait ? { aspectRatio: ratio, width: '100%', objectFit: 'contain', background: '#000' } : {}), maxHeight: maxHeight ? `min(${maxHeight}px, ${cap})` : cap }}
           className={fill ? 'w-full h-full bg-black object-contain' : 'w-full bg-black'} />
       ) : (
         <div className="flex items-center gap-2 px-3 py-3">
