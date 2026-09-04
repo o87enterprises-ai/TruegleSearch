@@ -177,6 +177,31 @@ router.get('/:channelId/videos', async (req, res) => {
   }
 });
 
+// GET /creators/:channelId/videos/all?pageToken=...
+// All channel videos with pagination support, 50 per page.
+// Caller supplies the pageToken from one response to get the next page.
+// Returns { videos: [], nextPageToken: "token" or null }
+router.get('/:channelId/videos/all', async (req, res) => {
+  const { channelId } = req.params;
+  const { pageToken } = req.query;
+
+  if (!/^[A-Za-z0-9_-]{10,40}$/.test(channelId)) {
+    return res.status(400).json({ error: 'invalid_channel', videos: [] });
+  }
+
+  try {
+    const result = await fetchAllViaDataApi(channelId, pageToken || '');
+    if (!result) {
+      // No key set — TODO: add RSS paging if this matters
+      return res.json({ videos: [], unavailable: true });
+    }
+    return res.json({ videos: result.videos, nextPageToken: result.nextPageToken });
+  } catch (err) {
+    logger.warn('Creator all-videos fetch failed:', { channelId, error: err.message });
+    return res.status(502).json({ error: 'fetch_failed', videos: [] });
+  }
+});
+
 /*
  * A WHOLE PLAYLIST, from its URL.
  *
@@ -321,10 +346,8 @@ router.get('/playlist', async (req, res) => {
 // The browser UA (and the consent cookie, and the optional proxy agent) moved
 // into YouTubeGateway with the requests that needed them.
 
-// Reliable path: YouTube Data API v3 playlistItems on the channel's uploads
-// playlist (uploads id = channel id with the "UC" prefix swapped to "UU").
-// 1 quota unit/call — negligible against the 10k/day free quota. Returns null
-// when no key is set so the caller falls back to RSS.
+// Fetch recent channel videos: 12 results, no paging. Used by the recent
+// uploads on a creator page, and as the fallback when paging isn't requested.
 async function fetchViaDataApi(channelId) {
   const key = process.env.YOUTUBE_API_KEY;
   if (!key) return null;
@@ -348,6 +371,36 @@ async function fetchViaDataApi(channelId) {
       url: `https://www.youtube.com/watch?v=${videoId}`,
     };
   }).filter(Boolean);
+}
+
+// Fetch ALL channel videos with paging support. Like playlistViaDataApi but for
+// a channel's uploads. 50 at a time, 10 pages = 500 cap. Used by /creators/:channelId/videos/all.
+async function fetchAllViaDataApi(channelId, pageToken = '') {
+  const key = process.env.YOUTUBE_API_KEY;
+  if (!key) return null;
+  const uploads = `UU${channelId.slice(2)}`;
+  const url = 'https://www.googleapis.com/youtube/v3/playlistItems'
+    + `?part=snippet&maxResults=50&playlistId=${encodeURIComponent(uploads)}`
+    + `&key=${key}${pageToken ? `&pageToken=${pageToken}` : ''}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`DataAPI ${r.status}`);
+  const j = await r.json();
+  const videos = (j.items || []).map((it) => {
+    const s = it.snippet || {};
+    const videoId = s.resourceId?.videoId;
+    if (!videoId) return null;
+    const thumb =
+      s.thumbnails?.high?.url || s.thumbnails?.medium?.url ||
+      `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+    return {
+      videoId,
+      title: s.title || '',
+      published: s.publishedAt || null,
+      thumbnail: thumb,
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+    };
+  }).filter(Boolean);
+  return { videos, nextPageToken: j.nextPageToken || null };
 }
 
 // channels.list?forHandle — 1 quota unit. Returns null with no key set, so
