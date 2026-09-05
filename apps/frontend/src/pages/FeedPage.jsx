@@ -227,8 +227,11 @@ export default function FeedPage() {
                   data-feed-view={id}
                   aria-current={on ? 'page' : undefined}
                   onClick={() => setView(id)}
+                  // Feed-only control, so its active state matches Feed's own
+                  // pill colour rather than the generic white every other
+                  // page's toggle uses.
                   className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                    on ? 'bg-white/15 text-white' : 'text-white/50 hover:text-white/80'
+                    on ? 'bg-yellow-500/15 text-yellow-300' : 'text-white/50 hover:text-white/80'
                   }`}
                 >
                   {label}

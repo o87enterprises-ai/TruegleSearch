@@ -17,6 +17,13 @@ export const LITE_BG = {
   ocean: 'bg-gradient-to-b from-[#001f3f] via-[#001020] to-black',
   green: 'bg-gradient-to-br from-green-950 via-black to-emerald-950',
   tube: 'bg-gradient-to-b from-[#151a21] via-black to-[#0b0e12]',
+  // Feed had none, so a reduced-motion or low-tier visitor got the BLUE
+  // fallback (LITE_BG[mode] || LITE_BG.blue in SearchPageShell) on a page
+  // whose pill is yellow — the one surface where the fallback never matched
+  // the mode it was standing in for. Dark amber rather than a literal yellow
+  // field, same restraint every other entry here uses (a wash of the colour,
+  // not the colour itself, since this sits behind white text).
+  yellow: 'bg-gradient-to-b from-[#221a03] via-black to-[#1a1203]',
 };
 
 // Hex accent per mode — for anything that needs a raw color value rather

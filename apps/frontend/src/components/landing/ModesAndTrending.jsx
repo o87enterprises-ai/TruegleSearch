@@ -81,20 +81,20 @@ const MODES = [
     exampleQuery: 'live jazz sets full length',
     path: '/tube?q=live+jazz+sets+full+length',
   },
-  // The Feed card is PARKED, not deleted — /feed and its OAuth handshake still
-  // work if reached directly. The yellow slot shows Creators for now; restore
-  // the old entry from git history to put Feed back on the landing page.
   {
-    id: 'creators',
-    label: 'Creators',
-    tagline: 'Channels · Played here · They keep the view',
-    description: 'The creators Truegle hosts, with their uploads played on the site through the provider\'s own embed — so the view and the revenue still count for them. No account, no cookies, no tracking, and no algorithm deciding who you get to see.',
+    // FEED, restored to the yellow slot 2026-09-02 (see modeTheme.js) — it had
+    // briefly been Creators-only. Creators isn't lost: it's one of Feed's own
+    // Browse categories now, alongside Soc/Tube/Live/Music/Entertainment.
+    id: 'feed',
+    label: 'Feed',
+    tagline: 'Every account you follow · One scroll',
+    description: 'Reddit, Mastodon, Bluesky, news, and the creators Truegle partners with — interleaved into one timeline, never the same post twice. No account required for the public sources; connect the ones that need it.',
     color: 'from-yellow-500 to-amber-400',
     glow: 'shadow-yellow-500/20',
     border: 'border-yellow-500/30 hover:border-yellow-400/60',
     dot: 'bg-yellow-400',
     textAccent: 'text-yellow-300',
-    exampleQuery: 'the channels we host',
+    exampleQuery: 'everything you follow, in one place',
     path: '/feed',
   },
   {

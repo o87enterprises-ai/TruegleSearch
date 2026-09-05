@@ -17,9 +17,9 @@ const ITEMS = [
   // page with a different name on it.
   { label: 'OSINT',        mode: 'ocean',  path: '/search?mode=ocean' },
   { label: 'Chat',         mode: 'black',  path: '/chat' },
-  // Yellow's drawer entry follows the yellow pill, which opens the creator
-  // roster now. Extract stays parked (its route still resolves) and Feed is
-  // commented out alongside it in modeTheme.js.
+  // Feed was restored to the yellow pill 2026-09-02 (see modeTheme.js) — the
+  // aggregated feed needs a way in that isn't typing the URL. Creators isn't
+  // lost: it's a Browse category inside Feed now, not a top-level pill.
   { label: 'Feed',         mode: 'yellow', path: '/feed' },
   // 'Shorts' removed 2026-08-09 — folded into Tube as the Shorts scope.
   { label: 'Tube',         mode: 'tube',   path: '/tube' },
@@ -46,8 +46,7 @@ export default function BrandBar() {
 
   const isActive = (item) => {
     if (item.path === '/chat') return location.pathname === '/chat';
-    // Exact match, not startsWith: /creators is the roster and /creator/:slug
-    // is one creator — a prefix test would light this entry on both.
+    // startsWith, not exact: /feed/tube and /feed/callback are still Feed.
     if (item.path === '/feed') return location.pathname.startsWith('/feed');
     if (item.path === '/rewards') return location.pathname === '/rewards';
     // Modes that own a route of their own, rather than a ?mode= on /search.

@@ -48,9 +48,13 @@ export default function FeedModeSelector({ active = 'feed', query = '' }) {
             aria-selected={on}
             data-feed-mode={m.id}
             onClick={() => go(m)}
+            // `on` is only ever true for 'feed' — this row is Feed-only and
+            // every other entry navigates away before rendering here — so the
+            // active state is always "you are here", tinted in the page's own
+            // pill colour rather than a generic white highlight.
             className={`px-3 py-1 text-xs rounded-full border transition-colors ${
               on
-                ? 'text-white border-white/30 bg-white/[0.08]'
+                ? 'text-yellow-300 border-yellow-500/40 bg-yellow-500/10'
                 : 'text-white/50 border-transparent hover:text-white/80 hover:border-white/15'
             }`}
           >

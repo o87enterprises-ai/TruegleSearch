@@ -55,9 +55,10 @@ export default function LandingPage() {
     purple: { label: 'Wonderland',        sub: 'Isolate one perspective at a time',      color: 'from-purple-500 to-violet-700',   dot: 'bg-purple-400' },
     ocean:  { label: 'Privacy / OSINT',   sub: 'Digital investigation lens',             color: 'from-cyan-500 to-teal-700',       dot: 'bg-cyan-400' },
     // Yellow stopped being Transcripts when Extract was parked, then spent a
-    // while on /feed. It is the CREATORS roster now (/creators); Feed is
-    // commented out in modeTheme.js rather than deleted.
-    yellow: { label: 'Creators',         sub: 'The channels we host, played here',      color: 'from-yellow-400 to-amber-600',    dot: 'bg-yellow-300' },
+    // while pointed at /creators. RESTORED to Feed 2026-09-02 (modeTheme.js) —
+    // the aggregated feed needs a way in that isn't typing the URL. Creators
+    // isn't lost, it's a Browse category inside Feed now.
+    yellow: { label: 'Feed',             sub: 'Every source you follow, one timeline',  color: 'from-yellow-400 to-amber-600',    dot: 'bg-yellow-300' },
     tube:   { label: 'True Tube',        sub: 'Watch and queue without leaving search', color: 'from-slate-300 to-slate-500',     dot: 'bg-slate-300' },
   };
 
@@ -338,8 +339,10 @@ export default function LandingPage() {
                   // whichever Pill Mode is active. Black = Chat (chatModes/
                   // nephesh/verbose are already live in localStorage via their
                   // sync effects — TruegleChat reads them fresh on mount).
-                  // Orange/Yellow have no query concept, so they just jump to
-                  // their page. Everything else -> /search?mode=X.
+                  // Yellow (Feed) just jumps to /feed — whatever's typed here
+                  // isn't carried over; Feed has its own search bar for
+                  // searching the feeds themselves. Everything else ->
+                  // /search?mode=X.
                   const q = searchQuery.trim();
                   if (pillMode === 'black') {
                     navigate(q ? `/chat?q=${encodeURIComponent(q)}` : '/chat');
@@ -396,10 +399,15 @@ export default function LandingPage() {
 
 
 
-            {/* Creators pill — same spot the video player takes in Tube mode:
-                the real thing instead of a promo card, filtered live by
-                whatever's already typed in the search bar above. Submitting
-                still goes to /creators (see onSearch), this is the preview. */}
+            {/* Feed pill — same spot the video player takes in Tube mode: a
+                real preview instead of a promo card. This is the partner
+                creators' roster specifically (still filtered live by whatever
+                is typed above), not the whole feed — Reddit/news/social don't
+                have a landing-page preview of their own, and the roster is
+                the one part of Feed's content Truegle actually publishes
+                itself. Submitting goes to /feed either way (see onSearch);
+                Creators is now a Browse category inside it, not a separate
+                destination. */}
             {pillMode === 'yellow' && (
               <div className="mt-6 w-full">
                 <CreatorsRoster query={searchQuery} onClearFilter={() => setSearchQuery('')} compact />
@@ -411,8 +419,8 @@ export default function LandingPage() {
                 about to type in, so they belong against it; an unrelated
                 feature card wedged between the bar and its own controls broke
                 that pairing and pushed the modes off a phone screen. Hidden in
-                Tube mode, where the bar already IS the player. Hidden in
-                Creators mode too, now that the roster fills that spot instead. */}
+                Tube mode, where the bar already IS the player. Hidden on Feed
+                too, now that the creators roster fills that spot instead. */}
             {/* mt-6: the card sat hard against the search bar and was catching
                 taps meant for the input. */}
             {pillMode !== 'tube' && pillMode !== 'yellow' && (
@@ -452,7 +460,7 @@ export default function LandingPage() {
               className="text-center mb-10"
             >
               <h2 className="text-headline-large mb-4">
-                <span className="gradient-orange-purple">Why Truegle?</span>
+                <span className="gradient-orange-purple">Why Search Truegle?</span>
               </h2>
             </motion.div>
 

@@ -4,7 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import TruegleLogo from '../ui/TruegleLogo';
 import PillModeRow from '../landing/PillModeRow';
 import ErrorBoundary from '../ui/ErrorBoundary';
-import { LITE_BG } from '../../config/modeTheme';
+import { LITE_BG, MODE_COLORS } from '../../config/modeTheme';
+
+// '#eab308' -> '234, 179, 8', for the glow below. Every mode's own accent,
+// not a fixed purple — the glow was hardcoded to violet regardless of which
+// page it was on, so Feed (yellow) and every other non-purple mode got a
+// cursor trail in a colour that wasn't theirs.
+const hexToRgb = (hex) => {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+  return m ? `${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}` : '139, 92, 246';
+};
 import useDeviceTier from '../../hooks/useDeviceTier';
 // Named export, and a .tsx file — same import UniversalSearch uses.
 import { DeepSpaceBackground } from '../backgrounds/DeepSpaceBackground';
@@ -55,6 +64,7 @@ export default function SearchPageShell({
   // The same gate the search page uses: a low-end device or reduced-motion
   // preference gets a flat gradient instead of a WebGL particle field.
   const { allowHeavyAnimations } = useDeviceTier();
+  const glowRgb = hexToRgb(MODE_COLORS[mode] || MODE_COLORS.blue);
 
   // Driven imperatively so a mouse move never triggers a React re-render, and
   // with no CSS transition — a transition fights the per-frame writes and
@@ -66,7 +76,7 @@ export default function SearchPageShell({
     const apply = () => {
       rafId = null;
       if (cursorGlowRef.current && pending) {
-        cursorGlowRef.current.style.background = `radial-gradient(600px circle at ${pending.x}px ${pending.y}px, rgba(139, 92, 246, 0.15), transparent 40%)`;
+        cursorGlowRef.current.style.background = `radial-gradient(600px circle at ${pending.x}px ${pending.y}px, rgba(${glowRgb}, 0.15), transparent 40%)`;
       }
     };
     const onMove = (e) => {
@@ -78,7 +88,7 @@ export default function SearchPageShell({
       window.removeEventListener('mousemove', onMove);
       if (rafId != null) cancelAnimationFrame(rafId);
     };
-  }, [allowHeavyAnimations]);
+  }, [allowHeavyAnimations, glowRgb]);
 
   return (
     <div className="relative min-h-screen w-full bg-black overflow-y-auto">
