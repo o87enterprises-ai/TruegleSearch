@@ -100,7 +100,17 @@ const LAYERS = {
     // Colour and icon live with the layer definition so the frontend renders
     // any layer generically instead of carrying a switch per feed.
     colour: '#38bdf8',
-    describe: (p) => p.callsign || p.icao24 || p.registration || 'Aircraft',
+    // FIVE ARRAYS, NOT ONE — measured:
+    // { commercial_flights, private_flights, private_jets, military_flights,
+    //   gps_jamming, total, source, providers, timestamp }
+    // Reading `commercial_flights` alone would have silently dropped the
+    // military traffic and the GPS-jamming zones, which for anything
+    // resembling OSINT are the most valuable rows in the whole feed. Each row
+    // keeps `_group`, so "military" stays distinguishable from "airline" on
+    // the map and in the popup.
+    rowsKeys: ['commercial_flights', 'private_flights', 'private_jets', 'military_flights', 'gps_jamming'],
+    describe: (p) => p.callsign || p.icao24 || p.registration || p.name
+      || (p._group === 'gps_jamming' ? 'GPS interference' : 'Aircraft'),
   },
   satellites: {
     path: '/api/satellites',

@@ -79,9 +79,16 @@ describe('rowsOf', () => {
   });
 
   it('prefers the layer-named key over a generic one when a feed has both', () => {
-    // A feed carrying both `flights` and an unrelated `data` key must not have
-    // the wrong array picked out of it by list order.
-    expect(rowsOf({ flights: [{ right: 1 }], data: [{ wrong: 1 }] }, 'flights')).toEqual([{ right: 1 }]);
+    // A feed carrying both its own name and an unrelated `data` key must not
+    // have the wrong array picked out of it by list order.
+    //
+    // Uses `earthquakes` deliberately: this is the fallback path, for layers
+    // that have NOT declared rowsKeys. It used to use `flights`, which then
+    // gained declared keys and made this assert the declared path instead —
+    // the fallback would have gone untested while the test still looked green
+    // in the diff.
+    expect(rowsOf({ earthquakes: [{ right: 1 }], data: [{ wrong: 1 }] }, 'earthquakes'))
+      .toEqual([{ right: 1 }]);
   });
 
   it('merges a COMPOSITE feed instead of silently taking one array', () => {
@@ -101,6 +108,25 @@ describe('rowsOf', () => {
     // distinguishable from a container ship after the merge.
     expect(rows.map((r) => r._group)).toEqual(['ships', 'ports', 'chokepoints']);
     expect(rows[2].name).toBe('Bab-el-Mandeb');
+  });
+
+  it('merges all FIVE aircraft arrays, keeping the OSINT-relevant ones', () => {
+    // Measured: { commercial_flights, private_flights, private_jets,
+    // military_flights, gps_jamming, total, source, providers, timestamp }.
+    // Taking commercial_flights alone would drop military traffic and GPS
+    // jamming zones — the two most valuable groups in the feed.
+    const rows = rowsOf({
+      commercial_flights: [{ callsign: 'BAW1' }],
+      private_flights: [{ callsign: 'N1' }],
+      private_jets: [{ callsign: 'N2' }],
+      military_flights: [{ callsign: 'RCH1' }],
+      gps_jamming: [{ name: 'Kaliningrad' }],
+      total: 5,
+      providers: ['adsb'],
+    }, 'flights');
+    expect(rows).toHaveLength(5);
+    expect(rows.map((r) => r._group)).toContain('military_flights');
+    expect(rows.map((r) => r._group)).toContain('gps_jamming');
   });
 
   it('reads a declared single key, as measured for cameras', () => {
