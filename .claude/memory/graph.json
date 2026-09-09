@@ -1296,6 +1296,14 @@
         "body": "OSIRIS (osirisai.live, MIT, keyless) feeds are proxied through /api/osiris rather than fetched from the browser — a direct fetch would give the upstream every visitor's IP plus a bbox record of where they were looking, which would break the no-tracking claim. The proxy (services/OsirisService.js) is also the seam for swapping to a self-hosted instance (OSIRIS_BASE_URL) or direct upstreams (OpenSky/USGS/NASA FIRMS/EONET/N2YO). Upstream shapes were NOT verifiable when written (sandbox blocks the host), so coordinates are read from candidate field names and an unreadable feed returns 502 with the keys it saw — never an empty FeatureCollection. Run 'npm run osiris:probe' from a networked machine to capture real shapes and trim the candidate lists. Frontend: hooks/useOsirisLayers.js + components/map/OsirisLayers.jsx, mounted in TruegleMap (the single map every page renders). Verifier: npm run osiris:test.",
         "ts": "2026-09-09",
         "created": "2026-09-09"
+      },
+      "anon-community-submit": {
+        "Id": "anon-community-submit",
+        "Type": "decision",
+        "Label": "Anonymous community submissions allowed, constrained (reverses 018)",
+        "body": "Migration 018 made community_media.submitted_by NOT NULL deliberately (spam door). 023 drops it for a frictionless paste-a-link flow and MOVES the protection: anonymous submissions are limited to hosted platforms via ANON_KINDS in MediaService (youtube/vimeo/tiktok/soundcloud/reddit) and explicitly NOT the direct .mp4/.mp3 case classifyMedia also accepts — a raw file URL is arbitrary media on someone's own server with no platform moderation and nobody responsible. Anonymous submitters supply NO text: title comes from OembedService.lookup, never the request body. Deduped by canonical UNIQUE, rate limited at the route, reportable via existing reports/hidden. Signed-in users keep direct-file links and their own titles. Route is optionalAuth; new error code SIGN_IN_REQUIRED -> 401. UI: FeedLinkSubmit renders under the feed search bar only when getPlayable(query) is truthy. Watermark is a Truegle badge on the CARD (post.community/post.anonymous carried through normaliseCommunity), never over the media — the video plays from the creator's embed and is not ours to stamp.",
+        "ts": "2026-09-09",
+        "created": "2026-09-09"
       }
     },
     "thread": {
@@ -1691,6 +1699,15 @@
         "Type": "thread",
         "Label": "OSIRIS follow-ups: migration 022 must be run; vercel.json maxDuration blocked",
         "body": "1) Migration 022_osiris_cache.sql must be applied in production (npm run migrate) or the shared cache latches off and the map falls back to per-instance memory — works, but loses the privacy/speed guarantee. 2) apps/backend/vercel.json uses the legacy 'builds' property, which Vercel rejects alongside 'functions', so maxDuration could NOT be raised; a cold 25s upstream fetch may be killed by the platform's default function limit. Fix is to migrate vercel.json off 'builds' to modern config — not attempted, would risk the deployment without a way to verify. 3) Probe re-run still wanted for flights/satellites/maritime/cctv, which timed out at 12s before the timeout was raised to 25s + SWR was added. 4) YouTube subscription import (Option A, Takeout CSV + keyless per-channel RSS) approved but not started.",
+        "status": "open",
+        "ts": "2026-09-09",
+        "created": "2026-09-09"
+      },
+      "migrate-023-pending": {
+        "Id": "migrate-023-pending",
+        "Type": "thread",
+        "Label": "Migrations 022 and 023 still unapplied in production",
+        "body": "Owner's apps/backend/.env DATABASE_URL points at 127.0.0.1:5432 with no local Postgres in Termux, so 'npm run migrate' failed with ECONNREFUSED and BOTH 022_osiris_cache and 023_anonymous_community_media are unapplied in production (Neon). Until 023 runs, anonymous submits will fail on the NOT NULL constraint. Until 022 runs, the OSIRIS shared cache latches off. Migration runner records a FAILED migration as applied anyway, so verify with 'npm run osiris:probe' (checks osiris_cache) rather than trusting its output.",
         "status": "open",
         "ts": "2026-09-09",
         "created": "2026-09-09"
