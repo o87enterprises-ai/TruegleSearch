@@ -1280,6 +1280,14 @@
         "body": "creatorVideos.txt told people to run 'npm run creators:fetch' — a script that never existed, which is why the cache shipped empty (not a missing key). Now written: apps/frontend/scripts/fetch-creator-videos.mjs. Calls GET $BACKEND/api/creators/playlist?url=UU<channelid minus UC> (channel uploads ARE a playlist; backend pages to 500 @1 quota unit/50). Slug->channelId parsed from content/creators.js. Rewrites one slug's block, preserves header + other slugs, strips pipes/newlines from titles. CRITICAL: if the reply says source:'rss' the backend has no key and returns only ~15 videos — script exits 1 and says so, because 15 rows look identical to a good seed. Usage: npm run creators:fetch -- <slug|all> [--backend <url>]. Test: npm run creatorsfetch:test (11 assertions, stub backend subprocess).",
         "ts": "2026-09-03",
         "created": "2026-09-03"
+      },
+      "feed-lens-hold-rule": {
+        "Id": "feed-lens-hold-rule",
+        "Type": "decision",
+        "Label": "Feed lens HOLDS on scroll-away (supersedes stop-on-scroll)",
+        "body": "Scrolling a playing feed card out of the centre band no longer stops playback (the stop effect in FeedPage.jsx is deleted). What is on plays through, and anything queued plays after it. Only when the feed AND queue are exhausted does advance() in TrueglePlayer minimize the player, which drops it out of the lens to the corner (MiniPlayer wantLens excludes minimized). Consequence found while testing: the live card no longer renders its centre play button — the lens is fixed across the middle of the viewport, which is exactly where a centred card's centre button sits, so the lens swallowed the click. Player accent is now deck-aware: the feed deck wears Feed's yellow pill colour wherever it floats, instead of taking the page's colour.",
+        "ts": "2026-09-09",
+        "created": "2026-09-09"
       }
     },
     "thread": {
@@ -2925,5 +2933,5 @@
       }
     }
   },
-  "updated": "2026-09-03"
+  "updated": "2026-09-09"
 }

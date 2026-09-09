@@ -13,8 +13,8 @@
  * Also covers: the play badge on a playable card, the center play button
  * appearing only on the focused card, the tap-to-open action sheet's three
  * options, a non-playable card being completely untouched, scrolling the
- * playing card out of focus stopping it (the card falls back to a poster),
- * and popping out moving the same live frame to the corner without a restart.
+ * playing card out of focus HOLDING it (the lens plays on), and popping out
+ * moving the same live frame to the corner without a restart.
  *
  * SCROLLING NOTE: bringing a card into view is not enough to focus it —
  * Playwright's scrollIntoViewIfNeeded() only scrolls the minimum distance to
@@ -215,11 +215,11 @@ check(await page.locator('iframe').count() === 1,
 // that helper waits for its own idea of "visible", and a fixed frame is the
 // case where it waits forever rather than answering.
 //
-// FIXEDNESS IS ASSERTED AGAINST THE VIEWPORT rather than by scrolling and
-// re-measuring, because scrolling far enough to prove the point also changes
-// which card is centred — which stops playback by design (asserted below)
-// and takes the lens with it, so the re-measure would read null and prove
-// nothing.
+// FIXEDNESS IS ASSERTED AGAINST THE VIEWPORT first, and then again below by
+// actually scrolling: since the playing card now HOLDS rather than stopping,
+// the lens survives a scroll and can be re-measured in place, which is the
+// stronger version of this proof. It could not be done while scrolling away
+// tore the lens down.
 await page.waitForTimeout(400);
 const rectOf = (sel) => page.evaluate((s) => {
   const el = document.querySelector(s);
@@ -273,25 +273,45 @@ check(await page.evaluate(() => {
   try { return JSON.parse(raw).some((p) => p.name === 'Feed saves' && p.items.length === 1); } catch { return false; }
 }), '…into a "Feed saves" list built from feed content');
 
-// ── scrolling the playing card out of focus stops it ────────────────────────
-// "It stops and the next centered card then begins thumbnail preview and can
-// be clicked to play" — the owner's own words for this behaviour.
+// ── scrolling the playing card out of focus HOLDS it ───────────────────────
+// SUPERSEDES "scrolling away stops it" (the original ask, and what this
+// section used to assert). The rule now: what is on plays through, and
+// whatever is queued behind it plays after, whatever the feed does
+// underneath. Stopping on scroll meant a queue could never be heard — you
+// queue something and then scroll to find the next thing, which is one
+// gesture, and the first half of it killed the second. Only an exhausted
+// player gets out of the way, by minimizing to the corner; see advance() in
+// TrueglePlayer.jsx and the stop-effect's grave in FeedPage.jsx.
 await centerOn(page.locator('a[href="https://github.com/example/repo"]'));
-await until(() => page.locator('[data-feed-in-lens="yes"]').count().then((n) => n === 0),
-  { what: 'scrolling away to stop the live card' });
-check(true, 'scrolling the playing card out of focus stops it');
-check(await page.locator('iframe').count() === 0,
-  '…and the shared iframe is gone with it, not orphaned somewhere else');
-check(await page.locator('[data-feed-card-wrap="youtube"]').count() === 1,
-  '…the card itself is still there, just back to being a poster');
+await page.waitForTimeout(400);
+check(await page.locator('[data-feed-card-wrap="youtube"][data-feed-in-lens="yes"]').count() === 1,
+  'scrolling the playing card out of focus HOLDS it — the lens plays on');
+check(await page.locator('iframe').count() === 1,
+  '…still exactly one iframe on the page, the same one, not torn down');
+check(await page.locator('[data-feed-card-wrap] iframe').count() === 0,
+  '…and still no card holds it — it stayed in the lens, not in the card it came from');
+const heldPos = await page.evaluate(() => {
+  const el = document.querySelector('[data-mini]');
+  return el ? getComputedStyle(el).position : null;
+});
+const heldBox = await rectOf('[data-mini]');
+const heldMid = heldBox ? heldBox.y + heldBox.height / 2 : -1;
+check(heldPos === 'fixed' && Math.abs(heldMid - viewport.h / 2) < viewport.h * 0.12,
+  '…and the lens is still fixed and centred, having not travelled with the card',
+  `position ${heldPos}, middle ${heldMid.toFixed(0)} vs ${(viewport.h / 2).toFixed(0)}`);
+
+// ── the live card offers no play button of its own ──────────────────────────
+// It is already playing, and the button would sit UNDER the lens — fixed
+// across the middle of the viewport is exactly where a centred card's centre
+// is. Pressing it could only ever do nothing.
+await centerOn(page.locator('[data-feed-card-wrap="youtube"]'));
+await page.waitForTimeout(400);
+check(await page.locator('[data-feed-card-wrap="youtube"][data-feed-in-lens="yes"]').count() === 1,
+  'scrolling back to the held card finds it still live', );
+check(await page.locator('[data-feed-action="play-center"]').count() === 0,
+  '…and offering no play button of its own, being already played');
 
 // ── popping out moves the SAME live frame to the corner, without a restart ──
-await centerOn(page.locator('[data-feed-card-wrap="youtube"]'));
-await until(() => page.locator('[data-feed-action="play-center"]').count().then((n) => n === 1),
-  { what: 'the play button to return once re-centered' });
-await page.click('[data-feed-action="play-center"]');
-await until(() => page.locator('[data-feed-card-wrap="youtube"][data-feed-in-lens="yes"]').count().then((n) => n === 1),
-  { what: 'the card to go live again' });
 await page.click('button[aria-label="Pop out the player"]');
 await until(() => page.locator('[data-feed-in-lens="yes"]').count().then((n) => n === 0),
   { what: 'popping out to collapse the card back to a poster' });

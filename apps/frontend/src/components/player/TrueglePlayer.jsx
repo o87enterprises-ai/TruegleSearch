@@ -65,7 +65,7 @@ export default function TrueglePlayer({
     current, queue, history, paused, dock, locked, setLocked,
     next, skipNext, prev, stop, togglePause, setPoppedOut, setDock, play,
     enqueueMany, playMode, setPlayMode, queueArmed, volume, setVolume,
-    feedActive, feed: feedRest, feedNext, activeDeck, fullscreenNonce,
+    feedActive, feed: feedRest, feedNext, activeDeck, fullscreenNonce, setMinimized,
   } = usePlayer();
   // THE FEED DECK PLAYS FEED CONTENT, FULL STOP. Up Next draws on Tube's
   // corpus (creators, trending, search — see useUpNext), which is exactly
@@ -270,11 +270,28 @@ export default function TrueglePlayer({
    */
   const advance = useCallback(async () => {
     if (followFeed) { feedNext(); return; }
+    // THE FEED PLAYER FINISHES BY GETTING OUT OF THE WAY.
+    //
+    // Scrolling a playing card out of the lens no longer stops it (see
+    // FeedPage) — what is on plays to its end, and whatever is queued behind
+    // it plays after. So this is the moment there is genuinely nothing left:
+    // the feed is exhausted and the queue is empty. `next()` is a documented
+    // no-op on an empty queue, which left the ENDED frame sitting in the lens
+    // — a dead picture in the middle of the feed, indistinguishable from a
+    // live one, and holding the centre of the screen for nothing.
+    //
+    // Minimizing drops it out of the lens to the corner as a bar (see
+    // MiniPlayer's wantLens): still there, still one tap from coming back,
+    // occupying nothing. Feed deck only — Tube's empty player fills itself
+    // from Up Next, which is the line below and is deliberately not what the
+    // feed does. `playMode === 'auto'` because repeat-one and loop are
+    // explicit instructions to keep playing, and they outrank this.
+    if (onFeedDeck && current && !followQueue && playMode === 'auto') { setMinimized(true); return; }
     if (followQueue || playMode !== 'auto' || !current || onFeedDeck) { next(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) { play(nextUp); return; }
     next();
-  }, [followFeed, feedNext, followQueue, playMode, current, next, play, upNext, onFeedDeck]);
+  }, [followFeed, feedNext, followQueue, playMode, current, next, play, upNext, onFeedDeck, setMinimized]);
 
   // A manual Next must always go somewhere. With an empty queue it used to do
   // nothing at all, which is what "I hit next and nothing happened" was: the

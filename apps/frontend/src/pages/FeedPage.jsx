@@ -426,20 +426,21 @@ function FeedList({ feed }) {
   // this feed's own rows to walk rather than falling through to Tube's
   // unrelated discovery.
   const { beginFrom } = useFeedCursor(items);
-  const { current, poppedOut, feedActive, stop } = usePlayer();
 
-  // SCROLLING THE PLAYING CARD OUT OF FOCUS STOPS IT. "It stops and the next
-  // centered card then begins thumbnail preview and can be clicked to play"
-  // — the owner's own words for this. Popped-out is exempt on purpose: once
-  // the player is in its floating corner it is no longer "in" any card, so
-  // scrolling the feed underneath it must not touch it.
-  useEffect(() => {
-    if (poppedOut || !feedActive || !current) return;
-    const focusedPost = activeIndex != null ? items[activeIndex] : null;
-    const focusedLink = focusedPost?.permalink || focusedPost?.url;
-    if (focusedLink && current.pageUrl === focusedLink) return; // still on it
-    stop();
-  }, [activeIndex, poppedOut, feedActive, current, items, stop]);
+  // SCROLLING PAST THE PLAYING CARD NO LONGER STOPS IT — it holds.
+  //
+  // This used to stop playback the moment the playing card left the centre
+  // band ("it stops and the next centered card then begins thumbnail preview",
+  // the original ask). Superseded: what is on plays through, and anything
+  // queued behind it plays after, whatever the feed does underneath. Only when
+  // there is nothing left does the player get out of the way, by minimizing
+  // out of the lens to the corner — see advance() in TrueglePlayer.jsx.
+  //
+  // The two rules answer the same question and cannot both be live: stopping
+  // on scroll meant a queue could never be heard, since queueing something and
+  // then scrolling to find the next thing is the same gesture. There is no
+  // effect here now on purpose. Focus still only enlarges a card, which is all
+  // useFeedFocus was ever for.
 
   return (
     <div className="max-w-4xl mx-auto">

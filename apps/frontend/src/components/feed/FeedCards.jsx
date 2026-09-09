@@ -362,9 +362,20 @@ export default function FeedCard({ post, focused = false, onPlay }) {
         <Play size={11} className="text-white ml-0.5" fill="currentColor" />
       </span>
 
-      {/* THE CENTER PLAY BUTTON — only while this card holds focus. Clicking
-          it skips the sheet entirely: "defaults to auto play in app". */}
-      {focused && (
+      {/* THE CENTER PLAY BUTTON — only while this card holds focus, and never
+          on the card that is already playing. Clicking it skips the sheet
+          entirely: "defaults to auto play in app".
+
+          NOT ON THE LIVE CARD, for two reasons that arrived together. It is
+          meaningless — the card is playing, that is what the lens above it is
+          showing — and it is unreachable: the lens is fixed across the middle
+          of the viewport, which is exactly where a centred card's own centre
+          button sits, so the lens swallowed the click. Harmless while
+          scrolling away stopped playback, since the lens was gone by the time
+          another card centred; now that the card HOLDS (see FeedPage), the
+          button was live, invisible under the lens, and pressing it did
+          nothing. */}
+      {focused && !isLive && (
         <button
           type="button"
           data-feed-action="play-center"

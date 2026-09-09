@@ -83,7 +83,18 @@ export default function MiniPlayer() {
   // colour — otherwise it reads as a foreign dark box sitting on top of the
   // design (which is exactly how it looked on a phone).
   const pageMode = usePageMode();
-  const accent = pageMode === BRAND ? null : (MODE_COLORS[pageMode] || MODE_COLORS.blue);
+  // THE FEED PLAYER WEARS FEED'S PILL COLOUR WHEREVER IT GOES.
+  //
+  // The colour says what is PLAYING, not what page you happen to be reading.
+  // Following the page meant the corner player, carrying feed content over
+  // /search, turned blue — same frame, same clip, a different colour for a
+  // reason that has nothing to do with it. And since the deck follows the
+  // media (see ORIGIN_ACTIONS in PlayerContext), this is also what makes the
+  // frame change colour when the next thing up comes from the other deck:
+  // yellow while the feed is playing, the page's own colour once Tube takes
+  // over. Every other surface keeps following the page exactly as before.
+  const colourMode = feedDeck ? 'yellow' : pageMode;
+  const accent = colourMode === BRAND ? null : (MODE_COLORS[colourMode] || MODE_COLORS.blue);
   const ring = accent ? `${accent}8c` : BRAND_GRADIENT;   // 8c ≈ 55% alpha
   const tint = accent ? `${accent}1f` : 'rgba(255,255,255,0.06)'; // 1f ≈ 12%
 
@@ -163,7 +174,12 @@ export default function MiniPlayer() {
   // a lens ON THE FEED, and falls back to the corner window anywhere else it
   // follows the reader to.
   const [lens, setLens] = useState(null);
-  const wantLens = !poppedOut && activeDeck === 'feed';
+  // Minimized is NOT a lens state. The lens is the middle of the screen, and
+  // holding it with a bar that is deliberately showing nothing is worse than
+  // the empty lens the note above rules out. A minimized feed player falls
+  // through to the corner instead — which is the third of its three states,
+  // reached the same way it is reached off the feed page.
+  const wantLens = !poppedOut && !minimized && activeDeck === 'feed';
   useEffect(() => {
     if (!wantLens) { setLens(null); return undefined; }
     const measure = () => {

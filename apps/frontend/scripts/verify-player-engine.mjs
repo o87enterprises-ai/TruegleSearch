@@ -300,6 +300,26 @@ check(volumeCommands('youtube', -3)[1].payload.args[0] === 0, 'levels below 0 cl
 check(volumeCommands('tiktok', 0.5).length === 0,
   'a platform with no channel gets no messages rather than a broken one');
 
+// ── 4a. minimize is explicit, not a toggle ──────────────────────────────────
+// The feed player's end-of-queue rule (advance() in TrueglePlayer) says "be
+// small", not "be the other thing": it fires when there is nothing left to
+// play, and a toggle would OPEN a player that had already been minimized at
+// exactly that moment. Both are kept — the header button is still a toggle,
+// because that is what a button labelled Minimize does.
+s = run(INITIAL, { type: 'play', source: yt('a') }, { type: 'setMinimized', value: true });
+check(s.minimized === true, 'setMinimized(true) minimizes', String(s.minimized));
+s = run(s, { type: 'setMinimized', value: true });
+check(s.minimized === true, '…and says so again rather than toggling back open',
+  String(s.minimized));
+s = run(s, { type: 'toggleMin' });
+check(s.minimized === false, 'the Minimize button still toggles', String(s.minimized));
+// Anything that puts new media on screen un-minimizes, so the bar cannot
+// swallow the thing the user just asked to watch — already true of play and
+// playNow, and the end-of-queue rule leans on it to come back.
+s = run(INITIAL, { type: 'setMinimized', value: true }, { type: 'play', source: yt('b') });
+check(s.minimized === false, 'playing something new opens the player back up',
+  String(s.minimized));
+
 // ── 5. the reducer still does what it did ───────────────────────────────────
 // Guard rails: the queue rule touches enqueue/jump/clearQueue, all of which
 // carry behaviour that predates it.

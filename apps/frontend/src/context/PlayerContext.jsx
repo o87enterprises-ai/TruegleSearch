@@ -369,6 +369,12 @@ export function reducer(s, a) {
     }
     case 'toggleMin':
       return { ...s, minimized: !s.minimized };
+    case 'setMinimized':
+      // Explicit, where toggleMin is relative. The end-of-queue rule in
+      // TrueglePlayer needs to say "be small", not "be the other thing" — a
+      // toggle fired at a player that is already small would open it back up
+      // at exactly the moment there is nothing left to put in it.
+      return s.minimized === !!a.value ? s : { ...s, minimized: !!a.value };
     default:
       return s;
   }
@@ -507,6 +513,7 @@ export const PlayerProvider = ({ children }) => {
   const stopFeed = useCallback(() => dispatch({ type: 'stopFeed' }), []);
   const setVolume = useCallback((value) => dispatch({ type: 'setVolume', value }), []);
   const toggleMinimize = useCallback(() => dispatch({ type: 'toggleMin' }), []);
+  const setMinimized = useCallback((value) => dispatch({ type: 'setMinimized', value }), []);
   const stop = useCallback(() => dispatch({ type: 'stop' }), []);
   const togglePause = useCallback(() => dispatch({ type: 'togglePause' }), []);
   const setPaused = useCallback((value) => dispatch({ type: 'setPaused', value }), []);
@@ -520,11 +527,11 @@ export const PlayerProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       ...state,
-      play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
+      play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize, setMinimized,
       startFeed, appendFeed, feedNext, stopFeed, playList, switchDeck, requestFullscreen,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume,
     }),
-    [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize,
+    [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize, setMinimized,
       startFeed, appendFeed, feedNext, stopFeed, playList, switchDeck, requestFullscreen,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode, setLocked, setVolume]
   );
