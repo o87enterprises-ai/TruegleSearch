@@ -71,6 +71,7 @@ export default [
       '**/verify-*-browser.mjs',
       '**/verify-feed-page.mjs',
       '**/verify-feed-playable.mjs',
+      '**/verify-osiris-layers.mjs',
       '**/verify-player-engine.mjs',
       '**/verify-camera-view.mjs',
       '**/verify-map-ui.mjs',

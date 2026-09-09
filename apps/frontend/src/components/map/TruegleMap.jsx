@@ -24,6 +24,10 @@ import { getBasemapStyle, BASEMAP_ORDER, MAPBOX_TOKEN, TRAFFIC_AVAILABLE } from 
 import { defaultLogoConfig, getLogoPosition, getLogoSize } from './config/logoConfig';
 import MapPlayerTransport from './MapPlayerTransport';
 import TrafficCameras from './TrafficCameras';
+import useOsirisLayers from '../../hooks/useOsirisLayers';
+import {
+  OsirisSources, OsirisLayerSwitcher, OsirisFeaturePopup, osirisLayerIds, isOsirisFeature,
+} from './OsirisLayers';
 import DirectionsPanel from './DirectionsPanel';
 import LocationPermissionModal from './LocationPermissionModal';
 import Globe3D from './Globe3D';
@@ -70,6 +74,12 @@ export default function TruegleMap({
 }) {
   const { state, actions } = useMap();
   const mapRef = useRef(null);
+  // Live intelligence layers (aircraft, satellites, quakes, fires, vessels,
+  // weather, cameras, conflict). Mounted here rather than on one page, so
+  // every surface that renders a map gets them — the map is one component and
+  // this is where "all of the maps" actually is.
+  const osiris = useOsirisLayers();
+  const [osirisFeature, setOsirisFeature] = useState(null);
   const [viewState, setViewState] = useState({
     longitude: center[0],
     latitude: center[1],
@@ -422,6 +432,14 @@ export default function TruegleMap({
     // halves had simply never been told where you had gone.
     actions.setCenter({ lat: latitude, lng: longitude });
 
+    // Tell the live layers where we are looking, so they fetch what is on
+    // screen rather than the whole planet. Debounced inside the hook; this
+    // already only fires at the end of a gesture.
+    const bounds = mapRef.current?.getMap?.().getBounds?.();
+    if (bounds) {
+      osiris.setViewport([bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()]);
+    }
+
     // Zoomed all the way out: offer the azimuthal projection.
     //
     // This used to run inside the per-frame handler, so scrolling out past
@@ -433,7 +451,7 @@ export default function TruegleMap({
       actions.setAzimuthalFlatCenter({ lat: latitude, lng: longitude });
       actions.setAzimuthalFlatZoom(2);
     }
-  }, [actions, state.mapViewMode]);
+  }, [actions, state.mapViewMode, osiris]);
 
   const handleMapClick = useCallback((e) => {
     // A long press ends in a click event too. Without this, lifting your
@@ -448,6 +466,18 @@ export default function TruegleMap({
       setLocationMenu(null);
       return;
     }
+
+    // A CLICK ON A LIVE FEATURE INSPECTS IT; IT DOES NOT FLY THE MAP.
+    // Falling through to the zoom-to-15 below would throw away the view the
+    // feature was found in, which on a layer of ten thousand aircraft is the
+    // whole context of the click. Only ours are claimed — anything else is
+    // still empty map and still behaves exactly as it did.
+    const hit = (e.features || []).find(isOsirisFeature);
+    if (hit) {
+      setOsirisFeature({ geometry: hit.geometry, properties: hit.properties });
+      return;
+    }
+    setOsirisFeature(null);
 
     // Always center and zoom to clicked location
     const clickedLocation = {
@@ -1122,6 +1152,10 @@ export default function TruegleMap({
           style={{ width: '100%', height: '100%' }}
           onLoad={handleMapLoad}
           onClick={handleMapClick}
+          // Only OUR layers are interactive. Handing maplibre every layer id
+          // would make the basemap's own labels and roads swallow clicks that
+          // are meant to place a pin.
+          interactiveLayerIds={osirisLayerIds(osiris.active)}
           // Right-click on a desktop; press-and-hold on a touch screen. Both
           // open the same menu — see openLocationMenu.
           onContextMenu={handleContextMenu}
@@ -1150,6 +1184,11 @@ export default function TruegleMap({
           maxWidth={200}
           unit="imperial"
         />
+
+        {/* Live intelligence layers, under the route lines and markers so a
+            pin is never lost behind ten thousand aircraft. */}
+        <OsirisSources layers={osiris.layers} />
+        <OsirisFeaturePopup feature={osirisFeature} onClose={() => setOsirisFeature(null)} />
 
         {/* Calculated route lines (from DirectionsPanel via MapContext) */}
         {(state.routes || []).map(route => (
@@ -1470,6 +1509,17 @@ export default function TruegleMap({
                   <span className={labelClass}>Cameras</span>
                 </button>
 
+                {/* Live intelligence layers. Rendered from the server's own
+                    catalogue, so a feed added on the backend appears here
+                    without a change in this file. */}
+                <OsirisLayerSwitcher
+                  catalogue={osiris.catalogue}
+                  active={osiris.active}
+                  layers={osiris.layers}
+                  onToggle={osiris.toggle}
+                  labelClass={labelClass}
+                />
+
                 {/* Search Cameras Toggle */}
                 <button
                   onClick={() => setShowEnhancedCameraSearch(prev => { announce(prev ? 'Camera search closed' : 'Camera search'); return !prev; })}
@@ -1665,6 +1715,16 @@ export default function TruegleMap({
                     <Camera size={14} />
                     <span className="hidden lg:inline">Cameras</span>
                   </button>
+
+                  {/* Same live layers as the fullscreen bar — one control, two
+                      places it is drawn, never two behaviours. */}
+                  <OsirisLayerSwitcher
+                    catalogue={osiris.catalogue}
+                    active={osiris.active}
+                    layers={osiris.layers}
+                    onToggle={osiris.toggle}
+                    labelClass="hidden lg:inline"
+                  />
 
                   {/* Search Cameras Toggle */}
                   <button
