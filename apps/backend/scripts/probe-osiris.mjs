@@ -36,6 +36,37 @@ const c = {
 console.log(c.bold('\nOSIRIS feed probe'));
 console.log(c.dim(`${osiris.BASE_URL}  ·  ${new Date().toISOString()}\n`));
 
+// ── is the SHARED cache actually there? ─────────────────────────────────────
+//
+// Checked here because the migration runner cannot be trusted to tell you.
+// When a migration throws it logs a warning and records it as applied anyway
+// (scripts/run-migrations.js) so it is never retried — which is right for the
+// superseded old migrations it was written for, and means "✅ Applied" is not
+// evidence for a new one. Without this table the map still works, on
+// per-instance memory; what is lost is the guarantee that many visitors become
+// one upstream call, and nothing about the running site would show it.
+{
+  const { query } = require('../db/connection.js');
+  // Label printed AFTER the query, not before it: the pool logs "Database
+  // connected" on first use, which lands in the middle of a half-written line.
+  const label = `  ${'Shared cache'.padEnd(18)} `;
+  try {
+    const { rows } = await query("SELECT to_regclass('public.osiris_cache') AS t");
+    if (rows[0]?.t) {
+      const { rows: c2 } = await query('SELECT COUNT(*)::int AS n, MAX(fetched_at) AS newest FROM osiris_cache');
+      console.log(label + `${c.green('●')} osiris_cache present ${c.dim(`${c2[0].n} layer(s) cached`
+        + (c2[0].newest ? `, newest ${new Date(c2[0].newest).toISOString()}` : ''))}`);
+    } else {
+      console.log(label + `${c.yellow('●')} ${c.yellow('osiris_cache MISSING')} — run \`npm run migrate\``);
+      console.log(c.dim('      The map still works on per-instance memory, but every'));
+      console.log(c.dim('      instance then calls the upstream itself — see migration 022.'));
+    }
+  } catch (error) {
+    console.log(label + `${c.yellow('●')} could not check ${c.dim(error.message.slice(0, 70))}`);
+  }
+  console.log();
+}
+
 const readable = [];
 const unreadable = [];
 const unreachable = [];
