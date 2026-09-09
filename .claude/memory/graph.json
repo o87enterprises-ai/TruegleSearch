@@ -1708,6 +1708,15 @@
         "Type": "thread",
         "Label": "Migrations 022 and 023 still unapplied in production",
         "body": "Owner's apps/backend/.env DATABASE_URL points at 127.0.0.1:5432 with no local Postgres in Termux, so 'npm run migrate' failed with ECONNREFUSED and BOTH 022_osiris_cache and 023_anonymous_community_media are unapplied in production (Neon). Until 023 runs, anonymous submits will fail on the NOT NULL constraint. Until 022 runs, the OSIRIS shared cache latches off. Migration runner records a FAILED migration as applied anyway, so verify with 'npm run osiris:probe' (checks osiris_cache) rather than trusting its output.",
+        "status": "done",
+        "ts": "2026-09-09",
+        "created": "2026-09-09"
+      },
+      "neon-credential-rotate": {
+        "Id": "neon-credential-rotate",
+        "Type": "thread",
+        "Label": "PRODUCTION Neon DB password was pasted in plaintext — rotate",
+        "body": "On 2026-09-09 the owner pasted the full production Neon connection string (role neondb_owner, host ep-solitary-meadow-atan7id0-pooler.c-9.us-east-1.aws.neon.tech/neondb) including its password into a Claude Code session and their Termux shell history. It grants read/write to the production database. Must be rotated in the Neon console and updated in Vercel's DATABASE_URL. Going forward: put it in apps/backend/.env and run 'npm run migrate' with no inline env var, so the secret never reaches a command line or a transcript.",
         "status": "open",
         "ts": "2026-09-09",
         "created": "2026-09-09"
@@ -2961,6 +2970,14 @@
         "Type": "fact",
         "Label": "The OSIRIS cache is the privacy mechanism, not a speed tweak",
         "body": "OSIRIS feeds are proxied so the upstream cannot correlate visitors; the cache is what collapses many visitors into ONE upstream call, i.e. it is the anonymity set. An in-memory-only cache on serverless is usually cold => ~one upstream call per visitor => restores the rate/timing signal the proxy exists to destroy, invisibly (the map keeps working). Hence migration 022 osiris_cache: shared Postgres tier, L1 memory + L2 Postgres, body stored verbatim and normalised on read, source column checked so repointing OSIRIS_BASE_URL cannot serve the old host's data. Best-effort: no DB / unmigrated / dropped connection all fall back to memory; a structural failure latches the tier off. Verified against real Postgres: a second process with empty L1 serves with ZERO upstream calls. Related bug fixed: STALE_MS was absolute 5min so stale-while-revalidate was dead code for any layer with TTL >= 5min (cameras 30min); now a grace period on top of each layer's TTL.",
+        "ts": "2026-09-09",
+        "created": "2026-09-09"
+      },
+      "osiris-feed-shapes": {
+        "Id": "osiris-feed-shapes",
+        "Type": "fact",
+        "Label": "OSIRIS feed shapes, measured against the live host",
+        "body": "Probed 2026-09-09. COMPOSITE feeds needing rowsKeys: flights = {commercial_flights, private_flights, private_jets, military_flights, gps_jamming} — reading only commercial drops military + GPS jamming, the two most valuable OSINT groups; maritime = {ships, ports, chokepoints}; cctv = {cameras}. Layer-named key works for: earthquakes, fires. Generic 'events' key: weather, conflict(gdelt). Merged rows carry _group naming their source array. SLOW/VARIABLE: flights, satellites, maritime, cctv, conflict have all timed out at 25s on at least one run while weather went 10.6s once and 25s+ another — the public host is variable, not uniformly slow. Answer is 'npm run osiris:warm' (OSIRIS_TIMEOUT_MS default 120s) on a schedule into the shared cache, NOT a bigger request timeout.",
         "ts": "2026-09-09",
         "created": "2026-09-09"
       }
