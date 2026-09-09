@@ -84,6 +84,36 @@ describe('rowsOf', () => {
     expect(rowsOf({ flights: [{ right: 1 }], data: [{ wrong: 1 }] }, 'flights')).toEqual([{ right: 1 }]);
   });
 
+  it('merges a COMPOSITE feed instead of silently taking one array', () => {
+    // Measured: maritime returns { ships, ports, chokepoints, total_*,
+    // timestamp }. Reading only `ships` would drop the ports and the
+    // chokepoints without a word — and for maritime analysis the chokepoints
+    // are the most interesting rows in the response.
+    const rows = rowsOf({
+      ships: [{ mmsi: '1' }],
+      ports: [{ port: 'Rotterdam' }],
+      chokepoints: [{ name: 'Bab-el-Mandeb' }],
+      total_ships: 1,
+      timestamp: 'x',
+    }, 'maritime');
+    expect(rows).toHaveLength(3);
+    // …and each row remembers which array it came from, so a chokepoint stays
+    // distinguishable from a container ship after the merge.
+    expect(rows.map((r) => r._group)).toEqual(['ships', 'ports', 'chokepoints']);
+    expect(rows[2].name).toBe('Bab-el-Mandeb');
+  });
+
+  it('reads a declared single key, as measured for cameras', () => {
+    // cctv: { cameras, total, sources, regions, timestamp }
+    expect(rowsOf({ cameras: [{ a: 1 }], total: 1, regions: ['eu'] }, 'cctv'))
+      .toEqual([{ _group: 'cameras', a: 1 }]);
+  });
+
+  it('skips a declared key the feed did not send, rather than failing', () => {
+    const rows = rowsOf({ ships: [{ mmsi: '1' }], timestamp: 'x' }, 'maritime');
+    expect(rows).toHaveLength(1);
+  });
+
   it('returns null — not [] — when it cannot find any rows', () => {
     // The distinction is the whole point: null means "this shape is
     // unreadable, report it", [] would mean "the feed is empty", and

@@ -158,7 +158,13 @@ export function OsirisFeaturePopup({ feature, onClose }) {
           <X size={13} />
         </button>
         <p className="font-semibold text-white pr-5 leading-snug">{props._label || 'Feature'}</p>
-        <p className="text-neutral-400 mb-2">{props._layer}</p>
+        {/* `_group` is set for composite feeds — maritime returns ships, ports
+            and chokepoints in one response, and which of the three a row is
+            happens to be the most useful single fact about it. Shown beside
+            the layer rather than buried in the field list. */}
+        <p className="text-neutral-400 mb-2">
+          {props._layer}{props._group ? ` · ${props._group}` : ''}
+        </p>
 
         <dl className="space-y-0.5 max-h-56 overflow-y-auto pr-1">
           {fields.map(([k, v]) => (

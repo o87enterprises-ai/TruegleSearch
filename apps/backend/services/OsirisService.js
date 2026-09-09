@@ -63,8 +63,13 @@ const BASE_URL = (process.env.OSIRIS_BASE_URL || 'https://osirisai.live').replac
  *
  *  Raised, but the real fix is `serveStale` below: after the first successful
  *  fetch nothing waits on this at all, so the timeout only ever governs a cold
- *  cache. */
-const TIMEOUT_MS = 25_000;
+ *  cache.
+ *
+ *  Overridable via OSIRIS_TIMEOUT_MS so the out-of-band warmer
+ *  (`npm run osiris:warm`) can wait far longer than any web request should.
+ *  That is the actual answer for the feeds that exceed even 25s: fetch them on
+ *  a schedule into the shared cache, and serve every visitor from it. */
+const TIMEOUT_MS = Number(process.env.OSIRIS_TIMEOUT_MS) || 25_000;
 
 /** How long PAST ITS TTL an entry may still be served while a refresh runs
  *  behind it. Generous on purpose: an aircraft position from four minutes ago,
@@ -127,10 +132,16 @@ const LAYERS = {
   maritime: {
     path: '/api/maritime',
     ttl: 60_000,
-    label: 'Vessels',
+    label: 'Maritime',
     kind: 'point',
     colour: '#22d3ee',
-    describe: (p) => p.name || p.shipname || p.mmsi || 'Vessel',
+    // NOT ONE ARRAY. The probe found this feed is three:
+    // { ships, ports, chokepoints, total_* , timestamp }. Taking only `ships`
+    // would silently drop the ports and the chokepoints — and for anything
+    // resembling maritime analysis the chokepoints are the most interesting
+    // rows in the response. All three are drawn, each tagged with which it is.
+    rowsKeys: ['ships', 'ports', 'chokepoints'],
+    describe: (p) => p.name || p.shipname || p.mmsi || p.port || 'Maritime',
   },
   weather: {
     path: '/api/weather',
@@ -146,6 +157,8 @@ const LAYERS = {
     label: 'Public cameras',
     kind: 'point',
     colour: '#facc15',
+    // Measured: { cameras, total, sources, regions, timestamp }.
+    rowsKeys: ['cameras'],
     describe: (p) => p.title || p.name || 'Camera',
   },
   conflict: {
@@ -210,7 +223,25 @@ function coordsOf(row) {
 function rowsOf(body, layerId) {
   if (Array.isArray(body)) return body;
   if (!body || typeof body !== 'object') return null;
-  // The layer's own name first: OSIRIS names the array after what is in it
+
+  // A layer that declared its own keys wins, because it was MEASURED. This is
+  // also the only way to read a composite feed: maritime is three arrays in
+  // one response (ships, ports, chokepoints) and picking any single one of
+  // them would drop the other two without a word.
+  const declared = LAYERS[layerId]?.rowsKeys;
+  if (declared) {
+    const merged = [];
+    for (const k of declared) {
+      if (!Array.isArray(body[k])) continue;
+      // Tagged with which array it came from, so a chokepoint is
+      // distinguishable from a container ship after they are merged — on the
+      // map, in the popup, and to anything filtering later.
+      for (const row of body[k]) merged.push(row && typeof row === 'object' ? { _group: k, ...row } : row);
+    }
+    return merged.length ? merged : null;
+  }
+
+  // The layer's own name next: OSIRIS names the array after what is in it
   // (`{earthquakes: [...]}`), so this one rule reads every such feed without
   // an entry per layer — including the ones nobody has probed yet.
   if (layerId && Array.isArray(body[layerId])) return body[layerId];

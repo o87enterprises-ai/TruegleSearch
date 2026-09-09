@@ -18,7 +18,8 @@
     "truecode:probe": "node scripts/probe-truecode.mjs",
     "cameras:test": "node scripts/verify-cameras.mjs",
     "groq:health": "node scripts/verify-groq-health.mjs",
-    "osiris:probe": "node scripts/probe-osiris.mjs"
+    "osiris:probe": "node scripts/probe-osiris.mjs",
+    "osiris:warm": "node scripts/warm-osiris.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.1",
