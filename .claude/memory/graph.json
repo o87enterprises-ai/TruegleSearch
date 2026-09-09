@@ -1288,6 +1288,14 @@
         "body": "Scrolling a playing feed card out of the centre band no longer stops playback (the stop effect in FeedPage.jsx is deleted). What is on plays through, and anything queued plays after it. Only when the feed AND queue are exhausted does advance() in TrueglePlayer minimize the player, which drops it out of the lens to the corner (MiniPlayer wantLens excludes minimized). Consequence found while testing: the live card no longer renders its centre play button — the lens is fixed across the middle of the viewport, which is exactly where a centred card's centre button sits, so the lens swallowed the click. Player accent is now deck-aware: the feed deck wears Feed's yellow pill colour wherever it floats, instead of taking the page's colour.",
         "ts": "2026-09-09",
         "created": "2026-09-09"
+      },
+      "osiris-map-layers": {
+        "Id": "osiris-map-layers",
+        "Type": "decision",
+        "Label": "OSIRIS live layers wired into all maps via a server-side proxy",
+        "body": "OSIRIS (osirisai.live, MIT, keyless) feeds are proxied through /api/osiris rather than fetched from the browser — a direct fetch would give the upstream every visitor's IP plus a bbox record of where they were looking, which would break the no-tracking claim. The proxy (services/OsirisService.js) is also the seam for swapping to a self-hosted instance (OSIRIS_BASE_URL) or direct upstreams (OpenSky/USGS/NASA FIRMS/EONET/N2YO). Upstream shapes were NOT verifiable when written (sandbox blocks the host), so coordinates are read from candidate field names and an unreadable feed returns 502 with the keys it saw — never an empty FeatureCollection. Run 'npm run osiris:probe' from a networked machine to capture real shapes and trim the candidate lists. Frontend: hooks/useOsirisLayers.js + components/map/OsirisLayers.jsx, mounted in TruegleMap (the single map every page renders). Verifier: npm run osiris:test.",
+        "ts": "2026-09-09",
+        "created": "2026-09-09"
       }
     },
     "thread": {
@@ -1668,6 +1676,15 @@
         "status": "done",
         "ts": "2026-08-25",
         "created": "2026-08-25"
+      },
+      "osiris-probe-pending": {
+        "Id": "osiris-probe-pending",
+        "Type": "thread",
+        "Label": "Run osiris:probe to replace guessed field names with real ones",
+        "body": "services/OsirisService.js reads coordinates via candidate key lists (LAT_KEYS/LON_KEYS/ROWS_KEYS) because osirisai.live was unreachable from the build sandbox. Until 'npm run osiris:probe' is run on a networked machine, some layers may return 502 unrecognised_shape. The probe prints exactly which keys to add. Also still open: YouTube subscription import (Option A — Takeout CSV of channel IDs polled via YouTube's keyless per-channel RSS), approved by the owner but not yet started.",
+        "status": "open",
+        "ts": "2026-09-09",
+        "created": "2026-09-09"
       }
     },
     "entity": {
