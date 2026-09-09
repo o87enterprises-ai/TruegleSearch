@@ -65,11 +65,30 @@ describe('rowsOf', () => {
     }
   });
 
+  it('reads the shapes the probe actually found on the live host', () => {
+    // Measured, not imagined. Every OSIRIS feed wraps its rows in either a key
+    // named after the layer or the generic `events`:
+    //   earthquakes -> { earthquakes, total, timestamp }
+    //   fires       -> { fires, total, source, timestamp }
+    //   weather     -> { events, total, timestamp }
+    //   conflict    -> { events, total, timestamp, source }
+    expect(rowsOf({ earthquakes: [{ a: 1 }], total: 1, timestamp: 'x' }, 'earthquakes')).toEqual([{ a: 1 }]);
+    expect(rowsOf({ fires: [{ a: 1 }], total: 1, source: 'FIRMS' }, 'fires')).toEqual([{ a: 1 }]);
+    expect(rowsOf({ events: [{ a: 1 }], total: 1 }, 'weather')).toEqual([{ a: 1 }]);
+    expect(rowsOf({ events: [{ a: 1 }], total: 1, source: 'gdelt' }, 'conflict')).toEqual([{ a: 1 }]);
+  });
+
+  it('prefers the layer-named key over a generic one when a feed has both', () => {
+    // A feed carrying both `flights` and an unrelated `data` key must not have
+    // the wrong array picked out of it by list order.
+    expect(rowsOf({ flights: [{ right: 1 }], data: [{ wrong: 1 }] }, 'flights')).toEqual([{ right: 1 }]);
+  });
+
   it('returns null — not [] — when it cannot find any rows', () => {
     // The distinction is the whole point: null means "this shape is
     // unreadable, report it", [] would mean "the feed is empty", and
     // conflating them is how a broken layer draws as a quiet blank map.
-    expect(rowsOf({ error: 'nope' })).toBeNull();
+    expect(rowsOf({ error: 'nope' }, 'flights')).toBeNull();
     expect(rowsOf(null)).toBeNull();
     expect(rowsOf('a string')).toBeNull();
   });

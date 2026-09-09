@@ -99,6 +99,16 @@ export function OsirisLayerSwitcher({ catalogue, active, layers, onToggle, label
             {on && state?.meta?.returned != null && (
               <span className="tabular-nums opacity-75">{state.meta.returned}</span>
             )}
+            {/* STALE IS SAID, NOT IMPLIED. The upstream is slow enough that the
+                server serves last-known positions while it refreshes behind
+                the request. An aircraft position from four minutes ago is
+                useful; the same position presented as live is a small lie, and
+                this is a map people might make decisions from. */}
+            {on && state?.meta?.stale && (
+              <span className="opacity-70" title={`Last updated ${state.meta.ageSeconds}s ago`}>
+                ·{Math.round((state.meta.ageSeconds || 0) / 60) || '<1'}m
+              </span>
+            )}
           </button>
         );
       })}

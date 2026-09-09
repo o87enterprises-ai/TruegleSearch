@@ -55,9 +55,20 @@ const logger = require('../utils/logger');
 
 const BASE_URL = (process.env.OSIRIS_BASE_URL || 'https://osirisai.live').replace(/\/+$/, '');
 
-/** Upstream is a courtesy, not a dependency: a slow feed must not hold a map
- *  request open. Short enough that a stalled layer fails while the others draw. */
-const TIMEOUT_MS = 12_000;
+/** MEASURED. The probe found the heavy layers — aircraft, satellites, vessels,
+ *  cameras — exceed 12s against the public host, while weather returned in
+ *  10.6s. This upstream is simply slow with a large payload, not broken, so a
+ *  12s ceiling was rejecting healthy feeds.
+ *
+ *  Raised, but the real fix is `serveStale` below: after the first successful
+ *  fetch nothing waits on this at all, so the timeout only ever governs a cold
+ *  cache. */
+const TIMEOUT_MS = 25_000;
+
+/** How long a stale entry may still be served while a refresh runs behind it.
+ *  Generous on purpose: an aircraft position from four minutes ago, clearly
+ *  labelled as such, beats a spinner or an empty map. */
+const STALE_MS = 5 * 60_000;
 
 /**
  * One entry per drawable layer.
@@ -145,8 +156,15 @@ const LAYERS = {
 const LAT_KEYS = ['lat', 'latitude', 'Latitude', 'LAT', 'y'];
 const LON_KEYS = ['lon', 'lng', 'long', 'longitude', 'Longitude', 'LON', 'x'];
 
-/** Where a feed might keep its array of rows, when it is not simply an array. */
-const ROWS_KEYS = ['features', 'data', 'results', 'items', 'rows', 'states', 'list'];
+/** Where a feed might keep its array of rows, when it is not simply an array.
+ *
+ *  MEASURED, no longer guessed. `npm run osiris:probe` against the live host
+ *  found every OSIRIS feed wraps its rows in one of two things: a key named
+ *  after the layer itself (`{earthquakes, total, timestamp}`,
+ *  `{fires, total, source, timestamp}`) or the generic `events`
+ *  (weather, gdelt). The layer-named case is handled in rowsOf by trying the
+ *  layer id before this list, which covers the feeds not yet probed as well. */
+const ROWS_KEYS = ['events', 'features', 'data', 'results', 'items', 'rows', 'states', 'list'];
 
 const num = (v) => {
   const n = typeof v === 'string' ? Number(v) : v;
@@ -182,9 +200,13 @@ function coordsOf(row) {
 }
 
 /** Find the array of rows in whatever envelope the feed used. */
-function rowsOf(body) {
+function rowsOf(body, layerId) {
   if (Array.isArray(body)) return body;
   if (!body || typeof body !== 'object') return null;
+  // The layer's own name first: OSIRIS names the array after what is in it
+  // (`{earthquakes: [...]}`), so this one rule reads every such feed without
+  // an entry per layer — including the ones nobody has probed yet.
+  if (layerId && Array.isArray(body[layerId])) return body[layerId];
   for (const k of ROWS_KEYS) if (Array.isArray(body[k])) return body[k];
   return null;
 }
@@ -230,22 +252,78 @@ function parseBbox(raw) {
   return [w, s, e, n];
 }
 
-const cache = new Map(); // layer -> { at, body }
+const cache = new Map();     // layer -> { at, body }
+const refreshing = new Map(); // layer -> Promise, so N callers cause 1 fetch
 
-async function fetchLayer(id) {
+function requestUpstream(id) {
   const def = LAYERS[id];
-  const hit = cache.get(id);
-  if (hit && Date.now() - hit.at < def.ttl) return { body: hit.body, cached: true };
-
-  const { data } = await axios.get(`${BASE_URL}${def.path}`, {
+  return axios.get(`${BASE_URL}${def.path}`, {
     timeout: TIMEOUT_MS,
     headers: { Accept: 'application/json', 'User-Agent': 'TruegleSearch/1.0 (+https://truegle.info)' },
     // A feed that answers with 30MB of history would blow the lambda; refuse
     // rather than fall over.
     maxContentLength: 25 * 1024 * 1024,
+  }).then(({ data }) => {
+    cache.set(id, { at: Date.now(), body: data });
+    return data;
   });
-  cache.set(id, { at: Date.now(), body: data });
-  return { body: data, cached: false };
+}
+
+/** One in-flight fetch per layer, however many callers are waiting.
+ *  Without this, a cold cache and ten simultaneous map loads make ten
+ *  25-second requests to an upstream that is slow precisely because it is
+ *  under load. */
+function refresh(id) {
+  if (!refreshing.has(id)) {
+    const p = requestUpstream(id).finally(() => refreshing.delete(id));
+    refreshing.set(id, p);
+  }
+  return refreshing.get(id);
+}
+
+/**
+ * STALE WHILE REVALIDATE, because this upstream is slow and that is a fact to
+ * design around rather than wait on.
+ *
+ * The probe measured the heavy feeds past 12 seconds. Making every visitor
+ * whose request happens to land on an expired entry wait that long — while
+ * newer requests queue behind it — turns one slow upstream into a slow map for
+ * everybody. Instead: an expired entry is served immediately and refreshed
+ * behind the request, so exactly one visitor ever pays, and only when the
+ * cache is completely cold.
+ *
+ * The response says which it got (`meta.stale`, `meta.ageSeconds`), because a
+ * four-minute-old aircraft position is fine and a four-minute-old aircraft
+ * position presented as live is not.
+ */
+async function fetchLayer(id) {
+  const def = LAYERS[id];
+  const hit = cache.get(id);
+  const age = hit ? Date.now() - hit.at : Infinity;
+
+  if (hit && age < def.ttl) return { body: hit.body, cached: true, stale: false, age };
+
+  if (hit && age < STALE_MS) {
+    // Kick the refresh off and deliberately do not await it. A rejection here
+    // is not this request's problem — it still has data to serve — but an
+    // unhandled rejection would take the process down.
+    refresh(id).catch((err) => logger.warn(`OSIRIS ${id} background refresh failed`, { message: err.message }));
+    return { body: hit.body, cached: true, stale: true, age };
+  }
+
+  // Nothing usable cached: this one genuinely has to wait. If it fails and we
+  // hold anything at all, serve that rather than nothing — an old map beats a
+  // broken one, and `stale` says which it is.
+  try {
+    const body = await refresh(id);
+    return { body, cached: false, stale: false, age: 0 };
+  } catch (error) {
+    if (hit) {
+      logger.warn(`OSIRIS ${id} unreachable, serving ${Math.round(age / 1000)}s-old data`, { message: error.message });
+      return { body: hit.body, cached: true, stale: true, age };
+    }
+    throw error;
+  }
 }
 
 /**
@@ -263,8 +341,8 @@ async function getLayer(id, { bbox, limit = 2000 } = {}) {
     throw err;
   }
 
-  const { body, cached } = await fetchLayer(id);
-  const rows = rowsOf(body);
+  const { body, cached, stale, age } = await fetchLayer(id);
+  const rows = rowsOf(body, id);
 
   if (!rows) {
     // Say what was actually seen. "No features" with no explanation is the
@@ -314,6 +392,11 @@ async function getLayer(id, { bbox, limit = 2000 } = {}) {
       label: def.label,
       colour: def.colour,
       cached,
+      // Said out loud rather than implied. A four-minute-old aircraft position
+      // is useful; the same position presented as live is a small lie, and the
+      // map labels it from here.
+      stale: !!stale,
+      ageSeconds: Number.isFinite(age) ? Math.round(age / 1000) : null,
       total: rows.length,
       returned: features.length,
       // Rows the upstream served that carried no position. Surfaced rather
