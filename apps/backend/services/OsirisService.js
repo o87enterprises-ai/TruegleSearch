@@ -52,6 +52,7 @@
  */
 const axios = require('axios');
 const logger = require('../utils/logger');
+const { query } = require('../db/connection');
 
 const BASE_URL = (process.env.OSIRIS_BASE_URL || 'https://osirisai.live').replace(/\/+$/, '');
 
@@ -65,10 +66,16 @@ const BASE_URL = (process.env.OSIRIS_BASE_URL || 'https://osirisai.live').replac
  *  cache. */
 const TIMEOUT_MS = 25_000;
 
-/** How long a stale entry may still be served while a refresh runs behind it.
- *  Generous on purpose: an aircraft position from four minutes ago, clearly
- *  labelled as such, beats a spinner or an empty map. */
-const STALE_MS = 5 * 60_000;
+/** How long PAST ITS TTL an entry may still be served while a refresh runs
+ *  behind it. Generous on purpose: an aircraft position from four minutes ago,
+ *  clearly labelled as such, beats a spinner or an empty map.
+ *
+ *  RELATIVE TO THE TTL, not absolute. As a flat 5-minute ceiling this was dead
+ *  code for half the layers: cameras have a 30-minute TTL, so an entry went
+ *  straight from fresh to older-than-the-stale-window and every expiry paid
+ *  the full upstream wait — the exact cost stale-while-revalidate exists to
+ *  avoid, in the layers that need it most. Caught by the cache tests. */
+const STALE_GRACE_MS = 10 * 60_000;
 
 /**
  * One entry per drawable layer.
@@ -252,8 +259,68 @@ function parseBbox(raw) {
   return [w, s, e, n];
 }
 
+// ── TWO TIERS, AND THE SECOND ONE IS THE IMPORTANT ONE ──────────────────────
+//
+// L1 is this process's memory: free, instant, and on Vercel usually empty,
+// because every invocation may be a fresh process.
+//
+// L2 is Postgres (migration 022), shared by every instance. That is what makes
+// the cache real in production — and the cache is not a performance nicety
+// here, it is the privacy mechanism. These feeds are proxied rather than
+// fetched from the browser so the upstream cannot correlate visitors; the
+// cache is what collapses many visitors into one upstream call. A cache that
+// is usually cold means close to one call per visitor, which hands back the
+// rate-and-timing signal the proxy exists to destroy.
+//
+// L2 is best-effort in every direction. No DATABASE_URL, an unmigrated
+// database, a dropped connection — all fall back to L1 and a working map. A
+// caching layer that can take the feature down is not a caching layer.
 const cache = new Map();     // layer -> { at, body }
 const refreshing = new Map(); // layer -> Promise, so N callers cause 1 fetch
+
+// Latches off after the first failure that looks structural (no table, no
+// database), so a deployment without migration 022 does not pay a failing
+// query on every single request.
+let sharedCacheUsable = true;
+
+async function readShared(id) {
+  if (!sharedCacheUsable) return null;
+  try {
+    const { rows } = await query(
+      'SELECT body, source, fetched_at FROM osiris_cache WHERE layer = $1',
+      [id],
+    );
+    const row = rows[0];
+    if (!row) return null;
+    // A body cached from a different upstream is not this deployment's data.
+    // Repointing OSIRIS_BASE_URL at a self-hosted instance must not keep
+    // serving the public host's answers.
+    if (row.source && row.source !== BASE_URL) return null;
+    return { at: new Date(row.fetched_at).getTime(), body: row.body };
+  } catch (error) {
+    if (/relation .*osiris_cache.* does not exist|DATABASE_URL|ECONNREFUSED|getaddrinfo/i.test(error.message)) {
+      logger.warn('OSIRIS shared cache unavailable, using per-instance memory only', { message: error.message });
+      sharedCacheUsable = false;
+    }
+    return null;
+  }
+}
+
+async function writeShared(id, body) {
+  if (!sharedCacheUsable) return;
+  try {
+    await query(
+      `INSERT INTO osiris_cache (layer, body, source, fetched_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (layer) DO UPDATE
+         SET body = EXCLUDED.body, source = EXCLUDED.source, fetched_at = NOW()`,
+      [id, JSON.stringify(body), BASE_URL],
+    );
+  } catch (error) {
+    // Never fatal: the caller already has the data it needs.
+    logger.warn(`OSIRIS shared cache write failed for ${id}`, { message: error.message });
+  }
+}
 
 function requestUpstream(id) {
   const def = LAYERS[id];
@@ -265,6 +332,10 @@ function requestUpstream(id) {
     maxContentLength: 25 * 1024 * 1024,
   }).then(({ data }) => {
     cache.set(id, { at: Date.now(), body: data });
+    // Deliberately not awaited: the shared write is for the NEXT instance, and
+    // making this request wait on it would put a database round trip in front
+    // of a response that is already complete.
+    writeShared(id, data);
     return data;
   });
 }
@@ -298,12 +369,24 @@ function refresh(id) {
  */
 async function fetchLayer(id) {
   const def = LAYERS[id];
-  const hit = cache.get(id);
-  const age = hit ? Date.now() - hit.at : Infinity;
+  let hit = cache.get(id);
+  let age = hit ? Date.now() - hit.at : Infinity;
 
   if (hit && age < def.ttl) return { body: hit.body, cached: true, stale: false, age };
 
-  if (hit && age < STALE_MS) {
+  // L1 could not answer. Ask the shared tier BEFORE the network — on a fresh
+  // instance this is the difference between a database round trip and a
+  // 25-second upstream fetch, and it is what stops each instance from making
+  // its own call to an upstream that must not be able to count visitors.
+  const shared = await readShared(id);
+  if (shared && shared.at > (hit?.at || 0)) {
+    cache.set(id, shared);       // hydrate L1 so the rest of this instance's life is free
+    hit = shared;
+    age = Date.now() - shared.at;
+    if (age < def.ttl) return { body: hit.body, cached: true, stale: false, age };
+  }
+
+  if (hit && age < def.ttl + STALE_GRACE_MS) {
     // Kick the refresh off and deliberately do not await it. A rejection here
     // is not this request's problem — it still has data to serve — but an
     // unhandled rejection would take the process down.
