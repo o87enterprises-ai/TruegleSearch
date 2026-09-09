@@ -2904,6 +2904,14 @@
         "body": "Owner confirmed 2026-09-03: YOUTUBE_API_KEY is set on the Vercel backend deployment (backend-seven-khaki-60.vercel.app), NOT needed locally. Never ask for it again. Seeding tooling must fetch THROUGH the backend so the key is never copied to a laptop. NOTE: this sandbox CANNOT reach that backend — agent proxy returns connect_rejected/403 on CONNECT to *.vercel.app and truegle.info — so creators:fetch must be run by the owner or any machine with normal egress.",
         "ts": "2026-09-03",
         "created": "2026-09-03"
+      },
+      "ai-error-mapping-bug": {
+        "Id": "ai-error-mapping-bug",
+        "Type": "fact",
+        "Label": "AI route error mapping matched strings the stack never throws",
+        "body": "routes/ai.js classified failures with error.message.includes('Rate limit') — which NOTHING throws — while GroqService throws 'All Groq API keys are rate-limited' when every org is cooling down. That contains 'API key', so the rate-limit case was caught by the config branch: a service merely out of free-tier quota reported 'temporarily unavailable due to configuration issues', returned 500 instead of 429, and sent no Retry-After. Fixed by utils/aiFailure.js (classifyAiFailure/sendAiFailure), which matches real throw-site strings, checks rate-limiting FIRST, and carries a machine code (ai_rate_limited / ai_no_capacity / ai_no_content / ai_upstream / ai_failed). Diagnostic consequence: the generic 'Unable to process AI request at this time' message RULES OUT both quota exhaustion and dead keys, because those two now map elsewhere.",
+        "ts": "2026-09-09",
+        "created": "2026-09-09"
       }
     }
   },

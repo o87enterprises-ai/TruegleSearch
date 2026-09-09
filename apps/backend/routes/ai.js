@@ -9,6 +9,7 @@ const QueryInterpreter = require('../services/QueryInterpreter');
 const DeepResearchService = require('../services/DeepResearchService');
 const FeedbackService = require('../services/FeedbackService');
 const logger = require('../utils/logger');
+const { sendAiFailure } = require('../utils/aiFailure');
 const { buildMapFact } = require('../utils/mapFact');
 
 const deepResearch = new DeepResearchService();
@@ -161,24 +162,10 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
   } catch (error) {
     logger.error('AI chat error:', { error: error.message, userId: req.user?.id });
 
-    if (error.message.includes('Rate limit')) {
-      return res.status(429).json({
-        error: 'Rate limit exceeded',
-        message: 'AI usage limit reached. Please try again later.',
-      });
-    }
-
-    if (error.message.includes('API key') || error.message.includes('authentication')) {
-      return res.status(500).json({
-        error: 'AI service configuration error',
-        message: 'AI service is temporarily unavailable due to configuration issues.',
-      });
-    }
-
-    res.status(500).json({
-      error: 'AI request failed',
-      message: 'Unable to process AI request at this time. Please try again.',
-    });
+    // See utils/aiFailure.js — the branches that used to live here matched
+    // strings the stack never throws, so a rate-limited service reported a
+    // configuration error and the 429 branch was unreachable.
+    return sendAiFailure(res, error);
   }
 });
 
@@ -336,23 +323,8 @@ router.post('/analyze-content', authenticate, rateLimitSearch, async (req, res) 
   } catch (error) {
     logger.error('AI content analysis error:', { error: error.message, userId: req.user?.id });
 
-    if (error.message.includes('Rate limit')) {
-      return res.status(429).json({
-        error: 'Rate limit exceeded',
-        message: 'AI usage limit reached. Please try again later.',
-      });
-    }
-
-    if (error.message.includes('API key') || error.message.includes('authentication')) {
-      return res.status(500).json({
-        error: 'AI service configuration error',
-        message: 'AI service is temporarily unavailable due to configuration issues.',
-      });
-    }
-
-    res.status(500).json({
-      error: 'AI analysis failed',
-      message: 'Unable to process AI analysis at this time. Please try again.',
+    return sendAiFailure(res, error, {
+      fallbackMessage: 'Unable to process AI analysis at this time. Please try again.',
     });
   }
 });
