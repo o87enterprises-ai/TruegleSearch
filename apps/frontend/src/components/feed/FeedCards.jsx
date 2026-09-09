@@ -177,6 +177,26 @@ export const GenericCard = ({ post }) => {
           <div className="flex items-center gap-1.5 mb-1">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: colour }} />
             <span className="text-[11px] font-medium" style={{ color: colour }}>{post.platform}</span>
+            {/* THE WATERMARK. A community row was posted HERE, not read from
+                somebody else's timeline, and a reader deserves to know which
+                they are looking at — every other row in this feed is a window
+                onto a platform, this one is Truegle's own.
+
+                On the card, not over the media: the video is the original
+                creator's and plays from their embed, so stamping a mark across
+                it would be claiming something that is not ours. */}
+            {post.community && (
+              <span
+                data-feed-watermark={post.anonymous ? 'anonymous' : 'attributed'}
+                title={post.anonymous
+                  ? 'Posted to Truegle anonymously — nothing is hosted here, it plays from the original platform'
+                  : 'Posted to Truegle by a member — it plays from the original platform'}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border border-yellow-500/30 text-[10px] font-semibold text-yellow-200 shrink-0"
+              >
+                Truegle
+                {post.anonymous && <span className="font-normal opacity-70">· anon</span>}
+              </span>
+            )}
             {post.subreddit && <span className="text-[11px] text-white/35 truncate">{post.subreddit}</span>}
           </div>
           <p className="text-sm text-white/90 leading-snug line-clamp-2">{post.title}</p>

@@ -248,9 +248,22 @@ export function useSocialFeed({
     fetchPage(true);
   }, [fetchPage]);
 
+  // Start the list again from the top WITHOUT forgetting the ledger — the
+  // difference from showSeenAgain, which deliberately forgets. Wanted after
+  // something is added to the feed: the new row should appear, but everything
+  // already read should stay read.
+  const reload = useCallback(() => {
+    cursor.current = emptyCursor();
+    seen.current = new Set();
+    setAllSeen(false);
+    setDone(false);
+    setItems([]);
+    fetchPage(true);
+  }, [fetchPage]);
+
   return {
     items, loading, error, done, sentinel, platformErrors, loadMore: () => fetchPage(false),
-    allSeen, showSeenAgain,
+    allSeen, showSeenAgain, reload,
   };
 }
 

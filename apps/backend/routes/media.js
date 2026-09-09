@@ -2,7 +2,7 @@ const express = require('express');
 
 const router = express.Router();
 const logger = require('../utils/logger');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, optionalAuth } = require('../middleware/auth');
 const { rateLimitSearch } = require('../middleware/rateLimit');
 const { MediaService } = require('../services/MediaService');
 const OembedService = require('../services/OembedService');
@@ -10,6 +10,10 @@ const OembedService = require('../services/OembedService');
 const ERRORS = {
   INVALID: 400,
   UNAUTHENTICATED: 401,
+  // 401, not 403: the request was fine, it just needs an account for THIS
+  // kind of link (a direct file). The message names the alternative, so the
+  // answer to it is "paste a platform link" as often as "sign in".
+  SIGN_IN_REQUIRED: 401,
   UNSUPPORTED: 422,
   NOT_FOUND: 404,
 };
@@ -64,17 +68,26 @@ router.get('/', async (req, res) => {
 
 /**
  * POST /api/media  { url, title? }
- * SIGNED IN ONLY. A submission becomes playable for every visitor, so it is
- * attributable: `authenticate` (not optionalAuth) rejects anonymous writes,
- * and community_media.submitted_by is NOT NULL behind it.
  *
- * Nothing is uploaded — the link is classified and stored, and the media plays
- * from its original platform so the creator keeps their views.
+ * OPEN, AND NARROW. Pasting a playable link into the feed makes a post without
+ * a sign-in wall in front of it — that wall was the whole friction. What
+ * protected the table before was attribution; what protects it now is how
+ * little an anonymous submission is allowed to be: a platform link and nothing
+ * else, no submitter text, deduplicated by canonical URL, rate limited here,
+ * and reportable like every other row. MediaService.submit enforces the first
+ * two; migration 023 has the full reasoning.
+ *
+ * Signing in still buys something real — your own titles and direct file
+ * links — so the account has a purpose beyond being a gate.
+ *
+ * Nothing is uploaded either way: the link is classified and stored, and the
+ * media plays from its original platform so the creator keeps their views.
  */
-router.post('/', authenticate, rateLimitSearch, async (req, res) => {
+router.post('/', optionalAuth, rateLimitSearch, async (req, res) => {
   try {
     const { url, title } = req.body || {};
-    const userId = req.user && req.user.userId;
+    // Anonymous is the absence of a user, not a flag a request can claim.
+    const userId = (req.user && req.user.isAuthenticated && req.user.userId) || null;
     const media = await MediaService.submit({ url, title, userId });
     return res.json({ success: true, media });
   } catch (err) {

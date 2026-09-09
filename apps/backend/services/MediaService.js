@@ -19,6 +19,8 @@
  */
 const { query } = require('../db/connection');
 const logger = require('../utils/logger');
+// A stranger supplies no text, so the title has to come from the platform.
+const OembedService = require('./OembedService');
 
 class MediaError extends Error {
   constructor(code, message) {
@@ -180,6 +182,12 @@ function deriveThumbnail(kind, canonical) {
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null;
 }
 
+/** What a submitter with no account may post: hosted platforms only.
+ *  Excludes 'audio' and 'video', which classifyMedia also accepts — those are
+ *  direct file URLs, i.e. arbitrary media on someone's own server with no
+ *  platform moderating it. See migration 023. */
+const ANON_KINDS = new Set(['youtube', 'vimeo', 'tiktok', 'soundcloud', 'reddit']);
+
 const clean = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : null);
 
 // A row as the player consumes it — same shape getPlayable() returns on the
@@ -198,6 +206,10 @@ const toSource = (row) => ({
   // "this endpoint does not report plays".
   ...(row.plays === undefined || row.plays === null ? {} : { plays: Number(row.plays) }),
   community: true,
+  // From the COLUMN, not from who asked — so every caller sees the same
+  // answer and the card can badge an unclaimed post honestly. Undefined where
+  // the query did not select it, rather than a misleading false.
+  ...(row.submitted_by === undefined ? {} : { anonymous: row.submitted_by === null }),
 });
 
 const MediaService = {
@@ -205,17 +217,57 @@ const MediaService = {
   toSource,
 
   /**
-   * Add a link so everyone can play it. Requires a userId — the route enforces
-   * a signed-in account, and the column is NOT NULL, so an unattributed row
-   * cannot exist. Idempotent per canonical URL: submitting the same link twice
+   * Add a link so everyone can play it.
+   *
+   * ANONYMOUS IS ALLOWED, AND CONSTRAINED. Migration 018 required a signed-in
+   * submitter and wrote down why: an open write to a store every visitor can
+   * play is a spam door. 023 relaxes that for a frictionless paste-a-link
+   * flow, and moves the protection rather than dropping it — see that
+   * migration for the full reasoning. Enforced here:
+   *
+   *   · a stranger may only post PLATFORM links, never the direct
+   *     .mp4/.mp3 case (see ANON_KINDS);
+   *   · a stranger supplies no text at all — the title comes from the
+   *     platform's own oEmbed, so a submission carries no payload of its own.
+   *
+   * Idempotent per canonical URL either way: submitting the same link twice
    * returns the existing row and fills in a title if it was missing.
    */
-  async submit({ url, title, userId }) {
-    if (!userId) throw new MediaError('UNAUTHENTICATED', 'Sign in to add a link.');
+  async submit({ url, title, userId = null }) {
     const raw = clean(url, MAX_URL);
     if (!raw) throw new MediaError('INVALID', 'No link was provided.');
 
     const { kind, platform, canonical, src, vertical } = classifyMedia(raw);
+    const anonymous = !userId;
+
+    // THE ONE THING A STRANGER MAY NOT DO. classifyMedia accepts any https URL
+    // ending in a media extension, which for an attributable submitter is a
+    // feature — they can add a file they host. From a stranger it is arbitrary
+    // media on someone else's server, with no platform moderating it and
+    // nobody to hold responsible, promoted into a feed everyone sees.
+    if (anonymous && !ANON_KINDS.has(kind)) {
+      throw new MediaError(
+        'SIGN_IN_REQUIRED',
+        'Direct file links can only be added from an account. '
+        + 'A link from YouTube, Vimeo, TikTok, SoundCloud or Reddit can be posted without one.',
+      );
+    }
+
+    // A stranger's text never reaches the row. The platform's own title is a
+    // fact about the media; a submitted title is an unmoderated message in a
+    // feed, which is the actual spam surface — the link itself only points at
+    // something a platform is already moderating.
+    let storedTitle = anonymous ? null : clean(title, MAX_TITLE);
+    if (anonymous) {
+      // Best effort: a missing title is a cosmetic loss (the card falls back to
+      // the platform name), and a slow oEmbed provider must not fail a
+      // submission that is otherwise perfectly good.
+      try {
+        const meta = await OembedService.lookup(raw);
+        if (meta?.title) storedTitle = clean(meta.title, MAX_TITLE);
+      } catch { /* no title for this one */ }
+    }
+
     const thumbnail = deriveThumbnail(kind, canonical);
 
     const { rows } = await query(
@@ -223,10 +275,13 @@ const MediaService = {
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (canonical) DO UPDATE
          SET title = COALESCE(community_media.title, EXCLUDED.title)
-       RETURNING id, url, kind, platform, title, thumbnail, created_at`,
-      [raw, canonical, kind, platform, clean(title, MAX_TITLE), thumbnail, userId],
+       RETURNING id, url, kind, platform, title, thumbnail, created_at, submitted_by`,
+      [raw, canonical, kind, platform, storedTitle, thumbnail, userId],
     );
-    logger.info('Media submitted', { kind, canonical });
+    logger.info('Media submitted', { kind, canonical, anonymous });
+    // `anonymous` travels with the row so the card can badge it honestly —
+    // derived from the column, not from who happened to ask, so a row fetched
+    // by anyone reports the same thing.
     return toSource({ ...rows[0], src, vertical });
   },
 
@@ -242,7 +297,7 @@ const MediaService = {
     const capped = Math.min(Math.max(parseInt(limit, 10) || 12, 1), 50);
     const like = `%${term.toLowerCase()}%`;
     const { rows } = await query(
-      `SELECT id, url, kind, platform, title, thumbnail, created_at
+      `SELECT id, url, kind, platform, title, thumbnail, created_at, submitted_by
          FROM community_media
         WHERE hidden = FALSE
           AND (lower(COALESCE(title, '')) LIKE $1 OR lower(url) LIKE $1 OR canonical LIKE $1)
@@ -274,7 +329,7 @@ const MediaService = {
     };
     const order = ORDER[String(sort)] || ORDER.new;
     const { rows } = await query(
-      `SELECT id, url, kind, platform, title, thumbnail, created_at, plays
+      `SELECT id, url, kind, platform, title, thumbnail, created_at, plays, submitted_by
          FROM community_media
         WHERE hidden = FALSE
         ORDER BY ${order}

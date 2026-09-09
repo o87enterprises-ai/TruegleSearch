@@ -669,6 +669,12 @@ function normaliseCommunity(rows) {
     src: r.src || null,
     kind: r.kind || null,
     ...(r.vertical ? { vertical: true } : {}),
+    // WHAT THE CARD BADGES. `community` marks a row as hosted here rather than
+    // read from someone else's platform, and `anonymous` says whether anybody
+    // claimed it. Both come from the row, not from who is asking, so every
+    // viewer is told the same thing about the same post.
+    community: true,
+    ...(r.anonymous === undefined ? {} : { anonymous: !!r.anonymous }),
   }));
 }
 

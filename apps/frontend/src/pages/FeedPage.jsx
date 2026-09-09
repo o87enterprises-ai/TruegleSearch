@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Loader2, Plus, X } from 'lucide-react';
 import SearchPageShell from '../components/layout/SearchPageShell';
 import SearchBar from '../components/ui/SearchBar';
+import FeedLinkSubmit from '../components/feed/FeedLinkSubmit';
 import FeedCard from '../components/feed/FeedCards';
 import { PROVIDERS, platformsFor, needsAuth, isConnectable } from '../config/socialProviders';
 import FeedServers from '../components/feed/FeedServers';
@@ -181,12 +182,19 @@ export default function FeedPage() {
       onSubmit={submit}
       onSearch={submit}
       onClear={() => { setQuery(''); setSubmitted(''); }}
-      placeholder="Search these feeds…"
+      placeholder="Search these feeds, or paste a link to post…"
     />
   );
 
   return (
     <SearchPageShell mode="yellow" pillMode="yellow" onPillSelect={onPill} searchBar={searchBar}>
+      {/* Directly under the bar, because it is about what is IN the bar. It
+          renders nothing at all unless what was typed is a link the player can
+          host, so the search box stays a search box the rest of the time. */}
+      <div className="max-w-4xl mx-auto mb-4">
+        <FeedLinkSubmit url={query} onPosted={() => { setQuery(''); feed.reload?.(); }} />
+      </div>
+
       {failed && (
         <div className="max-w-4xl mx-auto mb-4 px-4 py-3 rounded-xl bg-red-950/30 border border-red-500/30 text-red-200 text-sm">
           {failed}
