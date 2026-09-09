@@ -1682,6 +1682,15 @@
         "Type": "thread",
         "Label": "Run osiris:probe to replace guessed field names with real ones",
         "body": "services/OsirisService.js reads coordinates via candidate key lists (LAT_KEYS/LON_KEYS/ROWS_KEYS) because osirisai.live was unreachable from the build sandbox. Until 'npm run osiris:probe' is run on a networked machine, some layers may return 502 unrecognised_shape. The probe prints exactly which keys to add. Also still open: YouTube subscription import (Option A — Takeout CSV of channel IDs polled via YouTube's keyless per-channel RSS), approved by the owner but not yet started.",
+        "status": "done",
+        "ts": "2026-09-09",
+        "created": "2026-09-09"
+      },
+      "osiris-followups": {
+        "Id": "osiris-followups",
+        "Type": "thread",
+        "Label": "OSIRIS follow-ups: migration 022 must be run; vercel.json maxDuration blocked",
+        "body": "1) Migration 022_osiris_cache.sql must be applied in production (npm run migrate) or the shared cache latches off and the map falls back to per-instance memory — works, but loses the privacy/speed guarantee. 2) apps/backend/vercel.json uses the legacy 'builds' property, which Vercel rejects alongside 'functions', so maxDuration could NOT be raised; a cold 25s upstream fetch may be killed by the platform's default function limit. Fix is to migrate vercel.json off 'builds' to modern config — not attempted, would risk the deployment without a way to verify. 3) Probe re-run still wanted for flights/satellites/maritime/cctv, which timed out at 12s before the timeout was raised to 25s + SWR was added. 4) YouTube subscription import (Option A, Takeout CSV + keyless per-channel RSS) approved but not started.",
         "status": "open",
         "ts": "2026-09-09",
         "created": "2026-09-09"
@@ -2927,6 +2936,14 @@
         "Type": "fact",
         "Label": "AI route error mapping matched strings the stack never throws",
         "body": "routes/ai.js classified failures with error.message.includes('Rate limit') — which NOTHING throws — while GroqService throws 'All Groq API keys are rate-limited' when every org is cooling down. That contains 'API key', so the rate-limit case was caught by the config branch: a service merely out of free-tier quota reported 'temporarily unavailable due to configuration issues', returned 500 instead of 429, and sent no Retry-After. Fixed by utils/aiFailure.js (classifyAiFailure/sendAiFailure), which matches real throw-site strings, checks rate-limiting FIRST, and carries a machine code (ai_rate_limited / ai_no_capacity / ai_no_content / ai_upstream / ai_failed). Diagnostic consequence: the generic 'Unable to process AI request at this time' message RULES OUT both quota exhaustion and dead keys, because those two now map elsewhere.",
+        "ts": "2026-09-09",
+        "created": "2026-09-09"
+      },
+      "osiris-cache-is-privacy": {
+        "Id": "osiris-cache-is-privacy",
+        "Type": "fact",
+        "Label": "The OSIRIS cache is the privacy mechanism, not a speed tweak",
+        "body": "OSIRIS feeds are proxied so the upstream cannot correlate visitors; the cache is what collapses many visitors into ONE upstream call, i.e. it is the anonymity set. An in-memory-only cache on serverless is usually cold => ~one upstream call per visitor => restores the rate/timing signal the proxy exists to destroy, invisibly (the map keeps working). Hence migration 022 osiris_cache: shared Postgres tier, L1 memory + L2 Postgres, body stored verbatim and normalised on read, source column checked so repointing OSIRIS_BASE_URL cannot serve the old host's data. Best-effort: no DB / unmigrated / dropped connection all fall back to memory; a structural failure latches the tier off. Verified against real Postgres: a second process with empty L1 serves with ZERO upstream calls. Related bug fixed: STALE_MS was absolute 5min so stale-while-revalidate was dead code for any layer with TTL >= 5min (cameras 30min); now a grace period on top of each layer's TTL.",
         "ts": "2026-09-09",
         "created": "2026-09-09"
       }
