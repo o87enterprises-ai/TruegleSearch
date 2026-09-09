@@ -82,4 +82,14 @@ export default [
       globals: { ...globals.node, ...globals.browser },
     },
   },
+  {
+    // Jest suites. Same reasoning as the .mjs block above: without this,
+    // `describe`/`it`/`expect` are no-undef in every test file — 88 errors
+    // across the backend suites that say nothing about the tests and train
+    // everyone to scroll past lint output, which is how a real error hides.
+    files: ['**/__tests__/**/*.js', '**/*.test.js'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.jest },
+    },
+  },
 ];

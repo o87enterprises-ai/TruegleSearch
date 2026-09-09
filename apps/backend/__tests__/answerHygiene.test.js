@@ -20,7 +20,11 @@ const attribution = require('../utils/nepheshAttribution');
 const watermark = require('../utils/watermark');
 const { buildMapFact } = require('../utils/mapFact');
 
-const ZERO_WIDTH = /[​-‏⁠-⁤﻿]/;
+// Written as escapes, not as the characters themselves. This class used to
+// contain the literal zero-width characters, which made the one line in the
+// suite that matters most completely invisible to a reviewer — and trivially
+// manglable by any editor that strips them. Same regex, readable source.
+const ZERO_WIDTH = /[\u200b-\u200f\u2060-\u2064\ufeff]/;
 const BODY = 'Based on the county transit page, Cottage Grove has two cab firms.';
 
 describe('attribution stamping', () => {

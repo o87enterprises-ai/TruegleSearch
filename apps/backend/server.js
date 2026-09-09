@@ -328,6 +328,10 @@ app.use('/api/prompts', require('./routes/prompts'));
 app.use('/api/weather', require('./routes/weather'));
 app.use('/api/radar', [mapsLimiter, require('./routes/radar')]);
 app.use('/api/maps', [mapsLimiter, require('./routes/maps')]);
+// Live intelligence layers for every map surface. Proxied, never fetched from
+// the browser — see services/OsirisService.js for why that is a privacy
+// requirement rather than a CORS workaround.
+app.use('/api/osiris', [mapsLimiter, require('./routes/osiris')]);
 app.use('/api/shopping', require('./routes/shopping'));
 // An endless feed hammers this, and it was mounted bare — no limiter, no bot
 // blocking, unlike /api/search. GitHub's unauthenticated search allows 10

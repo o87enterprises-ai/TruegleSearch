@@ -153,7 +153,6 @@ describe('PublicSocialSource — refusing honestly', () => {
       const saved = process.env.SEARXNG_URL;
       delete process.env.SEARXNG_URL;
       jest.resetModules();
-      // eslint-disable-next-line global-require
       const { fetchPublicSocial } = require(modulePath);
       expect(fetchPublicSocial({ platform: 'x', topic: 'news', limit: 5 }))
         .rejects.toThrow(/SEARXNG_URL/);
