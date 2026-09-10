@@ -1720,6 +1720,15 @@
         "status": "open",
         "ts": "2026-09-09",
         "created": "2026-09-09"
+      },
+      "ads-claims-still-live": {
+        "Id": "ads-claims-still-live",
+        "Type": "thread",
+        "Label": "Two indexed pages still claim Truegle shows ads",
+        "body": "/blog/understanding-our-ad-color-system/ ('What the Ad Colors on Truegle Mean — and Why We Show Them', 2026-06-28) explains a live ad system: 7x 'revenue', 5x 'advertiser', plus 'sponsored'/'ad slot'. /advertise/ is a media kit selling 'Native In-Results' placements whose components were deleted, with a source comment admitting the audience numbers are placeholders. Both are in sitemap.xml and indexed. Ads were removed 2026-08-24. NOT actioned — CLAUDE.md says ad monetization is a product decision for the owner, and the policy bans third-party NETWORKS, so a direct-sold tracking-free sponsorship may be intentional. Needs a ruling: revive /advertise with real figures + rewrite the post, or unpublish both and drop from the sitemap.",
+        "status": "open",
+        "ts": "2026-09-10",
+        "created": "2026-09-10"
       }
     },
     "entity": {
@@ -2980,6 +2989,14 @@
         "body": "Probed 2026-09-09. COMPOSITE feeds needing rowsKeys: flights = {commercial_flights, private_flights, private_jets, military_flights, gps_jamming} — reading only commercial drops military + GPS jamming, the two most valuable OSINT groups; maritime = {ships, ports, chokepoints}; cctv = {cameras}. Layer-named key works for: earthquakes, fires. Generic 'events' key: weather, conflict(gdelt). Merged rows carry _group naming their source array. SLOW/VARIABLE: flights, satellites, maritime, cctv, conflict have all timed out at 25s on at least one run while weather went 10.6s once and 25s+ another — the public host is variable, not uniformly slow. Answer is 'npm run osiris:warm' (OSIRIS_TIMEOUT_MS default 120s) on a schedule into the shared cache, NOT a bigger request timeout.",
         "ts": "2026-09-09",
         "created": "2026-09-09"
+      },
+      "seo-real-bottleneck": {
+        "Id": "seo-real-bottleneck",
+        "Type": "fact",
+        "Label": "Truegle SEO bottleneck is demand, not indexing",
+        "body": "GSC 2026-09-03: 14 indexed, 24 not, 0-3 impressions/day. Coverage 'critical issues' were mostly correct behaviour (redirects=legacy Navigate routes; blocked=the 6 robots Disallow rules; alternate-canonical=a success message; the single 404 = leftover Adsterra /adframe.html from before the 2026-08-24 ad removal, correctly gone). Real problem: the blog targets 'search without tracking'/'alternative to Google'/'is DuckDuckGo really private' — the highest-authority terms in a category where DDG holds ~65%, Brave ~18%, Startpage ~12% of a 4-6%-of-global-queries niche. A 14-page site with no backlinks cannot rank there. UNOCCUPIED GROUND: multi-perspective/anti-censorship — no competitor sells it (Brave=index, Kagi=quality, Startpage=EU privacy, DDG=brand). Pivot target phrases to perspective/filter-bubble/uncensored terms. Fixed this cycle: /search had BOTH Disallow in robots.txt and X-Robots-Tag noindex, which cancel (blocked path is never fetched so noindex is never read).",
+        "ts": "2026-09-10",
+        "created": "2026-09-10"
       }
     }
   },
@@ -3009,5 +3026,5 @@
       }
     }
   },
-  "updated": "2026-09-09"
+  "updated": "2026-09-10"
 }
