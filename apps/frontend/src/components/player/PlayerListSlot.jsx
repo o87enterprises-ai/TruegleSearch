@@ -271,6 +271,35 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
               resolve one entry of it at best, so offer the list. */}
           {playlistPaste && (
             <div className="px-3 py-2.5 border-b border-white/10">
+              {/* Pasting a playlist link flips this panel into Results mode,
+                  which is exactly the header that has no Up next / History /
+                  Lists / Your taste — those live only in the OTHER header,
+                  below. Without this, saving the pasted list to your Lists
+                  or checking History meant deleting the link first just to
+                  get the controls back. Shortcuts, not a second set of tabs:
+                  each one exits Results and lands on the real tab, same as
+                  finishing an import already does. */}
+              <div className="flex items-center gap-2.5 mb-2 text-[10px] uppercase tracking-wider text-white/40">
+                {TABS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => { setShowingResults(false); setTab(t.id); }}
+                    className="hover:text-white/80 transition-colors"
+                  >
+                    {t.label}
+                  </button>
+                ))}
+                {(hasTaste() || hasRetention()) && (
+                  <button
+                    type="button"
+                    onClick={() => { setShowingResults(false); setForgetOpen(true); }}
+                    className="hover:text-white/80 transition-colors"
+                  >
+                    Your taste
+                  </button>
+                )}
+              </div>
               {imported ? (
                 <p className={`text-[11px] leading-snug ${imported.ok ? 'text-emerald-300/90' : 'text-amber-300/90'}`}>
                   {importMessage(imported)}
