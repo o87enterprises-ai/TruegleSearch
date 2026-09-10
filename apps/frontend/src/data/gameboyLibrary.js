@@ -174,6 +174,36 @@ export const GAMEBOY_LIBRARY = [
     license: 'MIT',
     licenseUrl: 'https://github.com/cppchriscpp/SquishyTheTurtle/blob/master/LICENSE',
   },
+  {
+    id: 'guns-riders',
+    name: 'Guns & Riders',
+    // Honest, not a marketing genre. It is a Wild-West shooting gallery —
+    // outlaws pop up, you shoot before they get past you — not a
+    // side-scrolling run-and-gun. See the rejected-list entry below for why
+    // it isn't billed as one.
+    tagline: 'Wild-West shooting gallery — outlaws pop up, don\'t miss',
+    romPath: '/roms/gunsriders.gb',
+    icon: '🤠',
+    color: '#d35400',
+    developer: 'J.M. Climent (kanfor)',
+    sourceUrl: 'https://github.com/kanfor/gunsridersgameboy',
+    license: 'GPL-3.0',
+    licenseUrl: 'https://www.gnu.org/licenses/gpl-3.0.html',
+  },
+  {
+    id: 'astro-attack',
+    name: 'Astro Attack',
+    // Also honest about the genre: this is dodge-and-survive, no shooting —
+    // asteroid shadows warn you where to not be standing.
+    tagline: 'Dodge falling asteroids, survive as long as you can',
+    romPath: '/roms/astroattack.gb',
+    icon: '☄️',
+    color: '#0984e3',
+    developer: 'Fisch03',
+    sourceUrl: 'https://github.com/Fisch03/Astro-Attack',
+    license: 'MIT',
+    licenseUrl: 'https://github.com/Fisch03/Astro-Attack/blob/main/LICENSE',
+  },
 ];
 
 // Titles considered and rejected during verification — kept here so the
@@ -226,3 +256,39 @@ export const GAMEBOY_LIBRARY = [
 //     WasmBoy (checked every pixel, not just a sparse sample, across
 //     several button-press sequences). Same class of bug as 2048-gb: a
 //     real emulation incompatibility, not a build or licensing issue.
+//
+// ── Round asked for genre matches: Mario, Pokemon, fighter jet, Contra, ────
+// ── Street Fighter. itch.io is blocked by this environment's egress proxy,──
+// ── which rules out every itch.io-only title outright (no source, no way ──
+// ── to verify). Within what's actually GitHub-hosted with real source:   ──
+//   - Mario-like platformer: nothing beats what's already above (Carazu,
+//     Libbet, Pluto's Corner, Squishy the Turtle). Checked and rejected:
+//     gingemonster/DinosOfflineAdventure, rnegron/dino-gb's sibling repo
+//     (no LICENSE); Zal0/gbjam2016 "Super Princess 2092 Exodus" (no LICENSE,
+//     and the title itself references Nintendo's Super Princess Peach);
+//     lucasmg18/Game-Boy-Game (no LICENSE); elfgames/doctorhow (MIT, but a
+//     tribute game built on the BBC's Doctor Who trademark — same category
+//     of risk as evoland.gb above); MasterIV/PostBot (MIT, prebuilt ROM,
+//     genuinely clean — but it's a robot-programming puzzle game despite
+//     the name, not a platformer). aiguanachein/powa ("Powa!") looked like
+//     a strong match in search results but is a PAID itch.io release with
+//     no GitHub repo at all — the initial finding that it was open source
+//     was a hallucinated citation, caught by checking the actual repo
+//     rather than trusting the summary.
+//   - Pokemon-like monster-collecting RPG: found nothing with a real,
+//     redistributable license anywhere. The closest name match, "Poke Da
+//     Mon" by Mike Kasprzak (retrobrews/gbc-games), is explicitly licensed
+//     "for free distribution on this site/project only" — a direct refusal
+//     of the right to redistribute it here, not merely a maybe.
+//   - Fighter jet / scrolling shmup: speedlazer/speedlazer is a real,
+//     clearly-licensed (MIT + CC BY-NC-SA) side-scrolling shooter, but it's
+//     an HTML5/Crafty.js browser game, not a Game Boy ROM — wrong platform
+//     entirely. Nothing GB-native and shmup-shaped surfaced with a license.
+//   - Contra-like run-and-gun: kanfor/gunsridersgameboy (GPL-3.0, prebuilt
+//     ROM, boots clean in WasmBoy — added above) is the closest real match
+//     that exists, and it is a static shooting gallery, not a scrolling
+//     run-and-gun. Labelled as what it actually is rather than as Contra.
+//   - Street Fighter-like versus fighting game: nothing found anywhere —
+//     not on GitHub, not in the awesome-gbdev list, not in retrobrews'
+//     collection. Homebrew GB fighting games with real, redistributable
+//     source do not appear to exist yet.
