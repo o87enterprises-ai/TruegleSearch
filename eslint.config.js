@@ -78,6 +78,15 @@ export default [
       '**/verify-player-reddit.mjs',
       '**/verify-trail-page.mjs',
       '**/verify-chat-map.mjs',
+      // These five were launching a browser and calling page.evaluate all
+      // along without being listed, so `npm run lint` failed with 12 no-undef
+      // errors on files nobody had edited. Added by name, not by widening the
+      // glob, so the pure-Node verifiers keep catching a real `document`.
+      '**/verify-autocomplete-ui.mjs',
+      '**/verify-camera-pins.mjs',
+      '**/verify-globe-texture.mjs',
+      '**/verify-no-select.mjs',
+      '**/verify-osint-gate.mjs',
     ],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },

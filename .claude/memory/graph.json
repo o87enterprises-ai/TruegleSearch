@@ -1304,6 +1304,14 @@
         "body": "Migration 018 made community_media.submitted_by NOT NULL deliberately (spam door). 023 drops it for a frictionless paste-a-link flow and MOVES the protection: anonymous submissions are limited to hosted platforms via ANON_KINDS in MediaService (youtube/vimeo/tiktok/soundcloud/reddit) and explicitly NOT the direct .mp4/.mp3 case classifyMedia also accepts — a raw file URL is arbitrary media on someone's own server with no platform moderation and nobody responsible. Anonymous submitters supply NO text: title comes from OembedService.lookup, never the request body. Deduped by canonical UNIQUE, rate limited at the route, reportable via existing reports/hidden. Signed-in users keep direct-file links and their own titles. Route is optionalAuth; new error code SIGN_IN_REQUIRED -> 401. UI: FeedLinkSubmit renders under the feed search bar only when getPlayable(query) is truthy. Watermark is a Truegle badge on the CARD (post.community/post.anonymous carried through normaliseCommunity), never over the media — the video plays from the creator's embed and is not ours to stamp.",
         "ts": "2026-09-09",
         "created": "2026-09-09"
+      },
+      "feed-collections-category": {
+        "Id": "feed-collections-category",
+        "Type": "decision",
+        "Label": "Truegle Collections is a Browse category over the community pool",
+        "body": "feedCategories.js gains {id:'collections', platforms:['community']} with NO topic, so fetchCommunity falls to MediaService.list({sort:'new'}) with real offset paging — the newest submissions, not a query. community was already in the main feed fan-out and already leads Tube results via usePlayerSearch's /api/media/search merge; Collections was the only missing leg. Covered by verify-feed-page.mjs (platform-aware /api/social/feed stub so a miswired platform list fails) and verify-feed-tube.mjs (was stubbing /api/media/search empty, which hid the whole Tube leg).",
+        "ts": "2026-09-10",
+        "created": "2026-09-10"
       }
     },
     "thread": {

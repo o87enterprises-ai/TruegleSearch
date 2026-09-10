@@ -62,6 +62,22 @@ export const CATEGORIES = [
     topic: 'entertainment',
   },
   {
+    // TRUEGLE COLLECTIONS — the links people posted here themselves.
+    //
+    // `community` was already folded into Tube and Music, which made every
+    // submission reachable but nothing a submission could be found IN: a link
+    // someone posted showed up interleaved among TikTok and Reddit rows and
+    // nowhere as itself. This is that somewhere. Same source, its own shelf.
+    //
+    // Curated, not searched — no `topic`, same reasoning as `live` and
+    // `creators`: the row is the pool's own newest entries (MediaService.list
+    // sorts 'new'), not a query run against it.
+    id: 'collections',
+    label: 'Collections',
+    blurb: 'Truegle Collections — links people posted here',
+    platforms: ['community'],
+  },
+  {
     id: 'creators',
     label: 'Creators',
     blurb: "Truegle's partner roster — new uploads",

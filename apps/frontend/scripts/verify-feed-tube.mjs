@@ -30,6 +30,24 @@ const ROW = (i) => ({
   channel: `Channel ${i}`,
 });
 
+// One community submission, in the shape MediaService.toSource emits — an
+// ALREADY-RESOLVED source row, not a search hit. usePlayerSearch merges these
+// straight through without re-classifying them, so the stub has to match the
+// real column set (`src`, `pageUrl`, `community`) rather than the /api/search
+// shape above; getting that wrong would silently produce zero rows and the
+// assertion below would fail for the wrong reason.
+const COMMUNITY_ROW = {
+  id: 901,
+  kind: 'youtube',
+  src: 'https://www.youtube-nocookie.com/embed/communityvid?rel=0',
+  title: 'Somebody posted this to Truegle',
+  pageUrl: 'https://www.youtube.com/watch?v=communityvid',
+  poster: 'https://i.ytimg.com/vi/communityvid/hqdefault.jpg',
+  platform: 'YouTube',
+  community: true,
+  anonymous: true,
+};
+
 let server; let browser;
 try {
   server = await createServer({ root: process.cwd(), server: { port: PORT, strictPort: true } });
@@ -49,7 +67,17 @@ try {
         body: JSON.stringify({ results: [1, 2, 3, 4, 5, 6].map(ROW) }),
       });
     }
-    if (url.includes('/api/media/search') || url.includes('/api/media/resolve')) {
+    if (url.includes('/api/media/search')) {
+      // Answered with a real row rather than [], so the Tube-side half of the
+      // submission path is actually exercised. Stubbing this empty is what
+      // left it uncovered: a regression that dropped community rows from Tube
+      // entirely would have kept every assertion in this file green.
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ results: [COMMUNITY_ROW] }),
+      });
+    }
+    if (url.includes('/api/media/resolve')) {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: [] }) });
     }
     if (url.includes('/api/reels')) {
@@ -105,6 +133,24 @@ try {
     { what: 'grid cells to appear' });
   const cells = await page.locator('[data-tube-cell]').count();
   check(cells > 0, 'grid: results render as cells', `${cells} cells`);
+
+  // ── 5b. SUBMITTED LINKS REACH TUBE ────────────────────────────────────────
+  // A link somebody pasted into Feed is stored once and is supposed to be
+  // playable everywhere — Feed, Tube, and the Collections row in Browse. Feed
+  // and Browse each have their own coverage; this is Tube's, and it was the
+  // one leg with none, because this file used to stub /api/media/search empty.
+  //
+  // Asserted at the TOP of the grid, not merely present: usePlayerSearch puts
+  // community rows first outside the Shorts scope, on the reasoning that
+  // somebody vouched these play and the web index does not carry them. A
+  // change that kept them but buried them below six web results would be a
+  // real regression in the submission flow and is worth failing on.
+  const cellTitles = await page.locator('[data-tube-cell]').evaluateAll(
+    (els) => els.map((e) => e.innerText.replace(/\s+/g, ' ').trim()));
+  check(cellTitles.some((t) => /Somebody posted this to Truegle/i.test(t)),
+    'community: a submitted link appears in the Tube grid', cellTitles.length ? cellTitles[0] : 'no cells');
+  check(/Somebody posted this to Truegle/i.test(cellTitles[0] || ''),
+    'community: …and leads, ahead of the web results', cellTitles[0] || 'no cells');
 
   // ── 6. ONE DECODER, NOT FOUR ──────────────────────────────────────────────
   // The whole reason the grid shows posters: ReelsQuadFeed learned that four

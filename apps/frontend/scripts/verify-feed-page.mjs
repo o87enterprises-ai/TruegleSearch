@@ -80,6 +80,37 @@ async function makeContext(opts = {}) {
         });
       }
       const page = body?.cursor?.github ? 2 : 1;
+      // Every category's row used to render identically-labelled GitHub cards
+      // regardless of which platforms it actually asked for, which meant a
+      // new category's WIRING (does it ask for the right platform, does that
+      // platform's row actually reach the screen) could never be told apart
+      // from a copy-paste of an existing row. A request asking ONLY for
+      // 'community' — which is what the Collections category does — answers
+      // with a Community-badged row instead, so that distinction is testable.
+      const onlyCommunity = Array.isArray(body?.platforms)
+        && body.platforms.length === 1 && body.platforms[0] === 'community';
+      if (onlyCommunity) {
+        return json({
+          query: body?.query || '',
+          results: [{
+            id: 'c1',
+            platform: 'Community',
+            title: 'A link someone posted here',
+            url: 'https://example.com/community-post',
+            permalink: 'https://example.com/community-post',
+            snippet: null,
+            author: 'YouTube',
+            subreddit: null,
+            date: '2026-01-01T00:00:00Z',
+            score: null,
+            comments: null,
+            community: true,
+            anonymous: true,
+          }],
+          nextCursor: { community: null },
+          errors: { community: null },
+        });
+      }
       return json({
         query: body?.query || '',
         results: Array.from({ length: 6 }, (_, i) => ({
@@ -564,6 +595,25 @@ check(rows.length >= 3, 'browse shows several category rows', rows.join(','));
 await until(() => page.locator('[data-browse-row] [data-feed-card], [data-browse-row] a').count().then((n) => n > 0),
   { what: 'cards inside a category row' });
 check(true, '…and the rows fill with cards');
+
+// ── 10b. Truegle Collections ───────────────────────────────────────────────
+// The row for links people submitted here themselves. Asserted by NAME rather
+// than by "some row exists", because the failure this guards against is
+// specifically a miswired category: `platforms: ['community']` misspelled, or
+// `community` disabled by default, both of which make the row vanish
+// altogether (FeedBrowse returns null for a category with no enabled
+// platforms) while every other row still renders and the page looks fine.
+check(rows.includes('collections'),
+  'Browse carries a Truegle Collections row', rows.join(','));
+
+// …and that it asked for the RIGHT source. The stub answers a
+// community-only request with a distinct row, so this text appearing under
+// this heading is proof the category's platform list reached the request —
+// not proof that some generic row was copied into place.
+const collectionsText = await page.locator('[data-browse-row="collections"]').innerText();
+check(/A link someone posted here/i.test(collectionsText),
+  'the Collections row shows user-submitted posts, not generic feed rows',
+  collectionsText.replace(/\s+/g, ' ').slice(0, 120));
 
 // Opening a category narrows the timeline to that category and offers the way
 // back. Back goes to Browse, not Home: that is where you came from.
