@@ -1,8 +1,16 @@
 User-agent: *
 Allow: /
 
-# Disallow dynamic/auth/non-content paths
-Disallow: /search
+# Disallow dynamic/auth/non-content paths.
+#
+# /search IS NOT LISTED HERE, ON PURPOSE. It carries
+# `X-Robots-Tag: noindex, follow` (see public/_headers) — and a Disallow here
+# would make that header unreadable. Blocking a path in robots.txt stops
+# Googlebot FETCHING it, so it never sees the noindex it was told to obey;
+# a blocked URL that is linked from anywhere can then still be indexed
+# URL-only, which is the opposite of what both directives were asking for.
+# Crawl budget is the usual reason to block a search path, and it does not
+# apply to a site this size. Crawl it, read the noindex, drop it — clean.
 Disallow: /auth/
 Disallow: /onboarding
 Disallow: /settings
