@@ -1726,6 +1726,15 @@
         "Type": "thread",
         "Label": "Two indexed pages still claim Truegle shows ads",
         "body": "/blog/understanding-our-ad-color-system/ ('What the Ad Colors on Truegle Mean — and Why We Show Them', 2026-06-28) explains a live ad system: 7x 'revenue', 5x 'advertiser', plus 'sponsored'/'ad slot'. /advertise/ is a media kit selling 'Native In-Results' placements whose components were deleted, with a source comment admitting the audience numbers are placeholders. Both are in sitemap.xml and indexed. Ads were removed 2026-08-24. NOT actioned — CLAUDE.md says ad monetization is a product decision for the owner, and the policy bans third-party NETWORKS, so a direct-sold tracking-free sponsorship may be intentional. Needs a ruling: revive /advertise with real figures + rewrite the post, or unpublish both and drop from the sitemap.",
+        "status": "done",
+        "ts": "2026-09-10",
+        "created": "2026-09-10"
+      },
+      "rewards-promises-dead-ad-revenue": {
+        "Id": "rewards-promises-dead-ad-revenue",
+        "Type": "thread",
+        "Label": "URGENT: /rewards promises users a share of ad revenue that cannot exist",
+        "body": "RewardsDashboard.jsx:146 tells users 'Earn a share of real ad revenue' and 'Truegle pays you a share of every sponsored offer you complete... These are the conversions the ad network actually pays for, so every reward is real money, confirmed server-side.' The rewards program is funded by Adsterra CPA conversions (migration 011_rewards_offer_based.sql, 2026-07-28). Adsterra and every ad component were deleted 2026-08-24. So this is a live, unfulfillable promise of MONEY to users — materially worse than the SEO/marketing copy issues. NOT actioned: whether the rewards program survives, and funded by what, is a product+financial decision for the owner. Options: retire rewards and remove the opt-in, or keep it and rewrite the pitch to describe whatever actually funds it. robots.txt Disallows /rewards so it is not indexed, which limits exposure to people who navigate there directly.",
         "status": "open",
         "ts": "2026-09-10",
         "created": "2026-09-10"

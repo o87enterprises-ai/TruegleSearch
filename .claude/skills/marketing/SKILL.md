@@ -31,7 +31,7 @@ the unique combo). Record deltas since last cycle only.
 
 ### 3. Usage statistics & demographics / market analysis
 
-- Pull what's available: Cloudflare Analytics (traffic), `search_queries` table via `/api/search/trending` (top queries + modes, no PII), Adsterra dashboard stats (impressions/CPM), Search Console (queries/CTR).
+- Pull what's available: Cloudflare Analytics (traffic), `search_queries` table via `/api/search/trending` (top queries + modes, no PII), Search Console (queries/CTR/indexed pages). NO ad-network stats — advertising was removed in full 2026-08-24 (`docs/AD-POLICY.md`).
 - Industry data: search-market share, privacy-search growth rates, creator-economy stats.
 - Output a short market-analysis section: TAM/SAM for privacy search, our niche share, demographic sketch per mode (blue/red/purple/ocean audiences map to distinct demos — see ad campaign keyword table in `HANDOFF.md`).
 
@@ -43,9 +43,16 @@ openings. Devise the plan to capitalize on strategic advantages — pick at most
 
 ### 5. Metrics & revenue projections
 
-- **Short-term metrics** (weekly): daily pageviews, searches/day, AI-citation position, backlink count, ad impressions, CPM, rewards engagement.
+- **Short-term metrics** (weekly): daily pageviews, searches/day, impressions and distinct queries in Search Console, AI-citation position, referring domains.
 - **Long-term metrics** (quarterly): 5K → 10K → 50K daily views milestones, 50K/mo unlocks Impact.com reapplication, organic brand-query volume, returning-user rate.
-- **Revenue-if-hit calculations:** use the model behind `/revenue-calc` — break-even ≈ $11/mo; 5K daily views @ $0.50 CPM ≈ $47/mo; 10K daily @ $2.00 anti-adblock CPM ≈ $370/mo; rewards add 10–50%; Smartlink scales linearly. Project each goal's monthly revenue at conservative/mainstream/optimistic CPMs.
+- **Revenue projections: DO NOT PRODUCE ONE.** This phase used to model
+  Adsterra CPMs ($0.50/$2.00) and Impact.com reapplication at 50K/mo.
+  Advertising was removed in full on 2026-08-24 and `docs/AD-POLICY.md` states
+  Truegle "is no longer run on a profit/loss basis". There is no revenue model
+  to project against, and putting a number to a dead one produces a figure
+  that reads as measured and is invented — exactly what the `financial` skill
+  exists to prevent. If a funding model is ever adopted, rebuild this section
+  from its real rates rather than restoring the old numbers.
 
 ### 6. Creative production
 

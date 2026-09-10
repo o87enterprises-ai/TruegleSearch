@@ -2,192 +2,79 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 /*
- * /advertise — the media kit + sales page.
+ * /advertise — kept as a URL, no longer a media kit.
  *
- * This is the asset that converts house-ad inventory into paid placements:
- * it states who the audience is, what formats are for sale, and how to buy.
- * Pricing is flat-rate and tracking-free, which is itself the pitch to
- * privacy-conscious advertisers (VPNs, open-source tools, indie dev products).
+ * This page used to sell placements: audience stats, packages, a rate card,
+ * a "contact us to buy" call to action. Truegle removed advertising in full on
+ * 2026-08-24 (docs/AD-POLICY.md), and that policy is explicit that it covers
+ * "no networks, no house ads, no smartlinks, no affiliate ad units" and that
+ * "this is not a pause". A live sales page for inventory that no longer exists
+ * is a false claim on our own site, and for a product whose entire pitch is
+ * trust, that is a worse problem than a missing page.
  *
- * Numbers below are placeholders — update AUDIENCE / PACKAGES with real figures
- * from your analytics before sending this to advertisers.
+ * DELETED RATHER THAN REDIRECTED, but the ROUTE IS KEPT. The URL is indexed
+ * and linked; 404ing it would throw away a page people arrive on with a real
+ * question ("can I advertise here?") and answer them with nothing. They get
+ * the true answer instead, which is a better first impression of the brand
+ * than the media kit ever was.
  */
-
-const AUDIENCE = [
-  { stat: 'Privacy-first', label: 'No tracking, no cookies, no profiling — by design' },
-  { stat: 'EU & intl.', label: 'High-value Netherlands + European reach' },
-  { stat: 'Tech-savvy', label: 'Developers, researchers, privacy advocates' },
-];
-
-const PACKAGES = [
-  {
-    name: 'Native In-Results',
-    zone: 'search-inline',
-    format: '300×250',
-    price: '€199',
-    period: '/ month',
-    blurb: 'A clean sponsored card placed within search results.',
-    features: ['300×250 native unit', 'No tracking pixels', 'Up to 1 advertiser per slot'],
-    variant: 'blue',
-  },
-  {
-    name: 'Sidebar Sponsor',
-    zone: 'search-sidebar',
-    format: '300×600',
-    price: '€349',
-    period: '/ month',
-    blurb: 'Persistent presence beside every search session.',
-    features: ['300×600 sidebar unit', 'Category-aligned placement', 'Monthly impression report'],
-    variant: 'purple',
-    featured: true,
-  },
-  {
-    name: 'Leaderboard',
-    zone: 'results-leaderboard',
-    format: '728×90',
-    price: '€499',
-    period: '/ month',
-    blurb: 'Top-of-results banner — maximum visibility.',
-    features: ['728×90 leaderboard', 'First impression on the page', 'Priority placement'],
-    variant: 'green',
-  },
-];
-
-const cardAccent = {
-  blue: 'from-blue-500/15 to-cyan-500/15 border-blue-400/40',
-  purple: 'from-purple-500/20 to-pink-500/20 border-purple-400/60',
-  green: 'from-emerald-500/15 to-green-500/15 border-emerald-400/40',
-};
-
-const MAILTO =
-  'mailto:truegleai@proton.me?subject=Advertising%20on%20Truegle&body=Hi%20Truegle%20team%2C%0A%0AI%27d%20like%20to%20advertise.%20Here%27s%20what%20I%27m%20looking%20for%3A%0A%0APackage%3A%0ABudget%3A%0AProduct%2FURL%3A%0A';
-
-const Advertise = () => {
+export default function Advertise() {
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="max-w-5xl mx-auto px-4 py-16">
-        {/* Hero */}
-        <div className="text-center mb-16">
-          <div className="inline-block text-xs uppercase tracking-widest text-emerald-400/80 mb-3">
-            Advertise on Truegle
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            Reach a privacy-first audience.{' '}
-            <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-              Without the creep factor.
-            </span>
-          </h1>
-          <p className="text-lg text-white/70 max-w-2xl mx-auto">
-            Truegle is an unbiased, tracking-free search engine. Our users opt out
-            of the surveillance web — which makes them exactly the audience that
-            privacy tools, open-source projects, and indie products want to reach.
-          </p>
-          <a
-            href={MAILTO}
-            className="inline-block mt-8 px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold shadow-lg hover:opacity-90 transition-all"
+    <div className="min-h-screen bg-black text-white px-4 py-16">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl md:text-4xl font-bold mb-4">
+          Truegle doesn&apos;t sell advertising
+        </h1>
+
+        <p className="text-white/70 leading-relaxed mb-4">
+          There is no ad inventory here, and no rate card. Advertising was
+          removed from Truegle in full on 24 August 2026 — no ad networks, no
+          house ads, no sponsored placements, no affiliate units, and no
+          cookie banner asking permission to measure any of it. Truegle sets
+          zero cookies.
+        </p>
+
+        <p className="text-white/70 leading-relaxed mb-4">
+          It is not a pause or a policy under review. The previous approach
+          tried to make advertising safe by constraining it, and those
+          constraints held — but the constraints existed because the
+          underlying product pulled against ours. Truegle is no longer run on
+          a profit and loss basis. It exists to offer an alternative to the
+          search monopoly, and advertising was the last thing pulling the
+          other way.
+        </p>
+
+        <p className="text-white/70 leading-relaxed mb-8">
+          The rule is enforced in the build, not just written down: a check
+          runs on every deploy and fails it if an ad network reappears.
+        </p>
+
+        <div className="flex flex-wrap gap-3">
+          <Link
+            to="/privacy"
+            className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-sm"
           >
-            Book a placement
-          </a>
-        </div>
-
-        {/* Audience */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-16">
-          {AUDIENCE.map((a) => (
-            <div
-              key={a.stat}
-              className="p-6 rounded-2xl bg-white/5 border border-white/10 text-center"
-            >
-              <div className="text-2xl font-bold text-emerald-400 mb-1">{a.stat}</div>
-              <div className="text-sm text-white/70">{a.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Why us */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-bold mb-6 text-center">Why advertise here</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              ['Flat-rate, no auctions', 'You know your cost up front. No CPM roulette, no surprise spend.'],
-              ['No tracking, ever', 'Clean placements only. Nothing that gets you — or us — flagged.'],
-              ['Aligned audience', 'Privacy, dev, and research-minded users who actually click intentional ads.'],
-              ['Human-reviewed', 'Every advertiser is vetted. No malvertising, no junk next to your brand.'],
-            ].map(([title, body]) => (
-              <div key={title} className="p-5 rounded-2xl bg-white/5 border border-white/10">
-                <div className="font-semibold mb-1">{title}</div>
-                <div className="text-sm text-white/70">{body}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Packages */}
-        <div className="mb-16">
-          <h2 className="text-2xl font-bold mb-2 text-center">Placements</h2>
-          <p className="text-center text-white/60 mb-8 text-sm">
-            Flat monthly rate. Cancel anytime. Intro pricing for launch partners.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {PACKAGES.map((pkg) => (
-              <div
-                key={pkg.zone}
-                className={`relative p-6 rounded-2xl bg-gradient-to-br border-2 ${cardAccent[pkg.variant]} ${
-                  pkg.featured ? 'md:-translate-y-2 shadow-2xl' : ''
-                }`}
-              >
-                {pkg.featured && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-purple-500 text-xs font-semibold">
-                    Most popular
-                  </div>
-                )}
-                <div className="text-sm text-white/60 mb-1">
-                  {pkg.format}
-                </div>
-                <div className="text-lg font-bold mb-2">{pkg.name}</div>
-                <div className="mb-3">
-                  <span className="text-3xl font-bold">{pkg.price}</span>
-                  <span className="text-white/60 text-sm">{pkg.period}</span>
-                </div>
-                <p className="text-sm text-white/70 mb-4">{pkg.blurb}</p>
-                <ul className="space-y-2 mb-6">
-                  {pkg.features.map((f) => (
-                    <li key={f} className="text-sm text-white/80 flex items-start gap-2">
-                      <span className="text-emerald-400">✓</span>
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <a
-                  href={MAILTO}
-                  className="block text-center px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 font-semibold transition-all"
-                >
-                  Reserve this slot
-                </a>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Contact */}
-        <div className="text-center p-8 rounded-2xl bg-white/5 border border-white/10">
-          <h2 className="text-2xl font-bold mb-2">Let's talk</h2>
-          <p className="text-white/70 mb-6 max-w-xl mx-auto">
-            Custom campaigns, longer flights, or affiliate partnerships welcome.
-            Tell us about your product and we'll find the right fit.
-          </p>
-          <a
-            href={MAILTO}
-            className="inline-block px-8 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold shadow-lg hover:opacity-90 transition-all"
+            How we handle your data
+          </Link>
+          <Link
+            to="/about"
+            className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 transition-colors text-sm"
           >
+            About Truegle
+          </Link>
+        </div>
+
+        {/* The one thing a visitor to this page might still legitimately want.
+            Naming it is not a solicitation — it is the honest answer to
+            "then how is this funded", which is the obvious next question. */}
+        <p className="text-white/40 text-xs mt-10 leading-relaxed">
+          Building something aligned with an independent, tracking-free search
+          engine? We are not selling placements, but we do read our mail:{' '}
+          <a href="mailto:truegleai@proton.me" className="text-white/60 hover:text-white/80 underline">
             truegleai@proton.me
           </a>
-          <div className="mt-6 text-sm text-white/50">
-            <Link to="/" className="hover:text-white/80">← Back to Truegle</Link>
-          </div>
-        </div>
+        </p>
       </div>
     </div>
   );
-};
-
-export default Advertise;
+}
