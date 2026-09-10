@@ -143,12 +143,24 @@ const RewardsDashboard = () => {
               haven't opted in yet; hidden for returning members. */}
           {!optedIn && (
             <div className="max-w-xl mt-3">
-              <h1 className="text-2xl md:text-3xl font-bold mb-2">Earn a share of real ad revenue</h1>
+              {/* The pitch this replaced promised "a share of real ad revenue"
+                  from "the conversions the ad network actually pays for". That
+                  network, and every other, was removed in full on 2026-08-24
+                  (docs/AD-POLICY.md), so the sentence described money that
+                  cannot arrive. It is not named here because check:ads guards
+                  against the name reappearing in src/ at all. The route is
+                  disabled (see App.jsx) and this component is kept only as
+                  scaffolding in case a non-ad funding model appears — but dead
+                  scaffolding is exactly where a false promise survives a
+                  cleanup and gets switched back on later by someone who
+                  trusted the copy. It says what is true instead. */}
+              <h1 className="text-2xl md:text-3xl font-bold mb-2">Rewards are paused</h1>
               <p className="text-white/70 text-sm">
-                Opt in and Truegle pays you a share of every sponsored offer you complete — an
-                install, a sign-up, a sale. These are the conversions the ad network actually pays
-                for, so every reward is real money, confirmed server-side. No extra tracking beyond
-                attributing your own completed offers; nothing is simulated.
+                Truegle rewards paid out a share of completed sponsored offers, funded by
+                advertising. Advertising was removed from Truegle in full on 24 August 2026, so
+                nothing funds this program and nothing is being credited. Anything earned
+                previously is untouched. If a funding model appears that does not depend on
+                tracking or advertising, this is where it will show up.
               </p>
             </div>
           )}

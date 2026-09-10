@@ -1735,7 +1735,7 @@
         "Type": "thread",
         "Label": "URGENT: /rewards promises users a share of ad revenue that cannot exist",
         "body": "RewardsDashboard.jsx:146 tells users 'Earn a share of real ad revenue' and 'Truegle pays you a share of every sponsored offer you complete... These are the conversions the ad network actually pays for, so every reward is real money, confirmed server-side.' The rewards program is funded by Adsterra CPA conversions (migration 011_rewards_offer_based.sql, 2026-07-28). Adsterra and every ad component were deleted 2026-08-24. So this is a live, unfulfillable promise of MONEY to users — materially worse than the SEO/marketing copy issues. NOT actioned: whether the rewards program survives, and funded by what, is a product+financial decision for the owner. Options: retire rewards and remove the opt-in, or keep it and rewrite the pitch to describe whatever actually funds it. robots.txt Disallows /rewards so it is not indexed, which limits exposure to people who navigate there directly.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-09-10",
         "created": "2026-09-10"
       }
@@ -3004,6 +3004,14 @@
         "Type": "fact",
         "Label": "Truegle SEO bottleneck is demand, not indexing",
         "body": "GSC 2026-09-03: 14 indexed, 24 not, 0-3 impressions/day. Coverage 'critical issues' were mostly correct behaviour (redirects=legacy Navigate routes; blocked=the 6 robots Disallow rules; alternate-canonical=a success message; the single 404 = leftover Adsterra /adframe.html from before the 2026-08-24 ad removal, correctly gone). Real problem: the blog targets 'search without tracking'/'alternative to Google'/'is DuckDuckGo really private' — the highest-authority terms in a category where DDG holds ~65%, Brave ~18%, Startpage ~12% of a 4-6%-of-global-queries niche. A 14-page site with no backlinks cannot rank there. UNOCCUPIED GROUND: multi-perspective/anti-censorship — no competitor sells it (Brave=index, Kagi=quality, Startpage=EU privacy, DDG=brand). Pivot target phrases to perspective/filter-bubble/uncensored terms. Fixed this cycle: /search had BOTH Disallow in robots.txt and X-Robots-Tag noindex, which cancel (blocked path is never fetched so noindex is never read).",
+        "ts": "2026-09-10",
+        "created": "2026-09-10"
+      },
+      "rewards-copy-cleared": {
+        "Id": "rewards-copy-cleared",
+        "Type": "fact",
+        "Label": "Rewards ad-revenue copy cleared; /rewards was already disabled",
+        "body": "CORRECTION to the earlier urgent thread: /rewards is NOT reachable — App.jsx:420 has the route commented out with a note that the program was funded by ad revenue and ads were removed 2026-08-24. So the false 'Earn a share of real ad revenue' pitch was never live on that page. It WAS also in src/components/landing/RewardsCTA.jsx, which turned out to be orphaned (no importers) — deleted. RewardsDashboard.jsx copy rewritten to 'Rewards are paused' stating nothing funds the program and prior earnings are untouched; component kept because App.jsx deliberately retains it as scaffolding. GOTCHA: check:ads fails the build on the literal string of the old ad network's name anywhere in src/, including comments — reword rather than weakening the guard.",
         "ts": "2026-09-10",
         "created": "2026-09-10"
       }
