@@ -1810,9 +1810,9 @@
       "ec2-access": {
         "Id": "ec2-access",
         "Type": "fact",
-        "Label": "EC2 access",
+        "Label": "EC2 access: Key lost; use EC2 Instance Connect (browser), no .pem recoverable. IP 44.236.219.63, us-west-2 Oregon, instance i-0709a9d47e503384f. searxng t3.micro cannot host a model. SWAP IS DONE — a /swap file already exists (confirmed by owner 2026-09-11); do NOT propose adding one, check 'swapon --show' first.",
         "body": "Key lost; use EC2 Instance Connect (browser), no .pem recoverable. IP 44.236.219.63, us-west-2 Oregon, instance i-0709a9d47e503384f. searxng t3.micro cannot host a model; give it 1GB swap.",
-        "ts": "2026-07-12",
+        "ts": "2026-09-11",
         "created": "2026-07-12"
       },
       "adsterra": {
@@ -3051,5 +3051,5 @@
       }
     }
   },
-  "updated": "2026-09-10"
+  "updated": "2026-09-11"
 }
