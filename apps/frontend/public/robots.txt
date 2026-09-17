@@ -12,9 +12,6 @@ Allow: /
 # Crawl budget is the usual reason to block a search path, and it does not
 # apply to a site this size. Crawl it, read the noindex, drop it — clean.
 Disallow: /auth/
-Disallow: /onboarding
-Disallow: /settings
-Disallow: /rewards
 
 # Mock-data demo page, not real content - don't index
 Disallow: /feeling-biased
