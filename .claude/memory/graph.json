@@ -1336,6 +1336,30 @@
         "body": "All landing cards collapsed by default; hover opens, click pins open; on touch, tap toggles.",
         "ts": "2026-09-24",
         "created": "2026-09-24"
+      },
+      "groq-fallback-chain": {
+        "Id": "groq-fallback-chain",
+        "Type": "decision",
+        "Label": "Groq free-tier fallback plan",
+        "body": "GroqService: GROQ_MODEL then GROQ_FALLBACK_MODELS (default openai/gpt-oss-120b > qwen/qwen3.8-27b > openai/gpt-oss-20b). Model reported gone (404/decommissioned) is struck off for the process. 429 cools the org for THAT model only (Groq meters per model) and tries the next model. fitToBudget keeps prompt+max_tokens <= 8000 (shrinks reply, then drops oldest history, never system/question); if still too big, throws without calling Groq -> next provider. Errors log Groq's own message. Vision model is never swapped.",
+        "ts": "2026-09-24",
+        "created": "2026-09-24"
+      },
+      "ai-chat-budget": {
+        "Id": "ai-chat-budget",
+        "Type": "decision",
+        "Label": "AI chat has a 20s total budget",
+        "body": "UnifiedAIService.chat: AI_CHAT_BUDGET_MS (default 20000) across all providers; each non-last provider gets <=60% of remaining so a hung one cannot starve the rest. On exhaustion throws a 'timeout' error -> aiFailure 503 JSON 'TrueGLE did not answer in time' WITH CORS, instead of the platform killing the function (no CORS -> browser 'could not be reached'). Vercel's real function limit is still UNCONFIRMED (legacy builds vercel.json blocks maxDuration).",
+        "ts": "2026-09-24",
+        "created": "2026-09-24"
+      },
+      "migrations-tracked": {
+        "Id": "migrations-tracked",
+        "Type": "decision",
+        "Label": "Auto-migrations run once (schema_migrations)",
+        "body": "server.js autoMigrate records applied files in schema_migrations; cold starts skip them (used to replay all 26 files every cold start, one took 12.7s on the shared pool). Already-exists errors (42701/42P07/...) count as applied. migrations/001 and 002 are genuinely broken (stripe_customer_id / search_history) and retry each cold start, failing fast. Non-fatal without a DB.",
+        "ts": "2026-09-24",
+        "created": "2026-09-24"
       }
     },
     "thread": {
@@ -1835,9 +1859,9 @@
       "groq-native": {
         "Id": "groq-native",
         "Type": "fact",
-        "Label": "Groq is the live engine",
-        "body": "NEPHESH_BASE_URL unset => Groq is first available provider, serves ALL AI surfaces branded Nephesh. 3 GROQ keys rotate on 429 (same model, no help for refusals). Refusal-failover needs a DIFFERENT provider (add GEMINI_API_KEY).",
-        "ts": "2026-07-12",
+        "Label": "AI provider order: NVIDIA first, Groq second (2026-09-24)",
+        "body": "Prod has no ai_providers rows, so UnifiedAIService.providers key order IS the failover order: nephesh > nvidia (Nemotron 3 Ultra, proven, 1-2s) > groq > gemini > ... > truecode. Groq was silently failing EVERY real chat for weeks: the ~5.1K-token system prompt was sent twice (in messages AND as options.system) = >8K free-tier per-request TPM cap -> 413; the tiny health ping passed so /api/ai/health lied 'healthy'. Fixed 2026-09-24.",
+        "ts": "2026-09-24",
         "created": "2026-07-12"
       },
       "ec2-access": {
@@ -3055,6 +3079,14 @@
         "body": "CORRECTION to the earlier urgent thread: /rewards is NOT reachable — App.jsx:420 has the route commented out with a note that the program was funded by ad revenue and ads were removed 2026-08-24. So the false 'Earn a share of real ad revenue' pitch was never live on that page. It WAS also in src/components/landing/RewardsCTA.jsx, which turned out to be orphaned (no importers) — deleted. RewardsDashboard.jsx copy rewritten to 'Rewards are paused' stating nothing funds the program and prior earnings are untouched; component kept because App.jsx deliberately retains it as scaffolding. GOTCHA: check:ads fails the build on the literal string of the old ad network's name anywhere in src/, including comments — reword rather than weakening the guard.",
         "ts": "2026-09-10",
         "created": "2026-09-10"
+      },
+      "gemini-model-retired": {
+        "Id": "gemini-model-retired",
+        "Type": "fact",
+        "Label": "Gemini 2.0 Flash retired",
+        "body": "gemini-2.0-flash 404s; default now gemini-3.8-flash (named by Google's own error). Free-tier availability of 3.8 flash NOT confirmed; key has no billing so worst case is a refusal, never a charge. If Vercel sets GEMINI_MODEL it overrides.",
+        "ts": "2026-09-24",
+        "created": "2026-09-24"
       }
     }
   },

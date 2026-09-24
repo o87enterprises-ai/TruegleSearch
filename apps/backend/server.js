@@ -393,22 +393,46 @@ app.use((err, req, res, next) => {
 const { query: dbQuery } = require('./db/connection');
 const fs = require('fs');
 const path = require('path');
-async function runMigrationsIn(migrationsDir) {
+// APPLIED MIGRATIONS ARE REMEMBERED. This used to replay every .sql file on
+// every cold start. On Vercel that is every few minutes, and one file alone
+// took 12.7s — on the shared pool, while the visitor who triggered the cold
+// start waited behind it. A migration that succeeded (or failed only because
+// its object already exists) is recorded in schema_migrations and never
+// replayed; anything else is retried next cold start, so a genuinely broken
+// file still shows up in the logs.
+const ALREADY_EXISTS = new Set(['42701', '42P07', '42710', '42P06', '42723']);
+async function runMigrationsIn(migrationsDir, applied, prefix = '') {
   const files = fs.readdirSync(migrationsDir)
     .filter(f => f.endsWith('.sql') && !f.includes('rollback'))
     .sort();
   for (const file of files) {
+    const id = prefix + file;
+    if (applied.has(id)) continue;
     try {
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
       await dbQuery(sql);
+      await dbQuery('INSERT INTO schema_migrations (id) VALUES ($1) ON CONFLICT DO NOTHING', [id]);
     } catch (err) {
+      if (ALREADY_EXISTS.has(err.code)) {
+        await dbQuery('INSERT INTO schema_migrations (id) VALUES ($1) ON CONFLICT DO NOTHING', [id]).catch(() => {});
+      }
       logger.warn(`Auto-migration ${file} skipped/failed: ${err.message}`);
     }
   }
 }
 async function autoMigrate() {
-  await runMigrationsIn(path.join(__dirname, 'migrations'));
-  await runMigrationsIn(path.join(__dirname, 'db', 'migrations'));
+  // Never fatal — the server runs on its in-memory fallbacks without a DB.
+  let applied;
+  try {
+    await dbQuery('CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
+    const { rows } = await dbQuery('SELECT id FROM schema_migrations');
+    applied = new Set(rows.map(r => r.id));
+  } catch (err) {
+    logger.warn(`Auto-migration skipped, database unavailable: ${err.message}`);
+    return;
+  }
+  await runMigrationsIn(path.join(__dirname, 'migrations'), applied);
+  await runMigrationsIn(path.join(__dirname, 'db', 'migrations'), applied, 'db/');
 }
 
 // Start server with database connection

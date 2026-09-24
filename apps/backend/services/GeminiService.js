@@ -11,7 +11,7 @@ class GeminiService {
   constructor() {
     this.apiKey = config.ai.gemini?.apiKey;
     this.baseURL = 'https://generativelanguage.googleapis.com/v1beta';
-    this.defaultModel = config.ai.gemini?.model || 'gemini-2.0-flash'; // Free tier
+    this.defaultModel = config.ai.gemini?.model || 'gemini-3.8-flash'; // Free tier
     this.available = !!this.apiKey;
 
     if (!this.available) {

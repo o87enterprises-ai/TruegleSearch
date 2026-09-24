@@ -41,7 +41,10 @@ export function aiErrorMessage(err) {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       return 'You appear to be offline — Truegle could not send that.';
     }
-    return "Truegle's AI could not be reached. That is usually the connection; the search results above are unaffected.";
+    // Only used by chat, where there are no "search results above" to point
+    // at. No status also covers the server being cut off mid-answer, which
+    // one retry usually clears — so say that, not "check your connection".
+    return "Truegle's AI could not be reached that time. Send it again — it usually goes through on a second try.";
   }
 
   if (status === 429) {

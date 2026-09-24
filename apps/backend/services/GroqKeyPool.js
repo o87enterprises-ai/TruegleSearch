@@ -47,7 +47,9 @@ class GroqKeyPool {
         label: org.label,
         keys: org.keys,
         cursor: 0,
-        cooldownUntil: 0,
+        // model id -> epoch ms. Groq meters rate limits per MODEL, so a 429
+        // on one model must not park the org for the others. '*' = all.
+        cooldowns: {},
         disabled: org.keys.map(() => false),
       }));
     this.cursor = this.orgs.length ? Math.floor(Math.random() * this.orgs.length) : 0;
@@ -72,12 +74,12 @@ class GroqKeyPool {
    * is leasable, in which case the caller should fail over to another provider
    * rather than eat a guaranteed 429.
    */
-  acquire(triedOrgs = new Set()) {
+  acquire(triedOrgs = new Set(), model = '*') {
     const now = Date.now();
     for (let n = 0; n < this.orgs.length; n++) {
       const orgIndex = (this.cursor + n) % this.orgs.length;
       const org = this.orgs[orgIndex];
-      if (triedOrgs.has(orgIndex) || org.cooldownUntil > now) continue;
+      if (triedOrgs.has(orgIndex) || this.coolingFor(org, model, now)) continue;
 
       // Within the org any live key is equivalent (shared bucket); rotate
       // anyway so a single key isn't the only one ever exercised.
@@ -92,13 +94,20 @@ class GroqKeyPool {
     return null;
   }
 
-  /** 429 — park the whole org; its other keys share the exhausted bucket. */
-  cool(orgIndex, retryAfterHeader) {
+  coolingFor(org, model, now = Date.now()) {
+    return (org.cooldowns['*'] || 0) > now || (model !== '*' && (org.cooldowns[model] || 0) > now);
+  }
+
+  /**
+   * 429 — park the org's keys for that MODEL (they share its bucket). Other
+   * models keep their own allowance. With no model, parks the org outright.
+   */
+  cool(orgIndex, retryAfterHeader, model = '*') {
     const org = this.orgs[orgIndex];
     if (!org) return;
     const ms = parseRetryAfter(retryAfterHeader);
-    org.cooldownUntil = Date.now() + ms;
-    logger.warn(`Groq org[${org.label}] rate-limited, cooling all ${org.keys.length} key(s) for ${Math.round(ms / 1000)}s`);
+    org.cooldowns[model] = Date.now() + ms;
+    logger.warn(`Groq org[${org.label}] rate-limited on ${model}, cooling all ${org.keys.length} key(s) for ${Math.round(ms / 1000)}s`);
   }
 
   /** 401/403 — that one key is bad or revoked; its org-mates are unaffected. */
@@ -117,8 +126,8 @@ class GroqKeyPool {
     return {
       orgs: this.orgs.length,
       keys: this.size,
-      usableOrgs: this.orgs.filter(o => live(o) && o.cooldownUntil <= now).length,
-      coolingOrgs: this.orgs.filter(o => live(o) && o.cooldownUntil > now).length,
+      usableOrgs: this.orgs.filter(o => live(o) && !this.coolingFor(o, '*', now)).length,
+      coolingOrgs: this.orgs.filter(o => live(o) && Object.values(o.cooldowns).some(t => t > now)).length,
       disabledKeys: this.orgs.reduce((n, o) => n + o.disabled.filter(Boolean).length, 0),
     };
   }

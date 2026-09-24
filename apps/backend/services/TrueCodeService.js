@@ -72,10 +72,14 @@ class TrueCodeService {
    * turns.
    */
   buildBody(messages, { system, temperature, max_tokens }) {
-    const formatted = [];
-    if (system) formatted.push({ role: 'system', content: system });
-    if (typeof messages === 'string') formatted.push({ role: 'user', content: messages });
-    else formatted.push(...messages);
+    const formatted = typeof messages === 'string'
+      ? [{ role: 'user', content: messages }]
+      : [...messages];
+    // Once only — UnifiedAIService sends the system prompt inside `messages`
+    // AND as `system`; prepending it again sent ~5K tokens of prompt twice.
+    if (system && !formatted.some((m) => m.role === 'system')) {
+      formatted.unshift({ role: 'system', content: system });
+    }
 
     if (this.format === 'openai') {
       return {

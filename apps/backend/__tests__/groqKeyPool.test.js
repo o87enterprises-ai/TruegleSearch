@@ -87,9 +87,9 @@ describe('GroqKeyPool', () => {
     pool.cool(0, undefined);
     pool.cool(1, '999999');
     const now = Date.now();
-    expect(pool.orgs[0].cooldownUntil - now).toBeGreaterThan(50_000);
-    expect(pool.orgs[0].cooldownUntil - now).toBeLessThanOrEqual(60_000);
-    expect(pool.orgs[1].cooldownUntil - now).toBeLessThanOrEqual(60 * 60_000);
+    expect(pool.orgs[0].cooldowns['*'] - now).toBeGreaterThan(50_000);
+    expect(pool.orgs[0].cooldowns['*'] - now).toBeLessThanOrEqual(60_000);
+    expect(pool.orgs[1].cooldowns['*'] - now).toBeLessThanOrEqual(60 * 60_000);
   });
 
   it('never hands back an org already rate-limited on the same request', () => {

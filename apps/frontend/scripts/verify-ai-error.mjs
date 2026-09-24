@@ -61,8 +61,10 @@ check(/offline/i.test(aiErrorMessage(new Error('Network Error'))),
 setOnline(true);
 const netMsg = aiErrorMessage(new Error('Network Error'));
 check(/could not be reached/i.test(netMsg), 'an unreachable backend is reported as unreachable', netMsg);
-check(/search results above are unaffected/i.test(netMsg),
-  '…and says what still works, because the rest of the page does',
+// Chat is the only caller, and chat has no "search results above" — the old
+// line pointed at something that wasn't there. It says what to DO instead.
+check(!/search results/i.test(netMsg) && /send it again/i.test(netMsg),
+  '…and tells the chat user what to do, without pointing at results that are not there',
   netMsg);
 
 // ── a machine code is not a sentence ────────────────────────────────────────

@@ -20,15 +20,38 @@ const logger = require('../utils/logger');
 const promptRouter = require('./PromptRouter');
 const osintToolbelt = require('./OsintToolbelt');
 
+// ONE CLOCK FOR THE WHOLE ANSWER. Providers are tried one after another, each
+// with its own 30-60s timeout, so a refusal or two plus a sleeping fallback
+// (TrueCode wakes in ~22s) could outlast the serverless platform's limit. The
+// platform then kills the function with no CORS header, and the browser can
+// only say "could not be reached". Stopping ourselves first means the visitor
+// gets a real, readable error instead. Override with AI_CHAT_BUDGET_MS.
+const CHAT_BUDGET_MS = Number(process.env.AI_CHAT_BUDGET_MS) || 20000;
+const MIN_ATTEMPT_MS = 1500; // not worth starting a provider with less than this
+
+/** Resolve with `promise`, or reject once `ms` has passed. */
+function withDeadline(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timeout: no answer within ${Math.round(ms / 1000)}s`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 class UnifiedAIService {
   constructor() {
     // Initialize all AI providers. Nephesh (Truegle's own self-hosted model)
     // always ranks first when configured; the rest are interim fallbacks.
+    // ORDER MATTERS: with no rows in ai_providers (production's state), this
+    // object's key order IS the failover order. NVIDIA leads because it is the
+    // provider that has actually been answering: Nemotron 3 Ultra, generous
+    // limits, 1-2s. Groq's free tier caps every request at 8K tokens (prompt +
+    // reply), so it is the fast second rather than the first impression.
     this.providers = {
       nephesh: new NepheshService(),
+      nvidia: new NvidiaService(),
       groq: new GroqService(),
       gemini: new GeminiService(),
-      nvidia: new NvidiaService(),
       openai: new OpenAIService(),
       anthropic: new AnthropicService(),
       ollama: new OllamaService(),
@@ -149,15 +172,21 @@ class UnifiedAIService {
       const providerOptions = hasImage ? { model: config.ai.groq.visionModel } : {};
 
       // Try each provider in order with failover
+      const deadline = Date.now() + CHAT_BUDGET_MS;
       let lastError = null;
       let refusalResponse = null; // remembered so we can return it if ALL refuse
       for (let i = 0; i < providerOrder.length; i++) {
         const providerName = providerOrder[i];
         const isLast = i === providerOrder.length - 1;
+        const remaining = deadline - Date.now();
+        if (remaining < MIN_ATTEMPT_MS) {
+          lastError = new Error(`AI response timeout: ran out of time before trying ${providerName}`);
+          break;
+        }
         try {
           logger.debug(`Attempting AI request with provider: ${providerName}`);
 
-          const response = await this.callProvider(
+          const response = await withDeadline(this.callProvider(
             providerName,
             messages,
             {
@@ -170,7 +199,10 @@ class UnifiedAIService {
               system: basePrompt,
               ...providerOptions,
             }
-          );
+          // A hung provider may not eat the whole clock: every provider but
+          // the last gets at most 60% of what is left, so there is always
+          // time for the next one to answer.
+          ), isLast ? remaining : Math.max(MIN_ATTEMPT_MS, Math.floor(remaining * 0.6)), providerName);
 
           // Nephesh is the brand for ALL Truegle AI. When the answer came from
           // a fallback substrate (Groq/Gemini/etc. — e.g. while no self-hosted
@@ -244,7 +276,7 @@ class UnifiedAIService {
         // Opt-in per caller, not automatic: the research modes have their own
         // framing and should not have a second, differently-worded answer
         // silently substituted underneath them.
-        if (options.conceptualFallback) {
+        if (options.conceptualFallback && deadline - Date.now() >= MIN_ATTEMPT_MS * 2) {
           const softened = await this.conceptualRetry({
             messages, basePrompt, providerOrder, providerOptions, prompt, options, context,
           });
@@ -524,7 +556,7 @@ class UnifiedAIService {
       logger.error('Error determining provider order:', { error: error.message });
 
       // Fallback to hardcoded priority (Nephesh first, then interim providers)
-      return ['nephesh', 'groq', 'gemini', 'nvidia', 'openai', 'anthropic', 'ollama', 'truecode'].filter(name => {
+      return ['nephesh', 'nvidia', 'groq', 'gemini', 'openai', 'anthropic', 'ollama', 'truecode'].filter(name => {
         const provider = this.providers[name];
         return provider && provider.isAvailable && provider.isAvailable();
       });

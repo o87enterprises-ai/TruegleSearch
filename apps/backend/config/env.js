@@ -48,7 +48,9 @@ const envVarsSchema = Joi.object({
   OPENROUTER_API_KEY_5: Joi.string().optional().description('OpenRouter API Key 5'),
   OPENROUTER_API_KEY_6: Joi.string().optional().description('OpenRouter API Key 6'),
   GEMINI_API_KEY: Joi.string().optional().description('Google Gemini API Key'),
-  GEMINI_MODEL: Joi.string().optional().default('gemini-2.0-flash').description('Gemini model id'),
+  // gemini-2.0-flash was retired (404 "no longer available"); Google's own
+  // error names gemini-3.8-flash as the replacement.
+  GEMINI_MODEL: Joi.string().optional().default('gemini-3.8-flash').description('Gemini model id'),
   OPENAI_API_KEY: Joi.string().optional().description('OpenAI API Key (Backup AI Provider)'),
   ANTHROPIC_API_KEY: Joi.string().optional().description('Anthropic Claude API Key'),
   DEEPSEEK_API_KEY: Joi.string().optional().description('DeepSeek API Key - Deprecated - DO NOT USE'),
@@ -84,6 +86,9 @@ const envVarsSchema = Joi.object({
     .description('Reasoning budget for gpt-oss models; lower spends fewer tokens per answer'),
   // Vision-capable model, used only for image-attached chat turns.
   GROQ_VISION_MODEL: Joi.string().optional().default('qwen/qwen3.6-27b').description('Groq vision model id'),
+  // Tried in order after GROQ_MODEL; a model Groq reports as retired is struck
+  // off for the process. Leave unset for the built-in free-tier chain.
+  GROQ_FALLBACK_MODELS: Joi.string().optional().description('Comma-separated Groq model ids to fall back through'),
 
   // Radar API (Maps)
   RADAR_LIVE_SECRET_KEY: Joi.string().optional().description('Radar Live Secret Key'),
@@ -358,6 +363,7 @@ const config = {
       // an uploaded image). Only used when a request carries an image — the
       // default text model doesn't understand image_url content parts.
       visionModel: envVars.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b',
+      fallbackModels: (envVars.GROQ_FALLBACK_MODELS || '').split(',').map(m => m.trim()).filter(Boolean),
       reasoningEffort: envVars.GROQ_REASONING_EFFORT,
       keys: groqKeys,
       orgs: groqOrgs,
