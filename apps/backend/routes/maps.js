@@ -4,6 +4,7 @@ const MapboxService = require('../services/MapboxService');
 const TomTomService = require('../services/TomTomService');
 const BusinessEnrichmentService = require('../services/BusinessEnrichmentService');
 const PlacePanelService = require('../services/PlacePanelService');
+const LocalPackService = require('../services/LocalPackService');
 const QueryInterpreter = require('../services/QueryInterpreter');
 const OpenTrafficCamService = require('../services/OpenTrafficCamService');
 const MultiStateCameraService = require('../services/MultiStateCameraService');
@@ -312,6 +313,33 @@ router.post('/place-panel', async (req, res) => {
   } catch (error) {
     console.error('Place panel error:', error.message);
     return res.json({ success: true, panel: null, reason: 'error' });
+  }
+});
+
+/**
+ * POST /api/maps/local-pack  { query, lat?, lng?, domains?, titles? }
+ * "eugene oregon patent lawyers" → up to six local businesses, each with a
+ * phone number, for the inline Truegle Maps card. `domains`/`titles` are the
+ * web results already on the page; firms they mention are ranked first.
+ * See services/LocalPackService.js.
+ */
+router.post('/local-pack', async (req, res) => {
+  const { query, lat, lng, domains, titles } = req.body || {};
+  const q = typeof query === 'string' ? query.trim().slice(0, 300) : '';
+  if (!q) return res.json({ success: true, pack: null, reason: 'no_query' });
+  const strings = (a, max, len) => (Array.isArray(a) ? a : [])
+    .filter((x) => typeof x === 'string').slice(0, max).map((x) => x.slice(0, len).toLowerCase());
+  try {
+    const pack = await LocalPackService.resolve(q, {
+      lat: typeof lat === 'number' ? lat : undefined,
+      lng: typeof lng === 'number' ? lng : undefined,
+      domains: strings(domains, 40, 100),
+      titles: strings(titles, 40, 200),
+    });
+    return res.json({ success: true, pack, reason: pack ? 'ok' : 'no_local_results' });
+  } catch (error) {
+    console.error('Local pack error:', error.message);
+    return res.json({ success: true, pack: null, reason: 'error' });
   }
 });
 

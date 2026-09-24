@@ -1360,6 +1360,14 @@
         "body": "server.js autoMigrate records applied files in schema_migrations; cold starts skip them (used to replay all 26 files every cold start, one took 12.7s on the shared pool). Already-exists errors (42701/42P07/...) count as applied. migrations/001 and 002 are genuinely broken (stripe_customer_id / search_history) and retry each cold start, failing fast. Non-fatal without a DB.",
         "ts": "2026-09-24",
         "created": "2026-09-24"
+      },
+      "local-pack": {
+        "Id": "local-pack",
+        "Type": "decision",
+        "Label": "Inline Truegle Maps local pack (2026-09-24)",
+        "body": "POST /api/maps/local-pack -> services/LocalPackService.js: service word (SERVICES table: lawyers->'law firm'+'attorney' w/ category /legal/ + exclude title/bank/insurance; plumbers, dentists, etc.) + town geocoded out of the query (TomTom geocode, type Geography, longest window at either end) or visitor lat/lng for near-me; leftover words = specialty (tried first as '<specialty> <term>'). TomTom POIs only (free), phone required, no invented ratings/hours. Firms whose domain/distinctive name appear in the web results rank first + 'In your results' badge (query words ignored). Frontend components/search/LocalPackCard.jsx (+ lazy LocalPackMap: Leaflet + Esri World Imagery satellite, numbered pins) above results on Mainstream/Green All page 1; Call=tel:, Website, Directions=OpenStreetMap until Truegle Maps has routing (item #6). 1h cache per query.",
+        "ts": "2026-09-24",
+        "created": "2026-09-24"
       }
     },
     "thread": {

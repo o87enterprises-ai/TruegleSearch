@@ -123,6 +123,7 @@ import { parsePlayerParams, resolveShareInput } from '../utils/playerLink';
 import { usePlayer } from '../context/PlayerContext';
 import VideoRow from '../components/search/VideoRow';
 import ResultsPager from '../components/search/ResultsPager';
+import LocalPackCard from '../components/search/LocalPackCard';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
 // (mainstream, conspiracy, democratic, republican, nonpartisan, music, videos,
@@ -1358,6 +1359,33 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     ? webResults.slice((resultsPage - 1) * RESULTS_PER_PAGE, resultsPage * RESULTS_PER_PAGE)
     : displayResults;
   const resultsTopRef = useRef(null);
+
+  // ── TRUEGLE MAPS, INLINE ──────────────────────────────────────────────────
+  // "eugene oregon patent lawyers" → the local firms, each with a Call button,
+  // above the web results (see LocalPackCard). The backend decides whether the
+  // query is local at all; the web results go along so firms they mention
+  // rank first.
+  const [localPack, setLocalPack] = useState(null);
+  useEffect(() => {
+    setLocalPack(null);
+    if (!(mode === 'blue' || mode === 'green') || !lastSearchedQuery || !searchResults.length) return undefined;
+    const web = searchResults.filter((r) => r.category !== 'videos').slice(0, 30);
+    const ctrl = new AbortController();
+    fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/maps/local-pack`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        query: lastSearchedQuery,
+        domains: web.map((r) => r.domain).filter(Boolean),
+        titles: web.map((r) => r.title).filter(Boolean),
+      }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.pack) setLocalPack(d.pack); })
+      .catch(() => {});
+    return () => ctrl.abort();
+  }, [mode, lastSearchedQuery, searchResults]);
   const goToPage = useCallback((p) => {
     setResultsPage(p);
     resultsTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2663,6 +2691,9 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                   )}
 
                   <div ref={resultsTopRef} className="scroll-mt-24" aria-hidden="true" />
+                  {localPack && resultsPage === 1 && activeCategory === 'all' && (
+                    <LocalPackCard pack={localPack} accent={modeAccent} />
+                  )}
                   {mode !== 'ocean' && pageResults.map((result, i) => (
                     <Fragment key={result.url || i}>
                       {/* Videos sit after the third web result on page one,
