@@ -22,6 +22,9 @@ class GroqService {
     this.fallbackModels = config.ai.groq?.fallbackModels?.length
       ? config.ai.groq.fallbackModels
       : ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b', 'openai/gpt-oss-20b'];
+    // Image turns walk their own chain — only models that accept images.
+    // Groq's vision docs moved to qwen3.8-27b; qwen3.6-27b stays as a spare.
+    this.visionModels = [config.ai.groq?.visionModel, 'qwen/qwen3.8-27b', 'qwen/qwen3.6-27b'].filter(Boolean);
     this.deadModels = new Set();
     // Free-tier TPM for every Groq chat model is 8K, and Groq counts the whole
     // request — prompt PLUS the max_tokens you reserve — against it. A request
@@ -47,10 +50,13 @@ class GroqService {
   }
 
   /** Models to try for this request, in order, minus any Groq has retired. */
-  modelChain(requested) {
-    // An explicit model (the vision model, a test) is a capability choice, not
-    // a preference — never swap it for a text-only fallback.
-    const chain = requested ? [requested] : [this.defaultModel, ...this.fallbackModels];
+  modelChain(requested, vision = false) {
+    // An explicit model is a capability choice, not a preference — never swap
+    // it for a text-only fallback. A vision turn falls back through vision
+    // models only.
+    const chain = vision
+      ? [requested, ...this.visionModels].filter(Boolean)
+      : requested ? [requested] : [this.defaultModel, ...this.fallbackModels];
     return [...new Set(chain)].filter(m => !this.deadModels.has(m));
   }
 
@@ -107,6 +113,7 @@ class GroqService {
 
     const {
       model: requestedModel,
+      vision = false,
       temperature = 0.7,
       max_tokens = 1024,
       system = null,
@@ -128,7 +135,7 @@ class GroqService {
       throw new Error(`Groq free tier: request is ~${this.estimateTokens(formatted)} tokens, over the ${this.requestTokenBudget}-token cap even without history`);
     }
 
-    const chain = this.modelChain(requestedModel);
+    const chain = this.modelChain(requestedModel, vision);
     if (!chain.length) throw new Error('Groq: every configured model has been retired');
 
     let lastError = null;

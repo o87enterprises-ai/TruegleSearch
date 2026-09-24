@@ -26,7 +26,9 @@ const osintToolbelt = require('./OsintToolbelt');
 // platform then kills the function with no CORS header, and the browser can
 // only say "could not be reached". Stopping ourselves first means the visitor
 // gets a real, readable error instead. Override with AI_CHAT_BUDGET_MS.
-const CHAT_BUDGET_MS = Number(process.env.AI_CHAT_BUDGET_MS) || 20000;
+// 60s: Vercel (Fluid, Hobby) allows 300s, and a verbose Nephesh answer from a
+// 550B model legitimately takes 15-30s — 20s cut those off mid-answer.
+const CHAT_BUDGET_MS = Number(process.env.AI_CHAT_BUDGET_MS) || 60000;
 const MIN_ATTEMPT_MS = 1500; // not worth starting a provider with less than this
 
 /** Resolve with `promise`, or reject once `ms` has passed. */
@@ -169,7 +171,7 @@ class UnifiedAIService {
 
       // Get provider order (with preferred provider for this context)
       const providerOrder = hasImage ? ['groq'] : await this.getProviderOrder(prompt.id);
-      const providerOptions = hasImage ? { model: config.ai.groq.visionModel } : {};
+      const providerOptions = hasImage ? { model: config.ai.groq.visionModel, vision: true } : {};
 
       // Try each provider in order with failover
       const deadline = Date.now() + CHAT_BUDGET_MS;

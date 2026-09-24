@@ -1348,8 +1348,8 @@
       "ai-chat-budget": {
         "Id": "ai-chat-budget",
         "Type": "decision",
-        "Label": "AI chat has a 20s total budget",
-        "body": "UnifiedAIService.chat: AI_CHAT_BUDGET_MS (default 20000) across all providers; each non-last provider gets <=60% of remaining so a hung one cannot starve the rest. On exhaustion throws a 'timeout' error -> aiFailure 503 JSON 'TrueGLE did not answer in time' WITH CORS, instead of the platform killing the function (no CORS -> browser 'could not be reached'). Vercel's real function limit is still UNCONFIRMED (legacy builds vercel.json blocks maxDuration).",
+        "Label": "AI chat has a 60s total budget",
+        "body": "UnifiedAIService.chat: AI_CHAT_BUDGET_MS default 60000 (was 20000 — that cut off verbose Nephesh answers from NVIDIA at 12s). Vercel backend runs Fluid compute on Hobby: 300s limit (confirmed 2026-09-24). Each non-last provider gets <=60% of remaining. Out of time -> 503 JSON 'TrueGLE did not answer in time' with CORS.",
         "ts": "2026-09-24",
         "created": "2026-09-24"
       },

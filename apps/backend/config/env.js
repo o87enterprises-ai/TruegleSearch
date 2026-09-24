@@ -85,7 +85,7 @@ const envVarsSchema = Joi.object({
   GROQ_REASONING_EFFORT: Joi.string().valid('low', 'medium', 'high').optional().default('low')
     .description('Reasoning budget for gpt-oss models; lower spends fewer tokens per answer'),
   // Vision-capable model, used only for image-attached chat turns.
-  GROQ_VISION_MODEL: Joi.string().optional().default('qwen/qwen3.6-27b').description('Groq vision model id'),
+  GROQ_VISION_MODEL: Joi.string().optional().default('qwen/qwen3.8-27b').description('Groq vision model id'),
   // Tried in order after GROQ_MODEL; a model Groq reports as retired is struck
   // off for the process. Leave unset for the built-in free-tier chain.
   GROQ_FALLBACK_MODELS: Joi.string().optional().description('Comma-separated Groq model ids to fall back through'),
@@ -362,7 +362,7 @@ const config = {
       // Vision-capable model for image-attached chat turns (extract/describe
       // an uploaded image). Only used when a request carries an image — the
       // default text model doesn't understand image_url content parts.
-      visionModel: envVars.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b',
+      visionModel: envVars.GROQ_VISION_MODEL || 'qwen/qwen3.8-27b',
       fallbackModels: (envVars.GROQ_FALLBACK_MODELS || '').split(',').map(m => m.trim()).filter(Boolean),
       reasoningEffort: envVars.GROQ_REASONING_EFFORT,
       keys: groqKeys,

@@ -157,3 +157,19 @@ describe('GroqService free-tier fallback plan', () => {
     expect(axios.post).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('GroqService vision fallback', () => {
+  const pool = require('../services/GroqKeyPool');
+  beforeEach(() => { jest.clearAllMocks(); pool.orgs.forEach((o) => { o.cooldowns = {}; }); });
+
+  it('walks vision-capable models only when the first vision model is gone', async () => {
+    const svc = new GroqService();
+    axios.post
+      .mockRejectedValueOnce(Object.assign(new Error('404'), { response: { status: 404, data: { error: { code: 'model_not_found' } }, headers: {} } }))
+      .mockResolvedValue(reply('a red pixel'));
+    await expect(svc.chat('what is this', { model: 'qwen/qwen3.6-27b', vision: true })).resolves.toMatchObject({ content: 'a red pixel' });
+    const models = axios.post.mock.calls.map((c) => c[1].model);
+    expect(models).toEqual(['qwen/qwen3.6-27b', 'qwen/qwen3.8-27b']);
+    expect(models).not.toContain('openai/gpt-oss-120b');
+  });
+});
