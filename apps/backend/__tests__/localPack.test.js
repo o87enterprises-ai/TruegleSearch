@@ -7,7 +7,7 @@ jest.mock('../utils/logger', () => ({ info: jest.fn(), warn: jest.fn(), error: j
 jest.mock('../services/TomTomService', () => ({ geocode: jest.fn(), searchPlaces: jest.fn() }));
 
 const TomTom = require('../services/TomTomService');
-const { resolve, _internals: { parseLocalQuery, locationWindows, mentionedIn } } = require('../services/LocalPackService');
+const { resolve, _internals: { parseLocalQuery, locationWindows, mentionedIn, explains } } = require('../services/LocalPackService');
 
 const place = (name, url, distance, cats = ['company', 'legal services']) => ({
   name, url, distance, category: cats, phone: '+1 541-000-0000', address: `${name} St, Eugene, OR`, position: { lat: 44.05, lon: -123.08 },
@@ -24,7 +24,9 @@ const EUGENE_LAW = [
 beforeEach(() => {
   jest.clearAllMocks();
   TomTom.geocode.mockImplementation(async (text) => (
-    text === 'eugene oregon'
+    // Fuzzy like the real geocoder: "eugene oregon patent" also comes back
+    // as Eugene — which is exactly what must not swallow the specialty.
+    /eugene/.test(text)
       ? [{ type: 'Geography', address: 'Eugene, OR', position: { lat: 44.0521, lon: -123.0868 } }]
       : [{ type: 'Street', address: `${text} St`, position: { lat: 1, lon: 1 } }]
   ));
@@ -95,4 +97,10 @@ it('matches a mention by distinctive name words, not by "law office"', () => {
 
 it('does not count a query word (the town) as a mention', () => {
   expect(mentionedIn({ name: 'Eugene DUI Attorneys', url: null }, { titles: ['patent lawyers in eugene, oregon'] }, ['eugene', 'oregon', 'patent'])).toBe(false);
+});
+
+it('only accepts a town match that accounts for every word', () => {
+  const eugene = { address: 'Eugene, OR' };
+  expect(explains(eugene, ['eugene', 'oregon'])).toBe(true);
+  expect(explains(eugene, ['eugene', 'oregon', 'patent'])).toBe(false);
 });

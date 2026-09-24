@@ -117,12 +117,30 @@ function mentionedIn(place, { domains = [], titles = [] }, queryWords = []) {
 const cache = new Map();
 const TTL_MS = 60 * 60 * 1000;
 
+// Every word of every US state name. A town window may contain these even
+// though the geocoded address abbreviates them ("oregon" → "Eugene, OR").
+const STATE_WORDS = new Set(('alabama alaska arizona arkansas california colorado connecticut delaware florida georgia hawaii '
+  + 'idaho illinois indiana iowa kansas kentucky louisiana maine maryland massachusetts michigan minnesota mississippi '
+  + 'missouri montana nebraska nevada new hampshire jersey mexico york north carolina dakota ohio oklahoma oregon '
+  + 'pennsylvania rhode island south tennessee texas utah vermont virginia washington west wisconsin wyoming').split(' '));
+
+/**
+ * Does the geocoded place account for every word of the window? TomTom's
+ * geocoder is fuzzy: "eugene oregon patent" comes back as Eugene, which would
+ * swallow the specialty. A word counts only if it is in the place's address
+ * or is part of a state name.
+ */
+function explains(hit, words) {
+  const addr = String(hit.address || '').toLowerCase();
+  return words.every((w) => addr.includes(w) || STATE_WORDS.has(w));
+}
+
 async function geocodeTown(words) {
   for (const win of locationWindows(words)) {
     // eslint-disable-next-line no-await-in-loop
     const hits = await TomTomService.geocode(win.join(' '), { limit: 1 }).catch(() => []);
     const hit = hits && hits[0];
-    if (hit && hit.type === 'Geography') return { words: win, hit };
+    if (hit && hit.type === 'Geography' && explains(hit, win)) return { words: win, hit };
   }
   return null;
 }
@@ -213,4 +231,4 @@ async function resolve(query, ctx = {}) {
   };
 }
 
-module.exports = { resolve, _internals: { parseLocalQuery, locationWindows, mentionedIn, SERVICES } };
+module.exports = { resolve, _internals: { parseLocalQuery, locationWindows, mentionedIn, explains, SERVICES } };
