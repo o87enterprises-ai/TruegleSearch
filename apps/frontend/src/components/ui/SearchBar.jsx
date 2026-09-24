@@ -13,6 +13,7 @@ import MapApiService from '../map/services/mapApi';
 import VoiceRecognition from './VoiceRecognition';
 import CameraInput from './CameraInput';
 import FileInput from './FileInput';
+import { downscaleImage } from '../../utils/downscaleImage';
 import { usePlayer } from '../../context/PlayerContext';
 
 /**
@@ -2210,10 +2211,12 @@ const handleChange = useCallback((e) => {
                     // data URL, stash it for the chat page to pick up, and carry
                     // whatever the user had already typed as the question.
                     const reader = new FileReader();
-                    reader.onload = (e) => {
+                    reader.onload = async (e) => {
                       try {
+                        // Shrunk before stashing: sessionStorage holds ~5 MB,
+                        // and a raw phone photo would silently not fit.
                         sessionStorage.setItem('truegle_pending_image', JSON.stringify({
-                          dataUrl: e.target.result,
+                          dataUrl: await downscaleImage(e.target.result),
                           name: file.name,
                         }));
                       } catch { /* storage full/unavailable — image just won't carry over */ }

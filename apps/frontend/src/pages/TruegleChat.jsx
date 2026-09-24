@@ -22,6 +22,7 @@ import ChatLinkAction from '../components/chat/ChatLinkAction';
 import ChatLocationMap from '../components/chat/ChatLocationMap';
 import { fmtStamp, fmtStampFull, msgTime } from '../utils/formatTime';
 import { aiErrorMessage } from '../utils/aiError';
+import { downscaleImage } from '../utils/downscaleImage';
 import QueueButton from '../components/ui/QueueButton';
 import ChatShareButton from '../components/ui/ChatShareButton';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
@@ -585,7 +586,9 @@ export default function TruegleChat() {
         try {
           const chatRes = await aiAPI.chat(query, {
             context: MODE_TO_CONTEXT[primaryMode], modes, unhinged, verbose, history,
-            image: image?.dataUrl, searchResults,
+            // Shrunk on the device first: a raw phone photo is over Vercel's
+            // 4.5 MB request cap, which fails before our server ever sees it.
+            image: image?.dataUrl ? await downscaleImage(image.dataUrl) : undefined, searchResults,
           }, { signal: controller.signal });
           content = extractContent(chatRes);
         } catch (e) {
