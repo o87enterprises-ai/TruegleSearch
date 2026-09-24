@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader2, Plus, X } from 'lucide-react';
 import SearchPageShell from '../components/layout/SearchPageShell';
@@ -58,8 +58,12 @@ export default function FeedPage() {
   const location = useLocation();
   const { connections, ids, disconnect } = useSocialConnections();
   const { setPoppedOut } = usePlayer();
-  const [query, setQuery] = useState('');
-  const [submitted, setSubmitted] = useState('');
+  // ?q= arrives from the pill countdown on another page carrying what was
+  // typed there; the feed searches it straight away.
+  const [searchParams] = useSearchParams();
+  const [query, setQuery] = useState(() => searchParams.get('q') || '');
+  const [submitted, setSubmitted] = useState(() => (searchParams.get('q') || '').trim());
+  const [pillMode, setPillMode] = useState('yellow');
   const [busy, setBusy] = useState('');
   const [failed, setFailed] = useState('');
 
@@ -147,16 +151,8 @@ export default function FeedPage() {
     window.location.assign(`${BACKEND}/api/social-auth/${id}/start?return=/feed`);
   }, []);
 
-  // The pill cycles and navigates in the same click — the search bar is for
-  // searching the feeds, not for carrying a query somewhere else. 'yellow' is
-  // Feed, i.e. here already, so that leg is a no-op; every other leg matches
-  // FeedModeSelector's own routes exactly.
-  const onPill = useCallback((next) => {
-    if (next === 'yellow') return;
-    if (next === 'black') { navigate('/chat'); return; }
-    if (next === 'tube') { navigate('/feed/tube'); return; }
-    navigate(`/search?mode=${next}`);
-  }, [navigate]);
+  // The pill no longer navigates on the click: SmartPill (in the shell) runs
+  // a 5-second countdown and carries the typed text to the chosen page.
 
   // SEARCHES THE FEEDS IN PLACE — never the web. `submitted` feeds straight
   // back into useSocialFeed's query above, which asks /api/social/feed across
@@ -187,7 +183,7 @@ export default function FeedPage() {
   );
 
   return (
-    <SearchPageShell mode="yellow" pillMode="yellow" onPillSelect={onPill} searchBar={searchBar}>
+    <SearchPageShell mode="yellow" pillMode={pillMode} onPillSelect={setPillMode} pageMode="yellow" query={query} searchBar={searchBar}>
       {/* Directly under the bar, because it is about what is IN the bar. It
           renders nothing at all unless what was typed is a link the player can
           host, so the search box stays a search box the rest of the time. */}

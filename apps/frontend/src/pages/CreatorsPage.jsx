@@ -59,7 +59,7 @@ export default function CreatorsPage() {
   );
 
   return (
-    <SearchPageShell mode="yellow" pillMode={pillMode} onPillSelect={onPill} searchBar={searchBar}>
+    <SearchPageShell mode="yellow" pillMode={pillMode} onPillSelect={onPill} pageMode="yellow" query={query} searchBar={searchBar}>
       <div className="max-w-4xl mx-auto">
         <CreatorsRoster query={query} onClearFilter={() => setQuery('')} titleTag="h1" />
       </div>

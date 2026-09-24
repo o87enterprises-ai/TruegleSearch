@@ -1316,8 +1316,8 @@
       "pill-countdown-routing": {
         "Id": "pill-countdown-routing",
         "Type": "decision",
-        "Label": "Pill switch = 5s countdown + X cancel, carries query",
-        "body": "Clicking a pill or typing a detectable query starts a 5s countdown (X cancels) then navigates to that mode's page, carrying the search-bar text. Detection routing: audio/video link->Tube, playable social link->Feed, question->Chat, other link->safety-check/view, else Search. Long-term goal: one unified interface for all uses (later).",
+        "Label": "Pill 5s countdown + typing detection (approved 2026-09-24)",
+        "body": "Pill click: mode changes instantly, bar 'Going to X in 5... [x]' then navigate carrying typed text (empty bar too). X cancels; re-click cycles+restarts; Enter goes now; 2.2s hold-to-Chat kept. Typing detection (~700ms debounce): social link->Feed, playable video/audio link->Tube, other link->Search, question->Chat, local business->Mainstream (Maps card), else nothing. On the CHAT page only links + local pull away (questions/topics stay). X suppresses suggestions for that text.",
         "ts": "2026-09-24",
         "created": "2026-09-24"
       },

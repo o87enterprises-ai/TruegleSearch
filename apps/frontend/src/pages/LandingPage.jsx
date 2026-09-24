@@ -20,7 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import ModesAndTrending from '../components/landing/ModesAndTrending';
 import ChatModeRow from '../components/landing/ChatModeRow';
 import CategoryModeRow from '../components/landing/CategoryModeRow';
-import PillModeRow from '../components/landing/PillModeRow';
+import SmartPill from '../components/landing/SmartPill';
 import { MODE_COLORS, MODE_HINT_TEXT, searchThemeFor, searchGradientFor, searchIconFor, normalizePillMode } from '../config/modeTheme';
 import HoverHint from '../components/ui/HoverHint';
 import CreatorsRoster from '../components/creators/CreatorsRoster';
@@ -284,7 +284,7 @@ export default function LandingPage() {
                 elementExplain="This is the mode pill — click it to cycle through Truegle's search modes, or press and hold to jump straight back to Chat."
                 modeExplain={MODE_HINT_TEXT[pillMode]}
               >
-                <PillModeRow activeMode={pillMode} onSelect={handlePillModeSelect} />
+                <SmartPill activeMode={pillMode} onSelect={handlePillModeSelect} pageMode={null} query={searchQuery} />
               </HoverHint>
             </div>
 

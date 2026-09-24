@@ -65,7 +65,8 @@
     "aierror:test": "node scripts/verify-ai-error.mjs",
     "lockedgestures:test": "esbuild scripts/verify-locked-gestures.mjs --bundle --format=esm --platform=node --alias:react=./scripts/stubs/react.mjs --outfile=dev/.build/locked-gestures-test.mjs --log-level=error && node dev/.build/locked-gestures-test.mjs",
     "embedkinds:test": "vite-node scripts/verify-embed-kinds.mjs",
-    "osiris:test": "node scripts/verify-osiris-layers.mjs"
+    "osiris:test": "node scripts/verify-osiris-layers.mjs",
+    "intent:test": "node scripts/verify-query-intent.mjs"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.16.2",

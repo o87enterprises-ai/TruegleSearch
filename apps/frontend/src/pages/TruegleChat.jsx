@@ -27,7 +27,7 @@ import QueueButton from '../components/ui/QueueButton';
 import ChatShareButton from '../components/ui/ChatShareButton';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
 import FeedbackButtons from '../components/ui/FeedbackButtons';
-import PillModeRow from '../components/landing/PillModeRow';
+import SmartPill from '../components/landing/SmartPill';
 import CategoryModeRow from '../components/landing/CategoryModeRow';
 
 // Truegle Chat is a designated route for chat-first users — the same brand
@@ -893,7 +893,7 @@ export default function TruegleChat() {
             like the landing page. Cycling is state-only; a non-Chat pill sends
             the query to that /search page (see handleSend). */}
         <div className="mb-3 flex-shrink-0">
-          <PillModeRow activeMode={pillMode} onSelect={setPillMode} />
+          <SmartPill activeMode={pillMode} onSelect={setPillMode} pageMode="black" query={input} />
         </div>
 
         {/* Hero chat-mode row — a compact, always-visible copy of the lens pills

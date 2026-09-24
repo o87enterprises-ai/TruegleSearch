@@ -51,7 +51,7 @@ import LanguageSelector from '../components/ui/LanguageSelector';
 // OsintClassRow is retired on the ocean page (the OSINT Tools module owns tool
 // selection); osintHintPrefix is still used to tag ocean web searches.
 import { osintHintPrefix } from '../components/search/OsintClassRow';
-import PillModeRow from '../components/landing/PillModeRow';
+import SmartPill from '../components/landing/SmartPill';
 import ChatModeRow from '../components/landing/ChatModeRow';
 import { useUnhingedGate } from '../hooks/useUnhingedGate';
 import CreatorHeader, { CreatorPill } from '../components/creator/CreatorHeader';
@@ -1787,7 +1787,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
             </div>
           ) : !lockedGreen && (
             <div className="relative z-20 mb-2">
-              <PillModeRow activeMode={pillMode} onSelect={setPillMode} />
+              <SmartPill activeMode={pillMode} onSelect={setPillMode} pageMode={lockedTube ? 'tube' : mode} query={searchValue} />
             </div>
           )}
 

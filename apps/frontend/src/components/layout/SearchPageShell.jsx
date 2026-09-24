@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import TruegleLogo from '../ui/TruegleLogo';
-import PillModeRow from '../landing/PillModeRow';
+import SmartPill from '../landing/SmartPill';
 import ErrorBoundary from '../ui/ErrorBoundary';
 import { LITE_BG, MODE_COLORS } from '../../config/modeTheme';
 
@@ -55,6 +55,10 @@ export default function SearchPageShell({
   mode = 'blue',
   pillMode,
   onPillSelect,
+  // What this page already is, and what is typed — for SmartPill's
+  // countdown and typing detection.
+  pageMode = 'yellow',
+  query = '',
   searchBar,
   children,
   logoVariant,
@@ -133,7 +137,7 @@ export default function SearchPageShell({
 
           {onPillSelect && (
             <div className="relative z-20 mb-2">
-              <PillModeRow activeMode={pillMode} onSelect={onPillSelect} />
+              <SmartPill activeMode={pillMode} onSelect={onPillSelect} pageMode={pageMode} query={query} />
             </div>
           )}
 

@@ -15,7 +15,7 @@ import { MODE_COLORS, MODE_GRADIENT, searchModeLabel, solidTextClass } from '../
 const CYCLE = ['black', 'tube', 'blue', 'green', 'red', 'ocean', 'yellow'];
 const HOLD_MS = 2200; // press-and-hold this long (mobile long-press or desktop click-hold) to jump straight back to Chat
 
-export default function PillModeRow({ activeMode, onSelect }) {
+export default function PillModeRow({ activeMode, onSelect, onHold }) {
   const [holding, setHolding] = useState(false);
   const holdTimerRef = useRef(null);
   const firedRef = useRef(false); // true once the hold completes, so the trailing click doesn't also cycle
@@ -32,7 +32,9 @@ export default function PillModeRow({ activeMode, onSelect }) {
     holdTimerRef.current = setTimeout(() => {
       firedRef.current = true;
       setHolding(false);
-      onSelect('black'); // quick jump straight back to Chat, skipping the full cycle
+      // quick jump straight back to Chat, skipping the full cycle. `onHold`
+      // lets a page treat it as "go now" rather than a staged pick.
+      if (onHold) onHold(); else onSelect('black');
     }, HOLD_MS);
   };
   const cancelHold = () => {
