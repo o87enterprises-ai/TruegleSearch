@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, ChevronLeft, Search, Sparkles, Leaf, TrendingUp, Zap, Lock } from 'lucide-react';
 
@@ -143,6 +143,15 @@ export default function TutorialModal({ isOpen, onClose, onDontShowAgain }) {
   const handleDontShowAgain = () => {
     (onDontShowAgain || onClose)();
   };
+
+  // Escape closes, same as the backdrop click — a modal with no keyboard
+  // way out traps anyone who isn't using a mouse.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
 
   return (
     <AnimatePresence>

@@ -32,17 +32,22 @@ export default function HoverHint({
 
   const open = hovering || pinned;
 
-  // Tap-outside closes a pinned (touch-opened) popover.
+  // Tap/click outside or Escape closes an open popover. pointerdown, not
+  // mousedown: touch browsers don't reliably synthesize mousedown for a tap.
   useEffect(() => {
-    if (!pinned) return;
-    const onClick = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setPinned(false);
-      }
+    if (!open) return;
+    const close = () => { setPinned(false); setHovering(false); };
+    const onPointer = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) close();
     };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, [pinned]);
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
 
   if (hintsOptIn === false) return children;
   // Not the entry point and the visitor hasn't opted in yet — stay fully inert.

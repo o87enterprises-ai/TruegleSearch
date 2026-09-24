@@ -1312,6 +1312,30 @@
         "body": "feedCategories.js gains {id:'collections', platforms:['community']} with NO topic, so fetchCommunity falls to MediaService.list({sort:'new'}) with real offset paging — the newest submissions, not a query. community was already in the main feed fan-out and already leads Tube results via usePlayerSearch's /api/media/search merge; Collections was the only missing leg. Covered by verify-feed-page.mjs (platform-aware /api/social/feed stub so a miswired platform list fails) and verify-feed-tube.mjs (was stubbing /api/media/search empty, which hid the whole Tube leg).",
         "ts": "2026-09-10",
         "created": "2026-09-10"
+      },
+      "pill-countdown-routing": {
+        "Id": "pill-countdown-routing",
+        "Type": "decision",
+        "Label": "Pill switch = 5s countdown + X cancel, carries query",
+        "body": "Clicking a pill or typing a detectable query starts a 5s countdown (X cancels) then navigates to that mode's page, carrying the search-bar text. Detection routing: audio/video link->Tube, playable social link->Feed, question->Chat, other link->safety-check/view, else Search. Long-term goal: one unified interface for all uses (later).",
+        "ts": "2026-09-24",
+        "created": "2026-09-24"
+      },
+      "feed-live-default": {
+        "Id": "feed-live-default",
+        "Type": "decision",
+        "Label": "Feed = live social feed, all servers on, no connect row",
+        "body": "Feed must show a live feed on arrival without typing, and be searchable. Remove ConnectedRow (connect/disconnect chip list); keep Servers dropdown; all servers active by default.",
+        "ts": "2026-09-24",
+        "created": "2026-09-24"
+      },
+      "landing-cards-collapsible": {
+        "Id": "landing-cards-collapsible",
+        "Type": "decision",
+        "Label": "All landing cards collapsible",
+        "body": "All landing cards collapsed by default; hover opens, click pins open; on touch, tap toggles.",
+        "ts": "2026-09-24",
+        "created": "2026-09-24"
       }
     },
     "thread": {
@@ -1746,6 +1770,15 @@
         "status": "done",
         "ts": "2026-09-10",
         "created": "2026-09-10"
+      },
+      "session-2026-09-24-list": {
+        "Id": "session-2026-09-24-list",
+        "Type": "thread",
+        "Label": "2026-09-24 owner list (one item at a time)",
+        "body": "1 tutorial esc/click-outside 2 collapsible landing cards 3 feed home cleanup 4 check GLE chat 'offline' 5 pill countdown+query detection 6 maps/near-me (small escapable location modal; Google-Maps-plus: live traffic/cams/flights for pre-trip decisions) 7 player overhaul LAST - document current behaviour first, agree target.",
+        "status": "open",
+        "ts": "2026-09-24",
+        "created": "2026-09-24"
       }
     },
     "entity": {
@@ -3051,5 +3084,5 @@
       }
     }
   },
-  "updated": "2026-09-11"
+  "updated": "2026-09-24"
 }
