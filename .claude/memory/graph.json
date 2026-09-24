@@ -3087,6 +3087,22 @@
         "body": "gemini-2.0-flash 404s; default now gemini-3.8-flash (named by Google's own error). Free-tier availability of 3.8 flash NOT confirmed; key has no billing so worst case is a refusal, never a charge. If Vercel sets GEMINI_MODEL it overrides.",
         "ts": "2026-09-24",
         "created": "2026-09-24"
+      },
+      "owner-no-browser-tasks": {
+        "Id": "owner-no-browser-tasks",
+        "Type": "fact",
+        "Label": "Owner: NO browser/dashboard tasks — CLI only",
+        "body": "Owner (2026-09-24, emphatically, 'for the hundredth time'): never hand them browser/dashboard steps. Use a CLI (e.g. npx vercel ... from their Windows PowerShell repo checkout, linked to backend project) or do it yourself; if no CLI path exists, drop the task. Owner runs Windows PowerShell: no grep (use Select-String). This cloud env now has FULL network access.",
+        "ts": "2026-09-24",
+        "created": "2026-09-24"
+      },
+      "groq-vision-min-size": {
+        "Id": "groq-vision-min-size",
+        "Type": "fact",
+        "Label": "Groq vision: qwen3.8-27b default; tiny images rejected",
+        "body": "Image chat verified live 2026-09-24 via qwen/qwen3.8-27b (64x64 PNG -> 'Red', 3.4s, 6047 prompt tokens = system prompt sent once). Qwen vision rejects ~<28px images, so a 1x1 test PNG ALWAYS fails — test with >=64x64. Phone photos are downscaled client-side (utils/downscaleImage.js) to stay under Vercel's 4.5MB body cap.",
+        "ts": "2026-09-24",
+        "created": "2026-09-24"
       }
     }
   },
