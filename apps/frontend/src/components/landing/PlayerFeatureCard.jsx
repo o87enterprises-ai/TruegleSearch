@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { PlayCircle, ListMusic, PictureInPicture2, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import CollapsibleCard from './CollapsibleCard';
 
 // Introduces the Truegle player, directly under the landing search bar.
 //
@@ -23,36 +24,25 @@ export default function PlayerFeatureCard({ onOpen }) {
       transition={{ delay: 0.35, duration: 0.4 }}
       className="w-full max-w-2xl mx-auto px-4 mb-4"
     >
-      <button
-        type="button"
-        onClick={() => (onOpen ? onOpen() : navigate('/tube'))}
-        aria-label="Open True Tube"
-        className="group w-full text-left rounded-2xl border border-white/15 bg-white/[0.07] backdrop-blur-lg
-                   px-4 py-3 shadow-lg shadow-black/20 transition-colors hover:bg-white/[0.11] hover:border-purple-400/40"
+      {/* Collapsed to its title by default — see CollapsibleCard. */}
+      <CollapsibleCard
+        className="border-white/15 bg-white/[0.07] backdrop-blur-lg shadow-lg shadow-black/20 hover:border-purple-400/40"
+        header={(
+          <>
+            <span className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-green-500
+                             flex items-center justify-center shadow-md shadow-purple-500/20">
+              <PlayCircle size={16} className="text-white" />
+            </span>
+            <span className="text-white font-semibold text-sm">True Tube</span>
+            <span className="text-[10px] uppercase tracking-wide text-green-400/90 font-bold">New</span>
+          </>
+        )}
       >
-        <div className="flex items-center gap-3">
-          <span className="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-green-500
-                           flex items-center justify-center shadow-md shadow-purple-500/20">
-            <PlayCircle size={20} className="text-white" />
-          </span>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-2">
-              <span className="text-white font-semibold text-sm">True Tube</span>
-              <span className="text-[10px] uppercase tracking-wide text-green-400/90 font-bold">New</span>
-            </div>
-            <p className="text-white/60 text-xs leading-snug mt-0.5">
-              One player for video, reels and audio. Pop it out and it follows you across
-              Truegle while you keep searching.
-            </p>
-          </div>
-
-          <span className="hidden sm:inline shrink-0 text-xs font-semibold text-purple-300 group-hover:text-purple-200">
-            Try it →
-          </span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 pl-[52px]">
+        <p className="text-white/60 text-xs leading-snug">
+          One player for video, reels and audio. Pop it out and it follows you across
+          Truegle while you keep searching.
+        </p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {POINTS.map(({ icon: Icon, label }) => (
             <span key={label} className="flex items-center gap-1.5 text-[11px] text-white/45">
               <Icon size={12} className="text-white/40" />
@@ -60,7 +50,14 @@ export default function PlayerFeatureCard({ onOpen }) {
             </span>
           ))}
         </div>
-      </button>
+        <button
+          type="button"
+          onClick={() => (onOpen ? onOpen() : navigate('/tube'))}
+          className="self-start text-xs font-semibold text-purple-300 hover:text-purple-200"
+        >
+          Open True Tube →
+        </button>
+      </CollapsibleCard>
     </motion.div>
   );
 }

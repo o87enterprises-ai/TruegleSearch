@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import NewsFeed from './NewsFeed';
+import CollapsibleCard from './CollapsibleCard';
 
 // ── Mode showcase ────────────────────────────────────────────────────────────
 
@@ -120,28 +121,31 @@ function ModeCard({ mode, index }) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay: index * 0.08 }}
-      onClick={() => navigate(mode.path)}
-      className={`cursor-pointer group rounded-2xl border bg-white/[0.03] backdrop-blur-sm p-5 flex flex-col gap-3 transition-all duration-300 ${mode.border} hover:bg-white/[0.06] hover:shadow-xl ${mode.glow}`}
     >
-      <div className="flex items-center gap-2">
-        <span className={`w-2 h-2 rounded-full ${mode.dot} flex-shrink-0`} />
+      <CollapsibleCard
+        className={`${mode.border} hover:shadow-xl ${mode.glow}`}
+        header={(
+          <>
+            <span className={`w-2 h-2 rounded-full ${mode.dot} flex-shrink-0`} />
+            <h3 className={`text-lg font-bold bg-gradient-to-r ${mode.color} bg-clip-text text-transparent`}>
+              {mode.label}
+            </h3>
+          </>
+        )}
+      >
         <span className="text-xs text-white/40 font-semibold uppercase tracking-widest">{mode.tagline}</span>
-      </div>
-
-      <div>
-        <h3 className={`text-lg font-bold mb-1 bg-gradient-to-r ${mode.color} bg-clip-text text-transparent`}>
-          {mode.label}
-        </h3>
         <p className="text-sm text-white/60 leading-relaxed">{mode.description}</p>
-      </div>
-
-      <div className={`rounded-lg bg-black/40 border border-white/5 px-3 py-2 text-xs ${mode.textAccent} font-mono truncate`}>
-        &rsaquo; {mode.exampleQuery}
-      </div>
-
-      <div className={`flex items-center gap-1 text-xs ${mode.textAccent} opacity-0 group-hover:opacity-100 transition-opacity mt-auto`}>
-        Try it <ArrowRight size={12} />
-      </div>
+        <div className={`rounded-lg bg-black/40 border border-white/5 px-3 py-2 text-xs ${mode.textAccent} font-mono truncate`}>
+          &rsaquo; {mode.exampleQuery}
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate(mode.path)}
+          className={`self-start flex items-center gap-1 text-xs font-semibold ${mode.textAccent}`}
+        >
+          Try it <ArrowRight size={12} />
+        </button>
+      </CollapsibleCard>
     </motion.div>
   );
 }
@@ -165,7 +169,7 @@ export default function ModesAndTrending() {
         {/* Three across, not four: the list is six cards now (Tube and the
             Feed joined the lenses), and four columns leaves a ragged pair on
             the second row. */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
           {MODES.map((mode, i) => (
             <ModeCard key={mode.id} mode={mode} index={i} />
           ))}

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { MessageCircle, Compass, Brain } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import CollapsibleCard from './CollapsibleCard';
 
 // The mode list, spelled out identically wherever it's referenced (chat card,
 // search card) so the two stay in sync without duplicating the wording.
@@ -56,29 +57,41 @@ const CARDS = [
 export default function ThreeCards() {
   const navigate = useNavigate();
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto px-4">
+    // items-start: an opened card grows on its own; its row-mates stay one line.
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto px-4 items-start">
       {CARDS.map((card, i) => (
-        <motion.button
+        <motion.div
           key={card.title}
-          type="button"
-          onClick={() => navigate(card.path)}
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ delay: i * 0.08 }}
-          whileHover={{ y: -4 }}
-          className={`text-left rounded-2xl border bg-white/[0.03] backdrop-blur-sm p-6 flex flex-col gap-3 transition-all duration-300 ${card.border} hover:bg-white/[0.06]`}
         >
-          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${card.color} flex items-center justify-center shadow-lg`}>
-            <card.icon size={20} className="text-white" />
-          </div>
-          <h3 className={`text-lg font-bold bg-gradient-to-r ${card.color} bg-clip-text text-transparent`}>
-            {card.title}
-          </h3>
-          {(Array.isArray(card.description) ? card.description : [card.description]).map((para, j) => (
-            <p key={j} className="text-sm text-white/60 leading-relaxed">{para}</p>
-          ))}
-        </motion.button>
+          <CollapsibleCard
+            className={card.border}
+            header={(
+              <>
+                <span className={`shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br ${card.color} flex items-center justify-center shadow-lg`}>
+                  <card.icon size={16} className="text-white" />
+                </span>
+                <h3 className={`text-lg font-bold bg-gradient-to-r ${card.color} bg-clip-text text-transparent`}>
+                  {card.title}
+                </h3>
+              </>
+            )}
+          >
+            {(Array.isArray(card.description) ? card.description : [card.description]).map((para, j) => (
+              <p key={j} className="text-sm text-white/60 leading-relaxed">{para}</p>
+            ))}
+            <button
+              type="button"
+              onClick={() => navigate(card.path)}
+              className={`self-start text-xs font-semibold bg-gradient-to-r ${card.color} bg-clip-text text-transparent`}
+            >
+              Try it →
+            </button>
+          </CollapsibleCard>
+        </motion.div>
       ))}
     </div>
   );

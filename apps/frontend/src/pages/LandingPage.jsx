@@ -27,6 +27,7 @@ import CreatorsRoster from '../components/creators/CreatorsRoster';
 import { useUnhingedGate } from '../hooks/useUnhingedGate';
 import ThreeCards from '../components/landing/ThreeCards';
 import PlayerFeatureCard from '../components/landing/PlayerFeatureCard';
+import { CollapsibleCardGroup } from '../components/landing/CollapsibleCard';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import CursorGlow from '../components/ui/CursorGlow';
 import LandingBackground from '../components/LandingBackground';
@@ -185,6 +186,8 @@ export default function LandingPage() {
   }, [showMicrophoneInterface]);
 
   return (
+    // One open feature card at a time, page-wide — see CollapsibleCard.
+    <CollapsibleCardGroup>
     <div
       className={`min-h-screen relative ${isRedPillMode ? 'bg-[#1a0a0a]' : 'bg-blue-900/20'}`}
     >
@@ -892,6 +895,7 @@ export default function LandingPage() {
       )}
 
     </div>
+    </CollapsibleCardGroup>
   );
 }
 

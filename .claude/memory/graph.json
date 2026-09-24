@@ -1332,8 +1332,8 @@
       "landing-cards-collapsible": {
         "Id": "landing-cards-collapsible",
         "Type": "decision",
-        "Label": "All landing cards collapsible",
-        "body": "All landing cards collapsed by default; hover opens, click pins open; on touch, tap toggles.",
+        "Label": "Landing feature cards collapsed by default (built 2026-09-24)",
+        "body": "components/landing/CollapsibleCard.jsx + CollapsibleCardGroup (wraps LandingPage; one open card page-wide). Applies to PlayerFeatureCard, ThreeCards, the 7 ModesAndTrending mode cards (NOT NewsFeed/FeaturedCreator). Mouse: hover previews, leave collapses. Touch: finger RESTING 150ms previews (so scrolling never flaps cards), moving >10px / pointercancel collapses. Click/tap pins; pinned closes when scrolled fully out of view (IntersectionObserver) or another card previewed/pinned. Navigation moved to a 'Try it' button inside the opened card. Browser suite: /tmp script, 15 checks desktop+Pixel7. Note: html has scroll-behavior:smooth — tests must scroll with behavior:'instant'.",
         "ts": "2026-09-24",
         "created": "2026-09-24"
       },
