@@ -121,6 +121,8 @@ import { toHandle, SEARCH_SCOPES } from '../utils/playerQuery';
 const SEARCH_SCOPE_IDS = new Set(SEARCH_SCOPES.map((s) => s.id));
 import { parsePlayerParams, resolveShareInput } from '../utils/playerLink';
 import { usePlayer } from '../context/PlayerContext';
+import VideoRow from '../components/search/VideoRow';
+import ResultsPager from '../components/search/ResultsPager';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
 // (mainstream, conspiracy, democratic, republican, nonpartisan, music, videos,
@@ -1333,6 +1335,33 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // count line, the autoplay feed, the lens counts — consistent with what is
   // actually on screen.
   const displayResults = linkQuery ? [] : rawDisplayResults;
+
+  // ── GOOGLE-SHAPED "ALL" (Mainstream + Green) ──────────────────────────────
+  // Ten web results a page with page numbers, and the videos in one row of
+  // their own instead of merged into the list (a local-lawyer search came back
+  // as 20 web pages and 113 videos). Every other mode and tab keeps its list.
+  const RESULTS_PER_PAGE = 10;
+  const googleShaped = (mode === 'blue' || mode === 'green') && activeCategory === 'all' && !lockedTube
+    && displayResults.some((r) => r.category !== 'videos');
+  const webResults = useMemo(
+    () => (googleShaped ? displayResults.filter((r) => r.category !== 'videos') : displayResults),
+    [googleShaped, displayResults],
+  );
+  const videoRow = useMemo(
+    () => (googleShaped ? displayResults.filter((r) => r.category === 'videos').slice(0, 8) : []),
+    [googleShaped, displayResults],
+  );
+  const [resultsPage, setResultsPage] = useState(1);
+  useEffect(() => { setResultsPage(1); }, [lastSearchedQuery, mode, activeCategory]);
+  const pageCount = googleShaped ? Math.ceil(webResults.length / RESULTS_PER_PAGE) : 1;
+  const pageResults = googleShaped
+    ? webResults.slice((resultsPage - 1) * RESULTS_PER_PAGE, resultsPage * RESULTS_PER_PAGE)
+    : displayResults;
+  const resultsTopRef = useRef(null);
+  const goToPage = useCallback((p) => {
+    setResultsPage(p);
+    resultsTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   // ── THE FEED PLAYS THROUGH THE PLAYER ─────────────────────────────────────
   //
@@ -2591,7 +2620,9 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                   )}
 
                   {/* Feed autoplay controls — only where there's media to play */}
-                  {!tubeDocked && searchResults.some((r) => getVideoEmbed(r.url)) && (
+                  {/* Not on the Google-shaped All page: its videos live in
+                      their own row there, and each one plays on a tap. */}
+                  {!tubeDocked && !googleShaped && searchResults.some((r) => getVideoEmbed(r.url)) && (
                     <div className="flex flex-wrap items-center gap-2 mb-3">
                       <button
                         type="button"
@@ -2631,12 +2662,20 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                     </div>
                   )}
 
-                  {mode !== 'ocean' && displayResults.map((result, index) => (
-                    <Fragment key={result.url || index}>
+                  <div ref={resultsTopRef} className="scroll-mt-24" aria-hidden="true" />
+                  {mode !== 'ocean' && pageResults.map((result, i) => (
+                    <Fragment key={result.url || i}>
+                      {/* Videos sit after the third web result on page one,
+                          where Google puts its video block. */}
+                      {googleShaped && resultsPage === 1 && i === 3 && (
+                        <VideoRow videos={videoRow} onPlay={play} accent={modeAccent} />
+                      )}
                       <div>
                         <ResultCard
                           result={result}
-                          index={index}
+                          // Index into the full list, which the feed autoplay
+                          // and its "playing here" check are keyed on.
+                          index={displayResults.indexOf(result)}
                           mode={mode}
                           perspectiveColors={perspectiveColors}
                           accent={modeAccent}
@@ -2647,6 +2686,13 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                       </div>
                     </Fragment>
                   ))}
+
+                  {googleShaped && resultsPage === 1 && pageResults.length < 4 && (
+                    <VideoRow videos={videoRow} onPlay={play} accent={modeAccent} />
+                  )}
+                  {googleShaped && (
+                    <ResultsPager page={resultsPage} pageCount={pageCount} onPage={goToPage} accent={modeAccent} />
+                  )}
 
                   {/* Attribution badge — appears under the results so scraped/
                       shared result pages carry a visible Truegle credit. */}

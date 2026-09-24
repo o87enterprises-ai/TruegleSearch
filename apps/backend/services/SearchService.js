@@ -25,6 +25,35 @@ function decodeHtmlEntities(str) {
   });
 }
 
+
+// ── Relevance helpers ────────────────────────────────────────────────────────
+// Words that carry no topic. Kept short on purpose: every word removed here is
+// one a query can no longer be matched on.
+const RELEVANCE_STOPWORDS = new Set([
+  'the', 'and', 'for', 'with', 'from', 'that', 'this', 'what', 'how', 'why', 'who',
+  'are', 'was', 'were', 'you', 'your', 'can', 'does', 'did', 'about', 'into', 'near',
+]);
+const tokenize = (text) => String(text || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+// Light stemming: enough that "lawyers"/"lawyer" and "companies"/"company"
+// meet, not so much that unrelated words collapse together.
+function inflect(word) {
+  if (word.length > 4 && word.endsWith('ies')) return `${word.slice(0, -3)}y`;
+  if (word.length > 4 && /(sses|shes|ches|xes)$/.test(word)) return word.slice(0, -2);
+  if (word.length > 3 && word.endsWith('s') && !word.endsWith('ss')) return word.slice(0, -1);
+  return word;
+}
+// Words people use interchangeably for the same thing. Small and literal on
+// purpose — a "patent lawyers" search that skipped "Eugene Patent Attorney"
+// was the reported case. Each word maps onto its group's first member.
+const SYNONYMS = new Map(
+  [['lawyer', 'attorney', 'solicitor'], ['doctor', 'physician'], ['car', 'auto', 'automobile'], ['vet', 'veterinarian']]
+    .flatMap((group) => group.map((w) => [w, group[0]])),
+);
+const stem = (word) => { const base = inflect(word); return SYNONYMS.get(base) || base; };
+const relevanceTerms = (query) => [...new Set(
+  tokenize(query).filter((t) => t.length > 2 && !RELEVANCE_STOPWORDS.has(t)).map(stem),
+)];
+
 class SearchService {
   constructor() {
     // Green-mode AI-content blocklist. Seed list + optional env-provided extras
@@ -621,29 +650,37 @@ class SearchService {
    * TF-based relevance score (0-1): term frequency in title+snippet, with a
    * boost for an exact phrase match and for query terms appearing in the title.
    */
+  /**
+   * Relevance (0-1): how much of the QUESTION a result covers.
+   *
+   * It used to score term DENSITY — matches divided by the length of the title
+   * and snippet — which rewards a short text for repeating one query word.
+   * Reported 2026-09-24 against Google on "eugene oregon patent lawyers":
+   * "Eugene, Oregon - Wikipedia" (two of four words, in a three-word title)
+   * outscored "Top Patent Lawyers serving Eugene, Oregon" (all four), and a
+   * page of tourism sites and Eugène-the-poet videos sat among the law firms.
+   *
+   * Coverage first: the share of distinct query words present anywhere, with
+   * words in the TITLE counting again. Density is gone. Plurals and simple
+   * inflections match ("lawyers" = "lawyer"), because Google's do.
+   */
   calculateRelevance(query, result) {
-    const q = (query || '').toLowerCase().trim();
-    if (!q) return 0;
-
-    const queryTerms = q.replace(/[^\w\s]/g, ' ').split(/\s+/).filter((t) => t.length > 2);
-    if (queryTerms.length === 0) return 0;
+    const terms = relevanceTerms(query);
+    if (terms.length === 0) return 0;
 
     const title = (result.title || '').toLowerCase();
-    const snippet = (result.snippet || '').toLowerCase();
-    const docText = `${title} ${snippet}`;
-    const docTerms = docText.replace(/[^\w\s]/g, ' ').split(/\s+/).filter(Boolean);
-    if (docTerms.length === 0) return 0;
+    const docText = `${title} ${(result.snippet || '').toLowerCase()}`;
+    const docStems = new Set(tokenize(docText).map(stem));
+    if (docStems.size === 0) return 0;
+    const titleStems = new Set(tokenize(title).map(stem));
 
-    let matchScore = 0;
-    queryTerms.forEach((term) => {
-      const count = docTerms.filter((t) => t === term || t.includes(term)).length;
-      matchScore += count / docTerms.length;
-    });
+    const inDoc = terms.filter((t) => docStems.has(t)).length;
+    const inTitle = terms.filter((t) => titleStems.has(t)).length;
+    const coverage = inDoc / terms.length;
+    const titleCoverage = inTitle / terms.length;
+    const phrase = docText.includes((query || '').toLowerCase().trim()) ? 1 : 0;
 
-    let score = Math.min(matchScore / queryTerms.length, 1);
-    if (docText.includes(q)) score = Math.min(score + 0.2, 1);
-    if (queryTerms.some((term) => title.includes(term))) score = Math.min(score + 0.15, 1);
-    return score;
+    return Math.min(coverage * 0.65 + titleCoverage * 0.25 + phrase * 0.1, 1);
   }
 
   /**
@@ -1390,7 +1427,7 @@ class SearchService {
     return data.results.map((item) => ({
       title: item.title,
       url: item.url,
-      snippet: item.content || '',
+      snippet: decodeHtmlEntities(item.content || ''),
       source: 'searxng',
       // Show the aggregated engine so users know the provenance, but make clear
       // it came through Truegle's self-hosted metasearch (no direct tracking).
@@ -1457,7 +1494,7 @@ class SearchService {
         const base = {
           title: item.title || item.url,
           url: item.url,
-          snippet: item.content || '',
+          snippet: decodeHtmlEntities(item.content || ''),
           source: 'searxng',
           sourceName: item.engine ? `${item.engine} · via Truegle` : 'Truegle Metasearch',
           date: item.publishedDate || null,
@@ -1512,10 +1549,13 @@ class SearchService {
   formatBraveResults(data) {
     if (!data || !data.web || !data.web.results) return [];
 
+    // Brave's text arrives HTML-encoded, with <strong> around matched words:
+    // shown raw it read "patent attorneys &amp; lawyers" on the results page.
+    const clean = (t) => decodeHtmlEntities(String(t || '').replace(/<[^>]+>/g, ''));
     return data.web.results.map((item) => ({
-      title: item.title,
+      title: clean(item.title),
       url: item.url,
-      snippet: item.description || '',
+      snippet: clean(item.description),
       source: 'brave',
       sourceName: 'Brave Search',
       date: item.page_age || null,

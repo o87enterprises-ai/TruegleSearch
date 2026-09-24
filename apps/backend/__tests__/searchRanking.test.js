@@ -149,3 +149,41 @@ describe('rankResults — the things that must not change', () => {
     }
   });
 });
+
+// Reported 2026-09-24 against Google on "eugene oregon patent lawyers": the
+// old relevance scored DENSITY, so a short title repeating one query word beat
+// a page covering every word, and tourism sites sat among the law firms.
+describe('calculateRelevance — coverage, not density', () => {
+  const q = 'eugene oregon patent lawyers';
+
+  it('ranks a page covering every query word above a short one covering half', () => {
+    const full = svc.calculateRelevance(q, result('Top Patent Lawyers serving Eugene, Oregon on UpCounsel', 'https://upcounsel.com/x',
+      { snippet: 'Find and hire the best patent attorneys in Eugene with years of experience and reviews from clients.' }));
+    const half = svc.calculateRelevance(q, result('Eugene, Oregon - Wikipedia', 'https://en.wikipedia.org/wiki/Eugene,_Oregon'));
+    expect(full).toBeGreaterThan(half);
+  });
+
+  it('matches plurals both ways ("lawyers" finds "lawyer")', () => {
+    expect(svc.calculateRelevance('patent lawyers', result('Patent Lawyer', 'https://a.example')))
+      .toBeGreaterThan(svc.calculateRelevance('patent lawyers', result('Patent Office', 'https://b.example')));
+  });
+
+  it('treats lawyer and attorney as the same word', () => {
+    const attorney = svc.calculateRelevance(q, result('Eugene Patent Attorney - Beard St. Clair Gaffney', 'https://beardstclair.com/x',
+      { snippet: 'patent law in Eugene, Oregon' }));
+    expect(attorney).toBeGreaterThanOrEqual(0.8); // every word covered; 3 of 4 in the title
+  });
+
+  it('puts the on-topic firms ahead of tourism pages in a ranked list', () => {
+    const ranked = svc.rankResults(q, [
+      result('Things to Do in Eugene, OR | Travel Oregon', 'https://traveloregon.com/eugene'),
+      result('Eugene (given name) - Wikipedia', 'https://en.wikipedia.org/wiki/Eugene_(given_name)'),
+      result('Eugene, OR Patent Lawyers | Axiom Law', 'https://axiomlaw.com/eugene'),
+      result('Best Eugene, OR Patents Attorneys | Super Lawyers', 'https://superlawyers.com/eugene'),
+    ], { googleParity: true });
+    expect(titles(ranked).slice(0, 2).sort()).toEqual([
+      'Best Eugene, OR Patents Attorneys | Super Lawyers',
+      'Eugene, OR Patent Lawyers | Axiom Law',
+    ]);
+  });
+});
