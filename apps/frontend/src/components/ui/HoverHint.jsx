@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import { useTutorials } from '../../context/TutorialContext';
 
 /**
@@ -31,12 +32,12 @@ export default function HoverHint({
   const containerRef = useRef(null);
 
   const open = hovering || pinned;
+  const close = () => { setPinned(false); setHovering(false); };
 
   // Tap/click outside or Escape closes an open popover. pointerdown, not
   // mousedown: touch browsers don't reliably synthesize mousedown for a tap.
   useEffect(() => {
     if (!open) return;
-    const close = () => { setPinned(false); setHovering(false); };
     const onPointer = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) close();
     };
@@ -65,16 +66,30 @@ export default function HoverHint({
     >
       {children}
 
-      <AnimatePresence>
-        {open && (
+      {/* Enters with a fade, leaves INSTANTLY. There used to be an exit
+          animation, but a pill click re-themes the whole hero, and that frame
+          load starved it: the card sat on screen ~2s after a tap outside had
+          already closed it, which on a phone reads as "tap-outside is broken". */}
+      {/* Centring lives on a plain wrapper: framer-motion writes its own
+          `transform` for scale/y, which silently overrode -translate-x-1/2 and
+          hung the card off the pill's centre — off-screen on a phone. */}
+      {open && (
+        <div className="absolute z-20 top-full mt-3 left-1/2 -translate-x-1/2 w-64 max-w-[calc(100vw-2rem)]">
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 4 }}
             transition={{ duration: 0.15 }}
-            className="absolute z-20 top-full mt-3 left-1/2 -translate-x-1/2 w-64 rounded-2xl border border-white/10 bg-gradient-to-br from-[#0d0d1a] to-[#111827] p-4 shadow-2xl text-left"
+            className="relative rounded-2xl border border-white/10 bg-gradient-to-br from-[#0d0d1a] to-[#111827] p-4 shadow-2xl text-left pr-8"
             onClick={(e) => e.stopPropagation()}
           >
+            <button
+              type="button"
+              onClick={close}
+              aria-label="Close tip"
+              className="absolute top-2 right-2 p-1 rounded-lg text-white/40 hover:text-white/80 hover:bg-white/10 transition-colors"
+            >
+              <X size={14} />
+            </button>
             {showingInvite ? (
               <>
                 <p className="text-sm text-white font-semibold mb-1">Want quick tips like this?</p>
@@ -110,8 +125,8 @@ export default function HoverHint({
               </>
             )}
           </motion.div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

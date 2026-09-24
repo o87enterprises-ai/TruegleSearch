@@ -265,7 +265,10 @@ export default function LandingPage() {
               transition: 'transform 0.3s ease-out',
               pointerEvents: 'auto',
             }}
-            className="text-center w-full"
+            // relative z-10: the inline transform makes this its own stacking
+            // context, so without a z-index the scroll indicator (a later
+            // sibling) painted over the pill's hint card.
+            className="relative z-10 text-center w-full"
           >
             {/* Visually-hidden h1 — a11y/SEO title only; the wordmark logo above
                 is the visible brand treatment. */}
