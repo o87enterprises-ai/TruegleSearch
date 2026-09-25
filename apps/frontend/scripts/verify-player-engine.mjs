@@ -86,6 +86,7 @@ localStorage.setItem(QUEUE_KEY, JSON.stringify({
   history: [yt('older')],
   volume: 0.4,
 }));
+
 let loaded = loadState();
 check(loaded.queue.length === 0, 'a queue emptied last session comes back empty',
   `${loaded.queue.length} item(s): ${loaded.queue.map((q) => q.title).join(', ')}`);
@@ -95,6 +96,12 @@ check(loaded.history.some((h) => h.title === 'Video wasplaying'),
   loaded.history.map((h) => h.title).join(', '));
 check(!loaded.queueArmed, 'a restored queue is never armed');
 check(loaded.volume === 0.4, 'volume survives a reload', String(loaded.volume));
+
+// ALWAYS STARTS MINIMIZED (owner, 2026-09-25): a player saved at full size
+// used to come back full size over the Feed on the next visit.
+store.clear();
+localStorage.setItem(QUEUE_KEY, JSON.stringify({ queue: [], minimized: false, expanded: true }));
+check(loadState().minimized === true, 'a player left full size still starts minimized on the next visit');
 
 // A queue the user really did build still comes back in full.
 store.clear();

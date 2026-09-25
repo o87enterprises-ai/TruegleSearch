@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
-import { PROVIDERS, isConnectable } from '../../config/socialProviders';
+import { PROVIDERS, isConnectable, needsAuth } from '../../config/socialProviders';
 
 // SERVERS — which sources the timeline draws from. Default: all of them.
 //
@@ -41,7 +41,11 @@ import { PROVIDERS, isConnectable } from '../../config/socialProviders';
 // which is both true and the only thing worth saying to somebody whose only
 // available action is to switch it off.
 
-export default function FeedServers({ selected = [], onChange, down = [] }) {
+// `connected` / `onConnect`: the Feed's per-account Connect chips were
+// removed (owner, 2026-09-25 — a long row of buttons nobody needed to see
+// before reading the feed). Signing in to an account now lives here, on
+// that account's own row.
+export default function FeedServers({ selected = [], onChange, down = [], connected = [], onConnect, onDisconnect, busy = '' }) {
   const [open, setOpen] = useState(false);
   const box = useRef(null);
 
@@ -111,9 +115,13 @@ export default function FeedServers({ selected = [], onChange, down = [] }) {
             // "Service coming soon" for a source that is down right now, its
             // own standing reason for one that never could serve a feed.
             const note = isDown ? 'Service coming soon' : p.note;
+            const canConnect = onConnect && needsAuth(p.id) && !connected.includes(p.id) && !isDown;
+            // Accounts only — a public source "connected" in an older build is
+            // just switched on, and has nothing to disconnect from.
+            const canDisconnect = onDisconnect && needsAuth(p.id) && connected.includes(p.id);
             return (
+              <div key={p.id} className="flex items-center gap-1">
               <button
-                key={p.id}
                 type="button"
                 role="option"
                 aria-selected={on}
@@ -137,6 +145,30 @@ export default function FeedServers({ selected = [], onChange, down = [] }) {
                 </span>
                 {on && <Check size={14} className="text-emerald-400 shrink-0 mt-0.5" />}
               </button>
+              {canConnect && (
+                <button
+                  type="button"
+                  data-feed-connect={p.id}
+                  onClick={() => onConnect(p.id)}
+                  disabled={busy === p.id}
+                  className="shrink-0 mr-1 px-2 py-1 rounded-full text-[10px] font-semibold border border-white/20 text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-50"
+                  title={`Sign in to ${p.label} for your own feed`}
+                >
+                  {busy === p.id ? '…' : 'Connect'}
+                </button>
+              )}
+              {canDisconnect && (
+                <button
+                  type="button"
+                  data-feed-disconnect={p.id}
+                  onClick={() => onDisconnect(p.id)}
+                  className="shrink-0 mr-1 px-2 py-1 rounded-full text-[10px] border border-white/15 text-white/50 hover:text-white hover:bg-white/10"
+                  title={`Disconnect ${p.label}`}
+                >
+                  Disconnect
+                </button>
+              )}
+              </div>
             );
           })}
         </div>

@@ -429,9 +429,12 @@ export function loadState() {
       history: wasPlaying ? [...priorHistory, wasPlaying] : priorHistory,
       poppedOut: !!saved.poppedOut,
       expanded: !!saved.expanded,
-      // Collapsing the player is a decision too; springing back to full size
-      // on every reload is the same "it forgot what I did" complaint.
-      minimized: !!saved.minimized,
+      // ALWAYS STARTS MINIMIZED (owner, 2026-09-25): opening the Feed came up
+      // with last session's player filling the screen over the posts. It used
+      // to restore whatever size it was left at; now every visit starts with
+      // the small bar, and pressing play on anything opens it (every play
+      // action clears `minimized`), so nothing chosen is ever hidden.
+      minimized: true,
       dock: saved.dock === 'footer' || saved.dock === 'float' ? saved.dock : null,
       footerView: saved.footerView === 'hidden' ? 'hidden' : 'watch',
       locked: !!saved.locked,

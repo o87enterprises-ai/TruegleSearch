@@ -363,34 +363,22 @@ check(arrived.every((c) => (c.body.platforms || []).every((pl) => usable.include
   '…and never a platform the page does not offer',
   `sent ${JSON.stringify(arrived[0]?.body?.platforms)}`);
 
-// ── 5b. a public source is switched on, not signed into ─────────────────────
-// Hacker News and GitHub are keyless and accountless. Sending them round the
-// OAuth handshake would be theatre, and the kind that teaches people to expect
-// Truegle to ask for logins it does not need.
-//
-// REWRITTEN for default-all. This used to click the pill and WAIT for the feed
-// request that switching the source on triggered — but every keyless source is
-// already on from the first paint now, so that request never comes and the wait
-// could only ever time out. What is still worth pinning is the rule the section
-// was named for: touching a public source must not start a handshake.
-calls.length = 0;
-await page.click('[data-provider="hackernews"]');
-// A negative needs a moment to have failed to happen; there is no event for
-// "no request was made". Kept short and kept explained.
-await page.waitForTimeout(800);
-check(!calls.some((c) => c.path.includes('/social-auth/')),
-  'switching on a public source involves no handshake at all',
-  calls.map((c) => c.path).join(' ') || '(no calls)');
-check(await page.evaluate(() => JSON.parse(localStorage.getItem('truegle_feed_connections') || '[]')
-  .some((c) => c.provider === 'hackernews')),
-  '…and is recorded locally, with no account anywhere');
-// It was already in the feed request before the click, because it is keyless
-// and therefore on by default — which is the whole point of default-all.
-check(arrived.every((c) => (c.body.platforms || []).includes('hackernews')),
-  '…having already been in the feed request, since a keyless source needs no permission',
-  JSON.stringify(arrived[0]?.body?.platforms));
+// ── 5b. one control for sources: the Servers dropdown ──────────────────────
+// REPLACED 2026-09-25 (owner): the row of "+ Reddit / + Hacker News …" chips
+// under the pill is gone. Every public source is on by default, so the chips
+// only duplicated the dropdown and pushed the feed down a phone screen. What
+// is pinned now: no chip row, and the dropdown lists the public sources with
+// nothing to sign into.
+check(await page.locator('[data-provider]').count() === 0,
+  'the per-account chip row is gone from a connected feed');
+await page.click('[data-feed-servers-toggle]');
+check(await page.locator('[data-feed-server="hackernews"][data-usable="yes"]').count() === 1,
+  '…Hacker News is in the Servers dropdown and usable');
+check(await page.locator('[data-feed-connect="hackernews"]').count() === 0,
+  '…with no Connect button, since a public source has nothing to sign into');
+await page.keyboard.press('Escape');
 
-// ── 6. the mode pill navigates immediately, without losing the player ──────
+// ── 6. the mode pill takes you there, without losing the player ──────────
 // REVERSED from the old rule on purpose. It used to cycle only, and wait for
 // the search bar's own submit to actually go anywhere — that submit no
 // longer exists (see FeedPage.jsx's header note), so the pill would be a
@@ -413,11 +401,18 @@ await page.evaluate(() => {
   }));
 });
 await openApp(page, `${BASE}/feed`);
+// 2026-09-25: the pill counts down (5s, ✕ to cancel) instead of leaving on
+// the click — see SmartPill. "Go now" is the no-wait path.
 await page.click('button[title^="Click to switch mode"]');
+await until(async () => (await page.locator('[role="status"]', { hasText: 'Going to' }).count()) > 0,
+  { what: 'the pill click to start its countdown' });
+check((await page.locator('[role="status"]', { hasText: 'Going to' }).innerText()).includes('Chat'),
+  'clicking the pill from Feed starts a countdown to Chat, the next mode in the cycle');
+await page.getByRole('button', { name: 'Go now' }).click({ force: true });
 await until(() => new URL(page.url()).pathname !== '/feed',
-  { what: 'the pill click to navigate on its own, with no submit step' });
+  { what: '"Go now" to navigate' });
 check(new URL(page.url()).pathname === '/chat',
-  'clicking the pill from Feed advances the cycle straight to Chat', page.url());
+  '…and "Go now" goes straight there', page.url());
 check(await page.evaluate(() => JSON.parse(localStorage.getItem('truegle_player_queue_v2') || '{}').queue?.length) === 1,
   '…and the queued track is still there — the pill navigates, it does not touch the player');
 await openApp(page, `${BASE}/feed`);

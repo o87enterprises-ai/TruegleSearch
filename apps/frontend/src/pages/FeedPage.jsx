@@ -57,7 +57,7 @@ export default function FeedPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { connections, ids, disconnect } = useSocialConnections();
-  const { setPoppedOut } = usePlayer();
+  const { setPoppedOut, setMinimized } = usePlayer();
   // ?q= arrives from the pill countdown on another page carrying what was
   // typed there; the feed searches it straight away.
   const [searchParams] = useSearchParams();
@@ -81,8 +81,11 @@ export default function FeedPage() {
       if (localStorage.getItem(KEY)) return;
       localStorage.setItem(KEY, '1');
       setPoppedOut(true);
+      // Popping out un-minimizes (right for a click, wrong here): the Feed
+      // opens with the player as the small bar, per the owner, 2026-09-25.
+      setMinimized(true);
     } catch { /* private mode / quota — the default just won't stick */ }
-  }, [setPoppedOut]);
+  }, [setPoppedOut, setMinimized]);
 
   // SERVERS — default all, per spec. Everything keyless is on for a brand-new
   // visitor, so the feed has something in it the moment the page opens rather
@@ -243,7 +246,15 @@ export default function FeedPage() {
               );
             })}
           </div>
-          <FeedServers selected={servers} onChange={setServers} down={downProviders} />
+          <FeedServers
+            selected={servers}
+            onChange={setServers}
+            down={downProviders}
+            connected={connections.map((c) => c.provider)}
+            onConnect={start}
+            onDisconnect={disconnect}
+            busy={busy}
+          />
         </div>
       </div>
 
@@ -291,7 +302,6 @@ export default function FeedPage() {
         <ArrivalState onConnect={start} busy={busy} />
       ) : (
         <>
-          <ConnectedRow connections={connections} onDisconnect={disconnect} onConnect={start} busy={busy} />
           <FeedList feed={feed} />
         </>
       )}
@@ -362,62 +372,6 @@ function ArrivalState({ onConnect, busy }) {
 
 // ── connected ───────────────────────────────────────────────────────────────
 
-// Connected sources, and the ones you could still add.
-//
-// The arrival pills disappear the moment anything is connected, so with only
-// Reddit on offer there was nowhere to add a second source — and now that
-// Hacker News and GitHub are their own pills rather than being smuggled in
-// under Reddit, "nowhere to add a second source" would mean nobody could ever
-// reach them without disconnecting first. The unconnected ready ones sit here,
-// faint, next to what is already on.
-function ConnectedRow({ connections, onDisconnect, onConnect, busy }) {
-  const connected = new Set(connections.map((c) => c.provider));
-  const addable = PROVIDERS.filter((p) => !connected.has(p.id) && (p.status === 'demo' || p.status === 'open'));
-  return (
-    <div className="max-w-4xl mx-auto mb-4 flex flex-wrap items-center gap-2">
-      <span className="text-white/30 text-[10px] uppercase tracking-wider">Connected</span>
-      {connections.map((c) => {
-        const meta = PROVIDERS.find((p) => p.id === c.provider);
-        return (
-          <span
-            key={c.provider}
-            className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full bg-white/[0.06] border border-white/15 text-xs text-white/80"
-          >
-            <span className="w-2 h-2 rounded-full" style={{ background: meta?.colour || '#888' }} />
-            {meta?.label || c.provider}
-            <button
-              type="button"
-              onClick={() => onDisconnect(c.provider)}
-              aria-label={`Disconnect ${meta?.label || c.provider}`}
-              className="p-0.5 rounded-full text-white/40 hover:text-white hover:bg-white/10"
-            >
-              <X size={12} />
-            </button>
-          </span>
-        );
-      })}
-
-      {addable.map((p) => (
-        <button
-          key={p.id}
-          type="button"
-          data-provider={p.id}
-          data-ready="yes"
-          disabled={busy === p.id}
-          onClick={() => onConnect(p.id)}
-          title={p.note}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.02] border border-dashed border-white/15 text-xs text-white/45 hover:text-white/80 hover:border-white/30 transition-colors"
-        >
-          {busy === p.id
-            ? <Loader2 size={11} className="animate-spin" />
-            : <Plus size={11} />}
-          {p.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function FeedList({ feed }) {
   const { items, loading, error, done, sentinel, allSeen } = feed;
   // Which card is nearest the vertical center of the viewport, purely for the
@@ -454,8 +408,7 @@ function FeedList({ feed }) {
           typed query to distinguish "popular" from "searched", see the
           search bar removal above. */}
       <p className="text-white/30 text-[11px] mb-3">
-        Popular right now. A personal feed needs a provider to grant one — see the notes on
-        each account.
+        Popular right now. For your own accounts, connect them under Servers.
       </p>
 
       <div className="space-y-3">

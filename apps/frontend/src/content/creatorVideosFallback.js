@@ -96,8 +96,7 @@ export const CREATOR_VIDEOS_FALLBACK = {
   ],
   "UCQVBGSq7vdLanRbowiu163w": [],
   "UC0UpxtDnri_fa5fB_PoAYhw": [],
-  "UCB9LqQNtyPPdW1prv0h8_5Q": [],
-  "UC8DA4o0SyaGfyVaBLbF5EXg": []
+  "UCB9LqQNtyPPdW1prv0h8_5Q": []
 };
 
 export const fallbackVideos = (channelId) => CREATOR_VIDEOS_FALLBACK[channelId] || [];

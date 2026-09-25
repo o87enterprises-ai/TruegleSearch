@@ -21,5 +21,4 @@ module.exports = [
   { slug: 'mind-unveiled', name: 'Mind Unveiled', channelId: 'UCQVBGSq7vdLanRbowiu163w' },
   { slug: 'xevi', name: 'Xevi', channelId: 'UC0UpxtDnri_fa5fB_PoAYhw' },
   { slug: 'stolen-timelines', name: 'Stolen Timelines', channelId: 'UCB9LqQNtyPPdW1prv0h8_5Q' },
-  { slug: 'adam-mockler', name: 'Adam Mockler', channelId: 'UC8DA4o0SyaGfyVaBLbF5EXg' },
 ];

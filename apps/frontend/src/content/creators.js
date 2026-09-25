@@ -75,13 +75,6 @@ export const CREATORS = [
     avatar: null, refCode: 'stolen-timelines', featured: false,
     socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@stolentimeline' }],
   },
-  {
-    slug: 'adam-mockler', name: 'Adam Mockler', tagline: '',
-    channelId: 'UC8DA4o0SyaGfyVaBLbF5EXg',
-    channelUrl: 'https://www.youtube.com/@adammockler',
-    avatar: null, refCode: 'adam-mockler', featured: false,
-    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@adammockler' }],
-  },
 ];
 
 export const getCreator = (slug) => CREATORS.find((c) => c.slug === slug) || null;

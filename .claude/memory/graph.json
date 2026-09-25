@@ -1324,9 +1324,9 @@
       "feed-live-default": {
         "Id": "feed-live-default",
         "Type": "decision",
-        "Label": "Feed = live social feed, all servers on, no connect row",
-        "body": "Feed must show a live feed on arrival without typing, and be searchable. Remove ConnectedRow (connect/disconnect chip list); keep Servers dropdown; all servers active by default.",
-        "ts": "2026-09-24",
+        "Label": "Feed: no chip row; Servers dropdown is the one control (2026-09-25)",
+        "body": "ConnectedRow (+Reddit/+Mastodon... chips) removed. All keyless sources on by default (was already true). Sign-in lives in FeedServers: Connect/Disconnect buttons on rows whose status is 'demo' (needsAuth) — none exist today, so dormant. Feed note reads 'Popular right now. For your own accounts, connect them under Servers.' Feed reads ?q=.",
+        "ts": "2026-09-25",
         "created": "2026-09-24"
       },
       "landing-cards-collapsible": {
@@ -1368,6 +1368,22 @@
         "body": "POST /api/maps/local-pack -> services/LocalPackService.js: service word (SERVICES table: lawyers->'law firm'+'attorney' w/ category /legal/ + exclude title/bank/insurance; plumbers, dentists, etc.) + town geocoded out of the query (TomTom geocode, type Geography, longest window at either end) or visitor lat/lng for near-me; leftover words = specialty (tried first as '<specialty> <term>'). TomTom POIs only (free), phone required, no invented ratings/hours. Firms whose domain/distinctive name appear in the web results rank first + 'In your results' badge (query words ignored). Frontend components/search/LocalPackCard.jsx (+ lazy LocalPackMap: Leaflet + Esri World Imagery satellite, numbered pins) above results on Mainstream/Green All page 1; Call=tel:, Website, Directions=OpenStreetMap until Truegle Maps has routing (item #6). 1h cache per query.",
         "ts": "2026-09-24",
         "created": "2026-09-24"
+      },
+      "creator-roster-mockler-removed": {
+        "Id": "creator-roster-mockler-removed",
+        "Type": "decision",
+        "Label": "Adam Mockler removed from creators (2026-09-25)",
+        "body": "Owner: too much anti-Trump content/spam for an unbiased social feed. Removed from frontend content/creators.js, backend config/creatorsRoster.js (feeds the Feed 'Truegle Creators' source + Tube creator rows) and creatorVideosFallback.js. NOT blocked from ordinary search results (no-censorship value) — only no longer promoted. Rosters are hand-synced: edit BOTH files.",
+        "ts": "2026-09-25",
+        "created": "2026-09-25"
+      },
+      "player-starts-minimized": {
+        "Id": "player-starts-minimized",
+        "Type": "decision",
+        "Label": "Player always starts minimized (2026-09-25)",
+        "body": "PlayerContext.loadState restores minimized:true regardless of saved size; FeedPage's one-time pop-out default also calls setMinimized(true) (setPoppedOut clears minimized). Every play action still un-minimizes, so chosen media is never hidden.",
+        "ts": "2026-09-25",
+        "created": "2026-09-25"
       }
     },
     "thread": {
@@ -3140,5 +3156,5 @@
       }
     }
   },
-  "updated": "2026-09-24"
+  "updated": "2026-09-25"
 }
