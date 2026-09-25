@@ -322,7 +322,7 @@ export default function FeedPage() {
         <ArrivalState onConnect={start} busy={busy} />
       ) : (
         <>
-          <FeedList feed={feed} />
+          <FeedList feed={feed} searching={Boolean(person?.subject || submitted)} />
         </>
       )}
     </SearchPageShell>
@@ -392,7 +392,7 @@ function ArrivalState({ onConnect, busy }) {
 
 // ── connected ───────────────────────────────────────────────────────────────
 
-function FeedList({ feed }) {
+function FeedList({ feed, searching = false }) {
   const { items, loading, error, done, sentinel, allSeen } = feed;
   // Which card is nearest the vertical center of the viewport, purely for the
   // enlarge/play-button treatment — nothing here ever autoplays. See
@@ -424,11 +424,10 @@ function FeedList({ feed }) {
     <div className="max-w-4xl mx-auto">
       {/* Said plainly rather than implied. Without OAuth there is no personal
           front page on any of these, so calling this "your feed" would be a
-          claim the data cannot support. Unconditional now — there is no more
-          typed query to distinguish "popular" from "searched", see the
-          search bar removal above. */}
+          claim the data cannot support. A search is not "popular right now",
+          so it says what it is instead. */}
       <p className="text-white/30 text-[11px] mb-3">
-        Popular right now. For your own accounts, connect them under Servers.
+        {searching ? 'Public posts matching your search.' : 'Popular right now.'} For your own accounts, connect them under Servers.
       </p>
 
       <div className="space-y-3">
