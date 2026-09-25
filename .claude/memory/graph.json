@@ -1400,6 +1400,14 @@
         "body": "Traffic layer reads VITE_MAPBOX_ACCESS_TOKEN at build time; set via 'npx wrangler pages secret put VITE_MAPBOX_ACCESS_TOKEN --project-name truegle-search'. Never commit it (classifier blocks it). Decided 2026-09-25.",
         "ts": "2026-09-25",
         "created": "2026-09-25"
+      },
+      "maps-phase2-done": {
+        "Id": "maps-phase2-done",
+        "Type": "decision",
+        "Label": "Maps Phase 2 shipped (incidents + Live here)",
+        "body": "2026-09-25, 86d1155: /api/maps/incidents (TomTom v5 incidentDetails, free tier, 2-min cache per ~1km box, >10,000km2 = tooLarge). Map incident pins while traffic on; place card 'Live here' line; Directions turns traffic on. Verified live: 73 Portland incidents. Next: Phase 3 'Before you go' card.",
+        "ts": "2026-09-25",
+        "created": "2026-09-25"
       }
     },
     "thread": {
