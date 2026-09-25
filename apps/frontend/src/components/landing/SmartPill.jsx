@@ -82,7 +82,7 @@ export default function SmartPill({ activeMode, onSelect, pageMode = null, query
     const id = setTimeout(() => {
       const intent = detectIntent(text);
       if (!intent) return;
-      if (pageMode === 'black' && !['social', 'media', 'link', 'local'].includes(intent.kind)) return;
+      if (pageMode === 'black' && !['social', 'media', 'link', 'local', 'osint', 'profile'].includes(intent.kind)) return;
       // Already somewhere that handles it: a link or local search on any search
       // page, a local search on Mainstream or Green (both show the Maps card).
       const here = activeMode;

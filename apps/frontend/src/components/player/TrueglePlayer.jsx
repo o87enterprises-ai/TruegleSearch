@@ -335,7 +335,7 @@ export default function TrueglePlayer({
       // The user may have started something themselves while we were waiting —
       // dropping a feed on top of that would be the player talking over them.
       if (cancelled || !batch.length) return;
-      enqueueMany(batch);
+      enqueueMany(batch, undefined, { quiet: true });
     })();
     return () => { cancelled = true; };
   }, [current, queue.length, locked, visible, upNext, enqueueMany, onFeedDeck]);

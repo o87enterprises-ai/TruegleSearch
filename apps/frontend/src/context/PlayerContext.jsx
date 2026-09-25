@@ -199,7 +199,11 @@ export function reducer(s, a) {
       // topping itself up. Only the former is a statement about what should
       // play next — see queueArmed.
       const armed = a.byUser ? true : s.queueArmed;
-      if (!s.current) return { ...s, current: a.source, minimized: false, queueArmed: armed };
+      // `quiet`: the player filling itself (TrueglePlayer's empty-viewport
+      // fill) loads something to show, but must not un-minimize a player the
+      // page or the person minimized — that is how the Feed kept opening with
+      // the player full size despite starting minimized.
+      if (!s.current) return { ...s, current: a.source, minimized: a.quiet ? s.minimized : false, queueArmed: armed };
       if (sameSrc(s.current, a.source) || s.queue.some((q) => sameSrc(q, a.source))) {
         return armed === s.queueArmed ? s : { ...s, queueArmed: armed };
       }
@@ -208,7 +212,7 @@ export function reducer(s, a) {
     case 'enqueueMany': { // used by shared player links: first plays, rest line up
       const list = (a.sources || []).filter((s) => s?.src);
       if (!list.length) return s;
-      return list.reduce((acc, source) => reducer(acc, { type: 'enqueue', source }), s);
+      return list.reduce((acc, source) => reducer(acc, { type: 'enqueue', source, quiet: a.quiet }), s);
     }
     case 'next': {
       // `manual` = the user pressed Next. Play mode describes what happens
@@ -493,7 +497,7 @@ export const PlayerProvider = ({ children }) => {
   const enqueue = useCallback((source, { byUser = true, deck } = {}) => dispatch({ type: 'enqueue', source, byUser, deck }), []);
   // Shared links and automatic top-ups: these put things in the list without
   // anyone asking for the list to take over, so they never arm it.
-  const enqueueMany = useCallback((sources, deck) => dispatch({ type: 'enqueueMany', sources, deck }), []);
+  const enqueueMany = useCallback((sources, deck, { quiet = false } = {}) => dispatch({ type: 'enqueueMany', sources, deck, quiet }), []);
   // Automatic advance (a track ended) honours the play mode; the transport's
   // Next button passes manual so it always moves.
   const next = useCallback(() => dispatch({ type: 'next' }), []);

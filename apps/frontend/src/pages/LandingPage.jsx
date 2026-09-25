@@ -345,15 +345,15 @@ export default function LandingPage() {
                   // whichever Pill Mode is active. Black = Chat (chatModes/
                   // nephesh/verbose are already live in localStorage via their
                   // sync effects — TruegleChat reads them fresh on mount).
-                  // Yellow (Feed) just jumps to /feed — whatever's typed here
-                  // isn't carried over; Feed has its own search bar for
-                  // searching the feeds themselves. Everything else ->
+                  // Yellow (Feed) searches the feeds for what was typed.
+                  // Everything else ->
                   // /search?mode=X.
                   const q = searchQuery.trim();
                   if (pillMode === 'black') {
                     navigate(q ? `/chat?q=${encodeURIComponent(q)}` : '/chat');
                   } else if (pillMode === 'yellow') {
-                    navigate('/feed');
+                    // Carried now: "FB Daniel Oden" has to arrive as a search.
+                    navigate(q ? `/feed?q=${encodeURIComponent(q)}` : '/feed');
                   } else if (pillMode === 'tube') {
                     // True Tube owns /tube — that's the link people share.
                     navigate(q ? `/tube?q=${encodeURIComponent(q)}` : '/tube');
@@ -373,6 +373,14 @@ export default function LandingPage() {
                 }
                 size="large"
               />
+              {/* The one thing a first-time visitor needs to know. Quiet, and
+                  gone once they start typing — by then they know. */}
+              <p
+                className={`mt-2 text-center text-xs text-white/40 transition-opacity duration-300 ${searchQuery ? 'opacity-0' : 'opacity-100'}`}
+                aria-hidden={searchQuery ? 'true' : undefined}
+              >
+                Use Truegle just like Google — it handles the rest.
+              </p>
             </div>
 
             {/* Chat Mode row (multi-select chat lenses) — directly below the

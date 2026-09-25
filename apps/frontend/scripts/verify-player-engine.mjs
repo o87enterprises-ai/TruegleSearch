@@ -338,6 +338,13 @@ check(s.queue.length === 0, 'the same item is not queued twice', `${s.queue.leng
 s = run(INITIAL, { type: 'play', source: yt('a') }, { type: 'setVolume', value: 2 });
 check(s.volume === 1, 'volume clamps in the reducer too', String(s.volume));
 
+// The player filling itself must not reopen a minimized player (the Feed
+// opens with it minimized); a person's own enqueue still opens it.
+s = run(INITIAL, { type: 'setMinimized', value: true }, { type: 'enqueueMany', sources: [yt('a'), yt('b')], quiet: true });
+check(!!s.current && s.minimized === true, 'self-fill loads but stays minimized', `current=${!!s.current} min=${s.minimized}`);
+s = run(INITIAL, { type: 'setMinimized', value: true }, { type: 'enqueueMany', sources: [yt('a')] });
+check(s.minimized === false, 'a shared link / user enqueue still opens the player', String(s.minimized));
+
 console.log([...ok, ...bad].join('\n'));
 console.log(`\n${ok.length} passed, ${bad.length} failed`);
 process.exit(bad.length ? 1 : 0);

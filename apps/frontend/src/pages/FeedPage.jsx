@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Loader2, Plus, X } from 'lucide-react';
+import { ExternalLink, Loader2, Plus, X } from 'lucide-react';
 import SearchPageShell from '../components/layout/SearchPageShell';
 import SearchBar from '../components/ui/SearchBar';
 import FeedLinkSubmit from '../components/feed/FeedLinkSubmit';
@@ -16,6 +16,7 @@ import { useSocialFeed } from '../hooks/useSocialFeed';
 import { useFeedFocus } from '../hooks/useFeedFocus';
 import { useFeedCursor } from '../hooks/useFeedCursor';
 import { usePlayer } from '../context/PlayerContext';
+import { parseSocialQuery } from '../utils/queryIntent';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -114,15 +115,19 @@ export default function FeedPage() {
   // An opened category narrows the timeline to its own sources; home uses all
   // of them. Intersected with what Servers has switched on either way, so a
   // source turned off is off everywhere.
+  // "FB Daniel Oden": look for Daniel Oden, on Facebook. Named on purpose, so
+  // it is searched even if Facebook is switched off under Servers.
+  const person = useMemo(() => parseSocialQuery(submitted), [submitted]);
   const platforms = useMemo(() => {
+    if (person) return platformsFor([person.platform]);
     const all = platformsFor(activeIds);
     if (!openCategory) return all;
     return platformsForCategory(openCategory, all);
-  }, [activeIds.join(','), openCategory?.id]);
+  }, [activeIds.join(','), openCategory?.id, person?.platform]);
   const feed = useSocialFeed({
     // An opened category with a topic seeds the query, unless the visitor has
     // typed something — what they typed always wins over the category's seed.
-    query: submitted || openCategory?.topic || '',
+    query: person?.subject || submitted || openCategory?.topic || '',
     platforms,
     enabled: platforms.length > 0,
     // The aggregated timeline: one post from every source in turn rather than
@@ -192,6 +197,21 @@ export default function FeedPage() {
           host, so the search box stays a search box the rest of the time. */}
       <div className="max-w-4xl mx-auto mb-4">
         <FeedLinkSubmit url={query} onPosted={() => { setQuery(''); feed.reload?.(); }} />
+        {person && (
+          <p className="mt-2 text-sm text-white/60 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>Public {person.label} posts for “{person.subject}”.</span>
+            {/* Most of a profile is behind the platform's login — the direct
+                search is the honest way to the rest of it. */}
+            <a
+              href={person.profileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-yellow-300 hover:text-yellow-200 underline underline-offset-2"
+            >
+              Find “{person.subject}” on {person.label} <ExternalLink size={13} aria-hidden="true" />
+            </a>
+          </p>
+        )}
       </div>
 
       {failed && (

@@ -48,13 +48,87 @@ const LOCAL_SERVICE = /\b(lawyers?|attorneys?|law ?firms?|plumb(?:er|ers|ing)|el
 const NEAR_ME = /\b(near me|nearby|around me|close to me|in my area)\b/i;
 const LOCAL_FILLER = /^(best|top|cheap|good|find|the|for|and|in|a|rated|reviews?)$/i;
 
+/* ── A person on a platform: "FB Daniel Oden", "danoden ig" ─────────────────
+ *
+ * A platform's short name plus who to look for. Unambiguous names (fb,
+ * insta, tiktok…) take any 1–4 word subject. Short ones that are also
+ * ordinary words ("x", "truth", "rumble") need the subject to look like a
+ * person — a @handle or Capitalised Names — so "x men cast" stays a search.
+ */
+const PLATFORM_WORDS = {
+  fb: 'facebook', facebook: 'facebook',
+  ig: 'instagram', insta: 'instagram', instagram: 'instagram',
+  tiktok: 'tiktok', tt: 'tiktok',
+  twitter: 'x', tw: 'x', x: 'x',
+  reddit: 'reddit',
+  bsky: 'bluesky', bluesky: 'bluesky',
+  truth: 'truthsocial', truthsocial: 'truthsocial',
+  rumble: 'rumble',
+  mastodon: 'mastodon',
+};
+const AMBIGUOUS_PLATFORM_WORDS = new Set(['x', 'tt', 'tw', 'truth', 'rumble']);
+// "facebook login", "tiktok stock price": about the platform, not someone on it.
+const ABOUT_THE_PLATFORM = /^(login|log|sign|signup|app|apk|download|stock|shares?|price|news|down|outage|account|password|marketplace|support|help|delete|deactivate|update|ads?|dating|reels?|stories|story|videos?|live|messenger|today|near|me|how|what|why|ban|banned|lawsuit|ceo|followers|likes)$/i;
+export const PLATFORM_LABEL = {
+  facebook: 'Facebook', instagram: 'Instagram', tiktok: 'TikTok', x: 'X', reddit: 'Reddit',
+  bluesky: 'Bluesky', truthsocial: 'Truth Social', rumble: 'Rumble', mastodon: 'Mastodon',
+};
+// The platform's own people search, for the part of it only a login can see.
+const PROFILE_SEARCH = {
+  facebook: (q) => `https://www.facebook.com/search/people/?q=${q}`,
+  instagram: (q) => `https://www.instagram.com/explore/search/keyword/?q=${q}`,
+  tiktok: (q) => `https://www.tiktok.com/search/user?q=${q}`,
+  x: (q) => `https://x.com/search?q=${q}&f=user`,
+  reddit: (q) => `https://www.reddit.com/search/?q=${q}&type=user`,
+  bluesky: (q) => `https://bsky.app/search?q=${q}`,
+  truthsocial: (q) => `https://truthsocial.com/search?q=${q}`,
+  rumble: (q) => `https://rumble.com/search/channel?q=${q}`,
+  mastodon: (q) => `https://mastodon.social/search?q=${q}`,
+};
+
+/**
+ * @returns {null | { platform: string, label: string, subject: string, profileUrl: string }}
+ */
+export function parseSocialQuery(text) {
+  const words = (text || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 5) return null;
+  const key = (w) => w.toLowerCase().replace(/[:,]$/, '');
+  let idx = PLATFORM_WORDS[key(words[0])] ? 0 : PLATFORM_WORDS[key(words[words.length - 1])] ? words.length - 1 : -1;
+  if (idx < 0) return null;
+  const word = key(words[idx]);
+  const subjectWords = words.filter((_, i) => i !== idx);
+  if (!subjectWords.every((w) => /^@?[\p{L}\p{N}._'-]+$/u.test(w))) return null;
+  if (subjectWords.length > 3 || subjectWords.some((w) => ABOUT_THE_PLATFORM.test(w))) return null;
+  const personLike = subjectWords.every((w) => /^@/.test(w) || /^\p{Lu}/u.test(w));
+  if (AMBIGUOUS_PLATFORM_WORDS.has(word) && !personLike) return null;
+  const platform = PLATFORM_WORDS[word];
+  const subject = subjectWords.join(' ');
+  return {
+    platform,
+    label: PLATFORM_LABEL[platform],
+    subject,
+    profileUrl: PROFILE_SEARCH[platform](encodeURIComponent(subject.replace(/^@/, ''))),
+  };
+}
+
+// An email address or a phone number is someone to look up, not something to
+// read about — OSINT (Ocean) has the tools for that. Alone ("555-201-8890") or
+// with a username beside it ("danoden dan@example.com").
+const EMAIL = /\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/;
+const PHONE = /(?:^|\s)\+?\d?[\s.-]?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}(?:\s|$)/;
+
 /**
  * @param {string} text what is in the search bar
- * @returns {null | { mode: string, kind: 'social'|'media'|'link'|'local'|'question', reason: string }}
+ * @returns {null | { mode: string, kind: 'social'|'media'|'link'|'local'|'question'|'osint'|'profile', reason: string }}
  */
 export function detectIntent(text) {
   const q = (text || '').trim();
   if (q.length < 3) return null;
+
+  // Before links: "dan@example.com" must never read as a site to visit.
+  if (EMAIL.test(q) || PHONE.test(q)) {
+    return { mode: 'ocean', kind: 'osint', reason: EMAIL.test(q) ? 'Email lookup' : 'Phone lookup' };
+  }
 
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://truegle.info';
   const link = classifyQuery(q, origin);
@@ -65,6 +139,9 @@ export function detectIntent(text) {
     if (link.kind === 'playable') return { mode: 'tube', kind: 'media', reason: 'Video or audio link' };
     return { mode: 'blue', kind: 'link', reason: 'Link' };
   }
+
+  const social = parseSocialQuery(q);
+  if (social) return { mode: 'yellow', kind: 'profile', reason: `${social.label} search` };
 
   // A local business needs a service AND somewhere: "patent lawyers eugene",
   // "plumber near me". "best dentist" alone has nowhere to look.
