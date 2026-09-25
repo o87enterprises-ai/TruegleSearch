@@ -195,7 +195,15 @@ export function useSocialFeed({
       setDone(!allFailed && (!Object.keys(live).length || (!first && pageRows.length === 0)));
     } catch (e) {
       if (e.name === 'AbortError') return;
-      setError('That feed is unreachable right now.');
+      // WHY, in a few words, so a screenshot names the cause: a status code
+      // means the server answered and refused (429 = rate limit, 5xx = the
+      // backend failed); no status means the request never got an answer —
+      // offline, blocked by the browser or an extension, or a network drop.
+      const status = /^feed (\d{3})$/.exec(e.message || '')?.[1];
+      const why = status === '429' ? 'too many requests (429)'
+        : status ? `server said ${status}`
+          : 'no answer from the server — network or browser blocked it';
+      setError(`That feed is unreachable right now (${why}).`);
       setDone(true);
     } finally {
       if (forKey === activeKey.current) { setLoading(false); inFlight.current = false; }
