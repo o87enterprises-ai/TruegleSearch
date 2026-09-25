@@ -1,5 +1,24 @@
 # UNIFIED HANDOFF — Truegle Search
-_Last updated: 2026-08-25. Supersedes all prior handoff docs._
+_Last updated: 2026-09-25. Supersedes all prior handoff docs._
+
+---
+
+## 🗓️ 2026-09-25 — maps popup, people-lookup routing, Feed social sources
+
+- **Mapbox token (live traffic) lives in Cloudflare Pages, never in git.**
+  Encrypted Pages secret `VITE_MAPBOX_ACCESS_TOKEN` on project
+  `truegle-search` (production), set by the owner with
+  `npx wrangler pages secret put VITE_MAPBOX_ACCESS_TOKEN --project-name truegle-search`.
+  `basemap.js` reads only the build variable. Committing the token is blocked
+  by the agent's credential check — don't try. Mapbox account must stay card-free.
+- **Feed X/Facebook/Instagram/TikTok were empty for every query** (silent). The
+  SearXNG "social media" category answered off-platform, which suppressed the
+  general-index fallback. Fixed in `PublicSocialSource.js`; embeddable posts
+  preferred over profile pages.
+- **Map pin tap threw** (React event has no `originalEvent`) → the global
+  "something went wrong" bar. Fixed; the bar now shows the real error text.
+- **Routing:** email/phone → OSINT (ocean); "FB Daniel Oden" → Feed narrowed to
+  that platform plus a direct profile-search link.
 
 ---
 
