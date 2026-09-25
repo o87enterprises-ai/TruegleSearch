@@ -1408,6 +1408,14 @@
         "body": "2026-09-25, 86d1155: /api/maps/incidents (TomTom v5 incidentDetails, free tier, 2-min cache per ~1km box, >10,000km2 = tooLarge). Map incident pins while traffic on; place card 'Live here' line; Directions turns traffic on. Verified live: 73 Portland incidents. Next: Phase 3 'Before you go' card.",
         "ts": "2026-09-25",
         "created": "2026-09-25"
+      },
+      "maps-phase3-done": {
+        "Id": "maps-phase3-done",
+        "Type": "decision",
+        "Label": "Maps Phase 3 shipped (Before you go card)",
+        "body": "2026-09-25, 9362ecb: POST /api/maps/before-you-go {to, from?} -> drive (TomTom, live traffic), incidents ~3km, still-image cameras ~8km (OpenTrafficCamMap; Vegas has video-only so none), weather (Open-Meteo, keyless). Card: phone bottom sheet portaled to body/fullscreen element; desktop right-edge card. Uber/Lyft deep links, NO fare estimates (no lawful free source). Verified live airport->Strip: 24 min, 3 min delay, 14 incidents, 95F. Next: #7 player overhaul (start with written map of current behaviour).",
+        "ts": "2026-09-25",
+        "created": "2026-09-25"
       }
     },
     "thread": {
