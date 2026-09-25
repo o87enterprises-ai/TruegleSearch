@@ -482,6 +482,12 @@ export default function LandingPage() {
                 (was three separate stacked cards). */}
             <div className="mb-16 max-w-3xl mx-auto">
               <div className="bg-white/10 backdrop-blur-lg border border-white/15 rounded-2xl p-5 sm:p-6 shadow-xl">
+                {/* The lead-in the three words finish: "Search without… bias,
+                    tracking, censorship." The minus badges below read as the
+                    "without". */}
+                <p className="text-center text-sm sm:text-base font-semibold tracking-[0.2em] uppercase text-white/70 mb-4">
+                  Search without…
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
                   {[
                     { label: 'Bias', detail: 'All perspectives welcome', color: 'text-purple-400', dot: 'bg-purple-500 border-purple-300 shadow-purple-500/30' },
