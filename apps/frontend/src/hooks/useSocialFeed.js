@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { roundRobin } from '../utils/roundRobin';
 import { hasSeenPost, markPostsSeen, forgetPostsSeen } from '../utils/feedSeen';
 
+// The backend fans out to up to 16 sources with 8s upstream timeouts; 25s is
+// well past a slow-but-working answer.
+const FEED_TIMEOUT_MS = 25000;
+
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 // The social feed: one page at a time, forever, across the connected platforms.
@@ -78,6 +82,11 @@ export function useSocialFeed({
     abort.current?.abort();
     abort.current = controller;
     const forKey = activeKey.current;
+    // A request that never answers used to spin forever — reported from a
+    // phone where the page sat on the loader indefinitely. After this long it
+    // is a failure, and says so, instead of a loader that never ends.
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, FEED_TIMEOUT_MS);
 
     try {
       const res = await fetch(`${BACKEND}/api/social/feed`, {
@@ -194,18 +203,20 @@ export function useSocialFeed({
       // forever and shows nothing.
       setDone(!allFailed && (!Object.keys(live).length || (!first && pageRows.length === 0)));
     } catch (e) {
-      if (e.name === 'AbortError') return;
+      if (e.name === 'AbortError' && !timedOut) return;
       // WHY, in a few words, so a screenshot names the cause: a status code
       // means the server answered and refused (429 = rate limit, 5xx = the
       // backend failed); no status means the request never got an answer —
       // offline, blocked by the browser or an extension, or a network drop.
       const status = /^feed (\d{3})$/.exec(e.message || '')?.[1];
-      const why = status === '429' ? 'too many requests (429)'
+      const why = timedOut ? `no answer after ${FEED_TIMEOUT_MS / 1000}s`
+        : status === '429' ? 'too many requests (429)'
         : status ? `server said ${status}`
           : 'no answer from the server — network or browser blocked it';
       setError(`That feed is unreachable right now (${why}).`);
       setDone(true);
     } finally {
+      clearTimeout(timer);
       if (forKey === activeKey.current) { setLoading(false); inFlight.current = false; }
     }
   }, [enabled, query, platforms.join(','), done, interleave, rememberSeen]);
