@@ -485,6 +485,25 @@ function formatDistance(meters) {
   return `${km.toFixed(1)} km`;
 }
 
+// Live road incidents (crashes, closures, roadworks) for what the map can see.
+//   GET /api/maps/incidents?bbox=w,s,e,n
+// See services/TrafficIncidentService.js — proxied so the TomTom key and the
+// visitor's location stay server-side; cached 2 min per ~1 km box.
+const TrafficIncidentService = require('../services/TrafficIncidentService');
+router.get('/incidents', async (req, res) => {
+  try {
+    const out = await TrafficIncidentService.getIncidents(req.query.bbox);
+    res.set('Cache-Control', 'public, max-age=60');
+    return res.json({ success: true, ...out });
+  } catch (error) {
+    if (error.code === 'BAD_BBOX') return res.status(400).json({ error: error.message });
+    // No key, TomTom down or over its free allowance: say so, don't 500.
+    // The map shows traffic colours without incidents rather than an error.
+    console.warn('[maps] incidents unavailable —', error.message);
+    return res.json({ success: false, incidents: [], unavailable: true });
+  }
+});
+
 // OpenTrafficCamMap Routes - Public traffic camera data (no API keys needed)
 
 // GET all traffic cameras with optional filters

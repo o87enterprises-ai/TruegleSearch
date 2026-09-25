@@ -29,6 +29,7 @@ import {
   OsirisSources, OsirisLayerSwitcher, OsirisFeaturePopup, osirisLayerIds, isOsirisFeature,
 } from './OsirisLayers';
 import DirectionsPanel from './DirectionsPanel';
+import { useViewportIncidents, IncidentMarkers, IncidentDetails, useLiveHere } from './TrafficIncidents';
 import LocationPermissionModal from './LocationPermissionModal';
 import Globe3D from './Globe3D';
 import AzimuthalFlat from './AzimuthalFlat';
@@ -94,6 +95,7 @@ export default function TruegleMap({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenMapStyle, setFullscreenMapStyle] = useState('satellite');
   const [showTrafficFS, setShowTrafficFS] = useState(false);
+  const [selectedIncident, setSelectedIncident] = useState(null);
   const [showCamerasFS, setShowCamerasFS] = useState(false);
   const [showEnhancedCameraSearch, setShowEnhancedCameraSearch] = useState(false);
   // Which camera pin the pointer is over, and which one is open full size.
@@ -113,7 +115,7 @@ export default function TruegleMap({
   // Escape closes a pin's card too — the card had only its tiny ✕.
   useEffect(() => {
     if (!selectedMarker) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') { setSelectedMarker(null); actions.setSelectedMarker(null); } };
+    const onKey = (e) => { if (e.key === 'Escape') { setSelectedMarker(null); setSelectedIncident(null); actions.setSelectedMarker(null); } };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [selectedMarker, actions]);
@@ -1153,6 +1155,12 @@ export default function TruegleMap({
   // handleMoveEnd — which covers the buttons, the wheel, and pinch alike,
   // rather than the buttons only.
 
+  // LIVE CONDITIONS: incident pins while the traffic layer is on, and the
+  // "Live here" line on a selected place. See TrafficIncidents.jsx.
+  const trafficOn = TRAFFIC_AVAILABLE && (showTraffic || showTrafficFS);
+  const { incidents, note: incidentNote } = useViewportIncidents(mapRef, { enabled: trafficOn, mapLoaded });
+  const liveHere = useLiveHere(mapRef, selectedMarker, trafficOn);
+
   return (
     <div
       id="truegle-map-container"
@@ -1261,6 +1269,25 @@ export default function TruegleMap({
           </Marker>
         ))}
 
+        <IncidentMarkers
+          incidents={incidents}
+          onSelect={(inc) => { setSelectedIncident(inc); setSelectedMarker(null); actions.setSelectedMarker(null); }}
+        />
+
+        {selectedIncident && (
+          <Popup
+            longitude={selectedIncident.lng}
+            latitude={selectedIncident.lat}
+            onClose={() => setSelectedIncident(null)}
+            closeOnClick={false}
+            offset={14}
+            maxWidth="260px"
+            className="truegle-popup-shell"
+          >
+            <IncidentDetails incident={selectedIncident} />
+          </Popup>
+        )}
+
         {selectedMarker && (
           <Popup
             longitude={selectedMarker.lng}
@@ -1293,6 +1320,7 @@ export default function TruegleMap({
               {selectedMarker.category && /[a-z]/.test(selectedMarker.category) && (
                 <div className="category">{selectedMarker.category}</div>
               )}
+              {liveHere && <div className="live-here">Live here: {liveHere}</div>}
               <div className="actions">
                 {selectedMarker.phone && (
                   <a
@@ -1312,6 +1340,8 @@ export default function TruegleMap({
                     // handed a user's trip to a tracker.
                     setDirectionsTo({ name: selectedMarker.name, lat: selectedMarker.lat, lng: selectedMarker.lng });
                     setShowDirectionsFS(true);
+                    // Going somewhere is when traffic matters — show it.
+                    if (TRAFFIC_AVAILABLE) setShowTrafficFS(true);
                     setSelectedMarker(null);
                     actions.setSelectedMarker(null);
                   }}
@@ -1368,9 +1398,11 @@ export default function TruegleMap({
 
       {/* Destination search bar — inside the fullscreen container so it
           survives native fullscreen (mobile forces fullscreen). */}
+      {/* Hidden while a side panel (directions, cameras) is open: it
+          floated over the panel's own first field. */}
       <div
         className="absolute z-50 w-72 max-w-[calc(100%-88px)]"
-        style={isFullscreen ? { top: 72, left: 12 } : { top: 16, left: 64 }}
+        style={{ ...(isFullscreen ? { top: 72, left: 12 } : { top: 16, left: 64 }), ...(panelOpen ? { display: 'none' } : {}) }}
       >
         <form onSubmit={handlePlaceSubmit} className="flex items-center gap-2 bg-white rounded-full shadow-lg px-4 py-2.5">
           <Search size={16} className="text-gray-500 shrink-0" />
@@ -1840,7 +1872,9 @@ export default function TruegleMap({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="absolute bottom-4 left-4 bg-neutral-900/95 backdrop-blur-xl rounded-xl border border-neutral-700/50 p-3 shadow-lg z-40"
+            // Beside the directions panel (w-96), not on top of its buttons;
+            // on a phone the panel is the whole width, so the key steps aside.
+            className={`absolute bottom-4 bg-neutral-900/95 backdrop-blur-xl rounded-xl border border-neutral-700/50 p-3 shadow-lg z-40 ${showDirectionsFS ? 'hidden sm:block sm:left-[25rem]' : 'left-4'}`}
           >
             <h4 className="text-xs font-semibold text-white mb-2">Traffic Conditions</h4>
             <div className="space-y-1 text-xs">
@@ -1861,6 +1895,11 @@ export default function TruegleMap({
                 <span className="text-white/70">Severe</span>
               </div>
             </div>
+            {(incidents.length > 0 || incidentNote) && (
+              <p className="mt-2 text-[11px] text-white/60">
+                {incidentNote || `${incidents.length} incident${incidents.length > 1 ? 's' : ''} in view — tap an icon`}
+              </p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

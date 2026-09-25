@@ -623,3 +623,30 @@
 }
 .truegle-popup-shell .truegle-popup { padding: 12px 14px; }
 a.truegle-popup-action { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+
+/* Live conditions — incident pins and the "Live here" line. */
+.truegle-incident-pin {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 2px solid #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+.truegle-incident-pin:hover { transform: scale(1.1); }
+.truegle-popup .live-here {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #67e8f9;
+}
+.truegle-popup .detail {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.78);
+}
