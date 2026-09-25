@@ -1384,6 +1384,22 @@
         "body": "PlayerContext.loadState restores minimized:true regardless of saved size; FeedPage's one-time pop-out default also calls setMinimized(true) (setPoppedOut clears minimized). Every play action still un-minimizes, so chosen media is never hidden.",
         "ts": "2026-09-25",
         "created": "2026-09-25"
+      },
+      "maps-plan-2026-09-25": {
+        "Id": "maps-plan-2026-09-25",
+        "Type": "decision",
+        "Label": "Maps #6 plan (approved)",
+        "body": "Phase 1: LocationDetailsPanel -> phone bottom sheet (~45%, drag handle, swipe/tap-map/X/Escape close), desktop compact card; Call/Website/Directions + 'Live here' line. Phase 2: working live traffic via TomTom (backend-proxied, cached tiles; key never in browser; free tier, verify quota) + incidents; Mapbox traffic token was never set so the old layer showed nothing. Phase 3: 'Before you go' card: drive-now time with traffic delay (TomTom routing traffic=true works live), destination traffic level, nearest cameras, weather, 'Open in Uber/Lyft' deep links (no prices — no free API). Ship + report each phase.",
+        "ts": "2026-09-25",
+        "created": "2026-09-25"
+      },
+      "mapbox-token-location": {
+        "Id": "mapbox-token-location",
+        "Type": "decision",
+        "Label": "Mapbox token lives in Cloudflare Pages, not git",
+        "body": "Traffic layer reads VITE_MAPBOX_ACCESS_TOKEN at build time; set via 'npx wrangler pages secret put VITE_MAPBOX_ACCESS_TOKEN --project-name truegle-search'. Never commit it (classifier blocks it). Decided 2026-09-25.",
+        "ts": "2026-09-25",
+        "created": "2026-09-25"
       }
     },
     "thread": {
