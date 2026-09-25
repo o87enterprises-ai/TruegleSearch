@@ -147,6 +147,41 @@ describe('PublicSocialSource — load protection', () => {
   });
 });
 
+describe('PublicSocialSource — the social category answering off-platform', () => {
+  beforeEach(() => axios.get.mockReset());
+
+  test('falls back to the general index when social rows are all from other sites', async () => {
+    // Reported: X / Facebook / Instagram empty for every query. The social
+    // engines ignore site: and answer with Mastodon posts, which used to stop
+    // the fallback — then every row was dropped as off-domain.
+    axios.get
+      .mockResolvedValueOnce(results('https://mastodon.social/@a/1', 'https://reddit.com/r/x/comments/1'))
+      .mockResolvedValueOnce(results('https://x.com/NASA', 'https://x.com/NASA/status/123'));
+    const { fetchPublicSocial } = load();
+    const out = await fetchPublicSocial({ platform: 'x', topic: 'offsite-case', limit: 5 });
+    expect(axios.get.mock.calls[1][1].params.categories).toBe('general');
+    expect(out.items.map((i) => i.url)).toEqual(['https://x.com/NASA/status/123']);
+  });
+
+  test('posts win over profile pages; a profile is kept only when there are no posts', async () => {
+    axios.get.mockResolvedValue(results('https://www.facebook.com/daniel.oden'));
+    const { fetchPublicSocial } = load();
+    const out = await fetchPublicSocial({ platform: 'facebook', topic: 'profile-only', limit: 5 });
+    expect(out.items.map((i) => i.url)).toEqual(['https://www.facebook.com/daniel.oden']);
+  });
+
+  test('isPost knows each platform\'s post shape', () => {
+    const { isPost } = load();
+    expect(isPost('https://x.com/NASA/status/1', 'x')).toBe(true);
+    expect(isPost('https://x.com/NASA', 'x')).toBe(false);
+    expect(isPost('https://www.instagram.com/p/Cabc123/', 'instagram')).toBe(true);
+    expect(isPost('https://www.instagram.com/nasa/', 'instagram')).toBe(false);
+    expect(isPost('https://www.facebook.com/NASA/videos/12345', 'facebook')).toBe(true);
+    expect(isPost('https://www.tiktok.com/@nasa/video/7', 'tiktok')).toBe(true);
+    expect(isPost('https://www.tiktok.com/@nasa', 'tiktok')).toBe(false);
+  });
+});
+
 describe('PublicSocialSource — refusing honestly', () => {
   test('says WHY when the metasearch instance is not configured', async () => {
     jest.isolateModules(() => {
