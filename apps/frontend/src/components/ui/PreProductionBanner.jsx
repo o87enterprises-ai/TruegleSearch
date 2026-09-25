@@ -70,6 +70,9 @@ function feedbackMailto(kind = 'feedback') {
 const PreProductionBanner = () => {
   const [dismissed, setDismissed] = useState(true);
   const [errorVisible, setErrorVisible] = useState(false);
+  // What actually failed, shown small — a screenshot of the bar then names
+  // the cause instead of just reporting that something happened.
+  const [errorDetail, setErrorDetail] = useState('');
   // A docked component — the footer player, the map — outranks this bar. While
   // one is on screen the bar yields to its chip and hands back the strip, so
   // the thing being used gets the height instead of the notice already read.
@@ -102,7 +105,8 @@ const PreProductionBanner = () => {
 
   useEffect(() => {
     let hideTimer;
-    const onError = () => {
+    const onError = (e) => {
+      setErrorDetail(String(e?.detail?.message || '').slice(0, 140));
       setErrorVisible(true);
       clearTimeout(hideTimer);
       hideTimer = setTimeout(() => setErrorVisible(false), 8000);
@@ -137,11 +141,15 @@ const PreProductionBanner = () => {
             role="alert"
           >
             <AlertTriangle size={16} className="shrink-0" />
+            {/* No "we've been notified": nothing reports these anywhere, so
+                saying so was a promise the site does not keep. */}
             <span>
-              Something glitched on our end — we've been notified and are on it.
-              Please try again in a moment.
+              Something went wrong on our end. Try again — if it keeps happening, tap Report.
+              {errorDetail && (
+                <span className="block text-[11px] font-normal opacity-70 truncate max-w-[80vw]">{errorDetail}</span>
+              )}
             </span>
-            <a href={feedbackMailto('bug')} className="underline font-semibold ml-1 hidden sm:inline">
+            <a href={feedbackMailto('bug')} className="underline font-semibold ml-1">
               Report
             </a>
             <button onClick={() => setErrorVisible(false)} className="ml-2 opacity-70 hover:opacity-100">

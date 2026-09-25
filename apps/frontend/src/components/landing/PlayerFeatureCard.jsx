@@ -35,6 +35,11 @@ export default function PlayerFeatureCard({ onOpen }) {
             </span>
             <span className="text-white font-semibold text-sm">True Tube</span>
             <span className="text-[10px] uppercase tracking-wide text-green-400/90 font-bold">New</span>
+            {/* Shown collapsed on purpose (owner, 2026-09-25): the one thing
+                every visitor should learn about the player at a glance. */}
+            <span className="text-[10px] uppercase tracking-wide font-extrabold px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-400/30">
+              No ads ever!
+            </span>
           </>
         )}
       >

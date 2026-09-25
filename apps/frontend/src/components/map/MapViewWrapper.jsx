@@ -419,6 +419,7 @@ export default function MapViewWrapper({
       poppedOut={poppedOut}
       onTogglePopOut={() => setPoppedOut((v) => !v)}
       nearbyStatus={nearbyStatus}
+      initialQuery={detectedLocation?.query || ''}
     />
   );
 

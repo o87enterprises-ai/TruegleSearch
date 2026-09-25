@@ -77,8 +77,16 @@ export function renderEmergencyFallback(message) {
   if (btn) btn.addEventListener('click', () => window.location.reload());
 }
 
+// Errors that are not failures of ours and must not raise the "something went
+// wrong" bar: the browser's own resize-observer warning (fires when a phone
+// keyboard resizes the page over a live map), a request we cancelled on
+// purpose (typing cancels the previous search), and the content-free
+// "Script error." a cross-origin script produces.
+const BENIGN = /ResizeObserver loop|AbortError|CanceledError|\bcancell?ed\b|^Script error\.?$/i;
+
 export function installGlobalErrorHandlers() {
   const handle = (message) => {
+    if (BENIGN.test(String(message || ''))) return;
     if (isChunkLoadError(message)) {
       if (tryRecoverFromStaleChunk()) return; // reloading — bail
     }

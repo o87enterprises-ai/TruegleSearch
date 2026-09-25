@@ -367,9 +367,18 @@ router.post('/local-businesses', async (req, res) => {
     const near = { latitude: location.lat, longitude: location.lng };
     const baseOptions = { radius, limit: limit * 2 };
 
+    // Radar is optional (no key is configured today) and it throws when it
+    // can't answer. "No businesses from this source" is an empty list, not a
+    // server error: the map already falls back to its own place search, and
+    // a 500 here only filled the logs and the browser console on every map.
     const collect = async (options) => {
-      const result = await RadarService.searchPlaces(near, options);
-      return result?.success ? (result.places || []) : [];
+      try {
+        const result = await RadarService.searchPlaces(near, options);
+        return result?.success ? (result.places || []) : [];
+      } catch (err) {
+        console.warn('[maps] local-businesses: Radar unavailable —', err.message);
+        return [];
+      }
     };
 
     let allResults = [];

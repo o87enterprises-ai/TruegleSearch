@@ -601,3 +601,25 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* ── Pin card shell ──────────────────────────────────────────────────────────
+   The renderer wraps every popup in its own white, padded box. Our card is the
+   whole design, so the wrapper is made invisible — before this the card sat
+   inside a white frame at roughly twice its size. The z-index lifts the card
+   above the map's own overlays (the function bar, Reset View), which were
+   drawing over its buttons. */
+.truegle-popup-shell { z-index: 40; }
+.truegle-popup-shell .maplibregl-popup-content,
+.truegle-popup-shell .mapboxgl-popup-content {
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+.truegle-popup-shell .maplibregl-popup-tip,
+.truegle-popup-shell .mapboxgl-popup-tip { display: none; }
+.truegle-popup-shell .maplibregl-popup-close-button,
+.truegle-popup-shell .mapboxgl-popup-close-button {
+  color: #fff; font-size: 18px; right: 6px; top: 4px; z-index: 1;
+}
+.truegle-popup-shell .truegle-popup { padding: 12px 14px; }
+a.truegle-popup-action { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }

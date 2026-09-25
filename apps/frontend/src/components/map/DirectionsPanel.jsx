@@ -25,7 +25,7 @@ const PROFILE_BY_MODE = { car: 'driving', foot: 'walking', bike: 'cycling' };
  * - Traffic cameras along the route
  * - Camera markers on map
  */
-export default function DirectionsPanel({ isOpen, onClose, userLocation, onRouteCalculated }) {
+export default function DirectionsPanel({ isOpen, onClose, userLocation, onRouteCalculated, initialDestination = null }) {
   const { state, actions } = useMap();
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState('');
@@ -344,6 +344,26 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
   // calculateRoute directly — depending on the callback would re-run the
   // effect every time the callback is rebuilt, which is every render.
   calculateRouteRef.current = calculateRoute;
+
+  // "Directions" on a pin's card arrives with the destination already chosen:
+  // fill it in, start from the visitor's position when the map has one, and
+  // route straight away — no retyping what was just tapped.
+  const autoRouteRef = useRef(false);
+  useEffect(() => {
+    if (!initialDestination || !Number.isFinite(initialDestination.lat)) return;
+    setDestination(initialDestination.name || `${initialDestination.lat}, ${initialDestination.lng}`);
+    setDestCoords({ latitude: initialDestination.lat, longitude: initialDestination.lng });
+    if (userLocation && Number.isFinite(userLocation.lat)) {
+      setOrigin('Your location');
+      setOriginCoords({ latitude: userLocation.lat, longitude: userLocation.lng });
+      autoRouteRef.current = true;
+    }
+  }, [initialDestination, userLocation]);
+  useEffect(() => {
+    if (!autoRouteRef.current || !origin || !destination || !destCoords || !originCoords) return;
+    autoRouteRef.current = false;
+    calculateRouteRef.current?.();
+  }, [origin, destination, destCoords, originCoords]);
 
   const formatDuration = (seconds) => {
     const hours = Math.floor(seconds / 3600);

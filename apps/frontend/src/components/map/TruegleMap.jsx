@@ -57,6 +57,9 @@ export default function TruegleMap({
   onMapClick = null,
   onMarkerClick = null,
   onClose = null,
+  // The search that opened the map ("walmart near me" typed in the top bar).
+  // Shown in the in-map box so the map says what it is showing.
+  initialQuery = '',
   userLocation: initialUserLocation = null,
   // Why the wrapper has no position, when it has none — see utils/geolocation.
   // null means "no attempt has failed", which is not the same as "denied".
@@ -107,7 +110,16 @@ export default function TruegleMap({
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [openCamera]);
+  // Escape closes a pin's card too — the card had only its tiny ✕.
+  useEffect(() => {
+    if (!selectedMarker) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') { setSelectedMarker(null); actions.setSelectedMarker(null); } };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [selectedMarker, actions]);
   const [showDirectionsFS, setShowDirectionsFS] = useState(false);
+  // Where the Directions button on a pin's card asked to go.
+  const [directionsTo, setDirectionsTo] = useState(null);
   const [showLocationModalFS, setShowLocationModalFS] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -117,7 +129,16 @@ export default function TruegleMap({
   // Destination search (Google-Earth-style): lives INSIDE the fullscreen
   // container so it stays visible when the map goes native-fullscreen (mobile
   // always does). The wrapper-level search bar disappears in that mode.
-  const [placeQuery, setPlaceQuery] = useState('');
+  const [placeQuery, setPlaceQuery] = useState(initialQuery || '');
+  // The seeded query was already searched by the wrapper (its pins are on the
+  // map), so the box shows it without searching it a second time or dropping
+  // a results list over the map. Typing clears this and searches as normal.
+  const seededQueryRef = useRef(initialQuery || '');
+  useEffect(() => {
+    if (!initialQuery) return;
+    seededQueryRef.current = initialQuery;
+    setPlaceQuery(initialQuery);
+  }, [initialQuery]);
   const [placeResults, setPlaceResults] = useState([]);
   const [isPlaceSearching, setIsPlaceSearching] = useState(false);
   const [showPlaceResults, setShowPlaceResults] = useState(false);
@@ -506,7 +527,11 @@ export default function TruegleMap({
   }, [actions, onMapClick, selectedMarker, locationMenu]);
 
   const handleMarkerClick = useCallback((marker, e) => {
-    e.originalEvent.stopPropagation();
+    // Pins are React elements inside <Marker>, so this is a React DOM event,
+    // not a MapLibre one: it has no originalEvent. Reading it threw on every
+    // pin tap, which the global handler turned into the "something went
+    // wrong" bar — and the popup never opened.
+    (e?.originalEvent || e)?.stopPropagation?.();
 
     setSelectedMarker(marker);
     actions.setSelectedMarker(marker);
@@ -773,6 +798,8 @@ export default function TruegleMap({
   // by name both came back empty. searchMapQuery reads the intent first; see
   // utils/mapSearch.js.
   useEffect(() => {
+    if (placeQuery && placeQuery === seededQueryRef.current) return undefined;
+    seededQueryRef.current = '';
     if (!placeQuery || placeQuery.trim().length < 3) {
       setPlaceResults([]);
       setPlaceNeedsLocation(false);
@@ -821,11 +848,17 @@ export default function TruegleMap({
       name: result.name || result.address,
       address: result.address,
       category: 'SEARCH_RESULT',
+      // Carried so the pin's card can offer Call / Website without a lookup.
+      phone: result.phone || result.raw?.phone || result.raw?.poi?.phone || null,
+      website: result.website || result.raw?.url || result.raw?.poi?.url || null,
     };
     actions.addMarker(marker);
     actions.setSelectedMarker(marker);
 
-    setPlaceQuery('');
+    // Keep what was picked in the box, the way a maps app does — seeded so it
+    // is shown, not searched again.
+    seededQueryRef.current = result.name || '';
+    setPlaceQuery(result.name || '');
     setPlaceResults([]);
     setShowPlaceResults(false);
   }, [actions]);
@@ -845,6 +878,8 @@ export default function TruegleMap({
         name: row.name,
         address: row.address,
         category: 'SEARCH_RESULT',
+        phone: row.phone || row.raw?.phone || row.raw?.poi?.phone || null,
+        website: row.website || row.raw?.url || row.raw?.poi?.url || null,
       });
     }
     const first = placeResults[0].position;
@@ -1243,27 +1278,45 @@ export default function TruegleMap({
             // the anchor is what makes it flip above or beside the pin
             // instead. The offset keeps it clear of the 32px marker.
             offset={16}
-            maxWidth="300px"
-            className="truegle-popup"
+            maxWidth="260px"
+            // The SHELL class, not the card's: putting "truegle-popup" on both
+            // drew the card inside the renderer's own white box — two frames,
+            // twice the size. See .truegle-popup-shell in TruegleMap.css.
+            className="truegle-popup-shell"
           >
             <div className="truegle-popup">
               <div className="name">{selectedMarker.name}</div>
               <div className="address">{formatAddress(selectedMarker.address)}</div>
-              {selectedMarker.category && (
+              {/* Only a category a person would say. Internal tags
+                  (SEARCH_RESULT, BUSINESS) are ALL_CAPS_WITH_UNDERSCORES and
+                  were being printed as if they meant something. */}
+              {selectedMarker.category && /[a-z]/.test(selectedMarker.category) && (
                 <div className="category">{selectedMarker.category}</div>
               )}
               <div className="actions">
+                {selectedMarker.phone && (
+                  <a
+                    className="truegle-popup-action primary"
+                    href={`tel:${String(selectedMarker.phone).replace(/[^\d+]/g, '')}`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Call
+                  </a>
+                )}
                 <button
-                  className="truegle-popup-action primary"
+                  className={`truegle-popup-action${selectedMarker.phone ? '' : ' primary'}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    window.open(
-                      `https://www.google.com/maps/dir/?api=1&destination=${selectedMarker.lat},${selectedMarker.lng}`,
-                      '_blank'
-                    );
+                    // Truegle's own directions, not Google's: sending the
+                    // destination to google.com was the one place the map
+                    // handed a user's trip to a tracker.
+                    setDirectionsTo({ name: selectedMarker.name, lat: selectedMarker.lat, lng: selectedMarker.lng });
+                    setShowDirectionsFS(true);
+                    setSelectedMarker(null);
+                    actions.setSelectedMarker(null);
                   }}
                 >
-                  Get Directions
+                  Directions
                 </button>
                 <button
                   className="truegle-popup-action"
@@ -1926,7 +1979,8 @@ export default function TruegleMap({
             <div className="pointer-events-auto">
               <DirectionsPanel
                 isOpen={showDirectionsFS}
-                onClose={() => setShowDirectionsFS(false)}
+                initialDestination={directionsTo}
+                onClose={() => { setShowDirectionsFS(false); setDirectionsTo(null); }}
                 userLocation={userLocation}
                 onRouteCalculated={handleRouteCalculated}
               />
