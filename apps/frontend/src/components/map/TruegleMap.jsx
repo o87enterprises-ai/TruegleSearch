@@ -30,6 +30,7 @@ import {
 } from './OsirisLayers';
 import DirectionsPanel from './DirectionsPanel';
 import { useViewportIncidents, IncidentMarkers, IncidentDetails, useLiveHere } from './TrafficIncidents';
+import BeforeYouGo from './BeforeYouGo';
 import LocationPermissionModal from './LocationPermissionModal';
 import Globe3D from './Globe3D';
 import AzimuthalFlat from './AzimuthalFlat';
@@ -96,6 +97,8 @@ export default function TruegleMap({
   const [fullscreenMapStyle, setFullscreenMapStyle] = useState('satellite');
   const [showTrafficFS, setShowTrafficFS] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState(null);
+  // The place whose "Before you go" card is open — see BeforeYouGo.jsx.
+  const [beforeYouGo, setBeforeYouGo] = useState(null);
   const [showCamerasFS, setShowCamerasFS] = useState(false);
   const [showEnhancedCameraSearch, setShowEnhancedCameraSearch] = useState(false);
   // Which camera pin the pointer is over, and which one is open full size.
@@ -1361,6 +1364,18 @@ export default function TruegleMap({
                   Zoom
                 </button>
               </div>
+              <button
+                type="button"
+                className="truegle-popup-byg"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setBeforeYouGo({ name: selectedMarker.name, lat: selectedMarker.lat, lng: selectedMarker.lng, address: formatAddress(selectedMarker.address) });
+                  setSelectedMarker(null);
+                  actions.setSelectedMarker(null);
+                }}
+              >
+                Before you go →
+              </button>
             </div>
           </Popup>
         )}
@@ -1928,12 +1943,26 @@ export default function TruegleMap({
           stops propagation, so clicking the picture you are watching does not
           dismiss it. */}
       <AnimatePresence>
+        {beforeYouGo && (
+          <BeforeYouGo
+            place={beforeYouGo}
+            from={userLocation}
+            onClose={() => setBeforeYouGo(null)}
+            onDirections={() => {
+              setDirectionsTo({ name: beforeYouGo.name, lat: beforeYouGo.lat, lng: beforeYouGo.lng });
+              setShowDirectionsFS(true);
+              if (TRAFFIC_AVAILABLE) setShowTrafficFS(true);
+              setBeforeYouGo(null);
+            }}
+          />
+        )}
+
         {openCamera && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            className="absolute inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
             onClick={() => setOpenCamera(null)}
           >
             <motion.div

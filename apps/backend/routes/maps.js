@@ -504,6 +504,21 @@ router.get('/incidents', async (req, res) => {
   }
 });
 
+// "Before you go": drive-now time, incidents, cameras and weather for one
+// destination in a single call. See services/BeforeYouGoService.js.
+//   POST /api/maps/before-you-go  { to: {lat,lng}, from?: {lat,lng} }
+const BeforeYouGoService = require('../services/BeforeYouGoService');
+router.post('/before-you-go', async (req, res) => {
+  try {
+    const brief = await BeforeYouGoService.getBrief(req.body || {});
+    return res.json({ success: true, ...brief });
+  } catch (error) {
+    if (error.code === 'BAD_INPUT') return res.status(400).json({ error: error.message });
+    console.error('[maps] before-you-go failed —', error.message);
+    return res.status(502).json({ error: 'Could not build the trip summary right now' });
+  }
+});
+
 // OpenTrafficCamMap Routes - Public traffic camera data (no API keys needed)
 
 // GET all traffic cameras with optional filters
