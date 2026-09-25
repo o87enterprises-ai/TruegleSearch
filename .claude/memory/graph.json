@@ -3143,6 +3143,14 @@
         "body": "Image chat verified live 2026-09-24 via qwen/qwen3.8-27b (64x64 PNG -> 'Red', 3.4s, 6047 prompt tokens = system prompt sent once). Qwen vision rejects ~<28px images, so a 1x1 test PNG ALWAYS fails — test with >=64x64. Phone photos are downscaled client-side (utils/downscaleImage.js) to stay under Vercel's 4.5MB body cap.",
         "ts": "2026-09-24",
         "created": "2026-09-24"
+      },
+      "mapbox-traffic-live": {
+        "Id": "mapbox-traffic-live",
+        "Type": "fact",
+        "Label": "Live traffic works on truegle.info",
+        "body": "Verified 2026-09-25: Pages secret VITE_MAPBOX_ACCESS_TOKEN reaches the Vite build; traffic tiles return 200. The first paste stored a different (rejected, 401) token — if traffic 401s again, re-put the secret with the current pk token, then push to rebuild.",
+        "ts": "2026-09-25",
+        "created": "2026-09-25"
       }
     }
   },
