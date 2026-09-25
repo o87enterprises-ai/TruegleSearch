@@ -37,6 +37,11 @@
 // If a Mapbox token is ever configured, `hasMapboxToken` is the single switch
 // to read — nothing else in the map needs to know.
 
+// The token comes from the Cloudflare Pages build variable
+// VITE_MAPBOX_ACCESS_TOKEN (set with `wrangler pages secret put`), never from
+// git. It only switches on live traffic; the basemaps stay keyless. Free tier
+// only: the Mapbox account must carry no payment card, so it stops at the
+// free allowance rather than billing.
 export const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
 export const hasMapboxToken = !!MAPBOX_TOKEN;
 
