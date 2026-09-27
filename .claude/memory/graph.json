@@ -1416,6 +1416,14 @@
         "body": "2026-09-25, 9362ecb: POST /api/maps/before-you-go {to, from?} -> drive (TomTom, live traffic), incidents ~3km, still-image cameras ~8km (OpenTrafficCamMap; Vegas has video-only so none), weather (Open-Meteo, keyless). Card: phone bottom sheet portaled to body/fullscreen element; desktop right-edge card. Uber/Lyft deep links, NO fare estimates (no lawful free source). Verified live airport->Strip: 24 min, 3 min delay, 14 incidents, 95F. Next: #7 player overhaul (start with written map of current behaviour).",
         "ts": "2026-09-25",
         "created": "2026-09-25"
+      },
+      "listings-round1": {
+        "Id": "listings-round1",
+        "Type": "decision",
+        "Label": "Business listings card (search) shipped",
+        "body": "2026-09-27 (1411b67..0d59c2b): LocalPackService handles business/brand names (one TomTom search; name must hold business words, address CITY part the town words; chain-first only when typed words start the chain name; dedupe name+address). Search page sends position (was never sent; placePanel read nonexistent detectedLocation.lat). LocalPackCard = Google-style: above summary, lettered pins, 4 + More locations, collapsible, per-listing details, Call/Directions/Website. Old local_business QuickResultCard removed. AI summary gets listings as facts. NEXT: round 2 chat listings, round 3 map declutter + listings, then #7 player.",
+        "ts": "2026-09-27",
+        "created": "2026-09-27"
       }
     },
     "thread": {
@@ -1859,6 +1867,15 @@
         "status": "open",
         "ts": "2026-09-24",
         "created": "2026-09-24"
+      },
+      "listings-chat-map": {
+        "Id": "listings-chat-map",
+        "Type": "thread",
+        "Label": "Listings card in chat + map declutter",
+        "body": "Owner 2026-09-27: chat answers need the same clickable listings (it showed details but no tel/directions); map is cluttered (Walmart/coffee pins for an O'Reilly query) — show only relevant markers, listings as modular dropdown. Reference: Google Maps bottom-sheet list.",
+        "status": "open",
+        "ts": "2026-09-27",
+        "created": "2026-09-27"
       }
     },
     "entity": {
@@ -3196,5 +3213,5 @@
       }
     }
   },
-  "updated": "2026-09-25"
+  "updated": "2026-09-27"
 }
