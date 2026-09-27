@@ -27,6 +27,8 @@ import QueueButton from '../components/ui/QueueButton';
 import ChatShareButton from '../components/ui/ChatShareButton';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
 import FeedbackButtons from '../components/ui/FeedbackButtons';
+import LocalPackCard from '../components/search/LocalPackCard';
+import { requestPosition } from '../utils/geolocation';
 import SmartPill from '../components/landing/SmartPill';
 import CategoryModeRow from '../components/landing/CategoryModeRow';
 
@@ -551,6 +553,29 @@ export default function TruegleChat() {
     let citations = null;
     let graph = null;
 
+    // LISTINGS FOR A BUSINESS QUESTION — the same card as the search page,
+    // so "where's the nearest O'Reilly's?" answers with Call and Directions
+    // buttons, not just a paragraph. Asked in parallel with the answer; the
+    // location prompt only for "near me" / "nearest", never otherwise.
+    const wantsPosition = /\b(near me|nearby|near by|around me|close to me|closest|nearest|in my area)\b/i.test(query || '');
+    const positionP = wantsPosition
+      ? Promise.race([
+        requestPosition().then((r) => (r.ok ? r.position : null)).catch(() => null),
+        new Promise((res) => { setTimeout(() => res(null), 8000); }),
+      ])
+      : Promise.resolve(null);
+    const listingsP = query
+      ? positionP.then((pos) => fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/maps/local-pack`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({ query, ...(pos ? { lat: pos.lat, lng: pos.lng } : {}) }),
+      }))
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => d?.pack || null)
+        .catch(() => null)
+      : Promise.resolve(null);
+
     // Ocean selected → auto-OSINT: if the query names an investigable entity
     // (domain/IP/email/username/phone) the backend runs the lookups and
     // synthesizes an investigator's report. If it names none, fall through to
@@ -589,6 +614,7 @@ export default function TruegleChat() {
             // Shrunk on the device first: a raw phone photo is over Vercel's
             // 4.5 MB request cap, which fails before our server ever sees it.
             image: image?.dataUrl ? await downscaleImage(image.dataUrl) : undefined, searchResults,
+            position: await positionP,
           }, { signal: controller.signal });
           content = extractContent(chatRes);
         } catch (e) {
@@ -619,8 +645,10 @@ export default function TruegleChat() {
     // cannot. Computed here rather than parsed out of the prose so it is the
     // URL the user actually pasted, not one the model retyped.
     const linkInfo = classifyQuery(query);
+    // Already fetched in parallel with the answer; a short wait at most.
+    const listings = await listingsP;
     setMessages((prev) => [...prev, {
-      id: Date.now() + 1, role: 'assistant', content, citations, graph, linkInfo, createdAt: Date.now(),
+      id: Date.now() + 1, role: 'assistant', content, citations, graph, linkInfo, listings, createdAt: Date.now(),
     }]);
     setLoading(false);
   };
@@ -987,7 +1015,9 @@ export default function TruegleChat() {
               className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}
             >
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 select-text ${
+                // Full width when the answer carries listings: at 85% the
+                // Call / Directions / Website row wrapped onto two lines.
+                className={`${m.listings?.places?.length ? 'w-full' : 'max-w-[85%]'} rounded-2xl px-4 py-3 select-text ${
                   m.role === 'user'
                     ? 'bg-white/10 text-white'
                     : `bg-black/40 border ${accent.iframeBorder} text-white/90`
@@ -1024,6 +1054,13 @@ export default function TruegleChat() {
                     it cannot. */}
                 {m.role === 'assistant' && m.linkInfo && (
                   <ChatLinkAction info={m.linkInfo} description={describeLink(m.linkInfo)} />
+                )}
+                {/* The listings for a business question: Call / Directions /
+                    Website on every location, same card as the search page. */}
+                {m.role === 'assistant' && m.listings?.places?.length > 0 && (
+                  <div className="mt-3 not-prose">
+                    <LocalPackCard pack={m.listings} accent={accent} />
+                  </div>
                 )}
                 <Citations
                   citations={m.role === 'assistant' ? mergeUrlCitations(m.citations, extractUrls(m.content)) : m.citations}

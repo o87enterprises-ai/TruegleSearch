@@ -118,6 +118,9 @@ describe('business and brand queries', () => {
     expect(parseBusinessQuery("O'Reilly's near me")).toMatchObject({ tokens: ["O'Reilly"], nearMe: true });
     expect(squash("O'Reilly's")).toBe('oreilly');
     expect(parseBusinessQuery('near me')).toBeNull();
+    // Chat phrasing.
+    expect(parseBusinessQuery("where's the nearest O'Reilly's?")).toMatchObject({ tokens: ["O'Reilly"], nearMe: true });
+    expect(parseBusinessQuery('is there an AutoZone near me')).toMatchObject({ tokens: ['AutoZone'], nearMe: true });
   });
 
   test('"O\'Reilly\'s near me" lists every branch, nearest first', async () => {

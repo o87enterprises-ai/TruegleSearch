@@ -140,6 +140,9 @@ const aiAPI = {
       // answers from training knowledge alone while a genuinely-fetched but
       // unrelated citations list shows underneath it (see TruegleChat.jsx).
       searchResults: typeof options.searchResults === 'string' ? options.searchResults : undefined,
+      // Where the asker is, for "near me" — the backend adds the local
+      // listings to the answer as facts (routes/ai.js localListingsFor).
+      position: options.position && Number.isFinite(options.position.lat) ? { lat: options.position.lat, lng: options.position.lng } : undefined,
       options
     }, config),
   analyzeContent: (content, queryContext, options = {}) =>

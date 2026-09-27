@@ -63,9 +63,36 @@ logger.info('✅ Unified AI services initialized: OpenRouter + OpenAI + Anthropi
 // getModePrompt(), not baked into the mode text (see that file's doc comment).
 const { getModePrompt } = require('../prompts/nepheshPrompts');
 
+/**
+ * LOCAL LISTINGS, as facts, for the summary and for chat.
+ *
+ * "O'Reilly's near me" produced answers with no address or phone number —
+ * the model only had web pages. The same listings the page's card shows
+ * (LocalPackService, cached, so this costs nothing when the card already
+ * asked) go in first, and the model is told to lead with them. Bounded at 4s
+ * so a slow lookup never holds up an answer.
+ *
+ * @returns {Promise<{block: string, fact: string}>} empty strings when none
+ */
+async function localListingsFor(query, position) {
+  const listings = await Promise.race([
+    LocalPackService.resolve(String(query || ''), {
+      lat: Number.isFinite(position?.lat) ? position.lat : undefined,
+      lng: Number.isFinite(position?.lng) ? position.lng : undefined,
+    }).catch(() => null),
+    new Promise((resolve) => { setTimeout(() => resolve(null), 4000); }),
+  ]);
+  if (!listings?.places?.length) return { block: '', fact: '' };
+  const lines = listings.places.slice(0, 6).map((p, i) => `${i + 1}. ${p.name}${p.address ? ` — ${p.address}` : ''}${p.phone ? ` — ${p.phone}` : ''}${p.distanceMeters != null ? ` — ${(p.distanceMeters / 1609.34).toFixed(1)} mi away` : ''}${p.website ? ` — ${p.website}` : ''}`);
+  return {
+    block: `LOCAL LISTINGS (public map data${listings.where ? `, ${listings.where}` : ''}):\n${lines.join('\n')}\n\n`,
+    fact: 'The context begins with LOCAL LISTINGS from public map data. Lead with them: name, address and phone of the nearest few, as written — the page shows them as a card with Call and Directions buttons. Never invent hours, ratings or prices that are not given.',
+  };
+}
+
 router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
   try {
-    const { message, context = 'general', modes, nepheshMode = false, verbose = false, unhinged: unhingedReq = false, history = [], options = {}, image, searchResults } = req.body;
+    const { message, context = 'general', modes, nepheshMode = false, verbose = false, unhinged: unhingedReq = false, history = [], options = {}, image, searchResults, position = null } = req.body;
 
     // UNHINGED IS GATED SERVER-SIDE. The client hides the control behind a
     // signed-in account with Safe Search off, but a flag posted from a browser
@@ -120,14 +147,16 @@ router.post('/chat', optionalAuth, rateLimitSearch, async (req, res) => {
     // and verbosity layered on per the caller's toggles. When the user
     // multi-selected flows, blend them; otherwise use the single context.
     const promptTarget = Array.isArray(safeModes) && safeModes.length > 0 ? safeModes : context;
-    const systemOverride = getModePrompt(promptTarget, { nepheshMode, verbose, unhinged });
+    const local = await localListingsFor(message, position);
+    const systemOverride = [getModePrompt(promptTarget, { nepheshMode, verbose, unhinged }), local.fact].filter(Boolean).join('\n\n');
+    const webContext = typeof searchResults === 'string' && searchResults.trim() ? searchResults : '';
     const response = await aiClient.chat(message || '', context, {
       ...options,
       userName: isAuthed ? (user.name || 'User') : 'Guest',
       systemOverride,
       history, // prior turns → real back-and-forth memory
       imageDataUrl: hasImage ? image : undefined,
-      searchResults: typeof searchResults === 'string' && searchResults.trim() ? searchResults : undefined,
+      searchResults: (local.block + webContext) || undefined,
       // vs/Null-Prime mode emits a long labeled dual-audit scaffold; give it a
       // bigger token budget so the Verdict section isn't cut off (ordinary
       // chat keeps the default cap, so normal-traffic cost is unchanged).
@@ -560,22 +589,8 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
     // perspective(s), so use them as-is; everything else gets a diversified
     // sample so the summary can't just echo whichever tier ranked first.
     const sample = mode === 'purple' ? results.slice(0, 8) : buildDiverseSample(results, 8);
-    // LOCAL LISTINGS, as facts. "O'Reilly's near me" produced a summary with
-    // no address or phone number in it — the model only had web pages. The
-    // same listings the page's card shows (LocalPackService, cached, so this
-    // costs nothing when the card already asked) go in first, and the model
-    // is told to lead with them. Bounded so a slow lookup never holds up the
-    // summary.
-    const listings = await Promise.race([
-      LocalPackService.resolve(String(query || ''), {
-        lat: Number.isFinite(position?.lat) ? position.lat : undefined,
-        lng: Number.isFinite(position?.lng) ? position.lng : undefined,
-      }).catch(() => null),
-      new Promise((resolve) => { setTimeout(() => resolve(null), 4000); }),
-    ]);
-    const listingsBlock = listings?.places?.length
-      ? `LOCAL LISTINGS (public map data${listings.where ? `, ${listings.where}` : ''}):\n${listings.places.slice(0, 6).map((p, i) => `${i + 1}. ${p.name}${p.address ? ` — ${p.address}` : ''}${p.phone ? ` — ${p.phone}` : ''}${p.distanceMeters != null ? ` — ${(p.distanceMeters / 1609.34).toFixed(1)} mi away` : ''}${p.website ? ` — ${p.website}` : ''}`).join('\n')}\n\n`
-      : '';
+    // Local listings as facts — see localListingsFor above.
+    const { block: listingsBlock, fact: listingsFact } = await localListingsFor(query, position);
     const searchContext = listingsBlock + formatResultsForPrompt(sample);
     const selectedPerspective = Array.isArray(perspectives) && perspectives.length > 0
       ? perspectives.join(', ')
@@ -602,9 +617,6 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
     // and verbosity layered on per the caller's toggles — same source of
     // truth as /chat, so summaries and follow-up chat behave consistently.
     const baseSystem = getModePrompt(aiContexts && aiContexts.length > 1 ? aiContexts : aiContext, { nepheshMode, verbose });
-    const listingsFact = listingsBlock
-      ? 'The context begins with LOCAL LISTINGS from public map data. Lead the summary with them: name, address and phone of the nearest few, as written. Never invent hours, ratings or prices that are not given.'
-      : '';
     const systemOverride = [baseSystem, mapFact, listingsFact].filter(Boolean).join('\n\n');
 
     // Try unified AI service first (with multi-provider failover)

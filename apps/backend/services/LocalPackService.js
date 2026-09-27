@@ -57,7 +57,7 @@ const SERVICES = [
 
 // Words that describe the search, not the place or the specialty.
 const FILLER = new Set(['best', 'top', 'rated', 'good', 'cheap', 'affordable', 'local', 'in', 'near', 'around', 'the', 'a', 'for', 'find', 'me', 'my', 'area', 'closest', 'nearby', 'recommended', 'reviews']);
-const NEAR_ME = /\b(near me|nearby|near by|around me|close to me|closest|in my area)\b/i;
+const NEAR_ME = /\b(near me|nearby|near by|around me|close to me|closest|nearest|in my area)\b/i;
 
 /**
  * Split a query into { service, rest, nearMe } without touching the network.
@@ -190,7 +190,10 @@ async function lookup(service, rest, nearMe, pos) {
 
 /** "O'Reilly's" → "oreilly": apostrophes, possessive s and spacing removed. */
 const squash = (s) => String(s || '').toLowerCase().replace(/['’]s\b/g, '').replace(/[^\p{L}\p{N}]/gu, '');
-const NAME_STOP = new Set([...FILLER, 'store', 'stores', 'shop', 'shops', 'location', 'locations', 'hours', 'open', 'now', 'nearest', 'phone', 'number', 'address', 'directions']);
+const NAME_STOP = new Set([...FILLER, 'store', 'stores', 'shop', 'shops', 'location', 'locations', 'hours', 'open', 'now', 'nearest', 'phone', 'number', 'address', 'directions',
+  // How people ask in chat: "where's the nearest O'Reilly's?", "is there an
+  // AutoZone near me", "find me a NAPA".
+  'where', 'wheres', 'is', 'are', 'there', 'any', 'an', 'i', 'need', 'get', 'go', 'to', 'show', 'list', 'whats', 'what', 'can', 'you', 'please']);
 
 function parseBusinessQuery(query) {
   const q = String(query || '').trim();
