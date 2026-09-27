@@ -1440,6 +1440,14 @@
         "body": "2026-09-27, 8296922: MapViewWrapper asks /api/maps/local-pack first; if a pack, its stores are the ONLY pins (no loose nearby search). MapListings panel (phone bottom / desktop left, collapsible, 4+More, Call/Directions(in-app)/Website, tap flies+opens card). Map fitBounds to nearest 4 + reader. No town-centre pin for business+town queries. All three rounds (search, chat, map) done. NEXT: #7 player overhaul — start with a written map of current behaviour.",
         "ts": "2026-09-27",
         "created": "2026-09-27"
+      },
+      "listings-directions": {
+        "Id": "listings-directions",
+        "Type": "decision",
+        "Label": "Listings Directions -> Truegle Maps",
+        "body": "2026-09-27, 7c1c2df: search-page and chat listing cards' Directions button now opens Truegle's own map + route panel (TruegleMap initialDirectionsTo prop) instead of OSM/Google. Fixed BusinessPanelCard sending directions to google.com (tracker link, missed by no-tracking policy). Fixed real bug: MapViewWrapper's needsUserPosition check missed plain directionsTo requests (no detectedLocation.type), so chat's forced-target route computed 0min/0ft with no origin requested. Cards still fall back to OSM link when no onDirections passed. Verified live+browser: search 3m/0.6mi, chat 3m/0.6mi both from real position.",
+        "ts": "2026-09-27",
+        "created": "2026-09-27"
       }
     },
     "thread": {
