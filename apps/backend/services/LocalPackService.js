@@ -228,7 +228,9 @@ async function lookupBusiness({ tokens, nearMe }, pos) {
     const candidates = pois.filter((p) => {
       const hay = squash(`${p.name} ${(p.category || []).join(' ')}`);
       if (!need.every((w) => hay.includes(w))) return false;
-      if (town && !squash(p.address).includes(town)) return false;
+      // The town must be the CITY part of the address (after the street):
+      // "8127 South Cottage Grove Avenue, Chicago" is not in Cottage Grove.
+      if (town && !squash(String(p.address || '').split(',').slice(1).join(' ')).includes(town)) return false;
       // A chain has many branches with ONE name — dedupe on name + address.
       const key = `${p.name}|${p.address}`.toLowerCase();
       if (seen.has(key)) return false;

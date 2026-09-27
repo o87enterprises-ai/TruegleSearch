@@ -143,6 +143,7 @@ describe('business and brand queries', () => {
       store('AutoZone Auto Parts', '7240 E Point Douglas Rd, Cottage Grove, MN 55016', null),
       store('AutoZone Auto Parts', '2255 W 11th Ave, Eugene, OR 97402', null),
       store('Cottage Grove Auto Body', '12 Main St, Cottage Grove, OR 97424', null),
+      store('AutoZone Auto Parts', '8127 South Cottage Grove Avenue, Chicago, IL 60619', null),
     ]);
     const pack = await resolve('Autozone cottage grove', {});
     expect(TomTom.searchPlaces).toHaveBeenCalledTimes(1);
