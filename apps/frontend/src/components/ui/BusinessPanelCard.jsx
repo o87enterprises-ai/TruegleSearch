@@ -36,7 +36,7 @@ const fmtDistance = (m) => (m == null ? null : (m < 1000 ? `${Math.round(m)} m` 
 
 const host = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
 
-export default function BusinessPanelCard({ panel, className = '' }) {
+export default function BusinessPanelCard({ panel, className = '', onDirections }) {
   const [shared, setShared] = useState(false);
   if (!panel?.name) return null;
 
@@ -48,8 +48,10 @@ export default function BusinessPanelCard({ panel, className = '' }) {
   // Hand the coordinates to whatever maps app the device prefers rather than
   // hard-coding one vendor. A place with no coordinates gets a name search,
   // which still lands somewhere useful.
+  // OpenStreetMap, not Google — sending a visitor's destination to Google
+  // Maps was the one tracker link left in this card.
   const directions = lat != null && lng != null
-    ? `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`
+    ? `https://www.openstreetmap.org/directions?route=%3B${lat}%2C${lng}`
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}`;
 
   const share = async () => {
@@ -118,10 +120,19 @@ export default function BusinessPanelCard({ panel, className = '' }) {
             <span className="text-[11px] font-medium">Call</span>
           </a>
         )}
-        <a href={directions} target="_blank" rel="noopener noreferrer" className={action}>
-          <Navigation size={16} />
-          <span className="text-[11px] font-medium">Directions</span>
-        </a>
+        {directions && (
+          onDirections ? (
+            <button type="button" onClick={() => onDirections({ name, lat, lng })} className={action}>
+              <Navigation size={16} />
+              <span className="text-[11px] font-medium">Directions</span>
+            </button>
+          ) : (
+            <a href={directions} target="_blank" rel="noopener noreferrer" className={action}>
+              <Navigation size={16} />
+              <span className="text-[11px] font-medium">Directions</span>
+            </a>
+          )
+        )}
         {website && (
           <a href={website} target="_blank" rel="noopener noreferrer" className={action}>
             <Globe size={16} />

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, Fragment } from 'react';
+import { useState, useRef, useEffect, useCallback, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Markdown from '../components/ui/Markdown';
@@ -395,6 +395,13 @@ export default function TruegleChat() {
   const [input, setInput] = useState('');
   // See handleSend: the submitted query, which drives the location map.
   const [lastAsked, setLastAsked] = useState('');
+  // "Directions" tapped on a listing in the thread — see ChatLocationMap's
+  // forcedTarget.
+  const [directionsTarget, setDirectionsTarget] = useState(null);
+  const openDirections = useCallback((place) => {
+    if (!Number.isFinite(place?.lat) || !Number.isFinite(place?.lng)) return;
+    setDirectionsTarget({ name: place.name, lat: place.lat, lng: place.lng });
+  }, []);
   const [loading, setLoading] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const endRef = useRef(null);
@@ -1059,7 +1066,7 @@ export default function TruegleChat() {
                     Website on every location, same card as the search page. */}
                 {m.role === 'assistant' && m.listings?.places?.length > 0 && (
                   <div className="mt-3 not-prose">
-                    <LocalPackCard pack={m.listings} accent={accent} />
+                    <LocalPackCard pack={m.listings} accent={accent} onDirections={openDirections} />
                   </div>
                 )}
                 <Citations
@@ -1095,7 +1102,12 @@ export default function TruegleChat() {
               question asked was actually local — see ChatLocationMap, which
               borrows the search page's detection and the map's own nearby
               lookup rather than growing a second copy of either. */}
-          <ChatLocationMap query={lastAsked} accent={accent} />
+          <ChatLocationMap
+            query={lastAsked}
+            accent={accent}
+            forcedTarget={directionsTarget}
+            onForcedTargetHandled={() => setDirectionsTarget(null)}
+          />
 
           {/* Disappear/reappear flow: while a reply is in flight, the input is
               replaced by the loading indicator; once it lands, the mode row +

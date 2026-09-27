@@ -37,7 +37,12 @@ import { useLocationDetection } from '../../hooks/useLocationDetection';
 // Closing it must mean closed. It reopens only when a NEW local question is
 // asked, never for the one that was just dismissed: a map that springs back
 // after being closed is the behaviour people describe as fighting the page.
-export default function ChatLocationMap({ query, accent }) {
+// `forcedTarget` = {name, lat, lng}: "Directions" tapped on a listing card in
+// the thread. That answer may not have read as a local QUESTION at all (it
+// could be a plain "call this place" reply), so it cannot rely on the same
+// isLocationQuery gate — the map has to open on this place regardless of
+// what the last message looked like.
+export default function ChatLocationMap({ query, accent, forcedTarget, onForcedTargetHandled }) {
   const { isLocationQuery, detectedLocation } = useLocationDetection(query || '');
   // Keyed by the query, so dismissing one map does not suppress the next.
   const [dismissedFor, setDismissedFor] = useState(null);
@@ -45,9 +50,15 @@ export default function ChatLocationMap({ query, accent }) {
   // A new local question is a new map. Clearing this on every query change is
   // what makes the dismissal per-question rather than permanent.
   useEffect(() => { setDismissedFor(null); }, [query]);
+  // A forced target un-dismisses too — tapping Directions after closing the
+  // map for an earlier question must still open it.
+  useEffect(() => { if (forcedTarget) setDismissedFor(null); }, [forcedTarget]);
 
-  const shouldShow = isLocationQuery && !!detectedLocation?.coordinates;
-  const dismissed = dismissedFor === query;
+  const effectiveLocation = forcedTarget
+    ? { subject: forcedTarget.name, locationName: forcedTarget.name, coordinates: { lat: forcedTarget.lat, lng: forcedTarget.lng } }
+    : detectedLocation;
+  const shouldShow = (forcedTarget || isLocationQuery) && !!effectiveLocation?.coordinates;
+  const dismissed = !forcedTarget && dismissedFor === query;
 
   if (!shouldShow) return null;
 
@@ -77,14 +88,14 @@ export default function ChatLocationMap({ query, accent }) {
       <div className="w-full max-w-2xl mx-auto -mt-1 mb-2 flex items-center gap-2">
         <span className="inline-flex items-center gap-1.5 text-[11px] text-white/40">
           <MapPin size={12} className={accent?.link || 'text-cyan-400'} />
-          {detectedLocation.subject
-            ? `Looking for ${detectedLocation.subject}`
-            : 'A place'}
-          {detectedLocation.locationName ? ` · ${detectedLocation.locationName}` : ' · near you'}
+          {forcedTarget
+            ? `Directions to ${forcedTarget.name}`
+            : (effectiveLocation.subject ? `Looking for ${effectiveLocation.subject}` : 'A place')}
+          {!forcedTarget && (effectiveLocation.locationName ? ` · ${effectiveLocation.locationName}` : ' · near you')}
         </span>
         <button
           type="button"
-          onClick={() => setDismissedFor(query)}
+          onClick={() => { setDismissedFor(query); onForcedTargetHandled?.(); }}
           title="Close the map"
           aria-label="Close the map"
           className="p-0.5 rounded text-white/30 hover:text-white/70 hover:bg-white/10 transition-colors"
@@ -95,8 +106,9 @@ export default function ChatLocationMap({ query, accent }) {
 
       <MapViewWrapper
         isOpen
-        detectedLocation={detectedLocation}
-        onClose={() => setDismissedFor(query)}
+        detectedLocation={effectiveLocation}
+        directionsTo={forcedTarget}
+        onClose={() => { setDismissedFor(query); onForcedTargetHandled?.(); }}
         // Floating by default here, and remembered separately from the search
         // page's copy — see MapViewWrapper.
         defaultPoppedOut

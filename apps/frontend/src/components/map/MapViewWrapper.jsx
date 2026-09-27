@@ -37,7 +37,10 @@ export default function MapViewWrapper({
   // anybody expressed.
   defaultPoppedOut = false,
   popOutStorageKey = 'truegle_map_popped',
-  className = ''
+  className = '',
+  // "Directions" tapped on a listing OUTSIDE the map (the search page's or
+  // chat's listings card) — see TruegleMap's initialDirectionsTo.
+  directionsTo = null,
 }) {
   const { state, actions } = useMap();
   const [mapStyle, setMapStyle] = useState('standard');
@@ -119,7 +122,12 @@ export default function MapViewWrapper({
     const needsUserPosition =
       !detectedLocation ||
       detectedLocation.type === 'geolocation' ||
-      detectedLocation.type === 'directions';
+      detectedLocation.type === 'directions' ||
+      // "Directions" on a listing card: the origin ("Your location") has to
+      // come from somewhere. Without this, a forced target with no `type`
+      // (chat's synthetic detectedLocation) never requested a position, and
+      // the route panel quietly routed from nowhere to itself — 0 min, 0 ft.
+      !!directionsTo;
     if (isOpen && !userLocation && needsUserPosition && navigator.geolocation) {
       // requestPosition resolves rather than rejecting, and carries a real
       // diagnosis when it fails — the difference between a browser permission,
@@ -467,6 +475,7 @@ export default function MapViewWrapper({
       nearbyStatus={nearbyStatus}
       initialQuery={detectedLocation?.query || ''}
       listings={listings}
+      initialDirectionsTo={directionsTo}
     />
   );
 

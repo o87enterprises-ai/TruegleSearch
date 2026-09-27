@@ -656,6 +656,15 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   const cursorGlowRef = useRef(null);
   const [showMap, setShowMap] = useState(false);
   const [mapManuallyClosed, setMapManuallyClosed] = useState(false);
+  // "Directions" tapped on a listing card — opens Truegle's own map (never
+  // Google's or OpenStreetMap's) straight to that place's route panel.
+  const [directionsTarget, setDirectionsTarget] = useState(null);
+  const openDirections = useCallback((place) => {
+    if (!Number.isFinite(place?.lat) || !Number.isFinite(place?.lng)) return;
+    setDirectionsTarget({ name: place.name, lat: place.lat, lng: place.lng });
+    setMapManuallyClosed(false);
+    setShowMap(true);
+  }, []);
   // Detect location intent from the SUBMITTED query, not the live input. Driving
   // this off `searchValue` made the map auto-open on almost every keystroke (the
   // bare-query geocode fallback matches most short terms), so it now keys off the
@@ -2062,6 +2071,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                     setMapManuallyClosed(true);
                   }}
                   detectedLocation={detectedLocation}
+                  directionsTo={directionsTarget}
                 />
               </motion.div>
             )}
@@ -2202,8 +2212,8 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
           {resultsPage === 1 && activeCategory === 'all' && (localPack || placePanel.panel) && (
             <div className="max-w-4xl mx-auto mb-4">
               {localPack
-                ? <LocalPackCard pack={localPack} accent={modeAccent} />
-                : <BusinessPanelCard panel={placePanel.panel} />}
+                ? <LocalPackCard pack={localPack} accent={modeAccent} onDirections={openDirections} />
+                : <BusinessPanelCard panel={placePanel.panel} onDirections={openDirections} />}
             </div>
           )}
 

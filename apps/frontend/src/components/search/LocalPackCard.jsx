@@ -29,7 +29,7 @@ const SHOWN = 4;
 
 const chip = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors';
 
-function Listing({ p, i, active, onHover }) {
+function Listing({ p, i, active, onHover, onDirections }) {
   const [open, setOpen] = useState(false);
   const share = async () => {
     const text = [p.name, p.address, p.phone].filter(Boolean).join(' · ');
@@ -82,9 +82,15 @@ function Listing({ p, i, active, onHover }) {
               </a>
             )}
             {Number.isFinite(p.lat) && (
-              <a href={directionsHref(p)} target="_blank" rel="noopener noreferrer" className={`${chip} border border-white/20 text-white/85 hover:bg-white/10`}>
-                <Navigation size={13} aria-hidden="true" /> Directions
-              </a>
+              onDirections ? (
+                <button type="button" onClick={() => onDirections(p)} className={`${chip} border border-white/20 text-white/85 hover:bg-white/10`}>
+                  <Navigation size={13} aria-hidden="true" /> Directions
+                </button>
+              ) : (
+                <a href={directionsHref(p)} target="_blank" rel="noopener noreferrer" className={`${chip} border border-white/20 text-white/85 hover:bg-white/10`}>
+                  <Navigation size={13} aria-hidden="true" /> Directions
+                </a>
+              )
             )}
             {p.website && (
               <a href={p.website} target="_blank" rel="noopener noreferrer" title={hostOf(p.website)} className={`${chip} border border-white/20 text-white/85 hover:bg-white/10`}>
@@ -125,7 +131,7 @@ function Listing({ p, i, active, onHover }) {
   );
 }
 
-export default function LocalPackCard({ pack, accent, defaultOpen = true }) {
+export default function LocalPackCard({ pack, accent, defaultOpen = true, onDirections }) {
   const [open, setOpen] = useState(defaultOpen);
   const [expanded, setExpanded] = useState(false);
   const [active, setActive] = useState(-1);
@@ -174,7 +180,7 @@ export default function LocalPackCard({ pack, accent, defaultOpen = true }) {
 
               <ol className="flex-1 min-w-0 divide-y divide-white/15">
                 {places.map((p, i) => (
-                  <Listing key={`${p.name}|${p.address}`} p={p} i={i} active={active === i} onHover={setActive} />
+                  <Listing key={`${p.name}|${p.address}`} p={p} i={i} active={active === i} onHover={setActive} onDirections={onDirections} />
                 ))}
               </ol>
             </div>

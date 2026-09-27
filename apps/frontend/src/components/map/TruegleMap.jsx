@@ -63,6 +63,10 @@ export default function TruegleMap({
   // The search that opened the map ("walmart near me" typed in the top bar).
   // Shown in the in-map box so the map says what it is showing.
   initialQuery = '',
+  // "Directions" clicked on a listing OUTSIDE the map (the search page's or
+  // chat's listings card) — open the route panel straight to that place the
+  // moment the map is up, same as clicking a pin's own Directions button.
+  initialDirectionsTo = null,
   // The business listings for this query, when there are any — see
   // MapListings and MapViewWrapper's fetchListings.
   listings = null,
@@ -132,6 +136,16 @@ export default function TruegleMap({
   const [showLocationModalFS, setShowLocationModalFS] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const directionsSeededFor = useRef(null);
+  useEffect(() => {
+    if (!initialDirectionsTo || !mapLoaded) return;
+    const key = `${initialDirectionsTo.lat},${initialDirectionsTo.lng}`;
+    if (directionsSeededFor.current === key) return;
+    directionsSeededFor.current = key;
+    setDirectionsTo(initialDirectionsTo);
+    setShowDirectionsFS(true);
+    if (TRAFFIC_AVAILABLE) setShowTrafficFS(true);
+  }, [initialDirectionsTo, mapLoaded]);
   const [showGlobe, setShowGlobe] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
