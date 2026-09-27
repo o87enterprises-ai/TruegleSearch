@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticate, optionalAuth } = require('../middleware/auth');
 const { rateLimitSearch } = require('../middleware/rateLimit');
 const AIService = require('../services/AIService');
+const LocalPackService = require('../services/LocalPackService');
 const TokenService = require('../services/TokenService');
 const UnifiedAIService = require('../services/UnifiedAIService');
 const QueryInterpreter = require('../services/QueryInterpreter');
@@ -511,7 +512,7 @@ function fallbackSummary(mode, query) {
  * @body    { query, results, mode?, perspectives?, mapSurface? }
  */
 router.post('/summary', rateLimitSearch, async (req, res) => {
-  const { query, results, mode = 'blue-pill', modes, perspectives = [], isQuestion = false, nepheshMode = false, verbose = false, mapSurface = null } = req.body;
+  const { query, results, mode = 'blue-pill', modes, perspectives = [], isQuestion = false, nepheshMode = false, verbose = false, mapSurface = null, position = null } = req.body;
 
   try {
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -559,7 +560,23 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
     // perspective(s), so use them as-is; everything else gets a diversified
     // sample so the summary can't just echo whichever tier ranked first.
     const sample = mode === 'purple' ? results.slice(0, 8) : buildDiverseSample(results, 8);
-    const searchContext = formatResultsForPrompt(sample);
+    // LOCAL LISTINGS, as facts. "O'Reilly's near me" produced a summary with
+    // no address or phone number in it — the model only had web pages. The
+    // same listings the page's card shows (LocalPackService, cached, so this
+    // costs nothing when the card already asked) go in first, and the model
+    // is told to lead with them. Bounded so a slow lookup never holds up the
+    // summary.
+    const listings = await Promise.race([
+      LocalPackService.resolve(String(query || ''), {
+        lat: Number.isFinite(position?.lat) ? position.lat : undefined,
+        lng: Number.isFinite(position?.lng) ? position.lng : undefined,
+      }).catch(() => null),
+      new Promise((resolve) => { setTimeout(() => resolve(null), 4000); }),
+    ]);
+    const listingsBlock = listings?.places?.length
+      ? `LOCAL LISTINGS (public map data${listings.where ? `, ${listings.where}` : ''}):\n${listings.places.slice(0, 6).map((p, i) => `${i + 1}. ${p.name}${p.address ? ` — ${p.address}` : ''}${p.phone ? ` — ${p.phone}` : ''}${p.distanceMeters != null ? ` — ${(p.distanceMeters / 1609.34).toFixed(1)} mi away` : ''}${p.website ? ` — ${p.website}` : ''}`).join('\n')}\n\n`
+      : '';
+    const searchContext = listingsBlock + formatResultsForPrompt(sample);
     const selectedPerspective = Array.isArray(perspectives) && perspectives.length > 0
       ? perspectives.join(', ')
       : 'Neutral';
@@ -585,7 +602,10 @@ router.post('/summary', rateLimitSearch, async (req, res) => {
     // and verbosity layered on per the caller's toggles — same source of
     // truth as /chat, so summaries and follow-up chat behave consistently.
     const baseSystem = getModePrompt(aiContexts && aiContexts.length > 1 ? aiContexts : aiContext, { nepheshMode, verbose });
-    const systemOverride = mapFact ? `${baseSystem}\n\n${mapFact}` : baseSystem;
+    const listingsFact = listingsBlock
+      ? 'The context begins with LOCAL LISTINGS from public map data. Lead the summary with them: name, address and phone of the nearest few, as written. Never invent hours, ratings or prices that are not given.'
+      : '';
+    const systemOverride = [baseSystem, mapFact, listingsFact].filter(Boolean).join('\n\n');
 
     // Try unified AI service first (with multi-provider failover)
     try {

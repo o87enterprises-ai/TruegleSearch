@@ -683,10 +683,32 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // resolved one for this query; it is never requested for the panel's sake.
   // "near me" is unanswerable without it and correctly returns nothing rather
   // than a plausible business in the wrong city.
+  // The position is detectedLocation.COORDINATES — `.lat` / `.lng` do not
+  // exist on it, so this was always null and "near me" never had a position.
   const placePanel = usePlacePanel(lastSearchedQuery, {
-    lat: detectedLocation?.lat ?? null,
-    lng: detectedLocation?.lng ?? null,
+    lat: detectedLocation?.coordinates?.lat ?? null,
+    lng: detectedLocation?.coordinates?.lng ?? null,
   });
+
+  // Where the reader is (or the town they typed), for the listings lookup
+  // and the summary. The summary is requested the moment results land, often
+  // before geolocation answers, so it can wait briefly for this — see
+  // positionForSummary below.
+  const positionRef = useRef(null);
+  const positionWaiters = useRef([]);
+  useEffect(() => {
+    const c = detectedLocation?.coordinates;
+    positionRef.current = c && Number.isFinite(c.lat) && Number.isFinite(c.lng) ? { lat: c.lat, lng: c.lng } : null;
+    if (positionRef.current) { positionWaiters.current.forEach((w) => w(positionRef.current)); positionWaiters.current = []; }
+  }, [detectedLocation]);
+  const positionForSummary = useCallback((q) => {
+    if (positionRef.current) return Promise.resolve(positionRef.current);
+    if (!/\b(near me|nearby|near by|around me|close to me|closest|in my area)\b/i.test(q || '')) return Promise.resolve(null);
+    return Promise.race([
+      new Promise((res) => { positionWaiters.current.push(res); }),
+      new Promise((res) => { setTimeout(() => res(null), 4000); }),
+    ]);
+  }, []);
   // Only EXPLICIT location intent auto-opens the map. Casual "in <place>"
   // phrasing ('location') and fuzzy place geocodes ('place') get a "View map"
   // chip instead — "where is the largest fireworks show in america" is a
@@ -1119,6 +1141,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
         subject: local.subject || undefined,
         place: local.place || undefined,
       };
+    const position = await positionForSummary(query);
     try {
       const response = await fetch(
         `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/ai/summary`,
@@ -1136,6 +1159,8 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
             isQuestion: isQuestionQuery(query),
             verbose: SEARCH_VERBOSE,
             mapSurface,
+            // So the summary can name the actual nearby listings.
+            position: position || undefined,
           }),
         }
       );
@@ -1377,6 +1402,9 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
       signal: ctrl.signal,
       body: JSON.stringify({
         query: lastSearchedQuery,
+        // Without a position "near me" has nowhere to look — it was never
+        // sent, so no near-me query ever produced listings.
+        ...(detectedLocation?.coordinates ? { lat: detectedLocation.coordinates.lat, lng: detectedLocation.coordinates.lng } : {}),
         domains: web.map((r) => r.domain).filter(Boolean),
         titles: web.map((r) => r.title).filter(Boolean),
       }),
@@ -1385,7 +1413,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
       .then((d) => { if (d?.pack) setLocalPack(d.pack); })
       .catch(() => {});
     return () => ctrl.abort();
-  }, [mode, lastSearchedQuery, searchResults]);
+  }, [mode, lastSearchedQuery, searchResults, detectedLocation?.coordinates?.lat, detectedLocation?.coordinates?.lng]);
   const goToPage = useCallback((p) => {
     setResultsPage(p);
     resultsTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1972,7 +2000,11 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
               fix take effect on a frontend deploy rather than waiting for a
               backend one, and it keeps holding if an older backend is ever
               rolled back. The map is the answer to a near-me question. */}
-          {instantAnswer && mode !== 'tube' && !suppressLocalGuess && (
+          {/* local_business is gone for good: it was a guess from one web
+              result's metadata ("Autozone Locations & …" with no address or
+              phone). The listings card below answers business queries from
+              map data, with Call / Directions on every location. */}
+          {instantAnswer && instantAnswer.type !== 'local_business' && mode !== 'tube' && !suppressLocalGuess && (
             <div className="max-w-4xl mx-auto mb-4 mt-2">
               <QuickResultCard instantAnswer={instantAnswer} mode={mode === 'green' ? 'green' : mode === 'red' ? 'red' : mode === 'purple' ? 'purple' : mode === 'ocean' ? 'ocean' : 'blue'} />
             </div>
@@ -2161,6 +2193,17 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                   </p>
                 )}
               </motion.div>
+            </div>
+          )}
+
+          {/* LISTINGS FIRST: a business query's answer is where it is and how
+              to call it, so the listings sit above the summary. One business
+              found by name → its panel; several locations → the list. */}
+          {resultsPage === 1 && activeCategory === 'all' && (localPack || placePanel.panel) && (
+            <div className="max-w-4xl mx-auto mb-4">
+              {localPack
+                ? <LocalPackCard pack={localPack} accent={modeAccent} />
+                : <BusinessPanelCard panel={placePanel.panel} />}
             </div>
           )}
 
@@ -2582,9 +2625,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                       and two answer boxes push the results off the screen. The
                       panel wins because "call" and "directions" beat a sentence
                       about a business every time. */}
-                  {placePanel.panel && (
-                    <BusinessPanelCard panel={placePanel.panel} className="mb-4" />
-                  )}
 
                   {/* Quick answer — short cited answer for question queries;
                       hidden when a structured instant answer already covers it */}
@@ -2691,9 +2731,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
                   )}
 
                   <div ref={resultsTopRef} className="scroll-mt-24" aria-hidden="true" />
-                  {localPack && resultsPage === 1 && activeCategory === 'all' && (
-                    <LocalPackCard pack={localPack} accent={modeAccent} />
-                  )}
                   {mode !== 'ocean' && pageResults.map((result, i) => (
                     <Fragment key={result.url || i}>
                       {/* Videos sit after the third web result on page one,

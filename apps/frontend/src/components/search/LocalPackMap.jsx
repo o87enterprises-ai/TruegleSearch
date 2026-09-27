@@ -22,6 +22,7 @@ export default function LocalPackMap({ places, center, activeIndex, onPick }) {
       zoom={13}
       bounds={bounds || undefined}
       scrollWheelZoom={false}
+      zoomControl={false}
       attributionControl={false}
       className="w-full h-full"
       style={{ background: '#0b1220' }}
@@ -29,9 +30,9 @@ export default function LocalPackMap({ places, center, activeIndex, onPick }) {
       <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" maxZoom={19} />
       {places.map((p, i) => (Number.isFinite(p.lat) && Number.isFinite(p.lng) ? (
         <Marker
-          key={p.name}
+          key={`${p.name}|${p.address}`}
           position={[p.lat, p.lng]}
-          icon={pin(i + 1, i === activeIndex)}
+          icon={pin(String.fromCharCode(65 + i), i === activeIndex)}
           eventHandlers={{ click: () => onPick?.(i) }}
           title={p.name}
         />

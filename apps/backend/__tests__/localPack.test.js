@@ -104,3 +104,66 @@ it('only accepts a town match that accounts for every word', () => {
   expect(explains(eugene, ['eugene', 'oregon'])).toBe(true);
   expect(explains(eugene, ['eugene', 'oregon', 'patent'])).toBe(false);
 });
+
+// ── Businesses by name ───────────────────────────────────────────────────────
+// Reported 2026-09-27: "O'Reilly's near me" and "Autozone cottage grove" got
+// web links and no listings, because only trade words were recognised.
+describe('business and brand queries', () => {
+  const { _internals: { parseBusinessQuery, squash } } = require('../services/LocalPackService');
+  const store = (name, address, distance, cats = ['auto parts']) => ({
+    name, address, distance, category: cats, phone: '+1 541-942-0000', position: { lat: 43.8, lon: -123.05 }, url: 'oreillyauto.com',
+  });
+
+  test('parses the name, drops the possessive and "near me"', () => {
+    expect(parseBusinessQuery("O'Reilly's near me")).toMatchObject({ tokens: ["O'Reilly"], nearMe: true });
+    expect(squash("O'Reilly's")).toBe('oreilly');
+    expect(parseBusinessQuery('near me')).toBeNull();
+  });
+
+  test('"O\'Reilly\'s near me" lists every branch, nearest first', async () => {
+    TomTom.searchPlaces.mockResolvedValue([
+      store("O'Reilly Auto Parts", '1589 Lee St', 5200),
+      store("O'Reilly Auto Parts", '321 W Irving Park Rd', 1200),
+      store('Oreilly Law Group', '9 Main St', 800, ['legal services']),
+      store('NAPA Auto Parts', '4 Elm St', 300),
+    ]);
+    const pack = await resolve("O'Reilly's near me", { lat: 43.8, lng: -123.05 });
+    // Both branches survive (dedupe is name + address); NAPA does not (no
+    // "oreilly" in its name). The chain ranks ahead of the nearer one-off
+    // that merely shares the word, then by distance.
+    expect(pack.places.map((p) => p.address)).toEqual(['321 W Irving Park Rd', '1589 Lee St', '9 Main St']);
+    expect(pack.label).toBe("O'Reilly Auto Parts locations");
+    expect(pack.where).toBe('Near you');
+    expect(TomTom.searchPlaces.mock.calls[0][0]).toBe("O'Reilly");
+  });
+
+  test('"autozone cottage grove" strips the town and searches there', async () => {
+    TomTom.geocode.mockImplementation(async (text) => (text === 'cottage grove'
+      ? [{ type: 'Geography', address: 'Cottage Grove, OR', position: { lat: 43.7976, lon: -123.0595 } }] : []));
+    TomTom.searchPlaces.mockResolvedValue([store('AutoZone Auto Parts', '801 Row River Rd', 900)]);
+    const pack = await resolve('Autozone cottage grove', { lat: 43.7976, lng: -123.0595 });
+    expect(TomTom.searchPlaces.mock.calls[0][0]).toBe('Autozone');
+    expect(pack).toMatchObject({ label: 'AutoZone Auto Parts', where: 'Cottage Grove, OR' });
+  });
+
+  test('no town, no "near me", no position: at most three town guesses, no place search', async () => {
+    TomTom.geocode.mockResolvedValue([]);
+    const pack = await resolve('taylor swift tour dates', {});
+    expect(pack).toBeNull();
+    expect(TomTom.geocode.mock.calls.length).toBeLessThanOrEqual(3);
+    expect(TomTom.searchPlaces).not.toHaveBeenCalled();
+  });
+
+  test('a town at the end works without any position from the page', async () => {
+    TomTom.geocode.mockImplementation(async (text) => (text === 'cottage grove'
+      ? [{ type: 'Geography', address: 'Cottage Grove, OR', position: { lat: 43.7976, lon: -123.0595 } }] : []));
+    TomTom.searchPlaces.mockResolvedValue([store('AutoZone Auto Parts', '801 Row River Rd', 900)]);
+    const pack = await resolve('autozone cottage grove', {});
+    expect(pack?.places?.[0]?.name).toBe('AutoZone Auto Parts');
+  });
+
+  test('questions never guess a town', async () => {
+    expect(await resolve('what is autozone', {})).toBeNull();
+    expect(TomTom.geocode).not.toHaveBeenCalled();
+  });
+});

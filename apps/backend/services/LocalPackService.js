@@ -135,9 +135,13 @@ function explains(hit, words) {
   return words.every((w) => addr.includes(w) || STATE_WORDS.has(w));
 }
 
-async function geocodeTown(words) {
-  for (const win of locationWindows(words)) {
-    // eslint-disable-next-line no-await-in-loop
+async function geocodeTown(words, { trailingOnly = false } = {}) {
+  // trailingOnly: "autozone cottage grove" — the town is at the end, and
+  // trying only the ends' last 1–3 words caps a guess at three lookups.
+  const windows = trailingOnly
+    ? [3, 2, 1].filter((n) => n < words.length).map((n) => words.slice(-n))
+    : locationWindows(words);
+  for (const win of windows) {
     const hits = await TomTomService.geocode(win.join(' '), { limit: 1 }).catch(() => []);
     const hit = hits && hits[0];
     if (hit && hit.type === 'Geography' && explains(hit, win)) return { words: win, hit };
@@ -180,16 +184,136 @@ async function lookup(service, rest, nearMe, pos) {
   return candidates.length ? { center, where, specialty, candidates } : null;
 }
 
+// ── BUSINESSES BY NAME: "O'Reilly's near me", "autozone cottage grove" ─────
+//
+// The service list above only knows trades ("lawyers", "plumbers"), so a store
+// or brand name never produced listings — the reported "O'Reilly's near me"
+// showed web links and no Call button. This path takes the words themselves as
+// the business name and keeps only places whose NAME actually contains them,
+// so a query that merely happens to be local does not grow a card of whatever
+// TomTom found nearby.
+
+/** "O'Reilly's" → "oreilly": apostrophes, possessive s and spacing removed. */
+const squash = (s) => String(s || '').toLowerCase().replace(/['’]s\b/g, '').replace(/[^\p{L}\p{N}]/gu, '');
+const NAME_STOP = new Set([...FILLER, 'store', 'stores', 'shop', 'shops', 'location', 'locations', 'hours', 'open', 'now', 'nearest', 'phone', 'number', 'address', 'directions']);
+
+function parseBusinessQuery(query) {
+  const q = String(query || '').trim();
+  if (!q) return null;
+  const nearMe = NEAR_ME.test(q);
+  // Original tokens are kept for the search term ("O'Reilly" searches better
+  // than "oreilly"); squashed ones are what names are matched against.
+  const tokens = q.replace(NEAR_ME, ' ').replace(/['’]s\b/gi, '').split(/\s+/)
+    .map((t) => t.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ''))
+    .filter((t) => t && !NAME_STOP.has(t.toLowerCase()));
+  if (!tokens.length || tokens.length > 6) return null;
+  return { tokens, words: tokens.map((t) => t.toLowerCase()), nearMe };
+}
+
+async function lookupBusiness({ tokens, words, nearMe }, pos) {
+  // Strip a town from the ends ("autozone cottage grove") — only when there is
+  // something left to be the name, and only when "near me" did not already
+  // say where.
+  const town = !nearMe && words.length > 1 ? await geocodeTown(words, { trailingOnly: !pos }) : null;
+  const nameTokens = town ? tokens.filter((t) => !town.words.includes(t.toLowerCase())) : tokens;
+  if (!nameTokens.length) return null;
+  const center = town ? { lat: town.hit.position.lat, lng: town.hit.position.lon } : pos;
+  if (!center) return null;
+
+  const term = nameTokens.join(' ');
+  const need = nameTokens.map(squash).filter((w) => w.length > 1);
+  const found = await TomTomService.searchPlaces(term, {
+    lat: center.lat, lon: center.lng, radius: 40000, limit: 25,
+  }).catch((err) => { logger.warn('local pack: business search failed', { term, error: err.message }); return []; });
+
+  const seen = new Set();
+  const candidates = (found || []).filter((p) => {
+    if (!p || !p.name || p.name === p.address) return false;
+    const hay = squash(`${p.name} ${(p.category || []).join(' ')}`);
+    if (!need.every((w) => hay.includes(w))) return false;
+    // A chain has many branches with ONE name — dedupe on name + address, or
+    // every O'Reilly after the first disappears.
+    const k = `${p.name}|${p.address}`.toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  if (!candidates.length) return null;
+  const where = town ? town.hit.address : (nearMe ? 'Near you' : null);
+  return { center, where, candidates };
+}
+
+/** The name most of the results share — "O'Reilly Auto Parts". */
+function commonName(places) {
+  const counts = new Map();
+  places.forEach((p) => counts.set(p.name, (counts.get(p.name) || 0) + 1));
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+}
+
+function toPlace(p, extra = {}) {
+  return {
+    name: p.name,
+    address: p.address || null,
+    phone: p.phone || null,
+    website: p.url ? (/^https?:/i.test(p.url) ? p.url : `https://${p.url}`) : null,
+    lat: p.position?.lat ?? null,
+    lng: p.position?.lon ?? null,
+    distanceMeters: typeof p.distance === 'number' ? Math.round(p.distance) : null,
+    category: (p.category || []).filter((c) => c !== 'company').map((c) => c.replace(/\b\w/g, (m) => m.toUpperCase()))[0] || null,
+    ...extra,
+  };
+}
+
+async function resolveBusiness(query, ctx, hasPos) {
+  const parsed = parseBusinessQuery(query);
+  // Only when the query says where (near me) or the page knows where (a
+  // position, or a town it geocoded). Without either, every search on the
+  // site would spend TomTom calls guessing whether it named a shop.
+  if (!parsed) return null;
+  // Or a short, non-question query that may END in a town ("autozone cottage
+  // grove") — tried as at most three trailing-word geocodes, cached.
+  const n = parsed.tokens.length;
+  const maybeTown = n >= 2 && n <= 5 && !/^(who|what|why|when|which|how|is|are|do|does|did|can|should|will)\b/i.test(String(query).trim());
+  if (!(parsed.nearMe || hasPos || maybeTown)) return null;
+  const key = `biz|${String(query).toLowerCase().trim()}|${hasPos ? `${ctx.lat.toFixed(2)},${ctx.lng.toFixed(2)}` : ''}`;
+  let found = cache.get(key);
+  if (!found || Date.now() - found.at >= TTL_MS) {
+    found = { at: Date.now(), value: await lookupBusiness(parsed, hasPos ? { lat: ctx.lat, lng: ctx.lng } : null) };
+    cache.set(key, found);
+    if (cache.size > 300) cache.delete(cache.keys().next().value);
+  }
+  if (!found.value) return null;
+  const { center, where, candidates } = found.value;
+  // The chain the query means first ("O'Reilly Auto Parts", eight branches)
+  // ahead of a one-off that shares a word ("Oreilly Law Group"), then nearest.
+  const all = candidates.map((p) => toPlace(p, { mentioned: mentionedIn(p, ctx, parsed.words) }));
+  const name = commonName(all);
+  const places = all
+    .sort((a, b) => (Number(b.name === name) - Number(a.name === name))
+      || ((a.distanceMeters ?? 1e9) - (b.distanceMeters ?? 1e9)))
+    .slice(0, 10);
+  const sharing = places.filter((p) => p.name === name).length;
+  const label = sharing * 2 >= places.length
+    ? (sharing > 1 ? `${name} locations` : name)
+    : parsed.tokens.join(' ');
+  return {
+    label,
+    where,
+    center,
+    places,
+  };
+}
+
 /**
  * @param {string} query
  * @param {{lat?:number,lng?:number,domains?:string[],titles?:string[]}} ctx
  * @returns {Promise<null|{label:string,where:string,center:{lat:number,lng:number},places:object[]}>}
  */
 async function resolve(query, ctx = {}) {
-  const parsed = parseLocalQuery(query);
-  if (!parsed) return null;
-  const { service, rest, nearMe } = parsed;
   const hasPos = Number.isFinite(ctx.lat) && Number.isFinite(ctx.lng);
+  const parsed = parseLocalQuery(query);
+  if (!parsed) return resolveBusiness(query, ctx, hasPos);
+  const { service, rest, nearMe } = parsed;
 
   // One cache entry per query (+ rough position): geocoding and the searches
   // are up to eight TomTom calls, and the free tier is metered per day.
@@ -220,7 +344,7 @@ async function resolve(query, ctx = {}) {
     .sort((a, b) => (Number(b.mentioned) - Number(a.mentioned))
       || (Number(b.specialtyMatch) - Number(a.specialtyMatch))
       || ((a.distanceMeters ?? 1e9) - (b.distanceMeters ?? 1e9)))
-    .slice(0, 6);
+    .slice(0, 10);
 
   const title = [spec.join(' '), service.label.toLowerCase()].filter(Boolean).join(' ');
   return {
@@ -231,4 +355,4 @@ async function resolve(query, ctx = {}) {
   };
 }
 
-module.exports = { resolve, _internals: { parseLocalQuery, locationWindows, mentionedIn, explains, SERVICES } };
+module.exports = { resolve, _internals: { parseLocalQuery, parseBusinessQuery, squash, locationWindows, mentionedIn, explains, SERVICES } };
