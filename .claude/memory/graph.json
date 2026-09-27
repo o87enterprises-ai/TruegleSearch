@@ -1424,6 +1424,14 @@
         "body": "2026-09-27 (1411b67..0d59c2b): LocalPackService handles business/brand names (one TomTom search; name must hold business words, address CITY part the town words; chain-first only when typed words start the chain name; dedupe name+address). Search page sends position (was never sent; placePanel read nonexistent detectedLocation.lat). LocalPackCard = Google-style: above summary, lettered pins, 4 + More locations, collapsible, per-listing details, Call/Directions/Website. Old local_business QuickResultCard removed. AI summary gets listings as facts. NEXT: round 2 chat listings, round 3 map declutter + listings, then #7 player.",
         "ts": "2026-09-27",
         "created": "2026-09-27"
+      },
+      "listings-round2": {
+        "Id": "listings-round2",
+        "Type": "decision",
+        "Label": "Chat listings shipped",
+        "body": "2026-09-27, 78443ef: chat answers to business questions carry the LocalPackCard (Call/Directions/Website); location asked only on near me/nearest; /api/ai/chat accepts position and injects listings via shared localListingsFor (routes/ai.js), same as summary. Verified live: 'where's the nearest O'Reilly's?' -> 1800 East Main St, Cottage Grove, 0.6 mi, +1 541-623-0200. NEXT: round 3 map declutter + listings.",
+        "ts": "2026-09-27",
+        "created": "2026-09-27"
       }
     },
     "thread": {
