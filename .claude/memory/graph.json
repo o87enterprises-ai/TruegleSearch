@@ -1432,6 +1432,14 @@
         "body": "2026-09-27, 78443ef: chat answers to business questions carry the LocalPackCard (Call/Directions/Website); location asked only on near me/nearest; /api/ai/chat accepts position and injects listings via shared localListingsFor (routes/ai.js), same as summary. Verified live: 'where's the nearest O'Reilly's?' -> 1800 East Main St, Cottage Grove, 0.6 mi, +1 541-623-0200. NEXT: round 3 map declutter + listings.",
         "ts": "2026-09-27",
         "created": "2026-09-27"
+      },
+      "listings-round3": {
+        "Id": "listings-round3",
+        "Type": "decision",
+        "Label": "Map listings + declutter shipped",
+        "body": "2026-09-27, 8296922: MapViewWrapper asks /api/maps/local-pack first; if a pack, its stores are the ONLY pins (no loose nearby search). MapListings panel (phone bottom / desktop left, collapsible, 4+More, Call/Directions(in-app)/Website, tap flies+opens card). Map fitBounds to nearest 4 + reader. No town-centre pin for business+town queries. All three rounds (search, chat, map) done. NEXT: #7 player overhaul — start with a written map of current behaviour.",
+        "ts": "2026-09-27",
+        "created": "2026-09-27"
       }
     },
     "thread": {
@@ -1881,7 +1889,7 @@
         "Type": "thread",
         "Label": "Listings card in chat + map declutter",
         "body": "Owner 2026-09-27: chat answers need the same clickable listings (it showed details but no tel/directions); map is cluttered (Walmart/coffee pins for an O'Reilly query) — show only relevant markers, listings as modular dropdown. Reference: Google Maps bottom-sheet list.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-09-27",
         "created": "2026-09-27"
       }
