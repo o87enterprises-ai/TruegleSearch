@@ -31,6 +31,7 @@ import {
 import DirectionsPanel from './DirectionsPanel';
 import { useViewportIncidents, IncidentMarkers, IncidentDetails, useLiveHere } from './TrafficIncidents';
 import BeforeYouGo from './BeforeYouGo';
+import MapListings from './MapListings';
 import LocationPermissionModal from './LocationPermissionModal';
 import Globe3D from './Globe3D';
 import AzimuthalFlat from './AzimuthalFlat';
@@ -62,6 +63,9 @@ export default function TruegleMap({
   // The search that opened the map ("walmart near me" typed in the top bar).
   // Shown in the in-map box so the map says what it is showing.
   initialQuery = '',
+  // The business listings for this query, when there are any — see
+  // MapListings and MapViewWrapper's fetchListings.
+  listings = null,
   userLocation: initialUserLocation = null,
   // Why the wrapper has no position, when it has none — see utils/geolocation.
   // null means "no attempt has failed", which is not the same as "denied".
@@ -1158,6 +1162,33 @@ export default function TruegleMap({
   // handleMoveEnd — which covers the buttons, the wheel, and pinch alike,
   // rather than the buttons only.
 
+  // FIT THE LISTINGS. The map opened zoomed in on the reader, so the stores
+  // it had just pinned — half a mile and seventeen miles away — were all
+  // off-screen. Frame the nearest four and the reader, leaving room for the
+  // listings panel (bottom on a phone, left on desktop).
+  const fittedFor = useRef(null);
+  useEffect(() => {
+    if (!listings?.places?.length || !mapLoaded) return;
+    const key = listings.places.map((p) => `${p.lat},${p.lng}`).join('|');
+    if (fittedFor.current === key) return;
+    const map = typeof mapRef.current?.getMap === 'function' ? mapRef.current.getMap() : mapRef.current;
+    if (!map?.fitBounds) return;
+    const pts = listings.places.slice(0, 4).filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)).map((p) => [p.lng, p.lat]);
+    if (userLocation && Number.isFinite(userLocation.lat)) pts.push([userLocation.lng, userLocation.lat]);
+    if (!pts.length) return;
+    fittedFor.current = key;
+    const lngs = pts.map((p) => p[0]);
+    const lats = pts.map((p) => p[1]);
+    const phone = typeof window !== 'undefined' && window.innerWidth < 640;
+    try {
+      map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], {
+        padding: phone ? { top: 90, bottom: 230, left: 30, right: 30 } : { top: 90, bottom: 40, left: 360, right: 60 },
+        maxZoom: 15,
+        duration: 800,
+      });
+    } catch { /* the map is mid-teardown; the next listings change retries */ }
+  }, [listings, mapLoaded, userLocation]);
+
   // LIVE CONDITIONS: incident pins while the traffic layer is on, and the
   // "Live here" line on a selected place. See TrafficIncidents.jsx.
   const trafficOn = TRAFFIC_AVAILABLE && (showTraffic || showTrafficFS);
@@ -1943,6 +1974,25 @@ export default function TruegleMap({
           stops propagation, so clicking the picture you are watching does not
           dismiss it. */}
       <AnimatePresence>
+        {listings && !panelOpen && !beforeYouGo && (
+          <MapListings
+            listings={listings}
+            onFocus={(p) => {
+              const marker = { id: `listing-focus-${p.lat}-${p.lng}`, lat: p.lat, lng: p.lng, name: p.name, address: p.address, category: p.category || 'BUSINESS', phone: p.phone, website: p.website };
+              actions.flyTo({ lat: p.lat, lng: p.lng }, 16);
+              setSelectedMarker(marker);
+              actions.setSelectedMarker(marker);
+            }}
+            onDirections={(p) => {
+              setDirectionsTo({ name: p.name, lat: p.lat, lng: p.lng });
+              setShowDirectionsFS(true);
+              if (TRAFFIC_AVAILABLE) setShowTrafficFS(true);
+              setSelectedMarker(null);
+              actions.setSelectedMarker(null);
+            }}
+          />
+        )}
+
         {beforeYouGo && (
           <BeforeYouGo
             place={beforeYouGo}

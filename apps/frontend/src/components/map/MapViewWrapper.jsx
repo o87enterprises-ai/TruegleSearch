@@ -62,6 +62,10 @@ export default function MapViewWrapper({
   // map — see TruegleMap's nearbyStatus. 'searching' | 'found' | 'empty' |
   // 'failed', with the reason when it failed.
   const [nearbyStatus, setNearbyStatus] = useState({ state: 'idle', query: '', reason: '' });
+  // The listings for a business query ("O'Reilly's near me") — the same pack
+  // the search page and chat show. When there is one, it is ALL the map pins:
+  // see fetchListings below.
+  const [listings, setListings] = useState(null);
   // Popped out = floating over the page instead of sitting in the results
   // column, so the map is no longer a mode you are stuck in. Remembered,
   // because it is a preference about how you like to work, not a per-search
@@ -87,13 +91,16 @@ export default function MapViewWrapper({
       setUserLocation({ lat, lng });
       actions.flyTo({ lat, lng }, USER_LOCATION_ZOOM);
 
-      // For a named place/business, drop a marker and pop its contact card open.
-      if (detectedLocation.type === 'place' || detectedLocation.type === 'location') {
+      // For a named PLACE, drop a marker and pop its card open. Not for
+      // "business + town" ("O'Reilly's cottage grove Oregon"): that pin sat on
+      // the town centre labelled with the whole query, as if it were the
+      // store — the listings carry the real stores instead.
+      if ((detectedLocation.type === 'place' || detectedLocation.type === 'location') && !detectedLocation.subject) {
         const marker = {
           id: `search-result-${lat}-${lng}`,
           lat,
           lng,
-          name: detectedLocation.locationName || detectedLocation.query,
+          name: detectedLocation.locationName || detectedLocation.address || detectedLocation.query,
           address: detectedLocation.address,
           category: 'SEARCH_RESULT',
         };
@@ -224,6 +231,43 @@ export default function MapViewWrapper({
       return false;
     };
 
+    // THE LISTINGS FIRST. A business query was answered by a loose "nearby"
+    // search on its subject, and the free providers at the bottom of that
+    // ladder ignore the name — "O'Reilly's cottage grove" put coffee shops and
+    // a Latin grocery on the map. The listings service matches the business
+    // by name (it is what the search page's card uses), so when it answers,
+    // its places are the only pins and nothing else is asked.
+    const fetchListings = async (location, query) => {
+      if (!query) return false;
+      try {
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/maps/local-pack`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, lat: location.lat, lng: location.lng }),
+        });
+        const pack = res.ok ? (await res.json())?.pack : null;
+        if (!pack?.places?.length) { setListings(null); return false; }
+        setListings(pack);
+        pack.places.forEach((p, i) => {
+          if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return;
+          actions.addMarker({
+            id: `listing-${i}-${p.lat.toFixed(5)}-${p.lng.toFixed(5)}`,
+            lat: p.lat,
+            lng: p.lng,
+            name: p.name,
+            address: p.address,
+            category: 'BUSINESS',
+            phone: p.phone || null,
+            website: p.website || null,
+          });
+        });
+        setNearbyStatus({ state: 'found', query, reason: '' });
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
     // The enriched endpoint above is Radar-only, and Radar is optional — with
     // Mapbox/TomTom keys and no Radar key it returns nothing at all, which is
     // why the map showed no local businesses. This is the same question asked
@@ -288,10 +332,12 @@ export default function MapViewWrapper({
       // than worked around by not calling it.
       const subject = detectedLocation?.subject || '';
       setNearbyStatus({ state: 'searching', query: subject, reason: '' });
-      fetchNearbyPlaces(location, subject).then((served) => {
-        if (served) { setNearbyStatus({ state: 'found', query: subject, reason: '' }); return undefined; }
-        return fetchNearbyFallback(location, subject);
-      });
+      fetchListings(location, detectedLocation?.query || '')
+        .then((listed) => (listed ? true : fetchNearbyPlaces(location, subject)))
+        .then((served) => {
+          if (served) { setNearbyStatus((s0) => (s0.state === 'found' ? s0 : { state: 'found', query: subject, reason: '' })); return undefined; }
+          return fetchNearbyFallback(location, subject);
+        });
     }
   }, [isOpen, userLocation, detectedLocation]);
       
@@ -420,6 +466,7 @@ export default function MapViewWrapper({
       onTogglePopOut={() => setPoppedOut((v) => !v)}
       nearbyStatus={nearbyStatus}
       initialQuery={detectedLocation?.query || ''}
+      listings={listings}
     />
   );
 
