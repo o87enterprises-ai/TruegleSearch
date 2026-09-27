@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ArrowLeft } from 'lucide-react';
 import { MODE_COLORS } from '../../config/modeTheme';
 
 // Global navigation — ONLY a hamburger button that opens a slide-out drawer.
@@ -29,10 +29,38 @@ const ITEMS = [
 // Auth pages are focused flows with their own chrome — no menu there.
 const HIDDEN_PATHS = new Set(['/auth/login', '/auth/signup']);
 
+// The browser's own Back button doesn't reliably return here: this is a
+// client-routed SPA, and a page that changes what's shown (a mode toggle, an
+// opened panel, a pill switch) without pushing a new history entry leaves
+// nothing for the browser's back button to land on — it skips straight past
+// that state to whatever came before it, or off the site entirely from the
+// first page landed on. This button keeps ITS OWN stack of full paths
+// (pathname + query) as the app actually navigates, independent of the
+// browser's history, and always has a real previous page to return to.
+let ROUTE_HISTORY = [];
+
+function useBackTarget() {
+  const location = useLocation();
+  const key = `${location.pathname}${location.search}`;
+  const prevKeyRef = useRef(null);
+  if (prevKeyRef.current !== key) {
+    // A route change while this render commits — record it once, here,
+    // rather than in an effect: an effect fires after paint, and the very
+    // first click on the fresh page would still read the stale top-of-stack.
+    if (ROUTE_HISTORY[ROUTE_HISTORY.length - 1] !== key) ROUTE_HISTORY.push(key);
+    if (ROUTE_HISTORY.length > 50) ROUTE_HISTORY = ROUTE_HISTORY.slice(-50);
+    prevKeyRef.current = key;
+  }
+  // The entry below the current page — null when this IS the first page,
+  // which hides the button rather than sending someone off the site.
+  return ROUTE_HISTORY.length > 1 ? ROUTE_HISTORY[ROUTE_HISTORY.length - 2] : null;
+}
+
 export default function BrandBar() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const backTarget = useBackTarget();
 
   useEffect(() => { setOpen(false); }, [location.pathname, location.search]);
   useEffect(() => {
@@ -43,6 +71,17 @@ export default function BrandBar() {
   }, [open]);
 
   if (HIDDEN_PATHS.has(location.pathname)) return null;
+
+  // Colour-coded to the CURRENT page's mode, same palette as the drawer's own
+  // dots — a search page's back button reads blue, chat's reads the neutral
+  // "black" chip, and so on. Falls back to a neutral grey off any mode page.
+  const currentParams = new URLSearchParams(location.search);
+  const currentModeKey = location.pathname === '/chat' ? 'black'
+    : location.pathname.startsWith('/feed') ? 'yellow'
+      : location.pathname === '/tube' ? 'tube'
+        : location.pathname === '/search' ? (currentParams.get('mode') || 'blue')
+          : null;
+  const backColor = currentModeKey ? MODE_COLORS[currentModeKey] : '#9aa7b8';
 
   const isActive = (item) => {
     if (item.path === '/chat') return location.pathname === '/chat';
@@ -67,6 +106,28 @@ export default function BrandBar() {
       >
         <Menu size={18} />
       </motion.button>
+
+      {/* OPAQUE (not translucent like the hamburger) — the point is to read
+          instantly as "the way back", not blend into the page behind it. */}
+      {backTarget && (
+        <motion.button
+          type="button"
+          onClick={() => {
+            // Pop past the current entry too — the one just under it on the
+            // stack is where "back" actually goes.
+            ROUTE_HISTORY = ROUTE_HISTORY.slice(0, -1);
+            navigate(backTarget);
+          }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          aria-label="Back"
+          title="Back"
+          className="fixed top-16 left-4 z-[9998] w-10 h-10 rounded-full bg-[#13131f] shadow-xl flex items-center justify-center text-white transition-colors"
+          style={{ border: `1.5px solid ${backColor}` }}
+        >
+          <ArrowLeft size={18} style={{ color: backColor }} />
+        </motion.button>
+      )}
 
       {createPortal(
         <AnimatePresence>

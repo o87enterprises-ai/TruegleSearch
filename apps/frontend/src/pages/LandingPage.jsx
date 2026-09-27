@@ -35,6 +35,7 @@ import FeaturedCreator from '../components/FeaturedCreator';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import SearchBar from '../components/ui/SearchBar';
 import TrailGameLink from '../components/ui/TrailGameLink';
+import LandingTagline from '../components/landing/LandingTagline';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -242,6 +243,9 @@ export default function LandingPage() {
                   </div>
                 </motion.div>
 
+                {/* Small spacing, then the tide-fade tagline. */}
+                <LandingTagline />
+
                 {/* Reflection underneath logo */}
                 <div
                   className="absolute left-1/2 -translate-x-1/2 pointer-events-none"
@@ -369,18 +373,12 @@ export default function LandingPage() {
                 placeholder={
                   pillMode === 'red' ? 'Explore the Rabbit Hole...' :
                   pillMode === 'green' ? 'Search — concise summaries...' :
-                  'Search Truegle...'
+                  'Search Like G****e'
                 }
                 size="large"
               />
               {/* The one thing a first-time visitor needs to know. Quiet, and
                   gone once they start typing — by then they know. */}
-              <p
-                className={`mt-2 text-center text-xs text-white/40 transition-opacity duration-300 ${searchQuery ? 'opacity-0' : 'opacity-100'}`}
-                aria-hidden={searchQuery ? 'true' : undefined}
-              >
-                Use Truegle just like Google — it handles the rest.
-              </p>
             </div>
 
             {/* Chat Mode row (multi-select chat lenses) — directly below the

@@ -13,6 +13,20 @@ import { MODE_COLORS, MODE_GRADIENT, searchModeLabel, solidTextClass } from '../
 // the re-ask fold, so it is a control on Red rather than a mode of its own.
 // ?mode=purple still resolves (see FOLDED_MODES in UniversalSearch).
 const CYCLE = ['black', 'tube', 'blue', 'green', 'red', 'ocean', 'yellow'];
+
+// The passive status word above the pill — what KIND of thing this mode does,
+// not which mode it is (the pill itself already says that in its own label).
+// blue/green/red are all "Search" because they are three takes on the same
+// verb; ocean and yellow are different verbs entirely.
+const ACTIVITY_LABEL = {
+  black: 'Chat',
+  tube: 'Play',
+  blue: 'Search',
+  green: 'Search',
+  red: 'Search',
+  ocean: 'Investigate',
+  yellow: 'Social',
+};
 const HOLD_MS = 2200; // press-and-hold this long (mobile long-press or desktop click-hold) to jump straight back to Chat
 
 export default function PillModeRow({ activeMode, onSelect, onHold }) {
@@ -48,11 +62,12 @@ export default function PillModeRow({ activeMode, onSelect, onHold }) {
   // searchModeLabel, not MODE_LABELS: this pill drives SEARCH, where green
   // generates nothing, so the shared chat label "Summarize" is wrong here.
   const label = activeMode === 'black' ? 'Chat' : searchModeLabel(activeMode);
+  const activity = ACTIVITY_LABEL[activeMode] || 'Search';
 
   return (
     <div className="flex flex-col items-center gap-1.5">
       <span className="text-[10px] uppercase tracking-widest text-white/35 font-semibold select-none">
-        {activeMode === 'black' ? 'Chat' : 'Search'}
+        {activity}
       </span>
       <motion.button
         type="button"
