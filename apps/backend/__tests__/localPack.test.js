@@ -137,33 +137,51 @@ describe('business and brand queries', () => {
     expect(TomTom.searchPlaces.mock.calls[0][0]).toBe("O'Reilly");
   });
 
-  test('"autozone cottage grove" strips the town and searches there', async () => {
-    TomTom.geocode.mockImplementation(async (text) => (text === 'cottage grove'
-      ? [{ type: 'Geography', address: 'Cottage Grove, OR', position: { lat: 43.7976, lon: -123.0595 } }] : []));
-    TomTom.searchPlaces.mockResolvedValue([store('AutoZone Auto Parts', '801 Row River Rd', 900)]);
-    const pack = await resolve('Autozone cottage grove', { lat: 43.7976, lng: -123.0595 });
-    expect(TomTom.searchPlaces.mock.calls[0][0]).toBe('Autozone');
-    expect(pack).toMatchObject({ label: 'AutoZone Auto Parts', where: 'Cottage Grove, OR' });
+  test('"Autozone cottage grove": one search; the name holds "autozone", the ADDRESS "cottage grove"', async () => {
+    TomTom.searchPlaces.mockResolvedValue([
+      store('AutoZone Auto Parts', '801 Row River Rd, Cottage Grove, OR 97424', null),
+      store('AutoZone Auto Parts', '7240 E Point Douglas Rd, Cottage Grove, MN 55016', null),
+      store('AutoZone Auto Parts', '2255 W 11th Ave, Eugene, OR 97402', null),
+      store('Cottage Grove Auto Body', '12 Main St, Cottage Grove, OR 97424', null),
+    ]);
+    const pack = await resolve('Autozone cottage grove', {});
+    expect(TomTom.searchPlaces).toHaveBeenCalledTimes(1);
+    expect(TomTom.searchPlaces.mock.calls[0][0]).toBe('Autozone cottage grove');
+    expect(TomTom.geocode).not.toHaveBeenCalled();
+    // Both Cottage Groves (no position to choose between them); not Eugene,
+    // not the body shop that merely has the town in its name.
+    expect(pack.places.map((p) => p.address)).toEqual([
+      '801 Row River Rd, Cottage Grove, OR 97424', '7240 E Point Douglas Rd, Cottage Grove, MN 55016']);
+    expect(pack.where).toBe('Cottage Grove, OR');
   });
 
-  test('no town, no "near me", no position: at most three town guesses, no place search', async () => {
-    TomTom.geocode.mockResolvedValue([]);
+  test('"auto parts near me" is a KIND of shop: nearest first, whoever runs it', async () => {
+    TomTom.searchPlaces.mockResolvedValue([
+      store("O'Reilly Auto Parts", '1800 E Main St', 900),
+      store("O'Reilly Auto Parts", '2020 W 11th Ave', 28000),
+      store('NAPA Auto Parts', '4 Elm St', 400, ['auto parts']),
+      store('AutoZone Auto Parts', '801 Row River Rd', 700),
+    ]);
+    const pack = await resolve('auto parts near me', { lat: 43.8, lng: -123.05 });
+    expect(pack.places.map((p) => p.name)).toEqual(['NAPA Auto Parts', 'AutoZone Auto Parts', "O'Reilly Auto Parts", "O'Reilly Auto Parts"]);
+    expect(pack.label).toBe('Auto parts');
+  });
+
+  test('a general query costs at most one place search and shows nothing', async () => {
+    TomTom.searchPlaces.mockResolvedValue([store('Swift Tire', '5 Oak St', 100)]);
     const pack = await resolve('taylor swift tour dates', {});
     expect(pack).toBeNull();
-    expect(TomTom.geocode.mock.calls.length).toBeLessThanOrEqual(3);
+    expect(TomTom.searchPlaces).toHaveBeenCalledTimes(1);
+    expect(TomTom.geocode).not.toHaveBeenCalled();
+  });
+
+  test('"near me" with no position looks nothing up', async () => {
+    expect(await resolve("O'Reilly's near me", {})).toBeNull();
     expect(TomTom.searchPlaces).not.toHaveBeenCalled();
   });
 
-  test('a town at the end works without any position from the page', async () => {
-    TomTom.geocode.mockImplementation(async (text) => (text === 'cottage grove'
-      ? [{ type: 'Geography', address: 'Cottage Grove, OR', position: { lat: 43.7976, lon: -123.0595 } }] : []));
-    TomTom.searchPlaces.mockResolvedValue([store('AutoZone Auto Parts', '801 Row River Rd', 900)]);
-    const pack = await resolve('autozone cottage grove', {});
-    expect(pack?.places?.[0]?.name).toBe('AutoZone Auto Parts');
-  });
-
-  test('questions never guess a town', async () => {
+  test('questions never trigger a lookup', async () => {
     expect(await resolve('what is autozone', {})).toBeNull();
-    expect(TomTom.geocode).not.toHaveBeenCalled();
+    expect(TomTom.searchPlaces).not.toHaveBeenCalled();
   });
 });

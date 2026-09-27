@@ -135,13 +135,8 @@ function explains(hit, words) {
   return words.every((w) => addr.includes(w) || STATE_WORDS.has(w));
 }
 
-async function geocodeTown(words, { trailingOnly = false } = {}) {
-  // trailingOnly: "autozone cottage grove" — the town is at the end, and
-  // trying only the ends' last 1–3 words caps a guess at three lookups.
-  const windows = trailingOnly
-    ? [3, 2, 1].filter((n) => n < words.length).map((n) => words.slice(-n))
-    : locationWindows(words);
-  for (const win of windows) {
+async function geocodeTown(words) {
+  for (const win of locationWindows(words)) {
     const hits = await TomTomService.geocode(win.join(' '), { limit: 1 }).catch(() => []);
     const hit = hits && hits[0];
     if (hit && hit.type === 'Geography' && explains(hit, win)) return { words: win, hit };
@@ -210,37 +205,49 @@ function parseBusinessQuery(query) {
   return { tokens, words: tokens.map((t) => t.toLowerCase()), nearMe };
 }
 
-async function lookupBusiness({ tokens, words, nearMe }, pos) {
-  // Strip a town from the ends ("autozone cottage grove") — only when there is
-  // something left to be the name, and only when "near me" did not already
-  // say where.
-  const town = !nearMe && words.length > 1 ? await geocodeTown(words, { trailingOnly: !pos }) : null;
-  const nameTokens = town ? tokens.filter((t) => !town.words.includes(t.toLowerCase())) : tokens;
-  if (!nameTokens.length) return null;
-  const center = town ? { lat: town.hit.position.lat, lng: town.hit.position.lon } : pos;
-  if (!center) return null;
+async function lookupBusiness({ tokens, nearMe }, pos) {
+  // ONE search with the whole query ("Autozone cottage grove"), then decide
+  // which words were the business and which the town from the results
+  // themselves: the name must contain the business words, the ADDRESS the
+  // town words. Geocoding the town separately was a guess — "cottage grove"
+  // alone geocodes to a street in Pennsylvania, and "grove" to Elk Grove, CA.
+  const term = tokens.join(' ');
+  const found = await TomTomService.searchPlaces(term, pos
+    ? { lat: pos.lat, lon: pos.lng, radius: 40000, limit: 25 }
+    : { limit: 25 }).catch((err) => { logger.warn('local pack: business search failed', { term, error: err.message }); return []; });
+  const pois = (found || []).filter((p) => p && p.name && p.name !== p.address);
 
-  const term = nameTokens.join(' ');
-  const need = nameTokens.map(squash).filter((w) => w.length > 1);
-  const found = await TomTomService.searchPlaces(term, {
-    lat: center.lat, lon: center.lng, radius: 40000, limit: 25,
-  }).catch((err) => { logger.warn('local pack: business search failed', { term, error: err.message }); return []; });
-
-  const seen = new Set();
-  const candidates = (found || []).filter((p) => {
-    if (!p || !p.name || p.name === p.address) return false;
-    const hay = squash(`${p.name} ${(p.category || []).join(' ')}`);
-    if (!need.every((w) => hay.includes(w))) return false;
-    // A chain has many branches with ONE name — dedupe on name + address, or
-    // every O'Reilly after the first disappears.
-    const k = `${p.name}|${p.address}`.toLowerCase();
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
-  if (!candidates.length) return null;
-  const where = town ? town.hit.address : (nearMe ? 'Near you' : null);
-  return { center, where, candidates };
+  // Split the query: the last k words are the town (k = 0 means no town).
+  for (let k = 0; k <= Math.min(3, tokens.length - 1); k += 1) {
+    if (k > 0 && nearMe) break; // "near me" already said where
+    const nameTokens = tokens.slice(0, tokens.length - k);
+    const need = nameTokens.map(squash).filter((w) => w.length > 1);
+    const town = k ? squash(tokens.slice(-k).join('')) : '';
+    if (!need.length) continue;
+    const seen = new Set();
+    const candidates = pois.filter((p) => {
+      const hay = squash(`${p.name} ${(p.category || []).join(' ')}`);
+      if (!need.every((w) => hay.includes(w))) return false;
+      if (town && !squash(p.address).includes(town)) return false;
+      // A chain has many branches with ONE name — dedupe on name + address.
+      const key = `${p.name}|${p.address}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (candidates.length) {
+      const first = candidates[0];
+      // "801 Row River Rd, Cottage Grove, OR 97424" → "Cottage Grove, OR".
+      const townLabel = k ? (String(first.address || '').split(',').slice(1, 3).join(',').replace(/\s+\d{5}(-\d{4})?$/, '').trim() || tokens.slice(-k).join(' ')) : null;
+      return {
+        center: pos || { lat: first.position?.lat, lng: first.position?.lon },
+        where: townLabel || (nearMe ? 'Near you' : null),
+        nameTokens,
+        candidates,
+      };
+    }
+  }
+  return null;
 }
 
 /** The name most of the results share — "O'Reilly Auto Parts". */
@@ -266,15 +273,18 @@ function toPlace(p, extra = {}) {
 
 async function resolveBusiness(query, ctx, hasPos) {
   const parsed = parseBusinessQuery(query);
-  // Only when the query says where (near me) or the page knows where (a
-  // position, or a town it geocoded). Without either, every search on the
-  // site would spend TomTom calls guessing whether it named a shop.
+  // Only when the query says where (near me), the page knows where (a
+  // position), or the query is short enough to be "business + town".
+  // Otherwise every search on the site would spend a TomTom call guessing
+  // whether it named a shop.
   if (!parsed) return null;
-  // Or a short, non-question query that may END in a town ("autozone cottage
-  // grove") — tried as at most three trailing-word geocodes, cached.
+  // Or a short, non-question query that may name a business and a town
+  // ("autozone cottage grove") — one place search, cached for an hour.
   const n = parsed.tokens.length;
   const maybeTown = n >= 2 && n <= 5 && !/^(who|what|why|when|which|how|is|are|do|does|did|can|should|will)\b/i.test(String(query).trim());
   if (!(parsed.nearMe || hasPos || maybeTown)) return null;
+  // "near me" with no position has nowhere to look.
+  if (parsed.nearMe && !hasPos) return null;
   const key = `biz|${String(query).toLowerCase().trim()}|${hasPos ? `${ctx.lat.toFixed(2)},${ctx.lng.toFixed(2)}` : ''}`;
   let found = cache.get(key);
   if (!found || Date.now() - found.at >= TTL_MS) {
@@ -283,19 +293,23 @@ async function resolveBusiness(query, ctx, hasPos) {
     if (cache.size > 300) cache.delete(cache.keys().next().value);
   }
   if (!found.value) return null;
-  const { center, where, candidates } = found.value;
-  // The chain the query means first ("O'Reilly Auto Parts", eight branches)
-  // ahead of a one-off that shares a word ("Oreilly Law Group"), then nearest.
+  const { center, where, nameTokens, candidates } = found.value;
   const all = candidates.map((p) => toPlace(p, { mentioned: mentionedIn(p, ctx, parsed.words) }));
   const name = commonName(all);
+  // A NAMED business ("O'Reilly", "autozone") puts that chain first; a KIND
+  // of business ("auto parts") is nearest-first whoever runs it — O'Reilly
+  // Auto Parts contains the words "auto parts" too, so "contains" cannot tell
+  // them apart, but "the name STARTS with what was typed" can.
+  const named = squash(name).startsWith(squash(nameTokens.join('')));
   const places = all
-    .sort((a, b) => (Number(b.name === name) - Number(a.name === name))
+    .sort((a, b) => (named ? (Number(b.name === name) - Number(a.name === name)) : 0)
       || ((a.distanceMeters ?? 1e9) - (b.distanceMeters ?? 1e9)))
     .slice(0, 10);
   const sharing = places.filter((p) => p.name === name).length;
-  const label = sharing * 2 >= places.length
+  const typed = nameTokens.join(' ');
+  const label = named && sharing * 2 >= places.length
     ? (sharing > 1 ? `${name} locations` : name)
-    : parsed.tokens.join(' ');
+    : typed.charAt(0).toUpperCase() + typed.slice(1);
   return {
     label,
     where,
