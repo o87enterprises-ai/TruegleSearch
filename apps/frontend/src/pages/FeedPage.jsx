@@ -102,7 +102,14 @@ export default function FeedPage() {
   //   <id>        one category, opened as a vertical feed
   // Back from a category goes to 'browse', not 'home' — you came from the rows
   // and that is where you expect to land.
-  const [view, setView] = useState('home');
+  // Seeded from ?category= — the landing page's Feed picker (round 2 of the
+  // landing simplification) carries the pick this far rather than opening
+  // Feed to the home timeline and making the choice a no-op. A category that
+  // does not exist falls back to 'home' rather than a blank view.
+  const [view, setView] = useState(() => {
+    const c = searchParams.get('category');
+    return c && categoryById(c) ? c : 'home';
+  });
   const openCategory = view !== 'home' && view !== 'browse' ? categoryById(view) : null;
 
   // What actually gets asked for: the servers switched on here, plus anything

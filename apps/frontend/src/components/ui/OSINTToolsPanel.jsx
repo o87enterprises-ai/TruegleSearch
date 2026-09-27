@@ -14,7 +14,7 @@ import LETTERHEAD_LOGO from '../../assets/osintLetterheadLogo';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
-const TOOLS = [
+export const OSINT_TOOLS = [
   { id: 'ip', label: 'IP Lookup', icon: MapPin, placeholder: 'e.g. 8.8.8.8', hint: 'Geolocate an IPv4 address' },
   { id: 'dns', label: 'DNS', icon: Server, placeholder: 'e.g. example.com', hint: 'Resolve DNS records' },
   { id: 'whois', label: 'WHOIS', icon: Shield, placeholder: 'e.g. example.com', hint: 'Domain registration details' },
@@ -22,6 +22,7 @@ const TOOLS = [
   { id: 'phone', label: 'Phone', icon: Phone, placeholder: 'e.g. +14155552671', hint: 'Validity, line type, country & formats (include country code)' },
   { id: 'username', label: 'Username / Name', icon: AtSign, placeholder: 'username or full name (spaces OK)', hint: 'Find profiles across platforms — usernames or real names' },
 ];
+const TOOLS = OSINT_TOOLS;
 
 const DNS_TYPES = ['A', 'AAAA', 'MX', 'TXT', 'NS', 'CNAME', 'SOA'];
 
@@ -226,8 +227,13 @@ function extractAi(res) {
  * ticked findings into a branded, downloadable/shareable Intel debrief. A
  * best-effort iframe split-view opens verification pages in-place.
  */
-export default function OSINTToolsPanel({ initialQuery = '' }) {
-  const [selected, setSelected] = useState(() => new Set(defaultToolsFor(initialQuery)));
+// `initialTool`: the type picked on the landing page's Intel dropdown before
+// there was anything to type — it pins the selection instead of letting the
+// (empty-query) auto-detect fall through to its default.
+export default function OSINTToolsPanel({ initialQuery = '', initialTool = '' }) {
+  const [selected, setSelected] = useState(() => (
+    initialTool ? new Set([initialTool]) : new Set(defaultToolsFor(initialQuery))
+  ));
   const [input, setInput] = useState(initialQuery || ''); // never null — .trim() runs each render
   const [dnsType, setDnsType] = useState('A');
   const [running, setRunning] = useState(false);
@@ -266,7 +272,7 @@ export default function OSINTToolsPanel({ initialQuery = '' }) {
     if (!q || q === lastQueryRef.current) return;
     lastQueryRef.current = q;
     setInput(q);
-    setSelected(new Set(defaultToolsFor(q)));
+    setSelected(initialTool ? new Set([initialTool]) : new Set(defaultToolsFor(q)));
     setResults({});
     setGathered({});
     setMessages([]);

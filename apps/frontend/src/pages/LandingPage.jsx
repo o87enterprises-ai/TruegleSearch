@@ -36,6 +36,10 @@ import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import SearchBar from '../components/ui/SearchBar';
 import TrailGameLink from '../components/ui/TrailGameLink';
 import LandingTagline from '../components/landing/LandingTagline';
+import PickerModeRow from '../components/landing/PickerModeRow';
+import { SEARCH_SCOPES } from '../utils/playerQuery';
+import { OSINT_TOOLS } from '../components/ui/OSINTToolsPanel';
+import { CATEGORIES as FEED_CATEGORIES } from '../config/feedCategories';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -124,7 +128,10 @@ export default function LandingPage() {
   // replaced by the scrollable, collapsible search categories. Single-select;
   // 'all' is the default and adds no URL param. Same minimized-by-default +
   // auto-open-on-typing behavior as the chat modes.
-  const SEARCH_MODES = ['blue', 'green', 'red', 'purple', 'ocean'];
+  // Ocean got its OWN picker below (OSINT tool, not a result category) —
+  // "Search" and "Investigate" are different verbs, per the pill's own
+  // activity label (PillModeRow), so they no longer share one dropdown.
+  const SEARCH_MODES = ['blue', 'green', 'red', 'purple'];
   const [searchCategory, setSearchCategory] = useState('all');
   const [searchCatOpen, setSearchCatOpen] = useState(false);
   const [searchCatTouched, setSearchCatTouched] = useState(false);
@@ -134,6 +141,44 @@ export default function LandingPage() {
       setSearchCatOpen(true);
     }
   }, [searchQuery, pillMode, searchCatTouched]);
+
+  // Tube's picker: the same "what kind of result" axis /tube itself uses
+  // (SEARCH_SCOPES) — All / Shorts / Channel / Song / Artist / Title / Topic —
+  // seeded through as &scope= so the pick is not thrown away on submit.
+  const [tubeScope, setTubeScope] = useState('all');
+  const [tubeScopeOpen, setTubeScopeOpen] = useState(false);
+  const [tubeScopeTouched, setTubeScopeTouched] = useState(false);
+  const selectTubeScope = (id) => { setTubeScopeTouched(true); setTubeScope(id); };
+  useEffect(() => {
+    if (pillMode === 'tube' && !tubeScopeTouched && searchQuery.trim()) {
+      setTubeScopeOpen(true);
+    }
+  }, [searchQuery, pillMode, tubeScopeTouched]);
+
+  // Intel's (Ocean) picker: which OSINT tool the typed text is — the same
+  // six OSINTToolsPanel itself offers — carried through as &tool=.
+  const [intelTool, setIntelTool] = useState('');
+  const [intelToolOpen, setIntelToolOpen] = useState(false);
+  const [intelToolTouched, setIntelToolTouched] = useState(false);
+  const selectIntelTool = (id) => { setIntelToolTouched(true); setIntelTool(id); };
+  useEffect(() => {
+    if (pillMode === 'ocean' && !intelToolTouched && searchQuery.trim()) {
+      setIntelToolOpen(true);
+    }
+  }, [searchQuery, pillMode, intelToolTouched]);
+
+  // Feed's picker: Browse's category NAMES only (Soc / Tube / Live / Music /
+  // Entertainment / Collections / Creators) — never the listings themselves,
+  // which is what Browse is for. Carried through as &category=.
+  const [feedCategory, setFeedCategory] = useState('');
+  const [feedCategoryOpen, setFeedCategoryOpen] = useState(false);
+  const [feedCategoryTouched, setFeedCategoryTouched] = useState(false);
+  const selectFeedCategory = (id) => { setFeedCategoryTouched(true); setFeedCategory(id); };
+  useEffect(() => {
+    if (pillMode === 'yellow' && !feedCategoryTouched && searchQuery.trim()) {
+      setFeedCategoryOpen(true);
+    }
+  }, [searchQuery, pillMode, feedCategoryTouched]);
 
   // The "vs. TrueGLE" toggle was REMOVED here (owner's call, 2026-08-13). It
   // staged the Null-Prime dual-audit for /chat, and chat's register selector is
@@ -356,18 +401,23 @@ export default function LandingPage() {
                   if (pillMode === 'black') {
                     navigate(q ? `/chat?q=${encodeURIComponent(q)}` : '/chat');
                   } else if (pillMode === 'yellow') {
-                    // Carried now: "FB Daniel Oden" has to arrive as a search.
-                    navigate(q ? `/feed?q=${encodeURIComponent(q)}` : '/feed');
+                    // Carried now: "FB Daniel Oden" has to arrive as a search,
+                    // and a picked Browse category opens straight into it.
+                    const catParam = feedCategory ? `${q ? '&' : '?'}category=${feedCategory}` : '';
+                    navigate(`/feed${q ? `?q=${encodeURIComponent(q)}` : ''}${catParam}`);
                   } else if (pillMode === 'tube') {
                     // True Tube owns /tube — that's the link people share.
-                    navigate(q ? `/tube?q=${encodeURIComponent(q)}` : '/tube');
+                    const scopeParam = tubeScope !== 'all' ? `${q ? '&' : '?'}scope=${tubeScope}` : '';
+                    navigate(`/tube${q ? `?q=${encodeURIComponent(q)}` : ''}${scopeParam}`);
                   } else {
                     // Search color mode: carry the chosen category (if any) through
-                    // to the results page as &category=.
+                    // to the results page as &category=; Ocean carries its OSINT
+                    // tool pick the same way, as &tool=.
                     const catParam = searchCategory && searchCategory !== 'all' ? `&category=${searchCategory}` : '';
+                    const toolParam = pillMode === 'ocean' && intelTool ? `&tool=${intelTool}` : '';
                     navigate(q
-                      ? `/search?q=${encodeURIComponent(q)}&mode=${pillMode}${catParam}`
-                      : `/search?mode=${pillMode}${catParam}`);
+                      ? `/search?q=${encodeURIComponent(q)}&mode=${pillMode}${catParam}${toolParam}`
+                      : `/search?mode=${pillMode}${catParam}${toolParam}`);
                   }
                 }}
                 placeholder={
@@ -406,6 +456,42 @@ export default function LandingPage() {
                 open={searchCatOpen}
                 onToggleOpen={() => setSearchCatOpen((v) => !v)}
                 accentColor={MODE_COLORS[pillMode]}
+              />
+            )}
+
+            {pillMode === 'tube' && (
+              <PickerModeRow
+                items={SEARCH_SCOPES}
+                activeId={tubeScope}
+                onSelect={selectTubeScope}
+                open={tubeScopeOpen}
+                onToggleOpen={() => setTubeScopeOpen((v) => !v)}
+                accentColor={MODE_COLORS.tube}
+                prefixLabel="Looking for"
+              />
+            )}
+
+            {pillMode === 'ocean' && (
+              <PickerModeRow
+                items={OSINT_TOOLS}
+                activeId={intelTool}
+                onSelect={selectIntelTool}
+                open={intelToolOpen}
+                onToggleOpen={() => setIntelToolOpen((v) => !v)}
+                accentColor={MODE_COLORS.ocean}
+                prefixLabel="OSINT type"
+              />
+            )}
+
+            {pillMode === 'yellow' && (
+              <PickerModeRow
+                items={FEED_CATEGORIES.map((c) => ({ id: c.id, label: c.label }))}
+                activeId={feedCategory}
+                onSelect={selectFeedCategory}
+                open={feedCategoryOpen}
+                onToggleOpen={() => setFeedCategoryOpen((v) => !v)}
+                accentColor={MODE_COLORS.yellow}
+                prefixLabel="Browse"
               />
             )}
 

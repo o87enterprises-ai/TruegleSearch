@@ -916,6 +916,19 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     // after that navigation and would otherwise drop the very link the user
     // tapped, landing them on an ordinary list.
     if (selectedUrl) params.set('sel', selectedUrl);
+    // Carried straight from whatever the page arrived with — scope (Tube's
+    // "what kind of result"), category (a search-color's result category) and
+    // tool (Ocean's OSINT type). This rewrite used to rebuild the address bar
+    // from only q/mode/perspectives/sel, so a landing-page pick that got here
+    // fine (the app's own state read it) still vanished from the URL the
+    // moment a search ran — silently breaking reload and any link shared
+    // from that point on.
+    const scopeNow = searchParams.get('scope');
+    if (scopeNow && lockedTube) params.set('scope', scopeNow);
+    const categoryNow = searchParams.get('category');
+    if (categoryNow) params.set('category', categoryNow);
+    const toolNow = searchParams.get('tool');
+    if (toolNow && mode === 'ocean') params.set('tool', toolNow);
     window.history.replaceState({}, '', `${lockedPath || '/search'}?${params.toString()}`);
 
     // Classify BEFORE fetching. A URL that isn't playable still isn't a
@@ -2135,7 +2148,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
           {/* OSINT Tools (Ocean mode only) — the interactive investigation
               module: the searched query is routed into its input, findings +
               AI results-summary + debrief all live here (no separate summary). */}
-          {mode === 'ocean' && <OSINTToolsPanel initialQuery={lastSearchedQuery} />}
+          {mode === 'ocean' && <OSINTToolsPanel initialQuery={lastSearchedQuery} initialTool={searchParams.get('tool') || ''} />}
 
           {/* The Rabbit Hole fold — Perspectives, on demand, in the mode that
               already asks the same question. Only once there is something to
