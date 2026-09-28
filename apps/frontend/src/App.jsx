@@ -58,6 +58,7 @@ import PreProductionBanner from './components/ui/PreProductionBanner';
 import BrandBar from './components/ui/BrandBar';
 import PageClock from './components/ui/PageClock';
 import MiniPlayer from './components/ui/MiniPlayer';
+import InstallTruegle from './components/ui/InstallTruegle';
 import SafeSearchLockModal from './components/ui/SafeSearchLockModal';
 import TutorialModal from './components/ui/TutorialModal';
 import { useTutorials } from './context/TutorialContext';
@@ -312,6 +313,7 @@ const AppContent = () => {
       <PreProductionBanner />
       <SafeSearchLockModal />
       <TutorialModalRoot />
+      <InstallTruegle />
       {/* NOTE: Do NOT wrap <Routes> in <AnimatePresence mode="wait">. The route
           elements have no motion exit variants, and the landing page runs several
           infinite framer-motion animations; mode="wait" then holds the new route

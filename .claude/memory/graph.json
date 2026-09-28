@@ -1456,6 +1456,14 @@
         "body": "2026-09-28: Red (Rabbit Hole) search lives at /red and Green (AI-free) at /green — ordinary search pages with the pill (the old LOCKED /green kiosk is gone). utils/modeRoute.js searchPath(mode, params) builds every mode URL (red->/red, green->/green, blue->/search, others->/search?mode=). App.jsx SearchRoute redirects /search?mode=red|green onto them BEFORE the page mounts (an in-page redirect remounted the page and swallowed the one-time Green explainer). public/_redirects + sitemap carry /red. greenintro:test covers the redirects.",
         "ts": "2026-09-28",
         "created": "2026-09-28"
+      },
+      "install-truegle-modal": {
+        "Id": "install-truegle-modal",
+        "Type": "decision",
+        "Label": "Truegle's own install pop-up (install / default search / default assistant)",
+        "body": "2026-09-28: There was NEVER a Truegle install modal — the prompt the owner remembered was the browser's own (Chrome mini-infobar: shown once, then suppressed ~3 months after dismissal; Safari/Firefox/iOS never show one). Added components/ui/InstallTruegle.jsx: auto-shown on landing after ~6s (waits for other dialogs), remembered for 21 days after 'Not now', never in standalone, always reopenable via menu 'Install Truegle' (event truegle:open-install). Chromium one-tap install via beforeinstallprompt captured at boot (utils/installPrompt.js) AND by an inline index.html script for events fired before the bundle loads — that inline script's sha256 MUST stay in public/_headers CSP script-src (hashes are maintained by hand; change the script = recompute the hash). Default search / default assistant cannot be set by any website: per-browser honest steps + copy buttons for https://truegle.info/search?q=%s and /chat?q=%s. opensearch.xml icon fixed to truegle.png.",
+        "ts": "2026-09-28",
+        "created": "2026-09-28"
       }
     },
     "thread": {

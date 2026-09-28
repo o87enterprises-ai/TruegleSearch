@@ -4,6 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ArrowLeft } from 'lucide-react';
 import { MODE_COLORS } from '../../config/modeTheme';
+import { OPEN_INSTALL_EVENT } from './InstallTruegle';
+import { useInstallState } from '../../utils/installPrompt';
 
 // Global navigation — ONLY a hamburger button that opens a slide-out drawer.
 // No logo, no search, no pill row: each page owns its own hero (logo + pill +
@@ -58,6 +60,7 @@ function useBackTarget() {
 
 export default function BrandBar() {
   const [open, setOpen] = useState(false);
+  const { installed } = useInstallState();
   const navigate = useNavigate();
   const location = useLocation();
   const backTarget = useBackTarget();
@@ -170,6 +173,17 @@ export default function BrandBar() {
                       </button>
                     );
                   })}
+                  {!installed && (
+                    <button
+                      type="button"
+                      data-menu-install=""
+                      onClick={() => { setOpen(false); window.dispatchEvent(new Event(OPEN_INSTALL_EVENT)); }}
+                      className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-emerald-300/90 hover:bg-white/5 hover:text-emerald-200 transition-colors border-t border-white/10 mt-2"
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-emerald-400" />
+                      Install Truegle
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => navigate('/settings')}

@@ -6,6 +6,7 @@ import {
   renderEmergencyFallback,
 } from './utils/globalErrorHandler';
 import { initAnalytics } from './utils/analytics';
+import { initInstallPrompt } from './utils/installPrompt';
 
 // Install the framework-agnostic crash safety net BEFORE we try to mount, so a
 // fatal error during bundle eval / mount still shows a friendly screen instead
@@ -15,6 +16,10 @@ installGlobalErrorHandlers();
 // Cookieless, no-fingerprint page-view counts. Inert unless VITE_CF_BEACON_TOKEN
 // is set, and skipped entirely for visitors sending DNT / GPC.
 initAnalytics();
+
+// Catch the browser's install hand-off before any page mounts — it can fire
+// that early and is lost if nobody is listening (see utils/installPrompt).
+initInstallPrompt();
 
 
 function dismissLoader() {

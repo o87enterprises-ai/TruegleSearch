@@ -5,7 +5,7 @@
   <LongName>Truegle — Unbiased Search</LongName>
   <Description>The unbiased, transparent, privacy-first search engine.</Description>
   <InputEncoding>UTF-8</InputEncoding>
-  <Image width="64" height="64" type="image/png">https://truegle.info/og-image.png</Image>
+  <Image width="1024" height="1024" type="image/png">https://truegle.info/truegle.png</Image>
   <Url type="text/html" method="get" template="https://truegle.info/search?q={searchTerms}"/>
   <Url type="application/opensearchdescription+xml" rel="self" template="https://truegle.info/opensearch.xml"/>
   <moz:SearchForm>https://truegle.info/search</moz:SearchForm>

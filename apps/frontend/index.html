@@ -25,6 +25,10 @@
     <link rel="search" type="application/opensearchdescription+xml" title="Truegle" href="/opensearch.xml" />
     <!-- PWA: enables "Add to Home Screen" / install -->
     <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Catch the browser's install hand-off before the app has loaded; the
+         event fires once and is lost if nobody is listening yet. The app picks
+         it up from window.__truegleInstall (see src/utils/installPrompt.js). -->
+    <script>window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__truegleInstall=e;});</script>
     <meta name="theme-color" content="#000000" />
     <link rel="apple-touch-icon" href="/truegle.png" />
     <meta name="mobile-web-app-capable" content="yes" />
