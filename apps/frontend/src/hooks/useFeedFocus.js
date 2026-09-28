@@ -98,6 +98,11 @@ export function useFeedFocus() {
       el.dataset.feedFocusIndex = String(index);
       nodes.current.set(index, el);
       if (observer.current) observer.current.observe(el);
+      // The mount effect's "start at the top card" ran before the feed had
+      // loaded (the rows arrive async), so it found no cards and nothing was
+      // ever focused until a scroll. The first card to register claims focus
+      // instead; the observer takes over from the first scroll.
+      setActiveIndex((prev) => (prev == null ? index : prev));
     } else {
       nodes.current.delete(index);
       inBand.current.delete(index);
