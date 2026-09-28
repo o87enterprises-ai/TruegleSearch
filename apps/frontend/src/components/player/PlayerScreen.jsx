@@ -27,7 +27,7 @@ function withPlaybackChannel(kind, src) {
 }
 
 const PlayerScreen = forwardRef(function PlayerScreen({
-  source, mediaRef, frameRef, onEnded, maxHeight, fill = false, compact = false,
+  source, mediaRef, frameRef, onEnded, onError, maxHeight, fill = false, compact = false,
   // Lock the picture to 9:16 in every state and letterbox anything wider —
   // the feed player is portrait-native. See the note above `ratio`.
   portrait = false,
@@ -207,13 +207,13 @@ const PlayerScreen = forwardRef(function PlayerScreen({
       ) : kind === 'video' ? (
         // object-contain IS the letterbox for a native file: the black bands
         // above and below a widescreen clip in a portrait box come from here.
-        <video ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay playsInline onEnded={onEnded}
+        <video ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay playsInline onEnded={onEnded} onError={onError}
           style={fill ? undefined : { ...(portrait ? { aspectRatio: ratio, width: '100%', objectFit: 'contain', background: '#000' } : {}), maxHeight: maxHeight ? `min(${maxHeight}px, ${cap})` : cap }}
           className={fill ? 'w-full h-full bg-black object-contain' : 'w-full bg-black'} />
       ) : (
         <div className="flex items-center gap-2 px-3 py-3">
           <Music size={16} className="text-white/40 shrink-0" />
-          <audio ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay onEnded={onEnded} className="w-full" />
+          <audio ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay onEnded={onEnded} onError={onError} className="w-full" />
         </div>
       )}
 

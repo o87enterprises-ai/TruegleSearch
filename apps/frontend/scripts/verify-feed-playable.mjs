@@ -257,6 +257,64 @@ check(!!fsPic && fsPic.height > 300,
 await page.evaluate(() => document.exitFullscreen?.());
 await page.waitForTimeout(300);
 
+// ── THE VIDEO IS IN `url`, NOT THE PERMALINK ────────────────────────────────
+// Lemmy and Hacker News posts: the permalink is the discussion, the url is the
+// video. The card showed Play (it tried both) while the Play button's cursor
+// tried only the permalink — so the tap did nothing, or opened an empty full
+// screen player. Real rows from the live feed had exactly this shape.
+// A direct file that fails (video.twimg.com answers 403) sits first, so the
+// same run also proves a dead clip is skipped rather than stalling the feed.
+{
+  const lemmy = (id, url, title) => ({
+    id, platform: 'Lemmy', title, url, permalink: `https://lemmy.world/post/${id}`,
+    snippet: null, author: 'someone', subreddit: null, date: '2026-01-01T00:00:00Z',
+    score: 1, comments: 0, thumbnail: null, flair: null,
+  });
+  const rows = [
+    ...Array.from({ length: 3 }, (_, i) => filler(20 + i)),
+    lemmy('901', 'https://cdn.example.org/clip-gone.mp4', 'A dead direct file'),
+    lemmy('902', 'https://youtu.be/dQw4w9WgXcQ', 'A YouTube link in a Lemmy post'),
+    ...Array.from({ length: 3 }, (_, i) => filler(30 + i)),
+  ];
+  const c2 = await testContext(browser);
+  await c2.route('https://cdn.example.org/**', (r) => r.fulfill({ status: 403, body: '' }));
+  await c2.route('**/api/**', (route) => {
+    if (new URL(route.request().url()).pathname === '/api/social/feed') {
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({
+          query: '', results: rows, platforms: { lemmy: rows.filter((p) => p.platform === 'Lemmy'), github: rows.filter((p) => p.platform === 'GitHub') },
+          nextCursor: {}, errors: {},
+        }),
+      });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  });
+  const p2 = await c2.newPage();
+  await p2.addInitScript(() => localStorage.setItem('truegle_feed_defaulted_pop_v1', '1'));
+  const errs2 = [];
+  p2.on('pageerror', (e) => { if (!/Access is denied|isExternalMethodAvailable/.test(e.message)) errs2.push(e.message); });
+  await openApp(p2, `${BASE}/feed`);
+  await until(() => p2.locator('[data-feed-card-wrap="youtube"]').count().then((n) => n === 1),
+    { what: 'the Lemmy YouTube card to render as playable' });
+
+  await p2.locator('[data-feed-card-wrap="youtube"] [data-feed-action="play"]').click();
+  await until(() => p2.locator('[data-mini] iframe[src*="dQw4w9WgXcQ"]').count().then((n) => n === 1),
+    { what: 'the Lemmy post\'s YouTube video to load in the player' }).catch(() => {});
+  check(await p2.locator('[data-mini] iframe[src*="dQw4w9WgXcQ"]').count() === 1,
+    'Play on a post whose video is in `url` (not the permalink) actually plays it');
+  if (await p2.evaluate(() => !!document.fullscreenElement)) await p2.evaluate(() => document.exitFullscreen());
+
+  await p2.locator('[data-feed-card-wrap="video"] [data-feed-action="play"]').click();
+  await until(() => p2.locator('[data-mini] iframe[src*="dQw4w9WgXcQ"]').count().then((n) => n === 1),
+    { what: 'the dead file to be skipped', timeout: 8000 }).catch(() => {});
+  check(await p2.locator('[data-mini] video').count() === 0
+    && await p2.locator('[data-mini] iframe[src*="dQw4w9WgXcQ"]').count() === 1,
+  'a direct file that fails to load is skipped — the run moves on to the next clip');
+  check(errs2.length === 0, '…and nothing threw', errs2.join(' | ') || 'clean');
+  await c2.close();
+}
+
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 
 console.log([...ok, ...bad].join('\n'));

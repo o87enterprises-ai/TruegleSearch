@@ -17,6 +17,30 @@ import { getPlayable } from '../utils/videoEmbed';
 // going elsewhere in the app. The same reason Tube's own results-autoplay
 // is gated behind an explicit toggle (see UniversalSearch.jsx). This hook
 // only ever calls into PlayerContext as a direct result of `beginFrom`.
+// WHAT PLAYS FROM A FEED POST — the one answer the card's Play badge, its
+// buttons and this cursor all use. They used to ask separately: the card
+// tried the permalink, then the url; the cursor tried only `permalink || url`.
+// A Lemmy or Hacker News post's permalink is the discussion page and its url
+// is the video, so the card showed Play while the cursor found nothing — the
+// tap either did nothing or opened an empty full-screen player.
+//
+// A pre-classified row (Community, run through MediaService.classifyMedia()
+// at submit time) is trusted as-is. Otherwise the permalink is preferred: a
+// Reddit post's `url` can point at whatever the post links to, but its
+// permalink is the post itself, which is what the embed needs.
+export function feedSource(post) {
+  if (!post) return null;
+  const link = post.permalink || post.url;
+  const p = (post.src && post.kind)
+    ? { kind: post.kind, src: post.src, ...(post.vertical ? { vertical: true } : {}) }
+    : (getPlayable(post.permalink) || getPlayable(post.url));
+  if (!p) return null;
+  // pageUrl is the card's identity (FeedCard's "this one is live" marker).
+  return {
+    ...p, title: post.title || link, pageUrl: link, poster: post.thumbnail || null, channel: post.author || undefined,
+  };
+}
+
 export function useFeedCursor(rows) {
   const { feedActive, startFeed, appendFeed } = usePlayer();
   const startedRef = useRef(false);
@@ -26,11 +50,8 @@ export function useFeedCursor(rows) {
   // swiping only ever lands on something that can play.
   const playable = useMemo(() => (rows || [])
     .map((r) => {
-      const url = r?.permalink || r?.url;
-      const p = url ? getPlayable(url) : null;
-      return p ? {
-        ...p, title: r.title || url, pageUrl: url, poster: r.thumbnail || null, channel: r.author || undefined, _rowKey: r._key,
-      } : null;
+      const s = feedSource(r);
+      return s ? { ...s, _rowKey: r._key } : null;
     })
     .filter(Boolean), [rows]);
 
@@ -60,9 +81,8 @@ export function useFeedCursor(rows) {
     const idx = playable.findIndex((p) => p._rowKey === row?._key);
     let from = idx >= 0 ? playable.slice(idx) : null;
     if (!from) {
-      const url = row?.permalink || row?.url;
-      const p = url ? getPlayable(url) : null;
-      from = p ? [{ ...p, title: row.title || url, pageUrl: url, poster: row.thumbnail || null }] : [];
+      const s = feedSource(row);
+      from = s ? [s] : [];
     }
     if (!from.length) return false;
     startedRef.current = true;

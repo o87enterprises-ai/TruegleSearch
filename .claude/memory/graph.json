@@ -1472,6 +1472,14 @@
         "body": "2026-09-28: /tube?u=… and legacy /w?u=… links render components/player/ShareGate.jsx — a black full-screen poster shaped like the clip (9:16 if source.vertical or tiktok, else 16:9). Browsers only grant full screen + sound from a tap ON THE PAGE, so this one tap: setPlayMode('auto'), startFeed(sources) (shared clips play as a run, visitor's own queue parked, then related videos), then requestFullscreen on [data-mini] [data-player-root] once it mounts. TrueglePlayer: on touch devices full screen locks orientation to the clip (portrait/landscape; Android only, iOS has no lock API, iPhone Safari has no element full screen so it plays inline) and shows a one-time swipe guide (localStorage truegle_swipe_hint_seen). GOTCHA: TrueglePlayer has a local const named screen — use window.screen.",
         "ts": "2026-09-28",
         "created": "2026-09-28"
+      },
+      "feed-play-one-source-rule": {
+        "Id": "feed-play-one-source-rule",
+        "Type": "decision",
+        "Label": "Feed Play uses one post->source rule; dead media skips",
+        "body": "feedSource(post) in hooks/useFeedCursor.js is the ONLY post->playable rule (card badge, buttons, cursor). Old cursor used permalink||url only, so Lemmy/HN posts (permalink=discussion, url=video) showed Play but did nothing / opened empty fullscreen. playCenter only requests fullscreen if onPlay() !== false. Native <video>/<audio> onError -> skipBroken (report + advance), same as embed onUnplayable. TikTok embed/v2 sends NO ended signal (loops); TikTok player/v1 has a postMessage API but returned 'Server error' from the sandbox - unverified, not adopted. Backend bug seen live: community feed errors 'MediaService.list is not a function'.",
+        "ts": "2026-09-28",
+        "created": "2026-09-28"
       }
     },
     "thread": {
@@ -1924,6 +1932,15 @@
         "status": "done",
         "ts": "2026-09-27",
         "created": "2026-09-27"
+      },
+      "community-feed-mediaservice-list": {
+        "Id": "community-feed-mediaservice-list",
+        "Type": "thread",
+        "Label": "Community feed broken: MediaService.list is not a function",
+        "body": "Live /api/social/feed returns errors.community='MediaService.list is not a function' (2026-09-28). Community rows never load. Backend fix needed in routes/social.js community lane.",
+        "status": "open",
+        "ts": "2026-09-28",
+        "created": "2026-09-28"
       }
     },
     "entity": {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ArrowUp, MessageCircle, ExternalLink, Code, Star, GitFork, Play, ListPlus } from 'lucide-react';
 import { PROVIDERS } from '../../config/socialProviders';
-import { getPlayable } from '../../utils/videoEmbed';
+import { feedSource } from '../../hooks/useFeedCursor';
 import { usePlayer } from '../../context/PlayerContext';
 import LeavingPrivacyOverlay from './LeavingPrivacyOverlay';
 import ExternalSiteWarning from './ExternalSiteWarning';
@@ -237,21 +237,6 @@ export const GenericCard = ({ post }) => {
 // player once pushed its own controls off screen and moved its own centre out
 // of focus, stopping the playback it had just started.
 
-/** Trust a pre-classified source (Community, from routes/social.js's
- *  normaliseCommunity) over re-deriving it — that row was already run
- *  through MediaService.classifyMedia() at submit time. Everything else
- *  falls back to running getPlayable() on the URLs the post already carries,
- *  permalink preferred: a Reddit post's `url` can point at whatever the post
- *  links to, but its `permalink` is always the post itself, which is what
- *  the embed actually needs. */
-function classify(post) {
-  if (!post) return null;
-  if (post.src && post.kind) {
-    return { kind: post.kind, src: post.src, vertical: !!post.vertical };
-  }
-  return getPlayable(post.permalink) || getPlayable(post.url) || null;
-}
-
 /** Pick the right card for a row. Anything without a bespoke card gets the
  *  generic one in its provider's colour — never nothing, because a dropped row
  *  is invisible and therefore unreportable.
@@ -270,7 +255,9 @@ export default function FeedCard({ post, focused = false, onPlay }) {
   const [warnOpen, setWarnOpen] = useState(false);
   const { current, startFeed, enqueue, requestFullscreen } = usePlayer();
 
-  const playable = useMemo(() => classify(post), [post]);
+  // Same answer the feed cursor uses — see feedSource in useFeedCursor.js.
+  const source = useMemo(() => feedSource(post), [post]);
+  const playable = source;
   // Facebook and Instagram cannot be read in-app at all, so following one
   // really does leave Truegle — said once, before it happens. See
   // utils/externalSites.js.
@@ -304,16 +291,7 @@ export default function FeedCard({ post, focused = false, onPlay }) {
     );
   }
 
-  const link = post.permalink || post.url;
-  const source = {
-    kind: playable.kind,
-    src: playable.src,
-    title: post.title,
-    pageUrl: link,
-    poster: post.thumbnail || null,
-    channel: post.author || undefined,
-    ...(playable.vertical ? { vertical: true } : {}),
-  };
+  const link = source.pageUrl;
 
   // THIS is the card the player is showing. `pageUrl` is the identity, set to
   // the same `link` here and in useFeedCursor's rows.
@@ -336,8 +314,10 @@ export default function FeedCard({ post, focused = false, onPlay }) {
     e.stopPropagation();
     // No cursor (Browse's strips): a one-clip feed run, so the queue still
     // goes on standby rather than having a feed clip pushed into it.
-    if (onPlay) onPlay(); else startFeed([source]);
-    requestFullscreen();
+    // Full screen only once something is actually starting — an empty
+    // full-screen player is what "it launches then crashes" looked like.
+    const started = onPlay ? onPlay() !== false : (startFeed([source]), true);
+    if (started) requestFullscreen();
   };
 
   const queueIt = (e) => {

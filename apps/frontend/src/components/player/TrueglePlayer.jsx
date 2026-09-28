@@ -373,6 +373,16 @@ export default function TrueglePlayer({
     return () => { cancelled = true; };
   }, [current, locked, visible, upNext, onFeedPage]);
 
+  // Report a clip that cannot play and move on. Shared by the embeds (via
+  // onUnplayable) and the native <video>/<audio> (via onError) — a direct
+  // file that 403s or won't decode used to leave the run stopped on a dead
+  // frame, which is most of what "the feed won't keep playing" was.
+  const skipBroken = useCallback(() => {
+    if (!current) return;
+    reportBroken(current, { auto: true });
+    advance();
+  }, [current, advance]);
+
   const embed = useEmbedPlayback({
     frameRef,
     source: current,
@@ -381,11 +391,7 @@ export default function TrueglePlayer({
     // leaving the visitor staring at a black rectangle — this is the whole
     // error-review loop working without anybody having to notice or press
     // anything, which is the only version of it that will actually run.
-    onUnplayable: () => {
-      if (!current) return;
-      reportBroken(current, { auto: true });
-      advance();
-    },
+    onUnplayable: () => skipBroken(),
   });
 
   // The list can't know how long anything is — the index doesn't carry it and
@@ -691,6 +697,7 @@ export default function TrueglePlayer({
       mediaRef={mediaRef}
       frameRef={frameRef}
       onEnded={advance}
+      onError={skipBroken}
       fill={fullscreen}
       compact={presentation === 'popped'}
       maxHeight={presentation === 'popped' ? 320 : 420}
