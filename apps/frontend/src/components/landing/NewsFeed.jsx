@@ -2,13 +2,15 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  Newspaper, Play, LineChart, Globe, MapPin, ChevronDown, ChevronUp,
+  Newspaper, LineChart, Globe, MapPin, ChevronDown, ChevronUp,
   Maximize2, Minimize2, ExternalLink,
 } from 'lucide-react';
 
-// The landing page's news feed — local and global headlines, video coverage,
-// and a live markets summary. Replaces the trending-searches pill row, which
-// was a rotating list of queries rather than anything that had happened.
+// The landing page's news feed — local and global headlines and a live
+// markets summary. Replaces the trending-searches pill row, which was a
+// rotating list of queries rather than anything that had happened.
+// The video panel was removed here 2026-09-28 (owner's landing-page
+// simplification pass) — Tube already covers video, right below this feed.
 //
 // WHERE "LOCAL" COMES FROM: the backend reads the country off the edge/CDN
 // header the request already carries (see routes/news.js). No geolocation
@@ -42,12 +44,11 @@ const REGIONS = [
   { id: 'JP', label: 'Japan' }, { id: 'ZA', label: 'South Africa' },
 ];
 
-const CATEGORIES = ['print', 'video', 'markets'];
+const CATEGORIES = ['print', 'markets'];
 
 const DEFAULT_VIEW = {
   feed: { minimized: false, expanded: false },
   print: { minimized: false, expanded: false },
-  video: { minimized: false, expanded: false },
   markets: { minimized: false, expanded: false },
 };
 
@@ -59,7 +60,7 @@ function loadView() {
       minimized: !!raw[k]?.minimized,
       expanded: !!raw[k]?.expanded,
     });
-    return { feed: pick('feed'), print: pick('print'), video: pick('video'), markets: pick('markets') };
+    return { feed: pick('feed'), print: pick('print'), markets: pick('markets') };
   } catch {
     return DEFAULT_VIEW;
   }
@@ -292,7 +293,6 @@ export default function NewsFeed() {
 
   const headlines = tab === 'world' ? (data?.print?.world || []) : (data?.print?.local || []);
   const printLimit = view.print.expanded ? 10 : 4;
-  const videoLimit = view.video.expanded ? 8 : 3;
   const allMarkets = useMemo(() => ([
     ...(markets?.stocks || []),
     ...(markets?.crypto || []),
@@ -389,42 +389,6 @@ export default function NewsFeed() {
             ) : (
               headlines.slice(0, printLimit).map((h) => (
                 <HeadlineRow key={h.url || h.title} item={h} onSearch={onSearch} />
-              ))
-            )}
-          </Panel>
-
-          {/* ── video ─────────────────────────────────────────────────── */}
-          <Panel
-            id="video" icon={Play} title="Video" accent="#f43f5e"
-            state={view.video} setState={setPanel}
-            note="coverage of the top story"
-          >
-            {(data?.video || []).length === 0 ? (
-              <p className="px-3 py-3 text-[11px] text-white/30">
-                {error ? 'Video coverage is unavailable right now.' : 'Looking for coverage…'}
-              </p>
-            ) : (
-              data.video.slice(0, videoLimit).map((v) => (
-                <a
-                  key={v.url}
-                  href={v.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-start gap-2 px-3 py-1.5 hover:bg-white/5 group"
-                >
-                  {v.thumbnail ? (
-                    <img src={v.thumbnail} alt="" loading="lazy"
-                      className="w-14 h-9 rounded object-cover bg-white/5 shrink-0" />
-                  ) : (
-                    <span className="flex items-center justify-center w-14 h-9 rounded bg-white/5 shrink-0">
-                      <Play size={12} className="text-white/30" />
-                    </span>
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[12px] leading-snug text-white/75 group-hover:text-white truncate">{v.title}</span>
-                    {v.source && <span className="block text-[10px] text-white/30 truncate">{v.source}</span>}
-                  </span>
-                </a>
               ))
             )}
           </Panel>
