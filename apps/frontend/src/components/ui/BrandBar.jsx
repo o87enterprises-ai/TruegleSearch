@@ -11,7 +11,7 @@ import { MODE_COLORS } from '../../config/modeTheme';
 // single always-reachable nav for the whole site.
 const ITEMS = [
   { label: 'Search',       mode: 'blue',   path: '/search?mode=blue' },
-  { label: 'Rabbit Hole',  mode: 'red',    path: '/search?mode=red' },
+  { label: 'Rabbit Hole',  mode: 'red',    path: '/red' },
   // Perspectives folded into the Rabbit Hole 2026-08-08 — its entry point is
   // now the re-ask fold on Red, so a separate nav item would lead to the same
   // page with a different name on it.
@@ -79,6 +79,8 @@ export default function BrandBar() {
   const currentModeKey = location.pathname === '/chat' ? 'black'
     : location.pathname.startsWith('/feed') ? 'yellow'
       : location.pathname === '/tube' ? 'tube'
+        : location.pathname === '/red' ? 'red'
+        : location.pathname === '/green' ? 'green'
         : location.pathname === '/search' ? (currentParams.get('mode') || 'blue')
           : null;
   const backColor = currentModeKey ? MODE_COLORS[currentModeKey] : '#9aa7b8';
@@ -89,7 +91,7 @@ export default function BrandBar() {
     if (item.path === '/feed') return location.pathname.startsWith('/feed');
     if (item.path === '/rewards') return location.pathname === '/rewards';
     // Modes that own a route of their own, rather than a ?mode= on /search.
-    if (item.path === '/tube') return location.pathname === '/tube';
+    if (item.path === '/tube' || item.path === '/red' || item.path === '/green') return location.pathname === item.path;
     const params = new URLSearchParams(location.search);
     return location.pathname === '/search' && (params.get('mode') || 'blue') === item.mode;
   };

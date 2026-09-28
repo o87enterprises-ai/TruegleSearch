@@ -41,6 +41,7 @@ import PickerModeRow from '../components/landing/PickerModeRow';
 import { SEARCH_SCOPES } from '../utils/playerQuery';
 import { OSINT_TOOLS } from '../components/ui/OSINTToolsPanel';
 import { CATEGORIES as FEED_CATEGORIES } from '../config/feedCategories';
+import { searchPath } from '../utils/modeRoute';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -428,9 +429,9 @@ export default function LandingPage() {
                     // tool pick the same way, as &tool=.
                     const catParam = searchCategory && searchCategory !== 'all' ? `&category=${searchCategory}` : '';
                     const toolParam = pillMode === 'ocean' && intelTool ? `&tool=${intelTool}` : '';
-                    navigate(q
-                      ? `/search?q=${encodeURIComponent(q)}&mode=${pillMode}${catParam}${toolParam}`
-                      : `/search?mode=${pillMode}${catParam}${toolParam}`);
+                    const extra = `${catParam}${toolParam}`.replace(/^&/, '');
+                    const base = searchPath(pillMode, q ? { q } : '');
+                    navigate(extra ? `${base}${base.includes('?') ? '&' : '?'}${extra}` : base);
                   }
                 }}
                 placeholder={
@@ -658,7 +659,7 @@ export default function LandingPage() {
                   </li>
                   <li>
                     <a
-                      href="/search?mode=red&fold=1"
+                      href="/red?fold=1"
                       className="text-body-medium text-gray-400 hover:text-purple-400 transition-colors"
                     >
                       Feeling Biased

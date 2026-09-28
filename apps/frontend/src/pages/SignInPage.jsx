@@ -44,7 +44,7 @@ export default function SignInPage() {
     if (location.state?.fromBiased) return navigate('/search?mode=purple');
     // Priority 3: fall back to universal search, preserving pill mode
     const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
-    navigate(isRedPillMode ? '/search?mode=red' : '/search');
+    navigate(isRedPillMode ? '/red' : '/search');
   };
 
   const handleSendCode = async () => {

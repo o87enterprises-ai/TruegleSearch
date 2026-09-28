@@ -15,6 +15,7 @@ import {
   ArrowLeft, Search,
 } from 'lucide-react';
 import TruegleLogo from '../components/ui/TruegleLogo';
+import { searchPath } from '../utils/modeRoute';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 const FREE_SPINS = 3;
@@ -170,15 +171,13 @@ export default function ExtractPage() {
 
   // Pill mode → return-to-search destination
   const returnToSearch = () => {
-    const modeMap = { blue: '', green: '?mode=green', red: '?mode=red', yellow: '' };
-    navigate(`/search${modeMap[pillMode] || ''}`);
+    navigate(pillMode === 'green' || pillMode === 'red' ? searchPath(pillMode) : '/search');
   };
 
   // Pill switch: non-yellow modes navigate away
   const handlePillChange = (mode) => {
     if (mode === 'yellow') { setPillMode('yellow'); return; }
-    const modeMap = { blue: '/search', green: '/search?mode=green', red: '/search?mode=red' };
-    navigate(modeMap[mode] || '/search');
+    navigate(mode === 'green' || mode === 'red' ? searchPath(mode) : '/search');
   };
 
   const getOutputText = () => (result?.transcript || '') + WATERMARK;

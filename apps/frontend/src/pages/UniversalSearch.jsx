@@ -81,6 +81,7 @@ const modeToBackend = (mode) => ({
   green: 'green',
 }[mode] || 'blue-pill');
 import { LITE_BG, PERSPECTIVE_COLORS, getModeAccent, MODE_LABELS, MODE_COLORS, normalizePillMode } from '../config/modeTheme';
+import { searchPath } from '../utils/modeRoute';
 
 // The five selectable flows. The active `mode` (from URL/toggle) is the PRIMARY
 // — it drives which sources/results are fetched. Additional lenses selected
@@ -156,7 +157,7 @@ const MAP_AUTO_OPEN_TYPES = ['geolocation', 'directions', 'zipcode'];
 // the search layout and had already drifted away from every other page; this
 // makes "on brand" true by construction rather than by re-matching it by hand
 // every time something changes. Same reasoning as /tube itself being a mode.
-export default function UniversalSearch({ lockedGreen = false, lockedTube: lockedTubeProp = false, creator = null }) {
+export default function UniversalSearch({ pathMode = null, lockedTube: lockedTubeProp = false, creator = null }) {
   const lockedTube = lockedTubeProp || !!creator;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -173,8 +174,9 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // Searching from a creator page must stay ON that creator page — this path
   // is what the URL is rewritten to after a search, and /tube would have
   // quietly thrown the visitor off the creator they were watching.
-  const lockedPath = lockedGreen ? '/green'
-    : creator ? `/creator/${creator.slug}`
+  // (Red and Green own /red and /green too, but they are not LOCKED — the
+  // pill still switches away; see searchPath in utils/modeRoute.)
+  const lockedPath = creator ? `/creator/${creator.slug}`
       : lockedTube ? '/tube' : null;
 
   // Mode management - Default to 'blue' (SearchPortal)
@@ -183,7 +185,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // Persist mode preference across sessions — if user has set a preference, honour it;
   // URL param overrides (so direct links like ?mode=red still work).
   const [mode, setMode] = useState(() => {
-    if (lockedGreen) return 'green';
+    if (pathMode) return pathMode;
     if (lockedTube) return 'tube';
     if (modeParam) return foldMode(modeParam);
     return foldMode(localStorage.getItem('truegle_mode_pref') || 'blue');
@@ -275,15 +277,12 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // hooking any single one of them would leave the others silent. Watching
   // what the mode actually IS covers all of them with one rule.
   //
-  // lockedGreen (/green) is excluded: that route is green by definition, so
-  // there is no choice being explained, and a modal over a page someone
-  // deliberately bookmarked is just an obstacle.
   useEffect(() => {
-    if (mode !== 'green' || lockedGreen || greenExplained.current) return;
+    if (mode !== 'green' || greenExplained.current) return;
     greenExplained.current = true;
     try { localStorage.setItem('truegle_green_explained', 'true'); } catch { /* private mode */ }
     setShowGreenIntro(true);
-  }, [mode, lockedGreen]);
+  }, [mode]);
 
   // Search state
   const [searchValue, setSearchValue] = useState(query);
@@ -733,13 +732,16 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
 
   // Update mode when URL param changes (a locked route IS the mode, so a
   // stray ?mode= on /green or /tube can't unlock it)
+  // /red and /green ARE their mode (old ?mode= links are redirected onto
+  // them by SearchRoute in App.jsx, before this page mounts).
+  useEffect(() => { if (pathMode) setMode(pathMode); }, [pathMode]);
   useEffect(() => {
-    if (lockedPath) return;
+    if (lockedPath || pathMode) return;
     const urlMode = searchParams.get('mode');
     if (urlMode) {
       setMode(foldMode(urlMode));
     }
-  }, [searchParams, lockedPath]);
+  }, [searchParams, lockedPath, pathMode]);
 
   // Update search value when query param changes
   useEffect(() => {
@@ -890,7 +892,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
       // rather than a query string that means the same thing.
       navigate(pillMode === 'tube'
         ? `/tube?q=${encodeURIComponent(q)}`
-        : `/search?mode=${pillMode}&q=${encodeURIComponent(q)}`);
+        : searchPath(pillMode, { q }));
       return;
     }
     handleSearch();
@@ -904,9 +906,6 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     // one they arrived on (and reloading /green would leave the lock behind).
     const params = new URLSearchParams();
     params.set('q', searchValue);
-    if (mode !== 'blue' && !lockedPath) {
-      params.set('mode', mode);
-    }
     // Tube has no perspectives control, so carrying the default in the URL is
     // just noise on a link people are meant to share.
     if (selectedPerspectives.length > 0 && !lockedTube) {
@@ -929,7 +928,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
     if (categoryNow) params.set('category', categoryNow);
     const toolNow = searchParams.get('tool');
     if (toolNow && mode === 'ocean') params.set('tool', toolNow);
-    window.history.replaceState({}, '', `${lockedPath || '/search'}?${params.toString()}`);
+    window.history.replaceState({}, '', lockedPath ? `${lockedPath}?${params.toString()}` : searchPath(mode, params));
 
     // Classify BEFORE fetching. A URL that isn't playable still isn't a
     // search: the user knows the page they want. The AI summary above still
@@ -1214,21 +1213,13 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
    * Handle mode switching via pill toggle (now receives mode string)
    */
   const handlePillModeChange = (newModeOrBool) => {
-    // Green mode is locked — ignore any attempt to switch modes
-    if (lockedGreen) return;
     // Accept either string ('blue'|'red'|'green') or legacy boolean
     const newMode = typeof newModeOrBool === 'boolean'
       ? (newModeOrBool ? 'red' : 'blue')
       : newModeOrBool;
     setMode(newMode);
     localStorage.setItem('truegle_mode_pref', newMode);
-    const params = new URLSearchParams(searchParams);
-    if (newMode === 'blue') {
-      params.delete('mode');
-    } else {
-      params.set('mode', newMode);
-    }
-    navigate(`/search?${params.toString()}`, { replace: true });
+    navigate(searchPath(newMode, searchParams), { replace: true });
   };
 
   // "Deep dive" from a perspective named in the AI summary. It used to throw
@@ -1237,29 +1228,20 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
   // reading. Now it selects that lens where they stand: the results re-read
   // instantly, and the rerun is one press away if the reread misses.
   const handleDeepDivePerspective = (perspectiveId) => {
-    if (lockedGreen) return;
     setSelectedPerspectives([perspectiveId]);
     if (mode !== 'red') {
       setMode('red');
       const params = new URLSearchParams(searchParams);
-      params.set('mode', 'red');
       params.set('perspectives', perspectiveId);
       params.set('fold', '1');
-      navigate(`/search?${params.toString()}`, { replace: true });
+      navigate(searchPath('red', params), { replace: true });
     }
   };
 
   const toggleOSINT = () => {
-    if (lockedGreen) return;
     const newMode = mode === 'ocean' ? 'blue' : 'ocean';
     setMode(newMode);
-    const params = new URLSearchParams(searchParams);
-    if (newMode === 'blue') {
-      params.delete('mode');
-    } else {
-      params.set('mode', newMode);
-    }
-    navigate(`/search?${params.toString()}`, { replace: true });
+    navigate(searchPath(newMode, searchParams), { replace: true });
   };
 
   /**
@@ -1823,7 +1805,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
             <TruegleLogo
               variant={mode === 'tube' ? 'tube' : 'default'}
               className="vp-logo scale-[1.5] sm:scale-[1.8]"
-              onClick={lockedGreen ? undefined : () => navigate('/')}
+              onClick={() => navigate('/')}
             />
           </motion.div>
 
@@ -1835,7 +1817,7 @@ export default function UniversalSearch({ lockedGreen = false, lockedTube: locke
             <div className="relative z-20 mb-3">
               <CreatorPill creator={creator} />
             </div>
-          ) : !lockedGreen && (
+          ) : (
             <div className="relative z-20 mb-2">
               <SmartPill activeMode={pillMode} onSelect={setPillMode} pageMode={lockedTube ? 'tube' : mode} query={searchValue} />
             </div>

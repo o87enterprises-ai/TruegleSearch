@@ -53,6 +53,7 @@ import BlogPost from './pages/BlogPost';
 import NotFound from "./pages/NotFound";
 import RootErrorBoundary from './components/ui/RootErrorBoundary';
 import RouteBoundary from './components/ui/RouteBoundary';
+import { MODE_PATHS, searchPath } from './utils/modeRoute';
 import PreProductionBanner from './components/ui/PreProductionBanner';
 import BrandBar from './components/ui/BrandBar';
 import PageClock from './components/ui/PageClock';
@@ -244,6 +245,17 @@ const ProtectedRoute = ({ children }) => {
 
 // Single global onboarding tutorial — auto-opens once after signup,
 // otherwise only reachable via the "Tutorial" link in the footer.
+// An old /search?mode=red or ?mode=green link lands on the mode's own path
+// (/red, /green) BEFORE the search page mounts, so the page only ever opens
+// once, on the right address.
+const SearchRoute = () => {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  const mode = params.get('mode');
+  if (MODE_PATHS[mode]) return <Navigate to={searchPath(mode, params)} replace />;
+  return <RouteBoundary><UniversalSearch /></RouteBoundary>;
+};
+
 const TutorialModalRoot = () => {
   const { activeTutorial, closeTutorial, dismissTutorialPermanently } = useTutorials();
   return (
@@ -312,7 +324,7 @@ const AppContent = () => {
         <Route path="/auth/signup" element={<RouteBoundary><SignUpPage /></RouteBoundary>} />
 
         {/* Universal Search Route */}
-        <Route path="/search" element={<RouteBoundary><UniversalSearch /></RouteBoundary>} />
+        <Route path="/search" element={<SearchRoute />} />
         <Route path="/chat" element={<RouteBoundary><TruegleChat /></RouteBoundary>} />
         <Route path="/s/:id" element={<RouteBoundary><SharedThread /></RouteBoundary>} />
         {/* Shared Truegle player link — opens straight into the sandboxed player */}
@@ -326,8 +338,11 @@ const AppContent = () => {
         {/* Shared Truegle link to a non-media page — lands on Truegle first */}
         <Route path="/l" element={<RouteBoundary><LinkPage /></RouteBoundary>} />
 
-        {/* Locked Green Mode - AI-free, no navigation out */}
-        <Route path="/green" element={<RouteBoundary><UniversalSearch lockedGreen /></RouteBoundary>} />
+        {/* Rabbit Hole and Green (AI-free) own their paths — the links people
+            share. Ordinary search pages, pill included; /search?mode=red|green
+            is moved onto these. */}
+        <Route path="/red" element={<RouteBoundary><UniversalSearch pathMode="red" /></RouteBoundary>} />
+        <Route path="/green" element={<RouteBoundary><UniversalSearch pathMode="green" /></RouteBoundary>} />
 
         {/* True Tube — a real route, not an alias, so truegle.info/tube is what
             people actually share and what they land back on. Same page and

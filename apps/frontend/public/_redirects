@@ -38,6 +38,7 @@
 /creators         /_index  200
 /creator/*        /_index  200
 /green            /_index  200
+/red              /_index  200
 /feeling-biased   /_index  200
 /biased           /_index  200
 /osint            /_index  200

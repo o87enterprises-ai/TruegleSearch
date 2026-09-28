@@ -1448,6 +1448,14 @@
         "body": "2026-09-27, 7c1c2df: search-page and chat listing cards' Directions button now opens Truegle's own map + route panel (TruegleMap initialDirectionsTo prop) instead of OSM/Google. Fixed BusinessPanelCard sending directions to google.com (tracker link, missed by no-tracking policy). Fixed real bug: MapViewWrapper's needsUserPosition check missed plain directionsTo requests (no detectedLocation.type), so chat's forced-target route computed 0min/0ft with no origin requested. Cards still fall back to OSM link when no onDirections passed. Verified live+browser: search 3m/0.6mi, chat 3m/0.6mi both from real position.",
         "ts": "2026-09-27",
         "created": "2026-09-27"
+      },
+      "mode-paths-red-green": {
+        "Id": "mode-paths-red-green",
+        "Type": "decision",
+        "Label": "Rabbit Hole at /red, Green at /green",
+        "body": "2026-09-28: Red (Rabbit Hole) search lives at /red and Green (AI-free) at /green — ordinary search pages with the pill (the old LOCKED /green kiosk is gone). utils/modeRoute.js searchPath(mode, params) builds every mode URL (red->/red, green->/green, blue->/search, others->/search?mode=). App.jsx SearchRoute redirects /search?mode=red|green onto them BEFORE the page mounts (an in-page redirect remounted the page and swallowed the one-time Green explainer). public/_redirects + sitemap carry /red. greenintro:test covers the redirects.",
+        "ts": "2026-09-28",
+        "created": "2026-09-28"
       }
     },
     "thread": {
@@ -3237,5 +3245,5 @@
       }
     }
   },
-  "updated": "2026-09-27"
+  "updated": "2026-09-28"
 }

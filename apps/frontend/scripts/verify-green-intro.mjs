@@ -128,14 +128,27 @@ const settle = async (page, ms = 4000) => page.waitForTimeout(ms);
   await ctx.close();
 }
 
-// ── 4. /green is a destination, not a decision ────────────────────────────
-// Someone who bookmarked the dedicated route did not just choose anything, so
-// there is nothing to explain and a modal is only an obstacle.
+// ── 4. /green is Green's own address ───────────────────────────────────────
+// Old ?mode=green links land on /green, and /green explains itself once like
+// any other way into Green — it is no longer a separate locked page.
+{
+  const { ctx, page } = await open('/search?q=sourdough&mode=green');
+  await settle(page, 1500);
+  const u = new URL(page.url());
+  ok('/search?mode=green lands on /green', u.pathname === '/green' && u.searchParams.get('q') === 'sourdough', page.url());
+  await ctx.close();
+}
 {
   const { ctx, page } = await open('/green?q=sourdough');
   await settle(page);
-  ok('the dedicated /green route shows no modal', (await overlayCount(page)) === 0,
+  ok('a first visit straight to /green explains Green once', (await overlayCount(page)) === 1,
     `${await overlayCount(page)} overlays`);
+  await ctx.close();
+}
+{
+  const { ctx, page } = await open('/search?q=sourdough&mode=red');
+  await settle(page, 1500);
+  ok('/search?mode=red lands on /red', new URL(page.url()).pathname === '/red', page.url());
   await ctx.close();
 }
 

@@ -83,7 +83,11 @@
   <!-- Search modes (SPA routes — served at the no-slash form, 200) -->
   <url>
     <loc>https://truegle.info/green</loc>
-    <lastmod>2026-06-27</lastmod>
+    <lastmod>2026-09-28</lastmod>
+  </url>
+  <url>
+    <loc>https://truegle.info/red</loc>
+    <lastmod>2026-09-28</lastmod>
   </url>
   <url>
     <loc>https://truegle.info/tube</loc>

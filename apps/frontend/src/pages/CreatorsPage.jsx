@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import SearchPageShell from '../components/layout/SearchPageShell';
 import SearchBar from '../components/ui/SearchBar';
 import CreatorsRoster from '../components/creators/CreatorsRoster';
+import { searchPath } from '../utils/modeRoute';
 
 /*
  * Creators — /creators. The landing spot for the Creators pill.
@@ -41,7 +42,7 @@ export default function CreatorsPage() {
     if (pillMode === 'yellow') return;
     if (pillMode === 'black') { navigate(q ? `/chat?q=${encodeURIComponent(q)}` : '/chat'); return; }
     if (pillMode === 'tube') { navigate(q ? `/tube?q=${encodeURIComponent(q)}` : '/tube'); return; }
-    navigate(`/search?mode=${pillMode}${q ? `&q=${encodeURIComponent(q)}` : ''}`);
+    navigate(searchPath(pillMode, q ? { q } : ''));
   }, [pillMode, query, navigate]);
 
   const searchBar = (

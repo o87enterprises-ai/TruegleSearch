@@ -37,7 +37,7 @@ const MODES = [
     dot: 'bg-red-400',
     textAccent: 'text-red-400',
     exampleQuery: 'federal reserve money printing explained',
-    path: '/search?mode=red&q=federal+reserve+money+printing+explained',
+    path: '/red?q=federal+reserve+money+printing+explained',
   },
   {
     // WONDERLAND. Perspectives stopped being a mode of its own and became the
@@ -54,7 +54,7 @@ const MODES = [
     dot: 'bg-purple-400',
     textAccent: 'text-purple-400',
     exampleQuery: 'immigration policy effects',
-    path: '/search?mode=red&fold=1&q=immigration+policy+effects',
+    path: '/red?fold=1&q=immigration+policy+effects',
   },
   {
     // GREEN. The pun is the point and the owner asked for it kept: green the
@@ -73,7 +73,7 @@ const MODES = [
     dot: 'bg-green-400',
     textAccent: 'text-green-300',
     exampleQuery: 'how to repair a bike chain',
-    path: '/search?mode=green&q=how+to+repair+a+bike+chain',
+    path: '/green?q=how+to+repair+a+bike+chain',
   },
   {
     id: 'tube',
