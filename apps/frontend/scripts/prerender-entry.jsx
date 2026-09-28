@@ -4,7 +4,6 @@ import { MemoryRouter } from 'react-router-dom';
 import About from '../src/pages/About.jsx';
 import PrivacyPolicy from '../src/pages/PrivacyPolicy.jsx';
 import TermsOfService from '../src/pages/TermsOfService.jsx';
-import Advertise from '../src/pages/Advertise.jsx';
 import Developers from '../src/pages/Developers.jsx';
 import PrivacyResourceHub from '../src/pages/PrivacyResourceHub.jsx';
 import Blog from '../src/pages/Blog.jsx';
@@ -13,7 +12,7 @@ import HomeStaticContent from './seo/HomeStaticContent.jsx';
 import LocalizedHomeContent, { TRANSLATIONS, LOCALES } from './seo/LocalizedHomeContent.jsx';
 import { BLOG_POSTS } from '../src/content/blogPosts.jsx';
 
-// Real page components for About/Privacy/Terms/Advertise/Blog (so the
+// Real page components for About/Privacy/Terms/Blog (so the
 // prerendered snapshot can never drift from what the live route actually
 // renders — they have no browser-only API access at render time, just
 // text/links, so renderToStaticMarkup is safe). The landing page is the
@@ -24,7 +23,6 @@ const PAGES = {
   '/about': { Component: About, useRouter: true },
   '/privacy': { Component: PrivacyPolicy, useRouter: true },
   '/terms': { Component: TermsOfService, useRouter: true },
-  '/advertise': { Component: Advertise, useRouter: true },
   '/developers': { Component: Developers, useRouter: true },
   '/privacy-resource-hub': { Component: PrivacyResourceHub, useRouter: true },
   '/blog': { Component: Blog, useRouter: true },

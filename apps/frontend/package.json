@@ -26,6 +26,7 @@
     "feedtube:test": "node scripts/verify-feed-tube.mjs",
     "feedplayable:test": "node scripts/verify-feed-playable.mjs",
     "reels:test": "node scripts/verify-reels.mjs",
+    "seo:test": "node scripts/verify-seo-pages.mjs",
     "cameraview:test": "node scripts/verify-camera-view.mjs",
     "mapui:test": "node scripts/verify-map-ui.mjs",
     "chatmap:test": "node scripts/verify-chat-map.mjs",

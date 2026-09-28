@@ -45,11 +45,6 @@ const META = {
     description:
       'The terms governing your use of Truegle Search, including acceptable use, accounts, payments, and the Rewards Program.',
   },
-  '/advertise': {
-    title: 'Advertise on Truegle — Reach a Privacy-First Audience',
-    description:
-      'Flat-rate, tracking-free ad placements on Truegle Search. Reach a privacy-conscious, tech-savvy audience without the creep factor.',
-  },
   '/privacy-resource-hub': {
     title: 'The Ultimate Digital Privacy & OSINT Resource Hub — Truegle',
     description:

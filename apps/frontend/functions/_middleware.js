@@ -39,6 +39,7 @@
  */
 
 import { parsePlayerParams } from '../src/utils/playerLink.js';
+import { seoFor, crawlBlock, creatorSchema } from '../src/utils/seoPages.js';
 
 // Known AI crawler families. Keys are substrings matched against User-Agent.
 const AI_BOTS = {
@@ -321,6 +322,40 @@ function injectTubePreview(html) {
   return out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeAttr(title)}</title>`);
 }
 
+// The app's own surfaces (/green /red /feed /chat /creators /creator/<slug>).
+// The shell names the homepage as canonical, which told Google each of these
+// WAS the homepage — see utils/seoPages.js. Static values only; the one
+// URL-derived input is a creator slug that matched the roster exactly.
+function injectSeoPage(html, page) {
+  const meta = [
+    ['og:title', page.title],
+    ['og:description', page.description],
+    ['og:type', 'website'],
+    ['og:url', page.canonical],
+    ['twitter:title', page.title],
+    ['twitter:description', page.description],
+  ];
+  let out = html.replace(
+    /<meta\s+(?:property|name)="([^"]+)"[^>]*>\s*/gi,
+    (match, key) => (OVERRIDDEN_META.has(key) || key === 'description' ? '' : match),
+  );
+  const tags = meta
+    .map(([key, value]) => `<meta ${key.startsWith('og:') ? 'property' : 'name'}="${key}" content="${escapeAttr(value)}" />`)
+    .join('');
+  const schema = creatorSchema(page);
+  const ld = schema
+    ? `<script type="application/ld+json">${JSON.stringify(schema).replace(/</g, '\\u003c')}</script>`
+    : '';
+  out = out.replace(/<link\s+rel="canonical"[^>]*>\s*/i, '');
+  out = out.replace(
+    '</head>',
+    `<meta name="description" content="${escapeAttr(page.description)}" />${tags}<link rel="canonical" href="${page.canonical}" />${ld}</head>`,
+  );
+  out = out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeAttr(page.title)}</title>`);
+  // Real text and links for a crawler; the app replaces #root on mount.
+  return out.replace('<div id="root"></div>', `<div id="root">${crawlBlock(page)}</div>`);
+}
+
 export async function onRequest(context) {
   const { request, next, env } = context;
 
@@ -336,9 +371,10 @@ export async function onRequest(context) {
   const isWatch = url.pathname === '/w' || url.pathname === '/w/';
   const isLink = url.pathname === '/l' || url.pathname === '/l/';
   const isTube = url.pathname === '/tube' || url.pathname === '/tube/';
+  const seoPage = (isWatch || isLink || isTube) ? null : seoFor(url.pathname);
 
   // Nothing to do — pass through instantly
-  if (!bot && !isWatch && !isLink && !isTube) return next();
+  if (!bot && !isWatch && !isLink && !isTube && !seoPage) return next();
 
   // Get the upstream response first (always serve content)
   const response = await next();
@@ -355,6 +391,8 @@ export async function onRequest(context) {
     try { html = injectWatchPreview(html, url); } catch { /* keep the shell */ }
   } else if (isLink) {
     try { html = injectLinkPreview(html, url); } catch { /* keep the shell */ }
+  } else if (seoPage) {
+    try { html = injectSeoPage(html, seoPage); } catch { /* keep the shell */ }
   } else if (isTube) {
     // A shared queue gets the clip's own card; the bare page gets True Tube's.
     // `p` is the packed queue form (utils/playerLinkPack) — it carries the same

@@ -26,14 +26,12 @@ export const TRANSLATIONS = {
     modesHeading: 'Suchmodi',
     modes: [
       { name: 'Blau', description: 'Standard-Relevanz über große Anbieter hinweg.' },
-      { name: 'Grün', description: 'Dieselben Ergebnisse, ohne KI-generierte Quellen.' },
+      { name: 'Grün', description: 'Suche ganz ohne KI: Es wird nichts generiert, kein Modell sieht deine Suchanfrage.' },
       { name: 'Rot', description: 'Hebt unabhängige und alternative Quellen hervor.' },
       { name: 'Violett', description: 'Filtert strikt auf die von dir gewählten Perspektiven.' },
       { name: 'Ozean', description: 'Ein Recherche-/OSINT-Werkzeugkasten für legale Ermittlungen.' },
     ],
-    rewards:
-      'Verdiene mit: Erhalte einen Anteil an echten Werbeeinnahmen, wenn du gesponserte Angebote abschließt — serverseitig bestätigt, ohne zusätzliches Tracking.',
-    nav: { search: 'Suche starten', about: 'Über Truegle', privacy: 'Datenschutz', terms: 'Nutzungsbedingungen', advertise: 'Werben auf Truegle' },
+    nav: { search: 'Suche starten', about: 'Über Truegle', privacy: 'Datenschutz', terms: 'Nutzungsbedingungen' },
   },
   es: {
     label: 'Español',
@@ -48,14 +46,12 @@ export const TRANSLATIONS = {
     modesHeading: 'Modos de búsqueda',
     modes: [
       { name: 'Azul', description: 'Relevancia estándar entre los principales proveedores.' },
-      { name: 'Verde', description: 'Los mismos resultados, sin fuentes generadas por IA.' },
+      { name: 'Verde', description: 'Búsqueda sin IA: no se genera nada y ningún modelo ve tu consulta.' },
       { name: 'Rojo', description: 'Resalta fuentes independientes y alternativas.' },
       { name: 'Morado', description: 'Filtra estrictamente según las perspectivas que elijas.' },
       { name: 'Océano', description: 'Un conjunto de herramientas de investigación/OSINT legal.' },
     ],
-    rewards:
-      'Gana dinero: recibe una parte de los ingresos publicitarios reales al completar ofertas patrocinadas — confirmado del lado del servidor, sin rastreo adicional.',
-    nav: { search: 'Empezar a buscar', about: 'Acerca de Truegle', privacy: 'Privacidad', terms: 'Términos del servicio', advertise: 'Anúnciate en Truegle' },
+    nav: { search: 'Empezar a buscar', about: 'Acerca de Truegle', privacy: 'Privacidad', terms: 'Términos del servicio' },
   },
   fr: {
     label: 'Français',
@@ -70,14 +66,12 @@ export const TRANSLATIONS = {
     modesHeading: 'Modes de recherche',
     modes: [
       { name: 'Bleu', description: 'Pertinence standard sur les principaux fournisseurs.' },
-      { name: 'Vert', description: 'Les mêmes résultats, sans sources générées par IA.' },
+      { name: 'Vert', description: 'Recherche sans IA : rien n’est généré et aucun modèle ne voit ta requête.' },
       { name: 'Rouge', description: 'Met en avant les sources indépendantes et alternatives.' },
       { name: 'Violet', description: 'Filtre strictement selon les perspectives choisies.' },
       { name: 'Océan', description: 'Une boîte à outils de recherche/OSINT pour des enquêtes légales.' },
     ],
-    rewards:
-      'Gagnez de l’argent : recevez une part des revenus publicitaires réels lorsque vous complétez des offres sponsorisées — confirmé côté serveur, sans pistage supplémentaire.',
-    nav: { search: 'Commencer la recherche', about: 'À propos de Truegle', privacy: 'Confidentialité', terms: 'Conditions d’utilisation', advertise: 'Annoncer sur Truegle' },
+    nav: { search: 'Commencer la recherche', about: 'À propos de Truegle', privacy: 'Confidentialité', terms: 'Conditions d’utilisation' },
   },
   // Netherlands — a top-5 traffic source (Cloudflare 30d). Dutch (nl).
   nl: {
@@ -93,14 +87,12 @@ export const TRANSLATIONS = {
     modesHeading: 'Zoekmodi',
     modes: [
       { name: 'Blauw', description: 'Standaardrelevantie over grote aanbieders heen.' },
-      { name: 'Groen', description: 'Dezelfde resultaten, zonder door AI gegenereerde bronnen.' },
+      { name: 'Groen', description: 'Zoeken zonder AI: er wordt niets gegenereerd en geen enkel model ziet je zoekopdracht.' },
       { name: 'Rood', description: 'Licht onafhankelijke en alternatieve bronnen uit.' },
       { name: 'Paars', description: 'Filtert strikt op de perspectieven die je kiest.' },
       { name: 'Oceaan', description: 'Een onderzoeks-/OSINT-toolkit voor legaal opzoekwerk.' },
     ],
-    rewards:
-      'Verdien mee: ontvang een deel van echte advertentie-inkomsten wanneer je gesponsorde aanbiedingen voltooit — serverzijdig bevestigd, zonder extra tracking.',
-    nav: { search: 'Begin met zoeken', about: 'Over Truegle', privacy: 'Privacy', terms: 'Gebruiksvoorwaarden', advertise: 'Adverteren op Truegle' },
+    nav: { search: 'Begin met zoeken', about: 'Over Truegle', privacy: 'Privacy', terms: 'Gebruiksvoorwaarden' },
   },
   // Brazil — a top-3 traffic source. Brazilian Portuguese; route /pt, tagged
   // hreflang/html-lang pt-BR so it targets Brazil specifically.
@@ -118,14 +110,12 @@ export const TRANSLATIONS = {
     modesHeading: 'Modos de busca',
     modes: [
       { name: 'Azul', description: 'Relevância padrão entre os principais provedores.' },
-      { name: 'Verde', description: 'Os mesmos resultados, sem fontes geradas por IA.' },
+      { name: 'Verde', description: 'Pesquisa sem IA: nada é gerado e nenhum modelo vê a sua consulta.' },
       { name: 'Vermelho', description: 'Destaca fontes independentes e alternativas.' },
       { name: 'Roxo', description: 'Filtra estritamente pelas perspectivas que você escolher.' },
       { name: 'Oceano', description: 'Um kit de ferramentas de pesquisa/OSINT para investigações legais.' },
     ],
-    rewards:
-      'Ganhe dinheiro: receba uma parte da receita real de anúncios ao concluir ofertas patrocinadas — confirmado no servidor, sem rastreamento adicional.',
-    nav: { search: 'Começar a pesquisar', about: 'Sobre o Truegle', privacy: 'Privacidade', terms: 'Termos de serviço', advertise: 'Anuncie no Truegle' },
+    nav: { search: 'Começar a pesquisar', about: 'Sobre o Truegle', privacy: 'Privacidade', terms: 'Termos de serviço' },
   },
 };
 
@@ -150,13 +140,13 @@ const LocalizedHomeContent = ({ lang }) => {
           </li>
         ))}
       </ul>
-      <p>{t.rewards}</p>
       <nav>
         <a href="/search">{t.nav.search}</a>
         <a href="/about">{t.nav.about}</a>
         <a href="/privacy">{t.nav.privacy}</a>
         <a href="/terms">{t.nav.terms}</a>
-        <a href="/advertise">{t.nav.advertise}</a>
+        <a href="/blog/">Blog</a>
+        <a href="/tube">True Tube</a>
       </nav>
     </div>
   );

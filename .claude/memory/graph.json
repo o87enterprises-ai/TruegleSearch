@@ -1496,6 +1496,14 @@
         "body": "queryIntent.isMediaTitle: media word anywhere (trailer, music video, mix, episode...) OR 1-4 Capitalised words -> tube, kind 'title' (not offered on Chat page). Excluded: questions, FACT_WORDS (net worth, tour dates...), NOT_A_TITLE errands (Google, Weather...). Lowercase multi-word names deliberately NOT matched. Known false positives: 'Paris', 'NASA'.",
         "ts": "2026-09-28",
         "created": "2026-09-28"
+      },
+      "seo-round1-edge-meta": {
+        "Id": "seo-round1-edge-meta",
+        "Type": "decision",
+        "Label": "SEO round 1: edge-rendered meta for app surfaces",
+        "body": "functions/_middleware.js + src/utils/seoPages.js: /green /red /feed /chat /creators /creator/<slug> (roster slugs only) get own title/description/self-canonical + crawlable h1/links inside #root at the edge (shell canonical=home made Google treat them as duplicates of '/'). Home prerender (scripts/seo/HomeStaticContent.jsx) went 1->19 links incl. blog/modes/surfaces; stale Green/Purple/Advertise copy fixed. /advertise retired (301 -> /about/, page+route+footer+sitemap removed; sold ads against AD-POLICY). Public test pages deleted. Sitemap +chat +creators +9 creator pages (39 urls). llms.txt de-staled (Rewards/ads/Green definition). Test: npm run seo:test (59). OPEN, owner to review: privacy policy never mentions AI inference providers (Groq/NVIDIA) while llms.txt+About claim self-hosted/no third-party; llms.txt FAQ still says queries 'discarded immediately' but search_queries trending table exists.",
+        "ts": "2026-09-28",
+        "created": "2026-09-28"
       }
     },
     "thread": {

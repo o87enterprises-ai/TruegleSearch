@@ -9,12 +9,31 @@ import React from 'react';
 // description / og tags and About.jsx's search-mode descriptions, so it
 // can't drift into saying something the live site doesn't.
 
+// Same wording as the live cards (components/landing/ModesAndTrending.jsx).
+// Each mode names its own address, so the crawler can follow it.
 const SEARCH_MODES = [
-  { name: 'Blue', description: 'Standard relevance across major providers.' },
-  { name: 'Green', description: 'The same results, with AI-generated content sources filtered out.' },
-  { name: 'Red', description: 'Surfaces independent and alternative sources ahead of mainstream ones.' },
-  { name: 'Purple', description: 'Strictly filters results to the perspectives you choose.' },
-  { name: 'Ocean', description: 'A research/OSINT toolkit for lawful investigative lookups.' },
+  { name: 'Blue', description: 'The lens most major platforms use: widely accepted, mainstream sources first.' },
+  { name: 'Green', href: '/green', description: 'Search with no AI at all. Nothing is generated and no model runs on your query.' },
+  { name: 'Red', href: '/red', description: 'Independent voices and sources that challenge the official narrative, with Wonderland to isolate one perspective at a time.' },
+  { name: 'Ocean', description: 'A research and OSINT toolkit for lawful investigative lookups.' },
+];
+
+// What else lives on the site, as plain links. The blog used to be reachable
+// only through the sitemap, which is why Google never accepted a post.
+const SURFACES = [
+  { href: '/tube', name: 'True Tube', description: 'Video, reels and audio from across the web in one player, with no ads.' },
+  { href: '/feed', name: 'Feed', description: 'Reddit, Mastodon, Bluesky and news in one timeline.' },
+  { href: '/chat', name: 'Chat', description: 'Ask TrueGLE, an unbiased AI, through the lenses you choose.' },
+  { href: '/creators', name: 'Creators', description: 'Independent channels playing in True Tube.' },
+];
+
+const GUIDES = [
+  { href: '/blog/what-is-a-filter-bubble/', name: 'What is a filter bubble, and how to escape it' },
+  { href: '/blog/why-multiple-perspectives-matter/', name: 'Why seeing multiple perspectives makes you better informed' },
+  { href: '/blog/bias-free-search-results-perspective-modes/', name: 'How perspective modes show the full picture' },
+  { href: '/blog/how-to-get-unbiased-search-results/', name: 'How to get unbiased search results' },
+  { href: '/blog/how-to-search-privately/', name: 'How to search privately' },
+  { href: '/blog/stop-google-tracking-searches/', name: 'How to stop Google tracking your searches' },
 ];
 
 const HomeStaticContent = () => (
@@ -37,16 +56,30 @@ const HomeStaticContent = () => (
     <ul>
       {SEARCH_MODES.map((mode) => (
         <li key={mode.name}>
-          <strong>{mode.name}</strong> — {mode.description}
+          {mode.href ? <a href={mode.href}><strong>{mode.name}</strong></a> : <strong>{mode.name}</strong>} — {mode.description}
         </li>
       ))}
     </ul>
+    <h2>More on Truegle</h2>
+    <ul>
+      {SURFACES.map((x) => (
+        <li key={x.href}><a href={x.href}><strong>{x.name}</strong></a> — {x.description}</li>
+      ))}
+    </ul>
+    <h2>Guides</h2>
+    <ul>
+      {GUIDES.map((g) => (
+        <li key={g.href}><a href={g.href}>{g.name}</a></li>
+      ))}
+      <li><a href="/blog/">All articles</a></li>
+    </ul>
     <nav>
       <a href="/search">Start searching</a>
-      <a href="/about">About Truegle</a>
-      <a href="/privacy">Privacy Policy</a>
-      <a href="/terms">Terms of Service</a>
-      <a href="/advertise">Advertise on Truegle</a>
+      <a href="/about/">About Truegle</a>
+      <a href="/developers/">API</a>
+      <a href="/privacy-resource-hub/">Privacy and OSINT resource hub</a>
+      <a href="/privacy/">Privacy Policy</a>
+      <a href="/terms/">Terms of Service</a>
     </nav>
   </div>
 );

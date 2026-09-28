@@ -23,7 +23,6 @@ const Footer = () => {
           <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-white/40 mb-3">
             <Link to="/about" className="hover:text-white/70">About</Link>
             <Link to="/blog" className="hover:text-white/70">Blog</Link>
-            <Link to="/advertise" className="hover:text-white/70">Advertise</Link>
             <Link to="/privacy" className="hover:text-white/70">Privacy</Link>
             <Link to="/terms" className="hover:text-white/70">Terms</Link>
             <button type="button" onClick={openTutorial} className="hover:text-white/70">

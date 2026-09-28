@@ -46,7 +46,6 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import About from './pages/About';
 import PrivacyResourceHub from './pages/PrivacyResourceHub';
-import Advertise from './pages/Advertise';
 import Developers from './pages/Developers';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
@@ -389,7 +388,9 @@ const AppContent = () => {
         <Route path="/about" element={<RouteBoundary><About /></RouteBoundary>} />
         {/* Content-hub pillar page (privacy + OSINT) */}
         <Route path="/privacy-resource-hub" element={<RouteBoundary><PrivacyResourceHub /></RouteBoundary>} />
-        <Route path="/advertise" element={<RouteBoundary><Advertise /></RouteBoundary>} />
+        {/* Retired 2026-09-28: Truegle carries no ads (docs/AD-POLICY.md). The 301
+            in public/_redirects covers crawlers; this covers in-app links. */}
+        <Route path="/advertise" element={<Navigate to="/about" replace />} />
         {/* Public documentation for the search API. Prerendered — it has to be
             readable without running JavaScript, because the people who most
             need to read it are reviewers and crawlers. */}

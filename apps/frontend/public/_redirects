@@ -51,3 +51,8 @@
 /settings         /_index  200
 /rewards          /_index  200
 /revenue-calc     /_index  200
+
+# Retired 2026-09-28: Truegle carries no ads (docs/AD-POLICY.md), so the ad-sales
+# page is gone. Permanent, so Google drops it and passes on any links.
+/advertise    /about/  301
+/advertise/   /about/  301
