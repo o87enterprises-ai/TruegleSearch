@@ -280,7 +280,7 @@ function classify(post) {
 export default function FeedCard({ post, focused = false, onPlay }) {
   const [leavingOpen, setLeavingOpen] = useState(false);
   const [warnOpen, setWarnOpen] = useState(false);
-  const { current, poppedOut, playNow, enqueue } = usePlayer();
+  const { current, poppedOut, playNow, enqueue, requestFullscreen } = usePlayer();
 
   const playable = useMemo(() => classify(post), [post]);
   // Facebook and Instagram cannot be read in-app at all, so following one
@@ -335,10 +335,21 @@ export default function FeedCard({ post, focused = false, onPlay }) {
 
   // The inner card is still a real <a href>; without preventDefault a tap
   // would both navigate away AND start playback here.
+  //
+  // requestFullscreen RIDES ALONG. This used to be exclusive to the sheet's
+  // "Open in app" (see git history on FeedCardActions, since removed) — a tap
+  // here defaults to the exact same "auto play in app" outcome, so it needs
+  // the same fullscreen request, made synchronously inside this click handler
+  // like PlayerContext's own fullscreenNonce comment requires. Dropping it
+  // when the sheet was folded into this row left the button LOOKING like it
+  // worked (the click registers, media even loads muted in the background of
+  // the mini player) while playback stayed silent and easy to miss — which is
+  // exactly what "the play buttons don't work" turned out to be.
   const playCenter = (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (onPlay) onPlay(); else playNow(source, 'feed');
+    requestFullscreen();
   };
 
   const queueIt = (e) => {
