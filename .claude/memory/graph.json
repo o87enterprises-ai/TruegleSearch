@@ -1837,8 +1837,8 @@
         "Type": "thread",
         "Label": "Search Console + Bing still not set up — owner browser task",
         "body": "HANDOFF contradicted itself (SEO section claimed Bing was imported from GSC; service table said both Not started). Nothing in the repo proves a property exists. GSC is the ONLY authoritative organic source (impressions/clicks/queries/position + Coverage = Google's own technical audit) and the only thing that settles the ~100x Cloudflare-vs-Adsterra measurement gap. Needs a browser login: add truegle.info property, verify via Cloudflare DNS TXT, submit sitemap.xml, request indexing for / and /search. Bing Webmaster imports from GSC in one click.",
-        "status": "open",
-        "ts": "2026-08-24",
+        "status": "done",
+        "ts": "2026-09-28",
         "created": "2026-08-24"
       },
       "groq-legacy-vars-cleanup": {
@@ -3265,6 +3265,14 @@
         "body": "Verified 2026-09-25: Pages secret VITE_MAPBOX_ACCESS_TOKEN reaches the Vite build; traffic tiles return 200. The first paste stored a different (rejected, 401) token — if traffic 401s again, re-put the secret with the current pk token, then push to rebuild.",
         "ts": "2026-09-25",
         "created": "2026-09-25"
+      },
+      "gsc-2026-09-28-baseline": {
+        "Id": "gsc-2026-09-28-baseline",
+        "Type": "fact",
+        "Label": "GSC baseline 2026-09-28 (last 12 mo export)",
+        "body": "Property live. Jun19-Sep26: 19 clicks / 131 impressions total; monthly Jul 7/27, Aug 8/51, Sep 3/32. Only named query: 'truegle.info' (brand). Home = all 19 clicks. Mobile CTR 31% (17/55) vs desktop 2.6% (2/76). Indexed stuck at 14 since mid-Aug: home, 5 locale pages, about/privacy/terms/advertise, 2 creator pages, 2 dead adframe URLs (now 404). NOT indexed: all 12 blog posts, /green /red /tube /feed /developers /privacy-resource-hub. Root causes found live: /green /red /feed /chat /creators /creator/* serve SPA shell with canonical=home (told Google they ARE the homepage); prerendered home raw HTML has 1 <a>, no blog links (orphans); /advertise/ + /test + /quick-test still live. Creator pages drew 30 impressions despite canonical-to-home = best non-brand signal.",
+        "ts": "2026-09-28",
+        "created": "2026-09-28"
       }
     }
   },
