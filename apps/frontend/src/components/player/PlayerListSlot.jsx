@@ -146,21 +146,30 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
   const pending = typing && ranFor !== query;
 
   // Typing switches the slot to results.
+  // A NEW query (not just "some text") also cancels a pending tuck-away, so
+  // the list never folds up under somebody mid-search.
   useEffect(() => {
     if (typing) {
       clearTimeout(revertTimer.current);
+      revertTimer.current = null;
       setShowingResults(true);
     }
-  }, [typing]);
+  }, [typing, query]);
 
-  // Ten seconds after the LAST add, fall back to the queue.
+  // Once something is picked, the rest of the results stay open for ten
+  // seconds of NO interaction, then the list (and, in the floating player, the
+  // search bar — see onRevert/onQueryHandled) quietly tuck away. Any touch,
+  // scroll or key inside the results restarts the ten seconds; reopening the
+  // list later brings the same query and results back.
   const scheduleRevert = () => {
     clearTimeout(revertTimer.current);
     revertTimer.current = setTimeout(() => {
+      revertTimer.current = null;
       setShowingResults(false);
       onRevert?.();
     }, REVERT_MS);
   };
+  const keepAlive = () => { if (revertTimer.current) scheduleRevert(); };
 
   useEffect(() => () => clearTimeout(revertTimer.current), []);
 
@@ -175,10 +184,27 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
 
   if (showingResults) {
     return (
-      <div className="border-t border-white/10 bg-black/30">
+      <div
+        data-player-results=""
+        className="border-t border-white/10 bg-black/30"
+        onPointerDown={keepAlive}
+        onWheel={keepAlive}
+        onScrollCapture={keepAlive}
+        onKeyDown={keepAlive}
+      >
         <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/40">
           <SearchIcon size={11} /> Results
           {(loading || pending) && <Loader2 size={11} className="animate-spin" />}
+          {/* Reopening the list brings the last results back, so the queue
+              and library tabs are one tap away from here. */}
+          <button
+            type="button"
+            data-results-to-queue=""
+            onClick={() => { clearTimeout(revertTimer.current); revertTimer.current = null; setShowingResults(false); }}
+            className="uppercase tracking-wider text-white/35 hover:text-white/70 transition-colors"
+          >
+            · Up next
+          </button>
           {!feedRows && results && results.length > 1 && (
             <span className="ml-auto flex items-center gap-1">
               {SORTS.map((o) => {
@@ -356,7 +382,9 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
               )}
             </div>
           )}
-          {withoutBroken(feedRows || sortResults(results || [], sort, scores)).map((r) => (
+          {/* A new query clears the old rows at once rather than leaving the
+              previous search's results under the loading skeleton. */}
+          {withoutBroken(feedRows || (pending ? [] : sortResults(results || [], sort, scores))).map((r) => (
             /* WHICH PLATFORM THIS CAME FROM, in colour. The Where chips are
                gone and a search now fans out across every provider at once, so
                a list mixing YouTube, Rumble, Odysee and SoundCloud had nothing

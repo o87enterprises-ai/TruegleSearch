@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Play, Plus, Check, Loader2, ChevronUp, ChevronDown } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
+import { SaveTo } from './PlayerLibrary';
 import { mediaKey } from '../../utils/videoEmbed';
 import { sourceColour, sourceProviderLabel } from '../../utils/playerQuery';
 import { publishedLabel } from '../../utils/published';
@@ -56,7 +57,9 @@ export default function PlayerBrowse({
   // so the gesture that means "keep going" has to be the trigger.
   more = false, onMore = null, loadingMore = false,
 }) {
-  const { play, enqueue, enqueueMany, clearQueue } = usePlayer();
+  const { enqueue, startFeed } = usePlayer();
+  // The scroll hint stays loud until the deck has been scrolled once.
+  const [scrolled, setScrolled] = useState(false);
   const scroller = useRef(null);
   const [active, setActive] = useState(0);
   const [held, setHeld] = useState(null);      // mediaKey being previewed
@@ -72,6 +75,7 @@ export default function PlayerBrowse({
     const onScroll = () => {
       const h = el.clientHeight || 1;
       setActive(Math.round(el.scrollTop / h));
+      if (el.scrollTop > 8) setScrolled(true);
     };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
@@ -139,21 +143,28 @@ export default function PlayerBrowse({
     }
   }, [release]);
 
+  // PLAY FROM HERE: this card, then the rest of the results in order. It runs
+  // as a feed, so your queue (and any saved list) is parked, not wiped — it
+  // used to clearQueue() on every tap.
+  const playFrom = useCallback((source, rest) => {
+    startFeed([source, ...rest]);
+  }, [startFeed]);
+
   // A tap that never became a hold is a "play this".
   const drop = useCallback((source, rest) => {
     const wasHeld = !!hold.current && !hold.current.moved && held;
     release();
     if (wasHeld) return;                     // holding is looking, not choosing
-    clearQueue();
-    play(source, 'tube');
-    if (rest.length) enqueueMany(rest, 'tube');
-  }, [held, release, clearQueue, play, enqueueMany]);
+    playFrom(source, rest);
+  }, [held, release, playFrom]);
 
   const add = useCallback((source) => {
     enqueue(source, { deck: 'tube' });
     setAdded(mediaKey(source));
     setTimeout(() => setAdded(null), 1500);
   }, [enqueue]);
+
+  const actionBtn = 'flex items-center gap-1 px-2 h-8 rounded-lg border text-[11px] backdrop-blur transition-colors';
 
   const step = (dir) => {
     const el = scroller.current;
@@ -263,7 +274,7 @@ export default function PlayerBrowse({
                 {sourceProviderLabel(r)}
               </span>
 
-              <div className="absolute inset-x-0 bottom-0 p-2.5 pointer-events-none">
+              <div className="absolute inset-x-0 bottom-0 p-2.5 pb-5 pointer-events-none">
                 <p className="text-[12px] font-semibold text-white line-clamp-2 leading-snug drop-shadow">
                   {r.title}
                 </p>
@@ -274,23 +285,37 @@ export default function PlayerBrowse({
                     {publishedLabel(r.published)}
                   </p>
                 )}
+                {/* PLAY NOW · ADD TO QUEUE · ADD TO LIST, on every card. Add to
+                    list opens your saved lists, with New list at the bottom. */}
+                <div data-browse-actions="" className="flex items-center gap-1.5 mt-2 pointer-events-auto">
+                  <button
+                    type="button"
+                    data-browse-action="play"
+                    onClick={(e) => { e.stopPropagation(); playFrom(r, rest); }}
+                    aria-label={`Play ${r.title || 'this'} now`}
+                    className={`${actionBtn} border-white/25 bg-white/15 text-white hover:bg-white/25`}
+                  >
+                    <Play size={12} fill="currentColor" /> Play now
+                  </button>
+                  <button
+                    type="button"
+                    data-browse-action="queue"
+                    onClick={(e) => { e.stopPropagation(); add(r); }}
+                    aria-label={`Add ${r.title || 'this'} to the queue`}
+                    className={`${actionBtn} ${added === key
+                      ? 'border-green-400/50 bg-green-400/20 text-green-200'
+                      : 'border-white/20 bg-black/50 text-white/80 hover:text-white hover:bg-black/70'}`}
+                  >
+                    {added === key ? <Check size={12} /> : <Plus size={12} />}
+                    {added === key ? 'Queued' : 'Queue'}
+                  </button>
+                  <SaveTo
+                    source={r}
+                    label="List"
+                    className={`${actionBtn} border-white/20 bg-black/50 text-white/80 hover:text-white hover:bg-black/70`}
+                  />
+                </div>
               </div>
-
-              {/* Queue it without leaving the deck. */}
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); add(r); }}
-                title="Add to queue"
-                aria-label={`Add ${r.title || 'this'} to the queue`}
-                className={`absolute top-2 right-2 flex items-center gap-1 pl-1.5 pr-2 h-8 rounded-lg border text-[11px] backdrop-blur transition-colors ${
-                  added === key
-                    ? 'border-green-400/50 bg-green-400/20 text-green-200'
-                    : 'border-white/20 bg-black/50 text-white/75 hover:text-white hover:bg-black/70'
-                }`}
-              >
-                {added === key ? <Check size={13} /> : <Plus size={13} />}
-                {added === key ? 'Added' : 'Add'}
-              </button>
 
               {isHeld && (
                 <span className="absolute top-2 left-2 px-1.5 h-5 rounded-md bg-black/60 backdrop-blur text-[9px] uppercase tracking-wider text-white/70 leading-5">
@@ -327,8 +352,19 @@ export default function PlayerBrowse({
         </button>
       </div>
 
-      <p className="absolute bottom-0 inset-x-0 text-center text-[9px] uppercase tracking-wider text-white/25 pb-0.5 pointer-events-none">
-        {loadingMore ? 'Finding more…' : 'Swipe for more · hold to preview'}
+      {/* THE HINT. Loud (and bobbing) until the deck has been scrolled once,
+          so it's obvious there is more than the one card on screen. */}
+      <p
+        data-browse-hint={scrolled ? 'quiet' : 'loud'}
+        className={`absolute bottom-0 inset-x-0 flex items-center justify-center gap-1 text-[9px] uppercase tracking-wider pb-0.5 pointer-events-none ${
+          scrolled ? 'text-white/25' : 'text-white/70'}`}
+      >
+        {loadingMore ? 'Finding more…' : (
+          <>
+            {!scrolled && rows.length > 1 && <ChevronDown size={11} className="animate-bounce" />}
+            {rows.length > 1 ? `Scroll for ${rows.length - 1} more · hold to preview` : 'Hold to preview'}
+          </>
+        )}
       </p>
     </div>
   );

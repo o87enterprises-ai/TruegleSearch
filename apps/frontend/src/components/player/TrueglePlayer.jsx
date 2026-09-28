@@ -64,7 +64,7 @@ export default function TrueglePlayer({
   const {
     current, queue, history, paused, dock, locked, setLocked,
     next, skipNext, prev, stop, togglePause, setPoppedOut, setDock, play,
-    enqueueMany, playMode, setPlayMode, queueArmed, volume, setVolume,
+    playMode, setPlayMode, queueArmed, volume, setVolume,
     feedActive, feed: feedRest, feedNext, activeDeck, fullscreenNonce, setMinimized,
     list: playingList, listNext,
   } = usePlayer();
@@ -208,7 +208,13 @@ export default function TrueglePlayer({
 
   // Typing opens the list; it retreats again once the user has made their
   // selection (PlayerListSlot's post-add timer calls onRevert).
+  // Not for the query the player MOUNTS with: a search remembered from last
+  // time comes back in the box, but reopening its results on every page load
+  // would be the player talking first.
+  const mountQuery = useRef(query);
   useEffect(() => {
+    if (query === mountQuery.current) return;
+    mountQuery.current = null;
     if (query.trim().length >= 2) setListOpen(true);
   }, [query]);
   useEffect(() => {
@@ -299,39 +305,34 @@ export default function TrueglePlayer({
     if (nextUp) play(nextUp); else skipNext();
   }, [playingList, listNext, followFeed, feedNext, followQueue, current, upNext, play, skipNext, onFeedPage]);
 
-  // AN EMPTY VIEWPORT FILLS ITSELF. Landing on the player with nothing playing
-  // and nothing queued used to be a dead end — the only way forward was to go
-  // and find something to search for, which is the "locating new videos can be
-  // a pain" complaint. Now the same taste profile that decides what comes next
-  // also decides what to open WITH, and tops the queue back up whenever it runs
-  // dry.
+  // AN EMPTY VIEWPORT FILLS ITSELF — WITH THUMBNAILS, NOT PLAYBACK. With
+  // nothing playing, the same taste profile that decides what comes next picks
+  // a deck of things to show in the viewport, scrollable, each with Play now /
+  // Queue / List. It used to push them into the QUEUE, which started one
+  // playing on its own; nothing plays now until somebody chooses it.
   //
-  // Guarded three ways, because this fires a backend request:
+  // Guarded, because this fires a backend request:
   //   · once per empty stretch (`filling`), so a slow reply can't stack fills;
   //   · only when the player is actually on screen, so a page that merely
   //     mounts the component in a collapsed bar doesn't fetch a feed nobody
   //     asked for;
   //   · never while locked — the lock means "leave this alone".
-  //   · never on the feed deck, which is not Tube's to fill — an empty feed
-  //     player is finished, not waiting to be topped up with creators and
-  //     trending videos nobody scrolled past.
+  //   · never on the Feed page, where Tube's picks don't belong.
   const filling = useRef(false);
+  const [idleDeck, setIdleDeck] = useState([]);
   const visible = presentation !== 'collapsed';
   useEffect(() => {
-    if (locked || !visible || onFeedPage) return;
-    if (current || queue.length > 0) { filling.current = false; return; }
-    if (filling.current) return;
+    if (locked || !visible || onFeedPage) return undefined;
+    if (current) { filling.current = false; return undefined; }
+    if (filling.current) return undefined;
     filling.current = true;
     let cancelled = false;
     (async () => {
-      const batch = await upNext.fill(null, 6);
-      // The user may have started something themselves while we were waiting —
-      // dropping a feed on top of that would be the player talking over them.
-      if (cancelled || !batch.length) return;
-      enqueueMany(batch, undefined, { quiet: true });
+      const batch = await upNext.fill(null, 12);
+      if (!cancelled && batch.length) setIdleDeck(batch);
     })();
     return () => { cancelled = true; };
-  }, [current, queue.length, locked, visible, upNext, enqueueMany, onFeedPage]);
+  }, [current, locked, visible, upNext, onFeedPage]);
 
   const embed = useEmbedPlayback({
     frameRef,
@@ -652,7 +653,7 @@ export default function TrueglePlayer({
       fill={fullscreen}
       compact={presentation === 'popped'}
       maxHeight={presentation === 'popped' ? 320 : 420}
-      browse={search.results}
+      browse={search.results?.length ? search.results : (query.trim().length >= 2 ? search.results : idleDeck)}
       browseLoading={search.loading}
       browseMore={search.more}
       onBrowseMore={search.loadMore}

@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
-import { X, Minus, GripHorizontal, PictureInPicture2, PanelBottom } from 'lucide-react';
+import { X, Minus, GripHorizontal, PictureInPicture2, PanelBottom, Search } from 'lucide-react';
 import { MODE_COLORS, BRAND_GRADIENT } from '../../config/modeTheme';
 import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
 import { useFeedbackBarHeight } from './PreProductionBanner';
 import { useBottomDockClaim } from '../../hooks/useBottomDock';
 import { usePlayerQuery } from '../../utils/playerQueryStore';
+import { lastQuery, setLastQuery, recordSearch } from '../../utils/playerSearchMemory';
+import PlayerSearchMemory from '../player/PlayerSearchMemory';
 import { toHandle } from '../../utils/playerQuery';
 import PlayerMiniBar from '../player/PlayerMiniBar';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
@@ -93,7 +95,16 @@ export default function MiniPlayer() {
   // corner grip already do. The button that turned the mode on has gone with
   // it — one less control, and one less thing that only existed in one
   // presentation.
-  const [playerQuery, setPlayerQuery] = useState('');
+  // Kept until the user erases it: the last query comes back with the player.
+  const [playerQuery, setPlayerQuery] = useState(() => lastQuery());
+  useEffect(() => { setLastQuery(playerQuery); }, [playerQuery]);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const memoryCloseTimer = useRef(null);
+  useEffect(() => () => clearTimeout(memoryCloseTimer.current), []);
+  // Tucked away after a pick has sat idle for ten seconds (the list's own
+  // timer tells us — onQueryHandled). One tap brings the bar and the last
+  // query's results back.
+  const [searchTucked, setSearchTucked] = useState(false);
   // ── getting out of the way of the page's search bar ──────────────────────
   // Pinned to the bottom of a phone screen and lifted by the keyboard, the
   // player lands exactly on the search bar the visitor is typing into — it
@@ -118,6 +129,8 @@ export default function MiniPlayer() {
   const playerProvider = 'all';
   const playerInputRef = useRef(null);
   const submitPlayerQuery = useCallback(() => {
+    recordSearch(playerInputRef.current?.value);
+    setMemoryOpen(false);
     setSubmitNonce((n) => n + 1);
     // Dropping focus is what retracts the keyboard; with the keyboard up there
     // is no room left to show the results that were just fetched.
@@ -611,13 +624,35 @@ export default function MiniPlayer() {
             <GripHorizontal size={18} className="text-white/40 shrink-0" />
           )}
           {/* The player's OWN search bar, in the header where it can't be
-              mistaken for the page's. Deliberately never auto-hides: the old
-              below-player bar collapsed on a 3s idle timer that focus merely
-              restarted, so it vanished mid-word. Its query is independent of
+              mistaken for the page's. It never hides while in use (an old bar
+              vanished mid-word on a 3s timer); it only tucks away after a pick
+              has sat untouched for ten seconds. Its query is independent of
               the page's bar — that separation is the point of having two.
               Enter blurs, which retracts the on-screen keyboard and uncovers
               the results underneath; it also forces the list open, so pressing
-              enter always visibly does something. */}
+              enter always visibly does something.
+
+              TUCKED after a pick sits idle for ten seconds: the bar shrinks to
+              a one-tap chip; tapping it restores the bar and reopens the last
+              query's results. */}
+          {searchTucked ? (
+            <button
+              type="button"
+              data-player-search-tucked=""
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => {
+                setSearchTucked(false);
+                setSubmitNonce((n) => n + 1);
+                setTimeout(() => playerInputRef.current?.focus(), 0);
+              }}
+              title="Search again"
+              aria-label="Show the player search"
+              className="flex-1 min-w-0 flex items-center gap-2 px-2 h-8 rounded-lg text-left text-xs text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <Search size={14} className="shrink-0" />
+              <span className="truncate">{title || playerQuery || 'Search'}</span>
+            </button>
+          ) : (
           <form
             onSubmit={(e) => { e.preventDefault(); submitPlayerQuery(); }}
             onPointerDown={(e) => e.stopPropagation()}
@@ -627,7 +662,25 @@ export default function MiniPlayer() {
               ref={playerInputRef}
               value={playerQuery}
               onChange={(e) => setPlayerQuery(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submitPlayerQuery(); } }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); submitPlayerQuery(); }
+                if (e.key === 'Escape') setMemoryOpen(false);
+              }}
+              // Focusing selects what's there, so starting a NEW query
+              // replaces the old one (and its results) instead of appending.
+              onFocus={(e) => {
+                clearTimeout(memoryCloseTimer.current);
+                setMemoryOpen(true);
+                const el = e.target;
+                setTimeout(() => el.select?.(), 0);
+              }}
+              // Delayed so a tap on a remembered search lands before the list
+              // unmounts; a search left in the box on the way out counts.
+              onBlur={(e) => {
+                recordSearch(e.target.value);
+                memoryCloseTimer.current = setTimeout(() => setMemoryOpen(false), 180);
+              }}
+              autoComplete="off"
               enterKeyHint="search"
               placeholder={title || 'Search something to play…'}
               aria-label="Search the player"
@@ -644,7 +697,20 @@ export default function MiniPlayer() {
                 <X size={13} />
               </button>
             )}
+            {memoryOpen && (
+              <PlayerSearchMemory
+                text={playerQuery}
+                onPick={(q) => {
+                  setPlayerQuery(q);
+                  recordSearch(q);
+                  setMemoryOpen(false);
+                  setSubmitNonce((n) => n + 1);
+                  playerInputRef.current?.blur();
+                }}
+              />
+            )}
           </form>
+          )}
           {/* Footer dock: two named states. Watch = the picture. Hidden = the
               controls only, still playing — the "listening while I read the
               results" case, which is most of what a dock at the bottom of a
@@ -701,6 +767,7 @@ export default function MiniPlayer() {
             presentation={docked ? 'expanded' : 'popped'}
             accent={accent || undefined}
             openListNonce={submitNonce}
+            onQueryHandled={docked ? undefined : () => setSearchTucked(true)}
             query={docked ? page.text : playerQuery}
             scope={docked ? page.scope : playerScope}
             provider={docked ? page.provider : playerProvider}

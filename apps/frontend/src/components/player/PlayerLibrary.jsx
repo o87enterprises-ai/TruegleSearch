@@ -37,8 +37,9 @@ const toSource = (e) => ({
   poster: e.poster, channel: e.channel,
 });
 
-/** The "save this somewhere" control, shared by both tabs. */
-function SaveTo({ source, accent }) {
+/** The "save this somewhere" control: your saved lists, plus New list. Shared
+ *  by both tabs here and by the viewport's result cards (with a `label`). */
+export function SaveTo({ source, accent, label = '', className = '' }) {
   const lists = usePlaylists();
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState('');
@@ -62,13 +63,15 @@ function SaveTo({ source, accent }) {
       {saved ? (
         <span className="text-[9px] uppercase tracking-wider px-1" style={{ color: accent }}>{saved}</span>
       ) : (
-        <button type="button" onClick={() => setOpen((v) => !v)} title="Save to a list" aria-label="Save to a list"
-          className="flex items-center justify-center w-8 h-8 rounded text-white/30 hover:text-white hover:bg-white/10 transition-colors">
+        <button type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }} title="Save to a list" aria-label="Save to a list"
+          aria-expanded={open}
+          className={className || 'flex items-center justify-center w-8 h-8 rounded text-white/30 hover:text-white hover:bg-white/10 transition-colors'}>
           <ListPlus size={13} />
+          {label && <span>{label}</span>}
         </button>
       )}
       {open && (
-        <div className="absolute right-0 bottom-full mb-1 z-10 min-w-[9rem] rounded-lg border border-white/15 bg-[#0d0d14] shadow-xl py-1">
+        <div data-save-to-list="" className="absolute right-0 bottom-full mb-1 z-30 min-w-[9rem] max-h-48 overflow-y-auto rounded-lg border border-white/15 bg-[#0d0d14] shadow-xl py-1">
           {lists.map((p) => (
             <button key={p.id} type="button" onClick={() => save(p.id)}
               className="block w-full text-left px-2.5 py-1.5 text-[11px] text-white/70 hover:text-white hover:bg-white/10 truncate">
