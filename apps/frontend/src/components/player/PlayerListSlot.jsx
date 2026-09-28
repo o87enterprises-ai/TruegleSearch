@@ -59,7 +59,7 @@ function BrokenFlag({ source }) {
   );
 }
 
-export default function PlayerListSlot({ search, query = '', scope = 'all', provider = 'all', accent = '#f43f5e', onRevert, compact = false }) {
+export default function PlayerListSlot({ search, query = '', scope = 'all', provider = 'all', accent = '#f43f5e', onRevert, compact = false, standby = false, onResume }) {
   const { current, queue, jump, removeFromQueue, enqueue, clearQueue, playNow } = usePlayer();
   const [tab, setTab] = useState('queue');
   const historyCount = useWatchHistory().length;
@@ -135,6 +135,12 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
     resolveTitles(queue.slice(0, 8));
   }, [queue]);
   const [showingResults, setShowingResults] = useState(false);
+  // THE STANDBY LAYER. With the queue (or a saved list, or the clip that was
+  // on) waiting behind what you're doing now, the list opens greyed out under
+  // two choices: Resume — pick up exactly where it was left — or Return — back
+  // to the queued list to choose from it again. Dismissed per opening.
+  const [standbyDismissed, setStandbyDismissed] = useState(false);
+  const standbyActive = standby && !standbyDismissed;
   const revertTimer = useRef(null);
 
   const typing = query.trim().length >= 2;
@@ -182,11 +188,36 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
 
   const rowH = compact ? 'min-h-[38px]' : 'min-h-[44px]';
 
-  if (showingResults) {
+  const standbyLayer = standbyActive && (
+    <div
+      data-player-standby=""
+      className="absolute inset-0 z-20 flex items-center justify-center gap-2 bg-black/70 backdrop-blur-[1px]"
+    >
+      <button
+        type="button"
+        data-standby-resume=""
+        onClick={() => onResume?.()}
+        className="flex items-center gap-1.5 px-4 h-9 rounded-lg text-xs font-semibold text-black"
+        style={{ background: accent }}
+      >
+        <Play size={13} fill="currentColor" /> Resume
+      </button>
+      <button
+        type="button"
+        data-standby-return=""
+        onClick={() => { setStandbyDismissed(true); setShowingResults(false); setTab('queue'); }}
+        className="flex items-center gap-1.5 px-4 h-9 rounded-lg border border-white/25 text-xs text-white/85 hover:bg-white/10"
+      >
+        <ListMusic size={13} /> Return
+      </button>
+    </div>
+  );
+
+  if (showingResults && !standbyActive) {
     return (
       <div
         data-player-results=""
-        className="border-t border-white/10 bg-black/30"
+        className="relative border-t border-white/10 bg-black/30"
         onPointerDown={keepAlive}
         onWheel={keepAlive}
         onScrollCapture={keepAlive}
@@ -514,7 +545,8 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
   const libraryTab = tab !== 'queue';
 
   return (
-    <div className="border-t border-white/10 bg-black/30">
+    <div className={`relative border-t border-white/10 bg-black/30 ${standbyActive ? 'min-h-[96px]' : ''}`}>
+      {standbyLayer}
       <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/40">
         <ListMusic size={11} className="shrink-0" />
         {TABS.map((t) => (

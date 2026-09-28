@@ -396,6 +396,24 @@ check(s.minimized === false, 'a shared link / user enqueue still opens the playe
   check(twice.queueStandby === true, 'a second feed clip keeps the original standby');
 }
 
+// ── Standby: Resume puts back what was on, the queue and the list ──────────
+{
+  let t = run(INITIAL, { type: 'enqueue', source: yt('on'), byUser: true },
+    { type: 'enqueue', source: yt('q1'), byUser: true }, { type: 'setPaused', value: true });
+  t = run(t, { type: 'startFeed', sources: [yt('r1'), yt('r2')] });
+  check(t.currentStandby?.src === yt('on').src && t.queue.length === 1, 'picking results parks the clip that was on and the queue');
+  const back = run(t, { type: 'resumeStandby' });
+  check(back.current.src === yt('on').src && !back.feedActive && !back.paused && back.queue.length === 1,
+    'Resume brings the parked clip back, playing, with the queue behind it');
+  check(back.history.some((h) => h.src === yt('r1').src), '…and what was playing from the results goes to history');
+  const n = run(INITIAL, { type: 'requestNext' }, { type: 'requestNext' });
+  check(n.nextNonce === 2, 'Next from outside the player is an event, counted');
+  store.clear();
+  store.set(QUEUE_KEY, JSON.stringify({ queue: [yt('l2'), yt('l3')], list: { id: 'L', items: [yt('l1'), yt('l2'), yt('l3')] } }));
+  const reloaded = loadState();
+  check(reloaded.list?.id === 'L' && reloaded.list.items.length === 3, 'a playing saved list survives a reload');
+}
+
 console.log([...ok, ...bad].join('\n'));
 console.log(`\n${ok.length} passed, ${bad.length} failed`);
 process.exit(bad.length ? 1 : 0);

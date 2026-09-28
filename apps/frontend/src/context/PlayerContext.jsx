@@ -132,6 +132,15 @@ export const INITIAL = {
   // put both back exactly as they were.
   queueStandby: false,
   listStandby: null,
+  // What was on screen when the standby began (paused or playing), so Resume
+  // can put it back rather than just carrying on down the queue.
+  currentStandby: null,
+  // "Go to the next thing" as an EVENT, for controls that live outside the
+  // player (the minimized bar, lock-screen media keys, the map's transport).
+  // The player owns the rules for what next MEANS — a playing list, a feed
+  // run, the queue — so those controls ask it rather than stepping the queue
+  // themselves, which is how Next skipped straight past playlists and feeds.
+  nextNonce: 0,
 };
 // Identity is the MEDIA, not the URL string. The same YouTube video arrives as
 // a watch link, a youtu.be link and an /embed/ URL with a ?si= suffix, and
@@ -168,6 +177,8 @@ export function reducer(s, a) {
   }
 
   switch (a.type) {
+    case 'requestNext':
+      return { ...s, nextNonce: s.nextNonce + 1 };
     case 'requestFullscreen':
       return { ...s, fullscreenNonce: s.fullscreenNonce + 1 };
     case 'switchDeck': {
@@ -277,7 +288,7 @@ export function reducer(s, a) {
       // Stop ends the feed. It is the one control that means "I am done with
       // what you are doing", and a feed that survived it would immediately put
       // the next result on.
-      return { ...s, current: null, paused: false, feedActive: false, feed: [], list: null };
+      return { ...s, current: null, paused: false, feedActive: false, feed: [], list: null, currentStandby: null };
     case 'togglePause':
       return { ...s, paused: !s.paused };
     case 'setPaused':
@@ -313,7 +324,7 @@ export function reducer(s, a) {
       // header, and wiping an assembled queue on a mis-tap (with no undo) is
       // what read as "the list erases itself at random". Emptying the queue is
       // now only ever explicit — see clearQueue.
-      return { ...s, current: null, paused: false, poppedOut: false, expanded: false, minimized: false, feedActive: false, feed: [], list: null, queueStandby: false, listStandby: null };
+      return { ...s, current: null, paused: false, poppedOut: false, expanded: false, minimized: false, feedActive: false, feed: [], list: null, queueStandby: false, listStandby: null, currentStandby: null };
     case 'startFeed': {
       // The results become what plays next. The queue is put on standby:
       // contents untouched, but no longer followed — so when the feed ends,
@@ -335,6 +346,7 @@ export function reducer(s, a) {
         // (disarmed) state.
         queueStandby: s.feedActive ? s.queueStandby : s.queueArmed,
         listStandby: s.feedActive ? s.listStandby : s.list,
+        currentStandby: s.feedActive ? s.currentStandby : (s.current || null),
         history,
         paused: false,
         minimized: false,
@@ -364,7 +376,7 @@ export function reducer(s, a) {
     case 'resumeQueue':
       // The feed lets go. What is playing keeps playing; when it ends, the
       // queue (or the parked list) is what comes next again.
-      if (!s.feedActive && !s.queueStandby && !s.listStandby) return s;
+      if (!s.feedActive && !s.queueStandby && !s.listStandby && !s.currentStandby) return s;
       return {
         ...s,
         feedActive: false,
@@ -373,16 +385,30 @@ export function reducer(s, a) {
         list: s.list || s.listStandby,
         queueStandby: false,
         listStandby: null,
+        currentStandby: null,
       };
+    case 'resumeStandby': {
+      // THE LIST'S "RESUME" BUTTON: put back exactly what was going before —
+      // the clip that was on (replayed; embeds can't be seeked back blind),
+      // the queue and any saved list — and carry on from there.
+      const back = s.currentStandby;
+      const r = reducer(s, { type: 'resumeQueue' });
+      if (back && !sameSrc(r.current, back)) {
+        const history = r.current ? [...r.history, r.current] : r.history;
+        return { ...r, current: back, history, paused: false, minimized: false };
+      }
+      if (r.current) return { ...r, paused: false, minimized: false };
+      return r.queue.length ? { ...reducer(r, { type: 'next', manual: true }), paused: false, minimized: false } : r;
+    }
     case 'stopFeed':
       // The feed's remaining items go with it. They are search results, not a
       // list anybody assembled — keeping them would mean a stopped feed quietly
       // resumes later, which is the behaviour being removed.
-      return { ...s, feedActive: false, feed: [], queueStandby: false, listStandby: null };
+      return { ...s, feedActive: false, feed: [], queueStandby: false, listStandby: null, currentStandby: null };
     case 'clearQueue':
       // Emptying the list also withdraws the instruction to follow it —
       // otherwise the next thing added would silently inherit the old intent.
-      return { ...s, queue: [], queueArmed: false, list: null, queueStandby: false, listStandby: null };
+      return { ...s, queue: [], queueArmed: false, list: null, queueStandby: false, listStandby: null, currentStandby: null };
     case 'armQueue':
       return { ...s, queueArmed: true };
     case 'playList': {
@@ -514,6 +540,9 @@ export function loadState() {
       // feed. Coming back starts with none.
       feedActive: false,
       feed: [],
+      list: saved.list && Array.isArray(saved.list.items) && saved.list.items.some(persistable)
+        ? { id: saved.list.id || null, items: saved.list.items.filter(persistable) }
+        : null,
     };
   } catch {
     return INITIAL;
@@ -536,10 +565,13 @@ export const PlayerProvider = ({ children }) => {
         footerView: state.footerView,
         locked: state.locked,
         volume: state.volume,
+        // A saved list being played survives a reload (phone browsers recycle
+        // background tabs), so Next keeps walking the list afterwards.
+        list: state.list ? { id: state.list.id, items: state.list.items.filter(persistable) } : null,
         // queueArmed is absent on purpose — see loadState.
       }));
     } catch { /* private mode / quota — the queue just won't survive a reload */ }
-  }, [state.current, state.queue, state.history, state.poppedOut, state.expanded, state.minimized, state.dock, state.footerView, state.locked, state.volume]);
+  }, [state.current, state.queue, state.history, state.poppedOut, state.expanded, state.minimized, state.dock, state.footerView, state.locked, state.volume, state.list]);
 
   // `deck` is optional on every origin action below. Omitted, the media
   // lands on whichever deck is already live — which is what an automatic
@@ -582,6 +614,8 @@ export const PlayerProvider = ({ children }) => {
   const feedNext = useCallback(() => dispatch({ type: 'feedNext' }), []);
   const stopFeed = useCallback(() => dispatch({ type: 'stopFeed' }), []);
   const resumeQueue = useCallback(() => dispatch({ type: 'resumeQueue' }), []);
+  const resumeStandby = useCallback(() => dispatch({ type: 'resumeStandby' }), []);
+  const requestNext = useCallback(() => dispatch({ type: 'requestNext' }), []);
   const setVolume = useCallback((value) => dispatch({ type: 'setVolume', value }), []);
   const toggleMinimize = useCallback(() => dispatch({ type: 'toggleMin' }), []);
   const setMinimized = useCallback((value) => dispatch({ type: 'setMinimized', value }), []);
@@ -599,11 +633,11 @@ export const PlayerProvider = ({ children }) => {
     () => ({
       ...state,
       play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize, setMinimized,
-      startFeed, appendFeed, feedNext, stopFeed, resumeQueue, playList, listNext, switchDeck, requestFullscreen,
+      startFeed, appendFeed, feedNext, stopFeed, resumeQueue, resumeStandby, requestNext, playList, listNext, switchDeck, requestFullscreen,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume,
     }),
     [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize, setMinimized,
-      startFeed, appendFeed, feedNext, stopFeed, resumeQueue, playList, listNext, switchDeck, requestFullscreen,
+      startFeed, appendFeed, feedNext, stopFeed, resumeQueue, resumeStandby, requestNext, playList, listNext, switchDeck, requestFullscreen,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume]
   );
 

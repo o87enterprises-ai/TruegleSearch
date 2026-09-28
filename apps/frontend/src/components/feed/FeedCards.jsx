@@ -311,6 +311,7 @@ export default function FeedCard({ post, focused = false, onPlay }) {
     title: post.title,
     pageUrl: link,
     poster: post.thumbnail || null,
+    channel: post.author || undefined,
     ...(playable.vertical ? { vertical: true } : {}),
   };
 

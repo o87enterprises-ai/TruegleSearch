@@ -25,7 +25,7 @@ export default function PlayerMiniBar({ onExpand, onClose, accent = '#f43f5e', c
   const touchDevice = useTouchDevice();
   const {
     current, paused, history, queue,
-    togglePause, prev, skipNext, setLocked,
+    togglePause, prev, requestNext, setLocked,
   } = usePlayer();
 
   // Marquee only when it actually overflows. A title that fits and scrolls
@@ -58,7 +58,7 @@ export default function PlayerMiniBar({ onExpand, onClose, accent = '#f43f5e', c
         title={paused ? 'Play' : 'Pause'} aria-label={paused ? 'Play' : 'Pause'} className={btn}>
         {paused ? <Play size={17} /> : <Pause size={17} />}
       </button>
-      <button type="button" onClick={skipNext} disabled={!current && !queue.length}
+      <button type="button" onClick={requestNext} disabled={!current && !queue.length}
         title="Next" aria-label="Next" className={btn}>
         <SkipForward size={16} />
       </button>

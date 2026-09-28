@@ -3,6 +3,7 @@ import { ChevronRight, Loader2 } from 'lucide-react';
 import { CATEGORIES, platformsForCategory } from '../../config/feedCategories';
 import { useSocialFeed } from '../../hooks/useSocialFeed';
 import FeedCard from './FeedCards';
+import { useFeedCursor } from '../../hooks/useFeedCursor';
 
 // Browse — the categories, stacked, each one a horizontal preview.
 //
@@ -44,12 +45,16 @@ function CategoryRow({ category, enabledIds, onOpen }) {
     rememberSeen: false,
   });
 
+  const rows = useMemo(() => feed.items.slice(0, 12), [feed.items]);
+  // Each row is its own run: playing a card plays on into the rest of the row
+  // (and parks the queue), rather than one clip and then straight back into
+  // the queue.
+  const { beginFrom } = useFeedCursor(rows);
+
   // A category with every source switched off is not an error and not empty —
   // it is absent. Rendering an empty row with a heading would imply the
   // category is broken rather than switched off.
   if (!platforms.length) return null;
-
-  const rows = feed.items.slice(0, 12);
 
   return (
     <section className="mb-7" data-browse-row={category.id}>
@@ -92,7 +97,7 @@ function CategoryRow({ category, enabledIds, onOpen }) {
         >
           {rows.map((post) => (
             <div key={post._key} className="snap-start shrink-0 w-[260px] sm:w-[300px]">
-              <FeedCard post={post} />
+              <FeedCard post={post} onPlay={() => beginFrom(post)} />
             </div>
           ))}
         </div>

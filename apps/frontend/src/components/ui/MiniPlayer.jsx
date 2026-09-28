@@ -54,7 +54,7 @@ const loadGeom = () => {
 export default function MiniPlayer() {
   const {
     current, queue, history, minimized, poppedOut, dock,
-    next, prev, close, toggleMinimize, setPoppedOut, setDock,
+    requestNext, prev, close, toggleMinimize, setPoppedOut, setDock,
   } = usePlayer();
   // 'footer' = pinned across the bottom of the page, above the feedback bar.
   // The frame stops being a window in that state: no dragging, no resizing,
@@ -425,9 +425,9 @@ export default function MiniPlayer() {
     set('play', () => mediaRef.current?.play());
     set('pause', () => mediaRef.current?.pause());
     set('previoustrack', history.length ? prev : null);
-    set('nexttrack', queue.length ? next : null);
+    set('nexttrack', current ? requestNext : null);
     return () => ['play', 'pause', 'previoustrack', 'nexttrack'].forEach((act) => set(act, null));
-  }, [current, history.length, queue.length, next, prev]);
+  }, [current, history.length, requestNext, prev]);
 
   // Nothing playing, not popped out, and no page slot asking for it → nothing
   // to show. Once popped out the frame stays even with an empty screen: the

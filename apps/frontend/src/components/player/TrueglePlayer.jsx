@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
-import { X, Bookmark } from 'lucide-react';
+import { X, Bookmark, SkipBack, SkipForward, Play, Pause } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { usePageMode } from '../../hooks/usePageMode';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
@@ -12,6 +12,7 @@ import PlayerListSlot from './PlayerListSlot';
 import PlayerLockOverlay from './PlayerLockOverlay';
 import FullscreenSearchBar from './FullscreenSearchBar';
 import PlayerProgress from './PlayerProgress';
+import PlayerBrowse from './PlayerBrowse';
 import { useEmbedPlayback } from '../../hooks/useEmbedPlayback';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useUpNext } from '../../hooks/useUpNext';
@@ -64,9 +65,10 @@ export default function TrueglePlayer({
   const {
     current, queue, history, paused, dock, locked, setLocked,
     next, skipNext, prev, stop, togglePause, setPoppedOut, setDock, play,
-    playMode, setPlayMode, queueArmed, volume, setVolume,
+    playMode, setPlayMode, volume, setVolume,
     feedActive, feed: feedRest, feedNext, activeDeck, fullscreenNonce, setMinimized,
-    list: playingList, listNext,
+    list: playingList, listNext, resumeQueue, nextNonce,
+    queueStandby, listStandby, currentStandby, resumeStandby, setPaused, jump: jumpToQueued,
   } = usePlayer();
   const pageMode = usePageMode();
   // ONE PLAYER, AND ON THE FEED PAGE IT NEVER AUTOPLAYS RANDOM LINKS. Feed
@@ -211,15 +213,35 @@ export default function TrueglePlayer({
   // Not for the query the player MOUNTS with: a search remembered from last
   // time comes back in the box, but reopening its results on every page load
   // would be the player talking first.
+  //
+  // NOTHING ACTIVELY PLAYING (nothing loaded, or paused): the results go to
+  // the VIEWPORT instead, and the list — with the queue and whatever was
+  // playing on standby behind it — stays tucked away. Opening it offers
+  // Resume / Return (see PlayerListSlot's standby layer).
+  const activelyPlaying = !!current && !paused;
   const mountQuery = useRef(query);
   useEffect(() => {
     if (query === mountQuery.current) return;
     mountQuery.current = null;
-    if (query.trim().length >= 2) setListOpen(true);
+    if (query.trim().length >= 2) setListOpen(activelyPlaying);
   }, [query]);
   useEffect(() => {
-    if (openListNonce) setListOpen(true);
+    if (openListNonce) setListOpen(activelyPlaying);
   }, [openListNonce]);
+  // Paused under a search: the results cover the paused picture (which stays
+  // mounted, on standby) until something is picked or play is pressed.
+  const hasResults = query.trim().length >= 2 && (search.results?.length || 0) > 0;
+  const browseOverScreen = !!current && paused && hasResults;
+  // The queue, a saved list or the clip that was on is waiting behind the
+  // current activity — the list offers to Resume it or Return to it.
+  const standby = (!activelyPlaying && (queue.length > 0 || !!current))
+    || (feedActive && (queueStandby || !!listStandby || !!currentStandby));
+  const resumeFromStandby = useCallback(() => {
+    if (feedActive && (queueStandby || listStandby || currentStandby)) resumeStandby();
+    else if (current && paused) setPaused(false);
+    else if (!current && queue.length) jumpToQueued(0);
+    setListOpen(false);
+  }, [feedActive, queueStandby, listStandby, currentStandby, resumeStandby, current, paused, setPaused, queue.length, jumpToQueued]);
 
   // A native element can really pause; keep the DOM node in step with state.
   useEffect(() => {
@@ -235,75 +257,61 @@ export default function TrueglePlayer({
   // instructions about what comes next and quietly overriding them would be
   // wrong.
   const upNext = useUpNext();
-  // THE QUEUE ONLY WINS WHEN IT WAS ASKED FOR.
-  //
-  // This used to read `if (queue.length > 0)`, which made upNext.pick()
-  // unreachable whenever anything at all sat in the list — including a list
-  // restored from a previous session. Clear the queue, search, play one video,
-  // and the next thing up was last week's list again, with no way forward into
-  // anything new.
-  //
-  // `queueArmed` is the difference between a list somebody is following and a
-  // list that merely exists (see PlayerContext). Unarmed, an empty player and a
-  // player with fifty stored items behave the same way: they go and find
-  // something related to what you just watched.
-  const followQueue = queueArmed && queue.length > 0;
-  // THE FEED OUTRANKS THE QUEUE. Switching on feed autoplay means "play these
-  // results", and it stays in charge until it runs out or somebody stops it —
-  // at which point playback falls to discovery, not back into a queue nobody
-  // restarted. See PlayerContext for why the queue is left untouched
-  // underneath rather than replaced.
+  // THE QUEUE IS FOLLOWED WHENEVER IT HAS SOMETHING IN IT — unless it is on
+  // standby behind a feed run (feed clips, or picks from the viewport deck),
+  // in which case it waits untouched until Resume, leaving the Feed, or an
+  // add. It used to need "arming" in the current sitting, so after a reload
+  // (phone browsers recycle background tabs) a perfectly good queue was
+  // ignored and Next went to Up Next's picks instead — reported as "it
+  // defaults to shuffle even though shuffle isn't selected".
+  const followQueue = queue.length > 0 && !feedActive;
+  // A feed run outranks the queue while it has clips left.
   const followFeed = feedActive && feedRest.length > 0;
-  /* THE QUEUE IS A ONE-SHOT; UP NEXT IS THE DEFAULT.
-   *
-   * Reported as two complaints that turned out to be one: "currently defaults
-   * to queue next but should default to up next", and "Up Next should NEVER
-   * play any already indexed videos".
-   *
-   * Up Next was never the culprit — candidatesFor() filters on hasSeen() and
-   * pick() has no bypass, so it returns null rather than a video you have
-   * watched. The repeats came from the QUEUE, which this checked FIRST and
-   * which holds whatever you put in it, watched or not. `queueArmed` latches
-   * true the moment anything is added by hand, so one "Add to queue" captured
-   * every subsequent advance for the rest of the session.
-   *
-   * So the queue keeps its job and loses its grip: while it HAS items it plays,
-   * because that is what a queue is for and taking that away would break the
-   * button. The moment it empties, `followQueue` goes false on its own and
-   * Up Next takes over permanently — no re-arming, no mode to remember.
-   * playMode !== 'auto' (repeat-one, shuffle) still wins over both; those are
-   * explicit instructions.
-   */
+  // A feed run that has played its last clip. The queue is still parked
+  // behind it, so nothing here may step into it by accident.
+  const feedSpent = feedActive && feedRest.length === 0;
+
   const advance = useCallback(async () => {
     // A saved list outranks everything: it plays in order and ends where it
     // ends. See PlayerContext's `list`.
     if (playingList) { listNext(false); return; }
     if (followFeed) { feedNext(); return; }
-    // ON THE FEED PAGE, AN EXHAUSTED PLAYER GETS OUT OF THE WAY. The timeline
-    // has run out and the queue is not being followed, so it minimizes to its
-    // bar instead of reaching for Up Next's random picks — the feed never
-    // autoplays anything that isn't in the feed. Repeat-one and loop are
-    // explicit instructions to keep playing, so they outrank this.
+    // ON THE FEED PAGE, AN EXHAUSTED PLAYER GETS OUT OF THE WAY: the queue
+    // stays parked and nothing random plays. Repeat-one and loop are explicit
+    // instructions to keep playing, so they outrank this.
     if (onFeedPage && current && !followQueue && playMode === 'auto') { setMinimized(true); return; }
+    // Anywhere else, a run of picks that has finished hands back to the
+    // queue (or saved list) it parked, and carries on from there.
+    if (feedSpent) { resumeQueue(); if (queue.length) { next(); return; } }
     if (followQueue || playMode !== 'auto' || !current || onFeedPage) { next(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) { play(nextUp); return; }
     next();
-  }, [playingList, listNext, followFeed, feedNext, followQueue, playMode, current, next, play, upNext, onFeedPage, setMinimized]);
+  }, [playingList, listNext, followFeed, feedNext, feedSpent, resumeQueue, queue.length, followQueue, playMode, current, next, play, upNext, onFeedPage, setMinimized]);
 
-  // A manual Next must always go somewhere. With an empty queue it used to do
-  // nothing at all, which is what "I hit next and nothing happened" was: the
-  // feed is now what it falls through to, in every play mode, because pressing
-  // the button is an explicit instruction that outranks repeat-one.
+  // A manual Next. A playing list walks the list; a feed run walks the feed
+  // and, once spent, STAYS PUT — it never dips into the parked queue (that is
+  // how a queue "immediately resumed" under a feed clip); otherwise the queue
+  // in order, and only with nothing queued does Up Next find something new.
   const goNext = useCallback(async () => {
     if (playingList) { listNext(true); return; }
-    // Swiping or pressing Next during a feed walks the feed — "play the feed as
-    // is". Only an exhausted feed falls through to finding something new.
     if (followFeed) { feedNext(); return; }
+    if (feedSpent) return;
     if (followQueue || !current || onFeedPage) { skipNext(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) play(nextUp); else skipNext();
-  }, [playingList, listNext, followFeed, feedNext, followQueue, current, upNext, play, skipNext, onFeedPage]);
+  }, [playingList, listNext, followFeed, feedNext, feedSpent, followQueue, current, upNext, play, skipNext, onFeedPage]);
+
+  // Next pressed OUTSIDE the player (minimized bar, lock-screen keys, the
+  // map's transport) arrives as a nonce so it runs the same rules as above.
+  // Only the full player answers, never the collapsed strip in the Tube bar.
+  const seenNextNonce = useRef(nextNonce);
+  useEffect(() => {
+    if (nextNonce === seenNextNonce.current) return;
+    seenNextNonce.current = nextNonce;
+    if (presentation === 'collapsed') return;
+    goNext();
+  }, [nextNonce, presentation, goNext]);
 
   // AN EMPTY VIEWPORT FILLS ITSELF — WITH THUMBNAILS, NOT PLAYBACK. With
   // nothing playing, the same taste profile that decides what comes next picks
@@ -539,7 +547,9 @@ export default function TrueglePlayer({
     // Tapping toggles pause — but ONLY where that can be done in place. On a
     // platform with no control channel, pause means unmount, and a stray touch
     // restarting the video is far worse than a tap doing nothing.
-    onTap: () => (current && embed.canCommand ? togglePause() : null),
+    // Full screen: a tap pauses/plays AND brings up the heads-up display, the
+    // way YouTube's own player answers a tap.
+    onTap: () => { overlay.reveal(); if (current && embed.canCommand) togglePause(); },
     doubleTap: canDoubleTap,
     onDoubleTap: (side) => seekBy(side === 'left' ? -10 : 10),
   });
@@ -784,7 +794,8 @@ export default function TrueglePlayer({
         // picture down and keeps it fully visible — setting a height would
         // crop it instead, which is the opposite of the point. The media node
         // is untouched, so nothing reloads and playback does not stutter.
-        style={voiceOpen && !clipScreen ? { maxHeight: '38%' } : undefined}
+        style={voiceOpen && !clipScreen ? { maxHeight: '38%' }
+          : (browseOverScreen && !fullscreen ? { minHeight: presentation === 'popped' ? 'min(34svh, var(--truegle-player-cap, 100svh))' : 'min(52svh, var(--truegle-player-cap, 100svh))' } : undefined)}
         aria-hidden={clipScreen}
       >
         {/* THE FEED PLAYER IS 9:16 IN EVERY STATE — docked, popped out and
@@ -796,12 +807,25 @@ export default function TrueglePlayer({
             on and collapsed the picture to zero height — audio over a black
             screen. See the note by boxStyle in PlayerScreen.jsx. */}
         {screen}
+        {browseOverScreen && (
+          <div data-player-standby-browse="" className="absolute inset-0 z-[15] flex flex-col">
+            <PlayerBrowse
+              rows={search.results}
+              loading={search.loading}
+              compact={presentation === 'popped'}
+              fill
+              more={search.more}
+              onMore={search.loadMore}
+              loadingMore={search.loadingMore}
+            />
+          </div>
+        )}
         {/* The controls that sit ON the picture: thumbs, share, play mode. They
             are always mounted and fade rather than appearing, so nothing pops
             in over the video — and they take no width from the transport row
             underneath, which is what stopped it running out of room in a
             resized window. */}
-        {current && !clipScreen && (
+        {current && !clipScreen && !browseOverScreen && (
           <PlayerOverlay
             visible={overlay.visible && !locked}
             rating={rating}
@@ -821,7 +845,7 @@ export default function TrueglePlayer({
             player is unaffected. It covers the embed's own controls, which
             our transport and this HUD replace; on a platform we cannot
             command there is no layer at all. */}
-        {!swipe && current && embed.canCommand && !locked && !clipScreen && (
+        {!swipe && current && embed.canCommand && !locked && !clipScreen && !browseOverScreen && (
           <button
             type="button"
             onClick={overlay.reveal}
@@ -836,7 +860,7 @@ export default function TrueglePlayer({
             the play head along the bottom, the on-screen controls (above) at
             the side — all summoned by the tap and faded out again by
             useOverlayReveal's timer. Pointer-transparent except the seek bar. */}
-        {current && !clipScreen && !locked && (
+        {current && !clipScreen && !locked && !browseOverScreen && (
           <div
             data-player-hud={overlay.visible ? 'shown' : 'hidden'}
             aria-hidden={!overlay.visible}
@@ -850,6 +874,26 @@ export default function TrueglePlayer({
                 <p className="text-xs font-semibold text-white truncate">{current.title || 'Now playing'}</p>
                 {current.channel && <p className="text-[10px] text-white/60 truncate">{current.channel}</p>}
               </div>
+            </div>
+            {/* Back · play/pause · forward, centred on the picture like the
+                controls YouTube shows on a tap. Live only while shown, so an
+                invisible button can never catch a stray touch. */}
+            <div data-player-hud-transport="" className={`flex items-center justify-center gap-6 ${overlay.visible ? 'pointer-events-auto' : ''}`}>
+              <button type="button" onClick={() => { overlay.reveal(); prev(); }} disabled={!history.length}
+                aria-label="Previous" tabIndex={overlay.visible ? 0 : -1}
+                className="flex items-center justify-center w-11 h-11 rounded-full bg-black/50 backdrop-blur-sm text-white disabled:opacity-30">
+                <SkipBack size={20} fill="currentColor" />
+              </button>
+              <button type="button" onClick={() => { overlay.reveal(); togglePause(); }}
+                aria-label={paused ? 'Play' : 'Pause'} tabIndex={overlay.visible ? 0 : -1}
+                className="flex items-center justify-center w-14 h-14 rounded-full bg-black/55 backdrop-blur-sm text-white">
+                {paused ? <Play size={26} fill="currentColor" className="ml-1" /> : <Pause size={26} fill="currentColor" />}
+              </button>
+              <button type="button" onClick={() => { overlay.reveal(); goNext(); }}
+                aria-label="Next" tabIndex={overlay.visible ? 0 : -1}
+                className="flex items-center justify-center w-11 h-11 rounded-full bg-black/50 backdrop-blur-sm text-white">
+                <SkipForward size={20} fill="currentColor" />
+              </button>
             </div>
             <div className={overlay.visible ? 'pointer-events-auto' : ''}>
               <PlayerProgress
@@ -949,6 +993,8 @@ export default function TrueglePlayer({
             accent={accent}
             compact={presentation === 'popped'}
             onRevert={() => { setListOpen(false); onQueryHandled?.(); }}
+            standby={standby}
+            onResume={resumeFromStandby}
           />
         </div>
       )}

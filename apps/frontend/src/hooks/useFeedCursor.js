@@ -29,7 +29,7 @@ export function useFeedCursor(rows) {
       const url = r?.permalink || r?.url;
       const p = url ? getPlayable(url) : null;
       return p ? {
-        ...p, title: r.title || url, pageUrl: url, poster: r.thumbnail || null, _rowKey: r._key,
+        ...p, title: r.title || url, pageUrl: url, poster: r.thumbnail || null, channel: r.author || undefined, _rowKey: r._key,
       } : null;
     })
     .filter(Boolean), [rows]);

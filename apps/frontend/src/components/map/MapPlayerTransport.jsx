@@ -28,7 +28,7 @@ import { usePlayer } from '../../context/PlayerContext';
 export default function MapPlayerTransport({ className = '' }) {
   const {
     current, paused, queue, history, locked,
-    togglePause, stop, prev, skipNext,
+    togglePause, stop, prev, requestNext,
   } = usePlayer();
 
   // Nothing playing, nothing to show. This is the whole visibility rule: the
@@ -82,7 +82,7 @@ export default function MapPlayerTransport({ className = '' }) {
               {playing ? <Pause size={16} /> : <Play size={16} />}
             </button>
             <button
-              type="button" onClick={skipNext} disabled={!queue.length}
+              type="button" onClick={requestNext} disabled={!queue.length}
               title="Fast forward — next in the queue" aria-label="Next" className={btn}
             >
               <SkipForward size={16} />
