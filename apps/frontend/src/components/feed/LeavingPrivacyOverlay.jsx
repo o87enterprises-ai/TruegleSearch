@@ -2,21 +2,13 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ExternalLink, ShieldAlert, X } from 'lucide-react';
 
-// "You are about to leave Truegle." Shown before following a link to a site
-// whose posts cannot be read in-app — Facebook and Instagram today, see
-// utils/externalSites.js for why those two and not everything.
-//
-// PORTALED, like LeavingPrivacyOverlay, for the same reason: feed cards live
-// inside scrolling containers that would clip an absolutely-positioned child
-// at their own overflow boundary.
-//
-// THE COPY IS THE POINT. It says what actually changes — their cookies, their
-// tracking, their idea of who you are — because that is the whole reason this
-// interruption is justified. It does not scold, and it does not pretend
-// Truegle can protect anybody past its own edge. Continue is the primary
-// action: somebody who tapped a Facebook post wants to read the Facebook
-// post, and the warning's job is to be informative, not obstructive.
-export default function ExternalSiteWarning({ open, site, url, onClose }) {
+// Shown when "Open link" is chosen on a playable feed card. Distinct from
+// ExternalSiteWarning (which names a specific gated platform, Facebook or
+// Instagram) — this is the general case: any playable post's own source page,
+// which Truegle's player never touches once you leave it. Same portal/escape/
+// scroll-lock shape as ExternalSiteWarning, deliberately: one interruption
+// pattern for every "you are about to leave" moment in the feed.
+export default function LeavingPrivacyOverlay({ open, url, onClose }) {
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -33,7 +25,7 @@ export default function ExternalSiteWarning({ open, site, url, onClose }) {
 
   return createPortal(
     <div
-      data-external-warning={site || ''}
+      data-leaving-privacy-overlay=""
       className="fixed inset-0 z-[210] flex items-end justify-center sm:items-center"
       onClick={onClose}
     >
@@ -41,7 +33,7 @@ export default function ExternalSiteWarning({ open, site, url, onClose }) {
       <div
         role="alertdialog"
         aria-modal="true"
-        aria-label={`Leaving Truegle for ${site}`}
+        aria-label="Leaving Truegle's privacy network"
         onClick={(e) => e.stopPropagation()}
         className="relative w-full sm:w-[26rem] sm:rounded-2xl rounded-t-2xl bg-[#0b0e12] border border-white/10
                    p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
@@ -52,13 +44,10 @@ export default function ExternalSiteWarning({ open, site, url, onClose }) {
           </span>
           <div className="min-w-0">
             <h2 className="text-white font-semibold text-sm leading-snug">
-              You&apos;re leaving Truegle for {site}
+              Leaving Truegle&apos;s privacy network
             </h2>
             <p className="text-white/55 text-xs leading-relaxed mt-1.5">
-              {site} posts can&apos;t be shown inside Truegle, so this opens their site in a new
-              tab. Once you&apos;re there you&apos;re on their terms — their cookies, their
-              tracking, and whoever that browser is signed in as. Nothing about you is sent
-              from here.
+              Truegle cannot guarantee privacy or security beyond this point.
             </p>
           </div>
         </div>
@@ -66,22 +55,18 @@ export default function ExternalSiteWarning({ open, site, url, onClose }) {
         <div className="flex items-center gap-2 mt-4">
           <button
             type="button"
-            data-external-cancel=""
+            data-leaving-cancel=""
             onClick={onClose}
             className="flex-1 px-3 py-2.5 rounded-xl border border-white/15 text-white/70 text-sm
                        hover:text-white hover:border-white/30 transition-colors"
           >
             Stay here
           </button>
-          {/* A real anchor, not a scripted window.open: it keeps middle-click,
-              long-press and "open in new tab" working the way every other
-              link on the page does, and noopener is what stops the opened tab
-              reaching back into this one. */}
           <a
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            data-external-continue=""
+            data-leaving-continue=""
             onClick={onClose}
             className="flex-1 px-3 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white text-sm
                        font-medium hover:bg-white/15 transition-colors flex items-center justify-center gap-1.5"

@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { ArrowUp, MessageCircle, ExternalLink, Code, Star, GitFork, Play } from 'lucide-react';
+import { ArrowUp, MessageCircle, ExternalLink, Code, Star, GitFork, Play, ListPlus } from 'lucide-react';
 import { PROVIDERS } from '../../config/socialProviders';
 import { getPlayable } from '../../utils/videoEmbed';
 import { usePlayer } from '../../context/PlayerContext';
-import FeedCardActions from './FeedCardActions';
+import LeavingPrivacyOverlay from './LeavingPrivacyOverlay';
 import ExternalSiteWarning from './ExternalSiteWarning';
 import { gatedSite } from '../../utils/externalSites';
 
@@ -222,11 +222,14 @@ export const GenericCard = ({ post }) => {
 // "Resembles the vids tab": a playable post gets a small always-visible play
 // badge, enlarges when it's the card centered on screen (see useFeedFocus),
 // and — only while centered — a large center play button that starts
-// playback immediately. Tapping anywhere else on a playable card opens
-// FeedCardActions (Open in app / Add to queue / Open link). A NON-playable
-// card is untouched: the exact same plain outbound `<a>` it has always been,
-// no interception, no sheet — the chrome below only ever activates for a post
-// something in videoEmbed.js actually recognises.
+// playback immediately. Tapping anywhere else on a playable card also plays
+// it in place; the actions a click-to-open sheet used to hide behind one tap
+// are now an always-visible row at the bottom of the card instead — Play now
+// / Add to queue / Open link, no modal in the way. Choosing Open link shows
+// LeavingPrivacyOverlay before following it out. A NON-playable card is
+// untouched: the exact same plain outbound `<a>` it has always been, no
+// interception — the chrome below only ever activates for a post something
+// in videoEmbed.js actually recognises.
 //
 // NO CARD EVER HOLDS THE PICTURE. Not while scrolling past, and not while
 // playing either: the media lives in the LENS, a fixed frame centred in the
@@ -273,11 +276,11 @@ function classify(post) {
  *  useFeedCursor), so the fullscreen player has this feed's own rows to
  *  swipe through afterwards. Optional: a caller with no cursor of its own
  *  (Browse's horizontal strips) omits it and gets the plain playNow this
- *  always did — FeedCardActions carries that fallback. */
+ *  always did. */
 export default function FeedCard({ post, focused = false, onPlay }) {
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [leavingOpen, setLeavingOpen] = useState(false);
   const [warnOpen, setWarnOpen] = useState(false);
-  const { current, poppedOut, playNow } = usePlayer();
+  const { current, poppedOut, playNow, enqueue } = usePlayer();
 
   const playable = useMemo(() => classify(post), [post]);
   // Facebook and Instagram cannot be read in-app at all, so following one
@@ -330,17 +333,24 @@ export default function FeedCard({ post, focused = false, onPlay }) {
   // in here (see the note above).
   const isLive = !poppedOut && current?.pageUrl === link;
 
-  const openSheet = (e) => {
-    // The inner card is still a real <a href>; without this the click would
-    // both navigate away AND open the sheet on top of the navigation.
-    e.preventDefault();
-    setSheetOpen(true);
-  };
-
+  // The inner card is still a real <a href>; without preventDefault a tap
+  // would both navigate away AND start playback here.
   const playCenter = (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (onPlay) onPlay(); else playNow(source, 'feed');
+  };
+
+  const queueIt = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    enqueue(source, { deck: 'feed' });
+  };
+
+  const openLink = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setLeavingOpen(true);
   };
 
   // THE CARD NEVER GROWS INTO A PLAYER. It used to: the playing card hosted
@@ -368,7 +378,7 @@ export default function FeedCard({ post, focused = false, onPlay }) {
       // change — the card must stay exactly the same shape whether it is
       // playing or not, which is the whole point of the lens being separate.
       data-feed-in-lens={isLive ? 'yes' : undefined}
-      onClick={openSheet}
+      onClick={playCenter}
       className={`relative transition-transform duration-200 ${focused ? 'z-10 scale-[1.02] shadow-2xl shadow-black/40' : ''}`}
     >
       <Card post={post} />
@@ -407,13 +417,48 @@ export default function FeedCard({ post, focused = false, onPlay }) {
         </button>
       )}
 
-      <FeedCardActions
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        source={source}
-        link={link}
-        title={post.title}
-        onPlay={onPlay}
+      {/* Always visible now — no click-to-open sheet in the way. Its own
+          click handlers stop propagation so tapping a button doesn't also
+          fire the card's own play-on-tap above. */}
+      <div
+        role="group"
+        aria-label="Post actions"
+        onClick={(e) => e.stopPropagation()}
+        className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-white/10 text-[11px]"
+      >
+        <button
+          type="button"
+          data-feed-action="play"
+          onClick={playCenter}
+          className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg font-medium text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+        >
+          <Play size={12} />
+          Play now
+        </button>
+        <button
+          type="button"
+          data-feed-action="queue"
+          onClick={queueIt}
+          className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg font-medium text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+        >
+          <ListPlus size={12} />
+          Add to queue
+        </button>
+        <button
+          type="button"
+          data-feed-action="open-link"
+          onClick={openLink}
+          className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg font-medium text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+        >
+          <ExternalLink size={12} />
+          Open link
+        </button>
+      </div>
+
+      <LeavingPrivacyOverlay
+        open={leavingOpen}
+        url={link}
+        onClose={() => setLeavingOpen(false)}
       />
     </div>
   );
