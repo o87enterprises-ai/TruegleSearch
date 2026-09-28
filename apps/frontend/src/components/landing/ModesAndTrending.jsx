@@ -1,6 +1,7 @@
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Compass, ShieldCheck, EyeOff } from 'lucide-react';
+import { ArrowRight, Compass, ShieldCheck, EyeOff, ChevronDown } from 'lucide-react';
 import NewsFeed from './NewsFeed';
 import CollapsibleCard from './CollapsibleCard';
 
@@ -158,6 +159,13 @@ function ModeCard({ mode, index }) {
 // ── Exported section ─────────────────────────────────────────────────────────
 
 export default function ModesAndTrending() {
+  // Collapsed by default — this card is the heaviest thing on the landing
+  // page (seven ModeCards plus copy), and opening with all of it expanded
+  // buried the rest of the page under one section. Same "tap the header to
+  // reveal" shape as the picker rows above the search bar, just at section
+  // scale instead of a chip row's.
+  const [open, setOpen] = useState(false);
+
   return (
     <section className="py-16 px-4 border-t border-white/5">
       <div className="max-w-6xl mx-auto">
@@ -172,49 +180,72 @@ export default function ModesAndTrending() {
           viewport={{ once: true }}
           className="rounded-2xl border border-emerald-500/25 bg-white/[0.03] backdrop-blur-sm p-5 sm:p-6"
         >
-          <div className="flex items-center gap-2 mb-3">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            className="w-full flex items-center gap-2 text-left"
+          >
             <span className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
               <Compass size={16} className="text-white" />
             </span>
-            <h2 className="text-xl font-bold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
+            <h2 className="flex-1 text-xl font-bold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
               Search Modes
             </h2>
-          </div>
-          <div className="space-y-3 mb-2">
-            <p className="text-sm text-white/60 leading-relaxed">
-              {`The same color-coded lenses — ${MODE_LIST} — applied to classic web results instead of chat. Cycle the pill above the search bar to switch between them. Green is the zero-AI one: nothing is generated, so no model runs on your query at all.`}
-            </p>
-            <p className="text-sm text-white/60 leading-relaxed">
-              Two stops on that pill are whole surfaces rather than lenses: True Tube, where video and audio from across the web play in one pop-out player, and the Feed, where the social accounts you already read arrive in a single scroll.
-            </p>
-            <p className="text-sm text-white/60 leading-relaxed">
-              And inside the Rabbit Hole there is Wonderland — isolate what you found by one perspective at a time: political, faith, societal, or economic.
-            </p>
-          </div>
-          {/* Two safety features that live INSIDE search results, mentioned
-              honestly: the link checker reads a URL's own shape and never
-              sends it anywhere, and the proxy is opt-in per link, not a VPN. */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-5 text-xs text-white/50">
-            <div className="flex items-start gap-1.5">
-              <ShieldCheck size={13} className="mt-0.5 shrink-0 text-emerald-400/80" />
-              <span>Every result carries a link-health check — read locally, in your browser, from the address itself. Never a reputation lookup that means sending your links to a third party.</span>
-            </div>
-            <div className="flex items-start gap-1.5">
-              <EyeOff size={13} className="mt-0.5 shrink-0 text-emerald-400/80" />
-              <span>"View anonymously" opens some results through Truegle's own in-app proxy, so the destination sees Truegle, not you.</span>
-            </div>
-          </div>
+            <ChevronDown
+              size={18}
+              aria-hidden="true"
+              className={`shrink-0 text-white/40 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}
+            />
+          </button>
 
-          <p className="text-sm text-white/50 mb-3">Same query, completely different results — depending on what you need to see. Plus the two surfaces that aren't lenses at all: the player and the feed.</p>
+          <AnimatePresence initial={false}>
+            {open && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 34, opacity: { duration: 0.18 } }}
+                className="overflow-hidden"
+              >
+                <div className="space-y-3 mb-2 mt-3">
+                  <p className="text-sm text-white/60 leading-relaxed">
+                    {`The same color-coded lenses — ${MODE_LIST} — applied to classic web results instead of chat. Cycle the pill above the search bar to switch between them. Green is the zero-AI one: nothing is generated, so no model runs on your query at all.`}
+                  </p>
+                  <p className="text-sm text-white/60 leading-relaxed">
+                    Two stops on that pill are whole surfaces rather than lenses: True Tube, where video and audio from across the web play in one pop-out player, and the Feed, where the social accounts you already read arrive in a single scroll.
+                  </p>
+                  <p className="text-sm text-white/60 leading-relaxed">
+                    And inside the Rabbit Hole there is Wonderland — isolate what you found by one perspective at a time: political, faith, societal, or economic.
+                  </p>
+                </div>
+                {/* Two safety features that live INSIDE search results, mentioned
+                    honestly: the link checker reads a URL's own shape and never
+                    sends it anywhere, and the proxy is opt-in per link, not a VPN. */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-5 text-xs text-white/50">
+                  <div className="flex items-start gap-1.5">
+                    <ShieldCheck size={13} className="mt-0.5 shrink-0 text-emerald-400/80" />
+                    <span>Every result carries a link-health check — read locally, in your browser, from the address itself. Never a reputation lookup that means sending your links to a third party.</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <EyeOff size={13} className="mt-0.5 shrink-0 text-emerald-400/80" />
+                    <span>"View anonymously" opens some results through Truegle's own in-app proxy, so the destination sees Truegle, not you.</span>
+                  </div>
+                </div>
 
-          {/* Three across, not four: the list is six cards now (Tube and the
-              Feed joined the lenses), and four columns leaves a ragged pair on
-              the second row. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
-            {MODES.map((mode, i) => (
-              <ModeCard key={mode.id} mode={mode} index={i} />
-            ))}
-          </div>
+                <p className="text-sm text-white/50 mb-3">Same query, completely different results — depending on what you need to see. Plus the two surfaces that aren't lenses at all: the player and the feed.</p>
+
+                {/* Three across, not four: the list is six cards now (Tube and the
+                    Feed joined the lenses), and four columns leaves a ragged pair on
+                    the second row. */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+                  {MODES.map((mode, i) => (
+                    <ModeCard key={mode.id} mode={mode} index={i} />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
 
         {/* Was a rotating list of search QUERIES; now what has actually
