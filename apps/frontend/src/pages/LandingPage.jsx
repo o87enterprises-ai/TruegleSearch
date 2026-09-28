@@ -24,7 +24,6 @@ import CategoryModeRow from '../components/landing/CategoryModeRow';
 import SmartPill from '../components/landing/SmartPill';
 import { MODE_COLORS, MODE_HINT_TEXT, searchThemeFor, searchGradientFor, searchIconFor, normalizePillMode } from '../config/modeTheme';
 import HoverHint from '../components/ui/HoverHint';
-import CreatorsRoster from '../components/creators/CreatorsRoster';
 import { useUnhingedGate } from '../hooks/useUnhingedGate';
 import ThreeCards from '../components/landing/ThreeCards';
 import PlayerFeatureCard from '../components/landing/PlayerFeatureCard';
@@ -509,22 +508,6 @@ export default function LandingPage() {
               />
             )}
 
-
-
-            {/* Feed pill — same spot the video player takes in Tube mode: a
-                real preview instead of a promo card. This is the partner
-                creators' roster specifically (still filtered live by whatever
-                is typed above), not the whole feed — Reddit/news/social don't
-                have a landing-page preview of their own, and the roster is
-                the one part of Feed's content Truegle actually publishes
-                itself. Submitting goes to /feed either way (see onSearch);
-                Creators is now a Browse category inside it, not a separate
-                destination. */}
-            {pillMode === 'yellow' && (
-              <div className="mt-6 w-full">
-                <CreatorsRoster query={searchQuery} onClearFilter={() => setSearchQuery('')} compact />
-              </div>
-            )}
 
           </div>
 
