@@ -102,6 +102,21 @@ for (const path of ['/creator/not-a-real-creator', '/creator/TRUE-STORY', '/crea
   ok(canon(html)[0] === 'https://truegle.info/green' && /"license":"https:\/\/truegle\.info\/ai-licensing"/.test(html), 'AI crawlers get the page meta AND the licensing schema');
 }
 
+// ── every SPA route is served as HTML ───────────────────────────────────────
+// _headers matches the ORIGINALLY REQUESTED path, so each rewrite in
+// _redirects needs its own Content-Type rule or the shell is served as
+// application/octet-stream with nosniff — /red shipped that way, and the edge
+// function skips anything that is not text/html.
+{
+  const redirects = fs.readFileSync(new URL('../public/_redirects', import.meta.url), 'utf8');
+  const headers = fs.readFileSync(new URL('../public/_headers', import.meta.url), 'utf8');
+  const rules = new Set([...headers.matchAll(/^(\/\S*)\s*\n((?:[ \t]+.*\n?)+)/gm)]
+    .filter((m) => /Content-Type:\s*text\/html/i.test(m[2])).map((m) => m[1]));
+  const rewrites = [...redirects.matchAll(/^(\/\S+)\s+\/_index\s+200/gm)].map((m) => m[1]);
+  const missing = rewrites.filter((r) => !rules.has(r));
+  ok(rewrites.length > 10 && missing.length === 0, 'every _redirects rewrite has a text/html rule in _headers', missing.join(' ') || `${rewrites.length} routes`);
+}
+
 // ── retired and cleaned up ─────────────────────────────────────────────────
 {
   const sitemap = fs.readFileSync(new URL('../public/sitemap.xml', import.meta.url), 'utf8');
