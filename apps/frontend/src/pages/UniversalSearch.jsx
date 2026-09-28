@@ -114,6 +114,7 @@ import QueueButton from '../components/ui/QueueButton';
 import { isShortForm, asReel } from '../utils/shortForm';
 import { useFeedAutoplay } from '../hooks/useFeedAutoplay';
 import TrueglePlayer from '../components/player/TrueglePlayer';
+import ShareGate from '../components/player/ShareGate';
 import { setPlayerQuery } from '../utils/playerQueryStore';
 import { toHandle, SEARCH_SCOPES } from '../utils/playerQuery';
 
@@ -322,15 +323,17 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
   // rendered at all) is enforced inside parsePlayerParams; unplayable values
   // are dropped rather than shown, because this page has no inert-text slot
   // for them the way /l does.
+  // It opens onto ShareGate: one tap that starts the shared clips as a run and
+  // goes full screen (browsers only allow either from a tap on this page).
   const sharedLoaded = useRef(false);
+  const [sharedGate, setSharedGate] = useState(null);
   useEffect(() => {
     if (!lockedTube || sharedLoaded.current) return;
     const { sources } = parsePlayerParams(searchParams.toString());
     if (!sources.length) return;
     sharedLoaded.current = true;
-    enqueueMany(sources);
-    play(sources[0]);
-  }, [lockedTube, searchParams, enqueueMany, play]);
+    setSharedGate(sources);
+  }, [lockedTube, searchParams]);
 
   // ── shared INTO Truegle from another app ─────────────────────────────────
   // The manifest registers Truegle as a share target, so once it is installed
@@ -1760,6 +1763,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
 
   return (
     <div className="relative min-h-screen w-full bg-black overflow-y-auto">
+      {sharedGate && <ShareGate sources={sharedGate} onStart={() => setSharedGate(null)} />}
       {/* Background - Changes based on mode */}
       <div className="fixed inset-0 z-0">
         <AnimatePresence mode="wait">

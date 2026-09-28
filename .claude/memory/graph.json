@@ -1464,6 +1464,14 @@
         "body": "2026-09-28: There was NEVER a Truegle install modal — the prompt the owner remembered was the browser's own (Chrome mini-infobar: shown once, then suppressed ~3 months after dismissal; Safari/Firefox/iOS never show one). Added components/ui/InstallTruegle.jsx: auto-shown on landing after ~6s (waits for other dialogs), remembered for 21 days after 'Not now', never in standalone, always reopenable via menu 'Install Truegle' (event truegle:open-install). Chromium one-tap install via beforeinstallprompt captured at boot (utils/installPrompt.js) AND by an inline index.html script for events fired before the bundle loads — that inline script's sha256 MUST stay in public/_headers CSP script-src (hashes are maintained by hand; change the script = recompute the hash). Default search / default assistant cannot be set by any website: per-browser honest steps + copy buttons for https://truegle.info/search?q=%s and /chat?q=%s. opensearch.xml icon fixed to truegle.png.",
         "ts": "2026-09-28",
         "created": "2026-09-28"
+      },
+      "share-gate-immersive": {
+        "Id": "share-gate-immersive",
+        "Type": "decision",
+        "Label": "Shared player links open onto a tap-to-play full-screen door",
+        "body": "2026-09-28: /tube?u=… and legacy /w?u=… links render components/player/ShareGate.jsx — a black full-screen poster shaped like the clip (9:16 if source.vertical or tiktok, else 16:9). Browsers only grant full screen + sound from a tap ON THE PAGE, so this one tap: setPlayMode('auto'), startFeed(sources) (shared clips play as a run, visitor's own queue parked, then related videos), then requestFullscreen on [data-mini] [data-player-root] once it mounts. TrueglePlayer: on touch devices full screen locks orientation to the clip (portrait/landscape; Android only, iOS has no lock API, iPhone Safari has no element full screen so it plays inline) and shows a one-time swipe guide (localStorage truegle_swipe_hint_seen). GOTCHA: TrueglePlayer has a local const named screen — use window.screen.",
+        "ts": "2026-09-28",
+        "created": "2026-09-28"
       }
     },
     "thread": {

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import ShareGate from '../components/player/ShareGate';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Play, Search, ListPlus, AlertTriangle } from 'lucide-react';
 import LandingBackground from '../components/LandingBackground';
@@ -22,15 +23,15 @@ export default function WatchPage() {
   const { play, enqueueMany, current } = usePlayer();
   const { sources, rejected } = useMemo(() => parsePlayerParams(search), [search]);
   const started = useRef('');
-
-  // Auto-open into the player. Runs once per distinct link so navigating back
-  // here doesn't restart what's already playing.
+  // Opens onto ShareGate: one tap plays the link full screen (browsers only
+  // allow sound and full screen from a tap on this page). Once per distinct
+  // link, so navigating back here doesn't put the door up again.
+  const [gate, setGate] = useState(false);
   useEffect(() => {
     if (!sources.length || started.current === search) return;
     started.current = search;
-    play(sources[0], 'tube');
-    if (sources.length > 1) enqueueMany(sources.slice(1), 'tube');
-  }, [search, sources, play, enqueueMany]);
+    setGate(true);
+  }, [search, sources]);
 
   useEffect(() => {
     const first = sources[0]?.title;
@@ -45,6 +46,7 @@ export default function WatchPage() {
 
   return (
     <div className="min-h-screen relative bg-black">
+      {gate && <ShareGate sources={sources} onStart={() => setGate(false)} />}
       <LandingBackground />
       <div className="fixed inset-0 pointer-events-none"
         style={{ background: 'radial-gradient(circle at 50% 15%, #22d3ee26, transparent 60%)' }} />

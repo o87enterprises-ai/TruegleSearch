@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
-import { X, Bookmark, SkipBack, SkipForward, Play, Pause } from 'lucide-react';
+import { X, Bookmark, SkipBack, SkipForward, Play, Pause, ChevronUp, ChevronDown } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { usePageMode } from '../../hooks/usePageMode';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
@@ -132,6 +132,37 @@ export default function TrueglePlayer({
     document.addEventListener('fullscreenchange', sync);
     return () => document.removeEventListener('fullscreenchange', sync);
   }, []);
+
+  // FULL SCREEN TAKES THE CLIP'S OWN SHAPE on a phone: a 9:16 Short, TikTok
+  // or Reel locks the screen upright, anything else turns it sideways — the
+  // way YouTube's own full screen behaves. Android honours the lock (only
+  // while in full screen, which is exactly when this runs); iOS has no lock
+  // API and simply follows how the phone is held. Re-locks if the next clip
+  // is the other shape; released on the way out.
+  const clipIsTall = !!current && (!!current.vertical || current.kind === 'tiktok');
+  useEffect(() => {
+    const o = typeof window !== 'undefined' ? window.screen?.orientation : null;
+    if (!o?.lock) return;
+    if (fullscreen && touchDevice) {
+      o.lock(clipIsTall ? 'portrait' : 'landscape').catch(() => { /* not allowed here */ });
+    } else if (!fullscreen) {
+      try { o.unlock?.(); } catch { /* nothing locked */ }
+    }
+  }, [fullscreen, touchDevice, clipIsTall]);
+
+  // FIRST TIME IN FULL SCREEN ON A PHONE: show what the gestures are. Once
+  // per browser, gone after five seconds or the first touch.
+  const [swipeHint, setSwipeHint] = useState(false);
+  useEffect(() => {
+    if (!fullscreen || !touchDevice || locked) return undefined;
+    try {
+      if (localStorage.getItem('truegle_swipe_hint_seen')) return undefined;
+      localStorage.setItem('truegle_swipe_hint_seen', '1');
+    } catch { /* private mode: show it this once anyway */ }
+    setSwipeHint(true);
+    const t = setTimeout(() => setSwipeHint(false), 5000);
+    return () => clearTimeout(t);
+  }, [fullscreen, touchDevice, locked]);
 
   const toggleFullscreen = useCallback(() => {
     const el = rootRef.current;
@@ -684,6 +715,7 @@ export default function TrueglePlayer({
       // screen stop smearing a highlight across the overlay text. Inputs
       // inside it are exempted there.
       data-player-root=""
+      onTouchStartCapture={swipeHint ? () => setSwipeHint(false) : undefined}
       // `relative` so the lock sheet can cover exactly this component and
       // nothing else on the page.
       className={`relative ${fullscreen ? 'flex flex-col w-full h-full bg-black' : className}`}
@@ -735,6 +767,20 @@ export default function TrueglePlayer({
           player whose lock button is no longer offered. The state is left
           alone — it is still locked if that device goes back to touch — but it
           is never ENFORCED where it cannot be turned off. */}
+      {swipeHint && fullscreen && (
+        <div data-swipe-hint="" aria-hidden="true"
+          className="absolute inset-0 z-40 pointer-events-none flex flex-col items-center justify-center gap-6 bg-black/45">
+          <div className="flex flex-col items-center gap-1 text-white animate-bounce">
+            <ChevronUp size={40} strokeWidth={2.5} />
+            <span className="text-sm font-semibold">Swipe up · next</span>
+          </div>
+          <span className="px-3 py-1.5 rounded-full bg-black/60 text-white/85 text-xs">Tap · pause &amp; controls</span>
+          <div className="flex flex-col items-center gap-1 text-white/80 animate-bounce" style={{ animationDelay: '0.5s' }}>
+            <span className="text-sm font-semibold">Swipe down · previous</span>
+            <ChevronDown size={40} strokeWidth={2.5} />
+          </div>
+        </div>
+      )}
       {/* The drop-down bar. Full screen only — inline, the page's own search
           bar is right there — and never while locked, where the microphone
           panel is the way in instead. */}

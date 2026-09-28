@@ -130,6 +130,10 @@ const errs = [];
 // silencing pageerror entirely.
 page.on('pageerror', (e) => {
   if (/Access is denied for this document/i.test(e.message)) return;
+  // Also YouTube's own embed script (not ours — the name appears nowhere in
+  // src or our dependencies): when the sandbox half-loads the real embed it
+  // sometimes throws "this.api.isExternalMethodAvailable is not a function".
+  if (/isExternalMethodAvailable/.test(e.message)) return;
   errs.push(e.message);
 });
 
