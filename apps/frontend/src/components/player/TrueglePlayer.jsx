@@ -493,18 +493,6 @@ export default function TrueglePlayer({
   }, [embed]);
   useEffect(() => () => clearTimeout(jumpTimer.current), []);
 
-  // ── CLICKING THE PICTURE, ON A DESKTOP ────────────────────────────────────
-  //
-  // Double-tap-to-seek existed only as a TOUCH gesture (useSwipeNav's
-  // doubleTap), so on a mouse there was no way to jump ten seconds at all —
-  // reported as "the double tap to fast forward key sequence isn't working on
-  // desktop". It was not broken; it was never wired for a pointer.
-  //
-  // A single click still pauses, so the single action has to WAIT to find out
-  // whether a second click is coming. 250ms is the usual double-click window;
-  // shorter drops real double-clicks, longer makes pausing feel laggy. Without
-  // the wait, a double-click pauses, resumes and then seeks — three things for
-  // one gesture.
   // The rail of controls over the picture, and the narrow set of gestures that
   // summons it. Disabled while locked — the lock exists so a pocket cannot
   // reach anything, and a rail that appears on a hold would be exactly that.
@@ -532,31 +520,15 @@ export default function TrueglePlayer({
     onRecall: stash.hasStash ? stash.recall : undefined,
   });
 
-  const clickTimer = useRef(null);
-  // Which half of the picture the pending click landed on — read on the first
-  // click, used if a second one follows.
-  const clickSide = useRef('right');
-  useEffect(() => () => clearTimeout(clickTimer.current), []);
-
-  const onScreenClick = useCallback((e) => {
-    // A long press summoned the overlay; the click that ends it is not a tap
-    // and must not also pause. This is the "if tap/hold is detected the overlay
-    // fires" half — without it, every summon would pause what you are watching.
-    if (overlay.wasHeld()) return;
-    if (!canDoubleTap) { togglePause(); return; }   // nothing to seek: act now
-    clearTimeout(clickTimer.current);
-    // Which half was clicked decides which way a double-click would seek, so it
-    // has to be read here, before the event is recycled.
+  // OUTSIDE FULL SCREEN A TAP NEVER PAUSES. Tapping anywhere on the docked,
+  // floating or footer player used to toggle pause, and on a phone that fired
+  // on every stray touch. Now a tap brings up the heads-up display (title,
+  // thumbnail, play head, on-screen controls) and only the play buttons pause.
+  // Full screen keeps tap-to-pause via the swipe sheet below. A double-click
+  // still jumps ten seconds on a desktop.
+  const onScreenDoubleClick = useCallback((e) => {
     const box = e.currentTarget.getBoundingClientRect();
-    const left = e.clientX - box.left < box.width / 2;
-    clickTimer.current = setTimeout(() => { clickTimer.current = null; togglePause(); }, 250);
-    clickSide.current = left ? 'left' : 'right';
-  }, [canDoubleTap, togglePause, overlay]);
-
-  const onScreenDoubleClick = useCallback(() => {
-    clearTimeout(clickTimer.current);
-    clickTimer.current = null;
-    seekBy(clickSide.current === 'left' ? -10 : 10);
+    seekBy(e.clientX - box.left < box.width / 2 ? -10 : 10);
   }, [seekBy]);
 
   const swipe = useSwipeNav({
@@ -842,33 +814,53 @@ export default function TrueglePlayer({
           />
         )}
 
-        {/* CLICK THE PICTURE TO PAUSE, outside full screen.
-            The swipe sheet below is full-screen only, and for good reason — it
-            sets touch-action to read vertical gestures, which on a docked
-            player would eat the page scroll. This one is click-only: no
-            touch-action, no preventDefault on touch, so scrolling past the
-            player is unaffected and a tap still lands as a click.
-
-            THE TRADE, stated because it is real: an overlay over an iframe
-            takes the platform's own controls with it. That is acceptable now
-            and was not before — our transport carries play/pause, seek,
-            fullscreen and (as of this change) volume, so nothing is lost by
-            covering theirs. On a platform we cannot command there is no
-            overlay at all: a stray click restarting the video is worse than a
-            click doing nothing. */}
+        {/* TAP THE PICTURE TO SEE WHAT'S PLAYING, outside full screen — never
+            to pause (only the play buttons pause here). Click-only: no
+            touch-action and no preventDefault on touch, so scrolling past the
+            player is unaffected. It covers the embed's own controls, which
+            our transport and this HUD replace; on a platform we cannot
+            command there is no layer at all. */}
         {!swipe && current && embed.canCommand && !locked && !clipScreen && (
           <button
             type="button"
-            onClick={onScreenClick}
+            onClick={overlay.reveal}
             onDoubleClick={onScreenDoubleClick}
             {...overlay.handlers}
-            aria-label={paused ? 'Play' : 'Pause'}
+            aria-label="Show what's playing and the controls"
             className="absolute inset-0 z-10 cursor-default"
-            // Bottom 12% left alone so the platform's own progress bar — the
-            // one thing our transport cannot fully replace on every embed —
-            // stays reachable.
-            style={{ bottom: '12%', background: 'transparent' }}
+            style={{ background: 'transparent' }}
           />
+        )}
+        {/* THE HEADS-UP DISPLAY: thumbnail, title and channel across the top,
+            the play head along the bottom, the on-screen controls (above) at
+            the side — all summoned by the tap and faded out again by
+            useOverlayReveal's timer. Pointer-transparent except the seek bar. */}
+        {current && !clipScreen && !locked && (
+          <div
+            data-player-hud={overlay.visible ? 'shown' : 'hidden'}
+            aria-hidden={!overlay.visible}
+            className={`absolute inset-0 z-20 flex flex-col justify-between pointer-events-none transition-opacity duration-200 ${overlay.visible ? 'opacity-100' : 'opacity-0'}`}
+          >
+            <div className={`flex items-center gap-2 p-2 pr-14 bg-gradient-to-b from-black/75 to-transparent ${onFeedPage ? (fullscreen ? 'pl-16' : 'pl-12') : ''}`}>
+              {current.poster && (
+                <img src={current.poster} alt="" className="w-12 h-8 rounded object-cover shrink-0 border border-white/15" />
+              )}
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-white truncate">{current.title || 'Now playing'}</p>
+                {current.channel && <p className="text-[10px] text-white/60 truncate">{current.channel}</p>}
+              </div>
+            </div>
+            <div className={overlay.visible ? 'pointer-events-auto' : ''}>
+              <PlayerProgress
+                mediaRef={mediaRef}
+                source={current}
+                playing={!paused}
+                accent={accent}
+                embedTime={embed.time}
+                embedDuration={embed.duration}
+              />
+            </div>
+          </div>
         )}
         {swipe && current && (
           <div

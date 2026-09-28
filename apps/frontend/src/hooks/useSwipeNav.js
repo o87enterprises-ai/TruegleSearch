@@ -13,9 +13,15 @@ import { useEffect, useRef, useCallback } from 'react';
 // The cost of that sheet is the embed's own controls, so this only goes up in
 // full screen, where our transport bar is already on screen and pinned. A tap
 // falls through to play/pause so the sheet never feels like a dead zone.
-const DISTANCE = 56;   // px before a drag counts as a swipe
-const TAP_SLOP = 12;   // px of wander still counted as a tap
-const TAP_MS = 350;
+// TUNED DOWN (less sensitive) after accidental pauses and track changes: a
+// swipe now needs a longer, clearly vertical, reasonably quick flick with one
+// finger, and a tap has to be short and still. Anything in between — a slow
+// drag, a diagonal, a resting thumb, a pinch — does nothing.
+const DISTANCE = 110;       // px before a drag counts as a swipe
+const SWIPE_MAX_MS = 800;   // slower than this is a drag, not a flick
+const VERTICAL_RATIO = 1.8; // |dy| must dominate |dx| by this much
+const TAP_SLOP = 10;        // px of wander still counted as a tap
+const TAP_MS = 280;
 const DOUBLE_MS = 280; // second tap has to land inside this to count as a pair
 
 export function useSwipeNav({ active, onNext, onPrev, onTap, onDoubleTap, doubleTap = false }) {
@@ -30,6 +36,8 @@ export function useSwipeNav({ active, onNext, onPrev, onTap, onDoubleTap, double
   };
 
   const onTouchStart = useCallback((e) => {
+    // A second finger makes it a pinch or a grip, never a swipe or tap.
+    if ((e.touches?.length || 0) > 1) { start.current = null; clearPending(); return; }
     const t = e.touches?.[0];
     start.current = t ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
     // A new touch always cancels a tap that is still waiting to see whether it
@@ -49,7 +57,8 @@ export function useSwipeNav({ active, onNext, onPrev, onTap, onDoubleTap, double
     const dx = t.clientX - s.x;
     const dy = t.clientY - s.y;
 
-    if (Math.abs(dy) >= DISTANCE && Math.abs(dy) > Math.abs(dx)) {
+    if (Math.abs(dy) >= DISTANCE && Math.abs(dy) > Math.abs(dx) * VERTICAL_RATIO
+      && Date.now() - s.at <= SWIPE_MAX_MS) {
       lastTap.current = null;
       // Up = forward. Matches the feeds, and matches "the next one is below,
       // pull it into view".
