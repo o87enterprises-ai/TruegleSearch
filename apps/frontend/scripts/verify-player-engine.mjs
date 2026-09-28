@@ -374,6 +374,28 @@ check(s.minimized === false, 'a shared link / user enqueue still opens the playe
   check(deck.list?.id === 'x', 'the list survives a trip to the feed deck and back');
 }
 
+// ── Feed parks the queue; leaving or adding resumes it ─────────────────────
+{
+  const Q = [yt('q1'), yt('q2')];
+  let t = run(INITIAL, { type: 'enqueue', source: yt('q0'), byUser: true },
+    { type: 'enqueue', source: Q[0], byUser: true }, { type: 'enqueue', source: Q[1], byUser: true });
+  t = run(t, { type: 'startFeed', sources: [yt('f1'), yt('f2')] });
+  check(t.feedActive && !t.queueArmed && t.queue.length === 2 && t.queueStandby, 'a feed clip parks the queue, contents intact');
+  check(t.activeDeck === 'tube', 'feed plays on the one (tube) player');
+  const resumed = run(t, { type: 'resumeQueue' });
+  check(!resumed.feedActive && resumed.queueArmed && resumed.current.src === yt('f1').src,
+    'leaving the feed resumes the queue after the clip on screen');
+  const added = run(t, { type: 'enqueue', source: yt('q3'), byUser: true });
+  check(!added.feedActive && added.queueArmed && added.queue.length === 3, 'adding to the queue during a feed resumes it');
+  const L = [yt('p1'), yt('p2')];
+  let lt = run(INITIAL, { type: 'playList', sources: L, listId: 'L' }, { type: 'startFeed', sources: [yt('f9')] });
+  check(lt.list === null && lt.listStandby?.id === 'L', 'a playing list is parked, not lost, by a feed clip');
+  lt = run(lt, { type: 'resumeQueue' });
+  check(lt.list?.id === 'L' && lt.queueArmed, 'resuming restores the parked list');
+  const twice = run(t, { type: 'startFeed', sources: [yt('f5')] });
+  check(twice.queueStandby === true, 'a second feed clip keeps the original standby');
+}
+
 console.log([...ok, ...bad].join('\n'));
 console.log(`\n${ok.length} passed, ${bad.length} failed`);
 process.exit(bad.length ? 1 : 0);

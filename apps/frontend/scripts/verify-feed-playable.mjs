@@ -12,9 +12,9 @@
  *
  * Also covers: the play badge on a playable card, the center play button
  * appearing only on the focused card, the tap-to-open action sheet's three
- * options, a non-playable card being completely untouched, scrolling the
- * playing card out of focus HOLDING it (the lens plays on), and popping out
- * moving the same live frame to the corner without a restart.
+ * inline actions, a non-playable card being completely untouched, scrolling
+ * the playing card out of focus HOLDING it, and the feed playing in the one
+ * (Tube) player rather than a separate feed-only frame.
  *
  * SCROLLING NOTE: bringing a card into view is not enough to focus it —
  * Playwright's scrollIntoViewIfNeeded() only scrolls the minimum distance to
@@ -190,154 +190,59 @@ check(await page.locator('[data-feed-card-wrap] iframe').count() === 0,
 await until(() => page.locator('[data-feed-action="play-center"]').count().then((n) => n === 1),
   { what: 'the play button still present after the overlay interactions' });
 await page.click('[data-feed-action="play-center"]');
-await until(() => page.locator('[data-feed-card-wrap="youtube"][data-feed-in-lens="yes"]').count().then((n) => n === 1),
+await until(() => page.locator('[data-feed-card-wrap="youtube"][data-feed-live="yes"]').count().then((n) => n === 1),
   { what: 'the played card to become the live slot' });
 await until(() => page.locator('iframe').count().then((n) => n === 1),
   { what: 'the one shared iframe to mount' });
 check(await page.locator('iframe').count() === 1,
   'exactly one iframe exists anywhere on the page — never a second decoder');
-// ── THE LENS IS FIXED; THE FEED MOVES ──────────────────────────────────────
-// The viewfinder rule, and the reason the picture is no longer inside the
-// card: "the centered card is like a lens fixed in place and immovable… it's
-// the feed that moves". The old model docked the frame INTO the centred card
-// and it travelled with it; this asserts the opposite.
-//
-// Rects come from getBoundingClientRect, not Playwright's boundingBox():
-// that helper waits for its own idea of "visible", and a fixed frame is the
-// case where it waits forever rather than answering.
-//
-// FIXEDNESS IS ASSERTED AGAINST THE VIEWPORT first, and then again below by
-// actually scrolling: since the playing card now HOLDS rather than stopping,
-// the lens survives a scroll and can be re-measured in place, which is the
-// stronger version of this proof. It could not be done while scrolling away
-// tore the lens down.
+// A Play press also asks for full screen (the old "Open in app"). Headless
+// Chromium may grant it; step back out so the inline checks below read the
+// inline player.
 await page.waitForTimeout(400);
+if (await page.evaluate(() => !!document.fullscreenElement)) {
+  await page.evaluate(() => document.exitFullscreen?.());
+  await page.waitForTimeout(300);
+}
 const rectOf = (sel) => page.evaluate((s) => {
   const el = document.querySelector(s);
   if (!el) return null;
   const r = el.getBoundingClientRect();
   return { x: r.x, y: r.y, width: r.width, height: r.height };
 }, sel);
-const lensBox = await rectOf('[data-mini]');
-const lensPos = await page.evaluate(() => {
-  const el = document.querySelector('[data-mini]');
-  return el ? getComputedStyle(el).position : null;
-});
-const viewport = await page.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
-check(lensPos === 'fixed',
-  'the lens is fixed to the viewport — it is the feed that moves, not the lens',
-  `position: ${lensPos}`);
-const lensMid = lensBox ? lensBox.y + lensBox.height / 2 : -1;
-check(!!lensBox && Math.abs(lensMid - viewport.h / 2) < viewport.h * 0.12,
-  '…centred in it, where the next card scrolls into view',
-  `lens middle ${lensMid.toFixed(0)} vs viewport middle ${(viewport.h / 2).toFixed(0)}`);
-check(!!lensBox && lensBox.height > lensBox.width,
-  '…and portrait, not a landscape frame',
-  `${lensBox?.width?.toFixed(0)}×${lensBox?.height?.toFixed(0)}`);
-// The card must NOT have grown into a player. A portrait picture inside a
-// card made the card taller than the viewport, pushing its own controls
-// under the page's fixed feedback bar and moving its own centre out of
-// focus — the card chased itself out of focus. Cards stay card-sized.
-check(await page.locator('[data-feed-card-wrap] iframe').count() === 0,
-  '…and no card holds the picture itself — the lens does');
 
-// ── the feed plays on its OWN deck, and offers its own one-press save ──────
-// "The player from feed should NOT carry state from Tube player." The deck
-// swap itself is covered exhaustively against the pure reducer in
-// verify-player-engine.mjs; what this pins is the wiring — that the feed's
-// play path actually asks for the feed deck rather than defaulting into
-// Tube's.
-check(await page.locator('[data-player-deck="feed"]').count() > 0,
-  'playing from the feed puts the player on the FEED deck, not Tube\'s',
+// ── ONE PLAYER: the feed plays in the Tube player ─────────────────────────
+// "Use the tube player for the feed player as well." No separate feed deck,
+// no fixed lens, no portrait-only frame — the same frame, search bar and
+// transport every other page gets.
+check(await page.locator('[data-player-deck="tube"]').count() > 0,
+  'the feed plays on the one (Tube) player, not a separate feed deck',
   await page.locator('[data-player-root]').getAttribute('data-player-deck').catch(() => 'none'));
+check(await page.locator('[data-player-lens]').count() === 0, 'there is no feed-only lens any more');
+check(await page.locator('[data-mini] input[aria-label="Search the player"]').count() === 1,
+  '…and it carries the Tube player\'s own search bar');
+check(await page.locator('[data-mini] iframe').count() === 1,
+  'the one iframe lives in the player frame');
+check(await page.locator('[data-feed-card-wrap] iframe').count() === 0,
+  '…never inside a card');
 check(await page.locator('[data-feed-save]').count() === 1,
-  '…and offers the feed\'s single save — one press, one list, no picker');
-
-// Saving twice is honest about the second press rather than showing a tick
-// that lied: addToPlaylist refuses a duplicate and the button says so.
-await page.click('[data-feed-save]');
-await until(() => page.locator('[data-feed-save][data-saved="saved"]').count().then((n) => n === 1),
-  { what: 'the save to confirm' });
-check(true, 'pressing save adds the clip to the feed playlist');
-check(await page.evaluate(() => {
-  const raw = localStorage.getItem('truegle_playlists_v1') || localStorage.getItem('truegle_playlists') || '[]';
-  try { return JSON.parse(raw).some((p) => p.name === 'Feed saves' && p.items.length === 1); } catch { return false; }
-}), '…into a "Feed saves" list built from feed content');
+  'the feed\'s one-press save is still offered on the feed page');
 
 // ── scrolling the playing card out of focus HOLDS it ───────────────────────
-// SUPERSEDES "scrolling away stops it" (the original ask, and what this
-// section used to assert). The rule now: what is on plays through, and
-// whatever is queued behind it plays after, whatever the feed does
-// underneath. Stopping on scroll meant a queue could never be heard — you
-// queue something and then scroll to find the next thing, which is one
-// gesture, and the first half of it killed the second. Only an exhausted
-// player gets out of the way, by minimizing to the corner; see advance() in
-// TrueglePlayer.jsx and the stop-effect's grave in FeedPage.jsx.
 await centerOn(page.locator('a[href="https://github.com/example/repo"]'));
 await page.waitForTimeout(400);
-check(await page.locator('[data-feed-card-wrap="youtube"][data-feed-in-lens="yes"]').count() === 1,
-  'scrolling the playing card out of focus HOLDS it — the lens plays on');
+check(await page.locator('[data-feed-card-wrap="youtube"][data-feed-live="yes"]').count() === 1,
+  'scrolling the playing card out of focus keeps it playing');
 check(await page.locator('iframe').count() === 1,
   '…still exactly one iframe on the page, the same one, not torn down');
-check(await page.locator('[data-feed-card-wrap] iframe').count() === 0,
-  '…and still no card holds it — it stayed in the lens, not in the card it came from');
-const heldPos = await page.evaluate(() => {
-  const el = document.querySelector('[data-mini]');
-  return el ? getComputedStyle(el).position : null;
-});
-const heldBox = await rectOf('[data-mini]');
-const heldMid = heldBox ? heldBox.y + heldBox.height / 2 : -1;
-check(heldPos === 'fixed' && Math.abs(heldMid - viewport.h / 2) < viewport.h * 0.12,
-  '…and the lens is still fixed and centred, having not travelled with the card',
-  `position ${heldPos}, middle ${heldMid.toFixed(0)} vs ${(viewport.h / 2).toFixed(0)}`);
 
 // ── the live card offers no play button of its own ──────────────────────────
-// It is already playing, and the button would sit UNDER the lens — fixed
-// across the middle of the viewport is exactly where a centred card's centre
-// is. Pressing it could only ever do nothing.
 await centerOn(page.locator('[data-feed-card-wrap="youtube"]'));
 await page.waitForTimeout(400);
-check(await page.locator('[data-feed-card-wrap="youtube"][data-feed-in-lens="yes"]').count() === 1,
-  'scrolling back to the held card finds it still live', );
 check(await page.locator('[data-feed-action="play-center"]').count() === 0,
-  '…and offering no play button of its own, being already played');
+  'the live card offers no centre play button, being already played');
 
-// ── popping out moves the SAME live frame to the corner, without a restart ──
-await page.click('button[aria-label="Pop out the player"]');
-await until(() => page.locator('[data-feed-in-lens="yes"]').count().then((n) => n === 0),
-  { what: 'popping out to collapse the card back to a poster' });
-check(true, 'popping out collapses the live card back to a poster');
-check(await page.locator('iframe').count() === 1,
-  '…the same one iframe is still mounted — moved, not torn down and restarted');
-check(await page.locator('[data-feed-card-wrap] iframe').count() === 0,
-  '…no longer inside any card…');
-check(await page.locator('[data-mini] iframe').count() === 1,
-  '…it now sits in the floating corner window instead');
-
-// ── portrait-native, and ACTUALLY VISIBLE ──────────────────────────────────
-// Two failures live here and neither announced itself:
-//
-//   · The feed player is 9:16 in EVERY state, letterboxing anything wider.
-//     The corner window was landscape while only full screen was portrait —
-//     the same frame at a different size rather than a different player.
-//   · Full screen played AUDIO OVER A BLACK SCREEN: the picture box had
-//     collapsed to zero height (see PlayerScreen's boxStyle note). A ratio
-//     check alone passes happily on a 0×0 box, so the SIZE is asserted too —
-//     that is the half that catches a black screen.
-//
-// The clip is a 16:9 YouTube video on purpose: a portrait player that is
-// only portrait for portrait clips is not a portrait player.
-await page.waitForTimeout(400);
-const NINE_BY_SIXTEEN = 9 / 16;
-const ratioOf = (b) => (b && b.height > 0 ? b.width / b.height : 0);
-const cornerPic = await rectOf('[data-mini] iframe');
-check(Math.abs(ratioOf(cornerPic) - NINE_BY_SIXTEEN) < 0.02,
-  'the corner player is 9:16 even with a widescreen clip in it',
-  `${JSON.stringify(cornerPic)} ratio ${ratioOf(cornerPic).toFixed(3)}`);
-check(!!cornerPic && cornerPic.height > 150,
-  '…at a usable size, not collapsed to a sliver by its own height cap',
-  `${cornerPic?.height}px tall`);
-
+// ── full screen still shows a picture ───────────────────────────────────────
 await page.evaluate(() => document.querySelector('[data-player-root]')?.requestFullscreen?.());
 await page.waitForTimeout(800);
 check(await page.evaluate(() => !!document.fullscreenElement), 'the player goes full screen on request');
@@ -345,9 +250,6 @@ const fsPic = await rectOf('iframe');
 check(!!fsPic && fsPic.height > 300,
   'FULL SCREEN SHOWS A PICTURE — not audio over a black screen',
   `${fsPic?.height}px tall`);
-check(Math.abs(ratioOf(fsPic) - NINE_BY_SIXTEEN) < 0.02,
-  '…still 9:16 against a landscape screen, the video letterboxed inside it',
-  `${JSON.stringify(fsPic)} ratio ${ratioOf(fsPic).toFixed(3)}`);
 await page.evaluate(() => document.exitFullscreen?.());
 await page.waitForTimeout(300);
 

@@ -231,23 +231,11 @@ export const GenericCard = ({ post }) => {
 // interception — the chrome below only ever activates for a post something
 // in videoEmbed.js actually recognises.
 //
-// NO CARD EVER HOLDS THE PICTURE. Not while scrolling past, and not while
-// playing either: the media lives in the LENS, a fixed frame centred in the
-// viewport that the feed scrolls behind (see MiniPlayer's lens note). A card
-// is always the same card — poster, badge, play button — whatever is on.
-//
-// It was not always so, and the reason it changed is worth keeping: the
-// playing card used to become `[data-player-slot]` and host the frame
-// itself. Once the picture was portrait that made the card TALLER THAN THE
-// VIEWPORT, which pushed its own controls under the page's fixed feedback
-// bar where the clicks were swallowed, and moved the card's own centre so
-// focus jumped to a neighbour and stopped the playback that had just
-// started. A card that grows into a player chases itself out of focus.
-//
-// So: every play/queue action hands off to the one global player via
-// usePlayer()/useFeedCursor, at most one decoder ever runs, and the feed
-// stays a list of fixed-size cards no matter how many playable posts are in
-// it.
+// NO CARD EVER HOLDS THE PICTURE. Every play/queue action hands off to the
+// one global player (usePlayer / useFeedCursor), so at most one decoder runs
+// and the feed stays a list of fixed-size cards. A card that grew into a
+// player once pushed its own controls off screen and moved its own centre out
+// of focus, stopping the playback it had just started.
 
 /** Trust a pre-classified source (Community, from routes/social.js's
  *  normaliseCommunity) over re-deriving it — that row was already run
@@ -280,7 +268,7 @@ function classify(post) {
 export default function FeedCard({ post, focused = false, onPlay }) {
   const [leavingOpen, setLeavingOpen] = useState(false);
   const [warnOpen, setWarnOpen] = useState(false);
-  const { current, poppedOut, playNow, enqueue, requestFullscreen } = usePlayer();
+  const { current, startFeed, enqueue, requestFullscreen } = usePlayer();
 
   const playable = useMemo(() => classify(post), [post]);
   // Facebook and Instagram cannot be read in-app at all, so following one
@@ -326,12 +314,9 @@ export default function FeedCard({ post, focused = false, onPlay }) {
     ...(playable.vertical ? { vertical: true } : {}),
   };
 
-  // THIS is the card whose media is loaded in the lens. `pageUrl` is the
-  // identity: it's set to the same `link` here and in useFeedCursor's own
-  // rows, so the comparison is exact by construction. It only dims the
-  // card's own play affordance now — the picture itself is in the lens, not
-  // in here (see the note above).
-  const isLive = !poppedOut && current?.pageUrl === link;
+  // THIS is the card the player is showing. `pageUrl` is the identity, set to
+  // the same `link` here and in useFeedCursor's rows.
+  const isLive = current?.pageUrl === link;
 
   // The inner card is still a real <a href>; without preventDefault a tap
   // would both navigate away AND start playback here.
@@ -348,14 +333,16 @@ export default function FeedCard({ post, focused = false, onPlay }) {
   const playCenter = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (onPlay) onPlay(); else playNow(source, 'feed');
+    // No cursor (Browse's strips): a one-clip feed run, so the queue still
+    // goes on standby rather than having a feed clip pushed into it.
+    if (onPlay) onPlay(); else startFeed([source]);
     requestFullscreen();
   };
 
   const queueIt = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    enqueue(source, { deck: 'feed' });
+    enqueue(source);
   };
 
   const openLink = (e) => {
@@ -364,31 +351,13 @@ export default function FeedCard({ post, focused = false, onPlay }) {
     setLeavingOpen(true);
   };
 
-  // THE CARD NEVER GROWS INTO A PLAYER. It used to: the playing card hosted
-  // a [data-player-slot] and the frame docked into it, so the card became
-  // the player. That could not survive the portrait rule, and it failed in
-  // two ways at once, both measured rather than reasoned about:
-  //
-  //   · A 9:16 picture made the card TALLER THAN THE VIEWPORT, pushing its
-  //     own controls down under the page's fixed feedback bar, which then
-  //     swallowed the clicks.
-  //   · Growing moved the card's own centre, which moved which card
-  //     useFeedFocus considered centred, which stopped the playback that
-  //     had just started. The card chased itself out of focus.
-  //
-  // The lens fixes both by not being in the feed at all: it is a fixed frame
-  // in the viewport that the feed scrolls behind (see MiniPlayer's lens
-  // mode). Cards stay cards — poster, badge, play button — at a constant
-  // size, whatever is playing.
 
   return (
     <div
       data-feed-card-wrap={playable.kind}
       data-feed-focused={focused ? 'yes' : undefined}
-      // Which card the lens is currently showing. Not a size or layout
-      // change — the card must stay exactly the same shape whether it is
-      // playing or not, which is the whole point of the lens being separate.
-      data-feed-in-lens={isLive ? 'yes' : undefined}
+      // Which card is playing. A marker only — never a size or layout change.
+      data-feed-live={isLive ? 'yes' : undefined}
       onClick={playCenter}
       className={`relative transition-transform duration-200 ${focused ? 'z-10 scale-[1.02] shadow-2xl shadow-black/40' : ''}`}
     >
@@ -407,15 +376,7 @@ export default function FeedCard({ post, focused = false, onPlay }) {
           on the card that is already playing. Clicking it skips the sheet
           entirely: "defaults to auto play in app".
 
-          NOT ON THE LIVE CARD, for two reasons that arrived together. It is
-          meaningless — the card is playing, that is what the lens above it is
-          showing — and it is unreachable: the lens is fixed across the middle
-          of the viewport, which is exactly where a centred card's own centre
-          button sits, so the lens swallowed the click. Harmless while
-          scrolling away stopped playback, since the lens was gone by the time
-          another card centred; now that the card HOLDS (see FeedPage), the
-          button was live, invisible under the lens, and pressing it did
-          nothing. */}
+          Not on the live card: it is already playing. */}
       {focused && !isLive && (
         <button
           type="button"

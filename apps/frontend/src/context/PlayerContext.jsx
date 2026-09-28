@@ -124,6 +124,14 @@ export const INITIAL = {
   // clips" was exactly that fall-through. `items` is kept whole so Loop can
   // restart the list from the top. Session-only, like the feed.
   list: null,
+  // ── THE QUEUE ON STANDBY ──────────────────────────────────────────────────
+  // Playing a feed clip parks whatever the queue (or a saved list) was doing:
+  // contents untouched, just not followed while the feed plays. These hold
+  // whether the queue was being followed and which list was playing, so
+  // `resumeQueue` — leaving the feed, or adding something to the queue — can
+  // put both back exactly as they were.
+  queueStandby: false,
+  listStandby: null,
 };
 // Identity is the MEDIA, not the URL string. The same YouTube video arrives as
 // a watch link, a youtu.be link and an /embed/ URL with a ?si= suffix, and
@@ -206,6 +214,10 @@ export function reducer(s, a) {
       // `byUser` distinguishes somebody pressing Add to queue from the player
       // topping itself up. Only the former is a statement about what should
       // play next — see queueArmed.
+      // A person adding to the queue while a feed clip plays is the other way
+      // the queue comes off standby: the feed yields, the clip on screen plays
+      // out, and the queue (and any parked list) carries on after it.
+      if (a.byUser && s.feedActive) s = reducer(s, { type: 'resumeQueue' });
       const armed = a.byUser ? true : s.queueArmed;
       // `quiet`: the player filling itself (TrueglePlayer's empty-viewport
       // fill) loads something to show, but must not un-minimize a player the
@@ -301,7 +313,7 @@ export function reducer(s, a) {
       // header, and wiping an assembled queue on a mis-tap (with no undo) is
       // what read as "the list erases itself at random". Emptying the queue is
       // now only ever explicit — see clearQueue.
-      return { ...s, current: null, paused: false, poppedOut: false, expanded: false, minimized: false, feedActive: false, feed: [], list: null };
+      return { ...s, current: null, paused: false, poppedOut: false, expanded: false, minimized: false, feedActive: false, feed: [], list: null, queueStandby: false, listStandby: null };
     case 'startFeed': {
       // The results become what plays next. The queue is put on standby:
       // contents untouched, but no longer followed — so when the feed ends,
@@ -318,6 +330,11 @@ export function reducer(s, a) {
         feedActive: true,
         queueArmed: false,
         list: null,
+        // Park, don't lose. A feed started on top of a running feed keeps the
+        // ORIGINAL standby rather than overwriting it with the feed's own
+        // (disarmed) state.
+        queueStandby: s.feedActive ? s.queueStandby : s.queueArmed,
+        listStandby: s.feedActive ? s.listStandby : s.list,
         history,
         paused: false,
         minimized: false,
@@ -344,15 +361,28 @@ export function reducer(s, a) {
       if (!fresh.length) return s;
       return { ...s, feed: [...s.feed, ...fresh] };
     }
+    case 'resumeQueue':
+      // The feed lets go. What is playing keeps playing; when it ends, the
+      // queue (or the parked list) is what comes next again.
+      if (!s.feedActive && !s.queueStandby && !s.listStandby) return s;
+      return {
+        ...s,
+        feedActive: false,
+        feed: [],
+        queueArmed: s.queueArmed || (s.queueStandby && s.queue.length > 0) || !!s.listStandby,
+        list: s.list || s.listStandby,
+        queueStandby: false,
+        listStandby: null,
+      };
     case 'stopFeed':
       // The feed's remaining items go with it. They are search results, not a
       // list anybody assembled — keeping them would mean a stopped feed quietly
       // resumes later, which is the behaviour being removed.
-      return { ...s, feedActive: false, feed: [] };
+      return { ...s, feedActive: false, feed: [], queueStandby: false, listStandby: null };
     case 'clearQueue':
       // Emptying the list also withdraws the instruction to follow it —
       // otherwise the next thing added would silently inherit the old intent.
-      return { ...s, queue: [], queueArmed: false, list: null };
+      return { ...s, queue: [], queueArmed: false, list: null, queueStandby: false, listStandby: null };
     case 'armQueue':
       return { ...s, queueArmed: true };
     case 'playList': {
@@ -551,6 +581,7 @@ export const PlayerProvider = ({ children }) => {
   const appendFeed = useCallback((sources) => dispatch({ type: 'appendFeed', sources }), []);
   const feedNext = useCallback(() => dispatch({ type: 'feedNext' }), []);
   const stopFeed = useCallback(() => dispatch({ type: 'stopFeed' }), []);
+  const resumeQueue = useCallback(() => dispatch({ type: 'resumeQueue' }), []);
   const setVolume = useCallback((value) => dispatch({ type: 'setVolume', value }), []);
   const toggleMinimize = useCallback(() => dispatch({ type: 'toggleMin' }), []);
   const setMinimized = useCallback((value) => dispatch({ type: 'setMinimized', value }), []);
@@ -568,11 +599,11 @@ export const PlayerProvider = ({ children }) => {
     () => ({
       ...state,
       play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize, setMinimized,
-      startFeed, appendFeed, feedNext, stopFeed, playList, listNext, switchDeck, requestFullscreen,
+      startFeed, appendFeed, feedNext, stopFeed, resumeQueue, playList, listNext, switchDeck, requestFullscreen,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume,
     }),
     [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize, setMinimized,
-      startFeed, appendFeed, feedNext, stopFeed, playList, listNext, switchDeck, requestFullscreen,
+      startFeed, appendFeed, feedNext, stopFeed, resumeQueue, playList, listNext, switchDeck, requestFullscreen,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume]
   );
 

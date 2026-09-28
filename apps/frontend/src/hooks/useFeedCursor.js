@@ -66,11 +66,10 @@ export function useFeedCursor(rows) {
     }
     if (!from.length) return false;
     startedRef.current = true;
-    // ON THE FEED'S OWN DECK, explicitly. Feed clips never join Tube's queue
-    // and never inherit it — see the two-deck note in PlayerContext. Whatever
-    // Tube had lined up is held in memory, exactly as it was, for when the
-    // player goes back to it.
-    startFeed(from, 'feed');
+    // ONE PLAYER. The feed run parks the queue on standby (see startFeed and
+    // resumeQueue in PlayerContext) rather than joining or consuming it, and
+    // plays the rest of the timeline in order when each clip ends.
+    startFeed(from);
     return true;
   }, [playable, startFeed]);
 

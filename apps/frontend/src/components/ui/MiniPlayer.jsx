@@ -51,7 +51,7 @@ const loadGeom = () => {
 
 export default function MiniPlayer() {
   const {
-    current, queue, history, minimized, poppedOut, dock, activeDeck,
+    current, queue, history, minimized, poppedOut, dock,
     next, prev, close, toggleMinimize, setPoppedOut, setDock,
   } = usePlayer();
   // 'footer' = pinned across the bottom of the page, above the feedback bar.
@@ -64,16 +64,7 @@ export default function MiniPlayer() {
   // every mobile player puts itself. The pop-out control still switches it,
   // and that choice is remembered.
   const narrow = useNarrowViewport();
-  // THE FEED PLAYER NEVER FOOTER-DOCKS. Its three states are the lens, the
-  // bottom-right corner, and gone — a bar pinned across the width of the
-  // screen is none of them, and a full-width bar cannot be 9:16 either.
-  //
-  // This is what put a landscape player across the bottom of a phone: the
-  // footer is the DEFAULT on a narrow viewport (below), so on a phone the
-  // feed player went there without anybody choosing it. On the feed deck the
-  // corner is the only dock.
-  const feedDeck = activeDeck === 'feed';
-  const footerDock = !feedDeck && (dock === 'footer' || (!dock && narrow));
+  const footerDock = dock === 'footer' || (!dock && narrow);
   // A fixed element is positioned against the layout viewport, which Android
   // doesn't shrink for the keyboard — so the player (and the input inside it)
   // ended up underneath it. Lift by exactly what the keyboard covers.
@@ -83,17 +74,7 @@ export default function MiniPlayer() {
   // colour — otherwise it reads as a foreign dark box sitting on top of the
   // design (which is exactly how it looked on a phone).
   const pageMode = usePageMode();
-  // THE FEED PLAYER WEARS FEED'S PILL COLOUR WHEREVER IT GOES.
-  //
-  // The colour says what is PLAYING, not what page you happen to be reading.
-  // Following the page meant the corner player, carrying feed content over
-  // /search, turned blue — same frame, same clip, a different colour for a
-  // reason that has nothing to do with it. And since the deck follows the
-  // media (see ORIGIN_ACTIONS in PlayerContext), this is also what makes the
-  // frame change colour when the next thing up comes from the other deck:
-  // yellow while the feed is playing, the page's own colour once Tube takes
-  // over. Every other surface keeps following the page exactly as before.
-  const colourMode = feedDeck ? 'yellow' : pageMode;
+  const colourMode = pageMode;
   const accent = colourMode === BRAND ? null : (MODE_COLORS[colourMode] || MODE_COLORS.blue);
   const ring = accent ? `${accent}8c` : BRAND_GRADIENT;   // 8c ≈ 55% alpha
   const tint = accent ? `${accent}1f` : 'rgba(255,255,255,0.06)'; // 1f ≈ 12%
@@ -152,59 +133,8 @@ export default function MiniPlayer() {
   // without recreating it, so a page-rendered player meant a brand-new
   // <iframe> — and a track that started over — every time it popped out.
   // One node, mounted once, above <Routes>; only its geometry changes.
-  // ── THE LENS ─────────────────────────────────────────────────────────────
-  //
-  // The feed's own docked state, and deliberately NOT a slot. A slot means
-  // "position the frame over this element", so the frame follows that
-  // element as the page scrolls. The feed wants the opposite: an old
-  // viewfinder toy, where the lens is fixed and immovable and it is the FILM
-  // that moves behind it. Scrolling the feed brings the next card into the
-  // lens; the lens itself never moves.
-  //
-  // That is not only the look asked for, it is the only arrangement that
-  // works. The slot version put the picture INSIDE the centred card, and
-  // once the picture was portrait the card grew taller than the viewport —
-  // pushing its own controls under the page's fixed feedback bar, and moving
-  // its own centre so that useFeedFocus handed focus to a different card and
-  // stopped the playback that had just started. A card that chases itself
-  // out of focus. A fixed lens cannot do either: it has no bearing on the
-  // height of anything in the feed.
-  //
-  // The page opts in by rendering [data-player-lens] — so the feed deck gets
-  // a lens ON THE FEED, and falls back to the corner window anywhere else it
-  // follows the reader to.
-  const [lens, setLens] = useState(null);
-  // Minimized is NOT a lens state. The lens is the middle of the screen, and
-  // holding it with a bar that is deliberately showing nothing is worse than
-  // the empty lens the note above rules out. A minimized feed player falls
-  // through to the corner instead — which is the third of its three states,
-  // reached the same way it is reached off the feed page.
-  const wantLens = !poppedOut && !minimized && activeDeck === 'feed';
-  useEffect(() => {
-    if (!wantLens) { setLens(null); return undefined; }
-    const measure = () => {
-      const el = document.querySelector('[data-player-lens]');
-      if (!el) { setLens(null); return; }
-      // Only the COLUMN is read from the page — where the feed's own content
-      // rail sits horizontally. Everything vertical is the viewport's, which
-      // is what keeps the lens still while the feed moves.
-      const r = el.getBoundingClientRect();
-      setLens((prev) => (prev && Math.abs(prev.left - r.left) < 0.5 && Math.abs(prev.width - r.width) < 0.5
-        ? prev
-        : { left: r.left, width: r.width }));
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    // The column can move without a resize — the browse/home toggle changes
-    // the layout, and the page's own chrome settles after first paint.
-    const poll = setInterval(measure, 250);
-    return () => { clearInterval(poll); window.removeEventListener('resize', measure); };
-  }, [wantLens]);
-
   const [slot, setSlot] = useState(null);
-  // A lens and a slot are mutually exclusive: the feed has no slot to dock
-  // into any more, and a page that has one is not the feed.
-  const wantSlot = !poppedOut && !lens;
+  const wantSlot = !poppedOut;
   useEffect(() => {
     if (!wantSlot) { setSlot(null); return undefined; }
     const measure = () => {
@@ -240,9 +170,6 @@ export default function MiniPlayer() {
     };
   }, [wantSlot]);
   const docked = !!slot && wantSlot;
-  // The lens is live when the page offers one, the feed deck is what's
-  // playing, and it hasn't been popped out to the corner instead.
-  const inLens = !!lens && wantLens;
 
   // ── keeping clear of the page's own search bar ───────────────────────────
   // A floating window is free to sit anywhere, and in a SHORT viewport —
@@ -253,7 +180,7 @@ export default function MiniPlayer() {
   // Retract-while-typing already existed and does not help here: it fires on
   // FOCUS, and focus is exactly what the overlap prevents.
   const [pageBar, setPageBar] = useState(null);
-  const floating = poppedOut && !docked && !inLens;
+  const floating = poppedOut && !docked;
   useEffect(() => {
     if (!floating) { setPageBar(null); return undefined; }
     const measure = () => {
@@ -417,8 +344,7 @@ export default function MiniPlayer() {
   // which is the "why can't I get past this" the docked pages were reporting.
   // `!docked` makes these agree with the style ternary and with line ~683's
   // grab-bar condition, which already draws this line correctly.
-  // The lens is its own anchoring; the footer dock must not also claim it.
-  const footerAnchored = footerDock && !docked && !inLens;
+  const footerAnchored = footerDock && !docked;
 
   // Pinned across the bottom, the player is competing for the same strip as
   // the early-access feedback bar — and it loses, because that bar is z-[60]
@@ -493,10 +419,6 @@ export default function MiniPlayer() {
   // Nothing playing, not popped out, and no page slot asking for it → nothing
   // to show. Once popped out the frame stays even with an empty screen: the
   // user asked for the player, and its search bar is how they fill it.
-  // NOTHING PLAYING, NOTHING SHOWN. The feed player's third state is simply
-  // gone — no strip in a search bar, no empty frame holding a place. `inLens`
-  // is deliberately not an exception here: an empty lens is a black hole in
-  // the middle of the feed.
   if (!current && !poppedOut && !docked) return null;
 
   const title = current?.title;
@@ -552,29 +474,7 @@ export default function MiniPlayer() {
     return Math.max(base, Math.round(visible - pageBar.top + 8));
   })();
 
-  // THE LENS: fixed in the viewport, never following anything. Horizontally
-  // it takes the feed column so it reads as part of the page rather than a
-  // window floating over it; vertically it is centred on the screen and stays
-  // there while the feed scrolls behind. Width is capped so the 9:16 picture
-  // inside cannot grow taller than the screen on a wide monitor — a portrait
-  // box is height-hungry, and the column is sized for text.
-  const lensStyle = inLens ? (() => {
-    const room = Math.max(240, visible - BANNER_CLEARANCE - keyboardInset - 24);
-    // 9:16 picture plus the frame's own chrome; the frame scrolls itself if
-    // an opened panel makes it taller still.
-    const width = Math.min(lens.width, Math.round((room * 0.62) * (9 / 16)) + 24, MAX_W);
-    return {
-      left: Math.round(lens.left + (lens.width - width) / 2),
-      top: Math.round(Math.max(8, (visible - room) / 2)),
-      width,
-      maxHeight: `${Math.round(room)}px`,
-      overflowY: 'auto',
-    };
-  })() : null;
-
-  const style = inLens
-    ? lensStyle
-    : docked
+  const style = docked
     ? {
       left: slot.left,
       top: slot.top,
@@ -717,19 +617,7 @@ export default function MiniPlayer() {
               the page's bar — that separation is the point of having two.
               Enter blurs, which retracts the on-screen keyboard and uncovers
               the results underneath; it also forces the list open, so pressing
-              enter always visibly does something.
-
-              NOT ON THE FEED DECK. This bar searches TUBE's corpus — creators,
-              trending, the video index — and "the feed player is for viewing
-              the social feed playable content only". A search box that
-              silently changes which player you are holding is worse than no
-              search box, and the feed player is meant to be the one WITHOUT a
-              bar attached to it. The title takes the space instead. */}
-          {feedDeck ? (
-            <span className="flex-1 min-w-0 truncate px-2 text-xs text-white/60">
-              {title || 'From your feed'}
-            </span>
-          ) : (
+              enter always visibly does something. */}
           <form
             onSubmit={(e) => { e.preventDefault(); submitPlayerQuery(); }}
             onPointerDown={(e) => e.stopPropagation()}
@@ -757,7 +645,6 @@ export default function MiniPlayer() {
               </button>
             )}
           </form>
-          )}
           {/* Footer dock: two named states. Watch = the picture. Hidden = the
               controls only, still playing — the "listening while I read the
               results" case, which is most of what a dock at the bottom of a
@@ -772,13 +659,7 @@ export default function MiniPlayer() {
           </button>
           {/* Where the window lives. It left the transport when that slot became
               the move control, and it belongs with the other window chrome
-              anyway.
-
-              NOT ON THE FEED DECK, which has no footer state to switch to —
-              its three are the lens, the corner and gone. Offering a control
-              that cannot do anything is the same dead button the move toggle
-              used to be. */}
-          {!feedDeck && (
+              anyway. */}
           <button
             type="button"
             onClick={() => setDock(footerDock ? 'float' : 'footer')}
@@ -788,7 +669,6 @@ export default function MiniPlayer() {
           >
             {footerDock ? <PictureInPicture2 size={15} /> : <PanelBottom size={15} />}
           </button>
-          )}
           {/* Close puts the player away; it does NOT empty the queue. Clearing
               is explicit, in the list. */}
           <button type="button" onClick={close} title="Close player (keeps your queue)" className={ctrl}>
@@ -818,9 +698,7 @@ export default function MiniPlayer() {
           inert={small ? '' : undefined}
         >
           <TrueglePlayer
-            // The lens is a docked, in-page presentation like the slot is —
-            // it is part of the feed, not a window hovering over it.
-            presentation={docked || inLens ? 'expanded' : 'popped'}
+            presentation={docked ? 'expanded' : 'popped'}
             accent={accent || undefined}
             openListNonce={submitNonce}
             query={docked ? page.text : playerQuery}

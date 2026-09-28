@@ -58,7 +58,7 @@ export default function FeedPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { connections, ids, disconnect } = useSocialConnections();
-  const { setPoppedOut, setMinimized } = usePlayer();
+  const { setPoppedOut, setMinimized, resumeQueue } = usePlayer();
   // ?q= arrives from the pill countdown on another page carrying what was
   // typed there; the feed searches it straight away.
   const [searchParams] = useSearchParams();
@@ -87,6 +87,13 @@ export default function FeedPage() {
       setMinimized(true);
     } catch { /* private mode / quota — the default just won't stick */ }
   }, [setPoppedOut, setMinimized]);
+
+  // LEAVING THE FEED TAKES THE QUEUE OFF STANDBY. Playing a feed clip parks
+  // the Tube queue (and any saved list) without touching it; navigating away
+  // is one of the two things that hands playback back to it — the clip on
+  // screen plays out, then the queue carries on. (The other is adding to the
+  // queue, handled in the reducer.)
+  useEffect(() => () => resumeQueue(), [resumeQueue]);
 
   // SERVERS — default all, per spec. Everything keyless is on for a brand-new
   // visitor, so the feed has something in it the moment the page opens rather
@@ -285,16 +292,6 @@ export default function FeedPage() {
         </div>
       </div>
 
-      {/* THE LENS ANCHOR. Not a slot and not a box — it reserves no space and
-          renders nothing. All MiniPlayer reads from it is where this page's
-          content column sits horizontally; everything vertical is the
-          viewport's, which is what keeps the lens still while the feed
-          scrolls behind it. See the lens note in MiniPlayer.jsx.
-
-          Its presence is also the opt-in: the feed player is a lens HERE, and
-          the bottom-right corner window anywhere else it follows you to. */}
-      <div data-player-lens aria-hidden="true" className="max-w-4xl mx-auto h-0" />
-
       {/* Which category is open, and the way back. Back goes to the rows rather
           than to Home: you arrived from Browse, so that is where returning
           means. */}
@@ -431,7 +428,7 @@ function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
   // the original ask). Superseded: what is on plays through, and anything
   // queued behind it plays after, whatever the feed does underneath. Only when
   // there is nothing left does the player get out of the way, by minimizing
-  // out of the lens to the corner — see advance() in TrueglePlayer.jsx.
+  // to its bar — see advance() in TrueglePlayer.jsx.
   //
   // The two rules answer the same question and cannot both be live: stopping
   // on scroll meant a queue could never be heard, since queueing something and

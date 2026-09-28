@@ -68,13 +68,12 @@ export default function TrueglePlayer({
     feedActive, feed: feedRest, feedNext, activeDeck, fullscreenNonce, setMinimized,
     list: playingList, listNext,
   } = usePlayer();
-  // THE FEED DECK PLAYS FEED CONTENT, FULL STOP. Up Next draws on Tube's
-  // corpus (creators, trending, search — see useUpNext), which is exactly
-  // what the feed player is not for: "the feed player is for viewing the
-  // social feed playable content only". So on the feed deck an exhausted
-  // feed simply stops, rather than wandering off into Tube's library.
-  const onFeedDeck = activeDeck === 'feed';
   const pageMode = usePageMode();
+  // ONE PLAYER, AND ON THE FEED PAGE IT NEVER AUTOPLAYS RANDOM LINKS. Feed
+  // plays the feed's own timeline in order; Up Next (Tube's corpus of
+  // creators, trending and search) never picks what plays next here, and an
+  // empty player is not topped up with it either.
+  const onFeedPage = pageMode === 'yellow';
   const stash = useSearchStashContext();
   // The lock is a phone feature — see useTouchDevice.
   const touchDevice = useTouchDevice();
@@ -174,10 +173,10 @@ export default function TrueglePlayer({
   useEffect(() => {
     if (fullscreenNonce === seenFullscreenNonce.current) return;
     seenFullscreenNonce.current = fullscreenNonce;
-    if (!onFeedDeck || presentation === 'collapsed') return;
+    if (presentation === 'collapsed') return;
     if (document.fullscreenElement) return;
     rootRef.current?.requestFullscreen?.().catch(() => { /* denied — stay inline */ });
-  }, [fullscreenNonce, onFeedDeck, presentation]);
+  }, [fullscreenNonce, presentation]);
 
   // The transport's right-hand control, which changes with where the player
   // is — one button, one meaning, at all times:
@@ -274,28 +273,17 @@ export default function TrueglePlayer({
     // ends. See PlayerContext's `list`.
     if (playingList) { listNext(false); return; }
     if (followFeed) { feedNext(); return; }
-    // THE FEED PLAYER FINISHES BY GETTING OUT OF THE WAY.
-    //
-    // Scrolling a playing card out of the lens no longer stops it (see
-    // FeedPage) — what is on plays to its end, and whatever is queued behind
-    // it plays after. So this is the moment there is genuinely nothing left:
-    // the feed is exhausted and the queue is empty. `next()` is a documented
-    // no-op on an empty queue, which left the ENDED frame sitting in the lens
-    // — a dead picture in the middle of the feed, indistinguishable from a
-    // live one, and holding the centre of the screen for nothing.
-    //
-    // Minimizing drops it out of the lens to the corner as a bar (see
-    // MiniPlayer's wantLens): still there, still one tap from coming back,
-    // occupying nothing. Feed deck only — Tube's empty player fills itself
-    // from Up Next, which is the line below and is deliberately not what the
-    // feed does. `playMode === 'auto'` because repeat-one and loop are
-    // explicit instructions to keep playing, and they outrank this.
-    if (onFeedDeck && current && !followQueue && playMode === 'auto') { setMinimized(true); return; }
-    if (followQueue || playMode !== 'auto' || !current || onFeedDeck) { next(); return; }
+    // ON THE FEED PAGE, AN EXHAUSTED PLAYER GETS OUT OF THE WAY. The timeline
+    // has run out and the queue is not being followed, so it minimizes to its
+    // bar instead of reaching for Up Next's random picks — the feed never
+    // autoplays anything that isn't in the feed. Repeat-one and loop are
+    // explicit instructions to keep playing, so they outrank this.
+    if (onFeedPage && current && !followQueue && playMode === 'auto') { setMinimized(true); return; }
+    if (followQueue || playMode !== 'auto' || !current || onFeedPage) { next(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) { play(nextUp); return; }
     next();
-  }, [playingList, listNext, followFeed, feedNext, followQueue, playMode, current, next, play, upNext, onFeedDeck, setMinimized]);
+  }, [playingList, listNext, followFeed, feedNext, followQueue, playMode, current, next, play, upNext, onFeedPage, setMinimized]);
 
   // A manual Next must always go somewhere. With an empty queue it used to do
   // nothing at all, which is what "I hit next and nothing happened" was: the
@@ -306,10 +294,10 @@ export default function TrueglePlayer({
     // Swiping or pressing Next during a feed walks the feed — "play the feed as
     // is". Only an exhausted feed falls through to finding something new.
     if (followFeed) { feedNext(); return; }
-    if (followQueue || !current || onFeedDeck) { skipNext(); return; }
+    if (followQueue || !current || onFeedPage) { skipNext(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) play(nextUp); else skipNext();
-  }, [playingList, listNext, followFeed, feedNext, followQueue, current, upNext, play, skipNext, onFeedDeck]);
+  }, [playingList, listNext, followFeed, feedNext, followQueue, current, upNext, play, skipNext, onFeedPage]);
 
   // AN EMPTY VIEWPORT FILLS ITSELF. Landing on the player with nothing playing
   // and nothing queued used to be a dead end — the only way forward was to go
@@ -330,7 +318,7 @@ export default function TrueglePlayer({
   const filling = useRef(false);
   const visible = presentation !== 'collapsed';
   useEffect(() => {
-    if (locked || !visible || onFeedDeck) return;
+    if (locked || !visible || onFeedPage) return;
     if (current || queue.length > 0) { filling.current = false; return; }
     if (filling.current) return;
     filling.current = true;
@@ -343,7 +331,7 @@ export default function TrueglePlayer({
       enqueueMany(batch, undefined, { quiet: true });
     })();
     return () => { cancelled = true; };
-  }, [current, queue.length, locked, visible, upNext, enqueueMany, onFeedDeck]);
+  }, [current, queue.length, locked, visible, upNext, enqueueMany, onFeedPage]);
 
   const embed = useEmbedPlayback({
     frameRef,
@@ -666,7 +654,7 @@ export default function TrueglePlayer({
   // this renders NOTHING rather than a transport strip wedged into a bar.
   // Nothing is lost: the docked corner window is the state that carries the
   // controls, and it is one press away.
-  if (presentation === 'collapsed') return onFeedDeck ? null : transport;
+  if (presentation === 'collapsed') return transport;
 
   // The list retracts into the player rather than staying pinned open — the
   // bottom list button is the only thing that shows or hides it.
@@ -690,7 +678,6 @@ export default function TrueglePlayer({
       frameRef={frameRef}
       onEnded={advance}
       fill={fullscreen}
-      portrait={onFeedDeck}
       compact={presentation === 'popped'}
       maxHeight={presentation === 'popped' ? 320 : 420}
       browse={search.results}
@@ -726,7 +713,7 @@ export default function TrueglePlayer({
           destination in itself, not something a reader is passing through.
           Never while locked, which is the one state that means "ignore
           every control". */}
-      {fullscreen && onFeedDeck && !locked && (
+      {fullscreen && onFeedPage && !locked && (
         <button
           type="button"
           data-feed-fullscreen-close=""
@@ -744,7 +731,7 @@ export default function TrueglePlayer({
       {/* THE FEED'S ONE SAVE. Feed deck only — Tube has the full library and
           its own add-to-playlist menu; this is the one-press version for
           something you are watching mid-scroll and want to keep. */}
-      {onFeedDeck && current && !locked && (
+      {onFeedPage && current && !locked && (
         <button
           type="button"
           data-feed-save=""
