@@ -15,6 +15,7 @@ import {
   Camera,
   Paperclip,
   File as FileIcon,
+  Lock,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ModesAndTrending from '../components/landing/ModesAndTrending';
@@ -28,6 +29,7 @@ import { useUnhingedGate } from '../hooks/useUnhingedGate';
 import ThreeCards from '../components/landing/ThreeCards';
 import PlayerFeatureCard from '../components/landing/PlayerFeatureCard';
 import { CollapsibleCardGroup } from '../components/landing/CollapsibleCard';
+import { useSettings } from '../context/SettingsContext';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import CursorGlow from '../components/ui/CursorGlow';
 import LandingBackground from '../components/LandingBackground';
@@ -44,6 +46,18 @@ import { CATEGORIES as FEED_CATEGORIES } from '../config/feedCategories';
 export default function LandingPage() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  // The "+18 safe mode" toggle on the "Search without…" card — the SAME
+  // Safe Search setting Settings itself edits, so switching it here changes
+  // real behaviour everywhere, not just this card's own display. "Off"
+  // requires the same bar every other gated control on the site holds to: a
+  // verified sign-in (see SettingsContext.canDisableSafeSearch) — a phone
+  // number or address never enters into it, just proof of an inbox.
+  const { settings, updateSetting, canDisableSafeSearch } = useSettings();
+  const safeModeOff = settings.safeSearch === 'off';
+  const toggleSafeMode = () => {
+    if (!canDisableSafeSearch) { navigate('/auth/login', { state: { redirectTo: '/' } }); return; }
+    updateSetting('safeSearch', safeModeOff ? 'safe' : 'off');
+  };
 
   // Pill Mode (spec #2, ABOVE the search bar): the SEARCH mode selector.
   // Single-select — one active at a time. Black = Chat, the default state,
@@ -512,21 +526,6 @@ export default function LandingPage() {
               </div>
             )}
 
-            {/* Player introduction — BELOW the mode rows, not above them.
-                The chat modes and search categories qualify the box you are
-                about to type in, so they belong against it; an unrelated
-                feature card wedged between the bar and its own controls broke
-                that pairing and pushed the modes off a phone screen. Hidden in
-                Tube mode, where the bar already IS the player. Hidden on Feed
-                too, now that the creators roster fills that spot instead. */}
-            {/* mt-6: the card sat hard against the search bar and was catching
-                taps meant for the input. */}
-            {pillMode !== 'tube' && pillMode !== 'yellow' && (
-              <div className="mt-6">
-                <PlayerFeatureCard onOpen={() => { setPillMode('tube'); navigate('/tube'); }} />
-              </div>
-            )}
-
           </div>
 
           {/* Scroll Indicator - only shows after animation */}
@@ -573,26 +572,68 @@ export default function LandingPage() {
                   Search without…
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
-                  {[
-                    { label: 'Bias', detail: 'All perspectives welcome', color: 'text-purple-400', dot: 'bg-purple-500 border-purple-300 shadow-purple-500/30' },
-                    { label: 'Tracking', detail: 'Auto history deletion', color: 'text-green-400', dot: 'bg-green-500 border-green-300 shadow-green-500/30' },
-                    { label: 'Censorship', detail: 'Freedom + Rights – Judgement', color: 'text-red-400', dot: 'bg-red-500 border-red-300 shadow-red-500/30' },
-                  ].map((p) => (
-                    <div key={p.label} className="flex flex-col items-center text-center gap-2 py-3 sm:py-0 sm:px-4">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-lg ${p.dot}`}>
+                  <div className="flex flex-col items-center text-center gap-2 py-3 sm:py-0 sm:px-4">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-lg bg-purple-500 border-purple-300 shadow-purple-500/30">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <line x1="3" y1="7" x2="11" y2="7" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                    <span className="font-bold text-base text-purple-400">Bias</span>
+                    <span className="text-white/80 text-sm">All perspectives welcome</span>
+                  </div>
+                  <div className="flex flex-col items-center text-center gap-2 py-3 sm:py-0 sm:px-4">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-lg bg-green-500 border-green-300 shadow-green-500/30">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <line x1="3" y1="7" x2="11" y2="7" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                    <span className="font-bold text-base text-green-400">Tracking</span>
+                    <span className="text-white/80 text-sm">0 ads, 0 user data, 0 digital ID</span>
+                  </div>
+                  {/* Censorship: the one item on this card that is not just a
+                      claim — it is a real, working control. Toggling it
+                      flips the SAME Safe Search setting Settings edits, so a
+                      visitor never finds Settings disagreeing with what this
+                      card told them. */}
+                  <div className="flex flex-col items-center text-center gap-2 py-3 sm:py-0 sm:px-4">
+                    <button
+                      type="button"
+                      onClick={toggleSafeMode}
+                      aria-pressed={safeModeOff}
+                      title={canDisableSafeSearch ? 'Toggle +18 safe mode' : 'Sign in to turn off Safe Search'}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-lg transition-colors ${
+                        safeModeOff
+                          ? 'bg-red-500 border-red-300 shadow-red-500/30'
+                          : 'bg-white/10 border-white/25 hover:border-red-300/60'
+                      }`}
+                    >
+                      {canDisableSafeSearch ? (
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                           <line x1="3" y1="7" x2="11" y2="7" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
                         </svg>
-                      </div>
-                      <span className={`font-bold text-base ${p.color}`}>{p.label}</span>
-                      <span className="text-white/80 text-sm">{p.detail}</span>
-                    </div>
-                  ))}
+                      ) : (
+                        <Lock size={12} className="text-white/70" />
+                      )}
+                    </button>
+                    <span className="font-bold text-base text-red-400">Censorship</span>
+                    <button type="button" onClick={toggleSafeMode} className="text-white/80 text-sm hover:text-white transition-colors">
+                      +18 safe mode {safeModeOff ? 'off' : 'on'} — tap to toggle*
+                    </button>
+                  </div>
                 </div>
+                <p className="mt-4 text-center text-[11px] text-white/35">
+                  *Turning +18 safe mode off needs a verified sign-in (an email confirmation code) — the same bar every age-gated control on Truegle holds to.
+                </p>
               </div>
             </div>
 
-            {/* Brief explanations: chat modes, search modes, vs. TrueGLE / GLE */}
+            {/* True Tube — right under the promise it's keeping, not tucked
+                into the hero where it only showed for some pill modes. */}
+            <div className="mb-16 max-w-3xl mx-auto">
+              <PlayerFeatureCard onOpen={() => { setPillMode('tube'); navigate('/tube'); }} />
+            </div>
+
+            {/* Chat Modes + TrueGLE 1.3 (GLE), combined into one card. */}
             <ThreeCards />
           </div>
         </div>
