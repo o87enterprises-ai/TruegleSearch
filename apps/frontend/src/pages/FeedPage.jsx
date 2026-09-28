@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ExternalLink, Loader2, Plus, X } from 'lucide-react';
@@ -329,7 +329,7 @@ export default function FeedPage() {
         <ArrivalState onConnect={start} busy={busy} />
       ) : (
         <>
-          <FeedList feed={feed} searching={Boolean(person?.subject || submitted)} />
+          <FeedList feed={feed} searching={Boolean(person?.subject || submitted)} autoPlayUrl={searchParams.get('play') || ''} />
         </>
       )}
     </SearchPageShell>
@@ -399,7 +399,7 @@ function ArrivalState({ onConnect, busy }) {
 
 // ── connected ───────────────────────────────────────────────────────────────
 
-function FeedList({ feed, searching = false }) {
+function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
   const { items, loading, error, done, sentinel, allSeen } = feed;
   // Which card is nearest the vertical center of the viewport, purely for the
   // enlarge/play-button treatment — nothing here ever autoplays. See
@@ -411,6 +411,18 @@ function FeedList({ feed, searching = false }) {
   // this feed's own rows to walk rather than falling through to Tube's
   // unrelated discovery.
   const { beginFrom } = useFeedCursor(items);
+
+  // "Featured Feeds", on landing — a card there links straight into the full
+  // feed with the post it showed already playing, rather than starting a
+  // SECOND player on landing and handing playback state across a navigation.
+  // One-shot: once matched (or once items have loaded and it's genuinely not
+  // here), it stops looking, so scrolling never restarts it.
+  const autoPlayedRef = useRef(false);
+  useEffect(() => {
+    if (!autoPlayUrl || autoPlayedRef.current || !items.length) return;
+    const hit = items.find((it) => (it.permalink || it.url) === autoPlayUrl);
+    if (hit) { autoPlayedRef.current = true; beginFrom(hit); }
+  }, [autoPlayUrl, items, beginFrom]);
 
   // SCROLLING PAST THE PLAYING CARD NO LONGER STOPS IT — it holds.
   //

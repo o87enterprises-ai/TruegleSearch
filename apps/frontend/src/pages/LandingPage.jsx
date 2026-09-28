@@ -33,7 +33,7 @@ import { useSettings } from '../context/SettingsContext';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import CursorGlow from '../components/ui/CursorGlow';
 import LandingBackground from '../components/LandingBackground';
-import FeaturedCreator from '../components/FeaturedCreator';
+import FeaturedFeeds from '../components/FeaturedFeeds';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import SearchBar from '../components/ui/SearchBar';
 import TrailGameLink from '../components/ui/TrailGameLink';
@@ -645,7 +645,7 @@ export default function LandingPage() {
 
         {/* Featured Creator slot — surfaces the weekly featured YouTuber's
             latest upload, links to their on-site /creator page. */}
-        <FeaturedCreator />
+        <FeaturedFeeds />
 
         {/* No rewards CTA and no ad slot: advertising was removed from Truegle
             entirely on 2026-08-24, and the rewards program it funded went with
