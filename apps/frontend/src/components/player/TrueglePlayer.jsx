@@ -66,6 +66,7 @@ export default function TrueglePlayer({
     next, skipNext, prev, stop, togglePause, setPoppedOut, setDock, play,
     enqueueMany, playMode, setPlayMode, queueArmed, volume, setVolume,
     feedActive, feed: feedRest, feedNext, activeDeck, fullscreenNonce, setMinimized,
+    list: playingList, listNext,
   } = usePlayer();
   // THE FEED DECK PLAYS FEED CONTENT, FULL STOP. Up Next draws on Tube's
   // corpus (creators, trending, search — see useUpNext), which is exactly
@@ -269,6 +270,9 @@ export default function TrueglePlayer({
    * explicit instructions.
    */
   const advance = useCallback(async () => {
+    // A saved list outranks everything: it plays in order and ends where it
+    // ends. See PlayerContext's `list`.
+    if (playingList) { listNext(false); return; }
     if (followFeed) { feedNext(); return; }
     // THE FEED PLAYER FINISHES BY GETTING OUT OF THE WAY.
     //
@@ -291,20 +295,21 @@ export default function TrueglePlayer({
     const nextUp = await upNext.pick(current);
     if (nextUp) { play(nextUp); return; }
     next();
-  }, [followFeed, feedNext, followQueue, playMode, current, next, play, upNext, onFeedDeck, setMinimized]);
+  }, [playingList, listNext, followFeed, feedNext, followQueue, playMode, current, next, play, upNext, onFeedDeck, setMinimized]);
 
   // A manual Next must always go somewhere. With an empty queue it used to do
   // nothing at all, which is what "I hit next and nothing happened" was: the
   // feed is now what it falls through to, in every play mode, because pressing
   // the button is an explicit instruction that outranks repeat-one.
   const goNext = useCallback(async () => {
+    if (playingList) { listNext(true); return; }
     // Swiping or pressing Next during a feed walks the feed — "play the feed as
     // is". Only an exhausted feed falls through to finding something new.
     if (followFeed) { feedNext(); return; }
     if (followQueue || !current || onFeedDeck) { skipNext(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) play(nextUp); else skipNext();
-  }, [followFeed, feedNext, followQueue, current, upNext, play, skipNext, onFeedDeck]);
+  }, [playingList, listNext, followFeed, feedNext, followQueue, current, upNext, play, skipNext, onFeedDeck]);
 
   // AN EMPTY VIEWPORT FILLS ITSELF. Landing on the player with nothing playing
   // and nothing queued used to be a dead end — the only way forward was to go

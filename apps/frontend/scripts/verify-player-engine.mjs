@@ -345,6 +345,35 @@ check(!!s.current && s.minimized === true, 'self-fill loads but stays minimized'
 s = run(INITIAL, { type: 'setMinimized', value: true }, { type: 'enqueueMany', sources: [yt('a')] });
 check(s.minimized === false, 'a shared link / user enqueue still opens the player', String(s.minimized));
 
+// ── A playing saved list stays the list ────────────────────────────────────
+// "I select a saved playlist and swipe or press next and it reverts to other
+// clips." The list must hold through Next/end-of-track, never fall to discovery.
+{
+  const L = [yt('p1'), yt('p2'), yt('p3')];
+  let t = run(INITIAL, { type: 'enqueue', source: yt('junk'), byUser: true },
+    { type: 'playList', sources: L, listId: 'x' });
+  check(t.list?.id === 'x' && t.current.src === L[0].src && t.queue.length === 2, 'playList marks the list and plays it');
+  t = run(t, { type: 'listNext', manual: true });
+  check(t.current.src === L[1].src, 'manual Next stays in the list', t.current.src);
+  t = run(t, { type: 'listNext' });
+  check(t.current.src === L[2].src, 'end of track advances within the list');
+  const endManual = run(t, { type: 'listNext', manual: true });
+  check(endManual.current.src === L[2].src && !!endManual.list, 'manual Next at the end stays put, list kept');
+  const endAuto = run(t, { type: 'listNext' });
+  check(endAuto.current.src === L[2].src && endAuto.paused && endAuto.list === null, 'list end pauses instead of wandering off');
+  const looped = run(t, { type: 'setPlayMode', value: 'loop' }, { type: 'listNext' });
+  check(looped.current.src === L[0].src && looped.queue.length === 2, 'loop restarts the whole list from the top');
+  const fromRow = run(INITIAL, { type: 'playList', sources: L, listId: 'x', startAt: 1 });
+  check(fromRow.current.src === L[1].src && fromRow.queue.length === 1 && fromRow.list.items.length === 3,
+    'a row plays the list from that row');
+  const back = run(fromRow, { type: 'prev' });
+  check(back.current.src === L[1].src, 'Back does not step out of the list', back.current.src);
+  const outside = run(t, { type: 'clearQueue' });
+  check(outside.list === null, 'clearing the queue releases the list');
+  const deck = run(fromRow, { type: 'switchDeck', name: 'feed' }, { type: 'switchDeck', name: 'tube' });
+  check(deck.list?.id === 'x', 'the list survives a trip to the feed deck and back');
+}
+
 console.log([...ok, ...bad].join('\n'));
 console.log(`\n${ok.length} passed, ${bad.length} failed`);
 process.exit(bad.length ? 1 : 0);

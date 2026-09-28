@@ -164,43 +164,34 @@ await page.waitForTimeout(400);
 check(await page.locator('[data-feed-action="play-center"]').count() === 0,
   'the non-playable card never grows a play button, even while it holds focus');
 
-// ── tapping the card body (not the center button) opens the sheet ──────────
-// Done BEFORE anything plays: once the youtube card is actually live it stops
-// being a clickable poster (see below) and has no sheet-opening body to tap.
+// ── the inline action row (replaced the tap-to-open sheet) ──────────────────
+// Play now / Add to queue / Open link sit on the card itself, always visible —
+// no modal in the way. Open link warns before leaving Truegle's network.
 await centerOn(page.locator('[data-feed-card-wrap="youtube"]'));
 await until(() => page.locator('[data-feed-action="play-center"]').count().then((n) => n === 1),
   { what: 'the play button to return once re-centered' });
-const box = await page.locator('[data-feed-card-wrap="youtube"]').boundingBox();
-// Top-left corner: away from both the top-right badge and the dead-center
-// play button, so this reliably hits the wrapper rather than an overlay.
-await page.mouse.click(box.x + 6, box.y + 6);
-await until(() => page.locator('[data-feed-card-actions]').count().then((n) => n > 0),
-  { what: 'the action sheet to open' });
-check(true, 'tapping the card body opens the action sheet');
-check(await page.locator('[data-feed-action="play"]').count() === 1, '…offering Open in app');
-check(await page.locator('[data-feed-action="queue"]').count() === 1, '…offering Add to queue');
-check(await page.locator('[data-feed-action="open-link"]').count() === 1, '…and Open link');
-
-// Closed via Escape rather than pressing an action: "Add to queue" on an
-// IDLE player starts it playing too (queueing into nothing plays it instead
-// — see verify-player-engine.mjs), which would make this card go live here
-// instead of where the test below means to trigger that.
+check(await page.locator('[data-feed-card-actions]').count() === 0, 'there is no action sheet any more');
+check(await page.locator('[data-feed-card-wrap="youtube"] [data-feed-action="play"]').count() === 1, 'the card shows Play now inline');
+check(await page.locator('[data-feed-card-wrap="youtube"] [data-feed-action="queue"]').count() === 1, '…Add to queue inline');
+check(await page.locator('[data-feed-card-wrap="youtube"] [data-feed-action="open-link"]').count() === 1, '…and Open link inline');
+await page.click('[data-feed-card-wrap="youtube"] [data-feed-action="open-link"]');
+await until(() => page.locator('[data-leaving-privacy-overlay]').count().then((n) => n === 1),
+  { what: 'the leaving-Truegle overlay to open' });
+check(true, 'Open link shows the leaving-Truegle overlay first');
 await page.keyboard.press('Escape');
-await until(() => page.locator('[data-feed-card-actions]').count().then((n) => n === 0),
-  { what: 'Escape to close the sheet' });
-check(true, 'Escape closes the action sheet without acting on it');
+await until(() => page.locator('[data-leaving-privacy-overlay]').count().then((n) => n === 0),
+  { what: 'Escape to close the overlay' });
+check(true, 'Escape closes the overlay without leaving');
 check(await page.locator('[data-feed-card-wrap] iframe').count() === 0,
   '…and nothing has started playing yet');
 
 // ── clicking the center button plays, no sheet, and the card BECOMES the
 //    slot — the one shared iframe docks directly inside it ────────────────
 await until(() => page.locator('[data-feed-action="play-center"]').count().then((n) => n === 1),
-  { what: 'the play button still present after the sheet interactions' });
+  { what: 'the play button still present after the overlay interactions' });
 await page.click('[data-feed-action="play-center"]');
 await until(() => page.locator('[data-feed-card-wrap="youtube"][data-feed-in-lens="yes"]').count().then((n) => n === 1),
   { what: 'the played card to become the live slot' });
-check(await page.locator('[data-feed-card-actions]').count() === 0,
-  'the center button skips the action sheet entirely');
 await until(() => page.locator('iframe').count().then((n) => n === 1),
   { what: 'the one shared iframe to mount' });
 check(await page.locator('iframe').count() === 1,

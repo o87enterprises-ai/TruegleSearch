@@ -119,7 +119,7 @@ function HistoryTab({ accent, rowH, maxH }) {
 }
 
 function PlaylistsTab({ accent, rowH, maxH }) {
-  const { queue, current, enqueueMany, playList, playNow } = usePlayer();
+  const { queue, current, playList } = usePlayer();
   const lists = usePlaylists();
   const [openId, setOpenId] = useState(null);
   const [editing, setEditing] = useState(null); // { id, name }
@@ -185,7 +185,7 @@ function PlaylistsTab({ accent, rowH, maxH }) {
                   already queued and — correctly for its other callers — never
                   arms the queue, so autoplay walked off into discovery after
                   the first track instead of playing the list. */}
-              <button type="button" onClick={() => playList(p.items.map(toSource), 'tube')}
+              <button type="button" onClick={() => playList(p.items.map(toSource), 'tube', p.id)}
                 disabled={!p.items.length} title="Play this list"
                 className="flex items-center justify-center w-8 h-8 rounded text-white/30 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors">
                 <Play size={13} />
@@ -200,10 +200,11 @@ function PlaylistsTab({ accent, rowH, maxH }) {
               <p className="px-3 pb-2 text-[10px] text-white/30">Empty — add something from the history or the queue.</p>
             ) : p.items.map((it, i) => (
               <div key={`${it.key}-${i}`} className="flex items-center gap-1 pl-7 pr-2 py-1 hover:bg-white/5">
-                {/* A row plays. It used to enqueue, so pressing one while
-                    something was on looked like nothing happened at all —
-                    reported as "there were no play buttons on the list". */}
-                <button type="button" onClick={() => playNow(toSource(it), 'tube')}
+                {/* A row plays THE LIST FROM HERE. It used to playNow the one
+                    track, which left the list behind: Next and swipe then
+                    walked the unrelated queue or discovery — "the selected
+                    list drops state and reverts to other clips". */}
+                <button type="button" onClick={() => playList(p.items.map(toSource), 'tube', p.id, i)}
                   title="Play this"
                   className="min-w-0 flex-1 text-left text-[10px] text-white/55 hover:text-white truncate">
                   {it.title || it.src}

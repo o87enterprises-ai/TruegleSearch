@@ -42,9 +42,9 @@ export const usePlayer = () => {
 // `stashed`. Switching decks swaps them over. That is the whole mechanism —
 // no per-deck plumbing threaded through thirty call sites, and the pure
 // reducer tests in verify-player-engine.mjs keep testing what they always did.
-export const DECK_MEDIA_KEYS = ['current', 'queue', 'history', 'queueArmed', 'feedActive', 'feed'];
+export const DECK_MEDIA_KEYS = ['current', 'queue', 'history', 'queueArmed', 'feedActive', 'feed', 'list'];
 const EMPTY_MEDIA = {
-  current: null, queue: [], history: [], queueArmed: false, feedActive: false, feed: [],
+  current: null, queue: [], history: [], queueArmed: false, feedActive: false, feed: [], list: null,
 };
 
 export const INITIAL = {
@@ -116,6 +116,14 @@ export const INITIAL = {
   // What the feed has left to play, newest search first. Separate from `queue`
   // for the reason above.
   feed: [],
+  // ── THE LIST BEING PLAYED ─────────────────────────────────────────────────
+  // { id, items } while a saved playlist is playing, else null. Set only by
+  // playList. While it is set, Next, swipe and end-of-track stay inside the
+  // list, in order, and the end of the list pauses rather than wandering into
+  // discovery — "the selected list sometimes drops state and reverts to other
+  // clips" was exactly that fall-through. `items` is kept whole so Loop can
+  // restart the list from the top. Session-only, like the feed.
+  list: null,
 };
 // Identity is the MEDIA, not the URL string. The same YouTube video arrives as
 // a watch link, a youtu.be link and an /embed/ URL with a ?si= suffix, and
@@ -237,6 +245,9 @@ export function reducer(s, a) {
     case 'prev': {
       if (s.history.length === 0) return s;
       const prev = s.history[s.history.length - 1];
+      // Inside a list, Back stops at the list's first track rather than
+      // stepping out into whatever was playing before it.
+      if (s.list && !s.list.items.some((it) => sameSrc(it, prev))) return s;
       const queue = s.current ? [s.current, ...s.queue] : s.queue;
       return { ...s, current: prev, queue, history: s.history.slice(0, -1) };
     }
@@ -254,7 +265,7 @@ export function reducer(s, a) {
       // Stop ends the feed. It is the one control that means "I am done with
       // what you are doing", and a feed that survived it would immediately put
       // the next result on.
-      return { ...s, current: null, paused: false, feedActive: false, feed: [] };
+      return { ...s, current: null, paused: false, feedActive: false, feed: [], list: null };
     case 'togglePause':
       return { ...s, paused: !s.paused };
     case 'setPaused':
@@ -290,7 +301,7 @@ export function reducer(s, a) {
       // header, and wiping an assembled queue on a mis-tap (with no undo) is
       // what read as "the list erases itself at random". Emptying the queue is
       // now only ever explicit — see clearQueue.
-      return { ...s, current: null, paused: false, poppedOut: false, expanded: false, minimized: false, feedActive: false, feed: [] };
+      return { ...s, current: null, paused: false, poppedOut: false, expanded: false, minimized: false, feedActive: false, feed: [], list: null };
     case 'startFeed': {
       // The results become what plays next. The queue is put on standby:
       // contents untouched, but no longer followed — so when the feed ends,
@@ -306,6 +317,7 @@ export function reducer(s, a) {
         feed: rest,
         feedActive: true,
         queueArmed: false,
+        list: null,
         history,
         paused: false,
         minimized: false,
@@ -340,7 +352,7 @@ export function reducer(s, a) {
     case 'clearQueue':
       // Emptying the list also withdraws the instruction to follow it —
       // otherwise the next thing added would silently inherit the old intent.
-      return { ...s, queue: [], queueArmed: false };
+      return { ...s, queue: [], queueArmed: false, list: null };
     case 'armQueue':
       return { ...s, queueArmed: true };
     case 'playList': {
@@ -357,7 +369,9 @@ export function reducer(s, a) {
       // same missing statement of intent.
       const list = (a.sources || []).filter((x) => x?.src);
       if (!list.length) return s;
-      const [first, ...rest] = list;
+      // `startAt`: a row inside the list plays the list FROM that row.
+      const at = Math.min(Math.max(0, a.startAt || 0), list.length - 1);
+      const [first, ...rest] = list.slice(at);
       const history = s.current ? [...s.history, s.current] : s.history;
       return {
         ...s,
@@ -366,10 +380,28 @@ export function reducer(s, a) {
         queueArmed: true,
         feedActive: false,
         feed: [],
+        list: { id: a.listId || null, items: list },
         history,
         paused: false,
         minimized: false,
       };
+    }
+    case 'listNext': {
+      // Next inside a playing list. Walks the queue in order (shuffle is an
+      // explicit mode and still honoured by 'next'); at the end, Loop starts
+      // the list over and anything else pauses on the last track — it never
+      // falls through to discovery.
+      if (!s.list) return reducer(s, { type: 'next', manual: a.manual });
+      if (s.queue.length > 0) return reducer(s, { type: 'next', manual: true });
+      if (!a.manual && s.playMode === 'repeat-one' && s.current) return { ...s, current: replay(s.current) };
+      if (s.playMode === 'loop' && s.list.items.length) {
+        const [first, ...rest] = s.list.items;
+        const history = s.current ? [...s.history, s.current] : s.history;
+        return { ...s, current: replay(first), queue: rest, history, queueArmed: true, paused: false };
+      }
+      // The end. A manual press leaves things exactly as they are; the track
+      // finishing on its own pauses and releases the list.
+      return a.manual ? s : { ...s, paused: true, list: null };
     }
     case 'toggleMin':
       return { ...s, minimized: !s.minimized };
@@ -511,7 +543,8 @@ export const PlayerProvider = ({ children }) => {
   // to add to it or pick an entry first.
   const armQueue = useCallback(() => dispatch({ type: 'armQueue' }), []);
   // Play a saved list: it becomes the queue, and the queue is followed.
-  const playList = useCallback((sources, deck) => dispatch({ type: 'playList', sources, deck }), []);
+  const playList = useCallback((sources, deck, listId, startAt = 0) => dispatch({ type: 'playList', sources, deck, listId, startAt }), []);
+  const listNext = useCallback((manual = false) => dispatch({ type: 'listNext', manual }), []);
   // Play the search results, ahead of the queue. See the reducer for what this
   // does and does not do to the queue.
   const startFeed = useCallback((sources, deck) => dispatch({ type: 'startFeed', sources, deck }), []);
@@ -535,12 +568,12 @@ export const PlayerProvider = ({ children }) => {
     () => ({
       ...state,
       play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize, setMinimized,
-      startFeed, appendFeed, feedNext, stopFeed, playList, switchDeck, requestFullscreen,
+      startFeed, appendFeed, feedNext, stopFeed, playList, listNext, switchDeck, requestFullscreen,
       stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume,
     }),
     [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize, setMinimized,
-      startFeed, appendFeed, feedNext, stopFeed, playList, switchDeck, requestFullscreen,
-      stop, togglePause, setPaused, setExpanded, setPoppedOut, setPlayMode, setLocked, setVolume]
+      startFeed, appendFeed, feedNext, stopFeed, playList, listNext, switchDeck, requestFullscreen,
+      stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume]
   );
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
