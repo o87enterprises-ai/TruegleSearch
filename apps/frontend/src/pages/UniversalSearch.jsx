@@ -67,6 +67,7 @@ import { isQuestionQuery, getQuickAnswer } from '../utils/queryIntent';
 import { classifyQuery, describeLink } from '../utils/urlQuery';
 import { useSearchStashContext } from '../context/SearchStashContext';
 import ReelsSurface from '../components/reels/ReelsSurface';
+import TubeReelsToggle from '../components/reels/TubeReelsToggle';
 import { cachedVideos } from '../content/creatorVideos';
 import SingleLinkCard from '../components/search/SingleLinkCard';
 
@@ -1838,6 +1839,13 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
 
           {/* Search Bar - Directly Below Logo (same as SearchResults) */}
           <div className="max-w-4xl mx-auto mb-6">
+            {/* Tube ⇄ Reels, one tap apart — two distinct feeds, the same
+                switch that sits on the Reels top bar. */}
+            {mode === 'tube' && (
+              <div className="flex justify-end mb-1.5 px-1">
+                <TubeReelsToggle active="tube" onReels={() => selectCategory('reels')} />
+              </div>
+            )}
             <SearchBar
               value={searchValue}
               // No buttons below the bar (uniform with landing/chat) — submit
@@ -2811,6 +2819,13 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
           query={lastSearchedQuery || searchValue}
           accent={MODE_COLORS[mode] || MODE_COLORS.blue}
           onClose={() => { setReelsOpen(false); setActiveCategory('all'); }}
+          // The toggle's Tube side: the same page when Reels was opened from
+          // Tube, otherwise Tube itself.
+          onTube={() => {
+            setReelsOpen(false);
+            setActiveCategory('all');
+            if (mode !== 'tube') navigate('/tube');
+          }}
         />
       )}
     </div>

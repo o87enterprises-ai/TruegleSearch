@@ -50,7 +50,7 @@ export default function ThreeCards() {
               <span className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-purple-500 flex items-center justify-center shadow-lg">
                 <MessageCircle size={16} className="text-white" />
               </span>
-              <h3 className="text-lg font-bold bg-gradient-to-r from-cyan-500 to-purple-500 bg-clip-text text-transparent">
+              <h3 className="min-w-0 truncate text-base sm:text-lg font-bold bg-gradient-to-r from-cyan-500 to-purple-500 bg-clip-text text-transparent">
                 Chat Modes &amp; TrueGLE 1.3
               </h3>
             </>

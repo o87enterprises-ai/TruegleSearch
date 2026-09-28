@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, X, Loader2 } from 'lucide-react';
+import { Play, Loader2 } from 'lucide-react';
 import { PLAYER_SANDBOX } from '../player/playerSandbox';
 
 /* ── The four-quarter reel feed ─────────────────────────────────────────────
@@ -34,8 +34,8 @@ export default function ReelsQuadFeed({
   reels = [],
   loading = false,
   onSelect,
-  onClose,
   onNeedMore,
+  subject = '',
   accent = '#f43f5e',
 }) {
   const scrollRef = useRef(null);
@@ -190,38 +190,16 @@ export default function ReelsQuadFeed({
             </>
           ) : (
             <p className="text-white/40 text-sm text-center leading-relaxed">
-              No reels right now. Search for something and they will fill in.
+              {subject
+                ? `No short vertical clips found for “${subject}”. Try another search, or Shuffle.`
+                : 'No reels came back just now. Tap Shuffle to try again.'}
             </p>
           )}
         </div>
       )}
 
-      {/* ── The floating chrome ──────────────────────────────────────────────
-          Offset below the site's own fixed furniture. The hamburger sits top
-          left and the clock top right, both above this surface and both there
-          on purpose — the clock especially, since it is what keeps "how long
-          have I been doing this" answerable. So these start underneath them
-          rather than fighting for the same corners. */}
-      <div
-        className="absolute inset-x-0 flex items-center justify-between px-3 pointer-events-none"
-        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 68px)' }}
-      >
-        <span className="px-2 py-1 rounded-md bg-black/60 text-[10px] uppercase tracking-widest text-white/55 font-semibold">
-          Reels
-        </span>
-        <div className="flex items-center gap-2">
-          {loading && reels.length > 0 && <Loader2 size={13} className="animate-spin text-white/40" />}
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close reels"
-            title="Close reels"
-            className="pointer-events-auto p-2 rounded-full bg-black/60 border border-white/15 text-white/70 hover:text-white"
-          >
-            <X size={15} />
-          </button>
-        </div>
-      </div>
+      {/* The chrome (back · search · shuffle · Tube/Reels) is ReelsTopBar,
+          owned by ReelsSurface so it stays put across grid and player. */}
     </div>
   );
 }

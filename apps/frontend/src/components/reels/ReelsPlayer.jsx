@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ThumbsUp, ThumbsDown, Share2, Check } from 'lucide-react';
+import { LayoutGrid, ThumbsUp, ThumbsDown, Share2, Check } from 'lucide-react';
 import { PLAYER_SANDBOX } from '../player/playerSandbox';
 import { rate, useRating } from '../../utils/taste';
 import { buildPlayerLink } from '../../utils/playerLink';
@@ -22,11 +22,9 @@ import { copyText } from '../../utils/clipboard';
  * Queueing implies an end to get to, and the whole shape of the thing is that
  * there is not one: swiping up asks for another and always gets one.
  *
- * WHAT COMES NEXT is drawn, not ranked — see useUpNext, which the caller
- * supplies through `onNeedNext`. A fixed fraction of picks ignores taste
- * entirely, which is the "unrelated" half of "random next (unrelated +
- * related)" and the only reason a feed like this can leave the neighbourhood it
- * starts in.
+ * WHAT COMES NEXT is the caller's deck (ReelsSurface), drawn from
+ * utils/reelsDraw.js: vertical shorts only, seeded by the search or by this
+ * browser's thumbs, with a share of seeds that ignore taste entirely.
  *
  * THE CLOCK stays because it is app-level and fixed at z-9997; this surface
  * deliberately sits below it. Being able to see the time is the difference
@@ -39,10 +37,9 @@ const SWIPE_MS = 600;     // …if it happens within this long
 
 export default function ReelsPlayer({
   reel,
-  onBack,
+  onGrid,
   onNext,
   onPrev,
-  onNeedNext,
   hasPrev = false,
 }) {
   const rating = useRating(reel);
@@ -57,11 +54,6 @@ export default function ReelsPlayer({
     const id = setTimeout(() => setHint(false), 2600);
     return () => clearTimeout(id);
   }, []);
-
-  // Keep one drawn clip ready. Asking only at the moment of the swipe means
-  // every swipe waits on a network round trip, which is what makes a feed feel
-  // heavy — the request should already have happened.
-  useEffect(() => { onNeedNext?.(); }, [reel?.src, onNeedNext]);
 
   const onPointerDown = useCallback((e) => {
     start.current = { y: e.clientY, x: e.clientX, t: Date.now() };
@@ -142,21 +134,8 @@ export default function ReelsPlayer({
         onPointerCancel={() => { start.current = null; }}
       />
 
-      {/* Back to the feed. Offset far enough down to clear TWO things: the
-          notification shade, which owns the top row of the screen and wins
-          every gesture there, and the site's own nav button, which is fixed at
-          z-9998 and therefore sits ABOVE this surface — a back button
-          underneath it is a back button nobody can press. */}
-      <button
-        type="button"
-        onClick={onBack}
-        aria-label="Back to the reels feed"
-        title="Back to the feed"
-        className={`absolute left-3 z-20 ${btn} text-white/80`}
-        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 68px)' }}
-      >
-        <ChevronLeft size={20} />
-      </button>
+      {/* "Back" is the top bar's (ReelsTopBar) — it leaves Reels for the
+          page you came from. The grid is one tap away on the rail below. */}
 
       {/* The rail: is it good, is it bad, send it on. Right-hand side, thumb
           height — the same place every vertical feed puts them, because that is
@@ -165,6 +144,16 @@ export default function ReelsPlayer({
         className="absolute right-3 z-20 flex flex-col items-center gap-3"
         style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}
       >
+        <button
+          type="button"
+          data-reels-grid=""
+          onClick={onGrid}
+          aria-label="All reels"
+          title="All reels"
+          className={`${btn} text-white/75`}
+        >
+          <LayoutGrid size={18} />
+        </button>
         <button
           type="button"
           onClick={() => rate(reel, rating === 1 ? 0 : 1)}

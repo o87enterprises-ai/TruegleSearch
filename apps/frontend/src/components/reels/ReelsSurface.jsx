@@ -1,50 +1,50 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import ReelsQuadFeed from './ReelsQuadFeed';
 import ReelsPlayer from './ReelsPlayer';
-import { usePlayerSearch } from '../../hooks/usePlayerSearch';
-import { useUpNext } from '../../hooks/useUpNext';
+import ReelsTopBar from './ReelsTopBar';
 import { usePlayer } from '../../context/PlayerContext';
+import { drawReels, reelSeed } from '../../utils/reelsDraw';
+import { mediaKey } from '../../utils/videoEmbed';
 
 /* ── Reels ──────────────────────────────────────────────────────────────────
  *
  * The whole surface: a four-quarter grid you arrive at, and a full-screen
- * vertical player you drop into. Two components because they are two states,
- * one file because the state machine between them is four lines and splitting
- * it would put those four lines somewhere neither of them can see.
+ * vertical player you drop into, under one top bar (back · search · shuffle ·
+ * Tube/Reels) that stays put across both — the YouTube Shorts shape.
+ *
+ * ITS OWN FEED. Everything here comes from utils/reelsDraw.js: vertical
+ * YouTube Shorts and TikToks, 2:00 or less, nothing else. It used to borrow
+ * the Tube pool (useUpNext) for swipe-next and top-ups, which is how landscape
+ * uploads ended up in a reel player. Tube and Reels are now two distinct feeds.
+ *
+ * ONE DECK, ONE INDEX. The grid and the player walk the same list, so swiping
+ * down in the player goes back to exactly what was above it, and returning to
+ * the grid shows what you just watched.
  *
  * FULL SCREEN WITHOUT THE FULLSCREEN API, for the same reason the player does
  * it that way: entering real fullscreen on Android hides the system bars, and
- * the clock at the top of the page is app-level chrome that stops existing the
- * moment a single element goes fullscreen. "Keep clock persistent" and
- * document.requestFullscreen() are mutually exclusive, so this is a fixed box
- * instead.
- *
- * THE STACK IT SITS IN, which is the whole reason for the specific number:
- * above the early-access banner (z-60/70), which otherwise lies across the
- * bottom of a full-screen reel and covers the creator's name; below PageClock
- * (z-9997) and the nav button (z-9998), which stay on top on purpose. The
- * clock especially — being able to see the time is the difference between
- * choosing to watch reels and losing an hour to them.
- *
- * WHAT COMES NEXT. The grid is a SEARCH (the shorts scope, which also folds in
- * the community reel pool); the player's next is a DRAW (useUpNext), which
- * mixes taste-scored candidates with a fixed fraction that ignores taste
- * entirely. That is the "unrelated + related" split, and it is why swiping does
- * not walk you in a circle around whatever you opened with.
+ * the clock at the top of the page stops existing the moment a single element
+ * goes fullscreen. So this is a fixed box above the early-access banner
+ * (z-60/70) and below PageClock (z-9997) and the nav button (z-9998).
  */
-export default function ReelsSurface({ query = '', onClose, accent = '#f43f5e' }) {
-  const [open, setOpen] = useState(null);        // the reel being watched
-  const [drawn, setDrawn] = useState([]);        // clips drawn since opening
-  const [seenBack, setSeenBack] = useState([]);  // where "swipe down" goes
-  const nextRef = useRef(null);                  // the pre-drawn next clip
+const NEAR_END = 3; // top up when this few reels remain past the one playing
 
-  const search = usePlayerSearch(query, 'shorts');
-  const upNext = useUpNext();
+export default function ReelsSurface({ query = '', onClose, onTube, accent = '#f43f5e' }) {
+  const [input, setInput] = useState(query);
+  const [subject, setSubject] = useState(query.trim()); // '' = your taste
+  const [deck, setDeck] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [openIdx, setOpenIdx] = useState(null);
+  const page = useRef(1);
+  const busy = useRef(false);
+  const gen = useRef(0);          // bumps on every reset; stale batches drop
+  const deckRef = useRef(deck);
+  deckRef.current = deck;
+
   const { current, stop } = usePlayer();
 
   // ONE THING PLAYS AT A TIME. Opening reels over a playing Tube track would
-  // leave two audio sources running with only one visible pause button, which
-  // reads as the app being broken rather than as two players.
+  // leave two audio sources running with only one visible pause button.
   const stoppedOnce = useRef(false);
   useEffect(() => {
     if (stoppedOnce.current) return;
@@ -52,116 +52,116 @@ export default function ReelsSurface({ query = '', onClose, accent = '#f43f5e' }
     if (current) stop();
   }, [current, stop]);
 
-  // Escape / back closes the reel first, then the surface — the same order the
-  // user built the stack in.
+  /** Append one batch. With a subject, walk its pages; without, a new taste seed. */
+  const more = useCallback(async () => {
+    if (busy.current) return 0;
+    busy.current = true;
+    const myGen = gen.current;
+    setLoading(true);
+    try {
+      const exclude = new Set(deckRef.current.map((s) => mediaKey(s)));
+      const seed = subject || reelSeed();
+      const batch = await drawReels(seed, { page: subject ? page.current : 1, exclude });
+      if (myGen !== gen.current) return 0;
+      if (subject) page.current += 1;
+      if (batch.length) setDeck((d) => [...d, ...batch]);
+      return batch.length;
+    } finally {
+      busy.current = false;
+      if (myGen === gen.current) setLoading(false);
+    }
+  }, [subject]);
+
+  // A new subject (search, or Shuffle's '') starts a fresh deck. A subject
+  // that finds no shorts at all tops up from taste rather than stopping dead.
+  const [resetKey, setResetKey] = useState(0);
+  useEffect(() => {
+    gen.current += 1;
+    busy.current = false;
+    page.current = 1;
+    setDeck([]);
+    let alive = true;
+    (async () => {
+      let got = await more();
+      if (alive && !got && !subject) got = await more();
+      if (alive && got && openIdx !== null) setOpenIdx(0);
+    })();
+    return () => { alive = false; };
+    // openIdx is read once, on purpose: a reset while watching keeps watching.
+  }, [subject, resetKey]);
+
+  const search = (text) => {
+    const t = String(text ?? input).trim();
+    setOpenIdx(null); // results land in the grid, where they can be picked from
+    setSubject(t);
+    setResetKey((k) => k + 1);
+  };
+  const shuffle = () => {
+    setInput('');
+    setSubject('');
+    setResetKey((k) => k + 1);
+    setOpenIdx((i) => (i === null ? null : 0));
+  };
+
+  const goNext = useCallback(async () => {
+    if (openIdx === null) return;
+    const left = deckRef.current.length - 1 - openIdx;
+    if (left <= NEAR_END) more();
+    if (left > 0) { setOpenIdx(openIdx + 1); return; }
+    const got = await more();
+    if (got) setOpenIdx(openIdx + 1);
+  }, [openIdx, more]);
+  const goPrev = useCallback(() => {
+    setOpenIdx((i) => (i > 0 ? i - 1 : i));
+  }, []);
+
+  // Escape closes the reel first, then the surface.
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key !== 'Escape') return;
-      if (open) setOpen(null);
+      if (e.key !== 'Escape' || e.target?.tagName === 'INPUT') return;
+      if (openIdx !== null) setOpenIdx(null);
       else onClose?.();
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [openIdx, onClose]);
 
-  const reels = useMemo(() => {
-    const rows = search.results || [];
-    // Drawn clips join the grid so the feed keeps growing as you watch, and
-    // dedupe by src because a drawn clip may already be in the search rows.
-    const seen = new Set();
-    return [...rows, ...drawn].filter((r) => {
-      if (!r?.src || seen.has(r.src)) return false;
-      seen.add(r.src);
-      return true;
-    });
-  }, [search.results, drawn]);
-
-  /** Draw one clip ahead so a swipe never waits on the network. */
-  const preload = useCallback(async () => {
-    if (nextRef.current) return;
-    const pick = await upNext.pick(open || null);
-    if (pick) nextRef.current = pick;
-  }, [upNext, open]);
-
-  const goNext = useCallback(async () => {
-    const ready = nextRef.current;
-    nextRef.current = null;
-    const pick = ready || await upNext.pick(open || null);
-    if (!pick) return;
-    setSeenBack((prev) => (open ? [...prev, open].slice(-30) : prev));
-    setDrawn((prev) => (prev.some((d) => d.src === pick.src) ? prev : [...prev, pick]));
-    setOpen(pick);
-    // Draw the one after immediately, so the NEXT swipe is instant too.
-    nextRef.current = null;
-    upNext.pick(pick).then((p) => { if (p) nextRef.current = p; }).catch(() => {});
-  }, [upNext, open]);
-
-  const goPrev = useCallback(() => {
-    setSeenBack((prev) => {
-      if (prev.length === 0) return prev;
-      const back = prev[prev.length - 1];
-      setOpen(back);
-      return prev.slice(0, -1);
-    });
-  }, []);
-
-  // "Endless scroll": the grid tops itself up from the same draw the player
-  // uses, so scrolling past the search results does not hit a wall.
-  const needMore = useRef(false);
-  // NO QUERY MEANS NO SUBJECT, so there is nothing for the feed to be "about"
-  // and it should open somewhere different every time. With a query the deck
-  // is the search above (usePlayerSearch), and the top-up stays taste-ranked so
-  // it keeps relating to what was asked for. Swiping is unaffected either way:
-  // upNext.pick() always mixes its own fixed fraction of exploration in, which
-  // is the "related + random" the feed is supposed to feel like.
-  const idle = !query.trim();
-  const fillMore = useCallback(async () => {
-    if (needMore.current) return;
-    needMore.current = true;
-    try {
-      const batch = await upNext.fill(open || null, 6, { random: idle });
-      if (batch?.length) {
-        setDrawn((prev) => {
-          const seen = new Set(prev.map((d) => d.src));
-          return [...prev, ...batch.filter((b) => b?.src && !seen.has(b.src))];
-        });
-      }
-    } finally {
-      needMore.current = false;
-    }
-  }, [upNext, open, idle]);
+  const open = openIdx !== null ? deck[openIdx] : null;
 
   return (
     <div
+      data-reels-surface={open ? 'player' : 'grid'}
       className="fixed inset-0 z-[80] bg-black"
-      style={{
-        // dvh so the box follows the viewport as the browser's own bar comes
-        // and goes, rather than sitting partly underneath it.
-        height: '100dvh',
-        // The status-bar inset is left clear — that is what "keep the phone's
-        // notification bar visible" means in practice.
-        paddingTop: 'env(safe-area-inset-top, 0px)',
-      }}
+      style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top, 0px)' }}
     >
       {open ? (
         <ReelsPlayer
           reel={open}
-          hasPrev={seenBack.length > 0}
-          onBack={() => setOpen(null)}
+          hasPrev={openIdx > 0}
+          onGrid={() => setOpenIdx(null)}
           onNext={goNext}
           onPrev={goPrev}
-          onNeedNext={preload}
         />
       ) : (
         <ReelsQuadFeed
-          reels={reels}
-          loading={search.loading}
+          reels={deck}
+          loading={loading}
+          subject={subject}
           accent={accent}
-          onSelect={(r) => setOpen(r)}
-          onClose={onClose}
-          onNeedMore={fillMore}
+          onSelect={(r, i) => setOpenIdx(i)}
+          onNeedMore={more}
         />
       )}
+      <ReelsTopBar
+        value={input}
+        onChange={setInput}
+        onSubmit={search}
+        onShuffle={shuffle}
+        onBack={onClose}
+        onTube={onTube || onClose}
+        loading={loading}
+        accent={accent}
+      />
     </div>
   );
 }
