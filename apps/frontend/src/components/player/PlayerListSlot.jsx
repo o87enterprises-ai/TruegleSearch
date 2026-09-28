@@ -224,20 +224,29 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
         onKeyDown={keepAlive}
       >
         <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/40">
-          <SearchIcon size={11} /> Results
+          {/* THE SAME TABS AS THE QUEUE VIEW, with Results first and lit, so
+              Up next / History / Lists are one tap away from a search rather
+              than hidden until the results tuck themselves away. */}
+          <span data-results-tab="" className="flex items-center gap-1 uppercase tracking-wider" style={{ color: accent }}>
+            <SearchIcon size={11} /> Results
+          </span>
           {(loading || pending) && <Loader2 size={11} className="animate-spin" />}
-          {/* Reopening the list brings the last results back, so the queue
-              and library tabs are one tap away from here. */}
-          <button
-            type="button"
-            data-results-to-queue=""
-            onClick={() => { clearTimeout(revertTimer.current); revertTimer.current = null; setShowingResults(false); }}
-            className="uppercase tracking-wider text-white/35 hover:text-white/70 transition-colors"
-          >
-            · Up next
-          </button>
-          {!feedRows && results && results.length > 1 && (
-            <span className="ml-auto flex items-center gap-1">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              data-results-to={t.id}
+              onClick={() => { clearTimeout(revertTimer.current); revertTimer.current = null; setShowingResults(false); setTab(t.id); }}
+              className="uppercase tracking-wider text-white/30 hover:text-white/70 transition-colors"
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {!feedRows && results && results.length > 1 && (
+          <div className="flex items-center gap-1 px-3 pb-1.5 text-[10px] uppercase tracking-wider text-white/40">
+            <span className="text-white/25 mr-0.5">Sort</span>
+            <span className="flex items-center gap-1">
               {SORTS.map((o) => {
                 // Newest is offered only when the rows actually carry dates.
                 // The index supplies one for some providers and not others, so
@@ -264,8 +273,8 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
                 );
               })}
             </span>
-          )}
-        </div>
+          </div>
+        )}
         {/* The channel itself, offered before its scattered videos. YouTube
             only: opening a real feed goes through /creators/resolve, which
             speaks YouTube channel ids and nothing else. Offering the row for a
@@ -549,6 +558,16 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
       {standbyLayer}
       <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/40">
         <ListMusic size={11} className="shrink-0" />
+        {typing && (
+          <button
+            type="button"
+            data-tab-results=""
+            onClick={() => setShowingResults(true)}
+            className="flex items-center gap-1 uppercase tracking-wider text-white/30 hover:text-white/60 transition-colors"
+          >
+            <SearchIcon size={10} /> Results
+          </button>
+        )}
         {TABS.map((t) => (
           <button
             key={t.id}
