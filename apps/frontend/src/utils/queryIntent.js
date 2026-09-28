@@ -117,9 +117,50 @@ export function parseSocialQuery(text) {
 const EMAIL = /\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b/;
 const PHONE = /(?:^|\s)\+?\d?[\s.-]?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}(?:\s|$)/;
 
+/* ── Something to WATCH: an artist, a show, a title ──────────────────────────
+ *
+ * "Michael Jackson", "Chippass", "Trailer Park Boys" (owner, 2026-09-28): a
+ * bare name is almost always someone you want to see or hear, so it goes to
+ * Tube. Two ways in:
+ *
+ *   1. It says so — "thriller music video", "breaking bad trailer", "lofi
+ *      mix": a media word anywhere, whatever the case.
+ *   2. It is a NAME — one to four words, each Capitalised (small joiners like
+ *      "of" / "the" / "and" may stay lower case): how people type a proper
+ *      noun. Lower case is deliberately NOT read as a name: "cheap flights
+ *      paris" and "michael jackson" look identical to a rule, and a pill that
+ *      jumps to Tube on ordinary searches is worse than one that waits.
+ *
+ * Either way, NOT when the rest of the query asks for facts about the name —
+ * "Michael Jackson net worth", "Taylor Swift tour dates" are web searches.
+ */
+const MEDIA_WORDS = /\b(trailers?|teasers?|music videos?|official (?:video|audio)|lyrics?|lyric video|songs?|albums?|full episodes?|episodes?|season \d+|s\d{1,2}e\d{1,2}|movies?|films?|soundtracks?|ost|remix(?:es)?|covers?|live (?:performance|session|set|concert)|concerts?|gameplay|playthrough|walkthrough|playlists?|mix(?:tape)?|podcasts?|stand ?up|standup|sketch(?:es)?|skits?|highlights|full match|interviews?|documentar(?:y|ies)|music|official|mv|ft\.?|feat\.?|karaoke|instrumental|acoustic|shorts|clips?|bloopers|reaction)\b/i;
+const FACT_WORDS = /\b(net worth|age|height|wife|husband|girlfriend|boyfriend|kids|children|death|died|dead|alive|born|birthday|tour dates?|tickets?|tour|address|phone|email|salary|wiki(?:pedia)?|biography|bio|news|arrested|lawsuit|stock|price|weather|near|map|maps|hours|jobs?|login|definition|meaning|recipe|review|reviews|vs|versus|quotes?|facts?)\b/i;
+const JOINERS = new Set(['of', 'the', 'and', '&', 'a', 'an', 'in', 'on', 'to', 'de', 'la', 'le', 'van', 'von', 'da', 'del', 'n', "'n'", 'x']);
+// Capitalised things that are errands, not entertainment.
+const NOT_A_TITLE = new Set(['google', 'gmail', 'amazon', 'ebay', 'walmart', 'weather', 'wikipedia', 'translate', 'calculator', 'maps', 'news', 'outlook', 'yahoo', 'bing', 'paypal', 'craigslist', 'hotmail', 'chatgpt', 'truegle', 'today', 'tomorrow', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']);
+
+/** Is this a name or title someone wants to watch? Exported for the test. */
+export function isMediaTitle(text) {
+  const q = (text || '').trim();
+  if (q.length < 3 || isQuestionQuery(q) || FACT_WORDS.test(q)) return false;
+  if (MEDIA_WORDS.test(q)) return true;
+  const words = q.split(/\s+/);
+  if (words.length > 4) return false;
+  const core = words.filter((w) => !JOINERS.has(w.toLowerCase()) || /^\p{Lu}/u.test(w));
+  if (!core.length) return false;
+  if (core.length === 1 && NOT_A_TITLE.has(core[0].toLowerCase())) return false;
+  // Each core word starts with a capital (or is a number: "Blink 182",
+  // "Apollo 13") and is made of name characters, no punctuation soup.
+  const nameLike = (w) => /^[\p{Lu}\d][\p{L}\p{N}'’.!&-]*$/u.test(w);
+  if (!core.every(nameLike)) return false;
+  // At least one real word, not only numbers.
+  return core.some((w) => /^\p{Lu}/u.test(w)) && core.join('').replace(/[^\p{L}]/gu, '').length >= 3;
+}
+
 /**
  * @param {string} text what is in the search bar
- * @returns {null | { mode: string, kind: 'social'|'media'|'link'|'local'|'question'|'osint'|'profile', reason: string }}
+ * @returns {null | { mode: string, kind: 'social'|'media'|'title'|'link'|'local'|'question'|'osint'|'profile', reason: string }}
  */
 export function detectIntent(text) {
   const q = (text || '').trim();
@@ -153,5 +194,8 @@ export function detectIntent(text) {
   // "how to fix a bike chain" is a tutorial search, not a conversation.
   if (/^how to\b/i.test(q)) return null;
   if (isQuestionQuery(q) && q.split(/\s+/).length >= 3) return { mode: 'black', kind: 'question', reason: 'Question' };
+  // Its own kind, not 'media': a pasted link is unambiguous on any page, but
+  // a name typed into Chat is usually a question about that person.
+  if (isMediaTitle(q)) return { mode: 'tube', kind: 'title', reason: 'Artist, show or title' };
   return null;
 }

@@ -11,6 +11,12 @@ const cases = [
   ['x men cast', null], ['truth about vaccines', null], ['facebook stock price today news', null], ['facebook login', null], ['tiktok ban news', null],
   ['danoden dan.oden@example.com', 'ocean'], ['dan@example.com', 'ocean'], ['danoden 541-555-0123', 'ocean'], ['(541) 555-0123', 'ocean'],
   ['how to fix a bike chain', null], ['best dentist', null], ['taylor swift tour dates', null], ['node.js', null], ['what', null],
+  // A name or title to watch goes to Tube (owner, 2026-09-28)…
+  ['Michael Jackson', 'tube'], ['Chippass', 'tube'], ['Trailer Park Boys', 'tube'], ['Game of Thrones', 'tube'], ['Blink 182', 'tube'],
+  ['thriller music video', 'tube'], ['breaking bad trailer', 'tube'], ['lofi mix', 'tube'],
+  // …but not facts about it, not a question, not an errand, not lower-case prose.
+  ['Michael Jackson net worth', null], ['Taylor Swift tour dates', null], ['Who is Michael Jackson', 'black'],
+  ['Google', null], ['cheap flights paris', null], ['michael jackson', null], ['covid vaccine', null],
 ];
 let bad = 0;
 for (const [t, want] of cases) { const got = detectIntent(t)?.mode ?? null; const ok = got === want; if (!ok) bad++; console.log(ok ? 'PASS' : 'FAIL', JSON.stringify(t), '->', got, ok ? '' : `(want ${want})`); }

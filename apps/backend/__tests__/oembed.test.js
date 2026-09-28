@@ -106,6 +106,12 @@ describe('lookup', () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it('carries the player shape when the provider gives one (Reels uses it to prove a Short)', async () => {
+    mockFetch(() => okJson({ title: 'A short', author_name: 'someone', width: 113, height: 200 }));
+    const r = await lookup('https://www.youtube.com/shorts/abcdefghijk');
+    expect(r).toEqual({ title: 'A short', author: 'someone', provider: 'youtube', width: 113, height: 200 });
+  });
+
   it('survives a provider returning something that is not JSON', async () => {
     mockFetch(() => Promise.resolve({ ok: true, json: () => Promise.reject(new Error('bad json')) }));
     expect(await lookup('https://vimeo.com/3')).toBeNull();

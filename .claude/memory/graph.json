@@ -1480,6 +1480,22 @@
         "body": "feedSource(post) in hooks/useFeedCursor.js is the ONLY post->playable rule (card badge, buttons, cursor). Old cursor used permalink||url only, so Lemmy/HN posts (permalink=discussion, url=video) showed Play but did nothing / opened empty fullscreen. playCenter only requests fullscreen if onPlay() !== false. Native <video>/<audio> onError -> skipBroken (report + advance), same as embed onUnplayable. TikTok embed/v2 sends NO ended signal (loops); TikTok player/v1 has a postMessage API but returned 'Server error' from the sandbox - unverified, not adopted. Backend bug seen live: community feed errors 'MediaService.list is not a function'.",
         "ts": "2026-09-28",
         "created": "2026-09-28"
+      },
+      "reels-own-feed-proven-shorts": {
+        "Id": "reels-own-feed-proven-shorts",
+        "Type": "decision",
+        "Label": "Reels = own feed, proven YouTube Shorts + TikTok only",
+        "body": "utils/reelsDraw.js is the ONLY reels source (not useUpNext/Tube pool). Seeds: query, else likedWords/likedChannels (70%) or REEL_SEEDS. Sources: /api/search '<seed> #shorts' + /api/social/feed tiktok lane. YouTube candidates (<=3:00 or tagged) are PROVEN via /api/media/titles oEmbed width/height (portrait = real Short; YouTube returns landscape dims for non-shorts via /shorts/ URL). Proven -> cap REEL_MAX_SECONDS 180 (owner OK'd lengthening only if official shorts). Backend without dims -> fallback tagged + <=120s. TikTok has no duration; always vertical. UI: ReelsTopBar (back/search/shuffle/TubeReelsToggle), toggle also above Tube search bar. Test: npm run reels:test (+OLD_BACKEND=1).",
+        "ts": "2026-09-28",
+        "created": "2026-09-28"
+      },
+      "intent-media-title-tube": {
+        "Id": "intent-media-title-tube",
+        "Type": "decision",
+        "Label": "Name/title queries suggest Tube (kind 'title')",
+        "body": "queryIntent.isMediaTitle: media word anywhere (trailer, music video, mix, episode...) OR 1-4 Capitalised words -> tube, kind 'title' (not offered on Chat page). Excluded: questions, FACT_WORDS (net worth, tour dates...), NOT_A_TITLE errands (Google, Weather...). Lowercase multi-word names deliberately NOT matched. Known false positives: 'Paris', 'NASA'.",
+        "ts": "2026-09-28",
+        "created": "2026-09-28"
       }
     },
     "thread": {

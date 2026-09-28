@@ -54,7 +54,7 @@ export function shortFormPlatform(url) {
 // the submitted pool takes anything that classifies, so one pasted hour-long
 // TikTok sat in the feed as a "reel". A reel is a thing you watch in a breath,
 // so length is now an actual condition rather than an assumption.
-export const REEL_MAX_SECONDS = 120;
+export const REEL_MAX_SECONDS = 180;
 
 /**
  * Is this result a REEL — genuinely short-form content from a short-form

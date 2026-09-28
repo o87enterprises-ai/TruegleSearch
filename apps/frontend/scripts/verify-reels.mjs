@@ -5,9 +5,11 @@
  * shuffle inside it, and no quick Tube ⇄ Reels switch. This pins:
  *
  *   - Reels fills itself on open, with nothing typed.
- *   - ONLY vertical short-form (YouTube Shorts, TikTok) of 2:00 or less —
- *     a landscape upload, a 2:30 "#shorts", and an untagged 0:30 clip never
- *     appear, in the grid or behind a swipe.
+ *   - ONLY vertical short-form (YouTube Shorts, TikTok). A YouTube clip must
+ *     be PROVEN a Short (portrait oEmbed via /api/media/titles): a brief
+ *     landscape upload is refused, a proven 2:40 Short is allowed, nothing
+ *     over 3:00 ever is. OLD_BACKEND=1 runs the fallback (no dimensions →
+ *     strict 2:00 + #shorts).
  *   - The top bar: back leaves Reels, search refills it, Shuffle redraws.
  *   - The Tube/Reels toggle on Tube's bar opens Reels, and the one on Reels'
  *     bar returns to Tube.
@@ -37,8 +39,11 @@ const webRows = (q) => {
       title: `${seed} short ${i} #shorts`, url: `https://www.youtube.com/watch?v=${id(seed, i)}`, duration: '0:4' + i,
     })),
     { title: `${seed} full episode`, url: `https://www.youtube.com/watch?v=${id(seed, 90)}`, duration: '22:17' },
-    { title: `${seed} too long #shorts`, url: `https://www.youtube.com/watch?v=${id(seed, 91)}`, duration: '2:30' },
+    { title: `${seed} too long #shorts`, url: `https://www.youtube.com/watch?v=${id(seed, 91)}`, duration: '3:30' },
+    // Short and brief, but YouTube says landscape: an ordinary upload, not a Short.
     { title: `${seed} untagged clip`, url: `https://www.youtube.com/watch?v=${id(seed, 92)}`, duration: '0:30' },
+    // Over 2:00 but YouTube says portrait: a real Short, allowed now it is proven.
+    { title: `${seed} longer short #shorts`, url: `https://www.youtube.com/watch?v=${id(seed, 93)}`, duration: '2:40' },
   ];
 };
 const tiktokRows = (q) => Array.from({ length: 3 }, (_, i) => ({
@@ -68,6 +73,16 @@ await ctx.route('**/api/**', async (route) => {
     asked.push(body.query);
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, results: /#shorts/.test(body.query) ? webRows(body.query) : [] }) });
   }
+  // YouTube's oEmbed shape, relayed by our backend: portrait for a real Short,
+  // landscape for the one ordinary upload (id …00092). OLD_BACKEND drops the
+  // dimensions, as the route did before it carried them.
+  if (url.pathname === '/api/media/titles') {
+    const titles = {};
+    for (const u of body.urls || []) {
+      titles[u] = { title: 't', ...(process.env.OLD_BACKEND ? {} : (/00092$/.test(u) ? { width: 200, height: 113 } : { width: 113, height: 200 })) };
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ titles }) });
+  }
   if (url.pathname === '/api/social/feed') {
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: body.platforms?.includes('tiktok') ? tiktokRows(body.query || 'x') : [], errors: {} }) });
   }
@@ -96,7 +111,11 @@ check(n >= 6, 'Reels fills itself on open — no "No reels right now"', `${n} re
 check(asked.some((q) => /#shorts$/.test(q)), 'the draw asks the index for tagged Shorts', asked.join(' | '));
 const titles = await cells.allInnerTexts();
 check(!titles.some((t) => /full episode|too long|untagged/.test(t)),
-  'no landscape upload, no clip over 2:00, no untagged clip in the grid', titles.filter((t) => /full|too long|untagged/.test(t)).join(' | ') || 'clean');
+  'no full-length upload, nothing over 3:00, and a brief LANDSCAPE clip is refused', titles.filter((t) => /full|too long|untagged/.test(t)).join(' | ') || 'clean');
+check(process.env.OLD_BACKEND ? !titles.some((t) => /longer short/.test(t)) : titles.some((t) => /longer short/.test(t)),
+  process.env.OLD_BACKEND
+    ? 'backend without dimensions: falls back to the strict 2:00 + #shorts rule'
+    : 'a 2:40 clip YouTube confirms is a Short is allowed');
 check(titles.some((t) => /tiktok/.test(t)) && titles.some((t) => /short \d/.test(t)),
   'both sources arrive: YouTube Shorts and TikToks');
 

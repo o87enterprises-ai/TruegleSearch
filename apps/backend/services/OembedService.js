@@ -137,6 +137,13 @@ async function lookup(raw) {
       author: typeof data?.author_name === 'string' ? data.author_name.trim().slice(0, 100) : null,
       provider: provider.name,
     };
+    // The player's shape, when the provider says. YouTube answers a /shorts/
+    // URL with portrait numbers only for a real Short (height > width) — the
+    // one free, keyless proof the Reels feed has that a clip is a genuine
+    // vertical Short and not a landscape upload that happens to be brief.
+    const w = Number(data?.width);
+    const h = Number(data?.height);
+    if (w > 0 && h > 0) { value.width = w; value.height = h; }
     cacheSet(url, value);
     return value;
   } catch (error) {
