@@ -148,10 +148,11 @@ logger.logAuth = (action, userId, success, extra = {}) => {
   });
 };
 
+// No query text and no user id: a log line that says who searched for what is
+// exactly the record the privacy policy says does not exist.
 logger.logSearch = (query, userId, resultCount, duration, extra = {}) => {
   logger.info('Search performed', {
-    query: query.substring(0, 100), // Truncate long queries
-    userId,
+    queryLength: String(query || '').length,
     resultCount,
     duration: `${duration}ms`,
     ...extra,

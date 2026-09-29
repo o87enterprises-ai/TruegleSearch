@@ -69,7 +69,7 @@ class ShoppingService {
       try {
         const cached = await this.redis.get(cacheKey);
         if (cached) {
-          console.log('Shopping cache hit for:', query);
+          console.log('Shopping cache hit');
           return JSON.parse(cached);
         }
       } catch (error) {

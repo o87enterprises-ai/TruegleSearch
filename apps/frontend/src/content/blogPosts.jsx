@@ -191,9 +191,8 @@ export const BLOG_POSTS = [
         </LegalSection>
         <LegalSection heading="Where Truegle fits">
           <p>
-            Truegle was built privacy-first: it doesn't store your searches to a
-            per-account profile, doesn't run cross-site trackers, and uses contextual
-            (not behavioral) ads. Set it as your default and steps 2–4 above become far
+            Truegle was built privacy-first: it doesn't tie your searches to an
+            account or profile, doesn't run cross-site trackers, and carries no ads. Set it as your default and steps 2–4 above become far
             less necessary. See the complete guide in{' '}
             <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">The Ultimate Digital Privacy &amp; OSINT Resource Hub</a>{' '}
             and our practical{' '}
@@ -700,7 +699,7 @@ export const BLOG_POSTS = [
       },
       {
         q: 'Does Truegle track my searches?',
-        a: 'No. Truegle does not store, profile, or sell your queries.',
+        a: 'No. Truegle does not profile you or sell your queries. An ordinary search is kept only as an anonymous line, with no account or IP, for up to 7 days to show what is trending.',
       },
     ],
     body: (
@@ -863,7 +862,7 @@ export const BLOG_POSTS = [
     faq: [
       {
         q: 'What does "search without tracking" mean?',
-        a: 'It means your queries are not logged to a personal profile, tied to an advertising ID, or sold. Truegle does not build a history of what you search.',
+        a: 'It means your queries are not logged to a personal profile, tied to an advertising ID, or sold. Truegle does not build a history of what you search; the only server-side copy is an anonymous, 7-day line used for trending.',
       },
       {
         q: 'Is Truegle a good alternative to Google?',
@@ -1305,9 +1304,10 @@ export const BLOG_POSTS = [
         <LegalSection heading="1. Start with a search engine that doesn't profile you">
           <p>
             If a search engine's business model is advertising, your queries are
-            the product. Choose one that doesn't store your searches server-side
-            or build an advertising profile from them. Truegle keeps any search
-            history local to your device, under your control — not on our servers.
+            the product. Choose one that doesn't tie your searches to you or build an
+            advertising profile from them. Truegle keeps your search history local to
+            your device; the only server-side copy of a search is anonymous and deleted
+            within 7 days.
           </p>
         </LegalSection>
         <LegalSection heading="Why this matters">

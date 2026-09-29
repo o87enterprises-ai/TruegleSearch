@@ -194,7 +194,7 @@ class MultiStateCameraService {
 
       return cameras.map(cam => this.transformCamera(cam));
     } catch (error) {
-      logger.error('Error searching cameras', { error: error.message, searchTerm });
+      logger.error('Error searching cameras', { error: error.message, termLength: String(searchTerm || '').length });
       throw error;
     }
   }

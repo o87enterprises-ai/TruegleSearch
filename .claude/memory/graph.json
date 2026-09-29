@@ -1544,6 +1544,14 @@
         "body": "Live prod 2026-09-29: region/blocked news clips render YouTube's own 'Video unavailable / This content isn't available' page and post ZERO postMessages (working clips post ~7), so no error code ever reached the player. useEmbedPlayback now has SILENT_EMBED_MS=15000 watchdog (any valid message from the frame = alive; hidden tab re-arms) -> onUnplayable('silent') -> reportBroken+advance. oEmbed does NOT prove playability (PBS clip passed oEmbed 200 but unavailable); watch-page scraping is blocked (google.com/sorry 429 from datacenter IPs) - don't build on it. Server drops clips oEmbed rejects (403 embedding-off), FAIL-OPEN if oEmbed answered for nobody. Test: npm run silentembed:test (~45s). Also: scripts/indexnow.mjs submits sitemap URLs to Bing et al (key file public/11aa6a4f...txt already existed); first run 2026-09-29 HTTP 202 for 39 URLs.",
         "ts": "2026-09-29",
         "created": "2026-09-29"
+      },
+      "privacy-truthful-2026-09-29": {
+        "Id": "privacy-truthful-2026-09-29",
+        "Type": "decision",
+        "Label": "Search storage: anonymous 7-day query line, no IP; policy says so",
+        "body": "Server keeps ordinary query text+mode ≤7 days (search_queries) for trending/feed seeding only; never Ocean/PII/links; request log has no IP/query/referrer/UA (middleware/requestLog.js); no console/logger call may print query text (guard test noQueryInLogs.test.js). PrivacyPolicy, Settings, About, blog, llms.txt updated to match; AI providers (NVIDIA, Groq) and Brave now disclosed. Never re-claim 'we do not store queries'.",
+        "ts": "2026-09-29",
+        "created": "2026-09-29"
       }
     },
     "thread": {

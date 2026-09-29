@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
-const morgan = require('morgan');
+const { requestLogger } = require('./middleware/requestLog');
 require('dotenv').config();
 
 const config = require('./config/env');
@@ -148,12 +148,10 @@ app.use(botDetection);
 // Compression
 app.use(compression());
 
-// HTTP request logging with Morgan -> Winston
-app.use(
-  morgan(config.env === 'production' ? 'combined' : 'dev', {
-    stream: logger.stream,
-  })
-);
+// HTTP request logging -> Winston. Method, path (no query string), status, size
+// and time — never the client IP, the search text in a URL, the referrer or the
+// user agent. See middleware/requestLog.js.
+app.use(requestLogger(logger.stream));
 
 // Ngrok bypass header
 app.use((req, res, next) => {

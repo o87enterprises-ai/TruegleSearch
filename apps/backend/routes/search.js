@@ -4,6 +4,7 @@ const router = express.Router();
 const { authenticate, optionalAuth } = require('../middleware/auth');
 const { rateLimitSearch } = require('../middleware/rateLimit');
 const SearchService = require('../services/SearchService');
+const { recordSearch } = require('../services/SearchLog');
 const QueryInterpreter = require('../services/QueryInterpreter');
 // WeatherService exports a singleton instance (not a class)
 const weatherService = require('../services/WeatherService');
@@ -17,12 +18,8 @@ const searchService = new SearchService();
 // Normalises whitespace and lowercases so "AI" and "ai " count together.
 // Intentionally swallows errors — logging must never break search.
 function logSearchQuery(rawQuery, mode) {
-  const q = rawQuery.trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 200);
-  if (!q) return;
-  dbQuery(
-    'INSERT INTO search_queries (query, mode) VALUES ($1, $2)',
-    [q, mode || 'blue-pill']
-  ).catch(() => {});
+  // Fire and forget; see services/SearchLog.js for what is (and is never) kept.
+  recordSearch(rawQuery, mode, { query: dbQuery });
 }
 
 /**

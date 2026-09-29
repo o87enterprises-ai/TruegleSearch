@@ -25,8 +25,9 @@ const About = () => {
 
       <LegalSection heading="Privacy by Default">
         <p>
-          We don't store your searches on our servers or build a profile of you. Any search history
-          is kept locally on your device and fully under your control. Read more in our{' '}
+          We don't build a profile of you, and nothing we keep is tied to an account or IP address.
+          An ordinary search is kept only as an anonymous line for at most 7 days, to show what's
+          trending. Your own search history stays on your device, under your control. Read more in our{' '}
           <a href="/privacy" className="text-blue-400 hover:text-blue-300">Privacy Policy</a>.
         </p>
       </LegalSection>

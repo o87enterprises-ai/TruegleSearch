@@ -149,7 +149,7 @@ router.post('/images', rateLimitSearch, async (req, res) => {
 
     return res.json({ success: true, url: normalized, images: resolved });
   } catch (err) {
-    logger.warn('Image extraction failed:', { error: err.message, url: normalized });
+    logger.warn('Image extraction failed:', { error: err.message });
     return res.status(422).json({
       error: 'Could not fetch that URL. It may be blocked or require login.',
     });

@@ -380,8 +380,9 @@ const SettingsPage = () => {
 
             <div className="mt-4 bg-white/5 border border-white/10 rounded-xl p-4">
               <p className="text-sm text-white/60">
-                Truegle does not store your search queries server-side. History is kept only on
-                this device when enabled, and never synced or sold.
+                Truegle keeps no search history tied to you. History is kept only on this device
+                when enabled, and never synced or sold. Server-side, an ordinary search is kept
+                as an anonymous line — no account or IP — for at most 7 days, for trending only.
               </p>
             </div>
           </div>

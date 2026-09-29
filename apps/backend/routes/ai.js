@@ -825,7 +825,7 @@ router.post('/quick-answer', rateLimitSearch, async (req, res) => {
       sources = top.slice(0, 2).map((r) => ({ title: r.title || r.domain || r.url, url: r.url, domain: r.domain || null }));
     }
 
-    logger.info('Quick answer generated:', { query: trimmedQuery, sources: sources.length, provider: resp.provider });
+    logger.info('Quick answer generated:', { queryLength: trimmedQuery.length, sources: sources.length, provider: resp.provider });
 
     return res.json({
       success: true,

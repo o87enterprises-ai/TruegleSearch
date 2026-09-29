@@ -158,7 +158,8 @@ class SearchService {
    */
   async performSearch(query, filters, mode = 'blue-pill') {
     try {
-      console.log('🔍 SearchService.performSearch called with:', { query, filters, mode });
+      // Never the query text itself: this line lands in the host's runtime logs.
+      console.log('🔍 SearchService.performSearch', { queryLength: String(query || '').length, category: filters?.category, mode });
 
       // Ocean mode: OSINT-only pipeline — no web search
       if (mode === 'ocean') {
@@ -180,7 +181,7 @@ class SearchService {
         if (sk) {
           boostDomain = sk.domain;
           query = sk.cleanedQuery;
-          console.log(`🔗 Site-keyword "${sk.keyword}" → boosting ${boostDomain}, query now "${query}"`);
+          console.log(`🔗 Site-keyword "${sk.keyword}" → boosting ${boostDomain}`);
         }
       }
 
@@ -384,7 +385,7 @@ class SearchService {
           }
         }
         if (expanded && expanded.toLowerCase() !== query.toLowerCase()) {
-          console.log(`🔤 Acronym expansion: "${query}" → supplemental "${expanded}"`);
+          console.log('🔤 Acronym expansion applied');
           if (this.braveApiKey) {
             searchPromises.push(this.performBraveSearch(expanded, { ...filters, perPage: 8 }));
           } else if (this.googleApiKey && this.googleSearchEngineId) {
@@ -483,7 +484,7 @@ class SearchService {
       if (/["']/.test(query) && combinedResults.length < 12) {
         const broadened = query.replace(/["']/g, ' ').replace(/\s+/g, ' ').trim();
         if (broadened && broadened !== query) {
-          console.log(`🔁 Thin quoted-query result (${combinedResults.length}) — broadening to "${broadened}"`);
+          console.log(`🔁 Thin quoted-query result (${combinedResults.length}) — broadening`);
           const broadenPromises = [];
           if (this.braveApiKey) broadenPromises.push(this.performBraveSearch(broadened, filters));
           if (this.googleApiKey && this.googleSearchEngineId) broadenPromises.push(this.performGoogleSearch(broadened, filters));
@@ -1705,7 +1706,7 @@ class SearchService {
       if (strictCount < Math.min(5, want) && /["']/.test(query)) {
         const broadened = query.replace(/["']/g, ' ').replace(/\s+/g, ' ').trim();
         if (broadened && broadened !== query) {
-          console.log(`📺 YouTube: thin strict result (${strictCount}), merging broadened "${broadened}"`);
+          console.log(`📺 YouTube: thin strict result (${strictCount}), merging broadened`);
           try {
             const more = await runSearch(broadened);
             const seen = new Set((data.items || []).map((i) => i.id?.videoId).filter(Boolean));

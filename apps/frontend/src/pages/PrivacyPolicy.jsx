@@ -10,7 +10,7 @@ import LegalPage, { LegalSection } from '../components/LegalPage';
  */
 
 const PrivacyPolicy = () => (
-  <LegalPage title="Privacy Policy" lastUpdated="August 26, 2026">
+  <LegalPage title="Privacy Policy" lastUpdated="September 29, 2026">
     <p>
       Truegle Search ("Truegle", "we", "us") is a privacy-first search engine. This
       policy explains what information we do and do not collect when you use{' '}
@@ -20,9 +20,19 @@ const PrivacyPolicy = () => (
 
     <LegalSection heading="Searches">
       <p>
-        We do <strong>not</strong> store your search queries on our servers, and we do not
-        build a profile of you or your search history. Queries are sent to our backend only
-        to retrieve results from search providers, and are not retained afterward.
+        We do not build a profile of you or your search history, and nothing we keep is tied to
+        you: no account, no IP address, no device ID.
+      </p>
+      <p>
+        What we <strong>do</strong> keep: the text of an ordinary search and the mode it was made
+        in, as an <strong>anonymous line, for at most 7 days</strong>. It is used only to show
+        what is trending and to seed the Feed, and it is deleted automatically after a week.
+        We never keep a search that looks like personal data (an email address, phone number,
+        card or ID number, street address, IP address, or a pasted link), and we never keep
+        anything searched in <em>Ocean</em> (Privacy/OSINT) mode. Our server request logs record
+        the page requested, the response code and the time taken — not the query string, your
+        IP address, your referrer or your browser identity — and query text is not written to
+        our application logs.
       </p>
       <p>
         Search providers are queried <strong>by our server, not by your browser</strong>. The
@@ -130,9 +140,17 @@ const PrivacyPolicy = () => (
       <p>To provide search and related features, we send requests to third parties, including:</p>
       <ul className="list-disc pl-6 space-y-2">
         <li>
-          <strong>Search &amp; content providers</strong> (e.g. Google, Brave, news, map and
-          video APIs) to fetch the results you request. These are called from our servers, so
-          the provider sees Truegle rather than you.
+          <strong>Search &amp; content providers</strong> (e.g. Brave, news, map and video
+          APIs) to fetch the results you request. These are called from our servers, so the
+          provider sees Truegle rather than you — but it does see the words you searched.
+        </li>
+        <li>
+          <strong>Hosted AI providers</strong> (currently including NVIDIA and Groq, with
+          fallbacks to others) to write AI answers and chat replies. When you use an AI feature,
+          the text of your question — and, for answers, the titles and snippets of the results
+          behind it — is sent to one of them. It is sent from our servers, without your IP
+          address or account. Each provider has its own retention policy; Green mode uses no AI
+          at all. Please don't put secrets in a chat.
         </li>
         <li>
           <strong>Media platforms</strong> whose players you choose to open — see{' '}
