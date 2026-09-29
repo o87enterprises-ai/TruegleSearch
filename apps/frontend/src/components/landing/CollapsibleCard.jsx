@@ -33,6 +33,9 @@ export function CollapsibleCardGroup({ children }) {
     endPreview: (id) => setState((s) => (s.openId === id && !s.pinned ? { openId: null, pinned: false } : s)),
     pin: (id) => setState({ openId: id, pinned: true }),
     close: (id) => setState((s) => (s.openId === id ? { openId: null, pinned: false } : s)),
+    // For the one card that descends by itself as you scroll to it: only into
+    // a quiet page. A card the visitor opened wins.
+    openIfIdle: (id) => setState((s) => (s.openId === null ? { openId: id, pinned: true } : s)),
   }), [state]);
   return <CardGroup.Provider value={api}>{children}</CardGroup.Provider>;
 }
@@ -46,6 +49,7 @@ function useLocalGroup() {
     endPreview: (id) => setState((s) => (s.openId === id && !s.pinned ? { openId: null, pinned: false } : s)),
     pin: (id) => setState({ openId: id, pinned: true }),
     close: (id) => setState((s) => (s.openId === id ? { openId: null, pinned: false } : s)),
+    openIfIdle: (id) => setState((s) => (s.openId === null ? { openId: id, pinned: true } : s)),
   };
 }
 
@@ -54,8 +58,12 @@ function useLocalGroup() {
  * @param {React.ReactNode} props.header  the always-visible title row (icon + coloured title)
  * @param {React.ReactNode} props.children the body revealed when open
  * @param {string} [props.className]      classes for the card shell (border colour etc.)
+ * @param {boolean} [props.autoOpenOnScroll] phones only: descend by itself the
+ *   first time it is scrolled into view (and stay until scrolled past). Opens
+ *   only into a quiet page, never over a card the visitor opened. Every other
+ *   card waits for a hand.
  */
-export default function CollapsibleCard({ header, children, className = '', ...rest }) {
+export default function CollapsibleCard({ header, children, className = '', autoOpenOnScroll = false, ...rest }) {
   const shared = useContext(CardGroup);
   const local = useLocalGroup();
   const group = shared || local;
@@ -64,10 +72,11 @@ export default function CollapsibleCard({ header, children, className = '', ...r
   const ref = useRef(null);
   const touch = useRef({ timer: null, x: 0, y: 0 });
   const reduceMotion = useReducedMotion();
+  const autoOpened = useRef(false);
 
   const open = group.state.openId === id;
   const pinned = open && group.state.pinned;
-  const { preview, endPreview, pin, close } = group;
+  const { preview, endPreview, pin, close, openIfIdle } = group;
 
   const clearTouch = useCallback(() => {
     clearTimeout(touch.current.timer);
@@ -82,6 +91,41 @@ export default function CollapsibleCard({ header, children, className = '', ...r
     io.observe(ref.current);
     return () => io.disconnect();
   }, [pinned, id, close]);
+
+  // THE ONE CARD THAT DESCENDS ON ITS OWN. Phones only. It starts retracted and
+  // opens as the visitor scrolls DOWN while it is on screen — which on a phone
+  // is already true at load (it sits at the bottom of the first screen), so
+  // waiting for it to "enter" the viewport would never fire. Both the scroll
+  // and the card's visibility are watched, and either can be the last piece.
+  // After that the ordinary rules apply: it is pinned, so it closes when
+  // scrolled past, and another card opening closes it.
+  useEffect(() => {
+    if (!autoOpenOnScroll || !ref.current || typeof IntersectionObserver === 'undefined') return undefined;
+    if (typeof window.matchMedia !== 'function' || !window.matchMedia('(max-width: 767px)').matches) return undefined;
+    let visible = false;
+    let lastY = window.scrollY;
+    // `autoOpened` is a ref, not a local: the group's api changes on every open
+    // and close, which re-runs this effect. A local flag would reset, and
+    // closing the card by hand while it is still on screen would make it
+    // descend again.
+    const maybeOpen = () => {
+      if (autoOpened.current || !visible || window.scrollY < 40) return;
+      autoOpened.current = true;
+      openIfIdle(id);
+    };
+    const io = new IntersectionObserver(([entry]) => {
+      visible = entry.intersectionRatio >= 0.6;
+      maybeOpen();
+    }, { threshold: [0, 0.6, 1] });
+    io.observe(ref.current);
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (y > lastY) maybeOpen();     // only scrolling DOWN descends it
+      lastY = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { io.disconnect(); window.removeEventListener('scroll', onScroll); };
+  }, [autoOpenOnScroll, id, openIfIdle]);
 
   const handlers = {
     onPointerEnter: (e) => { if (e.pointerType === 'mouse') preview(id); },
@@ -106,7 +150,18 @@ export default function CollapsibleCard({ header, children, className = '', ...r
     // The browser took the gesture over for scrolling: the finger moved on.
     onPointerCancel: () => { clearTouch(); endPreview(id); },
     onPointerUp: clearTouch,
-    onClick: () => pin(id),
+    // A real toggle. Hover or a resting finger only PREVIEWS; a click or tap
+    // pins it open, and the next one retracts it completely to its one line.
+    // (It used to pin again, so an open card could not be closed by pressing
+    // it — only by opening something else or scrolling away.)
+    // ONLY THE HEADER TOGGLES. The handler sits on the whole card, so a tap on
+    // a video, a tab or a select inside an open body must not close it: those
+    // just keep it pinned open.
+    onClick: (e) => {
+      const onHeader = !!e.target.closest?.('[data-card-toggle]');
+      if (onHeader && pinned) close(id);
+      else pin(id);
+    },
   };
 
   return (
@@ -120,6 +175,7 @@ export default function CollapsibleCard({ header, children, className = '', ...r
     >
       <button
         type="button"
+        data-card-toggle=""
         aria-expanded={open}
         aria-controls={bodyId}
         // Keyboard path: Enter/Space fire click → pin, same as a tap.

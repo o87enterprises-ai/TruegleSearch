@@ -27,6 +27,7 @@ import HoverHint from '../components/ui/HoverHint';
 import { useUnhingedGate } from '../hooks/useUnhingedGate';
 import ThreeCards from '../components/landing/ThreeCards';
 import PlayerFeatureCard from '../components/landing/PlayerFeatureCard';
+import WhyTruegleCard from '../components/landing/WhyTruegleCard';
 import { CollapsibleCardGroup } from '../components/landing/CollapsibleCard';
 import { useSettings } from '../context/SettingsContext';
 import TruegleLogo from '../components/ui/TruegleLogo';
@@ -532,88 +533,14 @@ export default function LandingPage() {
         </div>
 
         {/* Features Section (Learn More scrolls here: three principles + cards) */}
-        <div id="features" className="py-20 px-4">
+        <div id="features" className="pt-10 pb-0 px-4">
           <div className="max-w-7xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="text-center mb-10"
-            >
-              <h2 className="text-headline-large mb-4">
-                <span className="gradient-orange-purple">Why Search Truegle?</span>
-              </h2>
-            </motion.div>
-
-            {/* The three promises, simplified into one horizontal card
-                (was three separate stacked cards). */}
-            <div className="mb-16 max-w-3xl mx-auto">
-              <div className="bg-white/10 backdrop-blur-lg border border-white/15 rounded-2xl p-5 sm:p-6 shadow-xl">
-                {/* The lead-in the three words finish: "Search without… bias,
-                    tracking, censorship." The minus badges below read as the
-                    "without". */}
-                <p className="text-center text-sm sm:text-base font-semibold tracking-[0.2em] uppercase text-white/70 mb-4">
-                  Search without…
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
-                  <div className="flex flex-col items-center text-center gap-2 py-3 sm:py-0 sm:px-4">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-lg bg-purple-500 border-purple-300 shadow-purple-500/30">
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <line x1="3" y1="7" x2="11" y2="7" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-                      </svg>
-                    </div>
-                    <span className="font-bold text-base text-purple-400">Bias</span>
-                    <span className="text-white/80 text-sm">All perspectives welcome</span>
-                  </div>
-                  <div className="flex flex-col items-center text-center gap-2 py-3 sm:py-0 sm:px-4">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-lg bg-green-500 border-green-300 shadow-green-500/30">
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                        <line x1="3" y1="7" x2="11" y2="7" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-                      </svg>
-                    </div>
-                    <span className="font-bold text-base text-green-400">Tracking</span>
-                    <span className="text-white/80 text-sm">0 ads, 0 user data, 0 digital ID</span>
-                  </div>
-                  {/* Censorship: the one item on this card that is not just a
-                      claim — it is a real, working control. Toggling it
-                      flips the SAME Safe Search setting Settings edits, so a
-                      visitor never finds Settings disagreeing with what this
-                      card told them. */}
-                  <div className="flex flex-col items-center text-center gap-2 py-3 sm:py-0 sm:px-4">
-                    <button
-                      type="button"
-                      onClick={toggleSafeMode}
-                      aria-pressed={safeModeOff}
-                      title={canDisableSafeSearch ? 'Toggle +18 safe mode' : 'Sign in to turn off Safe Search'}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-lg transition-colors ${
-                        safeModeOff
-                          ? 'bg-red-500 border-red-300 shadow-red-500/30'
-                          : 'bg-white/10 border-white/25 hover:border-red-300/60'
-                      }`}
-                    >
-                      {canDisableSafeSearch ? (
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                          <line x1="3" y1="7" x2="11" y2="7" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-                        </svg>
-                      ) : (
-                        <Lock size={12} className="text-white/70" />
-                      )}
-                    </button>
-                    <span className="font-bold text-base text-red-400">Censorship</span>
-                    <button type="button" onClick={toggleSafeMode} className="text-white/80 text-sm hover:text-white transition-colors">
-                      +18 safe mode {safeModeOff ? 'off' : 'on'} — tap to toggle*
-                    </button>
-                  </div>
-                </div>
-                <p className="mt-4 text-center text-[11px] text-white/35">
-                  *Turning +18 safe mode off needs a verified sign-in (an email confirmation code) — the same bar every age-gated control on Truegle holds to.
-                </p>
-              </div>
-            </div>
+            {/* The three promises — a one-line card like the rest; see WhyTruegleCard. */}
+            <WhyTruegleCard safeModeOff={safeModeOff} canDisableSafeSearch={canDisableSafeSearch} toggleSafeMode={toggleSafeMode} />
 
             {/* True Tube — right under the promise it's keeping, not tucked
                 into the hero where it only showed for some pill modes. */}
-            <div className="mb-16 max-w-3xl mx-auto">
+            <div className="mb-4 max-w-3xl mx-auto">
               <PlayerFeatureCard onOpen={() => { setPillMode('tube'); navigate('/tube'); }} />
             </div>
 

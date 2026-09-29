@@ -26,12 +26,19 @@ function save(m) {
 
 const norm = (q) => String(q || '').trim().replace(/\s+/g, ' ');
 
+// The same "Save search history" switch in Settings that the page's search bar
+// honours. Off means nothing is remembered — not the last query, not the lists.
+const historyOff = () => {
+  try { return JSON.parse(localStorage.getItem('truegle_settings') || '{}').saveHistory === false; } catch { return false; }
+};
+
 export function lastQuery() {
   return load().last;
 }
 
 /** Remember what is in the box right now; '' means the user erased it. */
 export function setLastQuery(q) {
+  if (historyOff()) return;
   const m = load();
   const next = String(q || '');
   if (m.last === next) return;
@@ -41,7 +48,7 @@ export function setLastQuery(q) {
 /** A search the user actually made — feeds both lists. */
 export function recordSearch(q) {
   const query = norm(q);
-  if (query.length < 2) return;
+  if (query.length < 2 || historyOff()) return;
   const m = load();
   const key = query.toLowerCase();
   const recent = [query, ...m.recent.filter((r) => r.toLowerCase() !== key)].slice(0, KEEP);

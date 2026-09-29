@@ -68,6 +68,7 @@ import { classifyQuery, describeLink } from '../utils/urlQuery';
 import { useSearchStashContext } from '../context/SearchStashContext';
 import ReelsSurface from '../components/reels/ReelsSurface';
 import TubeReelsToggle from '../components/reels/TubeReelsToggle';
+import { recordSearch } from '../utils/playerSearchMemory';
 import { cachedVideos } from '../content/creatorVideos';
 import SingleLinkCard from '../components/search/SingleLinkCard';
 
@@ -865,9 +866,23 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
   // submit goes (same model as the landing page): black = Chat -> /chat,
   // orange -> /rewards, yellow -> /extract, a different search mode -> that
   // /search page; the current mode just re-runs the search in place.
+  const lastRecordedRef = useRef({ q: '', at: 0 });
   const submitSearch = () => {
     const q = searchValue.trim();
     if (!q) return;
+
+    // On Tube, what is typed here is a search of the PLAYER, so it goes in the
+    // player's own memory too — the floating player's bar shows the same Recent
+    // and Top lists, and a search made on either is on both. A pasted link is
+    // not a search, so it is not remembered as one.
+    if (mode === 'tube' && pillMode !== 'black' && !classifyQuery(q)) {
+      // SearchBar fires both onSubmit and onSearch, and both land here, so one
+      // press would count twice and inflate "Top searches".
+      const now = Date.now();
+      const last = lastRecordedRef.current;
+      if (!(last.q === q && now - last.at < 1500)) recordSearch(q);
+      lastRecordedRef.current = { q, at: now };
+    }
 
     // A PASTED LINK IS NOT A SEARCH. If it is something the player can host,
     // open it — the player IS the answer, and a list of pages about the link

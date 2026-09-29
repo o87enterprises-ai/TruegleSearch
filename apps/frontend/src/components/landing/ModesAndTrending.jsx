@@ -164,7 +164,7 @@ export default function ModesAndTrending() {
   // at max-w-6xl, which on a wide screen sat twice the width of its
   // neighbours and broke the column (owner, 2026-09-28).
   return (
-    <section className="py-16 px-4 border-t border-white/5">
+    <section className="pt-4 pb-0 px-4">
       <div className="max-w-6xl mx-auto">
         {/* Search Modes + "Pick your lens", combined into one card. Each mode
             below is still its own collapsible inside the one outer card. */}

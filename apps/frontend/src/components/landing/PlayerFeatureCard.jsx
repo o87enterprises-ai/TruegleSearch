@@ -22,7 +22,7 @@ export default function PlayerFeatureCard({ onOpen }) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.35, duration: 0.4 }}
-      className="w-full max-w-2xl mx-auto px-4 mb-4"
+      className="w-full max-w-2xl mx-auto px-4"
     >
       {/* Collapsed to its title by default — see CollapsibleCard. */}
       <CollapsibleCard

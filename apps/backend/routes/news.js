@@ -13,11 +13,11 @@
  *   print    -> Google News RSS. Country-scoped editions are a URL parameter,
  *              which is what makes "local" work without asking anyone where
  *              they are.
- *   video    -> OUR OWN search (SearXNG), category `videos`, seeded with the
- *              day's top headline. Deliberately not a hardcoded list of news
- *              channels: picking which outlets count as "the news" is exactly
- *              the editorial thumb on the scale Truegle exists to avoid, and
- *              this way the video row is whatever the index actually has.
+ *   video    -> YouTube through OUR OWN index, on demand (GET /videos), for the
+ *              News and Markets cards. Deliberately not a hardcoded list of
+ *              news channels: picking which outlets count as "the news" is
+ *              exactly the editorial thumb on the scale Truegle exists to
+ *              avoid — see services/NewsVideos.js.
  *   markets  -> CoinGecko for crypto, Yahoo Finance for indices and
  *              commodities. Yahoo is UNOFFICIAL - see NewsSources.js.
  *
@@ -33,6 +33,11 @@ const router = express.Router();
 const GeoService = require('../services/GeoService');
 const logger = require('../utils/logger');
 const { printHeadlines, markets, COUNTRY } = require('../services/NewsSources');
+const OembedService = require('../services/OembedService');
+const SearchService = require('../services/SearchService');
+const { shapeVideos, queryFor } = require('../services/NewsVideos');
+
+const searchService = new SearchService();
 
 // -- cache -------------------------------------------------------------------
 // One process-local Map, same as routes/creators.js. Serverless gives every
@@ -44,6 +49,7 @@ const cache = new Map(); // key -> { at, value }
 const TTL = {
   print: 5 * 60 * 1000,        // headlines move, but not every second
   video: 15 * 60 * 1000,       // our own SearXNG - be kind to the box
+  youtube: 15 * 60 * 1000,     // the cards' YouTube coverage, per kind/scope/country
   markets: 60 * 1000,          // "live" without hammering a free tier
 };
 
@@ -62,24 +68,25 @@ function stale(key) {
   return hit ? { ...hit.value, stale: true } : null;
 }
 
-// -- video: our own index ----------------------------------------------------
-async function videoCoverage(seed) {
-  // Required lazily: the search service pulls in a lot, and the markets-only
-  // refresh path has no business paying for it.
-  const PrivateSearchService = require('../services/PrivateSearchService');
-  const query = (seed || 'world news today').slice(0, 120);
-  const data = await PrivateSearchService.search(query, { category: 'videos', perPage: 12 });
-  const rows = data?.results || data || [];
-  const items = (Array.isArray(rows) ? rows : []).slice(0, 12).map((r) => ({
-    title: r.title || '',
-    url: r.url || r.pageUrl || '',
-    source: r.engine || r.source || '',
-    thumbnail: r.thumbnail || r.img_src || r.image || '',
-    at: r.publishedDate ? Date.parse(r.publishedDate) || null : null,
-  })).filter((v) => v.title && v.url);
-  // Wrapped rather than returned bare: cached() stores objects so it can stamp
-  // `cached`/`stale` onto what it hands back, and spreading an array turns it
-  // into a keyed object with a length property - a silent, ugly failure.
+// -- video: YouTube, through our own index ------------------------------------
+// The landing cards' "reports": thumbnails that play in the Truegle player.
+// See services/NewsVideos.js for why this is a search and not a channel list.
+async function youtubeVideos(kind, scope, country) {
+  let region = '';
+  try { region = new Intl.DisplayNames(['en'], { type: 'region' }).of(country) || ''; } catch { /* keep world */ }
+  const query = `${queryFor(kind, scope, region)} site:youtube.com`;
+  const rows = await searchService.performSearch(
+    query,
+    { category: 'videos', dateRange: 'week', bias: 'all', sortBy: 'relevance', order: 'desc', safeSearch: 'safe', page: 1, perPage: 30 },
+    'blue-pill',
+  );
+  const items = shapeVideos(rows, { limit: 12 });
+  // Who made each one. oEmbed is the free, keyless answer and it is cached for
+  // hours; a miss just leaves the byline off.
+  try {
+    const authors = await OembedService.lookupMany(items.map((v) => v.url));
+    items.forEach((v) => { v.channel = authors[v.url]?.author || null; });
+  } catch { /* bylines are decoration */ }
   return { items };
 }
 
@@ -106,26 +113,42 @@ router.get('/feed', async (req, res) => {
     ? printed.value
     : stale(printKey) || { country, local: [], world: [] };
 
-  // Video is seeded by the day's top headline, so it has to wait for print —
-  // and it must never be the reason the feed is slow, hence its own cache key
-  // and a shorter leash than the panels above it.
-  const seed = print.local?.[0]?.title || print.world?.[0]?.title || '';
-  const videoKey = `video:${country}`;
-  let video = [];
-  try {
-    video = (await cached(videoKey, TTL.video, () => videoCoverage(seed))).items;
-  } catch (err) {
-    logger.warn('News video lookup failed:', { error: err.message });
-    video = stale(videoKey)?.items || [];
-  }
-
   res.set('Cache-Control', 'public, max-age=60');
   res.json({
     country,
     print,
-    video,
     markets: market.status === 'fulfilled' ? market.value : stale('markets') || { crypto: [], stocks: [], commodities: [] },
   });
+});
+
+/**
+ * GET /api/news/videos?kind=news|markets&scope=local|world&country=US
+ *
+ * YouTube coverage for one landing card, fetched when the card is opened —
+ * nothing is asked for while it is a single line. Newest first, thumbnails
+ * derived from the video id, bylines from oEmbed.
+ */
+router.get('/videos', async (req, res) => {
+  const kind = req.query.kind === 'markets' ? 'markets' : 'news';
+  const scope = req.query.scope === 'local' ? 'local' : 'world';
+  const asked = String(req.query.country || '').toUpperCase();
+  const country = COUNTRY.test(asked)
+    ? asked
+    : (await GeoService.detectCountry(req).catch(() => null)) || 'US';
+
+  // Markets and world news do not depend on where you are, so they share one
+  // entry instead of one per country.
+  const key = kind === 'markets' ? 'yt:markets' : scope === 'world' ? 'yt:news:world' : `yt:news:local:${country}`;
+  try {
+    const value = await cached(key, TTL.youtube, () => youtubeVideos(kind, scope, country));
+    res.set('Cache-Control', 'public, max-age=300');
+    return res.json({ kind, scope, country, videos: value.items || [] });
+  } catch (err) {
+    logger.warn('News videos failed:', { kind, scope, error: err.message });
+    const last = stale(key);
+    if (last) return res.json({ kind, scope, country, videos: last.items || [], stale: true });
+    return res.status(502).json({ error: 'videos_unavailable', videos: [] });
+  }
 });
 
 /**

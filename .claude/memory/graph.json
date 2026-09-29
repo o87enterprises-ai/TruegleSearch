@@ -1504,6 +1504,22 @@
         "body": "functions/_middleware.js + src/utils/seoPages.js: /green /red /feed /chat /creators /creator/<slug> (roster slugs only) get own title/description/self-canonical + crawlable h1/links inside #root at the edge (shell canonical=home made Google treat them as duplicates of '/'). Home prerender (scripts/seo/HomeStaticContent.jsx) went 1->19 links incl. blog/modes/surfaces; stale Green/Purple/Advertise copy fixed. /advertise retired (301 -> /about/, page+route+footer+sitemap removed; sold ads against AD-POLICY). Public test pages deleted. Sitemap +chat +creators +9 creator pages (39 urls). llms.txt de-staled (Rewards/ads/Green definition). Test: npm run seo:test (59). OPEN, owner to review: privacy policy never mentions AI inference providers (Groq/NVIDIA) while llms.txt+About claim self-hosted/no third-party; llms.txt FAQ still says queries 'discarded immediately' but search_queries trending table exists.",
         "ts": "2026-09-28",
         "created": "2026-09-28"
+      },
+      "landing-cards-one-line-accordion": {
+        "Id": "landing-cards-one-line-accordion",
+        "Type": "decision",
+        "Label": "Landing = 7 one-line CollapsibleCards, one open at a time",
+        "body": "Why Search Truegle (WhyTruegleCard), True Tube, Chat Modes, Search Modes, News, Markets, Creators are ALL CollapsibleCard in the one CollapsibleCardGroup. Header toggles (data-card-toggle): press descends, press again retracts fully; presses inside body only keep it pinned. Bodies mount only when open so fetches/polling start on open and stop on close. ONLY exception: Why Search Truegle auto-descends on phones (<768px) when scrolling DOWN while it is on screen (autoOpenOnScroll; once; only into an idle group via openIfIdle). Everything else needs a hand. News/Markets videos = YouTube via GET /api/news/videos (search through our own index 'site:youtube.com', NOT a channel list, per neutrality principle; services/NewsVideos.js shapes rows; oEmbed bylines) -> VideoRail startFeed in Truegle player. Old /api/news/feed video leg was dead (called class method statically) and removed. Test: npm run landing:test (20).",
+        "ts": "2026-09-29",
+        "created": "2026-09-29"
+      },
+      "search-history-record-on-submit": {
+        "Id": "search-history-record-on-submit",
+        "Type": "decision",
+        "Label": "Typed searches are now recorded (SearchBar + Tube + player memory)",
+        "body": "Bug found 2026-09-29: SearchBar.saveToRecentSearches ran ONLY when a suggestion was picked, so typed+Enter searches never reached history on any page. Fixed in trySubmit (skips pasted links; honors settings.saveHistory). UniversalSearch.submitSearch also recordSearch() to player memory on Tube (deduped 1.5s because SearchBar fires onSubmit AND onSearch). playerSearchMemory now honors saveHistory=false. Test: npm run searchhistory:test (9).",
+        "ts": "2026-09-29",
+        "created": "2026-09-29"
       }
     },
     "thread": {
@@ -3310,5 +3326,5 @@
       }
     }
   },
-  "updated": "2026-09-28"
+  "updated": "2026-09-29"
 }

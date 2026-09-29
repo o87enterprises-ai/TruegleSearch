@@ -1170,6 +1170,9 @@ export default function SearchBar({
       // Respect the "save search history" privacy setting (default on).
       const prefs = JSON.parse(localStorage.getItem('truegle_settings') || '{}');
       if (prefs.saveHistory === false) return;
+      // A pasted link is something to open, not a search worth offering back —
+      // and a long tracking-laden URL is the last thing to leave in a dropdown.
+      if (/^(https?:\/\/|www\.)/i.test(String(query).trim())) return;
       const recent = getRecentSearches();
       const filtered = recent.filter(s => s.toLowerCase() !== query.toLowerCase());
       const updated = [query, ...filtered].slice(0, 10);
@@ -1549,6 +1552,11 @@ const handleChange = useCallback((e) => {
   // the search box is now a textarea (Enter no longer submits a <form> for free).
   const trySubmit = useCallback(() => {
     if (localValue.trim()) {
+      // REMEMBER WHAT WAS TYPED. This used to be called only when a suggestion
+      // was picked, so a typed search never reached the history list — the
+      // dropdown on a fresh visit had nothing of yours in it, on every page.
+      // (Respects the "save search history" setting; see saveToRecentSearches.)
+      saveToRecentSearches(localValue.trim());
       // Close the dropdown on submit so it doesn't stay descended after the
       // page navigates (and so Enter never needs a second press).
       userTypedRef.current = false;
@@ -1560,7 +1568,7 @@ const handleChange = useCallback((e) => {
       try { inputRef.current?.blur(); } catch { /* no input mounted */ }
       gatedSearch();
     }
-  }, [localValue, gatedSearch]);
+  }, [localValue, gatedSearch, saveToRecentSearches]);
 
   // Handle form submit
   const handleSubmit = useCallback((e) => {
