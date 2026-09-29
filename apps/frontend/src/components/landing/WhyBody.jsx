@@ -1,40 +1,15 @@
-import { Lock, ShieldCheck } from 'lucide-react';
-import CollapsibleCard from './CollapsibleCard';
+import { Lock } from 'lucide-react';
 
-// "Why Search Truegle?" — the three promises (bias, tracking, censorship), as
-// the same one-line card as True Tube and Chat Modes.
-//
-// THE ONE CARD THAT OPENS ITSELF. On a phone it starts retracted and descends
-// by itself as you scroll down to it (autoOpenOnScroll); the promise is the
-// first thing a visitor should read and is short enough to earn that. On a
-// wider screen, and for every other card, opening takes a hand.
+// "Why Truegle?" — the three promises (bias, tracking, censorship). Its tile's
+// pitch says the same thing in a line; this is the detail behind it.
 //
 // The Censorship item is not just a claim — it is a real, working control.
 // Toggling it flips the SAME Safe Search setting Settings edits, so a visitor
-// never finds Settings disagreeing with what this card told them. The state
-// lives in the landing page (it also navigates to sign-in), so it comes in as
-// props.
-export default function WhyTruegleCard({ safeModeOff, canDisableSafeSearch, toggleSafeMode }) {
+// never finds Settings disagreeing with what this told them. The state lives in
+// the landing page (it also navigates to sign-in), so it comes in as props.
+export default function WhyBody({ safeModeOff, canDisableSafeSearch, toggleSafeMode }) {
   return (
-    <div className="mb-4 max-w-3xl mx-auto">
-      <div className="w-full max-w-2xl mx-auto px-4">
-        <CollapsibleCard
-          data-why-card=""
-          autoOpenOnScroll
-          className="border-white/15 hover:border-purple-400/40"
-          header={(
-            <>
-              <span className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-purple-500 flex items-center justify-center shadow-lg">
-                <ShieldCheck size={16} className="text-white" />
-              </span>
-              <h2 className="min-w-0 truncate text-base sm:text-lg font-bold gradient-orange-purple bg-clip-text">Why Search Truegle?</h2>
-            </>
-          )}
-        >
-          <div className="pt-1">
-<p className="text-center text-sm sm:text-base font-semibold tracking-[0.2em] uppercase text-white/70 mb-4">
-        Search without…
-      </p>
+    <div data-why-body="">
       <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
         <div className="flex flex-col items-center text-center gap-2 py-3 sm:py-0 sm:px-4">
           <div className="w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-lg bg-purple-500 border-purple-300 shadow-purple-500/30">
@@ -86,12 +61,8 @@ export default function WhyTruegleCard({ safeModeOff, canDisableSafeSearch, togg
         </div>
       </div>
       <p className="mt-4 text-center text-[11px] text-white/35">
-        *Turning +18 safe mode off needs a verified sign-in (an email confirmation code) — the same bar every age-gated control on Truegle holds to.
+        *Turning safe mode off needs a verified sign-in.
       </p>
-
-          </div>
-        </CollapsibleCard>
-      </div>
     </div>
   );
 }

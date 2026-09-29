@@ -1528,6 +1528,14 @@
         "body": "functions/_middleware.js creatorFeed(): for roster creators only, fetch https://www.youtube.com/feeds/videos.xml?channel_id=<roster channelId> (free/keyless), cache 1h in caches.default, 1.8s abort; parseVideoFeed/withVideos/videosSchema in src/utils/seoPages.js add 'Latest uploads' list + VideoObject ItemList JSON-LD + description leading with latest title. Failure/timeout/garbage => plain Round-1 page unchanged. Taglines stay blank on purpose (no invented copy). Only creator pages touch YouTube. Verified on all 9 live feeds. seo:test 77.",
         "ts": "2026-09-29",
         "created": "2026-09-29"
+      },
+      "landing-modular-tile-grid": {
+        "Id": "landing-modular-tile-grid",
+        "Type": "decision",
+        "Label": "Landing = ONE grid of 7 tiles (LandingModules), panel opens under the tile's row",
+        "body": "Owner 2026-09-29: cards -> modular tiles in a grid (4 cols desktop / 2 phone), not a vertical list. Tiles: Why Truegle?, Search, Chat, Tube, Feed, News, Markets(span 2). Each = icon + one-word title in PILL colour (why purple, search blue, chat #e5e7eb, tube #9aa7b8, feed yellow, news #facc15, markets #ca8a04; cardTheme.js) + pitch <=10 words. Press opens full-width panel under that row (tiles never move); press again retracts; one open at a time; NO hover preview; nested Search lenses use their own CollapsibleCardGroup (fixes lens click closing Search). Only Why auto-opens: phones only, on scroll down while visible, into idle page (useAutoOpenOnScroll). Bodies mount only when open (fetch on open). News/Markets thumbnails navigate to /feed?category=news|markets&play=<url>; FeedPage plays it even if not in the loaded shelf. Feed Browse gained News + Markets rows via backend lanes newsvideo/marketsvideo (NewsVideoService; browse-only, excluded from Home via BROWSE_ONLY). Test: npm run landing:test (44), feedpage:test (67).",
+        "ts": "2026-09-29",
+        "created": "2026-09-29"
       }
     },
     "thread": {

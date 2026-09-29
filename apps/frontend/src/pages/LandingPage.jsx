@@ -18,25 +18,20 @@ import {
   Lock,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import ModesAndTrending from '../components/landing/ModesAndTrending';
 import ChatModeRow from '../components/landing/ChatModeRow';
 import CategoryModeRow from '../components/landing/CategoryModeRow';
 import SmartPill from '../components/landing/SmartPill';
 import { MODE_COLORS, MODE_HINT_TEXT, searchThemeFor, searchGradientFor, searchIconFor, normalizePillMode } from '../config/modeTheme';
 import HoverHint from '../components/ui/HoverHint';
 import { useUnhingedGate } from '../hooks/useUnhingedGate';
-import ThreeCards from '../components/landing/ThreeCards';
-import PlayerFeatureCard from '../components/landing/PlayerFeatureCard';
-import WhyTruegleCard from '../components/landing/WhyTruegleCard';
-import { CollapsibleCardGroup } from '../components/landing/CollapsibleCard';
 import { useSettings } from '../context/SettingsContext';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import CursorGlow from '../components/ui/CursorGlow';
 import LandingBackground from '../components/LandingBackground';
-import FeaturedFeeds from '../components/FeaturedFeeds';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import SearchBar from '../components/ui/SearchBar';
 import TrailGameLink from '../components/ui/TrailGameLink';
+import LandingModules from '../components/landing/LandingModules';
 import LandingTagline from '../components/landing/LandingTagline';
 import PickerModeRow from '../components/landing/PickerModeRow';
 import { SEARCH_SCOPES } from '../utils/playerQuery';
@@ -248,7 +243,7 @@ export default function LandingPage() {
 
   return (
     // One open feature card at a time, page-wide — see CollapsibleCard.
-    <CollapsibleCardGroup>
+    <>
     <div
       className={`min-h-screen relative ${isRedPillMode ? 'bg-[#1a0a0a]' : 'bg-blue-900/20'}`}
     >
@@ -533,30 +528,22 @@ export default function LandingPage() {
         </div>
 
         {/* Features Section (Learn More scrolls here: three principles + cards) */}
-        <div id="features" className="pt-10 pb-0 px-4">
+        <div id="features" className="pt-10 pb-12 px-4">
           <div className="max-w-7xl mx-auto">
-            {/* The three promises — a one-line card like the rest; see WhyTruegleCard. */}
-            <WhyTruegleCard safeModeOff={safeModeOff} canDisableSafeSearch={canDisableSafeSearch} toggleSafeMode={toggleSafeMode} />
-
-            {/* True Tube — right under the promise it's keeping, not tucked
-                into the hero where it only showed for some pill modes. */}
-            <div className="mb-4 max-w-3xl mx-auto">
-              <PlayerFeatureCard onOpen={() => { setPillMode('tube'); navigate('/tube'); }} />
-            </div>
-
-            {/* Chat Modes + TrueGLE 1.3 (GLE), combined into one card. */}
-            <ThreeCards />
+            {/* The whole page's modules — Why, Search, Chat, Tube, Feed, News,
+                Markets — as ONE grid of tiles that open one at a time; see
+                LandingModules. Tube is opened through the pill so the pill
+                and the page agree. */}
+            <LandingModules
+              safeModeOff={safeModeOff}
+              canDisableSafeSearch={canDisableSafeSearch}
+              toggleSafeMode={toggleSafeMode}
+              onOpenTube={() => { setPillMode('tube'); navigate('/tube'); }}
+            />
           </div>
         </div>
 
-        {/* Mode showcase + Trending feed — bonus content beneath the core
-            spec flow (not one of the 9 numbered landing sections, kept
-            because the live trending feed is real backend-integrated work). */}
-        <ModesAndTrending />
 
-        {/* Featured Creator slot — surfaces the weekly featured YouTuber's
-            latest upload, links to their on-site /creator page. */}
-        <FeaturedFeeds />
 
         {/* No rewards CTA and no ad slot: advertising was removed from Truegle
             entirely on 2026-08-24, and the rewards program it funded went with
@@ -945,7 +932,7 @@ export default function LandingPage() {
       )}
 
     </div>
-    </CollapsibleCardGroup>
+    </>
   );
 }
 

@@ -199,7 +199,32 @@ export const PROVIDERS = [
     status: 'open',
     note: "Our partner creators' own uploads — no account needed",
   },
+  // YouTube coverage of today's news and markets, as video. Found by Truegle's
+  // own search (a search, not a chosen list of channels — see the backend's
+  // NewsVideos.js), and the same clips the landing page's News and Markets
+  // cards show. BROWSE ONLY: these are two shelves you open on purpose, not
+  // voices for the mixed Home timeline (BROWSE_ONLY below), and each costs a
+  // search. The `label` is what the backend stamps on each post, and what the
+  // card finds its colour by — keep them in step. Two shades of the Feed's
+  // yellow, so the shelves read as part of it.
+  {
+    id: 'newsvideo',
+    label: 'News Video',
+    colour: '#facc15',
+    status: 'open',
+    note: "Today's news on YouTube, found by our search — no account",
+  },
+  {
+    id: 'marketsvideo',
+    label: 'Market Analysis',
+    colour: '#ca8a04',
+    status: 'open',
+    note: 'Market analysis on YouTube, found by our search — no account',
+  },
 ];
+
+/** Sources that only ever appear when their Browse category is opened. */
+export const BROWSE_ONLY = new Set(['newsvideo', 'marketsvideo']);
 
 export const PROVIDER_IDS = PROVIDERS.map((p) => p.id);
 export const byId = (id) => PROVIDERS.find((p) => p.id === id) || null;
@@ -248,6 +273,8 @@ export const BACKEND_PLATFORMS = {
   tiktok: ['tiktok'],
   rumble: ['rumble'],
   truthsocial: ['truthsocial'],
+  newsvideo: ['newsvideo'],
+  marketsvideo: ['marketsvideo'],
   creators: ['creators'],
 };
 

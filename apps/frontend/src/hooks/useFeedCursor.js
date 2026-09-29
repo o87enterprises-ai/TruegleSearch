@@ -81,8 +81,10 @@ export function useFeedCursor(rows) {
     const idx = playable.findIndex((p) => p._rowKey === row?._key);
     let from = idx >= 0 ? playable.slice(idx) : null;
     if (!from) {
+      // A clip that is not in this list — e.g. a link to one that has since
+      // scrolled off the shelf — plays first with the list lined up behind it.
       const s = feedSource(row);
-      from = s ? [s] : [];
+      from = s ? [s, ...playable.filter((p) => p.pageUrl !== s.pageUrl)] : [];
     }
     if (!from.length) return false;
     startedRef.current = true;

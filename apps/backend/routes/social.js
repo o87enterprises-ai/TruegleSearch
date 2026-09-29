@@ -7,6 +7,7 @@ const logger = require('../utils/logger');
 // can call it directly rather than round-tripping through HTTP — see the
 // comment above module.exports in routes/creators.js.
 const { fetchCreatorsFeed } = require('./creators');
+const { fetchVideoLane } = require('../services/NewsVideoService');
 
 // Social media search using Apify API
 router.post('/search', async (req, res) => {
@@ -825,7 +826,8 @@ router.post('/feed', async (req, res) => {
     // Kick off all requested platform fetches in parallel; each is
     // independently fault-tolerant — a single failure doesn't kill the rest.
     const [redditResult, hnResult, ghResult, newsResult, communityResult,
-           mastodonResult, blueskyResult, lemmyResult, creatorsResult, ...searxResults] = await Promise.allSettled([
+           mastodonResult, blueskyResult, lemmyResult, creatorsResult,
+           newsVideoResult, marketsVideoResult, ...searxResults] = await Promise.allSettled([
       want('reddit') ? fetchReddit(q, limit, cur.reddit) : Promise.resolve(NONE),
       want('hackernews') ? fetchHackerNews(q, limit, cur.hackernews) : Promise.resolve(NONE),
       want('github') ? fetchGitHub(q, limit, cur.github) : Promise.resolve(NONE),
@@ -835,6 +837,12 @@ router.post('/feed', async (req, res) => {
       want('bluesky') ? fetchBluesky(q, limit, cur.bluesky) : Promise.resolve(NONE),
       want('lemmy') ? fetchLemmy(q, limit, cur.lemmy) : Promise.resolve(NONE),
       want('creators') ? fetchCreatorsFeed(q, limit, cur.creators) : Promise.resolve(NONE),
+      // YouTube coverage of today's news and markets. Asked for BY NAME only:
+      // 'all' does not include them (a merged timeline of everything is not
+      // improved by two more video lanes it never asked for, and each costs a
+      // search), so the Browse categories that want them list them.
+      requestedPlatforms?.includes('newsvideo') ? fetchVideoLane('newsvideo', q, limit, cur.newsvideo) : Promise.resolve(NONE),
+      requestedPlatforms?.includes('marketsvideo') ? fetchVideoLane('marketsvideo', q, limit, cur.marketsvideo) : Promise.resolve(NONE),
       // The SearXNG-backed platforms, in the fixed order of SEARX_IDS so the
       // results can be zipped back onto their ids below.
       ...SEARX_IDS.map((id) => (want(id)
@@ -852,6 +860,8 @@ router.post('/feed', async (req, res) => {
     const bluesky = settle(blueskyResult).items;
     const lemmy = settle(lemmyResult).items;
     const creators = settle(creatorsResult).items;
+    const newsvideo = settle(newsVideoResult).items;
+    const marketsvideo = settle(marketsVideoResult).items;
 
     // Zip the SearXNG results back onto their ids. Built as objects rather than
     // named consts because there are six of them and they are all identical —
@@ -878,10 +888,12 @@ router.post('/feed', async (req, res) => {
     if (blueskyResult.status === 'rejected') logger.warn('Bluesky feed failed:', blueskyResult.reason?.message);
     if (lemmyResult.status === 'rejected') logger.warn('Lemmy feed failed:', lemmyResult.reason?.message);
     if (creatorsResult.status === 'rejected') logger.warn('Creators feed failed:', creatorsResult.reason?.message);
+    if (newsVideoResult.status === 'rejected') logger.warn('News video lane failed:', newsVideoResult.reason?.message);
+    if (marketsVideoResult.status === 'rejected') logger.warn('Market video lane failed:', marketsVideoResult.reason?.message);
 
     // Merged chronological feed across all platforms
     const all_results = [...reddit, ...hackernews, ...github, ...news, ...community,
-      ...mastodon, ...bluesky, ...lemmy, ...creators, ...searxAll].sort((a, b) => {
+      ...mastodon, ...bluesky, ...lemmy, ...creators, ...newsvideo, ...marketsvideo, ...searxAll].sort((a, b) => {
       if (!a.date && !b.date) return 0;
       if (!a.date) return 1;
       if (!b.date) return -1;
@@ -892,7 +904,7 @@ router.post('/feed', async (req, res) => {
       query: q,
       results: all_results,
       platforms: {
-        reddit, hackernews, github, news, community, mastodon, bluesky, lemmy, creators, ...searxItems,
+        reddit, hackernews, github, news, community, mastodon, bluesky, lemmy, creators, newsvideo, marketsvideo, ...searxItems,
       },
       // What to send back to continue. A platform that has run out reports
       // null, which is how the client knows to stop asking rather than
@@ -907,6 +919,8 @@ router.post('/feed', async (req, res) => {
         bluesky: settle(blueskyResult).next,
         lemmy: settle(lemmyResult).next,
         creators: settle(creatorsResult).next,
+        newsvideo: settle(newsVideoResult).next,
+        marketsvideo: settle(marketsVideoResult).next,
         ...searxCursors,
       },
       // WHY, not just THAT.
@@ -927,6 +941,8 @@ router.post('/feed', async (req, res) => {
         bluesky: blueskyResult.status === 'rejected' ? (blueskyResult.reason?.message || 'unavailable') : null,
         lemmy: lemmyResult.status === 'rejected' ? (lemmyResult.reason?.message || 'unavailable') : null,
         creators: creatorsResult.status === 'rejected' ? (creatorsResult.reason?.message || 'unavailable') : null,
+        newsvideo: newsVideoResult.status === 'rejected' ? (newsVideoResult.reason?.message || 'unavailable') : null,
+        marketsvideo: marketsVideoResult.status === 'rejected' ? (marketsVideoResult.reason?.message || 'unavailable') : null,
         ...searxErrors,
       },
     });

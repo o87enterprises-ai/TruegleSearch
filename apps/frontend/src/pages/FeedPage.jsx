@@ -6,7 +6,7 @@ import SearchPageShell from '../components/layout/SearchPageShell';
 import SearchBar from '../components/ui/SearchBar';
 import FeedLinkSubmit from '../components/feed/FeedLinkSubmit';
 import FeedCard from '../components/feed/FeedCards';
-import { PROVIDERS, platformsFor, needsAuth, isConnectable } from '../config/socialProviders';
+import { PROVIDERS, platformsFor, needsAuth, isConnectable, BROWSE_ONLY } from '../config/socialProviders';
 import FeedServers from '../components/feed/FeedServers';
 import FeedModeSelector from '../components/feed/FeedModeSelector';
 import FeedBrowse from '../components/feed/FeedBrowse';
@@ -135,7 +135,9 @@ export default function FeedPage() {
   const platforms = useMemo(() => {
     if (person) return platformsFor([person.platform]);
     const all = platformsFor(activeIds);
-    if (!openCategory) return all;
+    // Home mixes every voice; the video news and markets shelves are opened on
+    // purpose, so they stay out of it (and out of its request).
+    if (!openCategory) return all.filter((p) => !BROWSE_ONLY.has(p));
     return platformsForCategory(openCategory, all);
   }, [activeIds.join(','), openCategory?.id, person?.platform]);
   const feed = useSocialFeed({
@@ -418,8 +420,14 @@ function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
   useEffect(() => {
     if (!autoPlayUrl || autoPlayedRef.current || !items.length) return;
     const hit = items.find((it) => (it.permalink || it.url) === autoPlayUrl);
-    if (hit) { autoPlayedRef.current = true; beginFrom(hit); }
-  }, [autoPlayUrl, items, beginFrom]);
+    if (hit) { autoPlayedRef.current = true; beginFrom(hit); return; }
+    // Not in what loaded — the shelf moved on since the card was drawn (news
+    // and markets refresh through the day). Play what was asked for anyway, with
+    // the shelf lined up behind it, rather than opening the feed and doing
+    // nothing. Waits for the load to settle so a slow page is not mistaken for
+    // an absent clip.
+    if (!loading) { autoPlayedRef.current = true; beginFrom({ permalink: autoPlayUrl, url: autoPlayUrl, title: '' }); }
+  }, [autoPlayUrl, items, loading, beginFrom]);
 
   // SCROLLING PAST THE PLAYING CARD NO LONGER STOPS IT — it holds.
   //

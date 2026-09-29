@@ -48,6 +48,22 @@ export const CATEGORIES = [
     platforms: ['news'],
   },
   {
+    // NEWS AND MARKETS, AS VIDEO — YouTube coverage of today, found by our own
+    // search (not a list of chosen channels). The same clips the landing page's
+    // News and Markets cards show: a tap there lands here with that clip playing
+    // and the rest of the shelf lined up behind it.
+    id: 'news',
+    label: 'News',
+    blurb: "Today's headlines, as video",
+    platforms: ['newsvideo'],
+  },
+  {
+    id: 'markets',
+    label: 'Markets',
+    blurb: 'Market analysis, as video',
+    platforms: ['marketsvideo'],
+  },
+  {
     id: 'music',
     label: 'Music',
     blurb: 'What people are listening to and arguing about',

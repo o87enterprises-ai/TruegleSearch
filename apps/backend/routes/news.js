@@ -33,11 +33,7 @@ const router = express.Router();
 const GeoService = require('../services/GeoService');
 const logger = require('../utils/logger');
 const { printHeadlines, markets, COUNTRY } = require('../services/NewsSources');
-const OembedService = require('../services/OembedService');
-const SearchService = require('../services/SearchService');
-const { shapeVideos, queryFor } = require('../services/NewsVideos');
-
-const searchService = new SearchService();
+const { youtubeVideos } = require('../services/NewsVideoService');
 
 // -- cache -------------------------------------------------------------------
 // One process-local Map, same as routes/creators.js. Serverless gives every
@@ -66,28 +62,6 @@ async function cached(key, ttl, produce) {
 function stale(key) {
   const hit = cache.get(key);
   return hit ? { ...hit.value, stale: true } : null;
-}
-
-// -- video: YouTube, through our own index ------------------------------------
-// The landing cards' "reports": thumbnails that play in the Truegle player.
-// See services/NewsVideos.js for why this is a search and not a channel list.
-async function youtubeVideos(kind, scope, country) {
-  let region = '';
-  try { region = new Intl.DisplayNames(['en'], { type: 'region' }).of(country) || ''; } catch { /* keep world */ }
-  const query = `${queryFor(kind, scope, region)} site:youtube.com`;
-  const rows = await searchService.performSearch(
-    query,
-    { category: 'videos', dateRange: 'week', bias: 'all', sortBy: 'relevance', order: 'desc', safeSearch: 'safe', page: 1, perPage: 30 },
-    'blue-pill',
-  );
-  const items = shapeVideos(rows, { limit: 12 });
-  // Who made each one. oEmbed is the free, keyless answer and it is cached for
-  // hours; a miss just leaves the byline off.
-  try {
-    const authors = await OembedService.lookupMany(items.map((v) => v.url));
-    items.forEach((v) => { v.channel = authors[v.url]?.author || null; });
-  } catch { /* bylines are decoration */ }
-  return { items };
 }
 
 // -- routes -─────────────────────────────────────────────────────────────────
@@ -140,7 +114,7 @@ router.get('/videos', async (req, res) => {
   // entry instead of one per country.
   const key = kind === 'markets' ? 'yt:markets' : scope === 'world' ? 'yt:news:world' : `yt:news:local:${country}`;
   try {
-    const value = await cached(key, TTL.youtube, () => youtubeVideos(kind, scope, country));
+    const value = await cached(key, TTL.youtube, () => youtubeVideos(kind, { scope, country }));
     res.set('Cache-Control', 'public, max-age=300');
     return res.json({ kind, scope, country, videos: value.items || [] });
   } catch (err) {

@@ -87,6 +87,24 @@ async function makeContext(opts = {}) {
       // from a copy-paste of an existing row. A request asking ONLY for
       // 'community' — which is what the Collections category does — answers
       // with a Community-badged row instead, so that distinction is testable.
+      // The two video shelves answer with their own distinct rows too, so a
+      // row's WIRING (the right lane reached the screen) is testable, not just
+      // "some row rendered". Platform names are what the backend stamps.
+      const only = (id) => Array.isArray(body?.platforms) && body.platforms.length === 1 && body.platforms[0] === id;
+      for (const [lane, platform, title, vid] of [['newsvideo', 'News Video', 'A news video from today', 'newsAAAAA01'], ['marketsvideo', 'Market Analysis', 'A market analysis from today', 'mktAAAAAA01']]) {
+        if (only(lane)) {
+          return json({
+            query: body?.query || '',
+            results: [{
+              id: vid, platform, title, url: `https://www.youtube.com/watch?v=${vid}`, permalink: `https://www.youtube.com/watch?v=${vid}`,
+              snippet: null, author: 'Some Channel', subreddit: null, date: '2026-09-29T00:00:00Z', score: null, comments: null,
+              thumbnail: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`,
+            }],
+            nextCursor: { [lane]: null },
+            errors: { [lane]: null },
+          });
+        }
+      }
       const onlyCommunity = Array.isArray(body?.platforms)
         && body.platforms.length === 1 && body.platforms[0] === 'community';
       if (onlyCommunity) {
@@ -352,9 +370,17 @@ const usable = await page.evaluate(async () => {
 await page.keyboard.press('Escape');
 check(usable.length >= 5, 'the feed has more than a couple of keyless sources to draw on',
   `${usable.length}: ${usable.join(',')}`);
-check(arrived.every((c) => JSON.stringify([...c.body.platforms].sort()) === JSON.stringify(usable)),
-  '…and only across the servers that are switched on, with nothing smuggled in',
-  `sent ${JSON.stringify(arrived[0]?.body?.platforms)} vs usable ${JSON.stringify(usable)}`);
+// The two video shelves (News Video, Market Analysis) are servers too — they
+// can be switched off — but they are BROWSE-ONLY: opened on purpose through
+// their category, never mixed into Home, where each would cost a search and
+// flood the timeline with news clips.
+const BROWSE_ONLY = ['newsvideo', 'marketsvideo'];
+const usableHome = usable.filter((id) => !BROWSE_ONLY.includes(id));
+check(usable.includes('newsvideo') && usable.includes('marketsvideo'), 'News Video and Market Analysis are listed as servers', usable.join(','));
+check(arrived.every((c) => JSON.stringify([...c.body.platforms].sort()) === JSON.stringify(usableHome)),
+  '…and Home is asked only across the servers that are switched on (minus the browse-only video shelves), with nothing smuggled in',
+  `sent ${JSON.stringify(arrived[0]?.body?.platforms)} vs usable ${JSON.stringify(usableHome)}`);
+check(arrived.every((c) => !(c.body.platforms || []).some((pl) => BROWSE_ONLY.includes(pl))), 'Home never asks for the browse-only video shelves');
 // The rule this replaces was "never send reddit", which was right while Reddit
 // was the one source that could not answer and is wrong now that it can. The
 // durable version: never send a platform the page does not list as usable —
@@ -609,6 +635,18 @@ const collectionsText = await page.locator('[data-browse-row="collections"]').in
 check(/A link someone posted here/i.test(collectionsText),
   'the Collections row shows user-submitted posts, not generic feed rows',
   collectionsText.replace(/\s+/g, ' ').slice(0, 120));
+
+// ── 10c. News and Markets ──────────────────────────────────────────────────
+// The two video shelves. Asserted by NAME for the same reason as Collections:
+// a misspelled lane id makes the row vanish while every other row still renders.
+const browseAsked = calls.filter((c) => c.path === '/api/social/feed').map((c) => c.body || {});
+check(rows.includes('news') && rows.includes('markets'),
+  'Browse carries News and Markets rows', rows.join(','));
+check(browseAsked.some((b) => (b.platforms || []).length === 1 && b.platforms[0] === 'newsvideo'), 'the News row asks for the news video lane and nothing else', JSON.stringify(browseAsked.map((b) => b.platforms)));
+check(browseAsked.some((b) => (b.platforms || []).length === 1 && b.platforms[0] === 'marketsvideo'), 'the Markets row asks for the market analysis lane and nothing else');
+await until(() => page.locator('[data-browse-row="news"]').innerText().then((t) => /A news video from today/.test(t)), { what: 'the News row to fill' }).catch(() => {});
+check(/A news video from today/.test(await page.locator('[data-browse-row="news"]').innerText()), 'the News row shows the news video, not a generic row');
+check(/A market analysis from today/.test(await page.locator('[data-browse-row="markets"]').innerText()), 'the Markets row shows the market analysis, not a generic row');
 
 // Opening a category narrows the timeline to that category and offers the way
 // back. Back goes to Browse, not Home: that is where you came from.

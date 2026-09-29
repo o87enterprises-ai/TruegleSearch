@@ -1,24 +1,22 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Newspaper, LineChart, Globe, MapPin, Play, ExternalLink } from 'lucide-react';
-import CollapsibleCard from './CollapsibleCard';
-import { usePlayer } from '../../context/PlayerContext';
-import { getPlayable } from '../../utils/videoEmbed';
+import { Globe, MapPin, Play, ExternalLink } from 'lucide-react';
 
-// The landing page's News and Markets — two one-line cards like every other
-// card on the page (CollapsibleCard, one open at a time, opened by a hand).
+// The landing page's News and Markets — the bodies of their two tiles (see
+// LandingModules: one open at a time, opened by a hand).
 //
 // THE REPORTS ARE YOUTUBE'S, AS THUMBNAILS THAT PLAY IN TRUEGLE (owner,
-// 2026-09-29). Tapping one starts it in the Truegle player and lines up the
-// rest of the row behind it. They come from GET /api/news/videos, which asks
+// 2026-09-29). Tapping one opens it in the Feed's own timeline — the News or
+// Markets category, with that clip playing and the shelf lined up behind it —
+// rather than starting a second, separate player on the landing page. They come
+// from GET /api/news/videos, which asks
 // our own index for YouTube coverage of today's news / today's markets — a
 // search, deliberately not a list of chosen channels (see
 // backend/services/NewsVideos.js). That is what the cards say underneath.
 //
-// NOTHING IS ASKED FOR WHILE A CARD IS ONE LINE. CollapsibleCard only mounts
-// its body when open, so every fetch and every polling interval below lives in
-// a body component: opening starts it, closing (or opening another card, which
+// NOTHING IS ASKED FOR WHILE A TILE IS CLOSED. LandingModules only mounts the
+// open tile's body, so every fetch and every polling interval below lives in a
+// body component: opening starts it, closing (or opening another tile, which
 // closes this one) tears it down. That is the whole "minimise silences it"
 // contract, with no separate minimise control to get confused by.
 //
@@ -87,26 +85,17 @@ function useJson(url) {
 }
 
 /**
- * A row of YouTube thumbnails. Tapping one plays it in the Truegle player and
- * lines up the rest of the row behind it — auto-advance is the player's own
- * feed-follow, the same as the Feed page.
+ * A row of YouTube thumbnails. Tapping one opens it in the Feed timeline with
+ * the rest of the shelf lined up behind it — auto-advance is the player's own
+ * feed-follow, the same as on the Feed page.
  */
-function VideoRail({ videos, status, emptyText, label }) {
-  const { startFeed, setMinimized } = usePlayer();
+function VideoRail({ videos, status, emptyText, label, category }) {
+  const navigate = useNavigate();
 
-  const sources = useMemo(() => (videos || []).map((v) => {
-    const playable = getPlayable(v.url);
-    return playable ? {
-      ...playable, title: v.title, pageUrl: v.url, poster: v.thumbnail, channel: v.channel || undefined,
-    } : null;
-  }), [videos]);
-
-  const play = (i) => {
-    const run = sources.slice(i).filter(Boolean);
-    if (!run.length) return;
-    startFeed(run);
-    setMinimized(false);
-  };
+  // Into the Feed timeline: the category shelf (same clips, same source) with
+  // this one already playing. FeedPage plays it even if the shelf has since
+  // moved on, so a stale card still works.
+  const play = (v) => navigate(`/feed?category=${category}&play=${encodeURIComponent(v.url)}`);
 
   if (status === 'loading' && !videos?.length) {
     return (
@@ -131,13 +120,13 @@ function VideoRail({ videos, status, emptyText, label }) {
       className="flex gap-3 overflow-x-auto snap-x snap-mandatory overscroll-x-contain pb-1 -mx-1 px-1"
       style={{ scrollbarWidth: 'none' }}
     >
-      {videos.map((v, i) => (
+      {videos.map((v) => (
         <button
           key={v.id}
           type="button"
           role="listitem"
           data-news-video={v.id}
-          onClick={() => play(i)}
+          onClick={() => play(v)}
           className="group snap-start shrink-0 w-[168px] text-left"
         >
           <div className="relative aspect-video rounded-lg overflow-hidden bg-white/5 border border-white/10 group-hover:border-white/30 transition-colors">
@@ -191,7 +180,7 @@ function HeadlineFallback({ country, tab }) {
   );
 }
 
-function NewsBody() {
+export function NewsBody() {
   const [country, setCountry] = useState(() => { try { return localStorage.getItem(COUNTRY_KEY) || ''; } catch { return ''; } });
   const [tab, setTab] = useState('local');
   const url = `${BACKEND}/api/news/videos?kind=news&scope=${tab}${country ? `&country=${country}` : ''}`;
@@ -239,10 +228,11 @@ function NewsBody() {
         videos={data?.videos}
         status={status}
         label="News videos"
+        category="news"
         emptyText={status === 'error' ? 'News videos are unavailable right now.' : 'No fresh news videos found right now.'}
       />
       {status !== 'loading' && !data?.videos?.length ? <HeadlineFallback country={country} tab={tab} /> : null}
-      <p className="mt-3 text-[10px] text-white/25 leading-snug">{SOURCE_NOTE}</p>
+      <p className="mt-3 text-[10px] text-white/30 leading-snug">{SOURCE_NOTE}</p>
     </div>
   );
 }
@@ -284,7 +274,7 @@ function MarketRow({ q }) {
   );
 }
 
-function MarketsBody() {
+export function MarketsBody() {
   const [markets, setMarkets] = useState(null);
   const [failed, setFailed] = useState(false);
   const [all, setAll] = useState(false);
@@ -340,68 +330,15 @@ function MarketsBody() {
         </>
       )}
 
-      <p className="mt-4 mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/45">Market analysis</p>
+      <p className="mt-4 mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/45">Analysis</p>
       <VideoRail
         videos={data?.videos}
         status={status}
         label="Market analysis videos"
+        category="markets"
         emptyText={status === 'error' ? 'Analysis videos are unavailable right now.' : 'No fresh analysis videos found right now.'}
       />
-      <p className="mt-3 text-[10px] text-white/25 leading-snug">
-        {SOURCE_NOTE} Indices and commodities are delayed and crypto is 7-day; sparklines are indicative. None of this is financial advice.
-      </p>
+      <p className="mt-3 text-[10px] text-white/30 leading-snug">{SOURCE_NOTE} Not financial advice.</p>
     </div>
-  );
-}
-
-const cardMotion = {
-  initial: { opacity: 0, y: 16 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true },
-};
-
-export default function NewsFeed() {
-  return (
-    <>
-      <motion.div {...cardMotion} className="max-w-2xl mx-auto px-4 mt-4">
-        <CollapsibleCard
-          data-news-card="news"
-          className="border-orange-500/30 hover:border-orange-400/50"
-          header={(
-            <>
-              <span className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg">
-                <Newspaper size={16} className="text-white" />
-              </span>
-              <h2 className="min-w-0 truncate text-base sm:text-lg font-bold bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-transparent">
-                News
-              </h2>
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse shrink-0" aria-hidden="true" />
-              <span className="text-[10px] text-orange-400/60 font-medium tracking-wide shrink-0">VIDEO</span>
-            </>
-          )}
-        >
-          <NewsBody />
-        </CollapsibleCard>
-      </motion.div>
-
-      <motion.div {...cardMotion} className="max-w-2xl mx-auto px-4 mt-4">
-        <CollapsibleCard
-          data-news-card="markets"
-          className="border-emerald-500/30 hover:border-emerald-400/50"
-          header={(
-            <>
-              <span className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-lg">
-                <LineChart size={16} className="text-white" />
-              </span>
-              <h2 className="min-w-0 truncate text-base sm:text-lg font-bold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
-                Markets
-              </h2>
-            </>
-          )}
-        >
-          <MarketsBody />
-        </CollapsibleCard>
-      </motion.div>
-    </>
   );
 }

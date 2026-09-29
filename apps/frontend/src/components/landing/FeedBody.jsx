@@ -1,13 +1,12 @@
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Play, Clapperboard } from 'lucide-react';
-import { useSocialFeed } from '../hooks/useSocialFeed';
-import CollapsibleCard from './landing/CollapsibleCard';
+import { Play } from 'lucide-react';
+import { useSocialFeed } from '../../hooks/useSocialFeed';
+import { CARD_ACCENT } from './cardTheme';
 
-// Landing "Featured Feeds" — the live Creators category itself, as one more
-// one-line card like every other on the page (one open at a time, opened by a
-// hand). The row inside is the same source Feed's own Browse shows under
-// "Creators". Tapping a card is an instant nav straight into the full Feed
+// Landing "Feed" — the live Creators category itself, as the body of the Feed
+// tile (one open at a time, opened by a hand). The row inside is the same
+// source Feed's own Browse shows under "Creators". Tapping a card is an
+// instant nav straight into the full Feed
 // page with the Creators category already open and that card already playing —
 // no separate landing-page player, no second copy of playback state to keep in
 // sync with Feed's own.
@@ -16,8 +15,8 @@ import CollapsibleCard from './landing/CollapsibleCard';
 // (useFeedCursor) — starting on a specific card there is what arms it, so
 // nothing extra is needed here beyond landing on the right card.
 //
-// THE FETCH LIVES IN THE BODY. CollapsibleCard only mounts its body when open,
-// so nothing is requested while this is a single line. The old version fetched
+// THE FETCH LIVES IN THE BODY. LandingModules only mounts the open tile's body,
+// so nothing is requested while the tile is closed. The old version fetched
 // on page load and hid itself if the list came back empty; a closed card can't
 // know that, so an empty list now says so when opened.
 function CreatorsRow() {
@@ -40,9 +39,6 @@ function CreatorsRow() {
 
   return (
     <div data-featured-feeds-body="">
-      <p className="text-white/60 text-xs leading-snug mb-3">
-        Independent voices, streamed right here — creators keep every view. Tap one to open the full feed and keep watching.
-      </p>
       {feed.loading && !posts.length && <p className="text-white/40 text-xs py-4">Loading creators…</p>}
       {!feed.loading && !posts.length && <p className="text-white/40 text-xs py-4">No creators to show right now.</p>}
       <div
@@ -79,32 +75,20 @@ function CreatorsRow() {
   );
 }
 
-export default function FeaturedFeeds() {
+// Feed, past its tile's pitch: the partner creators' latest, and the way in.
+export default function FeedBody() {
+  const navigate = useNavigate();
   return (
-    // The outer px-4 matches the section the other cards sit in, so this one is
-    // exactly their width on a phone too.
-    <section className="px-4 pt-4 pb-10">
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      className="max-w-2xl mx-auto px-4"
-    >
-      <CollapsibleCard
-        data-featured-feeds=""
-        className="border-orange-500/30 hover:border-orange-400/50"
-        header={(
-          <>
-            <span className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-purple-500 flex items-center justify-center shadow-lg">
-              <Clapperboard size={16} className="text-white" />
-            </span>
-            <h2 className="min-w-0 truncate text-base sm:text-lg font-bold gradient-orange-purple">Creators — Watch on Truegle</h2>
-          </>
-        )}
+    <div className="flex flex-col gap-3" data-feed-body="">
+      <CreatorsRow />
+      <button
+        type="button"
+        onClick={() => navigate('/feed')}
+        className="self-start text-xs font-semibold"
+        style={{ color: CARD_ACCENT.feed }}
       >
-        <CreatorsRow />
-      </CollapsibleCard>
-    </motion.div>
-    </section>
+        Open Feed →
+      </button>
+    </div>
   );
 }
