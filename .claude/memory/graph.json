@@ -2013,6 +2013,15 @@
         "status": "open",
         "ts": "2026-09-28",
         "created": "2026-09-28"
+      },
+      "gsc-service-account": {
+        "Id": "gsc-service-account",
+        "Type": "thread",
+        "Label": "Search Console API: waiting on owner to create service account + add as GSC user",
+        "body": "scripts/gsc.mjs (sites|sitemap|inspect|perf) is built and tested (npm run gsc:test). Needs env GSC_SA_JSON (service-account key JSON) and that account's email added as a user in Search Console. An API key cannot work. Google has no 'request indexing' API — that stays manual in the GSC UI.",
+        "status": "open",
+        "ts": "2026-09-29",
+        "created": "2026-09-29"
       }
     },
     "entity": {

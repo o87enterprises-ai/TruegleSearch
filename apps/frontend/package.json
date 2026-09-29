@@ -27,6 +27,7 @@
     "feedplayable:test": "node scripts/verify-feed-playable.mjs",
     "reels:test": "node scripts/verify-reels.mjs",
     "seo:test": "node scripts/verify-seo-pages.mjs",
+    "gsc:test": "node scripts/verify-gsc.mjs",
     "searchhistory:test": "node scripts/verify-search-history.mjs",
     "landing:test": "node scripts/verify-landing-cards.mjs",
     "silentembed:test": "node scripts/verify-silent-embed.mjs",
