@@ -97,6 +97,68 @@ export function seoFor(pathname) {
   };
 }
 
+// ── A creator's real uploads ──────────────────────────────────────────────
+// The roster's taglines are blank on purpose ("fill with the creator's own
+// words rather than a guess"), so a creator page has almost nothing of its own
+// to say. What is real and fresh is the channel's public upload feed, which
+// YouTube serves free and keyless. The edge function reads it (cached an hour)
+// and this puts the titles and dates in the page and the structured data.
+
+const decode = (t) => String(t || '')
+  .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+  .replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&');
+
+const tag = (block, name) => {
+  const m = new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`).exec(block);
+  return m ? decode(m[1]).trim() : '';
+};
+
+/**
+ * YouTube's channel Atom feed → { channelTitle, videos }. Total: bad or empty
+ * input gives no videos rather than throwing, since it runs on the edge for a
+ * page that must render either way.
+ * @returns {{ channelTitle: string, videos: {id:string,title:string,published:string,thumbnail:string,description:string}[] }}
+ */
+export function parseVideoFeed(xml, limit = 10) {
+  const text = String(xml || '');
+  const head = text.split('<entry>')[0];
+  const videos = [];
+  for (const block of text.split('<entry>').slice(1)) {
+    const id = tag(block, 'yt:videoId');
+    const title = tag(block, 'title').replace(/\s+/g, ' ').slice(0, 200);
+    if (!/^[\w-]{11}$/.test(id) || !title) continue;
+    const published = tag(block, 'published');
+    videos.push({
+      id,
+      title,
+      published: Number.isNaN(Date.parse(published)) ? '' : new Date(published).toISOString(),
+      // Derived from the id, like everywhere else: hqdefault exists for every
+      // video and comes from the image host the site already allows.
+      thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+      description: tag(block, 'media:description').replace(/\s+/g, ' ').slice(0, 300),
+    });
+    if (videos.length >= limit) break;
+  }
+  return { channelTitle: tag(head, 'title').slice(0, 100), videos };
+}
+
+/** A creator page with their latest uploads added — or unchanged when there are none. */
+export function withVideos(page, feed) {
+  const videos = feed?.videos || [];
+  if (!page?.creator || !videos.length) return page;
+  const c = page.creator;
+  // Google shows about 155 characters of a description, so the title that leads
+  // it is kept short enough for the rest to fit.
+  const first = videos[0].title.length > 70 ? `${videos[0].title.slice(0, 69).trim()}\u2026` : videos[0].title;
+  const lead = `Latest: \u201c${first}\u201d`;
+  const more = videos.length > 1 ? ` and ${videos.length - 1} more` : '';
+  return {
+    ...page,
+    videos,
+    description: `${lead}${more} from ${c.name}. Watch in True Tube, no tracking, no ads. The creator keeps every view.`,
+  };
+}
+
 const esc = (v) => String(v == null ? '' : v)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -106,7 +168,12 @@ export function crawlBlock(page) {
   const links = page.links
     .map(([href, label]) => `<li><a href="${esc(href)}">${esc(label)}</a></li>`)
     .join('');
-  return `<main id="seo-static"><h1>${esc(page.h1)}</h1><p>${esc(page.text)}</p><nav><ul>${links}</ul></nav></main>`;
+  // Plain text, not links: playing happens in the app, and a list of links
+  // into shareable player URLs would hand a crawler thousands of near-copies.
+  const uploads = page.videos?.length
+    ? `<h2>Latest uploads</h2><ul>${page.videos.map((v) => `<li>${esc(v.title)}${v.published ? ` <time datetime="${esc(v.published)}">${esc(v.published.slice(0, 10))}</time>` : ''}</li>`).join('')}</ul>`
+    : '';
+  return `<main id="seo-static"><h1>${esc(page.h1)}</h1><p>${esc(page.text)}</p>${uploads}<nav><ul>${links}</ul></nav></main>`;
 }
 
 /** JSON-LD for a creator page: who they are and where they are on the web. */
@@ -124,5 +191,28 @@ export function creatorSchema(page) {
       url: page.canonical,
       sameAs: (c.socials || []).map((s) => s.url).filter(Boolean),
     },
+  };
+}
+
+/** VideoObject list for a creator page that has uploads; the page itself plays them. */
+export function videosSchema(page) {
+  if (!page?.videos?.length) return null;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: `${page.creator.name} \u2014 latest videos`,
+    itemListElement: page.videos.map((v, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      item: {
+        '@type': 'VideoObject',
+        name: v.title,
+        ...(v.description ? { description: v.description } : { description: v.title }),
+        thumbnailUrl: v.thumbnail,
+        ...(v.published ? { uploadDate: v.published } : {}),
+        embedUrl: `https://www.youtube.com/embed/${v.id}`,
+        url: page.canonical,
+      },
+    })),
   };
 }

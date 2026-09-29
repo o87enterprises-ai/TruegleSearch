@@ -39,7 +39,7 @@
  */
 
 import { parsePlayerParams } from '../src/utils/playerLink.js';
-import { seoFor, crawlBlock, creatorSchema } from '../src/utils/seoPages.js';
+import { seoFor, crawlBlock, creatorSchema, videosSchema, parseVideoFeed, withVideos } from '../src/utils/seoPages.js';
 
 // Known AI crawler families. Keys are substrings matched against User-Agent.
 const AI_BOTS = {
@@ -342,10 +342,10 @@ function injectSeoPage(html, page) {
   const tags = meta
     .map(([key, value]) => `<meta ${key.startsWith('og:') ? 'property' : 'name'}="${key}" content="${escapeAttr(value)}" />`)
     .join('');
-  const schema = creatorSchema(page);
-  const ld = schema
-    ? `<script type="application/ld+json">${JSON.stringify(schema).replace(/</g, '\\u003c')}</script>`
-    : '';
+  const ld = [creatorSchema(page), videosSchema(page)]
+    .filter(Boolean)
+    .map((schema) => `<script type="application/ld+json">${JSON.stringify(schema).replace(/</g, '\\u003c')}</script>`)
+    .join('');
   out = out.replace(/<link\s+rel="canonical"[^>]*>\s*/i, '');
   out = out.replace(
     '</head>',
@@ -354,6 +354,35 @@ function injectSeoPage(html, page) {
   out = out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeAttr(page.title)}</title>`);
   // Real text and links for a crawler; the app replaces #root on mount.
   return out.replace('<div id="root"></div>', `<div id="root">${crawlBlock(page)}</div>`);
+}
+
+// A creator's latest uploads, from YouTube's public channel feed (free, no key).
+// Cached an hour at the edge, and bounded to under two seconds: a slow or
+// failing YouTube must cost a creator page its video list, never the page. The
+// channel id comes from the roster, never from the URL.
+async function creatorFeed(creator, context) {
+  const cache = typeof caches !== 'undefined' ? caches.default : null;
+  const key = new Request(`${SITE}/__creator-feed/${creator.channelId}`);
+  try {
+    const hit = cache ? await cache.match(key) : null;
+    if (hit) return parseVideoFeed(await hit.text());
+  } catch { /* fall through to a fresh read */ }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 1800);
+  try {
+    const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${creator.channelId}`, { signal: controller.signal });
+    if (!res.ok) return null;
+    const xml = await res.text();
+    if (cache) {
+      const put = cache.put(key, new Response(xml, { headers: { 'Cache-Control': 'public, max-age=3600' } }));
+      if (context.waitUntil) context.waitUntil(put); else put.catch(() => {});
+    }
+    return parseVideoFeed(xml);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function onRequest(context) {
@@ -392,7 +421,10 @@ export async function onRequest(context) {
   } else if (isLink) {
     try { html = injectLinkPreview(html, url); } catch { /* keep the shell */ }
   } else if (seoPage) {
-    try { html = injectSeoPage(html, seoPage); } catch { /* keep the shell */ }
+    try {
+      const page = seoPage.creator ? withVideos(seoPage, await creatorFeed(seoPage.creator, context)) : seoPage;
+      html = injectSeoPage(html, page);
+    } catch { /* keep the shell */ }
   } else if (isTube) {
     // A shared queue gets the clip's own card; the bare page gets True Tube's.
     // `p` is the packed queue form (utils/playerLinkPack) — it carries the same

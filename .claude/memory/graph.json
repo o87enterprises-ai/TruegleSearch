@@ -1520,6 +1520,14 @@
         "body": "Bug found 2026-09-29: SearchBar.saveToRecentSearches ran ONLY when a suggestion was picked, so typed+Enter searches never reached history on any page. Fixed in trySubmit (skips pasted links; honors settings.saveHistory). UniversalSearch.submitSearch also recordSearch() to player memory on Tube (deduped 1.5s because SearchBar fires onSubmit AND onSearch). playerSearchMemory now honors saveHistory=false. Test: npm run searchhistory:test (9).",
         "ts": "2026-09-29",
         "created": "2026-09-29"
+      },
+      "seo-round2-creator-uploads": {
+        "Id": "seo-round2-creator-uploads",
+        "Type": "decision",
+        "Label": "Creator pages carry real latest uploads from YouTube feed at the edge",
+        "body": "functions/_middleware.js creatorFeed(): for roster creators only, fetch https://www.youtube.com/feeds/videos.xml?channel_id=<roster channelId> (free/keyless), cache 1h in caches.default, 1.8s abort; parseVideoFeed/withVideos/videosSchema in src/utils/seoPages.js add 'Latest uploads' list + VideoObject ItemList JSON-LD + description leading with latest title. Failure/timeout/garbage => plain Round-1 page unchanged. Taglines stay blank on purpose (no invented copy). Only creator pages touch YouTube. Verified on all 9 live feeds. seo:test 77.",
+        "ts": "2026-09-29",
+        "created": "2026-09-29"
       }
     },
     "thread": {

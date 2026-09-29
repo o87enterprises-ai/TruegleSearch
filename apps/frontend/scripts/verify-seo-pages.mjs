@@ -9,6 +9,9 @@
  *   - each surface gets its OWN title, description, and a single canonical
  *     pointing at itself (never "/"), plus a crawlable h1 and links in #root
  *   - creator pages carry ProfilePage JSON-LD, and only real roster slugs
+ *   - creator pages carry the channel's REAL latest uploads (title, date,
+ *     VideoObject data) from YouTube's public feed — and fall back to the plain
+ *     page, untouched, when that feed is slow, down or garbage
  *   - an unknown slug, "/", "/search" and the other routes are left alone
  *   - /tube and /w still get their own previews (no regression)
  *   - nothing in the URL is echoed into the page
@@ -26,6 +29,30 @@ const SHELL = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
 const { onRequest } = await server.ssrLoadModule('/functions/_middleware.js');
 const { CREATORS } = await server.ssrLoadModule('/src/content/creators.js');
+const { parseVideoFeed } = await server.ssrLoadModule('/src/utils/seoPages.js');
+
+// A channel feed in YouTube's Atom shape. `&amp;`-style escapes are how the real
+// one carries an ampersand or an angle bracket in a title.
+const entry = (id, title, published, desc = '') => `<entry><id>yt:video:${id}</id><yt:videoId>${id}</yt:videoId>`
+  + `<title>${title}</title><published>${published}</published><media:group><media:title>${title}</media:title>`
+  + `<media:thumbnail url="https://i3.ytimg.com/vi/${id}/hqdefault.jpg"/><media:description>${desc}</media:description></media:group></entry>`;
+const FEED = (entries) => `<?xml version="1.0"?><feed><yt:channelId>UCx</yt:channelId><title>True Story718</title><author><name>True Story718</name></author>${entries.join('')}</feed>`;
+const VIDEOS = [
+  entry('aaaaaaaaa01', 'Coincidences &amp; patterns: what is really going on?', '2026-09-25T00:37:37+00:00', 'A description &lt;here&gt;'),
+  entry('aaaaaaaaa02', 'Second video', '2026-09-20T10:00:00+00:00'),
+  entry('aaaaaaaaa03', '&lt;script&gt;alert(1)&lt;/script&gt; hostile title', '2026-09-19T10:00:00+00:00'),
+];
+
+// YouTube is stubbed: `feedMode` is 'ok' | 'down' | 'garbage' | 'hang'.
+let feedMode = 'down';
+let feedAsked = [];
+globalThis.fetch = async (url, opts) => {
+  feedAsked.push(String(url));
+  if (feedMode === 'hang') return new Promise((_, reject) => { opts?.signal?.addEventListener('abort', () => reject(new Error('aborted'))); });
+  if (feedMode === 'down') return new Response('nope', { status: 503 });
+  if (feedMode === 'garbage') return new Response('<html>not a feed</html>', { status: 200 });
+  return new Response(FEED(VIDEOS), { status: 200 });
+};
 
 async function fetchAs(path, ua = 'Mozilla/5.0 (Linux; Android 14) Chrome/128 Mobile') {
   const res = await onRequest({
@@ -35,6 +62,7 @@ async function fetchAs(path, ua = 'Mozilla/5.0 (Linux; Android 14) Chrome/128 Mo
   });
   return res.text();
 }
+const ok_ = ok;
 const one = (html, re) => (html.match(re) || []).length;
 const canon = (html) => [...html.matchAll(/<link\s+rel="canonical"\s+href="([^"]*)"/g)].map((m) => m[1]);
 const title = (html) => /<title>([^<]*)<\/title>/.exec(html)?.[1];
@@ -74,6 +102,48 @@ for (const c of CREATORS) {
   ok(data?.['@type'] === 'ProfilePage' && data.mainEntity?.name === 'True Story' && data.mainEntity.sameAs?.length > 0,
     'a creator page carries ProfilePage JSON-LD with their channel', data?.mainEntity?.sameAs?.[0]);
   ok(canon(html)[0] === 'https://truegle.info/creator/true-story', 'a trailing slash does not change the canonical');
+}
+
+// ── a creator's real uploads ────────────────────────────────────────────────
+{
+  const parsed = parseVideoFeed(FEED(VIDEOS));
+  ok_(parsed.channelTitle === 'True Story718' && parsed.videos.length === 3, 'the feed parses: channel name and every entry', `${parsed.channelTitle} · ${parsed.videos.length}`);
+  ok_(parsed.videos[0].title === 'Coincidences & patterns: what is really going on?', 'XML entities in a title are decoded');
+  ok_(parsed.videos[0].thumbnail === 'https://i.ytimg.com/vi/aaaaaaaaa01/hqdefault.jpg' && parsed.videos[0].published === '2026-09-25T00:37:37.000Z', 'thumbnail and date are derived, not trusted');
+  ok_(parseVideoFeed('').videos.length === 0 && parseVideoFeed('<html>').videos.length === 0 && parseVideoFeed(null).videos.length === 0, 'empty and garbage input give no videos rather than an error');
+  ok_(parseVideoFeed(FEED(Array.from({ length: 30 }, (_, i) => entry(`bbbbbbbb${String(i).padStart(3, '0')}`, `Video ${i}`, '2026-09-01T00:00:00+00:00')))).videos.length === 10, 'at most ten uploads');
+  ok_(parseVideoFeed(FEED([entry('short', 'Bad id', '2026-09-01T00:00:00+00:00')])).videos.length === 0, 'an entry without a valid video id is dropped');
+
+  feedMode = 'ok'; feedAsked = [];
+  const html = await fetchAs('/creator/true-story');
+  ok_(feedAsked.length === 1 && feedAsked[0] === 'https://www.youtube.com/feeds/videos.xml?channel_id=UCQT9VG5hpLKp8of41fvDdtw', 'the edge asks YouTube for THAT creator\'s channel, taken from the roster', feedAsked.join(' '));
+  ok_(/<h2>Latest uploads<\/h2>/.test(html) && html.includes('Coincidences &amp; patterns: what is really going on?') && html.includes('<time datetime="2026-09-25T00:37:37.000Z">2026-09-25</time>'), 'the page lists the latest uploads with dates');
+  ok_(/name="description" content="Latest: \u201cCoincidences &amp; patterns/.test(html), 'the description leads with the latest upload');
+  const blocks = [...html.matchAll(/<script type="application\/ld\+json">([^<]*)<\/script>/g)].map((m) => { try { return JSON.parse(m[1]); } catch { return null; } });
+  const list = blocks.find((b) => b?.['@type'] === 'ItemList');
+  ok_(list?.itemListElement?.length === 3 && list.itemListElement[0].item['@type'] === 'VideoObject'
+    && list.itemListElement[0].item.embedUrl === 'https://www.youtube.com/embed/aaaaaaaaa01' && list.itemListElement[0].item.uploadDate === '2026-09-25T00:37:37.000Z',
+  'VideoObject data for each upload', `${list?.itemListElement?.length} items`);
+  ok_(blocks.some((b) => b?.['@type'] === 'ProfilePage'), '…alongside the profile data');
+  ok_(!html.includes('<script>alert(1)') && !/<script>\s*alert/.test(html) && html.includes('&lt;script&gt;alert(1)&lt;/script&gt; hostile title'), 'a hostile title is escaped, never markup');
+  ok_(canon(html).length === 1 && canon(html)[0] === 'https://truegle.info/creator/true-story', 'the canonical is still the creator\'s own page');
+
+  // A feed that is down, garbage or hanging costs the video list, never the page.
+  const plain = (await (async () => { feedMode = 'down'; return fetchAs('/creator/true-story'); })());
+  for (const mode of ['down', 'garbage']) {
+    feedMode = mode;
+    const h = await fetchAs('/creator/true-story');
+    ok_(h === plain && !h.includes('Latest uploads') && title(h)?.startsWith('True Story'), `YouTube ${mode}: the page is exactly the plain creator page`);
+  }
+  feedMode = 'hang';
+  const t0 = Date.now();
+  const hung = await fetchAs('/creator/true-story');
+  ok_(Date.now() - t0 < 3500 && hung === plain, 'YouTube hanging is cut off in under two seconds and the page still renders', `${Date.now() - t0}ms`);
+
+  // Only creator pages talk to YouTube.
+  feedMode = 'ok'; feedAsked = [];
+  await fetchAs('/green'); await fetchAs('/creators'); await fetchAs('/'); await fetchAs('/creator/not-a-real-creator');
+  ok_(feedAsked.length === 0, 'no other page, and no unknown slug, ever asks YouTube', feedAsked.join(' ') || 'none');
 }
 
 // ── what must NOT change ───────────────────────────────────────────────────
