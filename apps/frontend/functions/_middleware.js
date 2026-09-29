@@ -353,7 +353,17 @@ function injectSeoPage(html, page) {
   );
   out = out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeAttr(page.title)}</title>`);
   // Real text and links for a crawler; the app replaces #root on mount.
-  return out.replace('<div id="root"></div>', `<div id="root">${crawlBlock(page)}</div>`);
+  //
+  // The shell every client route is rewritten to is the prerendered HOMEPAGE, so
+  // #root is not empty there: it holds the homepage's static body between
+  // markers (see scripts/prerender.mjs). Swap that, or a crawler reads this
+  // page's title over the homepage's text. An unprerendered shell (dev) has an
+  // empty root instead.
+  const block = crawlBlock(page);
+  const marked = /<!--truegle-static-->[\s\S]*?<!--\/truegle-static-->/;
+  return marked.test(out)
+    ? out.replace(marked, () => block)
+    : out.replace('<div id="root"></div>', () => `<div id="root">${block}</div>`);
 }
 
 // A creator's latest uploads, from YouTube's public channel feed (free, no key).

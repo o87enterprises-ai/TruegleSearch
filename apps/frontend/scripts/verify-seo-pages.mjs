@@ -25,7 +25,12 @@ import { createServer } from 'vite';
 let pass = 0; let fail = 0;
 const ok = (c, l, d = '') => { if (c) { pass++; console.log(`PASS ${l}${d ? ` — ${d}` : ''}`); } else { fail++; console.error(`FAIL ${l}${d ? ` — ${d}` : ''}`); } };
 
-const SHELL = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+// The shell a client route is really served: the PRERENDERED homepage, whose
+// #root already holds the homepage's static body between markers. The plain
+// dev index.html (empty root) is checked separately below.
+const PLAIN = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const SHELL = PLAIN.replace('<div id="root"></div>',
+  '<div id="root"><!--truegle-static--><div id="seo-home"><h1>Truegle \u2014 Unbiased, Transparent &amp; Secure Search</h1><p>HOME BODY</p></div><!--/truegle-static--></div>');
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
 const { onRequest } = await server.ssrLoadModule('/functions/_middleware.js');
 const { CREATORS } = await server.ssrLoadModule('/src/content/creators.js');
@@ -78,6 +83,7 @@ for (const [path, re] of Object.entries(SURFACES)) {
   ok(canon(html).length === 1 && canon(html)[0] === `https://truegle.info${path}`, `${path}: exactly one canonical, pointing at itself`, canon(html).join(' '));
   ok(descs(html).length === 1 && descs(html)[0].length > 60 && !descs(html)[0].startsWith('Truegle —'), `${path}: one description, not the shell's`, `${descs(html).length} found`);
   ok(one(html, /<h1>/g) === 1 && /<div id="root"><main id="seo-static">/.test(html), `${path}: crawlable h1 inside #root`);
+  ok(!html.includes('HOME BODY') && !html.includes('id="seo-home"'), `${path}: the homepage's static body is gone, not left underneath`);
   ok(one(html, /<a href="/g) >= 3, `${path}: real links a crawler can follow`, `${one(html, /<a href="/g)} links`);
   ok(new RegExp(`property="og:url" content="https://truegle.info${path}"`).test(html), `${path}: og:url matches`);
 }
@@ -170,6 +176,17 @@ for (const path of ['/creator/not-a-real-creator', '/creator/TRUE-STORY', '/crea
 {
   const html = await fetchAs('/green', 'Mozilla/5.0 (compatible; GPTBot/1.1)');
   ok(canon(html)[0] === 'https://truegle.info/green' && /"license":"https:\/\/truegle\.info\/ai-licensing"/.test(html), 'AI crawlers get the page meta AND the licensing schema');
+}
+
+// ── an unprerendered shell (empty root) still works ─────────────────────────
+{
+  const res = await onRequest({
+    request: new Request('https://truegle.info/green', { headers: { 'user-agent': 'Mozilla/5.0' } }),
+    next: async () => new Response(PLAIN, { status: 200, headers: { 'content-type': 'text/html' } }),
+    env: {},
+  });
+  const html = await res.text();
+  ok(/<div id="root"><main id="seo-static">/.test(html) && one(html, /<h1>/g) === 1, 'an empty-root shell gets the block too');
 }
 
 // ── every SPA route is served as HTML ───────────────────────────────────────

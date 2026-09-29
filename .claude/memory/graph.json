@@ -3305,6 +3305,14 @@
         "body": "Property live. Jun19-Sep26: 19 clicks / 131 impressions total; monthly Jul 7/27, Aug 8/51, Sep 3/32. Only named query: 'truegle.info' (brand). Home = all 19 clicks. Mobile CTR 31% (17/55) vs desktop 2.6% (2/76). Indexed stuck at 14 since mid-Aug: home, 5 locale pages, about/privacy/terms/advertise, 2 creator pages, 2 dead adframe URLs (now 404). NOT indexed: all 12 blog posts, /green /red /tube /feed /developers /privacy-resource-hub. Root causes found live: /green /red /feed /chat /creators /creator/* serve SPA shell with canonical=home (told Google they ARE the homepage); prerendered home raw HTML has 1 <a>, no blog links (orphans); /advertise/ + /test + /quick-test still live. Creator pages drew 30 impressions despite canonical-to-home = best non-brand signal.",
         "ts": "2026-09-28",
         "created": "2026-09-28"
+      },
+      "seo-shell-is-prerendered-home": {
+        "Id": "seo-shell-is-prerendered-home",
+        "Type": "fact",
+        "Label": "Every client-route shell (dist/_index) is the PRERENDERED HOME with its body inside #root",
+        "body": "Cloudflare rewrites SPA routes to /_index = copy of prerendered index.html, whose #root holds HomeStaticContent (h1 'Truegle — Unbiased...'), NOT an empty div. Middleware must swap that body: prerender.mjs now wraps root content in <!--truegle-static-->...<!--/truegle-static--> and injectSeoPage replaces between them (falls back to empty-root replace). Round 1 shipped without this (test used dev index.html with an empty root) so live /green etc. had the right title/canonical but the HOME body until this fix. seo:test now uses a prod-shaped shell and asserts no seo-home leftovers. LESSON: test edge/SEO code against dist/_index, not index.html.",
+        "ts": "2026-09-29",
+        "created": "2026-09-29"
       }
     }
   },

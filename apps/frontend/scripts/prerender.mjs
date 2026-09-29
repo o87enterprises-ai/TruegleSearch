@@ -89,7 +89,12 @@ function buildPageHtml(baseHtml, route, renderedMarkup) {
   html = html.replace(/<link rel="canonical" href="[^"]*"/, `<link rel="canonical" href="${canonicalUrl}"`);
   html = html.replace(/(<meta property="og:url" content=")[^"]*(")/, `$1${canonicalUrl}$2`);
   // Real content for crawlers; the live bundle still replaces this on mount.
-  html = html.replace('<div id="root"></div>', `<div id="root">${renderedMarkup}</div>`);
+  //
+  // The comment markers bound that content so functions/_middleware.js can swap
+  // it for a route's own text. "/" is the file every client-side route is
+  // rewritten to (dist/_index is a copy of it), so without them /green and
+  // friends were served the HOMEPAGE'S static body under their own title.
+  html = html.replace('<div id="root"></div>', `<div id="root"><!--truegle-static-->${renderedMarkup}<!--/truegle-static--></div>`);
   // base: './' in vite.config.js makes every asset path relative, which only
   // resolves correctly when the HTML is served from the site root. Once the
   // same markup is written to dist/about/index.html, relative paths would
