@@ -18,6 +18,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 const YT_ORIGINS = ['https://www.youtube-nocookie.com', 'https://www.youtube.com'];
 const VIMEO_ORIGIN = 'https://player.vimeo.com';
 
+// A SILENT EMBED IS A DEAD ONE. Some clips (region-blocked news, "This content
+// isn't available") never start YouTube's player API at all: the frame shows
+// its own error page and posts NOT ONE message — a working video posts its
+// first within a second or two. Those clips have no error code to react to, so
+// without this the player sat on a dead frame forever (seen on the live site,
+// 2026-09-29, on news clips). After this long with nothing heard from a frame
+// on a visible tab, the clip is reported unplayable and the run moves on.
+// Generous on purpose: a slow phone connection must not read as a dead clip.
+export const SILENT_EMBED_MS = 15000;
+
 /**
  * The wire messages that set the volume on a given platform.
  *
@@ -77,10 +87,12 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
 
     const origins = kind === 'youtube' ? YT_ORIGINS : [VIMEO_ORIGIN];
     let done = false;
+    let heard = false;
 
     const onMessage = (e) => {
       if (e.source !== frame.contentWindow) return;      // not our iframe
       if (!origins.includes(e.origin)) return;           // not the host we embedded
+      heard = true;                                       // the frame is alive
       let data = e.data;
       if (typeof data === 'string') {
         try { data = JSON.parse(data); } catch { return; }
@@ -120,6 +132,19 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
 
     window.addEventListener('message', onMessage);
 
+    // The silence watchdog. A hidden tab throttles frames, so a quiet embed in
+    // the background proves nothing: re-arm instead of judging it.
+    let watchdog = null;
+    const arm = (ms) => {
+      watchdog = setTimeout(() => {
+        if (heard || done) return;
+        if (typeof document !== 'undefined' && document.visibilityState !== 'visible') { arm(3000); return; }
+        done = true;
+        deadRef.current?.('silent');
+      }, ms);
+    };
+    arm(SILENT_EMBED_MS);
+
     // The handshake. YouTube starts pushing state once it hears "listening";
     // Vimeo needs an explicit subscription per event. The iframe may not have
     // booted yet, so say it a few times rather than once and hope.
@@ -143,6 +168,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
       window.removeEventListener('message', onMessage);
       frame.removeEventListener('load', hello);
       retries.forEach(clearTimeout);
+      clearTimeout(watchdog);
     };
     // playToken changes when the SAME track is replayed, which remounts the
     // iframe — the handshake has to be redone against the new window.

@@ -29,6 +29,7 @@
     "seo:test": "node scripts/verify-seo-pages.mjs",
     "searchhistory:test": "node scripts/verify-search-history.mjs",
     "landing:test": "node scripts/verify-landing-cards.mjs",
+    "silentembed:test": "node scripts/verify-silent-embed.mjs",
     "cameraview:test": "node scripts/verify-camera-view.mjs",
     "mapui:test": "node scripts/verify-map-ui.mjs",
     "chatmap:test": "node scripts/verify-chat-map.mjs",

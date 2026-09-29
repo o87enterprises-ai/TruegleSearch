@@ -88,14 +88,17 @@ function Tile({ mod, open, onToggle, tileRef }) {
       className={`relative flex flex-col justify-start text-left rounded-2xl border p-3 backdrop-blur-sm transition-colors duration-200 hover:bg-white/[0.07] ${mod.span === 2 ? 'col-span-2' : ''}`}
       style={{ borderColor: `${color}${open ? 'bb' : '55'}`, background: open ? `${color}18` : 'rgba(255,255,255,0.03)' }}
     >
-      <span className="flex items-center gap-2">
+      <span className="flex items-center gap-1.5 sm:gap-2">
         <span
-          className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center shadow-lg"
+          className="shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shadow-lg"
           style={{ background: `linear-gradient(135deg, ${color}, ${shade(color)})`, color: inkOn(color) }}
         >
           <Icon size={16} />
         </span>
-        <span className="min-w-0 truncate text-[15px] sm:text-base font-bold" style={{ color }}>{mod.title}</span>
+        {/* Wraps rather than truncates: at 320, 360 and 768px the tiles are too
+            narrow for "Why Truegle?" on one line, and a clipped title is worse
+            than a two-line one (the row stretches to match). */}
+        <span className="min-w-0 text-sm sm:text-base font-bold leading-tight" style={{ color }}>{mod.title}</span>
       </span>
       <span data-tile-pitch="" className="block mt-2 pr-4 text-[12px] leading-snug text-white/70">{mod.pitch}</span>
       {/* In the corner rather than in the title row: a title row with an icon

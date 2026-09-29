@@ -65,6 +65,28 @@ describe('fetchVideoLane', () => {
   });
 });
 
+describe('oEmbed as a dead-clip filter', () => {
+  const Oembed = require('../services/OembedService');
+
+  it('drops a video YouTube will not describe (private, deleted or embedding off)', async () => {
+    Oembed.lookupMany.mockImplementationOnce(async (urls) => ({ [urls[0]]: { author: 'Some Channel' } }));
+    const { items } = await youtubeVideos('news');
+    expect(items.map((v) => v.id)).toEqual(['abcdefghi01']);
+  });
+
+  it('fails OPEN: if it answered for nobody, the check is down and every video stays', async () => {
+    Oembed.lookupMany.mockImplementationOnce(async () => ({}));
+    const { items } = await youtubeVideos('news');
+    expect(items).toHaveLength(2);
+    expect(items[0].channel).toBeNull();
+  });
+
+  it('a throwing check does not cost the list', async () => {
+    Oembed.lookupMany.mockImplementationOnce(async () => { throw new Error('oembed down'); });
+    expect((await youtubeVideos('news')).items).toHaveLength(2);
+  });
+});
+
 describe('youtubeVideos failure', () => {
   it('throws when there is nothing cached', async () => {
     mockPerform.mockRejectedValue(new Error('index down'));

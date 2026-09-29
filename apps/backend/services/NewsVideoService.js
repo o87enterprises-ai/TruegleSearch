@@ -51,13 +51,20 @@ async function youtubeVideos(kind, { scope = 'world', country = '', topic = '', 
       { category: 'videos', dateRange: 'week', bias: 'all', sortBy: 'relevance', order: 'desc', safeSearch: 'safe', page, perPage: 30 },
       'blue-pill',
     );
-    const items = shapeVideos(rows, { limit });
-    // Who made each one. oEmbed is free, keyless and cached for hours; a miss
-    // just leaves the byline off.
+    let items = shapeVideos(rows, { limit });
+    // Who made each one, and whether YouTube will show it at all. oEmbed is
+    // free, keyless and cached for hours. It answers 401/403/404 for a video
+    // that is private, deleted or has embedding switched off, so a clip it
+    // will not describe is one the player could never play (seen live: an ABC
+    // bulletin answering 403). It is NOT proof a clip plays — region blocks
+    // still get through, which is what the player's silence watchdog is for —
+    // but it removes the ones we can know are dead. FAIL-OPEN: if it answered
+    // for nobody, it is the check that is down, not every video, so keep them.
     try {
       const authors = await OembedService.lookupMany(items.map((v) => v.url));
+      if (Object.keys(authors).length > 0) items = items.filter((v) => authors[v.url]);
       items.forEach((v) => { v.channel = authors[v.url]?.author || null; });
-    } catch { /* bylines are decoration */ }
+    } catch { /* bylines are decoration, and the check is best-effort */ }
     const value = { items };
     cache.set(key, { at: Date.now(), value });
     return value;
