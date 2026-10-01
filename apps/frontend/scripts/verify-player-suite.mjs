@@ -333,6 +333,7 @@ async function fullscreenSearchChecks(device, layout, page) {
     await press(page, 'Show the search bar');
     const box = page.locator('input[aria-label="Search for something to play"]:visible').first();
     await until(() => box.count(), { what: 'the bar', timeout: 2000 });
+    await page.waitForTimeout(700); // let it finish sliding in before measuring
     const sbox = await box.boundingBox();
     const vp = page.viewportSize();
     if (!sbox || sbox.y < 30 || sbox.x + sbox.width > vp.width) return `field at y=${sbox?.y} (needs room above for the paste bubble)`;

@@ -453,10 +453,18 @@ export default function TrueglePlayer({
   // Pause and resume over the channel that is already open. This is what
   // stops a tap in full screen resetting the video: `paused` used to null the
   // source, which unmounted the iframe, so every tap started the track over.
+  //
+  // DEPENDS ON THE COMMAND, NOT ON `embed`. useEmbedPlayback returns a fresh
+  // object every render, and the embed reports its position twice a second —
+  // so with `embed` as a dependency this re-sent "play" twice a second
+  // forever, undoing any pause a moment after it landed. That was "nothing
+  // stops it except the space bar" (player suite, 2026-10-01).
+  const embedCommand = embed.command;
+  const embedCanCommand = embed.canCommand;
   useEffect(() => {
-    if (!embed.canCommand || !current) return;
-    embed.command(paused ? 'pause' : 'play');
-  }, [paused, current, embed]);
+    if (!embedCanCommand || !current) return;
+    embedCommand(paused ? 'pause' : 'play');
+  }, [paused, current, embedCanCommand, embedCommand]);
 
   // ── VOLUME ────────────────────────────────────────────────────────────────
   // Re-applied on every source change, not just when the slider moves: each
@@ -467,39 +475,22 @@ export default function TrueglePlayer({
   // Delayed as well as immediate: the embed ignores commands until its player
   // has booted, and a brand-new iframe usually has not. The retry is the same
   // trick the progress handshake uses.
+  // Same rule as above: the stable setter, not the whole `embed` object, or
+  // this re-sent mute/setVolume (with three retries) on every progress tick.
+  const embedSetVolume = embed.setVolume;
+  const embedCanSetVolume = embed.canSetVolume;
   useEffect(() => {
     if (!current) return undefined;
     const apply = () => {
-      if (embed.canSetVolume) embed.setVolume(volume);
+      if (embedCanSetVolume) embedSetVolume(volume);
       // Native <audio>/<video> have a real property; no channel needed.
       if (mediaRef.current) mediaRef.current.volume = volume;
     };
     apply();
     const t = [250, 900, 2000].map((d) => setTimeout(apply, d));
     return () => t.forEach(clearTimeout);
-  }, [volume, current, embed]);
+  }, [volume, current, embedCanSetVolume, embedSetVolume]);
 
-  // ── SPACEBAR ──────────────────────────────────────────────────────────────
-  // The universal play/pause key, and it was bound to nothing. Skipped while
-  // the caret is in a text field, where space means space — that is the whole
-  // reason a global key handler is normally a bad idea, and the only reason it
-  // is a good one here is that the player is genuinely global.
-  useEffect(() => {
-    if (!current || locked) return undefined;
-    const onKey = (e) => {
-      if (e.code !== 'Space' && e.key !== ' ') return;
-      const t = e.target;
-      const tag = t?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return;
-      // A focused button gets space as "press me"; stealing it would break
-      // every control on the page.
-      if (tag === 'BUTTON' || t?.closest?.('button, a, [role="button"]')) return;
-      e.preventDefault(); // or the page scrolls a screen at the same time
-      togglePause();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [current, locked, togglePause]);
 
   // 👍/👎. The thumb steers what plays next; a dislike also guarantees this
   // never comes back. It deliberately does NOT skip — you may be halfway
@@ -590,6 +581,50 @@ export default function TrueglePlayer({
     doubleTap: canDoubleTap,
     onDoubleTap: (side) => seekBy(side === 'left' ? -10 : 10),
   });
+
+  // ── THE KEYBOARD, AS YOUTUBE HAS IT ───────────────────────────────────────
+  // Owner, 2026-10-01: "I want this player to ACT like YouTube." Only Space
+  // used to work outside full screen, and IN full screen two handlers both
+  // answered Space (so it paused and resumed in the same keystroke) while the
+  // arrows changed track instead of seeking. One handler now, everywhere:
+  //   Space / K  play–pause        J / L   −10 / +10 s
+  //   ← / →      −5 / +5 s         ↑ / ↓   volume ±5 %
+  //   M          mute              F       full screen
+  //   Shift+N    next              Shift+P previous
+  //   0–9        jump to 0–90 % of the clip
+  // Never while typing, never with Ctrl/⌘/Alt (browser shortcuts), never on a
+  // collapsed strip (the full player answers), and Space/Enter on a focused
+  // button stays that button's.
+  const lastVolume = useRef(volume || 0.8);
+  useEffect(() => { if (volume > 0) lastVolume.current = volume; }, [volume]);
+  useEffect(() => {
+    if (!current || locked || presentation === 'collapsed') return undefined;
+    const onKey = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      const t = e.target;
+      const tag = t?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return;
+      const k = e.key;
+      const onButton = !!t?.closest?.('button, a, [role="button"]');
+      const act = (fn) => { e.preventDefault(); fn(); };
+      if (k === ' ' || e.code === 'Space') { if (!onButton) act(togglePause); return; }
+      if (k === 'k' || k === 'K') return act(togglePause);
+      if (k === 'j' || k === 'J') return act(() => seekBy(-10));
+      if (k === 'l' || k === 'L') return act(() => seekBy(10));
+      if (k === 'ArrowLeft') return act(() => seekBy(-5));
+      if (k === 'ArrowRight') return act(() => seekBy(5));
+      if (k === 'ArrowUp') return act(() => setVolume(Math.min(1, Math.round((volume + 0.05) * 100) / 100)));
+      if (k === 'ArrowDown') return act(() => setVolume(Math.max(0, Math.round((volume - 0.05) * 100) / 100)));
+      if (k === 'm' || k === 'M') return act(() => setVolume(volume > 0 ? 0 : lastVolume.current || 0.8));
+      if (k === 'f' || k === 'F') return act(toggleFullscreen);
+      if (k === 'N' && e.shiftKey) return act(goNext);
+      if (k === 'P' && e.shiftKey) return act(prev);
+      if (/^[0-9]$/.test(k) && embed.duration > 0) return act(() => seekBy((Number(k) / 10) * embed.duration - embed.time));
+      return undefined;
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [current, locked, presentation, togglePause, seekBy, setVolume, volume, toggleFullscreen, goNext, prev, embed.duration, embed.time]);
 
   // Platform embeds fire no `ended` event — that is why the queue never
   // advanced by itself for the things people actually queue. This talks

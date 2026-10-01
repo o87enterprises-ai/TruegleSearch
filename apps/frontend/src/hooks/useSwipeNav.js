@@ -103,25 +103,10 @@ export function useSwipeNav({ active, onNext, onPrev, onTap, onDoubleTap, double
   useEffect(() => () => clearPending(), []);
   useEffect(() => { if (!active) { clearPending(); lastTap.current = null; } }, [active]);
 
-  // Arrows do the same thing, for anyone in full screen on a laptop. Bound to
-  // the document because full screen takes focus away from our buttons.
-  useEffect(() => {
-    if (!active) return undefined;
-    const onKey = (e) => {
-      const el = e.target;
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
-      if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); onNext?.(); }
-      else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); onPrev?.(); }
-      else if (e.key === ' ' || e.key === 'k') { e.preventDefault(); onTap?.(); }
-      // J / L, the keys every video player already uses for ±10s. The arrows
-      // are spoken for here (they move through the queue), so borrowing them
-      // for seeking would make the two navigations fight.
-      else if (doubleTap && (e.key === 'j' || e.key === 'J')) { e.preventDefault(); onDoubleTap?.('left'); }
-      else if (doubleTap && (e.key === 'l' || e.key === 'L')) { e.preventDefault(); onDoubleTap?.('right'); }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [active, onNext, onPrev, onTap, onDoubleTap, doubleTap]);
+  // The keyboard is NOT handled here any more: TrueglePlayer has one handler
+  // with YouTube's layout for every presentation. This one also answered
+  // Space in full screen, so a press paused and resumed in the same keystroke,
+  // and its arrows changed track where YouTube's seek (2026-10-01).
 
   if (!active) return null;
   return { onTouchStart, onTouchEnd };
