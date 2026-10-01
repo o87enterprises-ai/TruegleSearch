@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, Fragment } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Markdown from '../components/ui/Markdown';
@@ -24,6 +24,9 @@ import { fmtStamp, fmtStampFull, msgTime } from '../utils/formatTime';
 import { aiErrorMessage } from '../utils/aiError';
 import { downscaleImage } from '../utils/downscaleImage';
 import QueueButton from '../components/ui/QueueButton';
+import SearchHistoryList from '../components/ui/SearchHistoryList';
+import { getHistory, addHistory, removeHistory, clearHistory } from '../utils/searchHistory';
+import { getDraft, setDraft } from '../utils/searchDraft';
 import { usePlayInPlayer } from '../hooks/usePlayInPlayer';
 import ChatShareButton from '../components/ui/ChatShareButton';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
@@ -411,7 +414,21 @@ export default function TruegleChat() {
   const [messages, setMessages] = useState(() => loadThread() || [
     { id: 1, role: 'assistant', content: MODE_WELCOME[localStorage.getItem('truegle_mode_pref') || 'blue'], citations: null },
   ]);
-  const [input, setInput] = useState('');
+  // Starts from what was typed on the last page (utils/searchDraft) — unless
+  // this visit arrives WITH a question (?q=, the landing page's hand-off),
+  // which is sent straight away and must not be mixed with old text.
+  const [input, setInput] = useState(() => (new URLSearchParams(window.location.search).get('q') ? '' : getDraft()));
+  useEffect(() => { setDraft(input); }, [input]);
+  // The history dropdown: opens on an empty box, on ↓, and on a tap on a box
+  // that already has text; while typing it narrows to what matches.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyTick, setHistoryTick] = useState(0);
+  const historyItems = useMemo(() => {
+    if (!historyOpen) return [];
+    const q = input.trim().toLowerCase();
+    return getHistory().filter((h) => !q || (h.toLowerCase().includes(q) && h.toLowerCase() !== q)).slice(0, 20);
+    // historyTick: re-read after an entry is removed or the list is cleared.
+  }, [historyOpen, input, historyTick]);
   // See handleSend: the submitted query, which drives the location map.
   const [lastAsked, setLastAsked] = useState('');
   // "Directions" tapped on a listing in the thread — see ChatLocationMap's
@@ -571,6 +588,8 @@ export default function TruegleChat() {
     let aborted = false;
 
     setMessages((prev) => [...prev, { id: userMsgId, role: 'user', content: query, citations: null, image: image?.dataUrl || null, createdAt: userMsgId }]);
+    addHistory(query); // so it is one tap away next time (respects "save search history: off")
+    setHistoryOpen(false);
     setInput('');
     setAttachedImage(null); // one-shot — attaches to this turn only
     setLoading(true);
@@ -814,7 +833,17 @@ export default function TruegleChat() {
           </button>
         </div>
       )}
-      <div className={`flex items-end gap-2 rounded-2xl border ${accent.iframeBorder} bg-white/5 backdrop-blur-xl p-2`}>
+      <div className={`relative flex items-end gap-2 rounded-2xl border ${accent.iframeBorder} bg-white/5 backdrop-blur-xl p-2`}>
+        {historyOpen && (
+          <SearchHistoryList
+            items={historyItems}
+            query={input}
+            borderClass={accent.iframeBorder}
+            onPick={(text) => { setInput(text); setHistoryOpen(false); inputRef.current?.focus(); }}
+            onRemove={(text) => { removeHistory(text); setHistoryTick((n) => n + 1); }}
+            onClear={() => { clearHistory(); setHistoryTick((n) => n + 1); }}
+          />
+        )}
         {/* Input modes — mic / camera / attach, collapsed behind a "+" so the
             chat box reads like a normal input. */}
         <button
@@ -860,8 +889,15 @@ export default function TruegleChat() {
           ref={inputRef}
           rows={1}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => { setInput(e.target.value); setHistoryOpen(true); }}
+          onFocus={() => { if (!input.trim()) setHistoryOpen(true); }}
+          onBlur={() => setHistoryOpen(false)}
+          onClick={() => { if (input.trim()) setHistoryOpen(true); }}
           onKeyDown={(e) => {
+            if (e.key === 'Escape' && historyOpen) { setHistoryOpen(false); return; }
+            if (e.key === 'ArrowDown' && !historyOpen && !String(e.target.value).slice(e.target.selectionEnd ?? 0).includes('\n')) {
+              e.preventDefault(); setHistoryOpen(true); return;
+            }
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               handleSend();
@@ -917,10 +953,15 @@ export default function TruegleChat() {
           animate={{ opacity: 1, scale: 1 }}
           className="mb-2 inline-block flex-shrink-0"
         >
-          <div
-            className="relative"
-            style={{ filter: 'drop-shadow(0 0 20px rgba(139,92,246,0.3)) drop-shadow(0 0 40px rgba(139,92,246,0.2))' }}
-          >
+          {/* A static halo, not a filter: this logo pulses in scale, and a
+              drop-shadow on its ancestor re-ran on every frame (see the
+              landing page; same cost, same fix). */}
+          <div className="relative">
+            <span
+              aria-hidden="true"
+              className="absolute pointer-events-none"
+              style={{ inset: '-18%', background: 'radial-gradient(closest-side, rgba(139,92,246,0.32), rgba(139,92,246,0) 75%)' }}
+            />
             <motion.div
               animate={{ scale: [1, 1.01, 1] }}
               transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}

@@ -15,6 +15,8 @@ import CameraInput from './CameraInput';
 import FileInput from './FileInput';
 import { downscaleImage } from '../../utils/downscaleImage';
 import { usePlayer } from '../../context/PlayerContext';
+import { getHistory, addHistory, removeHistory, clearHistory } from '../../utils/searchHistory';
+import { getDraft, setDraft } from '../../utils/searchDraft';
 
 /**
  * Search Categories Configuration
@@ -836,6 +838,9 @@ export default function SearchBar({
   onSubmit,
   onClear,
   placeholder = 'Search without bias...',
+  // Carry what is typed from page to page (utils/searchDraft). Off for a bar
+  // that is not a search box.
+  carryDraft = true,
   size = 'medium',
   className = '',
   showSearchButton = true,
@@ -923,7 +928,18 @@ export default function SearchBar({
   const imageAttachedRef = useRef(false);
   const [isFocused, setIsFocused] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [localValue, setLocalValue] = useState(value || '');
+  // A page that opens with an empty box starts from what was typed on the last
+  // page (carried, in memory only — see utils/searchDraft). A page that arrives
+  // with its own value (a results page with ?q=) keeps that value.
+  const seededDraft = useRef('');
+  const [localValue, setLocalValue] = useState(() => {
+    if (value) return value;
+    const d = carryDraft ? getDraft() : '';
+    seededDraft.current = d;
+    return d;
+  });
+  const firstSync = useRef(true);
+  const explicitOpenRef = useRef(false); // the dropdown was opened on purpose (↓ or a tap), so it must not auto-hide
   // chat variant: whether the collapsed mic/camera/attach cluster is expanded.
   const [mediaOpen, setMediaOpen] = useState(false);
   // Persistent pop-out player: show a quick access/expand button in the bar
@@ -1154,33 +1170,9 @@ export default function SearchBar({
   // autocomplete that will not let go. The next real character brings it back.
   const [ghostOff, setGhostOff] = useState(false);
 
-  // Get recent searches from localStorage
-  const getRecentSearches = useCallback(() => {
-    try {
-      const recent = localStorage.getItem('truegle_recent_searches');
-      return recent ? JSON.parse(recent).slice(0, 5) : [];
-    } catch {
-      return [];
-    }
-  }, []);
-
-  // Save search to recent
-  const saveToRecentSearches = useCallback((query) => {
-    try {
-      // Respect the "save search history" privacy setting (default on).
-      const prefs = JSON.parse(localStorage.getItem('truegle_settings') || '{}');
-      if (prefs.saveHistory === false) return;
-      // A pasted link is something to open, not a search worth offering back —
-      // and a long tracking-laden URL is the last thing to leave in a dropdown.
-      if (/^(https?:\/\/|www\.)/i.test(String(query).trim())) return;
-      const recent = getRecentSearches();
-      const filtered = recent.filter(s => s.toLowerCase() !== query.toLowerCase());
-      const updated = [query, ...filtered].slice(0, 10);
-      localStorage.setItem('truegle_recent_searches', JSON.stringify(updated));
-    } catch {
-      // Ignore localStorage errors
-    }
-  }, [getRecentSearches]);
+  // History: utils/searchHistory (all of it, newest first; was five of ten).
+  const getRecentSearches = useCallback(() => getHistory(), []);
+  const saveToRecentSearches = useCallback((query) => addHistory(query), []);
 
   // What the completion would be, if there is one. Derived rather than stored:
   // it is a pure function of the value and this browser's history, and a copy
@@ -1189,17 +1181,21 @@ export default function SearchBar({
     ? completeFrom(getRecentSearches(), localValue)
     : null;
 
-  // Generate suggestions based on input
+  // Generate suggestions based on input.
+  //
+  // EMPTY BOX: your whole history, newest first (the starter topics only fill
+  // in while you have fewer than five). TYPING: every history entry that
+  // contains what you typed, ahead of everything else.
   const generateSuggestions = useCallback((query) => {
     if (!query.trim()) {
-      // Show recent searches and trending when empty
       const recent = getRecentSearches().map(text => ({ type: 'recent', text }));
-      return [...recent, ...TRENDING_SUGGESTIONS.slice(0, 5 - recent.length)];
+      return [...recent, ...TRENDING_SUGGESTIONS.slice(0, Math.max(0, 5 - recent.length))];
     }
 
     const queryLower = query.toLowerCase();
     const recent = getRecentSearches()
-      .filter(s => s.toLowerCase().includes(queryLower))
+      .filter(s => s.toLowerCase().includes(queryLower) && s.toLowerCase() !== queryLower)
+      .slice(0, 10)
       .map(text => ({ type: 'recent', text }));
 
     const trending = TRENDING_SUGGESTIONS
@@ -1213,8 +1209,35 @@ export default function SearchBar({
       `${query} analysis`,
     ].map(text => ({ type: 'suggestion', text }));
 
-    return [...recent, ...trending, ...autocomplete].slice(0, 8);
+    return [...recent, ...trending, ...autocomplete].slice(0, 14);
   }, [getRecentSearches]);
+
+  // Open the whole history on purpose (↓, or a tap on a box that already has
+  // text). Unlike the dropdown that opens as you type, this one stays until you
+  // pick, dismiss or click away.
+  const openHistory = useCallback(() => {
+    const recent = getRecentSearches().map(text => ({ type: 'recent', text }));
+    const items = recent.length ? recent : generateSuggestions('');
+    userTypedRef.current = false;
+    explicitOpenRef.current = true;
+    setSuggestions(items);
+    setShowSuggestions(items.length > 0);
+    setSelectedSuggestionIndex(-1);
+  }, [getRecentSearches, generateSuggestions]);
+
+  const removeFromHistory = useCallback((text) => {
+    removeHistory(text);
+    const next = generateSuggestions(explicitOpenRef.current ? '' : localValue);
+    setSuggestions(next);
+    if (next.length === 0) setShowSuggestions(false);
+  }, [generateSuggestions, localValue]);
+
+  const clearAllHistory = useCallback(() => {
+    clearHistory();
+    const next = generateSuggestions('');
+    setSuggestions(next);
+    explicitOpenRef.current = false;
+  }, [generateSuggestions]);
 
   // Update suggestions when input changes
   useEffect(() => {
@@ -1237,7 +1260,7 @@ export default function SearchBar({
       clearTimeout(typingTimerRef.current);
     }
 
-    if (localValue.trim() && isFocused) {
+    if (localValue.trim() && isFocused && !explicitOpenRef.current) {
       typingTimerRef.current = setTimeout(() => {
         if (!isHoveringDropdown) {
           setShowSuggestions(false);
@@ -1365,10 +1388,22 @@ export default function SearchBar({
 
   // Sync external value
   useEffect(() => {
-    if (value !== undefined) {
-      setLocalValue(value);
+    const first = firstSync.current;
+    firstSync.current = false;
+    if (value === undefined) return;
+    // First run: the box was seeded with the carried text while the page's own
+    // value is still empty. Tell the page (so it holds the same text and a
+    // submit uses it) instead of letting the empty value wipe the box.
+    if (first && value === '' && seededDraft.current) {
+      onChange?.(seededDraft.current);
+      return;
     }
+    setLocalValue(value);
   }, [value]);
+
+  // Keep the carried text current (a plain assignment — cheap enough for every
+  // keystroke, which matters here: typing speed is a feature).
+  useEffect(() => { if (carryDraft) setDraft(localValue); }, [localValue, carryDraft]);
 
   // The two shapes, resolved once. `singleLine` is absolute where it is set —
   // Tube's bar IS the player's bar, and there is no chat form of it.
@@ -1495,6 +1530,7 @@ const handleChange = useCallback((e) => {
   setGhostOff((off) => (newValue.length < localValue.length ? true : (newValue.length > localValue.length ? false : off)));
   setLocalValue(newValue);
   userTypedRef.current = true; // real keystroke → suggestions may auto-open
+  explicitOpenRef.current = false;
   // Pass the string value, not the event object
   onChange?.(newValue);
 }, [onChange, maxLength, localValue]);
@@ -1589,6 +1625,14 @@ const handleChange = useCallback((e) => {
       return;
     }
 
+    // ↓ opens the history, like a browser's address bar — but only from the
+    // last line, so it still moves the caret down in a multi-line question.
+    if (e.key === 'ArrowDown' && !showSuggestions) {
+      const t = e.target;
+      const onLastLine = !String(t?.value || '').slice(t?.selectionEnd ?? 0).includes('\n');
+      if (onLastLine) { e.preventDefault(); openHistory(); return; }
+    }
+
     // Navigate suggestions with arrow keys
     if (showSuggestions && suggestions.length > 0) {
       if (e.key === 'ArrowDown') {
@@ -1643,7 +1687,7 @@ const handleChange = useCallback((e) => {
       trySubmit();
     }
   }, [hasValue, handleClear, showSuggestions, suggestions, selectedSuggestionIndex,
-    handleSuggestionClick, trySubmit, ghost, localValue, handleChange]);
+    handleSuggestionClick, trySubmit, ghost, localValue, handleChange, openHistory]);
 
   // Calculate dynamic right padding based on icons
   const getRightPadding = () => {
@@ -1970,6 +2014,11 @@ const handleChange = useCallback((e) => {
             onBlur={() => setIsFocused(false)}
             onMouseLeave={handleInputMouseLeave}
             onKeyDown={handleKeyDown}
+            // Tapping a box that already has text opens the whole history. (An
+            // empty box opens it on focus, and a box focused by the page
+            // itself, with text in it, deliberately does NOT — see the
+            // suggestions effect.)
+            onClick={() => { if (localValue.trim() && !showSuggestions) openHistory(); }}
             placeholder={placeholder}
             disabled={disabled}
             autoFocus={autoFocus}
@@ -2298,14 +2347,14 @@ const handleChange = useCallback((e) => {
               onMouseLeave={handleDropdownMouseLeave}
             >
               <div className={`bg-neutral-900/98 backdrop-blur-xl border ${colors.suggestionBorder} rounded-xl shadow-2xl shadow-black/50 overflow-hidden`}>
+                {/* The whole history scrolls inside the dropdown instead of being
+                    cut to five. */}
+                <div data-search-history="" className="max-h-[min(60vh,420px)] overflow-y-auto overscroll-contain">
                 {suggestions.map((suggestion, index) => (
-                  <button
+                  <div
                     key={`${suggestion.type}-${suggestion.text}-${index}`}
-                    type="button"
-                    onClick={() => handleSuggestionClick(suggestion)}
                     className={`
-                      w-full flex items-center gap-3 px-4 py-3
-                      text-left transition-colors duration-100
+                      flex items-stretch transition-colors duration-100
                       ${selectedSuggestionIndex === index
                         ? colors.suggestionActive
                         : 'hover:bg-neutral-800/80 text-neutral-200'
@@ -2314,19 +2363,25 @@ const handleChange = useCallback((e) => {
                     `}
                     onMouseEnter={() => setSelectedSuggestionIndex(index)}
                   >
+                  <button
+                    type="button"
+                    data-suggestion={suggestion.type}
+                    onClick={() => handleSuggestionClick(suggestion)}
+                    className="flex-1 min-w-0 flex items-center gap-3 px-4 py-3 text-left"
+                  >
                     {/* Icon based on suggestion type */}
                     {suggestion.type === 'recent' && (
-                      <Clock size={16} className="text-neutral-500" />
+                      <Clock size={16} className="text-neutral-500 flex-shrink-0" />
                     )}
                     {suggestion.type === 'trending' && (
-                      <TrendingUp size={16} className="text-orange-400" />
+                      <TrendingUp size={16} className="text-orange-400 flex-shrink-0" />
                     )}
                     {suggestion.type === 'suggestion' && (
-                      <Search size={16} className={colors.suggestionIcon} />
+                      <Search size={16} className={`${colors.suggestionIcon} flex-shrink-0`} />
                     )}
 
                     {/* Suggestion text with highlighting */}
-                    <span className="flex-1 text-sm">
+                    <span className="flex-1 min-w-0 truncate text-sm">
                       {localValue && suggestion.text.toLowerCase().includes(localValue.toLowerCase()) ? (
                         <>
                           {suggestion.text.substring(0, suggestion.text.toLowerCase().indexOf(localValue.toLowerCase()))}
@@ -2347,7 +2402,7 @@ const handleChange = useCallback((e) => {
 
                     {/* Type label */}
                     <span className={`
-                      text-[10px] px-2 py-0.5 rounded-full
+                      text-[10px] px-2 py-0.5 rounded-full flex-shrink-0
                       ${suggestion.type === 'recent' ? 'bg-neutral-700/50 text-neutral-400' : ''}
                       ${suggestion.type === 'trending' ? 'bg-orange-500/20 text-orange-400' : ''}
                       ${suggestion.type === 'suggestion' ? colors.suggestionBadge : ''}
@@ -2357,7 +2412,36 @@ const handleChange = useCallback((e) => {
                       {suggestion.type === 'suggestion' && 'Suggested'}
                     </span>
                   </button>
+                  {/* Take one entry out of the history. mousedown is held so the
+                      box keeps focus and the list stays open for the next one. */}
+                  {suggestion.type === 'recent' && (
+                    <button
+                      type="button"
+                      data-history-remove=""
+                      aria-label={`Remove "${suggestion.text}" from search history`}
+                      title="Remove from history"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={(e) => { e.stopPropagation(); removeFromHistory(suggestion.text); }}
+                      className="px-3 flex items-center text-neutral-500 hover:text-neutral-100"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                  </div>
                 ))}
+                </div>
+                {/* Empty everything, from the place you are looking at it. */}
+                {suggestions.some((x) => x.type === 'recent') && !localValue.trim() && (
+                  <button
+                    type="button"
+                    data-history-clear=""
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={clearAllHistory}
+                    className="w-full px-4 py-2 text-xs text-left text-neutral-500 hover:text-neutral-200 border-t border-neutral-800/60"
+                  >
+                    Clear search history
+                  </button>
+                )}
               </div>
             </motion.div>
           )}

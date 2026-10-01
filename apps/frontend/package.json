@@ -34,6 +34,7 @@
     "player:suite": "node scripts/verify-player-suite.mjs",
     "feedcontrols:test": "node scripts/verify-feed-controls.mjs",
     "pill:test": "node scripts/verify-pill-countdown.mjs",
+    "searchbar:test": "node scripts/verify-search-bar.mjs",
     "searchhistory:test": "node scripts/verify-search-history.mjs",
     "landing:test": "node scripts/verify-landing-cards.mjs",
     "silentembed:test": "node scripts/verify-silent-embed.mjs",

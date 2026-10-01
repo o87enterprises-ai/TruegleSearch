@@ -11,6 +11,7 @@ import { NuclearOptionButton } from './ui/SessionWipe';
 import AccountCodeModal from './ui/AccountCodeModal';
 import authService from '../services/authService';
 import { formatMicros } from '../utils/rewardsFormat';
+import { clearHistory } from '../utils/searchHistory';
 
 const { FiSettings, FiShield, FiEye, FiDollarSign, FiGlobe, FiLock, FiCookie, FiClock, FiTrash2, FiKey } =
   FiIcons;
@@ -33,7 +34,7 @@ const SettingsPage = () => {
 
   const handleClearHistory = () => {
     try {
-      localStorage.removeItem('truegle_recent_searches');
+      clearHistory();
     } catch {
       // ignore storage errors
     }
