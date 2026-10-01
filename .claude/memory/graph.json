@@ -3346,6 +3346,14 @@
         "body": "Cloudflare rewrites SPA routes to /_index = copy of prerendered index.html, whose #root holds HomeStaticContent (h1 'Truegle — Unbiased...'), NOT an empty div. Middleware must swap that body: prerender.mjs now wraps root content in <!--truegle-static-->...<!--/truegle-static--> and injectSeoPage replaces between them (falls back to empty-root replace). Round 1 shipped without this (test used dev index.html with an empty root) so live /green etc. had the right title/canonical but the HOME body until this fix. seo:test now uses a prod-shaped shell and asserts no seo-home leftovers. LESSON: test edge/SEO code against dist/_index, not index.html.",
         "ts": "2026-09-29",
         "created": "2026-09-29"
+      },
+      "silent-embed-load-clock": {
+        "Id": "silent-embed-load-clock",
+        "Type": "fact",
+        "Label": "Embed silence watchdog starts at iframe LOAD, handshake repeats until heard",
+        "body": "2026-10-01: watchdog timed from mount (15s) + hello only until 2.5s skipped good YouTube videos on slow phones (reproduced with CDP throttling). Now: 10s after onLoad (PlayerScreen stamps data-loaded), hello every 1s until heard. Test: npm run silentembed:test (slow-phone case). Also env.js trims every env value (Radar key had trailing whitespace → 'Invalid character in header' → maps dead).",
+        "ts": "2026-10-01",
+        "created": "2026-10-01"
       }
     }
   },
@@ -3375,5 +3383,5 @@
       }
     }
   },
-  "updated": "2026-09-29"
+  "updated": "2026-10-01"
 }

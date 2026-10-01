@@ -233,7 +233,14 @@ const envVarsSchema = Joi.object({
   ALLOWED_FILE_TYPES: Joi.string().default('image/jpeg,image/png,image/gif'),
 }).unknown();
 
-const { value: envVars, error } = envVarsSchema.validate(process.env);
+// A secret pasted into a dashboard often carries a trailing newline or space.
+// Sent as a header it makes Node throw "Invalid character in header content"
+// on every call: the Radar key did exactly that, so every map lookup failed
+// (seen 2026-10-01). No value here is meant to begin or end with whitespace.
+const trimmedEnv = Object.fromEntries(
+  Object.entries(process.env).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v]),
+);
+const { value: envVars, error } = envVarsSchema.validate(trimmedEnv);
 
 if (error) {
   throw new Error(`Config validation error: ${error.message}`);

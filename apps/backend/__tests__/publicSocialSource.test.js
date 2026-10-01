@@ -209,3 +209,16 @@ describe('PublicSocialSource — refusing honestly', () => {
     expect(axios.get).not.toHaveBeenCalled();
   });
 });
+
+describe('isSiteRoot — a homepage is never a feed post', () => {
+  const { isSiteRoot } = require('../services/feed/PublicSocialSource');
+  it('flags a bare homepage, with or without the slash', () => {
+    expect(isSiteRoot('https://www.reddit.com/')).toBe(true);
+    expect(isSiteRoot('https://www.reddit.com')).toBe(true);
+  });
+  it('keeps real pages', () => {
+    expect(isSiteRoot('https://www.reddit.com/r/videos/comments/abc/x/')).toBe(false);
+    expect(isSiteRoot('https://www.reddit.com/r/videos/')).toBe(false);
+  });
+  it('treats junk as not a post', () => expect(isSiteRoot('not a url')).toBe(true));
+});

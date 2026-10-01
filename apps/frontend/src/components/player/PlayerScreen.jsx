@@ -197,6 +197,10 @@ const PlayerScreen = forwardRef(function PlayerScreen({
             ref={frameRef}
             key={source.playToken ? `${src}#${source.playToken}` : src}
             src={withPlaybackChannel(kind, src)}
+            // When the frame finished loading — useEmbedPlayback's silence
+            // clock starts here, not at mount, so a slow network is not
+            // mistaken for a dead clip.
+            onLoad={(e) => { e.currentTarget.dataset.loaded = '1'; }}
             className="absolute inset-0 w-full h-full"
             title={title || 'Video player'}
             sandbox={PLAYER_SANDBOX}
