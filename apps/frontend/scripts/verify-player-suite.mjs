@@ -151,7 +151,8 @@ async function check(device, layout, name, fn) {
 
 // ── the checks run in every layout ──────────────────────────────────────────
 async function transportChecks(device, layout, page, { touch }) {
-  await check(device, layout, 'a clip is playing', async () => (IDS.includes(await nowPlaying(page)) ? true : `playing "${await nowPlaying(page)}"`));
+  // Any clip: Enter in the Tube bar plays the top search hit, by design.
+  await check(device, layout, 'a clip is playing', async () => (/^[\w-]{11}$/.test(await nowPlaying(page)) ? true : `playing "${await nowPlaying(page)}"`));
 
   await check(device, layout, 'Pause button pauses the video', async () => {
     if (!(await has(page, 'Pause')) && !(await has(page, 'Play'))) return 'na';
@@ -217,11 +218,15 @@ async function transportChecks(device, layout, page, { touch }) {
 
   // The player's own search: type, results come, X clears.
   await check(device, layout, 'Player search: results, then X clears the box', async () => {
-    const box = page.locator('input[aria-label="Search the player"]:visible, input[aria-label="Search input"]:visible, input[aria-label="Search for something to play"]:visible').first();
+    // In full screen the page's own bar is BEHIND the player; the drop-down
+    // bar is the search there and has its own check.
+    if (await isFullscreen(page)) return 'na';
+    const box = page.locator('[aria-label="Search the player"]:visible, [aria-label="Search input"]:visible, input[aria-label="Search for something to play"]:visible').first();
     if (!(await box.count())) return 'na';
     await box.click({ timeout: 3000 }).catch(() => box.focus());
     await box.fill('suite');
-    const got = await until(() => page.getByText('suite result 0').count(), { what: 'results', timeout: 5000 }).then(() => true, () => false);
+    await box.press('Enter');
+    const got = await until(() => page.getByText('suite result 0').count(), { what: 'results', timeout: 6000 }).then(() => true, () => false);
     const clear = page.locator('[aria-label="Clear the player search"]:visible, [aria-label="Clear the search"]:visible, [aria-label="Clear search"]:visible, button[title="Clear"]:visible').first();
     let cleared = 'no clear button';
     if (await clear.count()) {
@@ -285,7 +290,9 @@ async function keyboardChecks(device, layout, page) {
     await page.keyboard.press('f');
     await page.waitForTimeout(600);
     const after = await isFullscreen(page);
-    if (after !== before) { await page.keyboard.press('f'); await page.waitForTimeout(400); if (await isFullscreen(page)) await page.evaluate('document.exitFullscreen()').catch(() => {}); }
+    // Put it back the way it was, so the checks after this run in the layout
+    // they are labelled with.
+    if (after !== before) { await page.keyboard.press('f'); await page.waitForTimeout(600); }
     return after !== before || `full screen stayed ${before}`;
   });
 }
@@ -309,15 +316,25 @@ async function touchChecks(device, layout, page) {
   await check(device, layout, 'double-tap the right side → +10s', async () => {
     const n = await mark(page);
     const x = box.x + box.width * 0.85;
-    await page.touchscreen.tap(x, cy); await page.waitForTimeout(80); await page.touchscreen.tap(x, cy);
+    // Raw touch events with a thumb's gap (~120 ms) between the taps, so this
+    // measures the gesture, not how quickly the test tool can dispatch.
+    const cdp = await page.context().newCDPSession(page);
+    const tapAt = async () => {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: cy }] });
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    };
+    await tapAt(); await page.waitForTimeout(120); await tapAt();
     return (await sawCmd(page, n, 'seekTo', 2000)) || 'no seek';
   });
   await check(device, layout, 'swipe up → next clip', async () => {
     const before = await nowPlaying(page);
     const cdp = await page.context().newCDPSession(page);
     const pt = (y) => [{ x: cx, y }];
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(cy + 120) });
-    for (let i = 1; i <= 6; i += 1) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(cy + 120 - i * 45) });
+    // In proportion to the picture: a fixed 120 px below centre started on
+    // the control bar in landscape, where a swipe is not a swipe.
+    const reach = Math.min(160, box.height * 0.3);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(cy + reach) });
+    for (let i = 1; i <= 6; i += 1) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(cy + reach - (i * 2 * reach) / 6) });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     return until(async () => (await nowPlaying(page)) !== before, { what: 'next', timeout: 2500 }).then(() => true, () => 'no change');
   });

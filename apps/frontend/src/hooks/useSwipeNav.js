@@ -22,7 +22,10 @@ const SWIPE_MAX_MS = 800;   // slower than this is a drag, not a flick
 const VERTICAL_RATIO = 1.8; // |dy| must dominate |dx| by this much
 const TAP_SLOP = 10;        // px of wander still counted as a tap
 const TAP_MS = 280;
-const DOUBLE_MS = 280; // second tap has to land inside this to count as a pair
+// Second tap has to land inside this to count as a pair. 280 was tighter than
+// YouTube's and missed real double-taps on a busy phone (player suite,
+// 2026-10-01); 350 is still short enough that a single tap feels immediate.
+const DOUBLE_MS = 350;
 
 export function useSwipeNav({ active, onNext, onPrev, onTap, onDoubleTap, doubleTap = false }) {
   const start = useRef(null);
