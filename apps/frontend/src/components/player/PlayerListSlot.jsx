@@ -6,7 +6,8 @@ import { useChannelFeed } from '../../hooks/useChannelFeed';
 import { parsePlayerQuery, toHandle, sourceColour, sourceProviderLabel } from '../../utils/playerQuery';
 import { hasTaste, forgetTaste } from '../../utils/taste';
 import { hasRetention, forgetRetention } from '../../utils/retention';
-import { isPlaylistUrl, importPlaylist, importMessage } from '../../utils/playlistImport';
+import { isPlaylistUrl } from '../../utils/playlistImport';
+import PlayAllButton from './PlayAllButton';
 import { reportBroken, useBrokenFlag, useBrokenVersion, withoutBroken } from '../../utils/broken';
 import { useMediaMeta, formatDuration } from '../../utils/mediaMeta';
 import { resolveTitles } from '../../utils/resolveTitles';
@@ -97,19 +98,6 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
   // bare /playlist?list=… with no v=). The list itself — the actual thing
   // being pasted — was silently discarded. It is offered as an import now.
   const playlistPaste = isPlaylistUrl(query) ? query.trim() : '';
-  const [importing, setImporting] = useState(false);
-  const [imported, setImported] = useState(null);
-  useEffect(() => { setImported(null); }, [playlistPaste]);
-  const runImport = useCallback(async () => {
-    if (!playlistPaste) return;
-    setImporting(true);
-    const result = await importPlaylist(playlistPaste);
-    setImported(result);
-    setImporting(false);
-    // Land them on the list they just made rather than on a search that is now
-    // beside the point.
-    if (result.ok) { setShowingResults(false); setTab('lists'); onRevert?.(); }
-  }, [playlistPaste, onRevert]);
   // Re-filter on every flag. usePlayerSearch drops known-dead rows when the
   // results ARRIVE; without this the row you just flagged would sit there
   // until the next search, which reads as the button not working.
@@ -366,28 +354,15 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
                   </button>
                 )}
               </div>
-              {imported ? (
-                <p className={`text-[11px] leading-snug ${imported.ok ? 'text-emerald-300/90' : 'text-amber-300/90'}`}>
-                  {importMessage(imported)}
-                </p>
-              ) : (
-                <>
-                  <p className="text-[11px] text-white/60 leading-snug mb-1.5">
-                    That is a playlist. Save the whole thing to your lists?
-                  </p>
-                  <button
-                    type="button"
-                    data-import-playlist
-                    onClick={runImport}
-                    disabled={importing}
-                    className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded-lg border border-white/20 text-[11px] text-white/80 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-60"
-                  >
-                    {importing
-                      ? <><Loader2 size={12} className="animate-spin" /> Fetching the playlist…</>
-                      : <><ListMusic size={12} /> Import playlist</>}
-                  </button>
-                </>
-              )}
+              <p className="text-[11px] text-white/60 leading-snug mb-1.5">
+                That is a playlist. Play All saves it to your Lists, replaces the queue with it and starts track one.
+              </p>
+              <PlayAllButton
+                url={playlistPaste}
+                size={12}
+                onDone={() => { setShowingResults(false); setTab('queue'); onRevert?.(); }}
+                className="px-2.5 h-7 rounded-lg border border-white/20 text-[11px] text-white/80 hover:text-white hover:bg-white/10"
+              />
             </div>
           )}
           {/* A link from somewhere we can't host. Not an error — a limit, and

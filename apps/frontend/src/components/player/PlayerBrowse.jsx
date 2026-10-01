@@ -6,6 +6,8 @@ import { mediaKey } from '../../utils/videoEmbed';
 import { sourceColour, sourceProviderLabel } from '../../utils/playerQuery';
 import { publishedLabel } from '../../utils/published';
 import { PLAYER_SANDBOX } from './playerSandbox';
+import PlayAllButton from './PlayAllButton';
+import { usePlayAll } from '../../hooks/usePlayAll';
 
 // The viewport, while nothing is playing and a search has run.
 //
@@ -146,9 +148,13 @@ export default function PlayerBrowse({
   // PLAY FROM HERE: this card, then the rest of the results in order. It runs
   // as a feed, so your queue (and any saved list) is parked, not wiped — it
   // used to clearQueue() on every tap.
+  // A pasted PLAYLIST link is one card whose only action is Play All — see
+  // usePlayAll. Tapping the card does the same.
+  const { playAll } = usePlayAll();
   const playFrom = useCallback((source, rest) => {
+    if (source?.playlistUrl) { playAll(source.playlistUrl); return; }
     startFeed([source, ...rest]);
-  }, [startFeed]);
+  }, [startFeed, playAll]);
 
   // A tap that never became a hold is a "play this".
   const drop = useCallback((source, rest) => {
@@ -287,6 +293,15 @@ export default function PlayerBrowse({
                 )}
                 {/* PLAY NOW · ADD TO QUEUE · ADD TO LIST, on every card. Add to
                     list opens your saved lists, with New list at the bottom. */}
+                {r.playlistUrl ? (
+                  <div data-browse-actions="" className="mt-2 pointer-events-auto">
+                    <PlayAllButton
+                      url={r.playlistUrl}
+                      size={12}
+                      className={`${actionBtn} border-white/25 bg-white/15 text-white hover:bg-white/25`}
+                    />
+                  </div>
+                ) : (
                 <div data-browse-actions="" className="flex items-center gap-1.5 mt-2 pointer-events-auto">
                   <button
                     type="button"
@@ -315,6 +330,7 @@ export default function PlayerBrowse({
                     className={`${actionBtn} border-white/20 bg-black/50 text-white/80 hover:text-white hover:bg-black/70`}
                   />
                 </div>
+                )}
               </div>
 
               {isHeld && (

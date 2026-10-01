@@ -3,6 +3,8 @@ import { Play, ExternalLink, ShieldAlert } from 'lucide-react';
 import { useLinkSafety, VERDICT } from '../../hooks/useLinkSafety';
 import { usePlayInPlayer } from '../../hooks/usePlayInPlayer';
 import { getPlayable } from '../../utils/videoEmbed';
+import { isPlaylistUrl } from '../../utils/playlistImport';
+import PlayAllButton from '../player/PlayAllButton';
 
 /*
  * The end of an answer about a link.
@@ -43,7 +45,13 @@ export default function ChatLinkAction({ info, description }) {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        {playable ? (
+        {playable && isPlaylistUrl(info.url) ? (
+          <PlayAllButton
+            url={info.url}
+            size={13}
+            className="px-3 py-1.5 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/30 text-xs"
+          />
+        ) : playable ? (
           <Link
             to={playerPath}
             // Plays right here, in the one player, without leaving the chat.

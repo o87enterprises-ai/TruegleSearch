@@ -3,6 +3,7 @@ import { getPlayable, mediaKey } from '../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../utils/playerLink';
 import { parsePlayerQuery, rankPlayable, isolatePlatform, isShortsScope, toHandle } from '../utils/playerQuery';
 import { withoutBroken, loadBrokenList } from '../utils/broken';
+import { isPlaylistUrl } from '../utils/playlistImport';
 import { isShortForm, asReel } from '../utils/shortForm';
 
 // A video result whose URL we can't classify is sometimes still a YouTube
@@ -153,6 +154,15 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
       const pasted = resolveShareInput(q);
       setLoading(false);
       setError('');
+      if (isPlaylistUrl(q)) {
+        // A WHOLE PLAYLIST. Not "one video": YouTube's playlist embed shows
+        // "This video is unavailable" here. One card, whose only action is
+        // Play All (PlayerBrowse) — saved to Lists, replaces the queue, plays.
+        setResults([{ ...(pasted[0] || {}), src: pasted[0]?.src || q, kind: 'youtube', playlistUrl: q, title: 'YouTube playlist', pageUrl: q }]);
+        setUnsupported('');
+        setTrace(null);
+        return;
+      }
       if (pasted.length) {
         setResults(pasted);
         setUnsupported('');

@@ -30,6 +30,7 @@ import LetterGlitch from '../components/backgrounds/LetterGlitch';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import SearchBar, { CategoryBar } from '../components/ui/SearchBar';
 import MultimediaInterface from '../components/ui/MultimediaInterface';
+import { isPlaylistUrl } from '../utils/playlistImport';
 import InlineSummaryChat from '../components/search/InlineSummaryChat';
 import { SkeletonSearchResult } from '../components/ui/Skeleton';
 import QuickAnswerCard from '../components/ui/QuickAnswerCard';
@@ -329,11 +330,13 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
   // goes full screen (browsers only allow either from a tap on this page).
   const sharedLoaded = useRef(false);
   const [sharedGate, setSharedGate] = useState(null);
+  const [sharedPlaylist, setSharedPlaylist] = useState(null);
   useEffect(() => {
     if (!lockedTube || sharedLoaded.current) return;
     const { sources } = parsePlayerParams(searchParams.toString());
     if (!sources.length) return;
     sharedLoaded.current = true;
+    setSharedPlaylist(searchParams.getAll('u').find((u) => isPlaylistUrl(u)) || null);
     setSharedGate(sources);
   }, [lockedTube, searchParams]);
 
@@ -1781,7 +1784,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
 
   return (
     <div className="relative min-h-screen w-full bg-black overflow-y-auto">
-      {sharedGate && <ShareGate sources={sharedGate} onStart={() => setSharedGate(null)} />}
+      {sharedGate && <ShareGate sources={sharedGate} playlistUrl={sharedPlaylist} onStart={() => setSharedGate(null)} />}
       {/* Background - Changes based on mode */}
       <div className="fixed inset-0 z-0">
         <AnimatePresence mode="wait">

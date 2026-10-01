@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { Play } from 'lucide-react';
+import { usePlayAll } from '../../hooks/usePlayAll';
 import { usePlayer } from '../../context/PlayerContext';
 import { mediaKey } from '../../utils/videoEmbed';
 
@@ -37,8 +38,12 @@ function fullscreenPlayerWhenReady(tries = 60) {
   if (tries > 0) requestAnimationFrame(() => fullscreenPlayerWhenReady(tries - 1));
 }
 
-export default function ShareGate({ sources, onStart }) {
+export default function ShareGate({ sources, onStart, playlistUrl = null }) {
   const { startFeed, setPlayMode, setMinimized } = usePlayer();
+  // A shared PLAYLIST plays as one (usePlayAll): saved to Lists, the queue
+  // replaced, track one first. Its single "videoseries" embed showed "This
+  // video is unavailable" and left the old queue playing behind it.
+  const { playAll } = usePlayAll();
   const first = sources[0];
   const tall = isTall(first);
   const poster = posterFor(first);
@@ -52,7 +57,7 @@ export default function ShareGate({ sources, onStart }) {
 
   const start = () => {
     setPlayMode('auto');
-    startFeed(sources);
+    if (playlistUrl) playAll(playlistUrl); else startFeed(sources);
     setMinimized(false);
     fullscreenPlayerWhenReady();
     onStart?.();

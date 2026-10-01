@@ -1,6 +1,10 @@
 import { motion } from 'framer-motion';
 import { ExternalLink, Play, ShieldCheck, ShieldAlert, ShieldQuestion, Loader2, Link2 } from 'lucide-react';
 import { useLinkSafety, VERDICT } from '../../hooks/useLinkSafety';
+import { usePlayInPlayer } from '../../hooks/usePlayInPlayer';
+import { getPlayable } from '../../utils/videoEmbed';
+import { isPlaylistUrl } from '../../utils/playlistImport';
+import PlayAllButton from '../player/PlayAllButton';
 
 /*
  * ONE LINK, not a list of results.
@@ -40,7 +44,9 @@ const VERDICT_UI = {
 
 export default function SingleLinkCard({ info, description, className = '' }) {
   const safety = useLinkSafety(info?.url);
+  const playInPlayer = usePlayInPlayer();
   if (!info) return null;
+  const isList = isPlaylistUrl(info.url);
 
   const ui = VERDICT_UI[safety.verdict] || VERDICT_UI[VERDICT.UNKNOWN];
   const { Icon } = ui;
@@ -97,9 +103,22 @@ export default function SingleLinkCard({ info, description, className = '' }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mt-4">
-          {playable && (
+          {playable && isList && (
+            <PlayAllButton
+              url={info.url}
+              className="px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/30 text-sm"
+            />
+          )}
+          {playable && !isList && (
             <a
               href={info.playerLink}
+              // In the one player, here — a plain link reloaded the page and
+              // stopped whatever was playing. Still a real link for new tabs.
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                const p = getPlayable(info.url);
+                if (p && playInPlayer({ ...p, title: info.title || info.url, pageUrl: info.url })) e.preventDefault();
+              }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/30 text-sm font-semibold transition-colors"
             >
               <Play size={14} /> Play in Truegle

@@ -1,5 +1,5 @@
 import { getPlayable } from './videoEmbed';
-import { createPlaylist } from './playlists';
+import { upsertImportedPlaylist } from './playlists';
 
 // Bringing a YouTube playlist in, whole.
 //
@@ -89,13 +89,18 @@ export async function importPlaylist(url, { name, signal } = {}) {
   if (sources.length === 0) return { ok: false, reason: 'empty' };
 
   const listName = String(name || '').trim() || playlistNameFrom(url, data.videos || []);
-  const id = createPlaylist(listName, sources);
+  // Keyed by the playlist id, so the same playlist pasted twice (or with a
+  // different &si= tracking tail) refreshes one list rather than adding copies.
+  const listKey = (() => { try { return `yt:${new URL(url).searchParams.get('list')}`; } catch { return url; } })();
+  const id = upsertImportedPlaylist(listKey, listName, sources);
   if (!id) return { ok: false, reason: 'empty' };
 
   return {
     ok: true,
     id,
     name: listName,
+    // The tracks themselves, so Play All can start them without a second read.
+    sources,
     count: sources.length,
     // False means "there are more we could not reach", not "something failed".
     complete: data.complete !== false,

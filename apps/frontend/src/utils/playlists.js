@@ -44,6 +44,9 @@ function read() {
         id: p.id,
         name: typeof p.name === 'string' ? p.name : 'Untitled',
         createdAt: Number(p.createdAt) || Date.now(),
+        // Where an imported list came from ("yt:<list id>"), so Play All on the
+        // same link refreshes it rather than adding a copy.
+        ...(typeof p.origin === 'string' ? { origin: p.origin } : {}),
         items: Array.isArray(p.items) ? p.items.filter(playlistable).slice(0, CAP_ITEMS) : [],
       }))
       .slice(0, CAP_LISTS);
@@ -71,6 +74,26 @@ export function createPlaylist(name, items = []) {
   if (!clean) return null;
   const id = uid();
   commit([...lists, { id, name: clean, createdAt: Date.now(), items: items.filter(playlistable).map(trim) }]);
+  return id;
+}
+
+/**
+ * Save an imported playlist, keyed by where it came from. Pressing Play All on
+ * the same link again REFRESHES that list instead of adding a second copy —
+ * the Lists tab filled up with "YouTube playlist PL85Bc8o" duplicates.
+ * @returns the list's id, or null if nothing could be saved.
+ */
+export function upsertImportedPlaylist(origin, name, items = []) {
+  const clean = String(name || '').trim().slice(0, 60);
+  const kept = items.filter(playlistable).map(trim);
+  if (!clean || !kept.length) return null;
+  const existing = origin ? lists.find((p) => p.origin === origin) : null;
+  if (existing) {
+    commit(lists.map((p) => (p.id === existing.id ? { ...p, items: kept } : p)));
+    return existing.id;
+  }
+  const id = uid();
+  commit([...lists, { id, name: clean, origin: origin || undefined, createdAt: Date.now(), items: kept }]);
   return id;
 }
 

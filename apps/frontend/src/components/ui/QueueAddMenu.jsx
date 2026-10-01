@@ -3,7 +3,8 @@ import { HardDrive, Link2, Search, Loader2, Plus, Check } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { getPlayable } from '../../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../../utils/playerLink';
-import { isPlaylistUrl, importPlaylist, importMessage } from '../../utils/playlistImport';
+import { isPlaylistUrl, importMessage } from '../../utils/playlistImport';
+import { usePlayAll } from '../../hooks/usePlayAll';
 
 // The queue's "+" panel: three ways to feed the player.
 //   Device — a local file, played from an object URL. Never uploaded.
@@ -70,18 +71,18 @@ export default function QueueAddMenu() {
   const pastedPlaylist = isPlaylistUrl(linkText) ? linkText.trim() : '';
   useEffect(() => { setImported(null); }, [pastedPlaylist]);
 
-  // A playlist becomes a LIST, not a queue full of loose tracks. That is the
-  // difference the two things exist to draw: a list is yours and survives being
-  // played, a queue is consumed.
+  // A playlist is Play All, the same everywhere (usePlayAll): saved as a list
+  // of its own, the queue replaced with it, track one playing.
+  const { playAll } = usePlayAll();
   const addPlaylist = useCallback(async () => {
     if (!pastedPlaylist) return;
     setImporting(true);
     setError('');
-    const result = await importPlaylist(pastedPlaylist);
+    const result = await playAll(pastedPlaylist);
     setImported(result);
     setImporting(false);
     if (result.ok) setLinkText('');
-  }, [pastedPlaylist]);
+  }, [pastedPlaylist, playAll]);
 
   const addLink = () => {
     // A playlist URL that also names a video (…watch?v=X&list=Y) is genuinely
@@ -191,7 +192,7 @@ export default function QueueAddMenu() {
                 className={inputCls}
               />
               <button type="button" onClick={addLink} disabled={importing} className={goCls}>
-                {importing ? <Loader2 size={12} className="animate-spin" /> : (pastedPlaylist ? 'Import' : 'Add')}
+                {importing ? <Loader2 size={12} className="animate-spin" /> : (pastedPlaylist ? 'Play All' : 'Add')}
               </button>
             </div>
             {/* Say what will happen BEFORE the press, not after. A playlist and
@@ -200,8 +201,8 @@ export default function QueueAddMenu() {
                 surprise the first time. */}
             {pastedPlaylist && !imported && (
               <p className="mt-1.5 text-[10px] text-cyan-200/70 leading-tight">
-                That&apos;s a playlist — it will be saved as a list of its own, not
-                poured into the queue.
+                That&apos;s a playlist — Play All saves it to your Lists, replaces the
+                queue with it and starts track one.
               </p>
             )}
             {imported && (
