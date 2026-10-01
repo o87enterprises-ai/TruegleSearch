@@ -28,6 +28,7 @@
     "reels:test": "node scripts/verify-reels.mjs",
     "seo:test": "node scripts/verify-seo-pages.mjs",
     "gsc:test": "node scripts/verify-gsc.mjs",
+    "oneplayer:test": "node scripts/verify-one-player.mjs",
     "searchhistory:test": "node scripts/verify-search-history.mjs",
     "landing:test": "node scripts/verify-landing-cards.mjs",
     "silentembed:test": "node scripts/verify-silent-embed.mjs",

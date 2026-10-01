@@ -24,6 +24,7 @@ import { fmtStamp, fmtStampFull, msgTime } from '../utils/formatTime';
 import { aiErrorMessage } from '../utils/aiError';
 import { downscaleImage } from '../utils/downscaleImage';
 import QueueButton from '../components/ui/QueueButton';
+import { usePlayInPlayer } from '../hooks/usePlayInPlayer';
 import ChatShareButton from '../components/ui/ChatShareButton';
 import InvestigationGraph from '../components/ui/InvestigationGraph';
 import FeedbackButtons from '../components/ui/FeedbackButtons';
@@ -209,6 +210,7 @@ function CitationChip({ result, accent }) {
   const [expanded, setExpanded] = useState(false);
   const videoEmbed = getVideoEmbed(result.url);
   const playable = getPlayable(result.url);
+  const playInPlayer = usePlayInPlayer();
   let domain = result.domain || '';
   try {
     domain = new URL(result.url).hostname.replace(/^www\./, '');
@@ -252,11 +254,17 @@ function CitationChip({ result, accent }) {
           {(videoEmbed || canPreview(result.url)) ? (
             <button
               type="button"
-              onClick={() => setExpanded((v) => !v)}
-              title={videoEmbed ? 'Play here' : 'Open in app'}
+              // A video plays in the one player — never in a frame in the
+              // chat, which played over whatever else was on (2026-10-01).
+              // Only page previews still open here.
+              onClick={() => {
+                if (videoEmbed && playable && playInPlayer({ ...playable, title: result.title || result.url, pageUrl: result.url, poster: result.image })) return;
+                setExpanded((v) => !v);
+              }}
+              title={videoEmbed ? 'Play in the Truegle player' : 'Open in app'}
               className={`px-2 py-1 rounded-lg hover:bg-white/10 text-xs font-medium ${accent.link} transition-colors`}
             >
-              {expanded ? 'Close' : videoEmbed ? '▶ Play' : 'In app'}
+              {videoEmbed ? '▶ Play' : expanded ? 'Close' : 'In app'}
             </button>
           ) : (
             <span
@@ -274,16 +282,14 @@ function CitationChip({ result, accent }) {
           )}
         </div>
       </div>
-      {expanded && (
+      {expanded && !videoEmbed && (
         <div className={`border-t ${accent.iframeBorder}`}>
           <iframe
-            key={videoEmbed || result.url}
-            src={videoEmbed ? `${videoEmbed}?autoplay=1` : result.url}
+            key={result.url}
+            src={result.url}
             className="w-full h-64"
             title={result.title || 'Preview'}
-            allow={videoEmbed ? 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' : undefined}
-            sandbox={videoEmbed ? undefined : 'allow-scripts allow-same-origin'}
-            allowFullScreen
+            sandbox="allow-scripts allow-same-origin"
           />
         </div>
       )}
@@ -354,8 +360,21 @@ function loadModes() {
   return [single && MODES.includes(single) ? single : 'blue'];
 }
 
+// A link in an answer's text that Truegle can play goes to the one player
+// instead of a new tab. Delegated from the answer's container, so the shared
+// <Markdown> component stays a plain renderer. Modifier-clicks still open a tab.
+function playableLinkClick(e, playInPlayer) {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const a = e.target.closest?.('a[href]');
+  if (!a) return;
+  const playable = getPlayable(a.href);
+  if (!playable) return;
+  if (playInPlayer({ ...playable, title: a.textContent?.trim() || a.href, pageUrl: a.href })) e.preventDefault();
+}
+
 export default function TruegleChat() {
   const navigate = useNavigate();
+  const playInPlayer = usePlayInPlayer();
   // Multi-select: the user can activate more than one flow at once and get a
   // single blended answer. `primaryMode` (first selected) drives theming,
   // background tint, citation sourcing, and OSINT routing.
@@ -1032,7 +1051,10 @@ export default function TruegleChat() {
                 style={{ WebkitUserSelect: 'text', userSelect: 'text', WebkitTouchCallout: 'default' }}
               >
                 {m.role === 'assistant' ? (
-                  <div className="prose prose-invert prose-sm max-w-none [&_a]:text-inherit [&_a]:underline [&_a]:break-words">
+                  <div
+                    className="prose prose-invert prose-sm max-w-none [&_a]:text-inherit [&_a]:underline [&_a]:break-words"
+                    onClick={(e) => playableLinkClick(e, playInPlayer)}
+                  >
                     <Markdown>{m.content}</Markdown>
                   </div>
                 ) : (

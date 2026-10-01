@@ -19,6 +19,7 @@ import {
 import SocialEmbed from './SocialEmbed';
 import { getPlayable } from '../../utils/videoEmbed';
 import QueueButton from './QueueButton';
+import { usePlayInPlayer } from '../../hooks/usePlayInPlayer';
 import { RedditCard, HNCard, GitHubCard, fmt } from '../feed/FeedCards';
 
 // Build a mini-player source from a multimedia item (YouTube videoId or a
@@ -85,6 +86,12 @@ const COMING_SOON_PLATFORMS = [
 
 export default function MultimediaInterface({ category, onClose, searchQuery }) {
   const [selectedItem, setSelectedItem] = useState(null);
+  // A video picked here plays in the one player — never in a frame of its own.
+  const playInPlayer = usePlayInPlayer();
+  const pickVideo = (item) => {
+    const source = itemToSource(item);
+    if (!playInPlayer(source)) setSelectedItem(item);
+  };
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [socialPlatformFilter, setSocialPlatformFilter] = useState('All');
@@ -521,7 +528,7 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
         );
       case 'vids':
         return data.length > 0
-          ? <VideoGrid videos={data} onSelect={setSelectedItem} />
+          ? <VideoGrid videos={data} onSelect={pickVideo} />
           : <div className="text-center py-12 text-white/50">No video results found. Try a different search term.</div>;
       case 'audio':
         return <AudioGrid audio={data.length > 0 ? data : mockAudio} />;
@@ -854,6 +861,7 @@ function AudioList({ audio }) {
 // Lightbox Component
 function Lightbox({ item, onClose, category }) {
   const playerSource = itemToSource(item);
+  const playInPlayer = usePlayInPlayer();
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -916,15 +924,22 @@ function Lightbox({ item, onClose, category }) {
         ) : category === 'vids' && item.videoId ? (
           // YouTube Video Embed
           <div className="bg-black rounded-2xl border-2 border-purple-500 shadow-2xl shadow-purple-500/50 overflow-hidden">
-            <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
-              <iframe
-                className="absolute inset-0 w-full h-full"
-                src={`https://www.youtube.com/embed/${item.videoId}?autoplay=1&rel=0&modestbranding=1`}
-                title={item.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
+            {/* A poster, not a player: pressing it hands the clip to the one
+                player. A frame here used to play on top of whatever else was
+                on (owner, 2026-10-01). */}
+            <button
+              type="button"
+              data-lightbox-play
+              onClick={() => { if (playInPlayer(playerSource)) onClose(); }}
+              className="relative w-full block group"
+              style={{ paddingTop: '56.25%' }}
+              aria-label={`Play ${item.title || 'video'}`}
+            >
+              <img src={item.thumbnail || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              <span className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-black/60 group-hover:bg-black/75 flex items-center justify-center">
+                <Play size={28} className="text-white ml-1" fill="currentColor" />
+              </span>
+            </button>
             <div className="p-4 bg-gradient-to-br from-[#1a1a2e] to-[#16213e]">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">

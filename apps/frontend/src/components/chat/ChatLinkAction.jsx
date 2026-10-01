@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { Play, ExternalLink, ShieldAlert } from 'lucide-react';
 import { useLinkSafety, VERDICT } from '../../hooks/useLinkSafety';
+import { usePlayInPlayer } from '../../hooks/usePlayInPlayer';
+import { getPlayable } from '../../utils/videoEmbed';
 
 /*
  * The end of an answer about a link.
@@ -16,6 +18,7 @@ import { useLinkSafety, VERDICT } from '../../hooks/useLinkSafety';
  */
 export default function ChatLinkAction({ info, description }) {
   const safety = useLinkSafety(info?.url);
+  const playInPlayer = usePlayInPlayer();
   if (!info) return null;
 
   const playable = info.kind === 'playable' && info.playerLink;
@@ -43,6 +46,14 @@ export default function ChatLinkAction({ info, description }) {
         {playable ? (
           <Link
             to={playerPath}
+            // Plays right here, in the one player, without leaving the chat.
+            // The link stays a real link (new tab, copy, middle-click), and is
+            // the fallback when a source can't be built.
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+              const p = getPlayable(info.url);
+              if (p && playInPlayer({ ...p, title: info.title || info.url, pageUrl: info.url })) e.preventDefault();
+            }}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/20 border border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/30 text-xs font-semibold transition-colors"
           >
             <Play size={13} /> Play in Truegle
