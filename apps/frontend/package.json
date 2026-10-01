@@ -31,6 +31,7 @@
     "oneplayer:test": "node scripts/verify-one-player.mjs",
     "carrysearch:test": "node scripts/verify-player-carry-search.mjs",
     "playall:test": "node scripts/verify-play-all.mjs",
+    "player:suite": "node scripts/verify-player-suite.mjs",
     "searchhistory:test": "node scripts/verify-search-history.mjs",
     "landing:test": "node scripts/verify-landing-cards.mjs",
     "silentembed:test": "node scripts/verify-silent-embed.mjs",

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ChevronDown, X, Play, Loader2, Mic } from 'lucide-react';
+import { Search, ChevronDown, X, Play, Loader2, Mic, ClipboardPaste, ArrowRight } from 'lucide-react';
+import { isPlaylistUrl } from '../../utils/playlistImport';
+import { usePlayAll } from '../../hooks/usePlayAll';
 
 /* ── The drop-down bar in full screen ───────────────────────────────────────
  *
@@ -53,12 +55,42 @@ export default function FullscreenSearchBar({
     return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
+  // A playlist link is Play All here too (usePlayAll) — this bar used to hand
+  // it to the search, which "played" YouTube's broken playlist embed.
+  const { playAll, busy: listBusy } = usePlayAll();
+
   const submit = useCallback(() => {
     const q = query.trim();
-    if (q) onSearch?.(q);
+    if (!q) return;
+    if (isPlaylistUrl(q)) {
+      playAll(q).then((r) => { if (r.ok) { setQuery(''); setOpen(false); } });
+      return;
+    }
+    onSearch?.(q);
+  }, [query, onSearch, playAll]);
+
+  // X works like YouTube's: text in the box → clear it and stay; empty → close.
+  // It used to close AND clear in one go, which read as "X doesn't clear" —
+  // the bar vanished with the text instead of giving an empty box to type in.
+  const clearOrClose = useCallback(() => {
+    if (query) { setQuery(''); onSearch?.(''); inputRef.current?.focus(); return; }
+    setOpen(false);
   }, [query, onSearch]);
 
+  // Our own Paste. In landscape full screen the phone's paste bubble opens
+  // ABOVE a field at the top edge — off the screen. Needs a tap (it is one)
+  // and clipboard permission; where the browser refuses, the long-press still
+  // works, now with room for its bubble (see the top padding below).
+  const canPaste = typeof navigator !== 'undefined' && !!navigator.clipboard?.readText;
+  const paste = useCallback(async () => {
+    try {
+      const text = (await navigator.clipboard.readText()).trim();
+      if (text) { setQuery(text); inputRef.current?.focus(); }
+    } catch { inputRef.current?.focus(); }
+  }, []);
+
   const pick = useCallback((r) => {
+    if (r?.playlistUrl) { playAll(r.playlistUrl); setQuery(''); setOpen(false); return; }
     onSelect?.(r);
     // Same contract as everywhere else in the player: a selection puts the
     // list away and empties the box. Nobody wants to close their own search
@@ -77,14 +109,19 @@ export default function FullscreenSearchBar({
             exit={{ y: '-100%', opacity: 0 }}
             transition={{ type: 'spring', stiffness: 340, damping: 34 }}
             className="pointer-events-auto bg-black/95 border-b border-white/15 backdrop-blur-sm"
+            // Room above the field for the phone's own paste/copy bubble, which
+            // opens above a focused field and fell off the top of the screen.
+            style={{ paddingTop: 'max(env(safe-area-inset-top), 40px)' }}
           >
-            <div className="flex items-center gap-2 px-3 py-2.5">
+            <div data-fs-search="" className="flex items-center gap-2 px-3 py-2.5">
               <Search size={16} className="text-white/40 flex-shrink-0" />
               <input
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
+                enterKeyHint="search"
+                inputMode="search"
                 placeholder="Search for something to play…"
                 aria-label="Search for something to play"
                 className="flex-1 min-w-0 bg-transparent text-white text-sm outline-none placeholder:text-white/35"
@@ -100,15 +137,44 @@ export default function FullscreenSearchBar({
                   <Mic size={15} />
                 </button>
               )}
+              {!query && canPaste && (
+                <button
+                  type="button"
+                  onClick={paste}
+                  title="Paste"
+                  aria-label="Paste"
+                  data-fs-paste=""
+                  className="p-2 rounded-lg text-white/50 hover:text-white flex-shrink-0"
+                >
+                  <ClipboardPaste size={15} />
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => { setQuery(''); setOpen(false); }}
-                title="Close"
-                aria-label="Close search"
+                onClick={clearOrClose}
+                title={query ? 'Clear' : 'Close'}
+                aria-label={query ? 'Clear the search' : 'Close search'}
+                data-fs-clear=""
                 className="p-2 rounded-lg text-white/50 hover:text-white flex-shrink-0"
               >
                 <X size={15} />
               </button>
+              {/* Enter, as a button: a phone keyboard in landscape full screen
+                  often hides its own, and there was no other way to submit. */}
+              {query.trim() && (
+                <button
+                  type="button"
+                  onClick={submit}
+                  title={isPlaylistUrl(query) ? 'Play All' : 'Search'}
+                  aria-label={isPlaylistUrl(query) ? 'Play All' : 'Search'}
+                  data-fs-go=""
+                  disabled={listBusy}
+                  className="flex items-center justify-center w-9 h-9 rounded-full text-black flex-shrink-0 disabled:opacity-60"
+                  style={{ background: accent }}
+                >
+                  {listBusy ? <Loader2 size={15} className="animate-spin" /> : (isPlaylistUrl(query) ? <Play size={15} fill="currentColor" /> : <ArrowRight size={16} />)}
+                </button>
+              )}
             </div>
 
             {(loading || results.length > 0) && (
