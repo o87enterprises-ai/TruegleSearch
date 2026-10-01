@@ -16,11 +16,17 @@
 .tg-bg__aurora {
   position: absolute;
   inset: -25%;
+  /* NO blur()/saturate() FILTER. This used to be filter: blur(60px) on a layer
+     one and a half screens tall — the single most expensive thing on the
+     landing page: typing in the search bar took ~250-400ms per key on a phone
+     (measured 2026-10-01) and half of that vanished with this one line off.
+     The gradients are already soft (they fade to transparent), so the blur
+     added almost nothing to the look; the colours below carry the extra
+     saturation instead. */
   background:
-    radial-gradient(35% 35% at 25% 30%, rgba(139, 92, 246, 0.45), transparent 60%),
-    radial-gradient(30% 30% at 75% 25%, rgba(6, 182, 212, 0.40), transparent 60%),
-    radial-gradient(40% 40% at 60% 70%, rgba(236, 72, 153, 0.30), transparent 60%);
-  filter: blur(60px) saturate(120%);
+    radial-gradient(40% 40% at 25% 30%, rgba(139, 92, 246, 0.50), transparent 62%),
+    radial-gradient(35% 35% at 75% 25%, rgba(6, 182, 212, 0.45), transparent 62%),
+    radial-gradient(45% 45% at 60% 70%, rgba(236, 72, 153, 0.34), transparent 62%);
   animation: tg-aurora-drift 26s ease-in-out infinite alternate;
   will-change: transform;
 }

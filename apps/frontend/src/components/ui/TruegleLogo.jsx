@@ -55,27 +55,28 @@ function TruegleLogo({
   );
 
   if (animated) {
+    // THE GLOW BREATHES BY OPACITY, NOT BY FILTER. It used to animate
+    // `filter: drop-shadow()` from 20px to 40px — a repaint of the whole logo
+    // (plus its blend-mode backdrop) on every frame, which is what made typing
+    // on the landing page lag. Now the shadow is static and a halo behind the
+    // logo fades in and out; opacity is composited on the GPU and repaints
+    // nothing.
     return (
-      <div
-        className="inline-block animate-logo-glow cursor-pointer"
-        style={{
-          filter: 'drop-shadow(0 0 20px rgba(0, 229, 255, 0.3))',
-        }}
-        onClick={onClick || (() => navigate('/'))}
-      >
-        {logoElement}
+      <div className="relative inline-block cursor-pointer" onClick={onClick || (() => navigate('/'))}>
+        <span aria-hidden="true" className="tg-logo-halo absolute inset-0 pointer-events-none" />
+        <div className="relative" style={{ filter: 'drop-shadow(0 0 24px rgba(0, 229, 255, 0.35))' }}>
+          {logoElement}
+        </div>
         <style>{`
-          @keyframes logo-glow {
-            0%, 100% {
-              filter: drop-shadow(0 0 20px rgba(0, 229, 255, 0.3));
-            }
-            50% {
-              filter: drop-shadow(0 0 40px rgba(0, 229, 255, 0.6));
-            }
+          .tg-logo-halo {
+            background: radial-gradient(closest-side, rgba(0, 229, 255, 0.34), rgba(0, 229, 255, 0) 72%);
+            transform: scale(1.35);
+            opacity: 0.35;
+            will-change: opacity;
+            animation: tg-logo-halo 2s ease-in-out infinite;
           }
-          .animate-logo-glow {
-            animation: logo-glow 2s ease-in-out infinite;
-          }
+          @keyframes tg-logo-halo { 0%, 100% { opacity: 0.30; } 50% { opacity: 0.85; } }
+          @media (prefers-reduced-motion: reduce) { .tg-logo-halo { animation: none; opacity: 0.55; } }
         `}</style>
       </div>
     );

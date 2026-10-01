@@ -269,14 +269,21 @@ export default function LandingPage() {
           >
             {/* Logo with reflection effect */}
             <div className="mb-2 inline-block">
-              <div
-                className="relative"
-                style={{
-                  filter:
-                    'drop-shadow(0 0 20px rgba(139,92,246,0.3)) drop-shadow(0 0 40px rgba(139,92,246,0.2))',
-                  transition: 'filter 0.1s linear',
-                }}
-              >
+              {/* NO filter: drop-shadow HERE. The logo inside pulses in scale
+                  forever, and a filtered ancestor re-runs its (two-layer, 20 and
+                  40px) shadow on every one of those frames — a big part of why
+                  typing on this page took 250–400ms a key on a phone (measured
+                  2026-10-01). A static radial halo gives the same purple glow
+                  and costs nothing to keep. */}
+              <div className="relative">
+                <span
+                  aria-hidden="true"
+                  className="absolute pointer-events-none"
+                  style={{
+                    inset: '-18%',
+                    background: 'radial-gradient(closest-side, rgba(139,92,246,0.32), rgba(139,92,246,0) 75%)',
+                  }}
+                />
                 <motion.div
                   animate={{
                     scale: [1, 1.01, 1],
@@ -308,9 +315,9 @@ export default function LandingPage() {
                     top: '100%',
                     width: '100%',
                     height: '60px',
+                    // No blur(): it is already a fade to transparent.
                     background:
                       'linear-gradient(to bottom, rgba(139,92,246,0.3) 0%, transparent 100%)',
-                    filter: 'blur(20px)',
                     transform: 'scaleY(-0.3) translateY(-20px)',
                     opacity: 0.5,
                   }}
