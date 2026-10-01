@@ -129,9 +129,18 @@ class RadarService {
       // Only send the filters that were actually asked for. Radar treats an
       // empty `categories=` as a filter matching nothing rather than as "no
       // filter", so sending blanks unconditionally returned no places at all.
-      if (options.chains) params.chains = options.chains;
+      // Chain slugs are lower-case and hyphenated ("taco-bell"); typed text is not.
+      if (options.chains) params.chains = String(options.chains).trim().toLowerCase().replace(/\s+/g, '-');
       if (options.categories?.length) params.categories = options.categories;
       if (options.query) params.query = options.query;
+      if (options.groups) params.groups = options.groups;
+      // Radar refuses a place search with none of chains/categories/groups
+      // ("At least one value must be present"), and the 400 surfaced as a 500
+      // on every non-chain autocomplete. Nothing to search by is no places —
+      // the caller already merges in the address suggestions.
+      if (!params.chains && !params.categories && !params.groups) {
+        return { success: true, places: [], meta: { skipped: 'no chains, categories or groups' } };
+      }
       const response = await this.axiosInstance.get('/search/places', { params });
       return {
         success: true,
