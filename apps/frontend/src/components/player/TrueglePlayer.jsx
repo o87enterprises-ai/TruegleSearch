@@ -966,7 +966,11 @@ export default function TrueglePlayer({
             {/* Back · play/pause · forward, centred on the picture like the
                 controls YouTube shows on a tap. Live only while shown, so an
                 invisible button can never catch a stray touch. */}
-            <div data-player-hud-transport="" className={`flex items-center justify-center gap-6 ${overlay.visible ? 'pointer-events-auto' : ''}`}>
+            {/* The ROW stays touch-transparent; only its three buttons take
+                touches. A full-width live row sat across the middle of the
+                picture and swallowed the second tap of every double-tap, so
+                "double-tap to skip 10s" never worked (player suite). */}
+            <div data-player-hud-transport="" className={`flex items-center justify-center gap-6 pointer-events-none ${overlay.visible ? '[&>button]:pointer-events-auto' : ''}`}>
               <button type="button" onClick={() => { overlay.reveal(); prev(); }} disabled={!history.length}
                 aria-label="Previous" tabIndex={overlay.visible ? 0 : -1}
                 className="flex items-center justify-center w-11 h-11 rounded-full bg-black/50 backdrop-blur-sm text-white disabled:opacity-30">
@@ -1024,6 +1028,7 @@ export default function TrueglePlayer({
               bottom: 'calc(env(safe-area-inset-bottom, 0px) + min(96px, 18svh))',
             }}
             className="absolute inset-x-0 z-10"
+            data-swipe-sheet=""
             aria-hidden="true"
           />
         )}

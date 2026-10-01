@@ -119,6 +119,7 @@ async function boot(name) {
   page.setDefaultNavigationTimeout(60000);
   const errs = [];
   page.on('pageerror', (e) => errs.push(e.message));
+  if (process.env.SUITE_DEBUG) page.on('console', (m) => { if (/DBG/.test(m.text())) console.log('   ', m.text()); });
   return { ctx, page, errs, touch };
 }
 
@@ -323,18 +324,23 @@ async function touchChecks(device, layout, page) {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: cy }] });
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     };
-    await tapAt(); await page.waitForTimeout(120); await tapAt();
+    await tapAt();
+    await page.waitForTimeout(120); await tapAt();
     return (await sawCmd(page, n, 'seekTo', 2000)) || 'no seek';
   });
   await check(device, layout, 'swipe up → next clip', async () => {
     const before = await nowPlaying(page);
     const cdp = await page.context().newCDPSession(page);
-    const pt = (y) => [{ x: cx, y }];
-    // In proportion to the picture: a fixed 120 px below centre started on
-    // the control bar in landscape, where a swipe is not a swipe.
-    const reach = Math.min(160, box.height * 0.3);
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(cy + reach) });
-    for (let i = 1; i <= 6; i += 1) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(cy + reach - (i * 2 * reach) / 6) });
+    // Inside the gesture band (the screen's top and bottom edges are left to
+    // the phone's own gestures), in proportion to it — in landscape the band
+    // is short and a fixed distance started outside it.
+    const band = await page.locator('[data-swipe-sheet]').first().boundingBox();
+    const sx = band ? band.x + band.width / 2 : cx;
+    const sy = band ? band.y + band.height / 2 : cy;
+    const reach = Math.max(70, Math.min(160, (band ? band.height : box.height) * 0.45));
+    const pt = (y) => [{ x: sx, y }];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(sy + reach) });
+    for (let i = 1; i <= 6; i += 1) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(sy + reach - (i * 2 * reach) / 6) });
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     return until(async () => (await nowPlaying(page)) !== before, { what: 'next', timeout: 2500 }).then(() => true, () => 'no change');
   });
