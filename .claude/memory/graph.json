@@ -1560,6 +1560,14 @@
         "body": "2026-10-01 owner: results must keep typed keywords and order most-exact first. services/exactMatch.js: words as typed (no stem/synonym), filler dropped, operators/bangs/-neg/site: ignored, URL path counts. Sort: matched desc, inTitle desc, adjacency, then existing finalScore. NOT applied to navigational/brand, site-keyword boost, date sort, Red/Purple/Ocean. Brave free plan = 1 req/s: services/braveGate.js serialises all Brave web/news/image calls 1.05s apart, drops extras waiting >2.2s, retries 429 once.",
         "ts": "2026-10-01",
         "created": "2026-10-01"
+      },
+      "play-all": {
+        "Id": "play-all",
+        "Type": "decision",
+        "Label": "Playlist links = one Play All everywhere",
+        "body": "usePlayAll/PlayAllButton: save to Lists (upsert by yt:<listId>), replace queue via playList, play track 1. Used by SingleLinkCard, ChatLinkAction, PlayerListSlot, PlayerBrowse card, QueueAddMenu, ShareGate(/tube?u=playlist), FullscreenSearchBar. Never route a bare playlist to YouTube's videoseries embed (shows 'unavailable').",
+        "ts": "2026-10-01",
+        "created": "2026-10-01"
       }
     },
     "thread": {
@@ -3360,6 +3368,14 @@
         "Type": "fact",
         "Label": "Embed silence watchdog starts at iframe LOAD, handshake repeats until heard",
         "body": "2026-10-01: watchdog timed from mount (15s) + hello only until 2.5s skipped good YouTube videos on slow phones (reproduced with CDP throttling). Now: 10s after onLoad (PlayerScreen stamps data-loaded), hello every 1s until heard. Test: npm run silentembed:test (slow-phone case). Also env.js trims every env value (Radar key had trailing whitespace → 'Invalid character in header' → maps dead).",
+        "ts": "2026-10-01",
+        "created": "2026-10-01"
+      },
+      "player-suite": {
+        "Id": "player-suite",
+        "Type": "fact",
+        "Label": "Player suite: npm run player:suite (4 devices x layouts, 251 checks)",
+        "body": "scripts/verify-player-suite.mjs drives every transport control, play modes, list, both search bars, YouTube keyboard (Space/K, J/L, arrows seek/volume, M, F, Shift+N/P, 0-9), touch (tap, double-tap, swipe, lock), auto-advance and a press-every-button sweep on desktop/phone portrait/landscape/tablet, against a YouTube stand-in speaking the real postMessage protocol. 2026-10-01: 251/0. Lessons: never put useEmbedPlayback's return object in effect deps (re-sent play/mute 2x/s); HUD rows must be pointer-events-none with only buttons live; one keyboard handler (TrueglePlayer), useSwipeNav has none. Chromium only; Firefox PiP untestable.",
         "ts": "2026-10-01",
         "created": "2026-10-01"
       }
