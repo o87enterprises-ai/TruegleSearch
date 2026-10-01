@@ -33,6 +33,7 @@
     "playall:test": "node scripts/verify-play-all.mjs",
     "player:suite": "node scripts/verify-player-suite.mjs",
     "feedcontrols:test": "node scripts/verify-feed-controls.mjs",
+    "pill:test": "node scripts/verify-pill-countdown.mjs",
     "searchhistory:test": "node scripts/verify-search-history.mjs",
     "landing:test": "node scripts/verify-landing-cards.mjs",
     "silentembed:test": "node scripts/verify-silent-embed.mjs",

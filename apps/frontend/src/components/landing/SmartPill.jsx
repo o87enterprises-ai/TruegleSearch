@@ -6,17 +6,25 @@ import PillModeRow from './PillModeRow';
 import { MODE_COLORS, searchModeLabel } from '../../config/modeTheme';
 import { detectIntent } from '../../utils/queryIntent';
 import { routeFor } from '../../utils/modeRoute';
+import { useRecentActivity } from '../../hooks/useRecentActivity';
 
 // The pill, plus the two things that make it move you:
 //
 //   CLICK   the mode changes at once and a 5-second countdown starts; when it
 //           runs out you land on that mode's page with what you typed. ✕
-//           cancels (and puts the pill back). Clicking again moves on to the
+//           stops the countdown and the pill STAYS on what you picked — it is
+//           your choice, ✕ only means "don't go yet" (2026-10-01; it used to
+//           snap back to the previous mode). Clicking again moves on to the
 //           next mode and restarts the clock. Holding (2.2s) goes to Chat now.
+//   BUSY    if you are typing, tapping or scrolling when the clock runs out,
+//           the switch WAITS until you have been idle for a couple of seconds
+//           — a long query was being cut off mid-sentence. "Go now" does not
+//           wait.
 //   TYPE    ~0.7s after you stop typing, a video link offers Tube, a social
 //           post Feed, a question Chat, a local-business search Mainstream —
 //           same countdown, with the reason shown. ✕ stops suggestions for
-//           that text.
+//           that text and puts the pill back — the app moved it, you did not
+//           choose it.
 //
 // On the Chat page only links and local searches pull you away: typing there
 // is talking to the AI, so questions and topics stay put.
@@ -41,6 +49,7 @@ export default function SmartPill({ activeMode, onSelect, pageMode = null, query
   const suppressed = useRef(null);
   const queryRef = useRef(query);
   queryRef.current = query;
+  const activity = useRecentActivity();
 
   const stop = useCallback(() => setRun(null), []);
 
@@ -55,7 +64,10 @@ export default function SmartPill({ activeMode, onSelect, pageMode = null, query
     // last tick (or of mount), and the first frame read "in 18…".
     setNow(Date.now());
     setRun((cur) => {
-      const from = cur ? cur.from : activeMode;
+      // What ✕ restores. Only a run the APP started (a suggestion) has
+      // anything to restore: if the person picked the mode, or picked one
+      // before a suggestion cut in, their pick is the thing to keep.
+      const from = cur && cur.reason ? cur.from : activeMode;
       if (pageMode && mode === pageMode) return null; // already here — nothing to go to
       return { mode, reason, from, startedAt: Date.now() };
     });
@@ -67,10 +79,16 @@ export default function SmartPill({ activeMode, onSelect, pageMode = null, query
     const id = setInterval(() => {
       const t = Date.now();
       setNow(t);
-      if (t - run.startedAt >= COUNTDOWN_MS) { clearInterval(id); go(run.mode); }
+      if (t - run.startedAt >= COUNTDOWN_MS) {
+        // Out of time — but not out of patience. Mid-sentence, hold the switch
+        // and keep checking; it goes the moment the person stops.
+        if (!activity.isIdle()) return;
+        clearInterval(id);
+        go(run.mode);
+      }
     }, 100);
     return () => clearInterval(id);
-  }, [run, go]);
+  }, [run, go, activity]);
 
   // Leaving the page (Enter, a link, the back button) ends any countdown.
   useEffect(() => { setRun(null); }, [location.pathname, location.search]);
@@ -102,8 +120,12 @@ export default function SmartPill({ activeMode, onSelect, pageMode = null, query
   }, [onSelect, start]);
 
   const cancel = useCallback(() => {
-    if (run?.from) onSelect(run.from);
-    if (run?.reason) suppressed.current = queryRef.current.trim();
+    // A suggestion the app made: undo it and stop suggesting for this text.
+    // A pick the person made: leave the pill exactly where they put it.
+    if (run?.reason) {
+      if (run.from) onSelect(run.from);
+      suppressed.current = queryRef.current.trim();
+    }
     stop();
   }, [run, onSelect, stop]);
 
@@ -126,7 +148,9 @@ export default function SmartPill({ activeMode, onSelect, pageMode = null, query
           >
             <span>
               {run.reason ? <span className="text-white/55">{run.reason} · </span> : null}
-              Going to <strong style={{ color }}>{labelFor(run.mode)}</strong> in {Math.ceil(left / 1000)}…
+              {left > 0
+                ? <>Going to <strong style={{ color }}>{labelFor(run.mode)}</strong> in {Math.ceil(left / 1000)}…</>
+                : <>Going to <strong style={{ color }}>{labelFor(run.mode)}</strong> when you finish…</>}
             </span>
             <button
               type="button"
