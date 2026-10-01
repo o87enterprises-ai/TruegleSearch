@@ -30,22 +30,36 @@ export default function PlayerOverlay({
   onCyclePlayMode,
   playModeLabel,
   accent = '#f43f5e',
+  onInteract,         // a press on the rail keeps it on screen (it hides after a few seconds)
+  compact = false,    // a very small picture: use its whole height
 }) {
   // ALWAYS MOUNTED, never conditionally rendered: fading out an element that
   // has been removed from the tree is not possible, and popping in and out is
   // the "intrusive" the brief rules out. `pointer-events-none` while hidden so
-  // an invisible rail can never eat a press meant for the picture.
-  const shell = `absolute right-2 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2
-    transition-opacity duration-200 ${visible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`;
+  // an invisible rail can never eat a press meant for the picture. The same goes
+  // for the rail's EMPTY BOX while shown: only its buttons take presses, or the
+  // box (which can span two columns) covers the centre transport beside it.
+  //
+  // z-30, ABOVE the heads-up display (z-20, later in the page, so it won): on
+  // the Feed's phone-sized picture (~210px) the four buttons fill the whole
+  // height, the last one — Share — landed under the progress strip, and a
+  // press there hit the strip. Owner, 2026-10-01: "the on-screen share /
+  // controls aren't working".
+  //
+  // The rail lives in the band BETWEEN the title strip and the progress strip
+  // (inset-y-12) and WRAPS into a second column when that band is too short
+  // for one, so it never has to sit on top of either.
+  const shell = `absolute right-2 ${compact ? 'inset-y-2' : 'inset-y-12'} z-30 flex flex-col flex-wrap-reverse content-start justify-center items-center gap-2
+    transition-opacity duration-200 pointer-events-none ${visible ? 'opacity-100 [&>button]:pointer-events-auto' : 'opacity-0'}`;
 
   // Bigger than the transport's 36px. These sit over moving video with no
   // surface behind them, so they need their own contrast and their own target.
-  const btn = `flex items-center justify-center w-11 h-11 rounded-full
+  const btn = `flex items-center justify-center w-10 h-10 rounded-full
     bg-black/45 backdrop-blur-sm text-white/80 hover:text-white hover:bg-black/65
     transition-colors disabled:opacity-30`;
 
   return (
-    <div className={shell} aria-hidden={!visible}>
+    <div className={shell} aria-hidden={!visible} onPointerDown={() => onInteract?.()}>
       <button
         type="button"
         onClick={() => onRate?.(1)}

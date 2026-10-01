@@ -33,7 +33,15 @@ const VIMEO_ORIGIN = 'https://player.vimeo.com';
 // (2026-10-01, reproduced at phone speed). A dead clip's error page loads
 // quickly, so it is still caught; a slow network only delays the load, and
 // a frame that never loads is never judged.
-export const SILENT_EMBED_MS = 10000;
+//
+// 25s, measured not guessed: on a throttled phone profile the real YouTube
+// player posted its first message about 23 seconds after the frame mounted —
+// far past the 10s this used to be, which skipped a healthy clip 10 seconds
+// into the Feed (owner, 2026-10-01: "glitched forward about 10 secs after
+// starting the video; played fine the second time"). The price is that a
+// truly dead, silent clip now takes 25s to move on; clips that report an
+// error (the common dead kind) are still skipped at once.
+export const SILENT_EMBED_MS = 25000;
 // How often to repeat the handshake until the frame answers. YouTube's own
 // iframe API does the same: its player only hears "listening" once it has
 // booted, and on a slow phone that is long after any fixed retry schedule.

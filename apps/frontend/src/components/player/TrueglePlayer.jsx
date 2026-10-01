@@ -82,6 +82,19 @@ export default function TrueglePlayer({
   const mediaRef = useRef(null);
   const frameRef = useRef(null);
   const rootRef = useRef(null);
+  // How wide the picture is. On a phone held sideways the Feed's picture is
+  // ~290px and ~165px tall: no room for the centre Previous/Pause/Next row AND
+  // the button column. The transport bar under the picture has the same three
+  // buttons, so the centre row is dropped there and the column gets the height.
+  const [pictureW, setPictureW] = useState(0);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(([e]) => setPictureW(Math.round(e.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const narrowPicture = pictureW > 0 && pictureW < 340;
   const [listOpen, setListOpen] = useState(false);
   // ONE search per query, shared by the list below and the browse deck in the
   // viewport. It used to live inside PlayerListSlot; with two consumers that
@@ -924,6 +937,8 @@ export default function TrueglePlayer({
             playModeLabel={PLAY_MODE_LABEL[playMode]}
             onCyclePlayMode={() => setPlayMode(PLAY_MODES[(PLAY_MODES.indexOf(playMode) + 1) % PLAY_MODES.length])}
             accent={accent}
+            onInteract={overlay.reveal}
+            compact={narrowPicture}
           />
         )}
 
@@ -970,7 +985,8 @@ export default function TrueglePlayer({
                 touches. A full-width live row sat across the middle of the
                 picture and swallowed the second tap of every double-tap, so
                 "double-tap to skip 10s" never worked (player suite). */}
-            <div data-player-hud-transport="" className={`flex items-center justify-center gap-6 pointer-events-none ${overlay.visible ? '[&>button]:pointer-events-auto' : ''}`}>
+            {!narrowPicture && (
+            <div data-player-hud-transport="" className={`flex items-center justify-center pointer-events-none gap-6 ${overlay.visible ? '[&>button]:pointer-events-auto' : ''}`}>
               <button type="button" onClick={() => { overlay.reveal(); prev(); }} disabled={!history.length}
                 aria-label="Previous" tabIndex={overlay.visible ? 0 : -1}
                 className="flex items-center justify-center w-11 h-11 rounded-full bg-black/50 backdrop-blur-sm text-white disabled:opacity-30">
@@ -987,6 +1003,7 @@ export default function TrueglePlayer({
                 <SkipForward size={20} fill="currentColor" />
               </button>
             </div>
+            )}
             <div className={overlay.visible ? 'pointer-events-auto' : ''}>
               <PlayerProgress
                 mediaRef={mediaRef}

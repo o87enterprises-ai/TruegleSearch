@@ -3,14 +3,16 @@
  * Seen on the live site (2026-09-29): region-blocked news clips render YouTube's
  * own "Video unavailable" page and post NOT ONE message to us — no error code,
  * so nothing told the player, and it sat on a dead frame. useEmbedPlayback now
- * treats 10 seconds of silence AFTER THE FRAME HAS LOADED, on a visible tab, as
+ * treats 25 seconds of silence AFTER THE FRAME HAS LOADED, on a visible tab, as
  * "unplayable" and the run moves on.
  *
  * And the other side of it (2026-10-01): the clock used to start at mount, so
  * on a phone connection — where YouTube's player takes longer than that just
  * to download — good videos were skipped every fifteen seconds ("Tube changes
- * tracks at random"). The SLOW case pins that: a frame that takes 20 seconds
- * to arrive and then a few more to boot is never skipped.
+ * tracks at random"; and a Feed clip skipped 10s in on a real phone, 2026-10-01,
+ * when YouTube's player took ~23s to start talking). The SLOW case pins that: a
+ * frame that takes 20 seconds to arrive and then 16 more to boot is never
+ * skipped.
  *
  * The embeds are stubbed at the browser, served from the real embed origin so
  * the hook's origin and source checks are exercised for real: a SILENT page
@@ -35,7 +37,7 @@ const browser = await launchChromium();
 
 const SILENT = 'silentAAAA1'; const TALK1 = 'talkAAAAAA1'; const TALK2 = 'talkAAAAAA2'; const SLOW = 'slowAAAAAA1';
 // How long the SLOW clip's download takes, and how long its player then boots.
-const SLOW_NET_MS = 20000; const SLOW_BOOT_MS = 4000;
+const SLOW_NET_MS = 20000; const SLOW_BOOT_MS = 16000;
 const SILENT_PAGE = '<html><body style="background:#000;color:#fff">Video unavailable. This content isn’t available.</body></html>';
 // Like YouTube's player: silent until it hears "listening", deaf until booted.
 const chattyPage = (bootMs) => `<html><body style="background:#000"><script>
@@ -84,10 +86,10 @@ async function run(ids) {
   await until(async () => (await src() || '').includes(SILENT), { what: 'the silent clip to load' });
   await page.waitForTimeout(8000);
   check((await src()).includes(SILENT), 'a clip that has been quiet for eight seconds is NOT skipped yet');
-  await until(async () => (await src() || '').includes(TALK2), { timeout: 20000, what: 'the run to move past the silent clip' }).catch(() => {});
+  await until(async () => (await src() || '').includes(TALK2), { timeout: 40000, what: 'the run to move past the silent clip' }).catch(() => {});
   const took = Math.round((Date.now() - started) / 1000);
   check((await src()).includes(TALK2), 'a clip that never speaks is skipped and the next one plays', `after ~${took}s`);
-  check(took >= 10, 'not before the ten-second timeout', `${took}s`);
+  check(took >= 24, 'not before the 25-second timeout', `${took}s`);
   check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
   await ctx.close();
 }
@@ -96,7 +98,7 @@ async function run(ids) {
 {
   const { ctx, page, src } = await run([TALK1, TALK2]);
   await until(async () => (await src() || '').includes(TALK1), { what: 'the chatty clip to load' });
-  await page.waitForTimeout(19000);
+  await page.waitForTimeout(30000);
   check((await src()).includes(TALK1), 'a clip that only talks after the handshake (as YouTube does) is still playing well past the timeout');
   await ctx.close();
 }
