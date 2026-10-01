@@ -128,27 +128,6 @@ const FeelingBiasedPage = () => {
               {results.length > 0 ? (
                 results.map((result, index) => (
                   <div key={index}>
-                    {/* Ad Banner after every 3rd result */}
-                    {index > 0 && index % 3 === 0 && (
-                      <div className="mb-4 p-4 rounded-2xl bg-gradient-to-br from-[#FFEB3B]/[0.3125] to-[#FFC107]/[0.3125] backdrop-blur-xl border-2 border-yellow-400/60 shadow-lg shadow-yellow-400/40 cursor-pointer transition-all duration-300 hover:shadow-[0_0_25px_rgba(255,235,59,0.5),0_0_50px_rgba(255,193,7,0.3)] hover:border-yellow-300 hover:from-[#FFEB3B]/[0.375] hover:to-[#FFC107]/[0.375]">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-xs text-yellow-200 mb-1">
-                              Sponsored
-                            </div>
-                            <div className="text-sm font-semibold text-white">
-                              Premium Ad Content
-                            </div>
-                            <div className="text-xs text-white/90">
-                              High-quality products and services
-                            </div>
-                          </div>
-                          <button className="px-6 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-semibold whitespace-nowrap hover:from-orange-400 hover:to-red-400 transition-all shadow-lg shadow-orange-500/25">
-                            Learn More
-                          </button>
-                        </div>
-                      </div>
-                    )}
 
                     <div
                       className="bg-white/5 backdrop-blur-sm rounded-lg p-6 border border-white/10 hover:bg-white/10 transition-all"

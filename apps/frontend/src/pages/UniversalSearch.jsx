@@ -2452,17 +2452,6 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
             </div>
           )}
 
-          {/* One ad below the AI summary — orange-outlined, "Sponsored". Hidden
-              on question-phrased queries so the quick-answer card gets the space,
-              and in green (Summarize) mode. */}
-          {!queryIsQuestion && !isAiFree(mode) && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="max-w-4xl mx-auto mb-4"
-            >
-            </motion.div>
-          )}
 
 
           {/* No Summary Confirmation Modal — portalled to <body>. Inside the

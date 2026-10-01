@@ -563,72 +563,10 @@ export default function MultimediaInterface({ category, onClose, searchQuery }) 
           </button>
         </div>
 
-        {/* Ad Banner 1 - Top */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 backdrop-blur-xl border-2 border-yellow-400"
-          style={{
-            backgroundColor: '#FFEB3B',
-            boxShadow: '0 4px 15px rgba(255, 235, 59, 0.3)',
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs text-gray-700 mb-1 font-bold">
-                Sponsored
-              </div>
-              <div className="text-sm font-semibold text-gray-900">
-                {category === 'soc'
-                  ? 'Social Media Management Tools'
-                  : 'Premium Stock Photos'}
-              </div>
-              <div className="text-xs text-gray-800">
-                {category === 'soc'
-                  ? 'Schedule and analyze your posts'
-                  : 'Unlimited downloads for your projects'}
-              </div>
-            </div>
-            <button className="px-6 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-semibold whitespace-nowrap hover:from-orange-400 hover:to-red-400 transition-all shadow-lg">
-              Try Free
-            </button>
-          </div>
-        </motion.div>
 
         {/* Content */}
         {renderContent()}
 
-        {/* Ad Banner 2 - Bottom */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-6 p-4 rounded-2xl bg-gradient-to-r from-yellow-500/10 to-orange-500/10 backdrop-blur-xl border-2 border-yellow-400"
-          style={{
-            backgroundColor: '#FFEB3B',
-            boxShadow: '0 4px 15px rgba(255, 235, 59, 0.3)',
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs text-gray-700 mb-1 font-bold">
-                Sponsored
-              </div>
-              <div className="text-sm font-semibold text-gray-900">
-                {category === 'soc'
-                  ? 'Grow Your Following'
-                  : 'Video Editing Software'}
-              </div>
-              <div className="text-xs text-gray-800">
-                {category === 'soc'
-                  ? 'Smart engagement tools'
-                  : 'Professional tools for creators'}
-              </div>
-            </div>
-            <button className="px-6 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-sm font-semibold whitespace-nowrap hover:from-blue-400 hover:to-indigo-400 transition-all shadow-lg">
-              Get Started
-            </button>
-          </div>
-        </motion.div>
       </div>
 
       {/* Lightbox for selected item */}

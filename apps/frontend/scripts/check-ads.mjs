@@ -106,6 +106,44 @@ for (const f of GONE) {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * NO HOUSE ADS EITHER. The network check above could not see a hard-coded
+ * "Sponsored — Premium Stock Photos / Try Free" box: no network, no domain,
+ * just markup. Three were still on screen on 2026-10-01 (the Vids/Pics/Social
+ * panel, Feeling Biased, the search page). This walks the imports from
+ * src/main.jsx — only what can actually render — and fails on a rendered
+ * "Sponsored" label. Dead files are left to whoever deletes them.
+ * ------------------------------------------------------------------ */
+
+const IMPORT_RE = /(?:import\s[^'"]*?from\s*|import\s*\(\s*|export\s[^'"]*?from\s*)['"](\.{1,2}\/[^'"]+)['"]/g;
+const resolveImport = (from, spec) => {
+  const base = resolve(dirname(from), spec);
+  for (const c of [base, `${base}.jsx`, `${base}.js`, join(base, 'index.jsx'), join(base, 'index.js')]) {
+    if (existsSync(c) && statSync(c).isFile()) return c;
+  }
+  return null;
+};
+const reachable = new Set();
+const walk = (file) => {
+  if (reachable.has(file) || !/\.(jsx?|mjs)$/.test(file)) return;
+  reachable.add(file);
+  for (const m of readFileSync(file, 'utf8').matchAll(IMPORT_RE)) {
+    const next = resolveImport(file, m[1]);
+    if (next) walk(next);
+  }
+};
+walk(resolve(ROOT, 'src/main.jsx'));
+for (const file of reachable) {
+  const src = readFileSync(file, 'utf8')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')   // JSX comments
+    .replace(/\/\*[\s\S]*?\*\//g, '')          // block comments
+    .replace(/\/\/.*$/gm, '');                     // line comments
+  // As rendered JSX text — ">Sponsored<", or alone on its line between tags.
+  if (/>\s*Sponsored\s*</.test(src) || /^\s*Sponsored\s*$/m.test(src)) {
+    errors.push(`${rel(file)} renders a "Sponsored" box. Truegle carries no ads, house ads included (docs/AD-POLICY.md).`);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 
 if (errors.length) {
