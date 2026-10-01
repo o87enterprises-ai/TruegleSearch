@@ -6,6 +6,8 @@
  */
 const axios = require('axios');
 const config = require('../config/env');
+// Shared with SearchService: Brave's free plan is one request a second.
+const { braveGate } = require('./braveGate');
 
 class BraveSearchService {
   constructor() {
@@ -31,7 +33,7 @@ class BraveSearchService {
     } = options;
 
     try {
-      const response = await axios.get(`${this.baseUrl}/web/search`, {
+      const response = await braveGate(() => axios.get(`${this.baseUrl}/web/search`, {
         headers: {
           'Accept': 'application/json',
           'X-Subscription-Token': this.apiKey,
@@ -46,7 +48,7 @@ class BraveSearchService {
           freshness,
         },
         timeout: 15000,
-      });
+      }));
 
       return this.formatWebResults(response.data);
     } catch (error) {
@@ -77,7 +79,7 @@ class BraveSearchService {
     const { count = 10, offset = 0, country = 'US' } = options;
 
     try {
-      const response = await axios.get(`${this.baseUrl}/news/search`, {
+      const response = await braveGate(() => axios.get(`${this.baseUrl}/news/search`, {
         headers: {
           'Accept': 'application/json',
           'X-Subscription-Token': this.apiKey,
@@ -89,7 +91,7 @@ class BraveSearchService {
           country,
         },
         timeout: 15000,
-      });
+      }));
 
       return this.formatNewsResults(response.data);
     } catch (error) {
@@ -227,14 +229,14 @@ class BraveSearchService {
    */
   async healthCheck() {
     try {
-      const response = await axios.get(`${this.baseUrl}/web/search`, {
+      const response = await braveGate(() => axios.get(`${this.baseUrl}/web/search`, {
         headers: {
           'Accept': 'application/json',
           'X-Subscription-Token': this.apiKey,
         },
         params: { q: 'test', count: 1 },
         timeout: 5000,
-      });
+      }));
       return { healthy: true, results: response.data.web?.results?.length || 0 };
     } catch (error) {
       return { healthy: false, error: error.message };

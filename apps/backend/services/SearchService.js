@@ -33,6 +33,8 @@ const RELEVANCE_STOPWORDS = new Set([
   'the', 'and', 'for', 'with', 'from', 'that', 'this', 'what', 'how', 'why', 'who',
   'are', 'was', 'were', 'you', 'your', 'can', 'does', 'did', 'about', 'into', 'near',
 ]);
+const { orderByExactMatch } = require('./exactMatch');
+const { braveGate } = require('./braveGate');
 const tokenize = (text) => String(text || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
 // Light stemming: enough that "lawyers"/"lawyer" and "companies"/"company"
 // meet, not so much that unrelated words collapse together.
@@ -566,6 +568,16 @@ class SearchService {
           boostAlternative: isRedPill,
           googleParity: mode === 'blue-pill' || isGreen,
         });
+      }
+
+      // EXACT KEYWORDS FIRST, for a plain keyword search (see exactMatch.js):
+      // results holding more of the words as typed come first, the blended
+      // score above only breaks ties. Not for a brand lookup (the homepage
+      // must win), a site keyword (its own boost follows), a date sort, or the
+      // Red/Purple lenses, which order by perspective on purpose.
+      if (filters.sortBy !== 'date' && (mode === 'blue-pill' || isGreen)
+          && !boostDomain && !this.isNavigationalQuery(query)) {
+        finalResults = orderByExactMatch(query, finalResults);
       }
 
       // Green mode: strip results from known AI-generated-content domains.
@@ -1188,11 +1200,11 @@ class SearchService {
     if (filters.language) params.search_lang = filters.language;
 
     try {
-      const response = await axios.get('https://api.search.brave.com/res/v1/images/search', {
+      const response = await braveGate(() => axios.get('https://api.search.brave.com/res/v1/images/search', {
         headers: { 'X-Subscription-Token': this.braveApiKey, Accept: 'application/json' },
         params,
         timeout: 8000,
-      });
+      }));
       return { ...response.data, _source: 'brave-images' };
     } catch (error) {
       console.error('Brave Image Search API error:', error.response?.data || error.message);
@@ -1298,11 +1310,11 @@ class SearchService {
     if (filters.country) params.country = filters.country;
 
     try {
-      const response = await axios.get(this.braveBaseUrl, {
+      const response = await braveGate(() => axios.get(this.braveBaseUrl, {
         headers: { 'X-Subscription-Token': this.braveApiKey, Accept: 'application/json' },
         params,
         timeout: 8000,
-      });
+      }));
       return { ...response.data, _source: 'brave' };
     } catch (error) {
       console.error('Brave Search API error:', error.response?.data || error.message);

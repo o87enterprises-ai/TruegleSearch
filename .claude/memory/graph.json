@@ -1552,6 +1552,14 @@
         "body": "Server keeps ordinary query text+mode ≤7 days (search_queries) for trending/feed seeding only; never Ocean/PII/links; request log has no IP/query/referrer/UA (middleware/requestLog.js); no console/logger call may print query text (guard test noQueryInLogs.test.js). PrivacyPolicy, Settings, About, blog, llms.txt updated to match; AI providers (NVIDIA, Groq) and Brave now disclosed. Never re-claim 'we do not store queries'.",
         "ts": "2026-09-29",
         "created": "2026-09-29"
+      },
+      "exact-keyword-ranking": {
+        "Id": "exact-keyword-ranking",
+        "Type": "decision",
+        "Label": "Generic Blue/Green searches order by exact keyword matches first",
+        "body": "2026-10-01 owner: results must keep typed keywords and order most-exact first. services/exactMatch.js: words as typed (no stem/synonym), filler dropped, operators/bangs/-neg/site: ignored, URL path counts. Sort: matched desc, inTitle desc, adjacency, then existing finalScore. NOT applied to navigational/brand, site-keyword boost, date sort, Red/Purple/Ocean. Brave free plan = 1 req/s: services/braveGate.js serialises all Brave web/news/image calls 1.05s apart, drops extras waiting >2.2s, retries 429 once.",
+        "ts": "2026-10-01",
+        "created": "2026-10-01"
       }
     },
     "thread": {
