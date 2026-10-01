@@ -1568,6 +1568,14 @@
         "body": "usePlayAll/PlayAllButton: save to Lists (upsert by yt:<listId>), replace queue via playList, play track 1. Used by SingleLinkCard, ChatLinkAction, PlayerListSlot, PlayerBrowse card, QueueAddMenu, ShareGate(/tube?u=playlist), FullscreenSearchBar. Never route a bare playlist to YouTube's videoseries embed (shows 'unavailable').",
         "ts": "2026-10-01",
         "created": "2026-10-01"
+      },
+      "search-box-behaviour": {
+        "Id": "search-box-behaviour",
+        "Type": "decision",
+        "Label": "Search box: in-memory carry, full history, pill ✕ keeps pick, switch waits for idle",
+        "body": "2026-10-01 owner. utils/searchDraft (memory only, never disk) carries typed text across SPA page switches (SearchBar carryDraft + Chat). utils/searchHistory = truegle_recent_searches, max 50, shown in full; x per entry + Clear; opens on empty focus / ArrowDown / tap on text. SmartPill: x after a MANUAL pill click keeps the pick; x on an APP suggestion reverts; countdown end waits until useRecentActivity idle 2s (Go now never waits). Typing speed: never put filter/backdrop-filter/drop-shadow animations or filtered ancestors of animating children on the landing/chat (aurora blur(60px), logo glow, hero shadow were ~65% of per-key latency; 365ms -> 118ms at 4x CPU). Tests: searchbar:test, pill:test.",
+        "ts": "2026-10-01",
+        "created": "2026-10-01"
       }
     },
     "thread": {
