@@ -6,7 +6,7 @@ import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
 import { useFeedbackBarHeight } from './PreProductionBanner';
 import { useBottomDockClaim } from '../../hooks/useBottomDock';
-import { usePlayerQuery } from '../../utils/playerQueryStore';
+import { usePlayerQuery, getLastTubeSearch } from '../../utils/playerQueryStore';
 import { lastQuery, setLastQuery, recordSearch } from '../../utils/playerSearchMemory';
 import PlayerSearchMemory from '../player/PlayerSearchMemory';
 import { toHandle } from '../../utils/playerQuery';
@@ -138,6 +138,20 @@ export default function MiniPlayer() {
   }, []);
   const frameRef = useRef(null);
   const page = usePlayerQuery();
+  // A PICK FROM A PAGE SEARCH CARRIES THE SEARCH WITH IT. On Tube the page's
+  // bar drives the player only while the player is docked to the page; the
+  // moment it floats (always, on a phone) or you leave Tube, it shows its OWN
+  // box — which was empty, so the query and its results were gone after the
+  // first pick and had to be retyped (owner, 2026-10-01). Whenever something
+  // new starts playing while the page bar holds a real search, the player's
+  // own search becomes that search, so its results are one tap away.
+  const pickedFrom = useRef(current);
+  useEffect(() => {
+    if (!current || current === pickedFrom.current) return;
+    pickedFrom.current = current;
+    const t = (page.text || '').trim() || getLastTubeSearch();
+    if (t.length >= 2 && !/^https?:\/\//i.test(t)) setPlayerQuery((q) => (q === t ? q : t));
+  }, [current]);
 
   // ── docking into a page's slot ───────────────────────────────────────────
   // A page that wants the player inside its layout renders an empty

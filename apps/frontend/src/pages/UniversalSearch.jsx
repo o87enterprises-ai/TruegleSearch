@@ -117,7 +117,7 @@ import { isShortForm, asReel } from '../utils/shortForm';
 import { useFeedAutoplay } from '../hooks/useFeedAutoplay';
 import TrueglePlayer from '../components/player/TrueglePlayer';
 import ShareGate from '../components/player/ShareGate';
-import { setPlayerQuery } from '../utils/playerQueryStore';
+import { setPlayerQuery, rememberTubeSearch } from '../utils/playerQueryStore';
 import { toHandle, SEARCH_SCOPES } from '../utils/playerQuery';
 
 // Guarded so a hand-typed ?scope=whatever can't put the chips into a state
@@ -465,6 +465,8 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
     const t = setTimeout(() => setAutoVoice(false), 1500);
     return () => clearTimeout(t);
   }, [autoVoice]);
+  // Whatever the dock, a search typed on Tube is the one a pick came from.
+  useEffect(() => { if (mode === 'tube') rememberTubeSearch(searchValue); }, [mode, searchValue]);
   useEffect(() => {
     if (!tubeDocked) return undefined;
     setPlayerQuery(searchValue, tubeScope, tubeProvider);

@@ -29,6 +29,7 @@
     "seo:test": "node scripts/verify-seo-pages.mjs",
     "gsc:test": "node scripts/verify-gsc.mjs",
     "oneplayer:test": "node scripts/verify-one-player.mjs",
+    "carrysearch:test": "node scripts/verify-player-carry-search.mjs",
     "searchhistory:test": "node scripts/verify-search-history.mjs",
     "landing:test": "node scripts/verify-landing-cards.mjs",
     "silentembed:test": "node scripts/verify-silent-embed.mjs",

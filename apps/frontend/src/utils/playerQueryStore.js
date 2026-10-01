@@ -42,3 +42,15 @@ function split(raw) {
 export function usePlayerQuery() {
   return split(useSyncExternalStore(subscribe, getSnapshot, () => EMPTY));
 }
+
+// THE LAST REAL SEARCH MADE ON TUBE. Unlike the snapshot above, this is NOT
+// cleared when the player leaves the page's bar — that is exactly the moment a
+// pick happens (the player undocks to play), and clearing it there is how the
+// query and its results were lost after the first selection (2026-10-01).
+// MiniPlayer reads it when something new starts playing.
+let lastTubeSearch = '';
+export function rememberTubeSearch(text) {
+  const t = String(text || '').trim();
+  if (t.length >= 2 && !/^https?:\/\//i.test(t)) lastTubeSearch = t;
+}
+export const getLastTubeSearch = () => lastTubeSearch;
