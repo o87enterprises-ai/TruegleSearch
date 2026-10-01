@@ -3378,6 +3378,14 @@
         "body": "scripts/verify-player-suite.mjs drives every transport control, play modes, list, both search bars, YouTube keyboard (Space/K, J/L, arrows seek/volume, M, F, Shift+N/P, 0-9), touch (tap, double-tap, swipe, lock), auto-advance and a press-every-button sweep on desktop/phone portrait/landscape/tablet, against a YouTube stand-in speaking the real postMessage protocol. 2026-10-01: 251/0. Lessons: never put useEmbedPlayback's return object in effect deps (re-sent play/mute 2x/s); HUD rows must be pointer-events-none with only buttons live; one keyboard handler (TrueglePlayer), useSwipeNav has none. Chromium only; Firefox PiP untestable.",
         "ts": "2026-10-01",
         "created": "2026-10-01"
+      },
+      "feed-controls-and-watchdog": {
+        "Id": "feed-controls-and-watchdog",
+        "Type": "fact",
+        "Label": "Feed overlay rail z-30 + silent watchdog 25s",
+        "body": "2026-10-01: PlayerOverlay (like/dislike/mode/share) must sit above HUD (z-30), in band inset-y-12 (inset-y-2 when compact <340px wide), box pointer-events-none + only buttons live, onInteract keeps it up. Centre HUD row hidden on narrow pictures. SILENT_EMBED_MS=25000 (real slow phone: first YouTube message ~23s after mount; 10s skipped healthy clips). Tests: npm run feedcontrols:test, silentembed:test.",
+        "ts": "2026-10-01",
+        "created": "2026-10-01"
       }
     }
   },
