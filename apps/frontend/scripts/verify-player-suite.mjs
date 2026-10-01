@@ -43,7 +43,13 @@ const BASE = `http://localhost:${PORT}`;
 const browser = await launchChromium();
 
 const rows = [];
-const record = (device, layout, check, status, detail = '') => rows.push({ device, layout, check, status, detail: String(detail).slice(0, 140) });
+const record = (device, layout, check, status, detail = '') => {
+  const row = { device, layout, check, status, detail: String(detail).slice(0, 140) };
+  rows.push(row);
+  // Live, so a long run shows where it is (and where it stalled).
+  console.log(`${status.padEnd(4)} ${device.padEnd(15)} ${layout.padEnd(26)} ${check}${row.detail ? ` — ${row.detail}` : ''}`);
+};
+const CHECK_MS = 20000;
 
 // ── the YouTube stand-in ────────────────────────────────────────────────────
 const stub = (id) => `<!doctype html><html><body style="margin:0;background:#111;color:#999;font:12px sans-serif">
@@ -107,6 +113,8 @@ async function boot(name) {
   });
   await ctx.route('**/www.youtube.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<html></html>' }));
   const page = await ctx.newPage();
+  page.setDefaultTimeout(5000);
+  page.setDefaultNavigationTimeout(60000);
   const errs = [];
   page.on('pageerror', (e) => errs.push(e.message));
   return { ctx, page, errs, touch };
@@ -129,7 +137,8 @@ const press = async (page, label) => { const b = vis(page, label); await b.scrol
 // One check: N/A when the control isn't offered; FAIL with the reason on error.
 async function check(device, layout, name, fn) {
   try {
-    const out = await fn();
+    // A control that hangs is a failure, not a reason to stop the suite.
+    const out = await Promise.race([fn(), new Promise((_, no) => setTimeout(() => no(new Error(`timed out after ${CHECK_MS / 1000}s`)), CHECK_MS))]);
     if (out === 'na') record(device, layout, name, 'N/A');
     else if (out === true || out === undefined) record(device, layout, name, 'PASS');
     else record(device, layout, name, 'FAIL', typeof out === 'string' ? out : JSON.stringify(out));
@@ -454,7 +463,6 @@ const md = [
 ].join('\n');
 const out = process.env.PLAYER_SUITE_REPORT || new URL('./player-suite-report.md', import.meta.url).pathname;
 writeFileSync(out, md);
-for (const r of rows) console.log(`${r.status.padEnd(4)} ${r.device.padEnd(15)} ${r.layout.padEnd(26)} ${r.check}${r.detail ? ` — ${r.detail}` : ''}`);
 console.log(`\n${passes.length} passed, ${fails.length} failed, ${na.length} n/a — report: ${out}`);
 await browser.close();
 await server.close();
