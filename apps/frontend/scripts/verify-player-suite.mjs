@@ -80,7 +80,9 @@ const stub = (id) => `<!doctype html><html><body style="margin:0;background:#111
   });
 </script></body></html>`;
 
-const IDS = ['clipAAAAAA1', 'clipBBBBBB2', 'clipCCCCCC3', 'clipDDDDDD4'];
+// Twelve, so the Next checks in every layout never run off the end of the run
+// (at the end of a shared run Next deliberately stays put).
+const IDS = Array.from({ length: 12 }, (_, i) => `clip${String.fromCharCode(65 + i).repeat(6)}${String(i + 1).padStart(1, '0')}`.slice(0, 11));
 const SHARE = `/tube?${IDS.map((id) => `u=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`).join('&')}`;
 
 const DEVICES = {
@@ -237,7 +239,9 @@ async function transportChecks(device, layout, page, { touch }) {
 
 // YouTube's keyboard, as people expect it.
 async function keyboardChecks(device, layout, page) {
-  await page.locator('body').click({ position: { x: 5, y: 5 } }).catch(() => {});
+  // Keys belong to the page, not to an iframe that happened to be clicked
+  // (in real use YouTube's own player takes them there — the stand-in can't).
+  await page.evaluate("document.activeElement && document.activeElement.blur && document.activeElement.blur(); window.focus()").catch(() => {});
   const key = async (k, func, expectArgs) => {
     await check(device, layout, `key "${k}" → ${func}${expectArgs ? ` ${expectArgs}` : ''}`, async () => {
       const n = await mark(page);
@@ -258,8 +262,14 @@ async function keyboardChecks(device, layout, page) {
   await key('ArrowLeft', 'seekTo', '(−5s)');
   await key('ArrowUp', 'setVolume', '(louder)');
   await key('ArrowDown', 'setVolume', '(quieter)');
-  await key('m', 'mute');
-  await key('m', 'unMute');
+  // M toggles: whichever state it is in, two presses mute AND unmute.
+  await check(device, layout, 'key "m" toggles mute both ways', async () => {
+    const n = await mark(page);
+    await page.keyboard.press('m'); await page.waitForTimeout(400);
+    await page.keyboard.press('m'); await page.waitForTimeout(600);
+    const got = (await since(page, n)).map((c) => c.func);
+    return (got.includes('mute') && got.includes('unMute')) || `commands: ${JSON.stringify(got)}`;
+  });
   await check(device, layout, 'key "Shift+N" → next clip', async () => {
     const before = await nowPlaying(page);
     await page.keyboard.press('Shift+N');
@@ -342,7 +352,7 @@ async function fullscreenSearchChecks(device, layout, page) {
     await press(page, 'Clear the search');
     if ((await box.inputValue()) !== '' || !(await box.count())) return 'X did not clear, or closed the bar';
     await press(page, 'Close search');
-    return (await page.locator('input[aria-label="Search for something to play"]:visible').count()) === 0 || 'empty X did not close';
+    return until(async () => (await page.locator('input[aria-label="Search for something to play"]:visible').count()) === 0, { what: 'the bar to close', timeout: 2500 }).then(() => true, () => 'empty X did not close');
   });
 }
 
