@@ -193,6 +193,18 @@ await guarded('phone run', async () => {
   await until(() => openOf(page, 'why').then((s) => s === 'open'), { what: 'Why Truegle to descend by itself', timeout: 6000 }).catch(() => {});
   check(await openOf(page, 'why') === 'open', 'phone: Why Truegle descends by itself as you scroll down');
   check((await tiles(page)).filter((x) => x.id !== 'why').every((x) => x.open === 'closed'), '…and it is the only one that does');
+  // "Surf Without..." heads each of the three promises (2026-10-02), where the
+  // round minus icons used to be.
+  const labels = await page.locator('[data-why-body] [data-surf-without]').allInnerTexts();
+  check(labels.length === 3 && labels.every((t) => t.trim().toLowerCase() === 'surf without...'),
+    'phone: each of the three Why modules is headed "Surf Without..."', JSON.stringify(labels));
+  const order = await page.locator('[data-why-body] [data-surf-without]').evaluateAll((els) => els.map((e) => {
+    const title = e.nextElementSibling; return !!title && e.getBoundingClientRect().bottom <= title.getBoundingClientRect().top + 1 && /^(Bias|Tracking|Censorship)$/.test(title.textContent.trim());
+  }));
+  check(order.length === 3 && order.every(Boolean), '…each sitting directly above its title (Bias, Tracking, Censorship)', JSON.stringify(order));
+  check(await page.locator('[data-why-body] svg line').count() === 0, '…and the round minus icons are gone');
+  const toggles = await page.locator('[data-why-body] button[aria-pressed]').allInnerTexts();
+  check(toggles.length === 1 && /\+18 safe mode (on|off)/.test(toggles[0]), 'the +18 safe mode control is still there, as one button', JSON.stringify(toggles));
   await press(page, 'why');
   await until(() => openOf(page, 'why').then((s) => s === 'closed'), { what: 'Why Truegle to retract' });
   await page.waitForTimeout(600);

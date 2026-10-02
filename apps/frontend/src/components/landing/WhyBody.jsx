@@ -7,25 +7,31 @@ import { Lock } from 'lucide-react';
 // Toggling it flips the SAME Safe Search setting Settings edits, so a visitor
 // never finds Settings disagreeing with what this told them. The state lives in
 // the landing page (it also navigates to sign-in), so it comes in as props.
+// "Surf Without..." heads each promise. On a phone the three stack, and a bare
+// "Bias / Tracking / Censorship" read as a list of things Truegle HAS; the
+// lead-in turns each into what you get to do without it (owner, 2026-10-02).
+// It replaced the round "(-)" icon that used to sit here. That icon was also
+// the Censorship toggle's button — the same toggle is the "+18 safe mode"
+// line below, which is now the one control (and carries the sign-in hint).
+function SurfWithout({ tone }) {
+  return (
+    <span data-surf-without="" className={`text-xs tracking-wide font-semibold ${tone}`}>
+      Surf Without...
+    </span>
+  );
+}
+
 export default function WhyBody({ safeModeOff, canDisableSafeSearch, toggleSafeMode }) {
   return (
     <div data-why-body="">
       <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
-        <div className="flex flex-col items-center text-center gap-2 py-3 sm:py-0 sm:px-4">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-lg bg-purple-500 border-purple-300 shadow-purple-500/30">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <line x1="3" y1="7" x2="11" y2="7" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-            </svg>
-          </div>
+        <div className="flex flex-col items-center text-center gap-1.5 py-3 sm:py-0 sm:px-4">
+          <SurfWithout tone="text-purple-300/80" />
           <span className="font-bold text-base text-purple-400">Bias</span>
           <span className="text-white/80 text-sm">All perspectives welcome</span>
         </div>
-        <div className="flex flex-col items-center text-center gap-2 py-3 sm:py-0 sm:px-4">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-lg bg-green-500 border-green-300 shadow-green-500/30">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <line x1="3" y1="7" x2="11" y2="7" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-            </svg>
-          </div>
+        <div className="flex flex-col items-center text-center gap-1.5 py-3 sm:py-0 sm:px-4">
+          <SurfWithout tone="text-green-300/80" />
           <span className="font-bold text-base text-green-400">Tracking</span>
           <span className="text-white/80 text-sm">0 ads, 0 user data, 0 digital ID</span>
         </div>
@@ -34,29 +40,18 @@ export default function WhyBody({ safeModeOff, canDisableSafeSearch, toggleSafeM
             flips the SAME Safe Search setting Settings edits, so a
             visitor never finds Settings disagreeing with what this
             card told them. */}
-        <div className="flex flex-col items-center text-center gap-2 py-3 sm:py-0 sm:px-4">
+        <div className="flex flex-col items-center text-center gap-1.5 py-3 sm:py-0 sm:px-4">
+          <SurfWithout tone="text-red-300/80" />
+          <span className="font-bold text-base text-red-400">Censorship</span>
           <button
             type="button"
             onClick={toggleSafeMode}
             aria-pressed={safeModeOff}
             title={canDisableSafeSearch ? 'Toggle +18 safe mode' : 'Sign in to turn off Safe Search'}
-            className={`w-8 h-8 rounded-full flex items-center justify-center border-2 shadow-lg transition-colors ${
-              safeModeOff
-                ? 'bg-red-500 border-red-300 shadow-red-500/30'
-                : 'bg-white/10 border-white/25 hover:border-red-300/60'
-            }`}
+            className="inline-flex items-center gap-1.5 text-white/80 text-sm hover:text-white transition-colors"
           >
-            {canDisableSafeSearch ? (
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <line x1="3" y1="7" x2="11" y2="7" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-              </svg>
-            ) : (
-              <Lock size={12} className="text-white/70" />
-            )}
-          </button>
-          <span className="font-bold text-base text-red-400">Censorship</span>
-          <button type="button" onClick={toggleSafeMode} className="text-white/80 text-sm hover:text-white transition-colors">
-            +18 safe mode {safeModeOff ? 'off' : 'on'} — tap to toggle*
+            {!canDisableSafeSearch && <Lock size={12} className="text-white/60 flex-shrink-0" aria-hidden="true" />}
+            <span>+18 safe mode {safeModeOff ? 'off' : 'on'} — tap to toggle*</span>
           </button>
         </div>
       </div>
