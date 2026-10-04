@@ -37,6 +37,8 @@ import { usePageInputFocus } from '../../hooks/usePageInputFocus';
 // thumb, and "Adjust" mode turns the whole player into one big drag target
 // with oversized grips so you don't have to hit a 16px corner.
 const DEFAULT_W = 340;
+// Clear of the page's fixed ☰ (top 16, 40 tall) and ← (below it) buttons.
+const PHONE_FLOAT_TOP = 112;
 const MIN_W = 240;
 const MAX_W = 900;
 const BANNER_CLEARANCE = 80;  // px above the bottom pre-production banner
@@ -54,7 +56,7 @@ const loadGeom = () => {
 export default function MiniPlayer() {
   const {
     current, queue, history, minimized, poppedOut, dock,
-    requestNext, prev, close, toggleMinimize, setPoppedOut, setDock,
+    requestNext, prev, close, toggleMinimize, setMinimized, setPoppedOut, setDock,
   } = usePlayer();
   // 'footer' = pinned across the bottom of the page, above the feedback bar.
   // The frame stops being a window in that state: no dragging, no resizing,
@@ -197,6 +199,23 @@ export default function MiniPlayer() {
     };
   }, [wantSlot]);
   const docked = !!slot && wantSlot;
+
+  // A SEARCH IN THE TUBE BAR OPENS THE PLAYER. Its results go INTO the player
+  // (the picture area when nothing is playing, the list when something is),
+  // but the player starts every visit minimized — so on a phone the search
+  // ran, 78 videos came back, and all you could see was "Nothing playing" and
+  // the page's web results underneath (owner, 2026-10-04: "wouldn't drop down
+  // results from the search bar player… results were horrible"). While you
+  // type it still shrinks out of the way (`small`, below); this only makes
+  // sure it is not left minimized once you are done.
+  const lastPageQuery = useRef('');
+  useEffect(() => {
+    const t = (page.text || '').trim();
+    const prev = lastPageQuery.current;
+    lastPageQuery.current = t;
+    if (!docked || t.length < 2 || t === prev || /^https?:\/\//i.test(t)) return;
+    if (minimized) setMinimized(false);
+  }, [page.text, docked, minimized, setMinimized]);
 
   // ── keeping clear of the page's own search bar ───────────────────────────
   // A floating window is free to sit anywhere, and in a SHORT viewport —
@@ -537,7 +556,21 @@ export default function MiniPlayer() {
       maxHeight: `${Math.max(minH, Math.round(visible - (feedbackOffset + keyboardInset) - 8))}px`,
       overflowY: 'auto',
     }
-    : pos
+    : narrow
+      ? {
+        // ON A PHONE THE FLOATING WINDOW IS THE WIDTH OF THE SCREEN. It kept a
+        // desktop-sized width (a saved 210–340px) and could sit at the top-left
+        // under the page's ☰ and ← buttons, which are drawn above it — so it
+        // was a cramped window you could not fully reach, with its RECENT list
+        // squeezed to "Me…", "Mis…" (owner screenshots, 2026-10-04). Full
+        // width, and never higher than just under those two buttons.
+        left: 8,
+        width: 'calc(100vw - 16px)',
+        top: Math.max(PHONE_FLOAT_TOP, floatTop),
+        maxHeight: `${capBelow(Math.max(minH, Math.round(Math.min(avail, visible - Math.max(PHONE_FLOAT_TOP, floatTop) - 8))), Math.max(PHONE_FLOAT_TOP, floatTop))}px`,
+        overflowY: 'auto',
+      }
+      : pos
       ? {
         left: pos.left,
         // Same rule for the floating window: with the keyboard up, slide it

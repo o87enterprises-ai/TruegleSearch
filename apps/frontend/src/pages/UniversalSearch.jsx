@@ -552,12 +552,13 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
     // ALREADY playing must not then look like a fresh selection.
     if (!searchResults?.length) { clearedFor.current = key; return; }
 
+    // NOT ANY MORE: a pick used to empty the box and the results here (stashed,
+    // to come back on request). The owner overruled it twice — "drops the
+    // search query and results after the first selection … need to retype"
+    // (2026-10-01, 2026-10-04) — and it left /tube?q=… in the address bar over
+    // an empty box saying "No results yet". The query and its results stay.
     clearedFor.current = key;
-    searchStash.stashSearch(searchValue, searchResults);
-    setSearchValue('');
-    setSearchResults([]);
-    setLinkQuery(null);
-  }, [lockedTube, playerCurrent, searchValue, searchResults, searchStash]);
+  }, [lockedTube, playerCurrent, searchResults]);
 
   // Bringing it back: the input and the list return exactly as they were,
   // including the track that is playing, so the next pick is made from the

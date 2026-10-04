@@ -2046,6 +2046,24 @@
         "status": "open",
         "ts": "2026-09-29",
         "created": "2026-09-29"
+      },
+      "tube-page-playable-only": {
+        "Id": "tube-page-playable-only",
+        "Type": "thread",
+        "Label": "Tube page list: playable only?",
+        "body": "Owner to decide: Tube page's own results list mixes web pages (Genius, XXL) with videos. Option: show only playable results on /tube. Asked 2026-10-04.",
+        "status": "open",
+        "ts": "2026-10-04",
+        "created": "2026-10-04"
+      },
+      "yt-unavailable-hang": {
+        "Id": "yt-unavailable-hang",
+        "Type": "thread",
+        "Label": "YouTube 'Video unavailable' can hang",
+        "body": "Some embeds post onReady + playerState 3 (buffering) forever with no onError, so the silent-embed watchdog never fires. Can't verify in headless Chromium (never plays). Needs real-device repro before adding a buffering watchdog.",
+        "status": "open",
+        "ts": "2026-10-04",
+        "created": "2026-10-04"
       }
     },
     "entity": {
@@ -3423,5 +3441,5 @@
       }
     }
   },
-  "updated": "2026-10-01"
+  "updated": "2026-10-04"
 }
