@@ -1,5 +1,14 @@
 # Anonymous View (proxied page views)
 
+> **RETIRED 2026-10-05.** The Morty proxy never went live over HTTPS: production
+> results carried `http://44.236.219.63:3001/?mortyurl=…` links to a port that
+> did not answer, advertising the server's bare IP in every search response.
+> The code (`buildResultProxyUrl`, `attachProxyUrls`, `SEARXNG_RESULT_PROXY_*`)
+> and `scripts/setup-morty.sh` were removed. Morty is unmaintained and strips
+> JavaScript, so it is not coming back. Protected browsing is now planned in
+> `docs/TRUEGLE-BROWSER-BLUEPRINT.md`. Kept below for history only.
+
+
 Truegle's answer to Startpage's "Anonymous View" / DuckDuckGo's proxied results:
 open any search result **through a proxy** so the destination site never sees the
 user's IP address or browser fingerprint. We reuse the SearXNG result-proxy

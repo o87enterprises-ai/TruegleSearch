@@ -3433,8 +3433,8 @@
       "morty-proxy-dead": {
         "Id": "morty-proxy-dead",
         "Type": "fact",
-        "Label": "Morty result proxy is dead but still attached",
-        "body": "2026-10-05: prod SEARXNG_RESULT_PROXY_URL/KEY are set, so every /api/search result carries proxyUrl=http://44.236.219.63:3001/?mortyurl=... (plain HTTP, bare EC2 IP). Port 3001 times out; anon.truegle.info never set up. UI no longer renders proxyUrl. Morty strips JS so modern sites break anyway. See docs/TRUEGLE-BROWSER-BLUEPRINT.md Phase 0.",
+        "Label": "Morty result proxy REMOVED",
+        "body": "2026-10-05: proxyUrl links (http://44.236.219.63:3001/?mortyurl=...) removed from all search results; buildResultProxyUrl/attachProxyUrls/SEARXNG_RESULT_PROXY_* code, setup-morty.sh and dead cors-anywhere config deleted. Guard test apps/backend/__tests__/noDeadProxyLinks.test.js. Vercel env vars SEARXNG_RESULT_PROXY_URL/_KEY are now unused (safe to delete). docs/ANONYMOUS-VIEW.md marked RETIRED.",
         "ts": "2026-10-05",
         "created": "2026-10-05"
       }

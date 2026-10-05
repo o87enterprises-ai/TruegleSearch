@@ -122,18 +122,6 @@ class SearchService {
       this.searxngPrimaryMin,
     );
 
-    // Anonymous "proxied page view" (Startpage-style). When the SearXNG host runs
-    // a result proxy (Morty / SearXNG `result_proxy`), the JSON API still returns
-    // raw URLs — proxification only happens in SearXNG's HTML template. So we
-    // replicate SearXNG's own `proxify()` here to attach a signed proxy link to
-    // each result. Off unless both URL + key are set → no behavior change.
-    this.resultProxyUrl = config.searxng && config.searxng.resultProxyUrl;
-    // settings.yml stores result_proxy.key as `!!binary "<base64>"` (raw bytes),
-    // so decode the same base64 string back to bytes for the HMAC.
-    this.resultProxyKey = config.searxng && config.searxng.resultProxyKey
-      ? Buffer.from(config.searxng.resultProxyKey, 'base64')
-      : null;
-
     // Rate limiting configuration
     this.rateLimits = {
       google: 100, // requests per minute
@@ -504,10 +492,6 @@ class SearchService {
           }
         }
       }
-
-      // Anonymous view: extend proxied page views to the fallback providers
-      // (SearXNG results already carry proxyUrl from format time).
-      combinedResults = this.attachProxyUrls(combinedResults);
 
       let categorizedResults = this.categorizeByBias(combinedResults);
       console.log(`🏷️  Categorized results: ${categorizedResults.length}`);
@@ -1332,48 +1316,6 @@ class SearchService {
    * Perform SearXNG metasearch (self-hosted, aggregates Google/Bing/DDG/Brave/etc.)
    */
   /**
-   * Build a signed anonymous-view proxy URL for a result, mirroring SearXNG's
-   * own `proxify()` (Morty contract: `?mortyurl=<url>&mortyhash=<hmac>`).
-   * Returns null when the result proxy isn't configured so callers can omit it.
-   * @param {string} targetUrl  The destination URL to proxy.
-   * @returns {string|null}
-   */
-  buildResultProxyUrl(targetUrl) {
-    if (!this.resultProxyUrl || !targetUrl) return null;
-    // Mirror SearXNG: protocol-relative URLs are normalized to https.
-    const url = targetUrl.startsWith('//') ? `https:${targetUrl}` : targetUrl;
-    const params = new URLSearchParams({ mortyurl: url });
-    if (this.resultProxyKey) {
-      const mortyhash = crypto
-        .createHmac('sha256', this.resultProxyKey)
-        .update(url)
-        .digest('hex');
-      params.set('mortyhash', mortyhash);
-    }
-    const sep = this.resultProxyUrl.includes('?') ? '&' : '?';
-    return `${this.resultProxyUrl}${sep}${params.toString()}`;
-  }
-
-  /**
-   * Attach an anonymous-view `proxyUrl` to every result that doesn't already
-   * have one (SearXNG results get theirs at format time). This extends anonymous
-   * view to the fallback providers (Brave/Google/Bing/News/SerpAPI). No-op when
-   * the result proxy isn't configured, and skips image results (their page URL
-   * isn't what the user views).
-   * @param {Array} results
-   * @returns {Array} the same array, mutated in place
-   */
-  attachProxyUrls(results) {
-    if (!this.resultProxyUrl || !Array.isArray(results)) return results;
-    for (const r of results) {
-      if (!r.proxyUrl && r.category !== 'images' && r.url && /^https?:\/\//i.test(r.url)) {
-        r.proxyUrl = this.buildResultProxyUrl(r.url);
-      }
-    }
-    return results;
-  }
-
-  /**
    * The user's safe-search choice, in the numbers SearXNG speaks.
    *
    * REPORTED: with Safe Search turned OFF, adult sites were still being
@@ -1455,7 +1397,6 @@ class SearchService {
       domain: this.extractDomain(item.url),
       category: 'web',
       verified: true,
-      proxyUrl: this.buildResultProxyUrl(item.url),
     }));
   }
 
@@ -1514,7 +1455,6 @@ class SearchService {
           favicon: null,
           domain: this.extractDomain(item.url),
           verified: true,
-          proxyUrl: this.buildResultProxyUrl(item.url),
         };
 
         if (searxCategory === 'images') {

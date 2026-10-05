@@ -192,8 +192,6 @@ const envVarsSchema = Joi.object({
   // attach a signed proxy link to each result. URL points at the proxy root; the
   // key is the base64 of the proxy's HMAC key (the same `!!binary` value used in
   // SearXNG settings.yml → result_proxy.key). Unset → feature off (no behavior change).
-  SEARXNG_RESULT_PROXY_URL: Joi.string().optional().description('SearXNG/Morty result-proxy base URL for anonymous page views'),
-  SEARXNG_RESULT_PROXY_KEY: Joi.string().optional().description('Base64 HMAC key matching the proxy (settings.yml result_proxy.key)'),
 
   // YouTube blocks datacenter IPs (Vercel/AWS) with a captcha wall, which breaks
   // transcript extraction in production. Set this to an HTTP(S) proxy
@@ -443,8 +441,6 @@ const config = {
     primaryMin: envVars.SEARXNG_PRIMARY_MIN,
     sufficient: envVars.SEARXNG_SUFFICIENT,
     minEngines: envVars.SEARXNG_MIN_ENGINES,
-    resultProxyUrl: envVars.SEARXNG_RESULT_PROXY_URL,
-    resultProxyKey: envVars.SEARXNG_RESULT_PROXY_KEY,
   },
 
   // Content extraction (YouTube transcripts)

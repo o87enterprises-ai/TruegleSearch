@@ -41,13 +41,6 @@ export const SEARCH_CONFIG = {
   twitter: {
     bearerToken: env.twitterBearerToken,
   },
-
-  // Alternative APIs for fallback
-  fallback: {
-    enabled: true,
-    useProxy: false, // Set to true if you need CORS proxy
-    proxyUrl: 'https://cors-anywhere.herokuapp.com/',
-  },
 };
 
 // API Rate Limits (requests per minute)
