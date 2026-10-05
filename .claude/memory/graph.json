@@ -2077,7 +2077,7 @@
         "Id": "truegle-browser",
         "Type": "thread",
         "Label": "Truegle Browser / protected browsing",
-        "body": "Owner wants full web protection incl. sites that block iframes. Blueprint docs/TRUEGLE-BROWSER-BLUEPRINT.md (2026-10-05) for owner's cost-AI review. Recommended: Phase 0 remove dead Morty links; Phase 1 native app w/ built-in protected browser (top-level WebView ignores X-Frame-Options, /bin/bash server); Phase 2 opt-in remote isolation (Playwright/neko) pilot ~1 small VPS. Awaiting owner's cost findings + decisions.",
+        "body": "Phase 0 DONE 2026-10-05 (proxy links removed, Vercel SEARXNG_RESULT_PROXY_* blanked+labelled RETIRED; owner to delete in dashboard, connector has no delete). Research folded into docs/TRUEGLE-BROWSER-BLUEPRINT.md §10: Phase 1 = Capacitor Android app + protected tab, APK built free by GitHub Actions, direct download (no Play fee). Phase 2 = neko (Apache-2.0) + coturn on smallest Hetzner, capped, opt-in, owner decides spend. Free third-party proxies REJECTED. Apple waiver needs a legally registered non-profit. Awaiting owner go-ahead on Phase 1 + whether Truegle is a registered non-profit.",
         "status": "open",
         "ts": "2026-10-05",
         "created": "2026-10-05"

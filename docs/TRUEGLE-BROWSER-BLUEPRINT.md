@@ -1,6 +1,6 @@
 # Truegle Browser — Protected Browsing Blueprint
 
-**Version:** 1.0 · 2026-10-05
+**Version:** 1.1 · 2026-10-05 (cost research folded in — see §10)
 **Purpose:** a self-contained brief for the owner and a cost-research AI.
 It covers how Truegle can protect users when a site cannot be shown inside
 Truegle and they would otherwise leave for their normal browser. It lays out
@@ -237,7 +237,7 @@ handle far more of the modern web than Morty did.
 
 | Phase | What | Server cost | One-off cost | Solves |
 |---|---|---|---|---|
-| **0** | Remove the dead Morty proxy links from the backend (or put Morty behind HTTPS and bring it back). Stop advertising the EC2 IP in every response. | $0 | $0 | Hygiene / honesty |
+| **0** ✅ DONE 2026-10-05 | Remove the dead Morty proxy links from the backend (or put Morty behind HTTPS and bring it back). Stop advertising the EC2 IP in every response. | $0 | $0 | Hygiene / honesty |
 | **1** | **Truegle app** (Capacitor recommended), with a built-in protected browser tab: blocklists, wipe-on-close storage, HTTPS-only, tracking-parameter stripping. Frame-blocked results open *inside the app*. | **$0** | $0 sideload / ~$25 Play / ~$99/yr Apple (owner decides) | ~90% of "users have to leave Truegle" |
 | **2** | **Isolated View pilot (RBI)**, opt-in only. One small server running neko or a Playwright build. Strict session caps, a queue, SSRF guard, passwords disabled. Offered on the web too, for people who won't install the app. | ~€4–8/mo (verify) | $0 | The strongest isolation, IP hiding, desktop-web users |
 | **3** | Optional IP hiding for the app's browser tab (a relay or proxy). Scale isolation only if usage justifies it. | Grows with use | — | IP privacy without full isolation |
@@ -276,3 +276,35 @@ bill grows with every user. So it should start as a capped, opt-in pilot.
 ---
 
 *Maintained in `docs/TRUEGLE-BROWSER-BLUEPRINT.md`. Status and decisions are tracked in the agent memory thread `truegle-browser`.*
+
+---
+
+## 10. Cost research results (owner's research AI, 2026-10-05) and review
+
+**Phase 0 is DONE (2026-10-05).** The proxy links were removed from all search
+results (verified on production: 122 results, 0 proxy links). The code was
+deleted, and a guard test was added (`apps/backend/__tests__/noDeadProxyLinks.test.js`).
+The two Vercel settings were blanked and labelled RETIRED. The owner deletes them in
+the dashboard; the Vercel connector cannot delete settings.
+
+The research agrees with this blueprint's order: **native app first, isolation
+server only as an optional, capped pilot.**
+
+| Topic | Research finding | Review / correction |
+|---|---|---|
+| Isolation host | Hetzner CX22 (2 vCPU/4 GB) ~$5–7/mo for a few light sessions; 4–8 sessions needs 4 vCPU/8 GB, ~$12–20/mo. No free tier fits. | Agreed. Start on the smallest box with a hard cap of 2–3 sessions plus a queue. |
+| Cloudflare / Fly / Railway / Render | Not viable (Cloudflare free: 10 browser-min/day, 3 concurrent). | Agreed. |
+| neko | Apache-2.0, free for any use. | **Chosen** for Phase 2 if it happens. |
+| Kasm CE / Browserless | Non-commercial terms and limits. | Skip: neko avoids the licence question entirely. |
+| Apple $99/yr | Waived for non-profits. | ⚠️ The waiver is for a **legally registered** non-profit (with a D-U-N-S number), not just a project without revenue. Only applies if Truegle is incorporated as one. |
+| Google Play $25 | Not waived. | Not needed at first: a direct APK download from truegle.info is $0. |
+| TURN relay (Phase 2) | Self-host `coturn` (free), or Cloudflare TURN (1,000 GB/mo free). | `coturn` on the same box as neko: $0 extra. |
+| IP hiding (Phase 3) | Free third-party SOCKS5 proxies (e.g. browser-extension proxies). | ❌ **Rejected.** A third party would see every user's traffic, which is the opposite of the product. Phase 3 is self-hosted only. |
+| Credits | AWS Activate, Google for Startups, Azure OSS, Netlify OSS. | Useful only as a *temporary* subsidy, and credits expire. Netlify is irrelevant (Cloudflare Pages already hosts for free). Never build anything that only works while credits last. |
+| Paid tier / donations for Phase 2 | Suggested. | Owner's call (product decision). Donations are compatible with the no-ads policy; ads are not. |
+
+**Phase 1 build route, cost $0:**
+- Capacitor wrapping the existing frontend.
+- A native protected-tab plugin on Android.
+- The APK built for free by GitHub Actions and offered as a direct download from truegle.info.
+- iOS waits, for the waiver or a decision to pay.
