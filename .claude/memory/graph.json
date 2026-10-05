@@ -1576,6 +1576,14 @@
         "body": "2026-10-01 owner. utils/searchDraft (memory only, never disk) carries typed text across SPA page switches (SearchBar carryDraft + Chat). utils/searchHistory = truegle_recent_searches, max 50, shown in full; x per entry + Clear; opens on empty focus / ArrowDown / tap on text. SmartPill: x after a MANUAL pill click keeps the pick; x on an APP suggestion reverts; countdown end waits until useRecentActivity idle 2s (Go now never waits). Typing speed: never put filter/backdrop-filter/drop-shadow animations or filtered ancestors of animating children on the landing/chat (aurora blur(60px), logo glow, hero shadow were ~65% of per-key latency; 365ms -> 118ms at 4x CPU). Tests: searchbar:test, pill:test.",
         "ts": "2026-10-01",
         "created": "2026-10-01"
+      },
+      "surf-wording": {
+        "Id": "surf-wording",
+        "Type": "decision",
+        "Label": "Surf vs Search wording",
+        "body": "Owner 2026-10-05: 'Surf' appears ONLY in the tagline under the landing logo ('Surf Engine') and the 'Surf Without...' labels on the Why Truegle cards. Everything else says 'Search'.",
+        "ts": "2026-10-05",
+        "created": "2026-10-05"
       }
     },
     "thread": {
@@ -2064,6 +2072,15 @@
         "status": "open",
         "ts": "2026-10-04",
         "created": "2026-10-04"
+      },
+      "truegle-browser": {
+        "Id": "truegle-browser",
+        "Type": "thread",
+        "Label": "Truegle Browser / protected browsing",
+        "body": "Owner wants full web protection incl. sites that block iframes. Blueprint docs/TRUEGLE-BROWSER-BLUEPRINT.md (2026-10-05) for owner's cost-AI review. Recommended: Phase 0 remove dead Morty links; Phase 1 native app w/ built-in protected browser (top-level WebView ignores X-Frame-Options, /bin/bash server); Phase 2 opt-in remote isolation (Playwright/neko) pilot ~1 small VPS. Awaiting owner's cost findings + decisions.",
+        "status": "open",
+        "ts": "2026-10-05",
+        "created": "2026-10-05"
       }
     },
     "entity": {
@@ -3412,6 +3429,14 @@
         "body": "2026-10-01: PlayerOverlay (like/dislike/mode/share) must sit above HUD (z-30), in band inset-y-12 (inset-y-2 when compact <340px wide), box pointer-events-none + only buttons live, onInteract keeps it up. Centre HUD row hidden on narrow pictures. SILENT_EMBED_MS=25000 (real slow phone: first YouTube message ~23s after mount; 10s skipped healthy clips). Tests: npm run feedcontrols:test, silentembed:test.",
         "ts": "2026-10-01",
         "created": "2026-10-01"
+      },
+      "morty-proxy-dead": {
+        "Id": "morty-proxy-dead",
+        "Type": "fact",
+        "Label": "Morty result proxy is dead but still attached",
+        "body": "2026-10-05: prod SEARXNG_RESULT_PROXY_URL/KEY are set, so every /api/search result carries proxyUrl=http://44.236.219.63:3001/?mortyurl=... (plain HTTP, bare EC2 IP). Port 3001 times out; anon.truegle.info never set up. UI no longer renders proxyUrl. Morty strips JS so modern sites break anyway. See docs/TRUEGLE-BROWSER-BLUEPRINT.md Phase 0.",
+        "ts": "2026-10-05",
+        "created": "2026-10-05"
       }
     }
   },
@@ -3441,5 +3466,5 @@
       }
     }
   },
-  "updated": "2026-10-04"
+  "updated": "2026-10-05"
 }
