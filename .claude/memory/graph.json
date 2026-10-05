@@ -1584,6 +1584,14 @@
         "body": "Owner 2026-10-05: 'Surf' appears ONLY in the tagline under the landing logo ('Surf Engine') and the 'Surf Without...' labels on the Why Truegle cards. Everything else says 'Search'.",
         "ts": "2026-10-05",
         "created": "2026-10-05"
+      },
+      "truegle-app-phase1-plan": {
+        "Id": "truegle-app-phase1-plan",
+        "Type": "decision",
+        "Label": "Truegle App Phase 1 plan stored (not started)",
+        "body": "docs/TRUEGLE-APP-PHASE1-PLAN.md, 2026-10-05. Owner: plan only, DON'T execute until told. Plan as if Truegle is a registered non-profit (owner starting the process) -> Apple fee waiver assumed for iOS (M6). Capacitor app pointing at live https://truegle.info (keeps YouTube origin + CORS working), native ProtectedTab (Android WebView / iOS WKWebView nonPersistent), one nativeLinks.js catches external links, APK built free by GitHub Actions (repo is public) + direct download, no Play Store. Milestones M1-M7; start at M1 on go. Open owner decisions: D5 Safe Browsing, product name.",
+        "ts": "2026-10-05",
+        "created": "2026-10-05"
       }
     },
     "thread": {
