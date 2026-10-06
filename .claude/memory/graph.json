@@ -3502,6 +3502,14 @@
         "body": "2026-10-06: TikTok player/v1 (controllable) needs third-party storage; it errors (2001/3001) or renders blank in private/incognito windows (owner tested in Chrome Incognito -> black frame). useEmbedPlayback now falls back to the /embed/v2 CARD (9:21 box) on onPlayerError or no onPlayerReady within 10s, WITHOUT skipping the clip. Testing note: v1 also returns 2001 when the parent page is about:blank / not a real https origin, so test it from inside truegle.info. Directions autocomplete (LocationAutocomplete) now uses searchMapQuery (same as map search bar) instead of Radar (no key).",
         "ts": "2026-10-06",
         "created": "2026-10-06"
+      },
+      "tiktok-tap-through": {
+        "Id": "tiktok-tap-through",
+        "Type": "fact",
+        "Label": "TikTok needs an in-frame tap on some browsers",
+        "body": "Unmuted autoplay of TikTok player/v1 can be refused by the browser (black frame). useEmbedPlayback sets tiktokNeedsTap if no onStateChange 1 within 2.5s of play; TrueglePlayer then removes its tap layer/swipe sheet and shows 'Tap the video to start it'. Tested in tiktok:test (28).",
+        "ts": "2026-10-06",
+        "created": "2026-10-06"
       }
     }
   },
