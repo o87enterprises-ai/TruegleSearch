@@ -3478,6 +3478,14 @@
         "body": "Added epicdaily (@epicdaily369, UCimX2_A-ncFiU9QoSOTJ12A), Barry Stepp (@barrystepp, UCSwx_jY_zYBJtrIa1i-osMA), SpaceWeatherNews (@SpaceWeatherNewsS0s, UCTiL1q9YbrVam5nP2xzFTWQ). Roster lives in 4 places kept in sync by hand: frontend src/content/creators.js, backend config/creatorsRoster.js, scripts/seed-creator-videos.mjs, public/sitemap.xml (+ creatorVideosFallback.js snapshot). YouTube RSS is blocked from the cloud container (404 even for known channels) — fetch via https://api.truegle.info/api/creators/<id>/videos instead.",
         "ts": "2026-10-06",
         "created": "2026-10-06"
+      },
+      "cloudflare-connector": {
+        "Id": "cloudflare-connector",
+        "Type": "fact",
+        "Label": "Cloudflare connector reconnected",
+        "body": "Owner reconnected the Cloudflare Developer Platform connector on claude.ai 2026-10-06. Usable from sessions started after that (connectors load at session start); not available in the session where it was reconnected.",
+        "ts": "2026-10-06",
+        "created": "2026-10-06"
       }
     }
   },
