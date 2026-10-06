@@ -117,7 +117,11 @@ const errs = [];
 //   written after an ad navigated the whole tab away — so any storage access
 //   inside one throws by design. Counting it would mean the policy working
 //   correctly fails the test.
-const notOurs = (e) => /node_modules\/\.vite\/deps\/maplibre-gl/.test(e.stack || '')
+// YouTube's own embed script (in the player's iframe) also throws under
+// headless Chromium — "this.api.isExternalMethodAvailable is not a function"
+// from youtube-nocookie.com/s/_/ytembeds. Its code, its frame, not ours.
+const notOurs = (e) => /youtube(-nocookie)?\.com\/s\//.test(e.stack || '')
+  || /node_modules\/\.vite\/deps\/maplibre-gl/.test(e.stack || '')
   || /localStorage.+(sandboxed|Access is denied)/i.test(e.message || '');
 const watchErrors = (p) => p.on('pageerror', (e) => { if (!notOurs(e)) errs.push(e.message); });
 
@@ -139,7 +143,13 @@ if (await keep.count()) { await keep.first().click(); await page.waitForTimeout(
 const category = page.locator('button', { hasText: /^\s*Maps\s*$/ }).first();
 await category.click();
 await page.waitForTimeout(1200);
-await page.locator('button', { hasText: /map/i }).last().click();
+// Only if the Maps category did not already open it: the button is a TOGGLE
+// ("Show Map" / "Hide Map"), so pressing it on an open map closes it. This
+// used to land on the old function bar's "Map" view button instead, which hid
+// the problem.
+if (!(await page.locator('#truegle-map-container').count())) {
+  await page.locator('button', { hasText: /^\s*Show Map/i }).first().click();
+}
 // The map container is what the very next line asserts on, so wait for that
 // rather than for nine seconds. A WebGL map on a slow machine could genuinely
 // exceed nine seconds too — this is both faster in the normal case and more
@@ -214,98 +224,82 @@ const adCount = await page.evaluate(() => {
 check(adCount <= 2, 'the map carries at most one ad slot per end, not two stacked',
   `${adCount} advertisement labels around the map`);
 
-// ── 2. the control row fits inside the map ──────────────────────────────────
+// ── 2. the controls: ONE rail down the right edge, inside the map ──────────
+// History: the controls were a bottom bar that sliced "Ma…"/"Cl…" off both
+// ends, then wrapped, then (owner, 2026-10-06) could only be touched in full
+// screen on a phone. They are now one column on the right (MapControlRail),
+// pinned inside the map in every state. verify-map-rail.mjs covers it in depth;
+// this keeps the geometry pinned alongside everything else this file checks.
 const bar = await page.evaluate(() => {
   const box = document.querySelector('#truegle-map-container');
-  const el = box?.querySelector('.absolute.bottom-4');
+  const el = box?.querySelector('[data-map-rail]');
   if (!box || !el) return null;
   const b = el.getBoundingClientRect(); const c = box.getBoundingClientRect();
-  const row = el.firstElementChild;
   return {
-    fits: b.left >= c.left - 1 && b.right <= c.right + 1,
-    leftGap: Math.round(b.left - c.left),
-    rightGap: Math.round(c.right - b.right),
-    scrolls: row ? row.scrollWidth > row.clientWidth : false,
+    inside: b.left >= c.left - 1 && b.right <= c.right + 1 && b.top >= c.top - 1 && b.bottom <= c.bottom + 1,
+    rightEdge: Math.round(c.right - b.right),
     buttons: el.querySelectorAll('button').length,
   };
 });
-check(!!bar, 'the function bar is on screen');
-check(bar?.fits, 'it fits inside the map instead of being sliced off at both ends',
-  `left ${bar?.leftGap}px · right ${bar?.rightGap}px`);
-check(bar?.buttons >= 8, '…with every control present', `${bar?.buttons} buttons`);
-// EVERY BUTTON WHOLE. Bounding the row and letting it scroll stopped it being
-// clipped by the container, but the live screenshot still showed "✕ Clos"
-// against the right edge — a control you can only finish reading by dragging.
-// Nothing in the row may be cut off by the row's own box.
+check(!!bar, 'the control rail is on screen');
+check(bar?.inside && bar.rightEdge <= 12, 'it sits inside the map, down the right edge', `right gap ${bar?.rightEdge}px`);
+check(bar?.buttons >= 9, '…with every control present', `${bar?.buttons} buttons`);
 const cutOff = await page.evaluate(() => {
-  const el = document.querySelector('#truegle-map-container .absolute.bottom-4');
+  const el = document.querySelector('#truegle-map-container [data-map-rail]');
   const b = el.getBoundingClientRect();
   return [...el.querySelectorAll('button')]
     .map((n) => ({ n, r: n.getBoundingClientRect() }))
     .filter(({ r }) => r.width > 0 && (r.left < b.left - 1 || r.right > b.right + 1))
-    .map(({ n }) => (n.innerText || n.title || 'button').replace(/\s+/g, ' ').trim());
+    .map(({ n }) => (n.getAttribute('aria-label') || 'button'));
 });
-check(cutOff.length === 0, '…with every button whole, not half-scrolled off the end',
-  cutOff.join(' | ') || 'all whole');
+check(cutOff.length === 0, '…with every button whole across the rail', cutOff.join(' | ') || 'all whole');
 
 // ── 3. nothing floating over anything else ──────────────────────────────────
 const collisions = await page.evaluate(() => {
   const box = document.querySelector('#truegle-map-container');
-  const el = box.querySelector('.absolute.bottom-4');
+  const el = box.querySelector('[data-map-rail]');
   const b = el.getBoundingClientRect();
   const hits = (r) => !(b.right <= r.left || b.left >= r.right || b.bottom <= r.top || b.top >= r.bottom);
-  return [...box.querySelectorAll('button, .truegle-traditional-controls, img, input')]
+  return [...box.querySelectorAll('button, img, input')]
     .filter((n) => !el.contains(n))
     .map((n) => ({ n, r: n.getBoundingClientRect() }))
     .filter(({ r }) => r.width > 0 && r.height > 0 && hits(r))
     .map(({ n }) => `${n.tagName}[${n.getAttribute('title') || n.getAttribute('aria-label') || n.innerText || n.className}]`.replace(/\s+/g, ' ').slice(0, 70));
 });
-check(collisions.length === 0, 'no other control overlaps the function bar', collisions.join(' | ') || 'clear');
+check(collisions.length === 0, 'no other control overlaps the rail', collisions.join(' | ') || 'clear');
 
-// ONE zoom control on the map, and the top band belongs to the search field.
-// There were two: a hand-rolled +/- stack at the top-left AND the renderer's
-// own NavigationControl (+/- and a compass) at the top-right. Only one of them
-// could ever be the one to press, and the hand-rolled one was three buttons
-// tall in the same band as the search input.
+// ONE zoom control: the rail's. The renderer's +/−/compass and the old
+// top-left stack are both gone.
 const zoomControls = await page.evaluate(() => {
   const box = document.querySelector('#truegle-map-container');
   const input = box.querySelector('input');
-  const own = box.querySelector('.truegle-traditional-controls');
-  const rendererZoom = box.querySelectorAll('.maplibregl-ctrl-zoom-in').length;
+  const rail = box.querySelector('[data-map-rail]');
   const hit = (a, b) => !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
   const a = input?.getBoundingClientRect();
   return {
-    rendererZoom,
-    ourZoomButtons: own ? own.querySelectorAll('button').length : 0,
-    overlapsSearch: own && a ? hit(a, own.getBoundingClientRect()) : false,
+    rendererZoom: box.querySelectorAll('.maplibregl-ctrl-zoom-in').length,
+    railZoom: box.querySelectorAll('[data-map-control="zoom-in"]').length,
+    overlapsSearch: rail && a ? hit(a, rail.getBoundingClientRect()) : false,
     // The attribution is a licence condition of OSM, CARTO and Esri alike —
-    // it may not hide behind the function bar.
+    // it may not hide behind the rail.
     attributionClear: (() => {
       const attr = box.querySelector('.maplibregl-ctrl-attrib');
-      const barEl = box.querySelector('.absolute.bottom-4');
-      if (!attr || !barEl) return true;
-      return !hit(attr.getBoundingClientRect(), barEl.getBoundingClientRect());
+      if (!attr || !rail) return true;
+      return !hit(attr.getBoundingClientRect(), rail.getBoundingClientRect());
     })(),
   };
 });
-check(zoomControls.rendererZoom === 1, 'the map has exactly one zoom control',
-  `${zoomControls.rendererZoom} renderer + ${zoomControls.ourZoomButtons} of our own`);
-check(zoomControls.ourZoomButtons <= 1,
-  '…and the top-left stack is no longer a second one', `${zoomControls.ourZoomButtons} buttons`);
+check(zoomControls.rendererZoom === 0 && zoomControls.railZoom === 1, 'the map has exactly one zoom control — the rail\'s',
+  `${zoomControls.rendererZoom} renderer + ${zoomControls.railZoom} rail`);
 check(!zoomControls.overlapsSearch, 'nothing sits on the search field');
-check(zoomControls.attributionClear,
-  'the tile attribution is not buried under the function bar');
+check(zoomControls.attributionClear, 'the tile attribution is not buried under the rail');
 
 // ── 4. a local question opens a local map ───────────────────────────────────
 // Not the azimuthal projection of the northern hemisphere.
 const mode = await page.evaluate(() => {
-  // By TITLE, not by label text. The bar drops its labels when the map is
-  // too narrow to hold them (it is, in the results column), so reading
-  // innerText finds an empty string on every button and reports "none
-  // active" about a bar that is working correctly.
-  const active = [...document.querySelectorAll('#truegle-map-container button')]
-    .find((b) => /bg-cyan-600/.test(b.className) && /View$/.test(b.getAttribute('title') || ''));
-  return (active?.getAttribute('title') || '').replace(/ View$/, '').replace('Standard Map', 'Map') || null;
+  const on = (id) => document.querySelector(`#truegle-map-container [data-map-control="${id}"]`)?.getAttribute('aria-pressed') === 'true';
+  const street = !!document.querySelector('#truegle-map-container .maplibregl-map');
+  return street && !on('globe') && !on('azimuthal') ? 'Map' : (on('globe') ? 'Globe' : on('azimuthal') ? 'Azimuthal' : null);
 });
 check(mode === 'Map', 'the map opens on the street map, not a polar projection', mode || '(none active)');
 
@@ -373,6 +367,10 @@ check(!geocoded.some((q) => /^\s*me\s*$/i.test(q || '')),
 // Ave" and could not find "coffee near me" or a business by name — there is no
 // place called "coffee near me" for a geocoder to resolve.
 const searchBar = page.locator('#truegle-map-container input').first();
+// Cleared first: the box opens already holding the page's query, and setting
+// it to the same text is no change at all — nothing to search.
+await searchBar.fill('');
+await page.waitForTimeout(200);
 await searchBar.fill('coffee near me');
 // Wait for the SUGGESTION, not merely for the request that fetches it. The
 // assertion below reads rendered text, and the request landing is two steps

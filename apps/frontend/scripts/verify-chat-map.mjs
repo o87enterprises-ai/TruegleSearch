@@ -88,7 +88,9 @@ const frame = await local.page.evaluate(() => {
   const f = document.querySelector('[data-map-popout]');
   if (!f) return null;
   const r = f.getBoundingClientRect();
-  const bar = f.querySelector('#truegle-map-container .absolute.bottom-4');
+  // The controls are one rail down the right edge now (MapControlRail) — it
+  // costs WIDTH, not height, so that is what is measured.
+  const bar = f.querySelector('#truegle-map-container [data-map-rail]');
   const b = bar?.getBoundingClientRect();
   return {
     // Portalled, or a transformed ancestor in the chat thread would clip it.
@@ -97,8 +99,8 @@ const frame = await local.page.evaluate(() => {
     canvas: !!f.querySelector('#truegle-map-container canvas'),
     onScreen: r.left >= 0 && r.top >= 0 && r.right <= window.innerWidth + 1 && r.bottom <= window.innerHeight + 1,
     // The bar must not eat the window it is chrome for.
-    barShare: b ? Math.round((b.height / r.height) * 100) : null,
-    barRows: b ? Math.round(b.height / 44) : null,
+    barShare: b ? Math.round((b.width / r.width) * 100) : null,
+    barInside: b ? b.top >= r.top - 1 && b.bottom <= r.bottom + 1 && b.right <= r.right + 1 : false,
     title: f.querySelector('span')?.innerText || '',
   };
 });
@@ -109,9 +111,9 @@ check(frame?.inBody && frame?.fixed === 'fixed',
 check(frame?.canvas, '…with the map actually drawn in it');
 check(frame?.onScreen, '…entirely on screen');
 check(frame?.title === 'coffee near me', '…titled with the question that opened it', frame?.title);
-check(frame?.barShare !== null && frame.barShare <= 20,
-  '…and the function bar does not eat the window it is chrome for',
-  `${frame?.barShare}% of the frame, ~${frame?.barRows} row(s)`);
+check(frame?.barShare !== null && frame.barShare <= 20 && frame.barInside,
+  '…and the control rail does not eat the window it is chrome for',
+  `${frame?.barShare}% of the frame's width, inside: ${frame?.barInside}`);
 
 // The chip is what stops a window arriving unexplained.
 const chip = await local.page.evaluate(() => {

@@ -193,8 +193,10 @@ export const OVERLAY_Z_INDEXES = {
 
 export const AZIMUTHAL_FLAT_CONFIG = {
   minZoom: 1,
-  maxZoom: 6,
-  transitionToMapZoom: 4.5,
+  // Zoom here is a multiple of "the whole world fits". At 10× the view is
+  // about 18° across — navigable — and hands over to the street map.
+  maxZoom: 14,
+  transitionToMapZoom: 10,
   defaultRadius: 250,
   defaultCenter: { lat: 0, lng: 0 },
   gridSize: 10,

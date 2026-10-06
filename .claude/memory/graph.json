@@ -1600,6 +1600,14 @@
         "body": "2026-10-06: Directions has Transit (Drive/Walk/Bike/Transit). Backend POST /api/maps/transit -> services/TransitService.js -> api.transitous.org/api/v1/plan (free, keyless, MOTIS on agency GTFS; attribution 'via Transitous' shown). Proxied so provider never sees user IP; coordinates never logged. Polyline precision 7 decoded server-side. Coverage = agencies in Transitous (NYC yes; Eugene OR returned none 2026-10-06). Container note: backend axios <1.16.1 gets 405 via the CCR proxy locally; prod unaffected. Test: npm run maptransit:test (13), backend __tests__/transit.test.js.",
         "ts": "2026-10-06",
         "created": "2026-10-06"
+      },
+      "map-rail-2026-10-06": {
+        "Id": "map-rail-2026-10-06",
+        "Type": "decision",
+        "Label": "Map controls: one right rail; views; cameras as a layer",
+        "body": "2026-10-06 owner redesign. ALL map controls are one vertical rail on the RIGHT (MapControlRail.jsx): Zoom +/−, Me, Globe, Azimuthal, Style(name of basemap), Layers(count), Route, Full, Pop out, Close — each shows NAME + STATE text; visible docked/popped/fullscreen. Removed: bottom function bar, fullscreen top bar, Enter Fullscreen btn, NavigationControl (map no longer rotates), recentre btn, Reset View, TrafficCameras menu + EnhancedCameraSearch (files deleted), GlobeTraffic + azimuthal fake traffic (hardcoded dots). NO Map view button: Globe/Azimuthal hand over to street map when zoomed in (azimuthal k>=10, globe camera <=1.45R); zoom out <=2.5 on street map goes to last chosen projection (localStorage truegle_map_projection). Azimuthal rewritten with d3-geo azimuthal equidistant + world-atlas countries-110m (lazy), pointer drag/pinch/wheel(non-passive)/double-tap. Globe: enablePan false (pinch dragged it off-screen), rotation fixed so center faces camera. Rail +/- reach world views via utils/mapZoomBus (window event). Layers sheet (MapLayersSheet.jsx): God's-eye all switch, Cameras, Traffic (if Mapbox token), OSIRIS layers; each switch says On/Off. Cameras = osiris cctv (feed_url) + /api/maps/traffic-cameras/bbox merged (useCamerasInView), icons from zoom>=8, hover preview, tap full size, 'Watch all in view' wall (CameraWall.jsx, 12 max). Pseudo-fullscreen (fixed inset 0) so iPhone works. Attribution moved right:70px clear of rail. Tests: maprail:test (83), verify-map-ui updated (62/62, fixed 2 long-standing test bugs), verify-chat-map (17). NO keys needed for any view/basemap; only live traffic uses VITE_MAPBOX_ACCESS_TOKEN (set).",
+        "ts": "2026-10-06",
+        "created": "2026-10-06"
       }
     },
     "thread": {

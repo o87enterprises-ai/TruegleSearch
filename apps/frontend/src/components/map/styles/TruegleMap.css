@@ -451,10 +451,17 @@
  * ABOVE the bar rather than the bar moving off the bottom. */
 .truegle-map-container .maplibregl-ctrl-bottom-right,
 .truegle-map-container .maplibregl-ctrl-bottom-left {
-  /* Set from the function bar's MEASURED height (see TruegleMap.jsx), so a
-   * bar that has wrapped onto two rows pushes the credit further up instead
-   * of disappearing behind it. The fallback covers a single row. */
-  bottom: var(--truegle-map-bottom-clearance, 62px);
+  /* There is no function bar along the floor any more; TruegleMap sets a
+   * small margin here. */
+  bottom: var(--truegle-map-bottom-clearance, 8px);
+}
+
+/* AND CLEAR OF THE CONTROL RAIL. The rail runs down the right edge (see
+ * MapControlRail), so the bottom-right corner — where maplibre puts the
+ * attribution — is under it. Attribution must stay legible, so that corner
+ * steps left of the rail (58px wide + 8px gap + margin). */
+.truegle-map-container .maplibregl-ctrl-bottom-right {
+  right: 70px;
 }
 
 /* And the top-right stack clears the search field's band. */

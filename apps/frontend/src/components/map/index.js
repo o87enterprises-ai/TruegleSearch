@@ -3,7 +3,6 @@ export { default as Globe3D } from './Globe3D';
 export { default as AzimuthalFlat } from './AzimuthalFlat';
 export { default as MapPanel } from './MapPanel';
 export { default as MapViewWrapper } from './MapViewWrapper';
-export { default as TrafficCameras } from './TrafficCameras';
 export { default as DirectionsPanel } from './DirectionsPanel';
 export { default as LocationPermissionModal } from './LocationPermissionModal';
 export { default as LocationAutocomplete } from './LocationAutocomplete';

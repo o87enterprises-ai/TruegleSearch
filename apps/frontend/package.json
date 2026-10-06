@@ -38,6 +38,7 @@
     "tubephone:test": "node scripts/verify-tube-phone.mjs",
     "tiktok:test": "node scripts/verify-tiktok-control.mjs",
     "maptransit:test": "node scripts/verify-map-transit.mjs",
+    "maprail:test": "node scripts/verify-map-rail.mjs",
     "searchhistory:test": "node scripts/verify-search-history.mjs",
     "landing:test": "node scripts/verify-landing-cards.mjs",
     "silentembed:test": "node scripts/verify-silent-embed.mjs",
@@ -100,6 +101,7 @@
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "clsx": "^2.1.1",
+    "d3-geo": "^3.1.1",
     "date-fns": "4.1.0",
     "dompurify": "^3.4.5",
     "echarts": "^5.5.0",
@@ -125,9 +127,11 @@
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.4.0",
     "three": "^0.182.0",
+    "topojson-client": "^3.1.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4",
-    "wasmboy": "^0.7.1"
+    "wasmboy": "^0.7.1",
+    "world-atlas": "^2.0.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

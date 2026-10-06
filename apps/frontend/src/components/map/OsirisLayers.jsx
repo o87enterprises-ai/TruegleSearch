@@ -1,5 +1,5 @@
 import { Source, Layer, Popup } from 'react-map-gl/maplibre';
-import { Loader2, X, AlertTriangle } from 'lucide-react';
+import { X } from 'lucide-react';
 
 // Live intelligence layers, drawn on whichever map is mounted.
 //
@@ -62,59 +62,8 @@ export function OsirisSources({ layers }) {
   );
 }
 
-/** Toolbar toggles. Styled to match the map's existing buttons rather than
- *  introducing a second visual language for the same kind of control. */
-export function OsirisLayerSwitcher({ catalogue, active, layers, onToggle, labelClass = '' }) {
-  if (!catalogue.length) return null;
-  return (
-    <>
-      {catalogue.map((layer) => {
-        const on = active.has(layer.id);
-        const state = layers[layer.id];
-        return (
-          <button
-            key={layer.id}
-            type="button"
-            onClick={() => onToggle(layer.id)}
-            data-osiris-toggle={layer.id}
-            aria-pressed={on}
-            title={state?.error || `${layer.label} — live`}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              on ? 'text-white shadow-lg' : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-            }`}
-            // The layer's OWN colour when on, so the button and the dots it
-            // put on the map are visibly the same thing.
-            style={on ? { background: layer.colour, boxShadow: `0 4px 14px ${layer.colour}55` } : undefined}
-          >
-            {state?.loading
-              ? <Loader2 size={14} className="animate-spin" />
-              : state?.error
-                // A layer that failed says so on its own button. Switched on
-                // and simply blank is the one outcome that must not happen:
-                // it reads as "nothing here", which is a claim about the
-                // world rather than about us.
-                ? <AlertTriangle size={14} />
-                : <span className="w-2.5 h-2.5 rounded-full" style={{ background: on ? 'rgba(0,0,0,0.45)' : layer.colour }} />}
-            <span className={labelClass}>{layer.label}</span>
-            {on && state?.meta?.returned != null && (
-              <span className="tabular-nums opacity-75">{state.meta.returned}</span>
-            )}
-            {/* STALE IS SAID, NOT IMPLIED. The upstream is slow enough that the
-                server serves last-known positions while it refreshes behind
-                the request. An aircraft position from four minutes ago is
-                useful; the same position presented as live is a small lie, and
-                this is a map people might make decisions from. */}
-            {on && state?.meta?.stale && (
-              <span className="opacity-70" title={`Last updated ${state.meta.ageSeconds}s ago`}>
-                ·{Math.round((state.meta.ageSeconds || 0) / 60) || '<1'}m
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </>
-  );
-}
+/* The toggles live in MapLayersSheet now — one row per layer, each saying
+ * On or Off, with a god's-eye switch for all of them. */
 
 /**
  * The clicked feature, in full.

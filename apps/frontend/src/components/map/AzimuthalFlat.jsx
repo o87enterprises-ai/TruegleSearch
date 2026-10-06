@@ -1,430 +1,270 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { geoAzimuthalEquidistant, geoPath, geoGraticule10 } from 'd3-geo';
+import { feature, mesh } from 'topojson-client';
 import { useMap } from './context/MapContext';
 import { TRUEGLE_BRAND_COLORS } from './config/truegleTheme';
-import { AZIMUTHAL_FLAT_CONFIG } from './config/constants';
-import { latLonToAzimuthalXY } from './utils/azimuthalFlatHelpers';
+import { AZIMUTHAL_FLAT_CONFIG, MAP_VIEW_MODES } from './config/constants';
 import { getMarkerColor } from './utils/helpers';
+import { onMapZoomRequest } from './utils/mapZoomBus';
 import './styles/AzimuthalGlobe.css';
+
+// ── THE AZIMUTHAL VIEW, DRAWN FOR REAL ──────────────────────────────────────
+//
+// Owner, 2026-10-06: the first two views "aren't working", with "some kind of
+// bug that prevents manual zoom and navigation on mobile". This view was:
+//
+//   - a FIXED picture. The background was one PNG of a north-pole azimuthal
+//     map; dragging moved the pins and the graticule but never the land, so
+//     the pins slid across a world that stayed put.
+//   - UN-ZOOMABLE. Zoom grew the SVG's viewBox by the same factor it grew the
+//     drawing, and the browser scales a viewBox back to fit — every zoom level
+//     rendered identically.
+//   - mouse-only. No touch handling at all, and the wheel handler was a React
+//     onWheel (passive), so its preventDefault never held either.
+//   - showing ten hardcoded "traffic" dots over US cities, which were not data.
+//
+// Now it is an azimuthal equidistant projection (d3-geo) of real coastlines and
+// borders (Natural Earth via world-atlas, loaded only when this view opens),
+// centred wherever you were looking. Drag / one finger re-centres the world
+// under your finger, wheel / pinch / the rail's +/− zoom, double-tap zooms in,
+// and zooming in to navigable altitude hands over to the street map.
+
+const MIN_ZOOM = 1;
+const MAX_ZOOM = AZIMUTHAL_FLAT_CONFIG.maxZoom;            // the handover sits below this
+const HANDOVER_ZOOM = AZIMUTHAL_FLAT_CONFIG.transitionToMapZoom;
+// The street-map zoom that roughly matches the handover altitude.
+const HANDOVER_MAP_ZOOM = 4.5;
+
+let worldPromise = null;
+function loadWorld() {
+  // One fetch for the life of the page, shared by every mount.
+  worldPromise ||= import('world-atlas/countries-110m.json').then((m) => {
+    const topo = m.default || m;
+    return {
+      land: feature(topo, topo.objects.land),
+      borders: mesh(topo, topo.objects.countries, (a, b) => a !== b),
+    };
+  });
+  return worldPromise;
+}
+
+const clampLat = (lat) => Math.max(-89.9, Math.min(89.9, lat));
+const wrapLng = (lng) => ((((lng + 180) % 360) + 360) % 360) - 180;
 
 export default function AzimuthalFlat({
   center = { lat: 0, lng: 0 },
-  zoom = 2,
+  zoom = MIN_ZOOM,
   onMapClick = null,
   onMarkerClick = null,
-  showTraffic = false,
   markers = [],
   routes = [],
-  backgroundImage = null,
   showGraticule = true,
-  userLocation = null,
 }) {
   const { state, actions } = useMap();
   const containerRef = useRef(null);
-  const isDraggingRef = useRef(false);
-  const dragStartRef = useRef({ x: 0, y: 0 });
-  
-  const [scale, setScale] = useState(zoom || 2);
-  const [azimuthalCenter, setAzimuthalCenter] = useState(state.azimuthalFlatCenter || center || { lat: 39.8283, lng: -98.5795 });
-  const [zoomPoint, setZoomPoint] = useState(() => {
-    if (userLocation) return userLocation;
-    return state.azimuthalFlatCenter || center || { lat: 39.8283, lng: -98.5795 };
-  });
-  const [isDragging, setIsDragging] = useState(false);
-  const lastMousePositionRef = useRef({ x: 0, y: 0 });
-  
-  const baseRadius = AZIMUTHAL_FLAT_CONFIG.defaultRadius;
-  const scaledRadius = baseRadius * scale;
-  const svgWidth = scaledRadius * 2 + 50;
-  const svgHeight = scaledRadius * 2 + 50;
-  const centerX = svgWidth / 2;
-  const centerY = svgHeight / 2;
+  const [size, setSize] = useState({ w: 600, h: 400 });
+  const [world, setWorld] = useState(null);
+  const [view, setView] = useState(() => ({
+    lat: clampLat(state.azimuthalFlatCenter?.lat ?? center?.lat ?? 0),
+    lng: wrapLng(state.azimuthalFlatCenter?.lng ?? center?.lng ?? 0),
+    k: Math.max(MIN_ZOOM, Math.min(HANDOVER_ZOOM - 1, state.azimuthalFlatZoom || zoom || MIN_ZOOM)),
+  }));
+  const viewRef = useRef(view);
+  viewRef.current = view;
 
-  const graticuleLines = useMemo(() => {
-    if (!showGraticule) return [];
-    
-    const lines = [];
-    const step = 30;
-    
-    for (let lat = -90; lat <= 90; lat += step) {
-      const projected = latLonToAzimuthalXY(lat, 0, azimuthalCenter.lat, azimuthalCenter.lng, scaledRadius);
-      if (projected && Math.sqrt(projected.x * projected.x + projected.y * projected.y) <= scaledRadius) {
-        lines.push({ x1: projected.x, y1: projected.y, x2: 0, y2: 0, type: 'latitude', value: lat });
-      }
-    }
-    
-    for (let lng = -180; lng <= 180; lng += step) {
-      const projected = latLonToAzimuthalXY(0, lng, azimuthalCenter.lat, azimuthalCenter.lng, scaledRadius);
-      if (projected && Math.sqrt(projected.x * projected.x + projected.y * projected.y) <= scaledRadius) {
-        lines.push({ x1: projected.x, y1: projected.y, x2: 0, y2: 0, type: 'longitude', value: lng });
-      }
-    }
-    
-    return lines;
-  }, [showGraticule, azimuthalCenter, scaledRadius]);
+  useEffect(() => { let live = true; loadWorld().then((w) => live && setWorld(w)).catch(() => {}); return () => { live = false; }; }, []);
 
-  const handleWheel = useCallback((e) => {
-    e.preventDefault();
-    
-    const rect = containerRef.current.getBoundingClientRect();
-    const containerCenterX = rect.width / 2;
-    const containerCenterY = rect.height / 2;
-    const mouseX = e.clientX - rect.left - containerCenterX;
-    const mouseY = e.clientY - rect.top - containerCenterY;
-    
-    const oldScale = scale;
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.max(AZIMUTHAL_FLAT_CONFIG.minZoom, Math.min(AZIMUTHAL_FLAT_CONFIG.maxZoom, scale * delta));
-    
-    const clickLat = azimuthalCenter.lat + (mouseY / scaledRadius) * (180 / scale);
-    const clickLng = azimuthalCenter.lng - (mouseX / scaledRadius) * (180 / scale);
-    
-    setScale(newScale);
-    
-    if (newScale > oldScale) {
-      setAzimuthalCenter({ lat: clickLat, lng: clickLng });
-    }
-  }, [scale, scaledRadius, azimuthalCenter]);
-
-  const handleMouseDown = useCallback((e) => {
-    isDraggingRef.current = true;
-    setIsDragging(true);
-    dragStartRef.current = { x: e.clientX, y: e.clientY };
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(([e]) => setSize({ w: Math.max(50, e.contentRect.width), h: Math.max(50, e.contentRect.height) }));
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
-  const handleMouseMove = useCallback((e) => {
-    if (!isDraggingRef.current) return;
-    
-    const dx = e.clientX - dragStartRef.current.x;
-    const dy = e.clientY - dragStartRef.current.y;
-    
-    const radiusDegrees = 180 / scale;
-    const newLat = Math.max(-90, Math.min(90, azimuthalCenter.lat + (dy / scaledRadius) * radiusDegrees));
-    const newLng = ((azimuthalCenter.lng - (dx / scaledRadius) * radiusDegrees + 180) % 360) - 180;
-    
-    setAzimuthalCenter({ lat: newLat, lng: newLng });
-    setZoomPoint({ lat: newLat, lng: newLng });
-    
-    lastMousePositionRef.current = { x: e.clientX, y: e.clientY };
-    dragStartRef.current = { x: e.clientX, y: e.clientY };
-  }, [azimuthalCenter, scale, scaledRadius]);
+  // A whole world (radius π in projected units) fits the shorter side at k=1.
+  const baseScale = (Math.min(size.w, size.h) / 2 - 8) / Math.PI;
+  const projection = useMemo(() => geoAzimuthalEquidistant()
+    .rotate([-view.lng, -view.lat])
+    .scale(baseScale * view.k)
+    .translate([size.w / 2, size.h / 2])
+    .clipAngle(179.9)
+    .precision(0.5), [view, baseScale, size]);
+  const path = useMemo(() => geoPath(projection), [projection]);
 
-  const handleMouseUp = useCallback(() => {
-    isDraggingRef.current = false;
-    setIsDragging(false);
+  // Keep the shared state in step, and hand over to the street map once
+  // zoomed in far enough to navigate.
+  // Debounced: a drag changes the view every frame, and every write to the
+  // shared map state re-renders everything that reads it.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      actions.setAzimuthalFlatCenter({ lat: view.lat, lng: view.lng });
+      actions.setAzimuthalFlatZoom(view.k);
+    }, 150);
+    return () => clearTimeout(t);
+  }, [actions, view]);
+  useEffect(() => {
+    if (view.k >= HANDOVER_ZOOM) {
+      actions.setCenter({ lat: view.lat, lng: view.lng });
+      actions.setZoom(HANDOVER_MAP_ZOOM);
+      actions.setMapViewMode(MAP_VIEW_MODES.STANDARD);
+    }
+  }, [actions, view]);
+
+  // Zoom about a screen point: the place under it stays under it.
+  const zoomAt = useCallback((factor, px, py) => {
+    const v = viewRef.current;
+    const k = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, v.k * factor));
+    if (k === v.k) return;
+    let next = { ...v, k };
+    if (px != null && factor > 1) {
+      const before = projection.invert([px, py]);
+      if (before) {
+        // Move the centre a share of the way towards the pointer, so a zoom
+        // aimed at Europe ends up looking at Europe.
+        const share = 1 - v.k / k;
+        next = { ...next, lat: clampLat(v.lat + (before[1] - v.lat) * share), lng: wrapLng(v.lng + (wrapLng(before[0] - v.lng)) * share) };
+      }
+    }
+    setView(next);
+  }, [projection]);
+
+  // The rail's +/− (one control for every view). See utils/mapZoomBus.
+  useEffect(() => onMapZoomRequest((dir) => zoomAt(dir > 0 ? 1.6 : 1 / 1.6)), [zoomAt]);
+
+  // WHEEL, non-passive so it zooms the map instead of scrolling the page.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return undefined;
+    const onWheel = (e) => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - r.left, e.clientY - r.top);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [zoomAt]);
+
+  // DRAG and PINCH with pointer events — mouse, pen and touch alike.
+  const pointers = useRef(new Map());
+  const gesture = useRef(null);
+  const moved = useRef(false);
+  const lastTap = useRef(0);
+  const local = (e) => { const r = containerRef.current.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+
+  const onPointerDown = useCallback((e) => {
+    containerRef.current?.setPointerCapture?.(e.pointerId);
+    pointers.current.set(e.pointerId, local(e));
+    moved.current = false;
+    const pts = [...pointers.current.values()];
+    if (pts.length === 2) {
+      gesture.current = { kind: 'pinch', dist: Math.hypot(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1]), k: viewRef.current.k };
+    } else if (pts.length === 1) {
+      gesture.current = { kind: 'drag', at: pts[0] };
+    }
   }, []);
 
-  const handleMapClick = useCallback((e) => {
-    if (isDragging) return;
-    
-    const rect = containerRef.current.getBoundingClientRect();
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const x = e.clientX - rect.left - centerX;
-    const y = e.clientY - rect.top - centerY;
-    
-    const distance = Math.sqrt(x * x + y * y);
-    
-    if (distance > scaledRadius && onMapClick) {
-      onMapClick({ lat: null, lng: null });
+  const onPointerMove = useCallback((e) => {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, local(e));
+    const g = gesture.current;
+    if (!g) return;
+    const pts = [...pointers.current.values()];
+    if (g.kind === 'pinch' && pts.length >= 2) {
+      const d = Math.hypot(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1]);
+      if (g.dist > 0) {
+        moved.current = true;
+        const k = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, g.k * (d / g.dist)));
+        setView((v) => ({ ...v, k }));
+      }
       return;
     }
-    
-    const clickLat = azimuthalCenter.lat + (y / scaledRadius) * (180 / scale);
-    const clickLng = azimuthalCenter.lng - (x / scaledRadius) * (180 / scale);
-    
-    setZoomPoint({ lat: clickLat, lng: clickLng });
-    
-    if (onMapClick) {
-      onMapClick({ lat: clickLat, lng: clickLng });
+    if (g.kind === 'drag') {
+      const [x, y] = pts[0];
+      const dx = x - g.at[0]; const dy = y - g.at[1];
+      if (!moved.current && Math.hypot(dx, dy) < 4) return;
+      moved.current = true;
+      // The point that WAS at the centre is now dx,dy away: re-centre on what
+      // is now under the middle, so the land follows the finger.
+      const target = projection.invert([size.w / 2 - dx, size.h / 2 - dy]);
+      g.at = [x, y];
+      if (target) setView((v) => ({ ...v, lat: clampLat(target[1]), lng: wrapLng(target[0]) }));
     }
-  }, [isDragging, azimuthalCenter, scaledRadius, scale, onMapClick]);
+  }, [projection, size]);
 
-  const handleMarkerClick = useCallback((marker, e) => {
-    e.stopPropagation();
-    
-    if (onMarkerClick) {
-      onMarkerClick(marker);
-    }
-    
-    actions.setSelectedMarker(marker);
-  }, [actions, onMarkerClick]);
+  const onPointerUp = useCallback((e) => {
+    pointers.current.delete(e.pointerId);
+    const wasMoved = moved.current;
+    const left = [...pointers.current.values()];
+    gesture.current = left.length === 1 ? { kind: 'drag', at: left[0] } : null;
+    if (wasMoved || left.length) return;
+    // A tap. Two quick taps zoom in where they landed (like every map app).
+    const now = Date.now();
+    const [x, y] = local(e);
+    if (now - lastTap.current < 320) { lastTap.current = 0; zoomAt(2, x, y); return; }
+    lastTap.current = now;
+    const ll = projection.invert([x, y]);
+    if (ll && onMapClick) onMapClick({ lat: ll[1], lng: ll[0] });
+  }, [projection, onMapClick, zoomAt]);
 
-  const handleResetView = useCallback(() => {
-    setScale(2);
-    setAzimuthalCenter(center);
-    actions.setAzimuthalFlatZoom(2);
-    actions.setAzimuthalFlatCenter(center);
-  }, [center, actions]);
+  const projectedMarkers = useMemo(() => markers
+    .filter((m) => Number.isFinite(m.lat) && Number.isFinite(m.lng))
+    .map((m) => {
+      const xy = projection([m.lng, m.lat]);
+      return xy ? { ...m, x: xy[0], y: xy[1] } : null;
+    })
+    .filter(Boolean), [markers, projection]);
 
-  useEffect(() => {
-    actions.setAzimuthalFlatZoom(scale);
-    
-    if (scale >= AZIMUTHAL_FLAT_CONFIG.transitionToMapZoom) {
-      actions.setMapViewMode('standard');
-      actions.setCenter(azimuthalCenter);
-      actions.setZoom(4);
-    }
-  }, [actions, scale, azimuthalCenter]);
+  const routePaths = useMemo(() => (routes || [])
+    .map((r) => (r?.geometry?.coordinates?.length >= 2 ? { id: r.id, d: path({ type: 'LineString', coordinates: r.geometry.coordinates }) } : null))
+    .filter((r) => r?.d), [routes, path]);
 
-  useEffect(() => {
-    actions.setAzimuthalFlatCenter(azimuthalCenter);
-  }, [actions, azimuthalCenter]);
-
-  useEffect(() => {
-    if (state.azimuthalFlatCenter && !zoomPoint) {
-      setZoomPoint(state.azimuthalFlatCenter);
-    }
-  }, [state.azimuthalFlatCenter, zoomPoint]);
-
-  useEffect(() => {
-    if (userLocation && !zoomPoint) {
-      setZoomPoint(userLocation);
-    }
-  }, [userLocation, zoomPoint]);
-
-  const projectedMarkers = useMemo(() => {
-    return markers.map(marker => {
-      const projected = latLonToAzimuthalXY(
-        marker.lat, 
-        marker.lng, 
-        azimuthalCenter.lat, 
-        azimuthalCenter.lng, 
-        scaledRadius
-      );
-      return { ...marker, ...projected };
-    }).filter(m => {
-      const distance = Math.sqrt(m.x * m.x + m.y * m.y);
-      return distance <= scaledRadius;
-    });
-  }, [markers, azimuthalCenter, scaledRadius]);
-
-  const projectedRoutes = useMemo(() => {
-    return routes.map(route => {
-      if (!route.coordinates || route.coordinates.length < 2) {
-        return null;
-      }
-      
-      const points = route.coordinates.map(coord => {
-        return latLonToAzimuthalXY(
-          coord.lat,
-          coord.lng,
-          azimuthalCenter.lat,
-          azimuthalCenter.lng,
-          scaledRadius
-        );
-      }).filter(p => {
-        const distance = Math.sqrt(p.x * p.x + p.y * p.y);
-        return distance <= scaledRadius;
-      });
-      
-      return { ...route, points };
-    }).filter(Boolean);
-  }, [routes, azimuthalCenter, scaledRadius]);
+  const sphere = path({ type: 'Sphere' });
+  const graticule = showGraticule ? path(geoGraticule10()) : null;
 
   return (
-    <div 
-      className="azimuthal-globe-container"
-      style={{ width: '100%', height: '100%' }}
+    <div
       ref={containerRef}
-      onWheel={handleWheel}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-      onClick={handleMapClick}
+      className="azimuthal-globe-container"
+      data-azimuthal-view=""
+      data-zoom={view.k.toFixed(2)}
+      data-center={`${view.lat.toFixed(3)},${view.lng.toFixed(3)}`}
+      style={{ width: '100%', height: '100%', touchAction: 'none', cursor: gesture.current ? 'grabbing' : 'grab', userSelect: 'none' }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
     >
-      <svg 
-        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-        preserveAspectRatio="xMidYMid meet"
-        width="100%" 
-        height="100%" 
-        style={{ display: 'block' }}
-      >
-        <defs>
-          <clipPath id="circle-clip">
-            <circle
-              cx={0}
-              cy={0}
-              r={scaledRadius}
-            />
-          </clipPath>
-        </defs>
-        <g 
-          transform={`translate(${centerX}, ${centerY})`}
-        >
-          <circle
-            cx={0}
-            cy={0}
-            r={scaledRadius}
-            fill="#1a1a2e"
-            stroke={TRUEGLE_BRAND_COLORS.blue}
-            strokeWidth={2}
-          />
-
-          {backgroundImage && (
-            <g clipPath="url(#circle-clip)">
-              <image
-                href={backgroundImage}
-                x={-scaledRadius}
-                y={-scaledRadius}
-                width={scaledRadius * 2}
-                height={scaledRadius * 2}
-                preserveAspectRatio="xMidYMid slice"
-                opacity={0.7}
-              />
-            </g>
-          )}
-
-          {showGraticule && graticuleLines.map((line, index) => (
-            <line
-              key={`${line.type}-${line.value}`}
-              x1={line.x1}
-              y1={line.y1}
-              x2={line.x2}
-              y2={line.y2}
-              stroke={line.type === 'latitude' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.15)'}
-              strokeWidth={line.type === 'latitude' ? 1 : 0.5}
-              strokeDasharray={line.type === 'equator' ? '0' : '2,2'}
-            />
-          ))}
-
-          {projectedRoutes.map((route) => (
-            <g key={route.id}>
-              <polyline
-                points={route.points.map(p => `${p.x},${p.y}`).join(' ')}
-                fill="none"
-                stroke={route.color || TRUEGLE_BRAND_COLORS.blue}
-                strokeWidth={2}
-                strokeDasharray={route.dashed ? '5,5' : '0'}
-              />
-            </g>
-          ))}
-
-          {projectedMarkers.map((marker) => {
-            const markerColor = getMarkerColor(marker.category || 'DEFAULT');
-            
-            return (
-              <g 
-                key={marker.id}
-                transform={`translate(${marker.x}, ${marker.y})`}
-                onClick={(e) => handleMarkerClick(marker, e)}
-                style={{ cursor: 'pointer' }}
-              >
-                {marker.category === 'CURRENT_LOCATION' ? (
-                  <>
-                    <circle
-                      r={8}
-                      fill={TRUEGLE_BRAND_COLORS.blue}
-                      fillOpacity={0.3}
-                    />
-                    <circle
-                      r={5}
-                      fill={TRUEGLE_BRAND_COLORS.blue}
-                      fillOpacity={0.5}
-                      stroke="white"
-                      strokeWidth={1}
-                    />
-                    <circle
-                      r={2}
-                      fill={TRUEGLE_BRAND_COLORS.blue}
-                    />
-                  </>
-                ) : (
-                  <polygon
-                    points="0,-10 -8,5 8,5"
-                    fill={markerColor}
-                    stroke="white"
-                    strokeWidth={1}
-                  />
-                )}
-              </g>
-            );
-          })}
-
-          {showTraffic && (
-            <TrafficLayer
-              azimuthalCenter={azimuthalCenter}
-              scaledRadius={scaledRadius}
-            />
-          )}
-        </g>
-       </svg>
- 
-      <div className="azimuthal-controls-bottom-left">
-        <button
-          onClick={handleResetView}
-          className="azimuthal-control-btn"
-          title="Reset View"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 8v8M8 12h8" />
-          </svg>
-        </button>
-        <div className="azimuthal-zoom-indicator">
-          {scale.toFixed(1)}x
-        </div>
+      <svg width={size.w} height={size.h} style={{ display: 'block' }} aria-label="Azimuthal equidistant map of the world">
+        <path d={sphere} fill="#0b1e3a" stroke={TRUEGLE_BRAND_COLORS.blue} strokeWidth={1.5} />
+        {graticule && <path d={graticule} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={0.6} />}
+        {world && <path d={path(world.land)} fill="#2f5d3a" stroke="none" />}
+        {world && <path d={path(world.borders)} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth={0.5} />}
+        {routePaths.map((r) => <path key={r.id} d={r.d} fill="none" stroke="#38bdf8" strokeWidth={3} strokeLinecap="round" />)}
+        {projectedMarkers.map((m) => (
+          <g
+            key={m.id}
+            transform={`translate(${m.x}, ${m.y})`}
+            style={{ cursor: 'pointer' }}
+            onPointerUp={(e) => { e.stopPropagation(); onMarkerClick?.(m); actions.setSelectedMarker(m); }}
+          >
+            {m.category === 'CURRENT_LOCATION' ? (
+              <>
+                <circle r={9} fill="#3b82f6" fillOpacity={0.3} />
+                <circle r={5} fill="#3b82f6" stroke="white" strokeWidth={1.5} />
+              </>
+            ) : (
+              <circle r={5} fill={getMarkerColor(m.category || 'DEFAULT')} stroke="white" strokeWidth={1.2} />
+            )}
+          </g>
+        ))}
+      </svg>
+      {!world && (
+        <div className="absolute inset-0 flex items-center justify-center text-xs text-white/50 pointer-events-none">Drawing the world…</div>
+      )}
+      <div className="pointer-events-none absolute bottom-2 left-2 text-[9px] text-white/45 bg-black/40 px-1.5 py-0.5 rounded">
+        Azimuthal equidistant · Natural Earth
       </div>
     </div>
   );
-}
-
-function TrafficLayer({ azimuthalCenter, scaledRadius }) {
-  const trafficPoints = [
-    { lat: 40.7128, lng: -74.0060, congestion: 'heavy' },
-    { lat: 34.0522, lng: -118.2437, congestion: 'moderate' },
-    { lat: 41.8781, lng: -87.6298, congestion: 'heavy' },
-    { lat: 29.7604, lng: -95.3698, congestion: 'moderate' },
-    { lat: 33.4484, lng: -112.0740, congestion: 'low' },
-    { lat: 32.7767, lng: -96.7970, congestion: 'heavy' },
-    { lat: 37.7749, lng: -122.4194, congestion: 'severe' },
-    { lat: 39.9526, lng: -75.1652, congestion: 'moderate' },
-    { lat: 25.7617, lng: -80.1918, congestion: 'low' },
-    { lat: 47.6062, lng: -122.3321, congestion: 'low' },
-  ];
-
-  return (
-    <>
-      {trafficPoints.map((point, index) => {
-        const projected = latLonToAzimuthalXY(
-          point.lat,
-          point.lng,
-          azimuthalCenter.lat,
-          azimuthalCenter.lng,
-          scaledRadius
-        );
-        
-        const distance = Math.sqrt(projected.x * projected.x + projected.y * projected.y);
-        if (distance > scaledRadius) return null;
-        
-        const color = getTrafficColor(point.congestion);
-        
-        return (
-          <circle
-            key={index}
-            cx={projected.x}
-            cy={projected.y}
-            r={4}
-            fill={color}
-            opacity={0.8}
-          />
-        );
-      })}
-    </>
-  );
-}
-
-function getTrafficColor(congestion) {
-  switch (congestion) {
-    case 'low':
-      return '#39ff14';
-    case 'moderate':
-      return '#fcce00';
-    case 'heavy':
-      return '#ff0033';
-    case 'severe':
-      return '#ef0700';
-    default:
-      return '#888888';
-  }
 }

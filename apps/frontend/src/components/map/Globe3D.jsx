@@ -6,12 +6,15 @@ import { useMap } from './context/MapContext';
 import { TRUEGLE_BRAND_COLORS, GLOBE_3D_CONFIG } from './config/constants';
 import { GlobeMarker } from './globe/GlobeMarker';
 import { GlobeRoute } from './globe/GlobeRoute';
-import { GlobeTraffic } from './globe/GlobeTraffic';
 import { getNASAEarthTextureUrl, GIBS_ATTRIBUTION } from './utils/nasaGibsHelper';
 import { buildEquirectangularEarth, EARTH_ATTRIBUTION } from './utils/earthTexture';
+import { onMapZoomRequest } from './utils/mapZoomBus';
+import { MAP_VIEW_MODES } from './config/constants';
 import './styles/AzimuthalGlobe.css';
 
 const globeRadius = GLOBE_3D_CONFIG.globeRadius;
+// Camera distance (in globe radii) at which the street map takes over.
+const HANDOVER_DISTANCE = 1.45;
 
 /**
  * EarthSphere Component
@@ -175,12 +178,6 @@ export default function Globe3D({
   // "nothing has been searched yet".
   const displayMarkers = markers;
 
-  const handleResetView = useCallback(() => {
-    if (controlsRef.current) {
-      controlsRef.current.reset();
-    }
-  }, []);
-
   const handleMapClick = useCallback((event) => {
     if (!isDragging && onMapClick) {
       const point = event.point;
@@ -243,13 +240,57 @@ export default function Globe3D({
     }
   }, []);
 
+  // TURN THE GLOBE SO `center` FACES YOU. The camera sits on +z; a point at
+  // colatitude φ and θ = lng+180° is brought onto that axis by turning
+  // π/2 − θ about Y and then lat about X (three applies Y before X in its
+  // default 'XYZ' order). The old {x: φ, y: −θ} pointed somewhere else.
   useEffect(() => {
-    if (center) {
-      const phi = (90 - center.lat) * (Math.PI / 180);
+    if (center && Number.isFinite(center.lat) && Number.isFinite(center.lng)) {
       const theta = (center.lng + 180) * (Math.PI / 180);
-      setRotation({ x: phi, y: -theta });
+      setRotation({ x: center.lat * (Math.PI / 180), y: Math.PI / 2 - theta });
     }
-  }, [center]);
+  }, [center?.lat, center?.lng]);
+
+  // ── ZOOM IN FAR ENOUGH AND IT BECOMES THE STREET MAP ─────────────────────
+  // Owner, 2026-10-06: no Map button — "when any of the views are zoomed in to
+  // navigable altitude, it automatically switches to map view mode". The spot
+  // under the middle of the screen is where the street map opens.
+  const handedOver = useRef(false);
+  const facing = useCallback((camera) => {
+    const g = groupRef.current;
+    if (!g || !camera) return null;
+    const v = camera.position.clone().normalize().multiplyScalar(globeRadius);
+    const p = g.worldToLocal(v);
+    const phi = Math.acos(Math.max(-1, Math.min(1, p.y / globeRadius)));
+    const theta = Math.atan2(p.z, -p.x);                 // inverse of latLonToPoint
+    let lng = (theta * 180) / Math.PI - 180;
+    lng = ((((lng + 180) % 360) + 360) % 360) - 180;
+    return { lat: 90 - (phi * 180) / Math.PI, lng };
+  }, []);
+  const onControlsChange = useCallback(() => {
+    const c = controlsRef.current;
+    if (!c || handedOver.current) return;
+    const d = c.object.position.length();
+    if (d <= globeRadius * HANDOVER_DISTANCE) {
+      const at = facing(c.object);
+      if (!at) return;
+      handedOver.current = true;
+      actions.setCenter(at);
+      actions.setZoom(4.5);
+      actions.setMapViewMode(MAP_VIEW_MODES.STANDARD);
+    }
+  }, [actions, facing]);
+
+  // The rail's +/− — see utils/mapZoomBus.
+  useEffect(() => onMapZoomRequest((dir) => {
+    const c = controlsRef.current;
+    if (!c) return;
+    const cam = c.object;
+    const next = cam.position.length() * (dir > 0 ? 0.7 : 1 / 0.7);
+    cam.position.setLength(Math.max(c.minDistance, Math.min(c.maxDistance, next)));
+    c.update();
+    onControlsChange();
+  }), [onControlsChange]);
 
   const latLonToPoint = (lat, lon, radius) => {
     const phi = (90 - lat) * (Math.PI / 180);
@@ -347,11 +388,9 @@ export default function Globe3D({
               />
             ))}
 
-            {showTraffic && (
-              <GlobeTraffic
-                globeRadius={globeRadius}
-              />
-            )}
+            {/* No traffic here: GlobeTraffic drew ten hardcoded "congestion"
+                dots over US cities — not data. Live traffic is a street-map
+                layer. */}
           </group>
 
           <Stars
@@ -366,7 +405,11 @@ export default function Globe3D({
 
           <OrbitControls
             ref={controlsRef}
-            enablePan={true}
+            // NO PAN. On a touch screen a two-finger pinch is also a pan, so
+            // every zoom dragged the globe off-centre until it left the screen
+            // — the "can't zoom or navigate on mobile" report. Rotate + zoom
+            // around the middle is all a globe needs.
+            enablePan={false}
             enableZoom={true}
             enableRotate={true}
             minPolarAngle={Math.PI / 4}
@@ -381,22 +424,13 @@ export default function Globe3D({
             panSpeed={0.5}
             onStart={() => setIsDragging(true)}
             onEnd={() => setIsDragging(false)}
+            onChange={onControlsChange}
           />
       </Canvas>
       )}
 
-      <div className="azimuthal-controls">
-        <button
-          onClick={handleResetView}
-          className="azimuthal-control-btn"
-          title="Reset View"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 8v8M8 12h8" />
-          </svg>
-        </button>
-      </div>
+      {/* Its own Reset button is gone — every control lives on the map's
+          one rail now (owner, 2026-10-06). */}
 
       {/* Credit follows the imagery ACTUALLY on the sphere. Both providers
           require attribution, and crediting the one that failed is worse than

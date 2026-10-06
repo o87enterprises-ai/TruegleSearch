@@ -4,7 +4,6 @@ import { Map as MapIcon, Camera, Layers, Navigation, X, MapPin, Route as Navigat
 import { motion, AnimatePresence } from 'framer-motion';
 import TruegleMap from './TruegleMap';
 import MapPanel from './MapPanel';
-import TrafficCameras from './TrafficCameras';
 import DirectionsPanel from './DirectionsPanel';
 import LocationPermissionModal from './LocationPermissionModal';
 import MapPopOutFrame from './MapPopOutFrame';
@@ -45,7 +44,6 @@ export default function MapViewWrapper({
   const { state, actions } = useMap();
   const [mapStyle, setMapStyle] = useState('standard');
   const [showTraffic, setShowTraffic] = useState(false);
-  const [showTrafficCams, setShowTrafficCams] = useState(false);
   const [showDirections, setShowDirections] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [showGlobe, setShowGlobe] = useState(false);
@@ -563,21 +561,7 @@ export default function MapViewWrapper({
         </AnimatePresence>
       </motion.div>
                 
-      {/* Traffic Cameras Panel */}
-      <AnimatePresence>
-        {showTrafficCams && (
-          <TrafficCameras
-            userLocation={userLocation || (detectedLocation?.coordinates && 
-{
-              lat: detectedLocation.coordinates.lat,
-              lng: detectedLocation.coordinates.lng
-            })}
-            isOpen={showTrafficCams}
-            onClose={() => setShowTrafficCams(false)}
-          />
-        )}                                                                   
-  </AnimatePresence>
-        
+      {/* No traffic-camera menu: cameras are a map layer now (TruegleMap → Layers). */}
       {/* Directions Panel */}
       <AnimatePresence>
         {showDirections && (

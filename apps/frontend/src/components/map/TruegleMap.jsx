@@ -5,16 +5,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 // controls — and it belongs here rather than as a CDN <link> in index.html,
 // which is where the old one lived: that made every page on the site fetch a
 // map stylesheet before it could paint.
-import { Map as BaseMap, Marker, Popup, NavigationControl, ScaleControl, Source, Layer } from 'react-map-gl/maplibre';
+import { Map as BaseMap, Marker, Popup, ScaleControl, Source, Layer } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 // TrafficCone for traffic, Navigation for directions. Both buttons used to
 // import the SAME lucide glyph — `Navigation` once plainly and once as
 // `Navigation as NavigationIcon` — so Traffic and Directions were pixel
 // identical and the alias made it look deliberate.
 import {
-  X, Minimize2, Layers, TrafficCone, Camera, MapPin, Navigation as DirectionsIcon,
-  Globe, Map as MapIcon, Target, Minus, Maximize2, Search, PictureInPicture2,
-  Share2, Check, Copy, LocateFixed,
+  X, Camera, Navigation as DirectionsIcon, Search, Share2, Check, Copy,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMap } from './context/MapContext';
@@ -23,11 +21,15 @@ import { MAP_CONTROLS, MAP_VIEW_MODES, AZIMUTHAL_FLAT_CONFIG, USER_LOCATION_ZOOM
 import { getBasemapStyle, BASEMAP_ORDER, MAPBOX_TOKEN, TRAFFIC_AVAILABLE } from './config/basemap';
 import { defaultLogoConfig, getLogoPosition, getLogoSize } from './config/logoConfig';
 import MapPlayerTransport from './MapPlayerTransport';
-import TrafficCameras from './TrafficCameras';
 import useOsirisLayers from '../../hooks/useOsirisLayers';
 import {
-  OsirisSources, OsirisLayerSwitcher, OsirisFeaturePopup, osirisLayerIds, isOsirisFeature,
+  OsirisSources, OsirisFeaturePopup, osirisLayerIds, isOsirisFeature,
 } from './OsirisLayers';
+import MapControlRail from './MapControlRail';
+import MapLayersSheet from './MapLayersSheet';
+import CameraWall from './CameraWall';
+import useCamerasInView from './hooks/useCamerasInView';
+import { requestMapZoom } from './utils/mapZoomBus';
 import DirectionsPanel from './DirectionsPanel';
 import { useViewportIncidents, IncidentMarkers, IncidentDetails, useLiveHere } from './TrafficIncidents';
 import BeforeYouGo from './BeforeYouGo';
@@ -36,12 +38,23 @@ import LocationPermissionModal from './LocationPermissionModal';
 import Globe3D from './Globe3D';
 import AzimuthalFlat from './AzimuthalFlat';
 import WebGLErrorBoundary from '../ui/WebGLErrorBoundary';
-import EnhancedCameraSearch from './EnhancedCameraSearch';
 import CameraView from './CameraView';
 import { searchMapQuery, formatDistance } from './utils/mapSearch';
 import MapApiService from './services/mapApi';
-import backgroundImage from '../../assets/images/Azimuthal-satellite-view.png';
 import './styles/TruegleMap.css';
+
+// Which world view "zoom all the way out" goes to: the last one chosen.
+const PROJECTION_KEY = 'truegle_map_projection';
+function lastProjection() {
+  try {
+    const v = localStorage.getItem(PROJECTION_KEY);
+    if (v === MAP_VIEW_MODES.GLOBE_3D || v === MAP_VIEW_MODES.AZIMUTHAL_FLAT) return v;
+  } catch { /* private mode */ }
+  return MAP_VIEW_MODES.AZIMUTHAL_FLAT;
+}
+
+// The basemap's name as a person would say it.
+const BASEMAP_NAMES = { satellite: 'Satellite', standard: 'Street', dark: 'Dark', light: 'Light' };
 
 export default function TruegleMap({
   provider = 'mapbox',
@@ -107,8 +120,12 @@ export default function TruegleMap({
   const [selectedIncident, setSelectedIncident] = useState(null);
   // The place whose "Before you go" card is open — see BeforeYouGo.jsx.
   const [beforeYouGo, setBeforeYouGo] = useState(null);
-  const [showCamerasFS, setShowCamerasFS] = useState(false);
-  const [showEnhancedCameraSearch, setShowEnhancedCameraSearch] = useState(false);
+  // Layers panel, the camera overlay, and the "watch all in view" wall.
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [camerasOn, setCamerasOn] = useState(false);
+  const [wallOpen, setWallOpen] = useState(false);
+  // What is on screen, [west, south, east, north] — for the camera overlay.
+  const [viewBbox, setViewBbox] = useState(null);
   // Which camera pin the pointer is over, and which one is open full size.
   // Hover state lives HERE rather than inside each marker because only one
   // preview may be mounted at a time — see the CAMERA branch of MarkerElement.
@@ -146,7 +163,6 @@ export default function TruegleMap({
     setShowDirectionsFS(true);
     if (TRAFFIC_AVAILABLE) setShowTrafficFS(true);
   }, [initialDirectionsTo, mapLoaded]);
-  const [showGlobe, setShowGlobe] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   // Destination search (Google-Earth-style): lives INSIDE the fullscreen
@@ -168,73 +184,14 @@ export default function TruegleMap({
   // "near me", asked before we know where "me" is.
   const [placeNeedsLocation, setPlaceNeedsLocation] = useState(false);
 
-  // ── the map knows how much room it has ──────────────────────────────────
-  //
-  // Every responsive decision here used to be a VIEWPORT breakpoint
-  // (`hidden lg:inline`), which says nothing useful once the map can be a
-  // 320px floating window on a 2560px monitor — the labels stayed on and the
-  // row ran off the end of its own frame. These are measured against the BAR.
-  // Is a full-height panel covering the map? The floating controls step aside
-  // when one is, instead of hovering on top of it — the zoom stack sitting
-  // over the open Directions panel is exactly what "not screen-element aware"
-  // looked like. Declared before the measuring effect below, which depends
-  // on it: the layout changes when a panel opens.
-  const panelOpen = showCamerasFS || showEnhancedCameraSearch || showDirectionsFS;
+  // Is a full-height panel covering the map? The search box steps aside when
+  // one is, instead of floating over the panel's own first field.
+  const panelOpen = showDirectionsFS;
 
-  const functionBarRef = useRef(null);
   const mapAreaRef = useRef(null);
-  // AVAILABLE width, not the bar's own. Measuring the bar is circular — its
-  // width depends on whether the labels are showing, and whether the labels
-  // show depends on its width — so it settles wherever it started and the row
-  // still runs off the end. The map area is the fixed quantity.
-  const [areaWidth, setAreaWidth] = useState(9999);
-  const [barHeight, setBarHeight] = useState(44);
-  useEffect(() => {
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const observers = [];
-    const area = mapAreaRef.current;
-    if (area) {
-      const ro = new ResizeObserver(([e]) => setAreaWidth(e.contentRect.width));
-      ro.observe(area);
-      setAreaWidth(area.getBoundingClientRect().width);
-      observers.push(ro);
-    }
-    const bar = functionBarRef.current;
-    if (bar) {
-      const ro = new ResizeObserver(([e]) => setBarHeight(e.contentRect.height));
-      ro.observe(bar);
-      setBarHeight(bar.getBoundingClientRect().height);
-      observers.push(ro);
-    }
-    return () => observers.forEach((o) => o.disconnect());
-  }, [isFullscreen, poppedOut, panelOpen]);
-  const showBarLabels = areaWidth >= 900;
-  const labelClass = showBarLabels ? '' : 'hidden';
-  // THE VIEW MODES KEEP THEIR LABELS LONGER THAN EVERYTHING ELSE.
-  //
-  // Layers, Traffic, Cameras and the rest are toggles: their icon plus their
-  // lit/unlit state says what they do. Map / Azimuthal / Globe are a MODE
-  // SELECTOR — three near-identical circles in a row — and stripped of text
-  // there is no way to tell which is which except by pressing one and seeing
-  // what happens. They are the last labels to go.
-  const showModeLabels = areaWidth >= 560;
-  const modeLabelClass = showModeLabels ? '' : 'hidden';
-  // A SMALL MAP GETS A SMALL BAR.
-  //
-  // Eleven controls wrap onto three rows in a 420px pop-out, which is a third
-  // of the window spent on chrome — the map it is chrome for ends up smaller
-  // than the toolbar. Below the threshold the bar keeps what a quick look
-  // actually needs (where am I, how do I get there, put it back, close it) and
-  // drops the exploratory controls: the projection trio, the basemap style,
-  // traffic and the camera panels. None of those are lost — they are all there
-  // the moment the map is docked or the window is widened.
-  const compactBar = areaWidth < 520;
-  // How much room the bottom edge owes the function bar. The renderer pins its
-  // attribution and scale to that edge, and attribution is a licence condition
-  // of OSM, CARTO and Esri — it cannot sit under our chrome. Derived from the
-  // bar's measured height so a wrapped two-row bar pushes it further up rather
-  // than hiding behind a guessed constant.
-  const bottomClearance = `${Math.round(barHeight) + 26}px`;
+  // No function bar along the floor any more (the rail is on the right), so the
+  // attribution and scale only need a small margin.
+  const bottomClearance = '8px';
 
   // The user's own position: is it currently in view? The Location button
   // lights up only when it is (and only when we actually have a position),
@@ -481,7 +438,9 @@ export default function TruegleMap({
     // already only fires at the end of a gesture.
     const bounds = mapRef.current?.getMap?.().getBounds?.();
     if (bounds) {
-      osiris.setViewport([bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()]);
+      const box = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
+      osiris.setViewport(box);
+      setViewBbox(box);
     }
 
     // Zoomed all the way out: offer the azimuthal projection.
@@ -490,10 +449,12 @@ export default function TruegleMap({
     // zoom 3 swapped the projection MID-GESTURE — the map you were still
     // scrolling on was replaced under your finger. At the end of the gesture
     // it is a result rather than an interruption.
-    if (state.mapViewMode === MAP_VIEW_MODES.STANDARD && zoom <= 3) {
-      actions.setMapViewMode(MAP_VIEW_MODES.AZIMUTHAL_FLAT);
+    // Zoomed all the way out: the world view you last chose (Globe or
+    // Azimuthal), centred on where you were. Zooming back in returns here.
+    if (state.mapViewMode === MAP_VIEW_MODES.STANDARD && zoom <= 2.5) {
       actions.setAzimuthalFlatCenter({ lat: latitude, lng: longitude });
       actions.setAzimuthalFlatZoom(2);
+      actions.setMapViewMode(lastProjection());
     }
   }, [actions, state.mapViewMode, osiris]);
 
@@ -574,38 +535,18 @@ export default function TruegleMap({
     }
   }, [actions, onMarkerClick]);
 
-  const toggleFullscreen = useCallback(() => {
-    setIsFullscreen(prev => !prev);
-  }, []);
-
-  const exitFullscreen = useCallback(() => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    }
-    setIsFullscreen(false);
-
-    if (onClose) {
-      onClose();
-    }
-  }, [onClose]);
-
-  const minimizeFullscreen = useCallback(() => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    }
-    setIsFullscreen(false);
-
-    if (onClose) {
-      onClose();
-    }
-  }, [onClose]);
 
   // Escape key handler
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        if (isFullscreen) {
-          exitFullscreen();
+        if (wallOpen) {
+          setWallOpen(false);
+        } else if (layersOpen) {
+          setLayersOpen(false);
+        } else if (isFullscreen) {
+          if (document.fullscreenElement) document.exitFullscreen?.();
+          setIsFullscreen(false);
         } else if (onClose) {
           onClose();
         }
@@ -613,7 +554,7 @@ export default function TruegleMap({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isFullscreen, exitFullscreen, onClose]);
+  }, [isFullscreen, onClose, wallOpen, layersOpen]);
 
   const toggleFullscreenMapStyle = useCallback(() => {
     const currentIndex = BASEMAP_ORDER.indexOf(fullscreenMapStyle);
@@ -623,10 +564,40 @@ export default function TruegleMap({
     announce(`${nextStyle.charAt(0).toUpperCase()}${nextStyle.slice(1)} basemap`);
   }, [fullscreenMapStyle, announce]);
 
-  const toggleGlobeView = useCallback(() => {
-    actions.toggleMapViewMode();
-    setShowGlobe(prev => !prev);
-  }, [actions]);
+  // ── THE RAIL'S HANDLERS ───────────────────────────────────────────────────
+  // Globe / Azimuthal: press to go there, press the lit one again to come back
+  // to the street map. There is no "Map" button — zooming in on either world
+  // view hands over to the street map by itself (owner, 2026-10-06).
+  const onProjection = useCallback((mode) => {
+    if (state.mapViewMode === mode) {
+      actions.setMapViewMode(MAP_VIEW_MODES.STANDARD);
+      announce('Street map');
+      return;
+    }
+    try { localStorage.setItem(PROJECTION_KEY, mode); } catch { /* private mode */ }
+    actions.setCenter({ lat: viewState.latitude, lng: viewState.longitude });
+    actions.setAzimuthalFlatCenter({ lat: viewState.latitude, lng: viewState.longitude });
+    actions.setAzimuthalFlatZoom(1.5);
+    actions.setMapViewMode(mode);
+    announce(mode === MAP_VIEW_MODES.GLOBE_3D ? 'Globe — zoom in to return to the street map' : 'Azimuthal — zoom in to return to the street map');
+  }, [state.mapViewMode, actions, announce, viewState.latitude, viewState.longitude]);
+
+  // One +/− for every view: the street map zooms itself; the world views
+  // answer through utils/mapZoomBus.
+  const onRailZoom = useCallback((dir) => {
+    if (state.mapViewMode !== MAP_VIEW_MODES.STANDARD) { requestMapZoom(dir); return; }
+    const map = typeof mapRef.current?.getMap === 'function' ? mapRef.current.getMap() : mapRef.current;
+    if (dir > 0) map?.zoomIn?.(); else map?.zoomOut?.();
+  }, [state.mapViewMode]);
+
+  // The browser's full screen and ours stay in step: leaving it with the
+  // system gesture (or Esc) turns the rail's "Full" off too.
+  useEffect(() => {
+    const sync = () => { if (!document.fullscreenElement && !document.webkitFullscreenElement) setIsFullscreen(false); };
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+    return () => { document.removeEventListener('fullscreenchange', sync); document.removeEventListener('webkitfullscreenchange', sync); };
+  }, []);
 
   const handleLocationGranted = useCallback((location) => {
     setUserLocation(location);
@@ -1209,11 +1180,49 @@ export default function TruegleMap({
   const { incidents, note: incidentNote } = useViewportIncidents(mapRef, { enabled: trafficOn, mapLoaded });
   const liveHere = useLiveHere(mapRef, selectedMarker, trafficOn);
 
+  // ── CAMERAS, AS A LAYER ─────────────────────────────────────────────────
+  // The "Public cameras" live feed is drawn as camera ICONS (hover = live
+  // picture, tap = full size) rather than as dots, merged with the state DOT
+  // cameras. So it is switched as "Cameras", not listed again as a dot layer.
+  const CCTV = 'cctv';
+  useEffect(() => {
+    if (camerasOn !== osiris.active.has(CCTV)) osiris.toggle(CCTV);
+  }, [camerasOn]);
+  const { cameras: camerasInView, loading: camerasLoading, needZoom: camerasNeedZoom } = useCamerasInView({
+    enabled: camerasOn && state.mapViewMode === MAP_VIEW_MODES.STANDARD,
+    bbox: viewBbox,
+    zoom: viewState.zoom,
+    osirisFeatures: osiris.layers[CCTV]?.features || [],
+  });
+  const dotLayers = osiris.catalogue.filter((l) => l.id !== CCTV);
+  const dotLayersOn = dotLayers.filter((l) => osiris.active.has(l.id)).length;
+  const layersOn = dotLayersOn + (camerasOn ? 1 : 0) + (trafficOn ? 1 : 0);
+  const allLayersOn = dotLayers.length > 0 && dotLayersOn === dotLayers.length && camerasOn && (!TRAFFIC_AVAILABLE || trafficOn);
+  const setAllLayers = useCallback((on) => {
+    for (const l of dotLayers) if (osiris.active.has(l.id) !== on) osiris.toggle(l.id);
+    setCamerasOn(on);
+    if (TRAFFIC_AVAILABLE) setShowTrafficFS(on);
+    announce(on ? "God's eye — every layer on" : 'All layers off');
+  }, [dotLayers, osiris, announce]);
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen((on) => {
+      if (on && document.fullscreenElement) document.exitFullscreen?.();
+      return !on;
+    });
+  }, []);
+
   return (
     <div
       id="truegle-map-container"
       className={`truegle-map-container ${className}`}
-      style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+      data-map-fullscreen={isFullscreen ? '' : undefined}
+      // FULL SCREEN WITHOUT THE API, TOO. iPhone Safari cannot put an element
+      // into full screen, so the button did nothing there; covering the
+      // viewport ourselves works everywhere, and the real API is still asked
+      // for where it exists (see the effect above).
+      style={isFullscreen
+        ? { position: 'fixed', inset: 0, zIndex: 9990, height: '100dvh', display: 'flex', flexDirection: 'column', background: '#0a0a0a' }
+        : { height: '100%', display: 'flex', flexDirection: 'column' }}
     >
       {/* No ad banner here. MapViewWrapper — which is the only thing that
           mounts this component in the app — renders its own top and bottom
@@ -1246,7 +1255,7 @@ export default function TruegleMap({
           // Only OUR layers are interactive. Handing maplibre every layer id
           // would make the basemap's own labels and roads swallow clicks that
           // are meant to place a pin.
-          interactiveLayerIds={osirisLayerIds(osiris.active)}
+          interactiveLayerIds={osirisLayerIds([...osiris.active].filter((id) => id !== 'cctv'))}
           // Right-click on a desktop; press-and-hold on a touch screen. Both
           // open the same menu — see openLocationMenu.
           onContextMenu={handleContextMenu}
@@ -1258,18 +1267,13 @@ export default function TruegleMap({
           attributionControl={true}
           navigationControl={false}
           scaleControl={false}
+          // North stays up. There is no compass any more (every control is
+          // on the rail), so a map that could be twisted could not be
+          // untwisted. Pinch still zooms.
+          dragRotate={false}
+          touchPitch={false}
+          pitchWithRotate={false}
         >
-        {/* The renderer's own controls, out of the bottom-right corner.
-            That corner is a stack of three already — the function bar across
-            the bottom, Reset View above it, the watermark above that — and the
-            compass landed straight on the function bar. It was invisible
-            before only because the map itself never drew. Top-right is empty;
-            the scale bar sits bottom-left, under the mini player transport. */}
-        <NavigationControl
-          position="top-right"
-          showCompass={true}
-          showZoom={true}
-        />
         <ScaleControl
           position="bottom-left"
           maxWidth={200}
@@ -1278,7 +1282,7 @@ export default function TruegleMap({
 
         {/* Live intelligence layers, under the route lines and markers so a
             pin is never lost behind ten thousand aircraft. */}
-        <OsirisSources layers={osiris.layers} />
+        <OsirisSources layers={Object.fromEntries(Object.entries(osiris.layers).filter(([id]) => id !== 'cctv'))} />
         <OsirisFeaturePopup feature={osirisFeature} onClose={() => setOsirisFeature(null)} />
 
         {/* Calculated route lines (from DirectionsPanel via MapContext) */}
@@ -1314,6 +1318,14 @@ export default function TruegleMap({
             anchor="bottom"
           >
             <MarkerElement marker={marker} />
+          </Marker>
+        ))}
+
+        {/* Camera icons — the Cameras layer. Same pin as a searched camera:
+            hover plays the live frame, a tap opens it full size. */}
+        {camerasInView.map((cam) => (
+          <Marker key={cam.id} longitude={cam.lng} latitude={cam.lat} anchor="center">
+            <MarkerElement marker={cam} />
           </Marker>
         ))}
 
@@ -1449,7 +1461,6 @@ export default function TruegleMap({
             showTraffic={showTraffic || showTrafficFS}
             markers={markers}
             routes={state.routes}
-            backgroundImage={backgroundImage}
             showGraticule={AZIMUTHAL_FLAT_CONFIG.showGraticule}
             userLocation={userLocation}
           />
@@ -1461,8 +1472,8 @@ export default function TruegleMap({
       {/* Hidden while a side panel (directions, cameras) is open: it
           floated over the panel's own first field. */}
       <div
-        className="absolute z-50 w-72 max-w-[calc(100%-88px)]"
-        style={{ ...(isFullscreen ? { top: 72, left: 12 } : { top: 16, left: 64 }), ...(panelOpen ? { display: 'none' } : {}) }}
+        className="absolute z-50 w-72 max-w-[calc(100%-92px)]"
+        style={{ top: 12, left: 12, ...(panelOpen ? { display: 'none' } : {}) }}
       >
         <form onSubmit={handlePlaceSubmit} className="flex items-center gap-2 bg-white rounded-full shadow-lg px-4 py-2.5">
           <Search size={16} className="text-gray-500 shrink-0" />
@@ -1520,414 +1531,66 @@ export default function TruegleMap({
         )}
       </div>
 
-      {/* Non-Fullscreen Controls */}
-      {!isFullscreen && (
-        <>
-          {/* One button, not a stack of three. Zoom lives in the renderer's
-              own control at the top-right; this corner is the search field's
-              band and a 3-button column crowded it. Hidden while a panel is
-              open — see panelOpen. */}
-          {!panelOpen && (
-          <div className="truegle-traditional-controls">
-            {/* Fullscreen Toggle */}
-            <button
-              className="truegle-control-btn truegle-control-fullscreen"
-              onClick={toggleFullscreen}
-              title="Enter Fullscreen"
-            >
-              <Maximize2 size={18} />
-            </button>
-          </div>
-          )}
+      <MapControlRail
+        viewMode={state.mapViewMode}
+        onZoom={onRailZoom}
+        locationState={locationState}
+        locationTitle={locationBtnTitle}
+        onLocate={handleLocationButton}
+        onProjection={onProjection}
+        basemapName={BASEMAP_NAMES[fullscreenMapStyle] || 'Street'}
+        onCycleBasemap={toggleFullscreenMapStyle}
+        layersOn={layersOn}
+        layersOpen={layersOpen}
+        onLayers={() => setLayersOpen((v) => !v)}
+        directionsOpen={showDirectionsFS}
+        onDirections={() => setShowDirectionsFS((v) => { announce(v ? 'Directions closed' : 'Directions'); return !v; })}
+        fullscreen={isFullscreen}
+        onFullscreen={() => { toggleFullscreen(); announce(isFullscreen ? 'Full screen off' : 'Full screen'); }}
+        poppedOut={poppedOut}
+        onTogglePopOut={onTogglePopOut ? () => { onTogglePopOut(); announce(poppedOut ? 'Map docked' : 'Map popped out'); } : null}
+        onClose={onClose}
+      />
 
-          {/* Function Bar — BOTTOM centre, not top.
-              It was `absolute top-4 left-1/2` with no width bound and no
-              wrapping: eight buttons in one rigid row, wider than the map, so
-              the container's overflow-hidden sliced "Map" off the left edge
-              and "Close" off the right. It also shared the top band with the
-              search field and the zoom stack, so all three overlapped.
-              The top band is now search only; modes and layers sit along the
-              bottom the way every other map app arranges them.
-
-              IT WRAPS. Bounding it and letting it scroll horizontally stopped
-              the row being CLIPPED, but it still ended mid-word — the live
-              screenshot shows "✕ Clos" against the right edge, which reads as
-              broken however scrollable it is. A control you have to discover
-              by dragging is barely better than one you cannot see. Below the
-              measured threshold the row wraps onto a second line and the
-              labels drop, so every button stays whole and reachable. Same
-              idiom, and the same reason, as PlayerTransport's row. */}
-          <div
-            ref={functionBarRef}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100%-24px)]"
-          >
-            <div className="bg-gradient-to-r from-neutral-900/95 to-neutral-800/95 backdrop-blur-xl rounded-xl border border-neutral-700/50 shadow-2xl">
-              {/* Compact never wraps: four controls always fit, and a wrap
-                  there costs a whole extra row of a 340px window for nothing.
-                  Wide still wraps, which is what stops "Close" being clipped. */}
-              <div className={`flex items-center justify-center gap-1.5 px-3 py-2 ${compactBar ? 'flex-nowrap' : 'flex-wrap'}`}>
-                {/* Exploratory controls — hidden on a small map. See compactBar. */}
-                {!compactBar && (<>
-                {/* View Mode Selector */}
-                <button
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    state.mapViewMode === MAP_VIEW_MODES.STANDARD
-                      ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                      : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                  }`}
-                  onClick={() => { actions.setMapViewMode(MAP_VIEW_MODES.STANDARD); announce('Street map'); }}
-                  title="Standard Map View"
-                >
-                  <MapIcon size={14} />
-                  <span className={modeLabelClass}>Map</span>
-                </button>
-                <button
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    state.mapViewMode === MAP_VIEW_MODES.AZIMUTHAL_FLAT
-                      ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                      : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                  }`}
-                  onClick={() => { actions.setMapViewMode(MAP_VIEW_MODES.AZIMUTHAL_FLAT); announce('Azimuthal projection'); }}
-                  title="Azimuthal Flat View"
-                >
-                  <Target size={14} />
-                  <span className={modeLabelClass}>Azimuthal</span>
-                </button>
-                <button
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    state.mapViewMode === MAP_VIEW_MODES.GLOBE_3D
-                      ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                      : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                  }`}
-                  onClick={() => { actions.setMapViewMode(MAP_VIEW_MODES.GLOBE_3D); announce('3D globe'); }}
-                  title="3D Globe View"
-                >
-                  <Globe size={14} />
-                  <span className={modeLabelClass}>Globe</span>
-                </button>
-
-                <div className="w-px h-6 bg-neutral-700 mx-1"></div>
-
-                {/* Map Style Toggle */}
-                <button
-                  onClick={toggleFullscreenMapStyle}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    fullscreenMapStyle === 'satellite'
-                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
-                      : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                  }`}
-                  title={fullscreenMapStyle === 'satellite' ? 'Satellite View' : 'Street View'}
-                >
-                  <Layers size={14} />
-                  <span className={labelClass}>{fullscreenMapStyle === 'satellite' ? 'Satellite' : 'Street'}</span>
-                </button>
-
-                {/* Traffic Toggle — only when there is a traffic source to
-                    show. A button that provably cannot do anything is worse
-                    than no button: it reads as a broken feature. */}
-                {TRAFFIC_AVAILABLE && (
-                <button
-                  onClick={() => setShowTrafficFS(prev => { announce(prev ? 'Traffic off' : 'Traffic on'); return !prev; })}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    showTrafficFS
-                      ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/30'
-                      : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                  }`}
-                  title="Toggle Traffic"
-                >
-                  <TrafficCone size={14} />
-                  <span className={labelClass}>Traffic</span>
-                </button>
-                )}
-
-                {/* Cameras Toggle */}
-                <button
-                  onClick={() => setShowCamerasFS(prev => { announce(prev ? 'Cameras closed' : 'Traffic cameras'); return !prev; })}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    showCamerasFS
-                      ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                      : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                  }`}
-                  title="Traffic Cameras"
-                >
-                  <Camera size={14} />
-                  <span className={labelClass}>Cameras</span>
-                </button>
-
-                {/* Live intelligence layers. Rendered from the server's own
-                    catalogue, so a feed added on the backend appears here
-                    without a change in this file. */}
-                <OsirisLayerSwitcher
-                  catalogue={osiris.catalogue}
-                  active={osiris.active}
-                  layers={osiris.layers}
-                  onToggle={osiris.toggle}
-                  labelClass={labelClass}
-                />
-
-                {/* Search Cameras Toggle */}
-                <button
-                  onClick={() => setShowEnhancedCameraSearch(prev => { announce(prev ? 'Camera search closed' : 'Camera search'); return !prev; })}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    showEnhancedCameraSearch
-                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
-                      : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                  }`}
-                  title="Search Cameras"
-                >
-                  <Search size={14} />
-                  <span className={labelClass}>Search</span>
-                </button>
-
-                </>)}
-
-                {/* Directions Toggle */}
-                <button
-                  onClick={() => setShowDirectionsFS(prev => { announce(prev ? 'Directions closed' : 'Directions'); return !prev; })}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    showDirectionsFS
-                      ? 'bg-green-600 text-white shadow-lg shadow-green-500/30'
-                      : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                  }`}
-                  title="Directions"
-                >
-                  <DirectionsIcon size={14} />
-                  <span className={labelClass}>Directions</span>
-                </button>
-
-                {/* My Location — lit when your position is on screen. */}
-                <button
-                  onClick={handleLocationButton}
-                  data-location-state={locationState}
-                  aria-pressed={locationState === 'lit'}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${locationBtnClass}`}
-                  title={locationBtnTitle}
-                >
-                  {locationState === 'unknown' ? <MapPin size={14} /> : <LocateFixed size={14} />}
-                  <span className={labelClass}>Location</span>
-                </button>
-
-                {/* Pop out / dock back. The map was a mode you got stuck in:
-                    open on a phone it goes native-fullscreen and there is
-                    nothing else you can do until you close it. This is the
-                    player's pop-out, for the map. */}
-                {onTogglePopOut && (
-                  <button
-                    onClick={() => { onTogglePopOut(); announce(poppedOut ? 'Map docked' : 'Map popped out'); }}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-neutral-800 text-neutral-400 hover:bg-neutral-700 hover:text-cyan-400"
-                    title={poppedOut ? 'Put the map back in the page' : 'Pop the map out so you can keep browsing'}
-                  >
-                    {poppedOut ? <Minimize2 size={14} /> : <PictureInPicture2 size={14} />}
-                    <span className={labelClass}>{poppedOut ? 'Dock' : 'Pop out'}</span>
-                  </button>
-                )}
-
-                {/* Close Map */}
-                {onClose && (
-                  <>
-                    {!compactBar && <div className="w-px h-6 bg-neutral-700 mx-1"></div>}
-                    <button
-                      onClick={onClose}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all bg-neutral-800 text-red-400 hover:bg-red-600 hover:text-white"
-                      title="Close Map"
-                    >
-                      <X size={14} />
-                      <span className={labelClass}>Close</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </>
+      {layersOpen && (
+        <MapLayersSheet
+          catalogue={dotLayers}
+          active={osiris.active}
+          layers={osiris.layers}
+          onToggle={(id) => { const on = !osiris.active.has(id); osiris.toggle(id); announce(`${dotLayers.find((l) => l.id === id)?.label || 'Layer'} ${on ? 'on' : 'off'}`); }}
+          cameras={{
+            on: camerasOn,
+            count: camerasInView.length,
+            loading: camerasLoading || !!osiris.layers.cctv?.loading,
+            needZoom: camerasNeedZoom,
+            onToggle: () => { setCamerasOn((v) => { announce(v ? 'Cameras off' : 'Cameras on'); return !v; }); },
+            onWall: () => { setWallOpen(true); setLayersOpen(false); },
+          }}
+          traffic={{
+            available: TRAFFIC_AVAILABLE,
+            on: trafficOn,
+            onToggle: () => setShowTrafficFS((v) => { announce(v ? 'Traffic off' : 'Traffic on'); return !v; }),
+          }}
+          allOn={allLayersOn}
+          onAll={setAllLayers}
+          onClose={() => setLayersOpen(false)}
+        />
       )}
 
-      {/* Unified Top Bar - Fullscreen Mode */}
-      <AnimatePresence>
-        {isFullscreen && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="absolute top-0 left-0 right-0 z-50"
-          >
-            <div className="bg-gradient-to-r from-neutral-900/95 to-neutral-800/95 backdrop-blur-xl border-b border-neutral-700/50 shadow-2xl">
-              <div className="flex items-center justify-between px-4 py-3">
-                {/* Left: macOS Window Controls */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={exitFullscreen}
-                    className="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 transition-colors group relative"
-                    title="Close"
-                  >
-                    <X size={8} className="absolute inset-0 m-auto text-red-900 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </button>
-                  <button
-                    onClick={minimizeFullscreen}
-                    className="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-600 transition-colors group relative"
-                    title="Minimize"
-                  >
-                    <Minus size={8} className="absolute inset-0 m-auto text-yellow-900 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </button>
-                  <button
-                    className="w-3 h-3 rounded-full bg-green-500 hover:bg-green-600 transition-colors"
-                    title="Fullscreen"
-                  >
-                  </button>
-                </div>
+      {/* With Cameras on but the map too far out to draw an icon per camera. */}
+      {camerasOn && camerasNeedZoom && state.mapViewMode === MAP_VIEW_MODES.STANDARD && !layersOpen && (
+        <div data-camera-hint="" className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-10 z-40 px-3 py-1.5 rounded-full bg-neutral-900/90 border border-amber-400/40 text-[11px] text-amber-100">
+          Zoom in to see cameras
+        </div>
+      )}
 
-                {/* Center: View Mode Selector */}
-                <div className="flex items-center gap-2">
-                  <button
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      state.mapViewMode === MAP_VIEW_MODES.STANDARD
-                        ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                        : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                    }`}
-                    onClick={() => { actions.setMapViewMode(MAP_VIEW_MODES.STANDARD); announce('Street map'); }}
-                    title="Standard Map View"
-                  >
-                    <MapIcon size={14} />
-                    <span className="hidden sm:inline">Map</span>
-                  </button>
-                  <button
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      state.mapViewMode === MAP_VIEW_MODES.AZIMUTHAL_FLAT
-                        ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                        : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                    }`}
-                    onClick={() => { actions.setMapViewMode(MAP_VIEW_MODES.AZIMUTHAL_FLAT); announce('Azimuthal projection'); }}
-                    title="Azimuthal Flat View"
-                  >
-                    <Target size={14} />
-                    <span className="hidden sm:inline">Azimuthal</span>
-                  </button>
-                  <button
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      state.mapViewMode === MAP_VIEW_MODES.GLOBE_3D
-                        ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                        : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                    }`}
-                    onClick={() => { actions.setMapViewMode(MAP_VIEW_MODES.GLOBE_3D); announce('3D globe'); }}
-                    title="3D Globe View"
-                  >
-                    <Globe size={14} />
-                    <span className="hidden sm:inline">Globe</span>
-                  </button>
-
-                  <div className="w-px h-6 bg-neutral-700 mx-1"></div>
-
-                  {/* Map Style Toggle */}
-                  <button
-                    onClick={toggleFullscreenMapStyle}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      fullscreenMapStyle === 'satellite'
-                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
-                        : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                    }`}
-                    title={fullscreenMapStyle === 'satellite' ? 'Satellite View' : 'Street View'}
-                  >
-                    <Layers size={14} />
-                    <span className="hidden md:inline">{fullscreenMapStyle === 'satellite' ? 'Satellite' : 'Street'}</span>
-                  </button>
-
-                  {/* Traffic Toggle — see the windowed bar above. */}
-                  {TRAFFIC_AVAILABLE && (
-                  <button
-                    onClick={() => setShowTrafficFS(prev => { announce(prev ? 'Traffic off' : 'Traffic on'); return !prev; })}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      showTrafficFS
-                        ? 'bg-orange-600 text-white shadow-lg shadow-orange-500/30'
-                        : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                    }`}
-                    title="Toggle Traffic"
-                  >
-                    <TrafficCone size={14} />
-                    <span className="hidden md:inline">Traffic</span>
-                  </button>
-                  )}
-
-                  {/* Cameras Toggle */}
-                  <button
-                    onClick={() => setShowCamerasFS(prev => { announce(prev ? 'Cameras closed' : 'Traffic cameras'); return !prev; })}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      showCamerasFS
-                        ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                        : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                    }`}
-                    title="Traffic Cameras"
-                  >
-                    <Camera size={14} />
-                    <span className="hidden lg:inline">Cameras</span>
-                  </button>
-
-                  {/* Same live layers as the fullscreen bar — one control, two
-                      places it is drawn, never two behaviours. */}
-                  <OsirisLayerSwitcher
-                    catalogue={osiris.catalogue}
-                    active={osiris.active}
-                    layers={osiris.layers}
-                    onToggle={osiris.toggle}
-                    labelClass="hidden lg:inline"
-                  />
-
-                  {/* Search Cameras Toggle */}
-                  <button
-                    onClick={() => setShowEnhancedCameraSearch(prev => { announce(prev ? 'Camera search closed' : 'Camera search'); return !prev; })}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      showEnhancedCameraSearch
-                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/30'
-                        : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                    }`}
-                    title="Search Cameras"
-                  >
-                    <Search size={14} />
-                    <span className="hidden lg:inline">Search</span>
-                  </button>
-
-                  {/* Directions Toggle */}
-                  <button
-                    onClick={() => setShowDirectionsFS(prev => { announce(prev ? 'Directions closed' : 'Directions'); return !prev; })}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      showDirectionsFS
-                        ? 'bg-green-600 text-white shadow-lg shadow-green-500/30'
-                        : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                    }`}
-                    title="Directions"
-                  >
-                    <DirectionsIcon size={14} />
-                    <span className="hidden lg:inline">Directions</span>
-                  </button>
-
-                  {/* My Location — same three states as the windowed bar. */}
-                  <button
-                    onClick={handleLocationButton}
-                    data-location-state={locationState}
-                    aria-pressed={locationState === 'lit'}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${locationBtnClass}`}
-                    title={locationBtnTitle}
-                  >
-                    {locationState === 'unknown' ? <MapPin size={14} /> : <LocateFixed size={14} />}
-                    <span className="hidden lg:inline">Location</span>
-                  </button>
-                </div>
-
-                {/* Right: Status Info */}
-                <div className="flex items-center gap-2 text-xs text-cyan-400">
-                  <span className="hidden md:inline">
-                    {fullscreenMapStyle === 'satellite' ? 'Satellite' : fullscreenMapStyle.charAt(0).toUpperCase() + fullscreenMapStyle.slice(1)}
-                    {showTrafficFS && ' • Traffic'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {wallOpen && (
+        <CameraWall cameras={camerasInView} onOpen={(c) => { setOpenCamera(c); }} onClose={() => setWallOpen(false)} />
+      )}
 
       {/* Traffic Legend (when traffic is enabled in fullscreen) */}
       <AnimatePresence>
-        {isFullscreen && showTrafficFS && (
+        {trafficOn && !layersOpen && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1961,21 +1624,6 @@ export default function TruegleMap({
               </p>
             )}
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Traffic Cameras Panel - works in windowed and fullscreen mode */}
-      <AnimatePresence>
-        {showCamerasFS && (
-          <div className="absolute top-16 left-0 right-0 bottom-20 z-30 pointer-events-none">
-            <div className="pointer-events-auto">
-              <TrafficCameras
-                userLocation={userLocation}
-                isOpen={showCamerasFS}
-                onClose={() => setShowCamerasFS(false)}
-              />
-            </div>
-          </div>
         )}
       </AnimatePresence>
 
@@ -2063,44 +1711,6 @@ export default function TruegleMap({
               </div>
             </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Enhanced Camera Search Modal - Positioned below top bar */}
-      <AnimatePresence>
-        {showEnhancedCameraSearch && (
-          <div className="absolute top-16 left-0 right-0 bottom-20 z-30 pointer-events-none">
-            <div className="pointer-events-auto">
-              <EnhancedCameraSearch
-                userLocation={userLocation}
-                onCameraSelect={(camera) => {
-                  // Add marker for the camera
-                  actions.addMarker({
-                    id: `camera-${camera.id}`,
-                    lat: camera.location.lat,
-                    lng: camera.location.lng,
-                    name: camera.name,
-                    category: 'CAMERA',
-                    address: `${camera.roadName || ''} - ${camera.city}, ${camera.state}`,
-                    // THE PICTURE HAS TO TRAVEL WITH THE PIN. Without these the
-                    // marker knows a camera exists and nothing about what it
-                    // sees, so the pin could only ever be a dot — there is
-                    // nothing to preview and nothing to open. addMarker spreads
-                    // the whole object, so extra fields survive.
-                    imageUrl: camera.imageUrl || null,
-                    streamUrl: camera.streamUrl || null,
-                  });
-
-                  // Fly to camera location
-                  actions.flyTo({ lat: camera.location.lat, lng: camera.location.lng }, 15);
-
-                  // Close the search modal
-                  setShowEnhancedCameraSearch(false);
-                }}
-                onClose={() => setShowEnhancedCameraSearch(false)}
-              />
-            </div>
-          </div>
         )}
       </AnimatePresence>
 
@@ -2240,55 +1850,6 @@ export default function TruegleMap({
           when the player is empty. See MapPlayerTransport. */}
       <MapPlayerTransport />
 
-      {/* RECENTRE ON ME. Top-right, directly under the zoom controls, which is
-          where every map app puts it and therefore where a hand goes looking.
-          The Location button in the function bar does the same thing, but it
-          is one of ten icons on a bar that hides its labels when the map is
-          narrow — a control you have to hunt for is not a quick way back.
-          Hidden when we have no position: a button that cannot do its one job
-          is worse than no button (see utils/embeddable.js for the same call). */}
-      {userLocation && !panelOpen && (
-        <button
-          type="button"
-          data-recenter=""
-          onClick={handleLocationButton}
-          title={locationOnScreen ? 'Centre on your location' : 'Back to your location'}
-          aria-label="Centre the map on your location"
-          className={`absolute right-2.5 z-40 flex items-center justify-center w-[29px] h-[29px]
-                      rounded border shadow-md transition-colors ${
-            locationOnScreen
-              ? 'bg-blue-500/25 border-blue-400/60 text-blue-300'
-              : 'bg-neutral-900/90 border-neutral-600/60 text-white/70 hover:text-white hover:bg-neutral-800'
-          }`}
-          // Under the renderer's own zoom/compass stack, which sits at top 8.
-          style={{ top: 108 }}
-        >
-          <LocateFixed size={15} />
-        </button>
-      )}
-
-      {/* Reset View Button - Bottom Right.
-          Not in the popped-out frame: that window is 340px tall by default and
-          this button, the function bar and the watermark all want the same
-          corner. Reset is a convenience; the other two are the controls and
-          the brand. */}
-      {!poppedOut && (
-      <button
-        onClick={() => {
-          setViewState({
-            longitude: center[0],
-            latitude: center[1],
-            zoom: 4,
-          });
-          actions.flyTo({ lat: center[1], lng: center[0] }, 4);
-        }}
-        className="absolute bottom-24 right-4 z-40 bg-neutral-800/90 hover:bg-neutral-700/90 text-white rounded-lg px-3 py-2 text-sm font-medium transition-all border border-neutral-600/50 shadow-lg backdrop-blur-sm"
-        title="Reset View"
-      >
-        Reset View
-      </button>
-      )}
-
       {/* The map's ONE watermark — the legacy Truegle mark, drawn here and
           nowhere else. It lives inside #truegle-map-container so it survives
           native fullscreen, which targets that element.
@@ -2308,7 +1869,9 @@ export default function TruegleMap({
           // Read from the floor up: function bar at bottom-4, Reset View at
           // bottom-24, the mark above both. The popped-out frame has no Reset
           // View, so the mark moves down into the space that leaves.
-          bottom: poppedOut ? '56px' : '144px',
+          // Bottom-right, just left of the control rail.
+          right: '72px',
+          bottom: '8px',
         }}
       />
       </div>

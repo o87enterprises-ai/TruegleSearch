@@ -27,7 +27,7 @@ export default function MapListings({ listings, onDirections, onFocus }) {
     <section
       aria-label={`${listings.label} — listings`}
       className="absolute z-[45] bg-neutral-900/95 backdrop-blur-xl border border-white/15 shadow-2xl text-white rounded-2xl flex flex-col
-                 left-2 right-2 bottom-2 max-h-[45%]
+                 left-2 right-[70px] bottom-2 max-h-[45%]
                  sm:right-auto sm:left-3 sm:top-32 sm:bottom-auto sm:w-80 sm:max-h-[calc(100%-10rem)]"
       onClick={(e) => e.stopPropagation()}
     >
