@@ -2,7 +2,7 @@
 //
 // What Truegle can actually aggregate AND play, for free, with no API key:
 //   • YouTube Shorts — /shorts/<id>, plays through the normal YouTube embed.
-//   • TikTok         — keyless /embed/v2/<id> player.
+//   • TikTok         — keyless player/v1/<id> embed (controllable over postMessage).
 // What it can aggregate but NOT play inline:
 //   • Instagram / Facebook Reels — Meta gates oEmbed behind app review, so
 //     these stay link-out cards. Detected here so they can still be labelled

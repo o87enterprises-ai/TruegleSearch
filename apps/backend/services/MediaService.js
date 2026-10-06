@@ -112,7 +112,9 @@ function classifyMedia(rawUrl) {
         kind: 'tiktok',
         platform: 'TikTok',
         canonical: `tiktok.com/video/${id}`,
-        src: `https://www.tiktok.com/embed/v2/${id}`,
+        // The controllable embed player (play/pause/sound over postMessage),
+        // not the /embed/v2 card, which had no control channel.
+        src: `https://www.tiktok.com/player/v1/${id}?autoplay=1&rel=0&native_context_menu=0`,
         vertical: true,
       };
     }

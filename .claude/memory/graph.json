@@ -2089,6 +2089,15 @@
         "status": "open",
         "ts": "2026-10-05",
         "created": "2026-10-05"
+      },
+      "truegle-app-paused": {
+        "Id": "truegle-app-paused",
+        "Type": "thread",
+        "Label": "Truegle App Phase 1 ON PAUSE",
+        "body": "Owner 2026-10-06: pause Phase 1 until owner has 'ducks in a row' (non-profit registration etc). Do not start M1 until owner says 'start Phase 1'.",
+        "status": "open",
+        "ts": "2026-10-06",
+        "created": "2026-10-06"
       }
     },
     "entity": {
@@ -3474,5 +3483,5 @@
       }
     }
   },
-  "updated": "2026-10-05"
+  "updated": "2026-10-06"
 }

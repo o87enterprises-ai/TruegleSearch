@@ -251,7 +251,7 @@ export function getPlayable(url) {
     // (Instagram/Facebook Reels gate oEmbed behind Meta app review.)
     if (host === 'tiktok.com' || host.endsWith('.tiktok.com')) {
       const id = /\/video\/(\d+)/.exec(u.pathname)?.[1];
-      return id ? { kind: 'tiktok', src: `https://www.tiktok.com/embed/v2/${id}`, vertical: true } : null;
+      return id ? { kind: 'tiktok', src: tiktokPlayerSrc(id), vertical: true } : null;
     }
     // X / Twitter → the DIRECT IFRAME embed, not the documented oEmbed.
     //
@@ -346,4 +346,20 @@ export function getPlayable(url) {
     if (VIDEO_EXT.test(path) || VIDEO_EXT.test(url)) return { kind: 'video', src: url };
   } catch { /* not a parseable URL */ }
   return null;
+}
+
+// TikTok's controllable embed player — see TIKTOK_ORIGIN in useEmbedPlayback.
+// autoplay: the person already pressed play to get here. rel=0: no "more
+// videos" wall at the end (the queue decides what is next). The rest of
+// TikTok's own controls stay on, so the clip can always be paused from inside.
+export function tiktokPlayerSrc(id) {
+  return `https://www.tiktok.com/player/v1/${id}?autoplay=1&rel=0&native_context_menu=0`;
+}
+
+// Stored sources (queues saved in this browser, older backend rows) still
+// carry the old /embed/v2 card, which has no control channel. Upgrade them on
+// the way to the screen rather than migrating anything.
+export function upgradeTikTokSrc(src) {
+  const id = /tiktok\.com\/embed\/v2\/(\d+)/i.exec(src || '')?.[1];
+  return id ? tiktokPlayerSrc(id) : src;
 }

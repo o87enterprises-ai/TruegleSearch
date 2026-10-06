@@ -17,6 +17,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // the exact origin we embedded, before a single field is read.
 const YT_ORIGINS = ['https://www.youtube-nocookie.com', 'https://www.youtube.com'];
 const VIMEO_ORIGIN = 'https://player.vimeo.com';
+// TikTok's EMBED PLAYER (www.tiktok.com/player/v1/<id>), not the old /embed/v2
+// card. The card had no control channel at all: it autoplayed muted and nothing
+// outside it could unmute, pause or play it — owner, 2026-10-06: "no audio
+// plays out loud upon start and there's no way to push play or pause once the
+// video begins". The v1 player speaks postMessage, documented at
+// developers.tiktok.com/doc/embed-player: every message, both ways, is an
+// object tagged 'x-tiktok-player': true with a `type` and a `value`.
+export const TIKTOK_ORIGIN = 'https://www.tiktok.com';
+const tiktokMsg = (type, value) => ({ 'x-tiktok-player': true, type, ...(value === undefined ? {} : { value }) });
 
 // A SILENT EMBED IS A DEAD ONE. Some clips (region-blocked news, "This content
 // isn't available") never start YouTube's player API at all: the frame shows
@@ -75,6 +84,10 @@ export function volumeCommands(kind, level) {
   if (kind === 'soundcloud') {
     return [{ targetOrigin: 'https://w.soundcloud.com', payload: { method: 'setVolume', value: Math.round(v * 100) } }];
   }
+  if (kind === 'tiktok') {
+    // TikTok takes mute/unMute only — no level. Sent as an object, not JSON.
+    return [{ targetOrigin: TIKTOK_ORIGIN, payload: tiktokMsg(v > 0 ? 'unMute' : 'mute'), raw: true }];
+  }
   return [];
 }
 
@@ -97,14 +110,18 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
 
   const kind = source?.kind;
   const src = source?.src;
+  // The level the player last asked for, so a TikTok that boots after the
+  // player's own retries (they stop at 2s) still gets it the moment it says
+  // it is ready. null = never set = sound on, which is the point of the fix.
+  const volumeRef = useRef(null);
 
   useEffect(() => {
     setProgress({ time: 0, duration: 0 });
-    if (kind !== 'youtube' && kind !== 'vimeo') return undefined;
+    if (kind !== 'youtube' && kind !== 'vimeo' && kind !== 'tiktok') return undefined;
     const frame = frameRef?.current;
     if (!frame) return undefined;
 
-    const origins = kind === 'youtube' ? YT_ORIGINS : [VIMEO_ORIGIN];
+    const origins = kind === 'youtube' ? YT_ORIGINS : kind === 'tiktok' ? [TIKTOK_ORIGIN] : [VIMEO_ORIGIN];
     let done = false;
     let heard = false;
 
@@ -117,6 +134,31 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
         try { data = JSON.parse(data); } catch { return; }
       }
       if (!data || typeof data !== 'object') return;
+
+      if (kind === 'tiktok') {
+        if (data['x-tiktok-player'] !== true) return;
+        const { type, value } = data;
+        if (type === 'onPlayerReady') {
+          // Sound on (or whatever the player's level is) and play. Autoplay in
+          // a frame is muted by browser policy until told otherwise; the frame
+          // has allow="autoplay" and the person already tapped to start this,
+          // so the unmute is permitted.
+          const vol = volumeRef.current;
+          try {
+            frame.contentWindow.postMessage(tiktokMsg(vol === 0 ? 'mute' : 'unMute'), TIKTOK_ORIGIN);
+            frame.contentWindow.postMessage(tiktokMsg('play'), TIKTOK_ORIGIN);
+          } catch { /* frame gone */ }
+        }
+        if (type === 'onStateChange' && value === 0 && !done) { done = true; endedRef.current?.(); }
+        if (type === 'onCurrentTime' && value && typeof value === 'object') {
+          setProgress((p) => ({
+            time: typeof value.currentTime === 'number' ? value.currentTime : p.time,
+            duration: typeof value.duration === 'number' && value.duration > 0 ? value.duration : p.duration,
+          }));
+        }
+        if (type === 'onPlayerError') deadRef.current?.(value?.errorCode ?? 'tiktok');
+        return;
+      }
 
       if (kind === 'youtube') {
         const info = data.info;
@@ -166,7 +208,9 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
         deadRef.current?.('silent');
       }, ms);
     };
-    const onLoad = () => arm(SILENT_EMBED_MS);
+    // Not for TikTok: its silence is not yet measured the way YouTube's was,
+    // and a wrong guess here skips good clips. It reports real errors itself.
+    const onLoad = () => { if (kind !== 'tiktok') arm(SILENT_EMBED_MS); };
     if (frame.dataset?.loaded) onLoad();
     frame.addEventListener('load', onLoad);
 
@@ -175,7 +219,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
     // booted yet, so keep saying it until something comes back.
     const hello = () => {
       const win = frame.contentWindow;
-      if (!win) return;
+      if (!win || kind === 'tiktok') return; // TikTok announces itself (onPlayerReady)
       try {
         if (kind === 'youtube') {
           win.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*');
@@ -223,6 +267,10 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
         frame.contentWindow.postMessage(JSON.stringify({ method: action }), VIMEO_ORIGIN);
         return true;
       }
+      if (kind === 'tiktok') {
+        frame.contentWindow.postMessage(tiktokMsg(action === 'pause' ? 'pause' : 'play'), TIKTOK_ORIGIN);
+        return true;
+      }
       if (kind === 'soundcloud') {
         // SoundCloud's widget speaks the same shape on its own origin.
         frame.contentWindow.postMessage(JSON.stringify({
@@ -247,10 +295,11 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   const setVolume = useCallback((level) => {
     const frame = frameRef?.current;
     if (!frame?.contentWindow) return false;
+    volumeRef.current = Math.max(0, Math.min(1, Number(level) || 0));
     const msgs = volumeCommands(kind, level);
     if (!msgs.length) return false;
     try {
-      for (const m of msgs) frame.contentWindow.postMessage(JSON.stringify(m.payload), m.targetOrigin);
+      for (const m of msgs) frame.contentWindow.postMessage(m.raw ? m.payload : JSON.stringify(m.payload), m.targetOrigin);
       return true;
     } catch { /* frame gone or cross-origin refused */ }
     return false;
@@ -287,6 +336,8 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
         frame.contentWindow.postMessage(JSON.stringify({
           method: 'setCurrentTime', value: target,
         }), VIMEO_ORIGIN);
+      } else if (kind === 'tiktok') {
+        frame.contentWindow.postMessage(tiktokMsg('seekTo', target), TIKTOK_ORIGIN);
       } else {
         return null;
       }
@@ -302,11 +353,11 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // Which embeds can be paused in place. Everything else still has to unmount,
   // which is a worse experience but an honest one — and it is now confined to
   // the platforms that genuinely give us no control channel.
-  const canCommand = kind === 'youtube' || kind === 'vimeo' || kind === 'soundcloud';
+  const canCommand = kind === 'youtube' || kind === 'vimeo' || kind === 'soundcloud' || kind === 'tiktok';
   // SoundCloud is deliberately absent: its widget can seek, but we never
   // subscribed to its progress, so we would be jumping from a position we do
   // not know. Better to offer no jump than a jump to the wrong place.
-  const canSeek = kind === 'youtube' || kind === 'vimeo';
+  const canSeek = kind === 'youtube' || kind === 'vimeo' || kind === 'tiktok';
   // Native <audio>/<video> are absent on purpose: they have a real `.volume`
   // and the player sets it on the element directly. This is only for the
   // embeds, which have no element to reach.

@@ -4,6 +4,7 @@ import TruegleWatermark from '../ui/TruegleWatermark';
 import PlayerStarters from './PlayerStarters';
 import PlayerBrowse from './PlayerBrowse';
 import { PLAYER_SANDBOX } from './playerSandbox';
+import { upgradeTikTokSrc } from '../../utils/videoEmbed';
 
 export { PLAYER_SANDBOX };
 
@@ -18,6 +19,9 @@ export { PLAYER_SANDBOX };
 // added HERE rather than in the shared source builder so what we store, share
 // and hand to /w stays a plain embed URL.
 function withPlaybackChannel(kind, src) {
+  // TikTok's player/v1 carries its own autoplay; older saved sources are
+  // upgraded from the /embed/v2 card, which could not be controlled.
+  if (kind === 'tiktok') return upgradeTikTokSrc(src);
   const sep = src.includes('?') ? '&' : '?';
   if (kind === 'youtube') {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -79,7 +83,10 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // wastes most of the player and shrinks the clip to a stamp.
   const vertical = !!source.vertical || kind === 'tiktok';
 
-  // TIKTOK IS NOT 9:16, AND THAT IS WHY IT DID NOT FIT.
+  // (History: TikTok used to be the /embed/v2 CARD, sized 9:21 for the reason
+  // below. Since 2026-10-06 it is the player/v1 embed — just the video and its
+  // controls — so it is a plain 9:16 like any other reel.)
+  // TIKTOK WAS NOT 9:16, AND THAT IS WHY IT DID NOT FIT.
   //
   // The clip is, but the /embed/v2 iframe is not a video player — it is a card.
   // Below the picture it renders the author row, the caption, the music line and
@@ -105,7 +112,6 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // picture to the box we give them — and for a native <video> it is
   // object-contain, already set below.
   const ratio = portrait ? '9 / 16'
-    : kind === 'tiktok' ? '9 / 21'
       : isPostCard ? '3 / 4'
         : (vertical ? '9 / 16' : '16 / 9');
 
@@ -140,10 +146,8 @@ const PlayerScreen = forwardRef(function PlayerScreen({
     ? (compact ? 'min(52svh, 60vh)' : 'min(62svh, 72vh)')
     : compact
       ? 'min(42svh, var(--truegle-player-cap, 100svh))'
-    // TikTok gets more height than a bare reel because a fifth of its box is
-    // the card's own chrome rather than picture — at 58svh the CLIP came out
-    // noticeably smaller than a YouTube Short beside it, for the same box.
-    : `min(${kind === 'tiktok' ? '68svh' : (vertical ? '58svh' : '62svh')}, var(--truegle-player-cap, 100svh))`;
+    // (TikTok no longer needs extra height: the player/v1 embed has no card chrome.)
+    : `min(${vertical ? '58svh' : '62svh'}, var(--truegle-player-cap, 100svh))`;
   // FULL SCREEN IS THE ONE PLACE THE BOX IS NORMALLY UNCONSTRAINED — the
   // picture fills the screen and the flex chain does the sizing. A portrait
   // player cannot do that: it has to hold 9:16 against a landscape screen,
