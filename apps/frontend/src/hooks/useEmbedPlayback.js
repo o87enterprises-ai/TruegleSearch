@@ -57,6 +57,9 @@ export const SILENT_EMBED_MS = 25000;
 export const HELLO_EVERY_MS = 1000;
 // How long TikTok's player gets to say it is ready before the card is shown.
 export const TIKTOK_READY_MS = 10000;
+// How long TikTok gets, after we ask it to play, to say it IS playing. Past
+// this, the browser refused to start it for us (see tiktokNeedsTap).
+export const TIKTOK_START_MS = 2500;
 
 /**
  * The wire messages that set the volume on a given platform.
@@ -123,10 +126,18 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // v1 needs third-party storage, which private windows block). Reset for
   // every new clip.
   const [tiktokFallback, setTikTokFallback] = useState(false);
+  // TikTok booted, was told to play, and did not. Owner, 2026-10-06, on a
+  // phone: the frame stayed black with Truegle's controls on top. Browsers
+  // only start a video WITH SOUND after a tap inside that video's own frame,
+  // and our tap layer sat over the frame, so no tap could ever reach it.
+  // While this is true the player lifts its layers off the frame and says
+  // "tap the video"; TikTok's own player takes that tap and starts.
+  const [tiktokNeedsTap, setTikTokNeedsTap] = useState(false);
 
   useEffect(() => {
     setProgress({ time: 0, duration: 0 });
     setTikTokFallback(false);
+    setTikTokNeedsTap(false);
     if (kind !== 'youtube' && kind !== 'vimeo' && kind !== 'tiktok') return undefined;
     const frame = frameRef?.current;
     if (!frame) return undefined;
@@ -135,6 +146,8 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
     let done = false;
     let heard = false;
     let tiktokReady = false;
+    let tiktokPlaying = false;
+    let tiktokStartTimer = null;
     // No "ready" from TikTok in this long = a frame that rendered blank.
     const tiktokTimer = kind === 'tiktok' ? setTimeout(() => { if (!tiktokReady) setTikTokFallback(true); }, TIKTOK_READY_MS) : null;
 
@@ -162,7 +175,11 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
             frame.contentWindow.postMessage(tiktokMsg(vol === 0 ? 'mute' : 'unMute'), TIKTOK_ORIGIN);
             frame.contentWindow.postMessage(tiktokMsg('play'), TIKTOK_ORIGIN);
           } catch { /* frame gone */ }
+          clearTimeout(tiktokStartTimer);
+          tiktokStartTimer = setTimeout(() => { if (!tiktokPlaying) setTikTokNeedsTap(true); }, TIKTOK_START_MS);
         }
+        // 1 = playing. Proof the start worked, however it was started.
+        if (type === 'onStateChange' && value === 1) { tiktokPlaying = true; setTikTokNeedsTap(false); }
         if (type === 'onStateChange' && value === 0 && !done) { done = true; endedRef.current?.(); }
         if (type === 'onCurrentTime' && value && typeof value === 'object') {
           setProgress((p) => ({
@@ -257,6 +274,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
       clearInterval(repeat);
       clearTimeout(watchdog);
       clearTimeout(tiktokTimer);
+      clearTimeout(tiktokStartTimer);
     };
     // playToken changes when the SAME track is replayed, which remounts the
     // iframe — the handshake has to be redone against the new window.
@@ -380,7 +398,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // embeds, which have no element to reach.
   const canSetVolume = canCommand;
 
-  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback };
+  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback, tiktokNeedsTap: tiktokNeedsTap && !tiktokFallback };
 }
 
 export default useEmbedPlayback;

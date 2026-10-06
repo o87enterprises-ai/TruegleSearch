@@ -169,6 +169,43 @@ for (const mode of ['error', 'silent']) {
   await c2.close();
 }
 
+// ── a browser that will not start it for us: the tap reaches TikTok ─────────
+// Owner, 2026-10-06, phone: Play loaded the clip, the frame stayed BLACK. The
+// browser refuses to start a video with sound unless the tap lands inside that
+// video's own frame, and Truegle's tap layer covered it. This stand-in plays
+// only when tapped itself, exactly like that browser.
+{
+  const c4 = await testContext(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  await c4.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));"
+    + "localStorage.setItem('truegle_swipe_hint_seen', '1'); localStorage.setItem('truegle_feed_defaulted_pop_v1', '1');");
+  await c4.route('**/api/**', (r) => {
+    const u = new URL(r.request().url());
+    if (u.pathname === '/api/social/feed') return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ query: '', results: POSTS, platforms: { community: POSTS }, nextCursor: {}, errors: {} }) });
+    return r.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  });
+  const STUBBORN = `<!doctype html><html><body style="margin:0;background:#000;height:100vh"><script>
+    const say = (type, value) => parent.postMessage({ 'x-tiktok-player': true, type, value }, '*');
+    addEventListener('click', () => { document.body.style.background = '#0a0'; say('onStateChange', 1); });
+    setTimeout(() => say('onPlayerReady'), 300);
+  </script></body></html>`;
+  await c4.route('**/www.tiktok.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: STUBBORN }));
+  const p4 = await c4.newPage();
+  await openApp(p4, `${BASE}/feed`);
+  await until(() => p4.locator('[data-feed-action="play"]').count(), { what: 'a feed card' });
+  await p4.locator('[data-feed-action="play"]').first().dispatchEvent('click');
+  await until(() => p4.locator('iframe[src*="tiktok.com"]').count(), { what: 'the TikTok frame' });
+  await until(() => p4.locator('[data-tiktok-tap-hint]').count(), { what: 'the tap hint', timeout: 6000 }).catch(() => {});
+  check(await p4.locator('[data-tiktok-tap-hint]').count() === 1, 'a TikTok the browser would not start says "Tap the video to start it"');
+  const frame = p4.locator('iframe[src*="tiktok.com"]').first();
+  const box = await frame.boundingBox();
+  const onTop = await p4.evaluate(([x, y]) => document.elementFromPoint(x, y)?.tagName, [box.x + box.width / 2, box.y + box.height / 2]);
+  check(onTop === 'IFRAME', '…and nothing of Truegle\'s covers the video, so the tap lands on TikTok', onTop);
+  await p4.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await until(async () => !(await p4.locator('[data-tiktok-tap-hint]').count()), { what: 'the hint to go', timeout: 4000 }).catch(() => {});
+  check(!(await p4.locator('[data-tiktok-tap-hint]').count()), 'once TikTok says it is playing, the hint goes and Truegle\'s controls return');
+  await c4.close();
+}
+
 // ── a pasted TikTok link can be PLAYED, not only posted ─────────────────────
 // Owner, 2026-10-06: "I can't figure out how to search a TikTok link to test
 // on feed." Pasting a link into the Feed bar offered only "Post" (share it with

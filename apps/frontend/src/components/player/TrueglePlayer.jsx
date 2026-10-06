@@ -949,7 +949,14 @@ export default function TrueglePlayer({
             player is unaffected. It covers the embed's own controls, which
             our transport and this HUD replace; on a platform we cannot
             command there is no layer at all. */}
-        {!swipe && current && embed.canCommand && !locked && !clipScreen && !browseOverScreen && (
+        {/* TikTok waiting for a tap of its own: no layer over its frame, so
+            the tap lands on TikTok's player (see useEmbedPlayback). */}
+        {embed.tiktokNeedsTap && current && !clipScreen && !browseOverScreen && (
+          <div data-tiktok-tap-hint="" className="absolute inset-x-0 bottom-14 z-30 flex justify-center pointer-events-none">
+            <span className="px-3 py-1.5 rounded-full bg-black/70 text-white text-xs font-semibold">Tap the video to start it</span>
+          </div>
+        )}
+        {!swipe && current && embed.canCommand && !embed.tiktokNeedsTap && !locked && !clipScreen && !browseOverScreen && (
           <button
             type="button"
             onClick={overlay.reveal}
@@ -1017,7 +1024,7 @@ export default function TrueglePlayer({
             </div>
           </div>
         )}
-        {swipe && current && (
+        {swipe && current && !embed.tiktokNeedsTap && (
           <div
             {...swipe}
             {/* The reveal gesture rides alongside the swipe sheet in full
