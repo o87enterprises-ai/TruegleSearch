@@ -12,6 +12,7 @@ import {
   formatDuration as fmtDuration, formatDistance as fmtDistance,
 } from './utils/routeOptions';
 import { hasMapboxToken } from './config/basemap';
+import TransitTrips, { tripGeometry, mins as transitMins } from './TransitTrips';
 
 // The panel's travel modes, in the vocabulary the routers use. OSRM profiles
 // are driving/walking/cycling; sending it "car" routes nothing.
@@ -34,7 +35,11 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
   const [loading, setLoading] = useState(false);
   const [route, setRoute] = useState(null);
   const [error, setError] = useState(null);
-  const [travelMode, setTravelMode] = useState('car'); // car, foot, bike
+  const [travelMode, setTravelMode] = useState('car'); // car, foot, bike, transit
+  // Transit: the trips found, which one is drawn, and when to leave ('' = now).
+  const [transitTrips, setTransitTrips] = useState([]);
+  const [transitPick, setTransitPick] = useState(0);
+  const [departAt, setDepartAt] = useState('');
   const [camerasAlongRoute, setCamerasAlongRoute] = useState([]);
   const [loadingCameras, setLoadingCameras] = useState(false);
   const [imageRefreshTimestamp, setImageRefreshTimestamp] = useState(Date.now());
@@ -224,6 +229,14 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
     }
   }, [actions]);
 
+  // Draw one transit trip and make it the panel's route.
+  const showTransitTrip = useCallback((trip, from, to) => {
+    const coordinates = tripGeometry(trip);
+    const distance = trip.legs.reduce((d, l) => d + (Number.isFinite(l.distance) ? l.distance : 0), 0);
+    setRoute({ transit: true, duration: trip.duration, distance, steps: [], geometry: { type: 'LineString', coordinates }, originCoords: from, destCoords: to });
+    if (coordinates.length >= 2) onRouteCalculated?.({ geometry: { type: 'LineString', coordinates }, distance, duration: trip.duration, originCoords: from, destCoords: to });
+  }, [onRouteCalculated]);
+
   const calculateRoute = useCallback(async () => {
     if (!origin || !destination) {
       setError('Please enter both origin and destination');
@@ -258,6 +271,25 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
           finalDestCoords = await geocodeAddress(destination);
         }
       }
+
+      // PUBLIC TRANSIT is its own question — timetables, not a road graph — so
+      // it does not go through the route-option picker, traffic or cameras.
+      if (travelMode === 'transit') {
+        const trips = await MapApiService.getTransit(
+          { lat: finalOriginCoords.latitude, lng: finalOriginCoords.longitude },
+          { lat: finalDestCoords.latitude, lng: finalDestCoords.longitude },
+          { time: departAt ? new Date(departAt).toISOString() : undefined },
+        );
+        setTransitTrips(trips);
+        setTransitPick(0);
+        if (!trips.length) {
+          setRoute(null);
+          throw new Error('No public transit found for this trip at that time. Coverage depends on the local agency publishing its timetable — try another time, or Walk.');
+        }
+        showTransitTrip(trips[0], finalOriginCoords, finalDestCoords);
+        return;
+      }
+      setTransitTrips([]);
 
       // Whichever provider can answer. The service normalises to metres and
       // SECONDS, so the ×60 that used to live here — correct only for Radar,
@@ -338,7 +370,7 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
     } finally {
       setLoading(false);
     }
-  }, [origin, destination, originCoords, destCoords, travelMode, routeOption, onRouteCalculated, actions, findCamerasAlongRoute]);
+  }, [origin, destination, originCoords, destCoords, travelMode, routeOption, onRouteCalculated, actions, findCamerasAlongRoute, departAt, showTransitTrip]);
 
   // The effect above calls through this ref rather than depending on
   // calculateRoute directly — depending on the callback would re-run the
@@ -412,7 +444,9 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
                 that still says "Get turn-by-turn navigation" has given up the
                 map without giving anything back. */}
             <p className="text-xs text-blue-400">
-              {collapsed && route
+              {collapsed && route?.transit
+                ? `Transit · ${transitMins(route.duration)}`
+                : collapsed && route
                 ? `${fmtDuration(route.duration)} · ${fmtDistance(route.distance)}`
                 : 'Get turn-by-turn navigation'}
             </p>
@@ -491,12 +525,15 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
           {[
             { id: 'car', label: 'Drive', icon: '🚗' },
             { id: 'foot', label: 'Walk', icon: '🚶' },
-            { id: 'bike', label: 'Bike', icon: '🚴' }
+            { id: 'bike', label: 'Bike', icon: '🚴' },
+            { id: 'transit', label: 'Transit', icon: '🚌' },
           ].map((mode) => (
             <button
               key={mode.id}
-              onClick={() => setTravelMode(mode.id)}
-              className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+              data-travel-mode={mode.id}
+              aria-pressed={travelMode === mode.id}
+              onClick={() => { setTravelMode(mode.id); setError(null); }}
+              className={`flex-1 py-2 px-1.5 rounded-lg text-xs font-medium transition-all ${
                 travelMode === mode.id
                   ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
                   : 'bg-neutral-800/50 text-neutral-400 hover:bg-neutral-700/50'
@@ -546,6 +583,31 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
           </div>
         )}
 
+        {/* WHEN — transit only. A timetable answer depends on the time; a road
+            route does not, so the other modes never show this. */}
+        {travelMode === 'transit' && (
+          <div className="flex items-center gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setDepartAt('')}
+              aria-pressed={!departAt}
+              className={`px-2.5 py-1.5 rounded-lg border ${!departAt ? 'bg-blue-500/20 border-blue-400/50 text-blue-200' : 'bg-neutral-800/50 border-neutral-700/50 text-neutral-400'}`}
+            >
+              Leave now
+            </button>
+            <label className="flex items-center gap-1.5 text-neutral-400">
+              or depart at
+              <input
+                type="datetime-local"
+                value={departAt}
+                onChange={(e) => setDepartAt(e.target.value)}
+                aria-label="Departure time"
+                className="bg-neutral-800 border border-neutral-700 rounded px-1.5 py-1 text-white text-xs"
+              />
+            </label>
+          </div>
+        )}
+
         {/* Calculate Button */}
         <button
           onClick={calculateRoute}
@@ -575,7 +637,13 @@ export default function DirectionsPanel({ isOpen, onClose, userLocation, onRoute
 
       {/* Route Summary & Directions */}
       <div className="overflow-y-auto h-[calc(100%-400px)] p-4">
-        {route ? (
+        {route?.transit ? (
+          <TransitTrips
+            trips={transitTrips}
+            picked={transitPick}
+            onPick={(i) => { setTransitPick(i); showTransitTrip(transitTrips[i], route.originCoords, route.destCoords); }}
+          />
+        ) : route ? (
           <div className="space-y-4">
             {/* Route Summary */}
             <div className="bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-xl p-4 border border-blue-500/30">

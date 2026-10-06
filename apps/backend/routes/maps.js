@@ -8,6 +8,7 @@ const LocalPackService = require('../services/LocalPackService');
 const QueryInterpreter = require('../services/QueryInterpreter');
 const OpenTrafficCamService = require('../services/OpenTrafficCamService');
 const MultiStateCameraService = require('../services/MultiStateCameraService');
+const TransitService = require('../services/TransitService');
 
 router.post('/geocode', async (req, res) => {
   try {
@@ -136,6 +137,25 @@ router.post('/directions', async (req, res) => {
     res.status(500).json({
       error: 'Directions failed',
       message: error.message,
+    });
+  }
+});
+
+// Public transit trips (Transitous). POST so the coordinates stay out of
+// URLs and access logs. Nothing about the trip is logged — see TransitService.
+router.post('/transit', async (req, res) => {
+  try {
+    const { origin, destination, time, arriveBy } = req.body || {};
+    const itineraries = await TransitService.plan(origin, destination, { time, arriveBy: !!arriveBy });
+    res.json({ success: true, data: { itineraries }, provider: 'transitous' });
+  } catch (error) {
+    const status = error.status || (error.response ? 502 : 500);
+    // The reason, never the trip: no coordinates in the log line.
+    console.error('Transit directions failed:', status, error.code || error.response?.status || error.message?.slice(0, 80));
+    res.status(status).json({
+      success: false,
+      error: status === 400 ? 'Origin and destination required' : 'Transit directions unavailable',
+      message: status === 400 ? error.message : 'The transit planner did not answer. Try again in a moment.',
     });
   }
 });

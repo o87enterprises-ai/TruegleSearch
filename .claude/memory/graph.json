@@ -1592,6 +1592,14 @@
         "body": "docs/TRUEGLE-APP-PHASE1-PLAN.md, 2026-10-05. Owner: plan only, DON'T execute until told. Plan as if Truegle is a registered non-profit (owner starting the process) -> Apple fee waiver assumed for iOS (M6). Capacitor app pointing at live https://truegle.info (keeps YouTube origin + CORS working), native ProtectedTab (Android WebView / iOS WKWebView nonPersistent), one nativeLinks.js catches external links, APK built free by GitHub Actions (repo is public) + direct download, no Play Store. Milestones M1-M7; start at M1 on go. Open owner decisions: D5 Safe Browsing, product name.",
         "ts": "2026-10-05",
         "created": "2026-10-05"
+      },
+      "map-transit": {
+        "Id": "map-transit",
+        "Type": "decision",
+        "Label": "Map transit directions via Transitous",
+        "body": "2026-10-06: Directions has Transit (Drive/Walk/Bike/Transit). Backend POST /api/maps/transit -> services/TransitService.js -> api.transitous.org/api/v1/plan (free, keyless, MOTIS on agency GTFS; attribution 'via Transitous' shown). Proxied so provider never sees user IP; coordinates never logged. Polyline precision 7 decoded server-side. Coverage = agencies in Transitous (NYC yes; Eugene OR returned none 2026-10-06). Container note: backend axios <1.16.1 gets 405 via the CCR proxy locally; prod unaffected. Test: npm run maptransit:test (13), backend __tests__/transit.test.js.",
+        "ts": "2026-10-06",
+        "created": "2026-10-06"
       }
     },
     "thread": {

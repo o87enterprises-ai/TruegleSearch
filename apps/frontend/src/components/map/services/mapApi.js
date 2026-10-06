@@ -355,6 +355,20 @@ class MapApiService {
     );
   }
 
+  /**
+   * Public transit trips (Transitous, via our backend so the provider never
+   * sees the visitor's IP). Not part of the provider ladder: no other provider
+   * here knows a timetable, so there is nothing to fall back to — an empty
+   * list means no transit, and the panel says so.
+   * @returns {Promise<Array>} itineraries — see backend services/TransitService
+   */
+  async getTransit(origin, destination, options = {}) {
+    const response = await axios.post(`${BACKEND_URL}/api/maps/transit`, {
+      origin, destination, time: options.time || undefined, arriveBy: !!options.arriveBy,
+    });
+    return unwrap(response.data)?.itineraries || [];
+  }
+
   async searchPlaces(near, options = {}) {
     return this.cached(`places:${near.lat},${near.lng}:${JSON.stringify(options)}`, () => this.tryProviders(
       (provider) => this.searchPlacesWithProvider(provider, near, options), 'places',

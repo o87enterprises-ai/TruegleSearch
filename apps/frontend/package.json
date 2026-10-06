@@ -37,6 +37,7 @@
     "searchbar:test": "node scripts/verify-search-bar.mjs",
     "tubephone:test": "node scripts/verify-tube-phone.mjs",
     "tiktok:test": "node scripts/verify-tiktok-control.mjs",
+    "maptransit:test": "node scripts/verify-map-transit.mjs",
     "searchhistory:test": "node scripts/verify-search-history.mjs",
     "landing:test": "node scripts/verify-landing-cards.mjs",
     "silentembed:test": "node scripts/verify-silent-embed.mjs",
