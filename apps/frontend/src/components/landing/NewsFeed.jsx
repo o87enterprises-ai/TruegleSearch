@@ -303,7 +303,11 @@ export function MarketsBody() {
   const rows = useMemo(() => [
     ...(markets?.stocks || []), ...(markets?.crypto || []), ...(markets?.commodities || []),
   ], [markets]);
-  const { data, status } = useJson(`${BACKEND}/api/news/videos?kind=markets`);
+  // The News card's region applies here too: it decides the language (English
+  // for the US) and which market the videos are about. Auto = the server's
+  // guess from the edge, same as News.
+  const [region] = useState(() => { try { return localStorage.getItem(COUNTRY_KEY) || ''; } catch { return ''; } });
+  const { data, status } = useJson(`${BACKEND}/api/news/videos?kind=markets${region ? `&country=${region}` : ''}`);
 
   return (
     <div data-news-body="markets">

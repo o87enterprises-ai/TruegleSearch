@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Loader2, Check, Send, AlertCircle } from 'lucide-react';
+import { Loader2, Check, Send, AlertCircle, Play } from 'lucide-react';
 import api from '../../services/api';
 import { getPlayable } from '../../utils/videoEmbed';
+import { usePlayInPlayer } from '../../hooks/usePlayInPlayer';
 
 // Paste a playable link into the feed's search box and it can become a post.
 //
@@ -27,11 +28,19 @@ export default function FeedLinkSubmit({ url, onPosted }) {
   const [state, setState] = useState('idle'); // idle | sending | done | error
   const [message, setMessage] = useState('');
   const [posted, setPosted] = useState(null);
+  const playInPlayer = usePlayInPlayer();
 
   const playable = getPlayable(url);
   // Not a link, or not one the player can host: this component is simply not
   // here, and the bar is a search bar again.
   if (!playable) return null;
+
+  // JUST PLAY IT. A pasted link used to offer only "Post" — sharing it with
+  // everyone — when what you usually want is to watch it (owner, 2026-10-06:
+  // "I can't figure out how to search a TikTok link to test on feed").
+  const playNowClick = () => {
+    playInPlayer({ ...playable, title: `${playable.kind} link`, pageUrl: url.trim() });
+  };
 
   const send = async () => {
     setState('sending');
@@ -81,7 +90,7 @@ export default function FeedLinkSubmit({ url, onPosted }) {
       <span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="text-xs text-white/80 truncate">
-          {state === 'error' ? message : `${playable.kind} link — post it to the feed?`}
+          {state === 'error' ? message : `${playable.kind} link — play it, or post it to the feed`}
         </p>
         {state !== 'error' && (
           // Said before the button is pressed, not after. Anonymous is the
@@ -92,6 +101,14 @@ export default function FeedLinkSubmit({ url, onPosted }) {
           </p>
         )}
       </div>
+      <button
+        type="button"
+        data-feed-play-link
+        onClick={playNowClick}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-400 text-neutral-900 text-xs font-semibold hover:bg-yellow-300 transition-colors shrink-0"
+      >
+        <Play size={13} /> Play
+      </button>
       <button
         type="button"
         data-feed-submit-go

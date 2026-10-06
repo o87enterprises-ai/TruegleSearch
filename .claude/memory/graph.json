@@ -1608,6 +1608,14 @@
         "body": "2026-10-06 owner redesign. ALL map controls are one vertical rail on the RIGHT (MapControlRail.jsx): Zoom +/−, Me, Globe, Azimuthal, Style(name of basemap), Layers(count), Route, Full, Pop out, Close — each shows NAME + STATE text; visible docked/popped/fullscreen. Removed: bottom function bar, fullscreen top bar, Enter Fullscreen btn, NavigationControl (map no longer rotates), recentre btn, Reset View, TrafficCameras menu + EnhancedCameraSearch (files deleted), GlobeTraffic + azimuthal fake traffic (hardcoded dots). NO Map view button: Globe/Azimuthal hand over to street map when zoomed in (azimuthal k>=10, globe camera <=1.45R); zoom out <=2.5 on street map goes to last chosen projection (localStorage truegle_map_projection). Azimuthal rewritten with d3-geo azimuthal equidistant + world-atlas countries-110m (lazy), pointer drag/pinch/wheel(non-passive)/double-tap. Globe: enablePan false (pinch dragged it off-screen), rotation fixed so center faces camera. Rail +/- reach world views via utils/mapZoomBus (window event). Layers sheet (MapLayersSheet.jsx): God's-eye all switch, Cameras, Traffic (if Mapbox token), OSIRIS layers; each switch says On/Off. Cameras = osiris cctv (feed_url) + /api/maps/traffic-cameras/bbox merged (useCamerasInView), icons from zoom>=8, hover preview, tap full size, 'Watch all in view' wall (CameraWall.jsx, 12 max). Pseudo-fullscreen (fixed inset 0) so iPhone works. Attribution moved right:70px clear of rail. Tests: maprail:test (83), verify-map-ui updated (62/62, fixed 2 long-standing test bugs), verify-chat-map (17). NO keys needed for any view/basemap; only live traffic uses VITE_MAPBOX_ACCESS_TOKEN (set).",
         "ts": "2026-10-06",
         "created": "2026-10-06"
+      },
+      "news-english-by-region": {
+        "Id": "news-english-by-region",
+        "Type": "decision",
+        "Label": "Landing news/markets: English for English regions",
+        "body": "2026-10-06: owner saw Tamil/Bengali/Telugu titles and Indian market shows (Nifty/Sensex/Zee Business) on US landing cards. NewsVideos.regionRules: US/GB/CA/AU/IE/NZ/ZA -> filters.language='en' (SearXNG category search now sends language=) + drop non-Latin-script titles; US markets also drop /nifty|sensex|share bazaar|share market|bse|nse|dalal street/ and query 'US stock market today Wall Street analysis'. Markets/world caches are per country now; Markets card sends the News region (localStorage truegle_news_country). Other regions unchanged. Feed: pasting a playable link now offers Play (plus Post).",
+        "ts": "2026-10-06",
+        "created": "2026-10-06"
       }
     },
     "thread": {

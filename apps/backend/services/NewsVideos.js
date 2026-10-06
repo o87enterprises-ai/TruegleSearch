@@ -52,7 +52,7 @@ function seconds(d) {
  * @param {{ now?: number, limit?: number }} [opts]
  * @returns {{ id: string, title: string, url: string, thumbnail: string, at: number|null, duration: number|null }[]}
  */
-function shapeVideos(rows, { now = Date.now(), limit = 12 } = {}) {
+function shapeVideos(rows, { now = Date.now(), limit = 12, english = false, drop = null } = {}) {
   const seenIds = new Set();
   const seenTitles = new Set();
   const out = [];
@@ -62,6 +62,10 @@ function shapeVideos(rows, { now = Date.now(), limit = 12 } = {}) {
     if (!id || seenIds.has(id)) continue;
     const title = cleanTitle(r.title);
     if (!title || isLivestream(title)) continue;
+    // An English region gets English titles: no Tamil, Bengali, Devanagari…
+    // (owner, 2026-10-06: "Lots of the results are in Hindi" with US chosen).
+    if (english && !isLatinScript(title)) continue;
+    if (drop && drop.test(title)) continue;
 
     const at = r.date || r.publishedDate ? Date.parse(r.date || r.publishedDate) || null : null;
     if (at && now - at > MAX_AGE_MS) continue;       // stale for a "today" card
@@ -92,11 +96,44 @@ function shapeVideos(rows, { now = Date.now(), limit = 12 } = {}) {
   return [...dated, ...undated].slice(0, limit);
 }
 
+// ── language by region ──────────────────────────────────────────────────────
+// Regions whose news Truegle shows in English. The search is ASKED for English
+// (filters.language) and what slips through is dropped by script below — the
+// index's language tags are a hint, not a guarantee.
+const ENGLISH_REGIONS = new Set(['US', 'GB', 'CA', 'AU', 'IE', 'NZ', 'ZA']);
+const languageFor = (country) => (ENGLISH_REGIONS.has(String(country || '').toUpperCase()) ? 'en' : null);
+
+/** Every letter in the title is Latin script (punctuation, digits, emoji ignored). */
+function isLatinScript(title) {
+  const letters = String(title || '').match(/\p{L}/gu) || [];
+  return letters.every((ch) => /\p{Script=Latin}/u.test(ch));
+}
+
+// The US markets card is about US markets. Indian market shows dominate the
+// index's "stock market today" (Nifty, Sensex, "share bazaar" — mostly written
+// in English letters, so the script check alone keeps them). This names
+// MARKETS, not channels: the editorial line stays "which market", not "whose".
+const NOT_US_MARKETS = /\b(nifty|sensex|bank\s*nifty|share\s*bazaar|share\s*market|bse|nse|dalal\s*street)\b/i;
+
+/** Region-specific shaping for a card: { language, english, drop }. */
+function regionRules(kind, country) {
+  const language = languageFor(country);
+  return {
+    language,
+    english: !!language,
+    drop: kind === 'markets' && String(country || '').toUpperCase() === 'US' ? NOT_US_MARKETS : null,
+  };
+}
+
 /** What to ask the index for. `region` is a display name ("Canada") or ''. */
 function queryFor(kind, scope, region) {
-  if (kind === 'markets') return 'stock market today analysis';
+  if (kind === 'markets') {
+    // Markets of the chosen region, when there is one.
+    if (region === 'United States') return 'US stock market today Wall Street analysis';
+    return region ? `${region} stock market today analysis` : 'stock market today analysis';
+  }
   if (scope === 'local' && region) return `${region} news today`;
   return 'world news today';
 }
 
-module.exports = { shapeVideos, queryFor, youtubeId, cleanTitle, isLivestream };
+module.exports = { shapeVideos, queryFor, youtubeId, cleanTitle, isLivestream, isLatinScript, languageFor, regionRules };

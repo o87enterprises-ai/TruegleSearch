@@ -10,7 +10,7 @@
  * ask the index once between them.
  */
 const OembedService = require('./OembedService');
-const { shapeVideos, queryFor } = require('./NewsVideos');
+const { shapeVideos, queryFor, regionRules } = require('./NewsVideos');
 
 let searchService = null;
 function search() {
@@ -37,21 +37,25 @@ function regionName(country) {
  * @returns {Promise<{ items: object[], stale?: boolean }>} items carry channel bylines when known.
  */
 async function youtubeVideos(kind, { scope = 'world', country = '', topic = '', page = 1, limit = 12 } = {}) {
-  const key = `${kind}|${scope}|${scope === 'local' ? country : ''}|${topic}|${page}|${limit}`;
+  // The region shapes every card now (language, and which market), so it is
+  // part of the key for markets and world news too.
+  const key = `${kind}|${scope}|${country}|${topic}|${page}|${limit}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
 
   try {
-    const base = queryFor(kind, scope, scope === 'local' ? regionName(country) : '');
+    const rules = regionRules(kind, country);
+    // Local news and markets name the region; world news stays world.
+    const base = queryFor(kind, scope, kind === 'markets' || scope === 'local' ? regionName(country) : '');
     // A typed topic narrows it ("nvidia" + market analysis), it never replaces
     // the kind — a markets lane that answers with cooking videos is broken.
     const query = `${topic ? `${topic} ` : ''}${base} site:youtube.com`;
     const rows = await search().performSearch(
       query,
-      { category: 'videos', dateRange: 'week', bias: 'all', sortBy: 'relevance', order: 'desc', safeSearch: 'safe', page, perPage: 30 },
+      { category: 'videos', dateRange: 'week', bias: 'all', sortBy: 'relevance', order: 'desc', safeSearch: 'safe', page, perPage: 30, ...(rules.language ? { language: rules.language } : {}) },
       'blue-pill',
     );
-    let items = shapeVideos(rows, { limit });
+    let items = shapeVideos(rows, { limit, english: rules.english, drop: rules.drop });
     // Who made each one, and whether YouTube will show it at all. oEmbed is
     // free, keyless and cached for hours. It answers 401/403/404 for a video
     // that is private, deleted or has embedding switched off, so a clip it

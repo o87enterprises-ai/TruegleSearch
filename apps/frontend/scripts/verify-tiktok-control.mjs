@@ -169,6 +169,32 @@ for (const mode of ['error', 'silent']) {
   await c2.close();
 }
 
+// ── a pasted TikTok link can be PLAYED, not only posted ─────────────────────
+// Owner, 2026-10-06: "I can't figure out how to search a TikTok link to test
+// on feed." Pasting a link into the Feed bar offered only "Post" (share it with
+// everyone). Now it offers Play.
+{
+  const c3 = await testContext(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  await c3.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));"
+    + "localStorage.setItem('truegle_swipe_hint_seen', '1'); localStorage.setItem('truegle_feed_defaulted_pop_v1', '1');"
+    + "localStorage.setItem('truegle_tutorials', JSON.stringify({ dismissed: {}, neverShowAgain: true, lastSeen: null, hintsOptIn: false }));");
+  await c3.route('**/api/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ query: '', results: [], platforms: {}, nextCursor: {}, errors: {} }) }));
+  await c3.route('**/www.tiktok.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: FAKE_TIKTOK }));
+  const p3 = await c3.newPage();
+  await openApp(p3, `${BASE}/feed`);
+  const bar = p3.locator('textarea:visible, input[aria-label="Search input"]:visible').first();
+  await until(() => bar.count(), { what: 'the Feed bar' });
+  await bar.click();
+  await bar.fill('https://www.tiktok.com/@mclauchner/video/7546605715763350815');
+  await until(() => p3.locator('[data-feed-play-link]').count(), { what: 'the Play button', timeout: 5000 }).catch(() => {});
+  check(await p3.locator('[data-feed-play-link]').count() === 1, 'pasting a TikTok link into the Feed bar offers Play');
+  check(await p3.locator('[data-feed-submit-go]').count() === 1, '…as well as Post');
+  await p3.locator('[data-feed-play-link]').dispatchEvent('click');
+  await until(() => p3.locator('iframe[src*="7546605715763350815"]').count(), { what: 'it playing', timeout: 6000 }).catch(() => {});
+  check(await p3.locator('iframe[src*="tiktok.com/player/v1/7546605715763350815"]').count() > 0, 'Play puts that TikTok in the player');
+  await c3.close();
+}
+
 console.log([...ok, ...bad].join('\n'));
 console.log(`\n${ok.length} passed, ${bad.length} failed`);
 await browser.close();

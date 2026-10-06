@@ -106,6 +106,55 @@ describe('helpers', () => {
     expect(queryFor('news', 'local', 'Canada')).toBe('Canada news today');
     expect(queryFor('news', 'local', '')).toBe('world news today');
     expect(queryFor('news', 'world', 'Canada')).toBe('world news today');
-    expect(queryFor('markets', 'local', 'Canada')).toBe('stock market today analysis');
+    // Markets name the region's market since 2026-10-06 (a US reader was
+    // getting Indian market shows); with no region it stays general.
+    expect(queryFor('markets', 'local', 'Canada')).toBe('Canada stock market today analysis');
+    expect(queryFor('markets', 'world', '')).toBe('stock market today analysis');
+  });
+});
+
+// Owner, 2026-10-06: "make sure the news / market feed on landing is only
+// English when US is selected. Lots of the results are in Hindi." The titles
+// below are the ones the live US cards were serving that day.
+describe('region rules (English for the US)', () => {
+  const { regionRules, isLatinScript, languageFor } = require('../services/NewsVideos');
+  const NOW2 = Date.parse('2026-10-06T12:00:00');
+  const r = (n, title) => ({ url: `https://www.youtube.com/watch?v=${String(n).padStart(11, 'x')}`, title, date: '2026-10-06T08:00:00' });
+
+  it('asks for English in English-speaking regions only', () => {
+    expect(languageFor('US')).toBe('en');
+    expect(languageFor('gb')).toBe('en');
+    expect(languageFor('IN')).toBe(null);
+    expect(languageFor('')).toBe(null);
+  });
+
+  it('a US card drops titles written in other scripts', () => {
+    const rules = regionRules('news', 'US');
+    const out = shapeVideos([
+      r(1, 'பிபிசி தமிழ் தொலைக்காட்சி செய்தியறிக்கை | BBC Tamil TV News'),
+      r(2, 'আজকের আন্তর্জাতিক খবর | World News Today'),
+      r(3, 'Kyiv mayor on Russian strike that killed one'),
+      r(4, 'Stock Market Today : లాభాల్లో ట్రేడవుతున్న సెన్సెక్స్'),
+      r(5, 'Café owners react — “déjà vu” for Zürich'),
+    ], { now: NOW2, english: rules.english, drop: rules.drop });
+    expect(out.map((v) => v.title)).toEqual(['Kyiv mayor on Russian strike that killed one', 'Café owners react — “déjà vu” for Zürich']);
+    expect(isLatinScript('Nasdaq & $NVDA Record Highs! 🚀')).toBe(true);
+  });
+
+  it('the US markets card is about US markets', () => {
+    const rules = regionRules('markets', 'US');
+    const out = shapeVideos([
+      r(1, 'First Trade 6th October 2026: Zee Business Live | Share Market Live Updates'),
+      r(2, 'Share Bazaar Today: Anuj Singhal Decodes Nifty, Sensex & Bank Nifty'),
+      r(3, 'Stock Market Today: October 6, 2026'),
+      r(4, 'Nasdaq & $NVDA Record Highs as Fed Minutes Loom'),
+    ], { now: NOW2, english: rules.english, drop: rules.drop });
+    expect(out.map((v) => v.title)).toEqual(['Stock Market Today: October 6, 2026', 'Nasdaq & $NVDA Record Highs as Fed Minutes Loom']);
+    expect(queryFor('markets', 'world', 'United States')).toMatch(/US stock market/);
+  });
+
+  it('other regions are left as they were — no language forced on them', () => {
+    const rules = regionRules('markets', 'IN');
+    expect(rules).toEqual({ language: null, english: false, drop: null });
   });
 });

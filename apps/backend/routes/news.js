@@ -112,7 +112,10 @@ router.get('/videos', async (req, res) => {
 
   // Markets and world news do not depend on where you are, so they share one
   // entry instead of one per country.
-  const key = kind === 'markets' ? 'yt:markets' : scope === 'world' ? 'yt:news:world' : `yt:news:local:${country}`;
+  // Per country now: the region decides the language (English for the US) and,
+  // for markets, which market — so one shared entry would serve Hindi-language
+  // Indian market shows to a US reader, which is what was reported.
+  const key = kind === 'markets' ? `yt:markets:${country}` : scope === 'world' ? `yt:news:world:${country}` : `yt:news:local:${country}`;
   try {
     const value = await cached(key, TTL.youtube, () => youtubeVideos(kind, { scope, country }));
     res.set('Cache-Control', 'public, max-age=300');

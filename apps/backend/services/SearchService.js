@@ -1414,6 +1414,9 @@ class SearchService {
       categories: searxCategory,
       pageno: filters.page || 1,
       safesearch: this.searxngSafeSearch(filters),
+      // The language asked for (e.g. 'en'), as SearXNG's own parameter — the
+      // other providers already honour filters.language; this one ignored it.
+      ...(filters.language ? { language: filters.language } : {}),
     };
 
     try {
