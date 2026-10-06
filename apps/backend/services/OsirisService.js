@@ -481,9 +481,11 @@ async function getLayer(id, { bbox, limit = 2000 } = {}) {
   const box = parseBbox(bbox);
   const features = [];
   let skipped = 0;
+  let readable = 0;
   for (const row of rows) {
     const coords = coordsOf(row);
     if (!coords) { skipped += 1; continue; }
+    readable += 1;
     if (!inBbox(coords, box)) continue;
     const properties = propsOf(row);
     features.push({
@@ -500,8 +502,11 @@ async function getLayer(id, { bbox, limit = 2000 } = {}) {
 
   // Rows arrived but not one of them had coordinates we could read: the
   // candidate key lists are wrong for this feed. Distinguished from "the
-  // upstream is empty right now", which is a legitimate answer.
-  if (!features.length && rows.length) {
+  // upstream is empty right now", which is a legitimate answer — and from
+  // "nothing in THIS box", which is too. This used to test features.length,
+  // so a map looking at a block with no cameras (or an ocean with no fires)
+  // got a 502 "unrecognised shape" instead of an empty, correct answer.
+  if (!readable && rows.length) {
     const err = new Error(`OSIRIS layer "${id}": ${rows.length} rows, none with readable coordinates`);
     err.code = 'UNRECOGNISED_SHAPE';
     err.sample = { rowKeys: Object.keys(rows[0] || {}).slice(0, 25) };

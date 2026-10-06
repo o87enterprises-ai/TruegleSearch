@@ -79,7 +79,13 @@ export default function MapLayersSheet({
         icon={cameras.loading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
         title="Cameras"
         note={cameras.on
-          ? (cameras.needZoom ? 'Zoom in closer to see camera icons' : `${cameras.count} live camera${cameras.count === 1 ? '' : 's'} in view`)
+          ? (cameras.needZoom
+            ? 'Zoom in closer to see camera icons'
+            : cameras.loading
+              ? 'Looking for cameras here…'
+              : cameras.count
+                ? `${cameras.count} live camera${cameras.count === 1 ? '' : 's'} in view`
+                : 'None in view — zoom out or move the map')
           : 'Traffic & public cameras — hover or tap for the live view'}
       >
         <Switch on={cameras.on} label="Cameras" onClick={cameras.onToggle} colour="#f59e0b" testId="cameras" />
