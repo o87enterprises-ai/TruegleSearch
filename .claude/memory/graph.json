@@ -1616,6 +1616,14 @@
         "body": "2026-10-06: owner saw Tamil/Bengali/Telugu titles and Indian market shows (Nifty/Sensex/Zee Business) on US landing cards. NewsVideos.regionRules: US/GB/CA/AU/IE/NZ/ZA -> filters.language='en' (SearXNG category search now sends language=) + drop non-Latin-script titles; US markets also drop /nifty|sensex|share bazaar|share market|bse|nse|dalal street/ and query 'US stock market today Wall Street analysis'. Markets/world caches are per country now; Markets card sends the News region (localStorage truegle_news_country). Other regions unchanged. Feed: pasting a playable link now offers Play (plus Post).",
         "ts": "2026-10-06",
         "created": "2026-10-06"
+      },
+      "no-silent-autoskip": {
+        "Id": "no-silent-autoskip",
+        "Type": "decision",
+        "Label": "Silence never auto-skips a clip",
+        "body": "2026-10-06, third 'random skip' report: the 25s silent-embed watchdog now only shows 'Not loading? Skip' (data-embed-silent-skip); only real YouTube error codes 2/100/101/150 auto-skip (5 dropped). TikTok v1 stuck buffering 9s after ready -> card fallback.",
+        "ts": "2026-10-06",
+        "created": "2026-10-06"
       }
     },
     "thread": {

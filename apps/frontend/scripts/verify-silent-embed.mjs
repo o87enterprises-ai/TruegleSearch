@@ -1,4 +1,4 @@
-/* A YouTube clip that never talks is skipped; one that does is left alone.
+/* A YouTube clip that never talks is OFFERED a skip (2026-10-06: it used to be skipped automatically); one that does is left alone.
  *
  * Seen on the live site (2026-09-29): region-blocked news clips render YouTube's
  * own "Video unavailable" page and post NOT ONE message to us — no error code,
@@ -86,10 +86,16 @@ async function run(ids) {
   await until(async () => (await src() || '').includes(SILENT), { what: 'the silent clip to load' });
   await page.waitForTimeout(8000);
   check((await src()).includes(SILENT), 'a clip that has been quiet for eight seconds is NOT skipped yet');
-  await until(async () => (await src() || '').includes(TALK2), { timeout: 40000, what: 'the run to move past the silent clip' }).catch(() => {});
+  // Owner, 2026-10-06: "randomly skip to the next link with no user click".
+  // Silence no longer skips; it OFFERS a skip, and the person presses it.
+  await until(() => page.locator('[data-embed-silent-skip]').count(), { timeout: 40000, what: 'the Skip offer' }).catch(() => {});
   const took = Math.round((Date.now() - started) / 1000);
-  check((await src()).includes(TALK2), 'a clip that never speaks is skipped and the next one plays', `after ~${took}s`);
+  check(await page.locator('[data-embed-silent-skip]').count() === 1, 'a clip that never speaks gets a "Not loading? Skip" offer', `after ~${took}s`);
   check(took >= 24, 'not before the 25-second timeout', `${took}s`);
+  check((await src()).includes(SILENT), '…and is NOT skipped on its own');
+  await page.locator('[data-embed-silent-skip]').click();
+  await until(async () => (await src() || '').includes(TALK2), { what: 'the next clip' }).catch(() => {});
+  check((await src()).includes(TALK2), 'pressing Skip plays the next one');
   check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
   await ctx.close();
 }
@@ -100,6 +106,7 @@ async function run(ids) {
   await until(async () => (await src() || '').includes(TALK1), { what: 'the chatty clip to load' });
   await page.waitForTimeout(30000);
   check((await src()).includes(TALK1), 'a clip that only talks after the handshake (as YouTube does) is still playing well past the timeout');
+  check(!(await page.locator('[data-embed-silent]').count()), '…and is not offered a skip');
   await ctx.close();
 }
 

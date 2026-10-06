@@ -951,6 +951,16 @@ export default function TrueglePlayer({
             command there is no layer at all. */}
         {/* TikTok waiting for a tap of its own: no layer over its frame, so
             the tap lands on TikTok's player (see useEmbedPlayback). */}
+        {/* Quiet for a long time — offered, never forced (useEmbedPlayback). */}
+        {embed.silent && current && !clipScreen && !browseOverScreen && (
+          <div data-embed-silent="" className="absolute inset-x-0 bottom-14 z-30 flex justify-center pointer-events-none">
+            <span className="pointer-events-auto flex items-center gap-2 pl-3 pr-1 py-1 rounded-full bg-black/75 text-white text-xs">
+              Not loading?
+              <button type="button" data-embed-silent-skip="" onClick={skipBroken}
+                className="px-2.5 py-1 rounded-full bg-white/15 hover:bg-white/25 font-semibold">Skip</button>
+            </span>
+          </div>
+        )}
         {embed.tiktokNeedsTap && current && !clipScreen && !browseOverScreen && (
           <div data-tiktok-tap-hint="" className="absolute inset-x-0 bottom-14 z-30 flex justify-center pointer-events-none">
             <span className="px-3 py-1.5 rounded-full bg-black/70 text-white text-xs font-semibold">Tap the video to start it</span>

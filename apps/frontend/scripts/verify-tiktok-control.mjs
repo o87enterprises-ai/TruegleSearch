@@ -133,7 +133,8 @@ await ctx.close();
 // which private windows block, so it errors ("Player error") or never says
 // ready. The card player draws the video regardless. Neither failure may skip
 // the clip or leave the box blank.
-for (const mode of ['error', 'silent']) {
+// 'stuck' (owner, 2026-10-06, phone): says ready, then buffers forever.
+for (const mode of ['error', 'silent', 'stuck']) {
   const c2 = await testContext(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   await c2.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));"
     + "localStorage.setItem('truegle_swipe_hint_seen', '1'); localStorage.setItem('truegle_feed_defaulted_pop_v1', '1');");
@@ -149,7 +150,10 @@ for (const mode of ['error', 'silent']) {
     if (/\/embed\/v2\//.test(url)) return r.fulfill({ status: 200, contentType: 'text/html', body: '<html><body style="background:#fff">card</body></html>' });
     const body = mode === 'error'
       ? `<html><body><script>setTimeout(() => parent.postMessage({ 'x-tiktok-player': true, type: 'onPlayerError', value: { errorCode: 2001, errorType: 'SERVER_ERROR' } }, '*'), 300);</script></body></html>`
-      : '<html><body style="background:#000"></body></html>';          // never says anything
+      : mode === 'stuck'
+        ? `<html><body style="background:#000"><script>const say = (type, value) => parent.postMessage({ 'x-tiktok-player': true, type, value }, '*');
+            setTimeout(() => say('onPlayerReady'), 300); setInterval(() => say('onStateChange', 3), 1000);</script></body></html>`
+        : '<html><body style="background:#000"></body></html>';          // never says anything
     return r.fulfill({ status: 200, contentType: 'text/html', body });
   });
   const p2 = await c2.newPage();
@@ -160,9 +164,9 @@ for (const mode of ['error', 'silent']) {
   const first = await p2.locator('iframe[src*="tiktok.com"]').first().getAttribute('src');
   check(/player\/v1/.test(first), `[${mode}] it tries the controllable player first`, first.slice(0, 60));
   await until(async () => /embed\/v2/.test((await p2.locator('iframe[src*="tiktok.com"]').first().getAttribute('src').catch(() => '')) || ''),
-    { what: 'the card fallback', timeout: mode === 'silent' ? 14000 : 5000 }).catch(() => {});
+    { what: 'the card fallback', timeout: mode === 'error' ? 5000 : 14000 }).catch(() => {});
   const after = await p2.locator('iframe[src*="tiktok.com"]').first().getAttribute('src').catch(() => '');
-  check(/embed\/v2\/\d+/.test(after || ''), `[${mode}] ${mode === 'error' ? 'a player error' : 'a player that never answers'} falls back to the card player`, (after || '').slice(0, 60));
+  check(/embed\/v2\/\d+/.test(after || ''), `[${mode}] ${{ error: 'a player error', silent: 'a player that never answers', stuck: 'a player stuck buffering' }[mode]} falls back to the card player`, (after || '').slice(0, 60));
   check(after && after.includes(first.match(/\/(\d{10,})/)[1]), `[${mode}] …for the SAME clip (it is not skipped)`);
   const box = await p2.locator('iframe[src*="tiktok.com"]').first().boundingBox();
   check(box && box.height > box.width * 1.9, `[${mode}] …in the taller box the card needs`, box ? `${Math.round(box.width)}x${Math.round(box.height)}` : 'none');

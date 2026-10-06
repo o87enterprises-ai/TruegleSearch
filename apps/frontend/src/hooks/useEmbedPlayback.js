@@ -51,6 +51,11 @@ const tiktokMsg = (type, value) => ({ 'x-tiktok-player': true, type, ...(value =
 // truly dead, silent clip now takes 25s to move on; clips that report an
 // error (the common dead kind) are still skipped at once.
 export const SILENT_EMBED_MS = 25000;
+// The YouTube errors that mean THIS CLIP WILL NEVER PLAY HERE: bad id (2),
+// removed/private (100), embedding disallowed (101/150). 5 ("HTML5 player
+// error") is left out on purpose — on phones it can be a passing hiccup, and
+// skipping on it was one more way a good clip jumped to the next on its own.
+const DEAD_YT_CODES = [2, 100, 101, 150];
 // How often to repeat the handshake until the frame answers. YouTube's own
 // iframe API does the same: its player only hears "listening" once it has
 // booted, and on a slow phone that is long after any fixed retry schedule.
@@ -60,6 +65,11 @@ export const TIKTOK_READY_MS = 10000;
 // How long TikTok gets, after we ask it to play, to say it IS playing. Past
 // this, the browser refused to start it for us (see tiktokNeedsTap).
 export const TIKTOK_START_MS = 2500;
+// And how long, after it said it was ready, before a TikTok that has STILL
+// not played is given up on and the card player is shown instead. Owner,
+// 2026-10-06, on a phone: the controllable player booted, said ready, and then
+// sat in "buffering" forever — a black box even after a tap.
+export const TIKTOK_PLAY_MS = 9000;
 
 /**
  * The wire messages that set the volume on a given platform.
@@ -133,11 +143,19 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // While this is true the player lifts its layers off the frame and says
   // "tap the video"; TikTok's own player takes that tap and starts.
   const [tiktokNeedsTap, setTikTokNeedsTap] = useState(false);
+  // The frame loaded and has said nothing for SILENT_EMBED_MS. This used to
+  // SKIP the clip, and on phone connections that skipped good videos again and
+  // again — owner, 2026-10-06: "Feed and Tube player will randomly skip to the
+  // next link with no user click" (the third report of it). Silence is a
+  // guess, not a fact, so it no longer moves anything: the player offers a
+  // Skip and the person decides. Clips that REPORT an error still move on.
+  const [silent, setSilent] = useState(false);
 
   useEffect(() => {
     setProgress({ time: 0, duration: 0 });
     setTikTokFallback(false);
     setTikTokNeedsTap(false);
+    setSilent(false);
     if (kind !== 'youtube' && kind !== 'vimeo' && kind !== 'tiktok') return undefined;
     const frame = frameRef?.current;
     if (!frame) return undefined;
@@ -148,6 +166,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
     let tiktokReady = false;
     let tiktokPlaying = false;
     let tiktokStartTimer = null;
+    let tiktokGiveUpTimer = null;
     // No "ready" from TikTok in this long = a frame that rendered blank.
     const tiktokTimer = kind === 'tiktok' ? setTimeout(() => { if (!tiktokReady) setTikTokFallback(true); }, TIKTOK_READY_MS) : null;
 
@@ -155,6 +174,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
       if (e.source !== frame.contentWindow) return;      // not our iframe
       if (!origins.includes(e.origin)) return;           // not the host we embedded
       heard = true;                                       // the frame is alive
+      setSilent(false);
       let data = e.data;
       if (typeof data === 'string') {
         try { data = JSON.parse(data); } catch { return; }
@@ -176,7 +196,9 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
             frame.contentWindow.postMessage(tiktokMsg('play'), TIKTOK_ORIGIN);
           } catch { /* frame gone */ }
           clearTimeout(tiktokStartTimer);
+          clearTimeout(tiktokGiveUpTimer);
           tiktokStartTimer = setTimeout(() => { if (!tiktokPlaying) setTikTokNeedsTap(true); }, TIKTOK_START_MS);
+          tiktokGiveUpTimer = setTimeout(() => { if (!tiktokPlaying) setTikTokFallback(true); }, TIKTOK_PLAY_MS);
         }
         // 1 = playing. Proof the start worked, however it was started.
         if (type === 'onStateChange' && value === 1) { tiktokPlaying = true; setTikTokNeedsTap(false); }
@@ -204,7 +226,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
             }));
           }
           if (info.playerState === 0 && !done) { done = true; endedRef.current?.(); }
-          if (typeof info.errorCode === 'number') deadRef.current?.(info.errorCode);
+          if (DEAD_YT_CODES.includes(info.errorCode)) deadRef.current?.(info.errorCode);
         }
         if (data.event === 'onStateChange' && data.info === 0 && !done) {
           done = true;
@@ -214,7 +236,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
         // a YouTube quirk, not two different faults.
         if (data.event === 'onError') {
           const code = typeof data.info === 'number' ? data.info : Number(data.info);
-          if ([2, 5, 100, 101, 150].includes(code)) deadRef.current?.(code);
+          if (DEAD_YT_CODES.includes(code)) deadRef.current?.(code);
         }
       } else {
         if (data.event === 'ended' && !done) { done = true; endedRef.current?.(); }
@@ -237,8 +259,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
       watchdog = setTimeout(() => {
         if (heard || done) return;
         if (typeof document !== 'undefined' && document.visibilityState !== 'visible') { arm(3000); return; }
-        done = true;
-        deadRef.current?.('silent');
+        setSilent(true);
       }, ms);
     };
     // Not for TikTok: its silence is not yet measured the way YouTube's was,
@@ -275,6 +296,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
       clearTimeout(watchdog);
       clearTimeout(tiktokTimer);
       clearTimeout(tiktokStartTimer);
+      clearTimeout(tiktokGiveUpTimer);
     };
     // playToken changes when the SAME track is replayed, which remounts the
     // iframe — the handshake has to be redone against the new window.
@@ -398,7 +420,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // embeds, which have no element to reach.
   const canSetVolume = canCommand;
 
-  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback, tiktokNeedsTap: tiktokNeedsTap && !tiktokFallback };
+  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback, tiktokNeedsTap: tiktokNeedsTap && !tiktokFallback, silent };
 }
 
 export default useEmbedPlayback;
