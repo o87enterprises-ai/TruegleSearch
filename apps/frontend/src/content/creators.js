@@ -75,6 +75,27 @@ export const CREATORS = [
     avatar: null, refCode: 'stolen-timelines', featured: false,
     socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@stolentimeline' }],
   },
+  {
+    slug: 'epicdaily', name: 'epicdaily', tagline: '',
+    channelId: 'UCimX2_A-ncFiU9QoSOTJ12A',
+    channelUrl: 'https://www.youtube.com/@epicdaily369',
+    avatar: null, refCode: 'epicdaily', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@epicdaily369' }],
+  },
+  {
+    slug: 'barry-stepp', name: 'Barry Stepp', tagline: '',
+    channelId: 'UCSwx_jY_zYBJtrIa1i-osMA',
+    channelUrl: 'https://www.youtube.com/@barrystepp',
+    avatar: null, refCode: 'barry-stepp', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@barrystepp' }],
+  },
+  {
+    slug: 'space-weather-news', name: 'SpaceWeatherNews', tagline: '',
+    channelId: 'UCTiL1q9YbrVam5nP2xzFTWQ',
+    channelUrl: 'https://www.youtube.com/@SpaceWeatherNewsS0s',
+    avatar: null, refCode: 'space-weather-news', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@SpaceWeatherNewsS0s' }],
+  },
 ];
 
 export const getCreator = (slug) => CREATORS.find((c) => c.slug === slug) || null;

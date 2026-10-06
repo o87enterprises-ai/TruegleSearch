@@ -3454,6 +3454,14 @@
         "body": "2026-10-05: proxyUrl links (http://44.236.219.63:3001/?mortyurl=...) removed from all search results; buildResultProxyUrl/attachProxyUrls/SEARXNG_RESULT_PROXY_* code, setup-morty.sh and dead cors-anywhere config deleted. Guard test apps/backend/__tests__/noDeadProxyLinks.test.js. Vercel env vars SEARXNG_RESULT_PROXY_URL/_KEY are now unused (safe to delete). docs/ANONYMOUS-VIEW.md marked RETIRED.",
         "ts": "2026-10-05",
         "created": "2026-10-05"
+      },
+      "creator-roster-2026-10-06": {
+        "Id": "creator-roster-2026-10-06",
+        "Type": "fact",
+        "Label": "Creator roster additions 2026-10-06",
+        "body": "Added epicdaily (@epicdaily369, UCimX2_A-ncFiU9QoSOTJ12A), Barry Stepp (@barrystepp, UCSwx_jY_zYBJtrIa1i-osMA), SpaceWeatherNews (@SpaceWeatherNewsS0s, UCTiL1q9YbrVam5nP2xzFTWQ). Roster lives in 4 places kept in sync by hand: frontend src/content/creators.js, backend config/creatorsRoster.js, scripts/seed-creator-videos.mjs, public/sitemap.xml (+ creatorVideosFallback.js snapshot). YouTube RSS is blocked from the cloud container (404 even for known channels) — fetch via https://api.truegle.info/api/creators/<id>/videos instead.",
+        "ts": "2026-10-06",
+        "created": "2026-10-06"
       }
     }
   },

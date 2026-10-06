@@ -13,6 +13,7 @@ const creators = [
   ['UCmxXPdAg3iQaepCBO2JHjVA','bryce-is-right'],['UCCVP1ck3ucAgLJFJNlPWamw','jon-levi'],
   ['UCQVBGSq7vdLanRbowiu163w','mind-unveiled'],['UC0UpxtDnri_fa5fB_PoAYhw','xevi'],
   ['UCB9LqQNtyPPdW1prv0h8_5Q','stolen-timelines'],['UC8DA4o0SyaGfyVaBLbF5EXg','adam-mockler'],
+  ['UCimX2_A-ncFiU9QoSOTJ12A','epicdaily'],['UCSwx_jY_zYBJtrIa1i-osMA','barry-stepp'],['UCTiL1q9YbrVam5nP2xzFTWQ','space-weather-news'],
 ];
 const dec=s=>s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
 const parse=xml=>xml.split('<entry>').slice(1).map(e=>{const id=(e.match(/<yt:videoId>([^<]+)</)||[])[1];if(!id)return null;
