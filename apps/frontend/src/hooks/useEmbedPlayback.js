@@ -55,6 +55,8 @@ export const SILENT_EMBED_MS = 25000;
 // iframe API does the same: its player only hears "listening" once it has
 // booted, and on a slow phone that is long after any fixed retry schedule.
 export const HELLO_EVERY_MS = 1000;
+// How long TikTok's player gets to say it is ready before the card is shown.
+export const TIKTOK_READY_MS = 10000;
 
 /**
  * The wire messages that set the volume on a given platform.
@@ -114,9 +116,17 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // player's own retries (they stop at 2s) still gets it the moment it says
   // it is ready. null = never set = sound on, which is the point of the fix.
   const volumeRef = useRef(null);
+  // TikTok's controllable player (player/v1) could not run here — it errored,
+  // or never answered — so the screen shows the older card player instead.
+  // The card has no control channel, but it DRAWS THE VIDEO, which a blank
+  // black frame does not (owner, 2026-10-06, on a phone in a private window:
+  // v1 needs third-party storage, which private windows block). Reset for
+  // every new clip.
+  const [tiktokFallback, setTikTokFallback] = useState(false);
 
   useEffect(() => {
     setProgress({ time: 0, duration: 0 });
+    setTikTokFallback(false);
     if (kind !== 'youtube' && kind !== 'vimeo' && kind !== 'tiktok') return undefined;
     const frame = frameRef?.current;
     if (!frame) return undefined;
@@ -124,6 +134,9 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
     const origins = kind === 'youtube' ? YT_ORIGINS : kind === 'tiktok' ? [TIKTOK_ORIGIN] : [VIMEO_ORIGIN];
     let done = false;
     let heard = false;
+    let tiktokReady = false;
+    // No "ready" from TikTok in this long = a frame that rendered blank.
+    const tiktokTimer = kind === 'tiktok' ? setTimeout(() => { if (!tiktokReady) setTikTokFallback(true); }, TIKTOK_READY_MS) : null;
 
     const onMessage = (e) => {
       if (e.source !== frame.contentWindow) return;      // not our iframe
@@ -139,6 +152,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
         if (data['x-tiktok-player'] !== true) return;
         const { type, value } = data;
         if (type === 'onPlayerReady') {
+          tiktokReady = true;
           // Sound on (or whatever the player's level is) and play. Autoplay in
           // a frame is muted by browser policy until told otherwise; the frame
           // has allow="autoplay" and the person already tapped to start this,
@@ -156,7 +170,9 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
             duration: typeof value.duration === 'number' && value.duration > 0 ? value.duration : p.duration,
           }));
         }
-        if (type === 'onPlayerError') deadRef.current?.(value?.errorCode ?? 'tiktok');
+        // An error is NOT "unplayable" for TikTok: the same clip usually plays
+        // in the card player, so show that rather than skipping the clip.
+        if (type === 'onPlayerError') setTikTokFallback(true);
         return;
       }
 
@@ -240,6 +256,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
       frame.removeEventListener('load', onLoad);
       clearInterval(repeat);
       clearTimeout(watchdog);
+      clearTimeout(tiktokTimer);
     };
     // playToken changes when the SAME track is replayed, which remounts the
     // iframe — the handshake has to be redone against the new window.
@@ -353,17 +370,17 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // Which embeds can be paused in place. Everything else still has to unmount,
   // which is a worse experience but an honest one — and it is now confined to
   // the platforms that genuinely give us no control channel.
-  const canCommand = kind === 'youtube' || kind === 'vimeo' || kind === 'soundcloud' || kind === 'tiktok';
+  const canCommand = kind === 'youtube' || kind === 'vimeo' || kind === 'soundcloud' || (kind === 'tiktok' && !tiktokFallback);
   // SoundCloud is deliberately absent: its widget can seek, but we never
   // subscribed to its progress, so we would be jumping from a position we do
   // not know. Better to offer no jump than a jump to the wrong place.
-  const canSeek = kind === 'youtube' || kind === 'vimeo' || kind === 'tiktok';
+  const canSeek = kind === 'youtube' || kind === 'vimeo' || (kind === 'tiktok' && !tiktokFallback);
   // Native <audio>/<video> are absent on purpose: they have a real `.volume`
   // and the player sets it on the element directly. This is only for the
   // embeds, which have no element to reach.
   const canSetVolume = canCommand;
 
-  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume };
+  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback };
 }
 
 export default useEmbedPlayback;

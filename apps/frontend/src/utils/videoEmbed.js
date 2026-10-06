@@ -363,3 +363,11 @@ export function upgradeTikTokSrc(src) {
   const id = /tiktok\.com\/embed\/v2\/(\d+)/i.exec(src || '')?.[1];
   return id ? tiktokPlayerSrc(id) : src;
 }
+
+// The older TikTok CARD embed — what shows when the controllable player cannot
+// run (private windows block the storage it needs). It draws the video and can
+// be tapped to play, but nothing outside it can pause or unmute it.
+export function tiktokCardSrc(src) {
+  const id = /tiktok\.com\/(?:player\/v1|embed\/v2)\/(\d+)/i.exec(src || '')?.[1];
+  return id ? `https://www.tiktok.com/embed/v2/${id}` : src;
+}

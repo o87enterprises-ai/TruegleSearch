@@ -4,7 +4,7 @@ import TruegleWatermark from '../ui/TruegleWatermark';
 import PlayerStarters from './PlayerStarters';
 import PlayerBrowse from './PlayerBrowse';
 import { PLAYER_SANDBOX } from './playerSandbox';
-import { upgradeTikTokSrc } from '../../utils/videoEmbed';
+import { upgradeTikTokSrc, tiktokCardSrc } from '../../utils/videoEmbed';
 
 export { PLAYER_SANDBOX };
 
@@ -18,10 +18,10 @@ export { PLAYER_SANDBOX };
 // enablejsapi=1 (and an origin, which scopes who it will talk to). These are
 // added HERE rather than in the shared source builder so what we store, share
 // and hand to /w stays a plain embed URL.
-function withPlaybackChannel(kind, src) {
+function withPlaybackChannel(kind, src, tiktokCard = false) {
   // TikTok's player/v1 carries its own autoplay; older saved sources are
   // upgraded from the /embed/v2 card, which could not be controlled.
-  if (kind === 'tiktok') return upgradeTikTokSrc(src);
+  if (kind === 'tiktok') return tiktokCard ? tiktokCardSrc(src) : upgradeTikTokSrc(src);
   const sep = src.includes('?') ? '&' : '?';
   if (kind === 'youtube') {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -32,6 +32,9 @@ function withPlaybackChannel(kind, src) {
 
 const PlayerScreen = forwardRef(function PlayerScreen({
   source, mediaRef, frameRef, onEnded, onError, maxHeight, fill = false, compact = false,
+  // TikTok's controllable player could not run (blank, errored) — show the
+  // older card player, which draws the video but cannot be commanded.
+  tiktokCard = false,
   // Lock the picture to 9:16 in every state and letterbox anything wider —
   // the feed player is portrait-native. See the note above `ratio`.
   portrait = false,
@@ -111,7 +114,12 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // Letterboxing is free for an iframe — YouTube and the rest fit their own
   // picture to the box we give them — and for a native <video> it is
   // object-contain, already set below.
-  const ratio = portrait ? '9 / 16'
+  // The older TikTok CARD (the fallback) is a card, not a bare player: author
+  // row, caption and action rail are part of the document, so it needs the
+  // taller 9:21 box the card was always sized to (measured, see history above).
+  const onCard = kind === 'tiktok' && tiktokCard;
+  const ratio = onCard ? '9 / 21'
+    : portrait ? '9 / 16'
       : isPostCard ? '3 / 4'
         : (vertical ? '9 / 16' : '16 / 9');
 
@@ -147,7 +155,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
     : compact
       ? 'min(42svh, var(--truegle-player-cap, 100svh))'
     // (TikTok no longer needs extra height: the player/v1 embed has no card chrome.)
-    : `min(${vertical ? '58svh' : '62svh'}, var(--truegle-player-cap, 100svh))`;
+    : `min(${onCard ? '68svh' : (vertical ? '58svh' : '62svh')}, var(--truegle-player-cap, 100svh))`;
   // FULL SCREEN IS THE ONE PLACE THE BOX IS NORMALLY UNCONSTRAINED — the
   // picture fills the screen and the flex chain does the sizing. A portrait
   // player cannot do that: it has to hold 9:16 against a landscape screen,
@@ -200,7 +208,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
           <iframe
             ref={frameRef}
             key={source.playToken ? `${src}#${source.playToken}` : src}
-            src={withPlaybackChannel(kind, src)}
+            src={withPlaybackChannel(kind, src, tiktokCard)}
             // When the frame finished loading — useEmbedPlayback's silence
             // clock starts here, not at mount, so a slow network is not
             // mistaken for a dead clip.

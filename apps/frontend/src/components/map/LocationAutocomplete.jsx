@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MapPin, Building2, Navigation2, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const getBackendUrl = () => import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+import { searchMapQuery, formatDistance } from './utils/mapSearch';
 
 /**
  * LocationAutocomplete Component
- * Provides autocomplete suggestions for location inputs using Radar API
+ * Autocomplete for the Directions boxes — the same search as the map's own bar.
  */
 export default function LocationAutocomplete({
   value,
@@ -24,101 +23,56 @@ export default function LocationAutocomplete({
   const inputRef = useRef(null);
   const debounceTimer = useRef(null);
 
-  // Fetch autocomplete suggestions from Radar API (both addresses and places)
+  // THE SAME SEARCH AS THE MAP'S OWN BOX. This used to ask Radar directly
+  // (/api/radar/autocomplete + search-places), which needs a Radar key this
+  // project does not hold and only matches chain names — so "Eugene library
+  // Eugene Oregon" offered "Eugene, OR US" and nothing else (owner,
+  // 2026-10-06). searchMapQuery is the search the map's bar already uses: it
+  // reads "coffee near me" / "pharmacy in austin" / a business name / a street
+  // address, ranks by distance from the user, and works with whichever
+  // providers exist.
   const fetchSuggestions = useCallback(async (query) => {
-    if (!query || query.length < 2) {
+    if (!query || query.trim().length < 3) {
       setSuggestions([]);
       return;
     }
-
     setLoading(true);
-
     try {
-      const backendUrl = getBackendUrl();
-
-      // Search for both addresses AND places in parallel
-      const [addressResponse, placesResponse] = await Promise.allSettled([
-        // Search addresses
-        fetch(`${backendUrl}/api/radar/autocomplete`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            query,
-            near: userLocation ? `${userLocation.lat},${userLocation.lng}` : undefined,
-            limit: 5
-          })
-        }),
-        // Search places/businesses
-        userLocation ? fetch(`${backendUrl}/api/radar/search-places`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            near: { lat: userLocation.lat, lng: userLocation.lng },
-            options: {
-              limit: 10,
-              radius: 50000, // 50km radius
-              chains: query, // Search for chain names like "Walmart"
-              categories: '' // Search all categories
-            }
-          })
-        }) : Promise.resolve(null)
-      ]);
-
-      const combinedSuggestions = [];
-
-      // Process places (prioritize these - they're what users usually want)
-      if (placesResponse.status === 'fulfilled' && placesResponse.value) {
-        const placesData = await placesResponse.value.json();
-        const places = placesData.data || placesData.places || [];
-
-        // Filter places that match the query
-        const matchingPlaces = places.filter(place => {
-          const name = (place.name || '').toLowerCase();
-          const queryLower = query.toLowerCase();
-          return name.includes(queryLower);
-        });
-
-        matchingPlaces.forEach((place, index) => {
-          combinedSuggestions.push({
-            id: `place-${index}`,
-            type: 'business',
-            name: place.name,
-            address: place.formattedAddress || place.address || '',
-            lat: place.location?.coordinates?.[1] || place.latitude,
-            lng: place.location?.coordinates?.[0] || place.longitude,
-            city: place.city,
-            state: place.state,
-            country: place.country,
-            chain: place.chain?.name,
-            categories: place.categories
-          });
-        });
-      }
-
-      // Process addresses (show these after places)
-      if (addressResponse.status === 'fulfilled') {
-        const addressData = await addressResponse.value.json();
-        const addresses = addressData.addresses || addressData.data?.addresses || [];
-
-        addresses.forEach((address, index) => {
-          combinedSuggestions.push({
-            id: `address-${index}`,
-            type: 'address',
-            name: address.formattedAddress || address.addressLabel,
-            address: address.formattedAddress,
-            lat: address.latitude,
-            lng: address.longitude,
-            city: address.city,
-            state: address.state,
-            country: address.country
-          });
-        });
-      }
-
-      // Limit total suggestions to 10
-      setSuggestions(combinedSuggestions.slice(0, 10));
+      const { rows } = await searchMapQuery(query, { near: userLocation, limit: 10 });
+      // One row per place (two providers often return the same library), and
+      // names that share more of the typed words first — so "Eugene library
+      // Eugene Oregon" puts the library above a highway that merely contains
+      // "Oregon". Distance stays the tie-break; the search already ranked by it.
+      const words = new Set(String(query).toLowerCase().match(/[a-z0-9]{3,}/g) || []);
+      const overlap = (name) => (String(name || '').toLowerCase().match(/[a-z0-9]{3,}/g) || []).filter((w) => words.has(w)).length;
+      const seen = new Set();
+      const ranked = rows
+        .filter((r) => { const k = `${String(r.name).toLowerCase()}|${String(r.address).toLowerCase()}`; if (seen.has(k)) return false; seen.add(k); return true; })
+        // A row that is only an address (its "name" IS the address) matches
+        // the town and state by construction, so it ranks below a named
+        // place with the same word match.
+        .map((r, i) => ({ r, i, score: overlap(r.name) - (!r.name || r.name === r.address ? 1.5 : 0) }))
+        .sort((x, y) => (y.score - x.score) || (x.i - y.i))
+        .map(({ r }) => r);
+      setSuggestions(ranked.slice(0, 8).map((r, i) => {
+        const [first, ...rest] = String(r.address || '').split(',').map((x) => x.trim()).filter(Boolean);
+        const named = r.name && r.name !== r.address && r.name !== first;
+        return {
+          id: `place-${i}`,
+          // A named place (a library, a shop) vs a plain address or town.
+          type: named ? 'business' : 'address',
+          name: r.name,
+          address: r.address || '',
+          lat: r.position.lat,
+          lng: r.position.lng ?? r.position.lon,
+          city: named ? rest[0] || '' : '',
+          state: named ? (rest[1] || '').replace(/\s*\d{5}.*/, '') : '',
+          distance: r.distance,
+        };
+      }));
     } catch (err) {
       console.error('Error fetching autocomplete suggestions:', err);
+      setSuggestions([]);
     } finally {
       setLoading(false);
     }
@@ -263,9 +217,12 @@ export default function LocationAutocomplete({
                   <div className="text-sm font-medium text-white truncate">
                     {suggestion.name}
                   </div>
-                  {suggestion.city && suggestion.state && (
-                    <div className="text-xs text-neutral-400 mt-0.5">
-                      {suggestion.city}, {suggestion.state}
+                  {(suggestion.address || suggestion.distance != null) && (
+                    <div className="text-xs text-neutral-400 mt-0.5 truncate">
+                      {suggestion.address}
+                      {suggestion.distance != null && (
+                        <span className="text-neutral-500">{suggestion.address ? ' · ' : ''}{formatDistance(suggestion.distance)}</span>
+                      )}
                     </div>
                   )}
                 </div>

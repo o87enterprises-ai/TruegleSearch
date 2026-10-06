@@ -55,6 +55,13 @@ async function open({ trips }) {
     let body = null; try { body = JSON.parse(r.request().postData() || 'null'); } catch { /* GET */ }
     const json = (b) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
     if (u.pathname === '/api/maps/transit') { transitCalls.push(body); return json({ success: true, data: { itineraries: trips }, provider: 'transitous' }); }
+    // A named place, the way the place search answers it (owner, 2026-10-06:
+    // "Eugene library" in Directions offered only the town).
+    if (u.pathname === '/api/maps/places' && /library/i.test(JSON.stringify(body || {}))) {
+      return json({ success: true, provider: 'mapbox', data: [
+        { name: 'Eugene Public Library', address: '100 West 10th Avenue, Eugene, OR 97401', position: { lat: 44.0498, lon: -123.0937 }, type: 'poi' },
+      ] });
+    }
     return json({ success: true, data: [], results: [] });
   });
   const PIXEL = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
@@ -124,6 +131,18 @@ async function ask(page) {
   await ask(page);
   await until(() => page.getByText(/No public transit found/).count(), { what: 'the no-transit message', timeout: 8000 }).catch(() => {});
   check(await page.getByText(/No public transit found/).count() > 0, 'no transit is SAID, with what to try instead');
+  await ctx.close();
+}
+
+// ── Directions finds a PLACE by name, not just the town ──────────────────
+{
+  const { ctx, page } = await open({ trips: TRIPS });
+  const to = page.locator('input[placeholder="Choose destination..."]').first();
+  await to.click();
+  await to.type('Eugene library Eugene Oregon', { delay: 10 });
+  await until(() => page.getByText('Eugene Public Library').count(), { what: 'the library suggestion', timeout: 8000 }).catch(() => {});
+  check(await page.getByText('Eugene Public Library').count() > 0, 'typing a place name in Directions suggests that PLACE (not only the town)');
+  check(await page.getByText(/100 West 10th Avenue/).count() > 0, '…with its address');
   await ctx.close();
 }
 

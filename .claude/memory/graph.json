@@ -3486,6 +3486,14 @@
         "body": "Owner reconnected the Cloudflare Developer Platform connector on claude.ai 2026-10-06. Usable from sessions started after that (connectors load at session start); not available in the session where it was reconnected.",
         "ts": "2026-10-06",
         "created": "2026-10-06"
+      },
+      "tiktok-v1-fallback": {
+        "Id": "tiktok-v1-fallback",
+        "Type": "fact",
+        "Label": "TikTok: player/v1 first, card fallback",
+        "body": "2026-10-06: TikTok player/v1 (controllable) needs third-party storage; it errors (2001/3001) or renders blank in private/incognito windows (owner tested in Chrome Incognito -> black frame). useEmbedPlayback now falls back to the /embed/v2 CARD (9:21 box) on onPlayerError or no onPlayerReady within 10s, WITHOUT skipping the clip. Testing note: v1 also returns 2001 when the parent page is about:blank / not a real https origin, so test it from inside truegle.info. Directions autocomplete (LocationAutocomplete) now uses searchMapQuery (same as map search bar) instead of Radar (no key).",
+        "ts": "2026-10-06",
+        "created": "2026-10-06"
       }
     }
   },

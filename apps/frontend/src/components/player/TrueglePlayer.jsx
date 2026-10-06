@@ -744,6 +744,7 @@ export default function TrueglePlayer({
       source={paused && !embed.canCommand ? null : current}
       mediaRef={mediaRef}
       frameRef={frameRef}
+      tiktokCard={embed.tiktokFallback}
       onEnded={advance}
       onError={skipBroken}
       fill={fullscreen}

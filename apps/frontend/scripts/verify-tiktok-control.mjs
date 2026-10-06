@@ -126,6 +126,49 @@ await ctx.close();
   check(upgradeTikTokSrc('https://www.youtube-nocookie.com/embed/abc') === 'https://www.youtube-nocookie.com/embed/abc', '…and nothing else is touched');
 }
 
+
+// ── when the controllable player cannot run: the card, not a black box ──────
+// Owner, 2026-10-06, phone in a private window: "the tiktok player is still not
+// playing" — a blank black frame. TikTok's player/v1 needs third-party storage,
+// which private windows block, so it errors ("Player error") or never says
+// ready. The card player draws the video regardless. Neither failure may skip
+// the clip or leave the box blank.
+for (const mode of ['error', 'silent']) {
+  const c2 = await testContext(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  await c2.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));"
+    + "localStorage.setItem('truegle_swipe_hint_seen', '1'); localStorage.setItem('truegle_feed_defaulted_pop_v1', '1');");
+  await c2.route('**/api/**', (r) => {
+    const u = new URL(r.request().url());
+    if (u.pathname === '/api/social/feed') return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ query: '', results: POSTS, platforms: { community: POSTS }, nextCursor: {}, errors: {} }) });
+    return r.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  });
+  const seen = [];
+  await c2.route('**/www.tiktok.com/**', (r) => {
+    const url = r.request().url();
+    seen.push(url);
+    if (/\/embed\/v2\//.test(url)) return r.fulfill({ status: 200, contentType: 'text/html', body: '<html><body style="background:#fff">card</body></html>' });
+    const body = mode === 'error'
+      ? `<html><body><script>setTimeout(() => parent.postMessage({ 'x-tiktok-player': true, type: 'onPlayerError', value: { errorCode: 2001, errorType: 'SERVER_ERROR' } }, '*'), 300);</script></body></html>`
+      : '<html><body style="background:#000"></body></html>';          // never says anything
+    return r.fulfill({ status: 200, contentType: 'text/html', body });
+  });
+  const p2 = await c2.newPage();
+  await openApp(p2, `${BASE}/feed`);
+  await until(() => p2.locator('[data-feed-action="play"]').count(), { what: 'a feed card' });
+  await p2.locator('[data-feed-action="play"]').first().dispatchEvent('click');
+  await until(() => p2.locator('iframe[src*="tiktok.com"]').count(), { what: 'the TikTok frame' });
+  const first = await p2.locator('iframe[src*="tiktok.com"]').first().getAttribute('src');
+  check(/player\/v1/.test(first), `[${mode}] it tries the controllable player first`, first.slice(0, 60));
+  await until(async () => /embed\/v2/.test((await p2.locator('iframe[src*="tiktok.com"]').first().getAttribute('src').catch(() => '')) || ''),
+    { what: 'the card fallback', timeout: mode === 'silent' ? 14000 : 5000 }).catch(() => {});
+  const after = await p2.locator('iframe[src*="tiktok.com"]').first().getAttribute('src').catch(() => '');
+  check(/embed\/v2\/\d+/.test(after || ''), `[${mode}] ${mode === 'error' ? 'a player error' : 'a player that never answers'} falls back to the card player`, (after || '').slice(0, 60));
+  check(after && after.includes(first.match(/\/(\d{10,})/)[1]), `[${mode}] …for the SAME clip (it is not skipped)`);
+  const box = await p2.locator('iframe[src*="tiktok.com"]').first().boundingBox();
+  check(box && box.height > box.width * 1.9, `[${mode}] …in the taller box the card needs`, box ? `${Math.round(box.width)}x${Math.round(box.height)}` : 'none');
+  await c2.close();
+}
+
 console.log([...ok, ...bad].join('\n'));
 console.log(`\n${ok.length} passed, ${bad.length} failed`);
 await browser.close();
