@@ -178,7 +178,19 @@ for (const mode of ['error', 'silent']) {
   await c3.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));"
     + "localStorage.setItem('truegle_swipe_hint_seen', '1'); localStorage.setItem('truegle_feed_defaulted_pop_v1', '1');"
     + "localStorage.setItem('truegle_tutorials', JSON.stringify({ dismissed: {}, neverShowAgain: true, lastSeen: null, hintsOptIn: false }));");
-  await c3.route('**/api/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ query: '', results: [], platforms: {}, nextCursor: {}, errors: {} }) }));
+  const resolveCalls = [];
+  await c3.route('**/api/**', (r) => {
+    const u = new URL(r.request().url());
+    if (u.pathname === '/api/media/resolve') {
+      resolveCalls.push(u.searchParams.get('url'));
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, media: {
+        kind: 'tiktok', platform: 'TikTok', canonical: 'tiktok.com/video/7692911186957913374',
+        src: 'https://www.tiktok.com/player/v1/7692911186957913374?autoplay=1&rel=0&native_context_menu=0',
+        pageUrl: 'https://www.tiktok.com/@steve_ralph_official/video/7692911186957913374', title: 'A shared TikTok', vertical: true,
+      } }) });
+    }
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ query: '', results: [], platforms: {}, nextCursor: {}, errors: {} }) });
+  });
   await c3.route('**/www.tiktok.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: FAKE_TIKTOK }));
   const p3 = await c3.newPage();
   await openApp(p3, `${BASE}/feed`);
@@ -192,6 +204,17 @@ for (const mode of ['error', 'silent']) {
   await p3.locator('[data-feed-play-link]').dispatchEvent('click');
   await until(() => p3.locator('iframe[src*="7546605715763350815"]').count(), { what: 'it playing', timeout: 6000 }).catch(() => {});
   check(await p3.locator('iframe[src*="tiktok.com/player/v1/7546605715763350815"]').count() > 0, 'Play puts that TikTok in the player');
+
+  // The TikTok app's "Copy link": a SHARE link with no video id in it.
+  await bar.fill('');
+  await bar.fill('https://vm.tiktok.com/ZP9DxDgMp9CXP-BihTZ/');
+  await until(() => p3.locator('[data-feed-play-link]').count(), { what: 'Play for a share link', timeout: 6000 }).catch(() => {});
+  check(resolveCalls.includes('https://vm.tiktok.com/ZP9DxDgMp9CXP-BihTZ/'), 'a vm.tiktok.com share link is followed to its video (via Truegle\'s server)');
+  check(await p3.locator('[data-feed-play-link]').count() === 1, '…and then offers Play');
+  // The bar's own arrow / Enter plays it rather than searching for a URL.
+  await bar.press('Enter');
+  await until(() => p3.locator('iframe[src*="7692911186957913374"]').count(), { what: 'Enter to play', timeout: 6000 }).catch(() => {});
+  check(await p3.locator('iframe[src*="tiktok.com/player/v1/7692911186957913374"]').count() > 0, 'pressing Enter with a video link in the bar PLAYS it (it used to search for the URL)');
   await c3.close();
 }
 

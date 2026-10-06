@@ -17,6 +17,7 @@
  * matches attacker hosts like `evilyoutube.com`. Mirrors
  * apps/frontend/src/utils/videoEmbed.js — keep the two in step.
  */
+const { expandShortLink } = require('./ShortLinkService');
 const { query } = require('../db/connection');
 const logger = require('../utils/logger');
 // A stranger supplies no text, so the title has to come from the platform.
@@ -236,8 +237,11 @@ const MediaService = {
    * returns the existing row and fills in a title if it was missing.
    */
   async submit({ url, title, userId = null }) {
-    const raw = clean(url, MAX_URL);
+    let raw = clean(url, MAX_URL);
     if (!raw) throw new MediaError('INVALID', 'No link was provided.');
+    // A share link (vm.tiktok.com/…) carries no video id — follow it to the
+    // video first. Only the canonical link is kept; see ShortLinkService.
+    raw = (await expandShortLink(raw)) || raw;
 
     const { kind, platform, canonical, src, vertical } = classifyMedia(raw);
     const anonymous = !userId;
@@ -554,8 +558,10 @@ const MediaService = {
    * route to being findable rather than a chore.
    */
   async resolveLink(rawUrl) {
-    const url = clean(rawUrl, MAX_URL);
+    let url = clean(rawUrl, MAX_URL);
     if (!url) throw new MediaError('INVALID', 'No link was provided.');
+    // Share links (vm.tiktok.com/…) → the video they point at, tracking dropped.
+    url = (await expandShortLink(url)) || url;
     // Classify first: this refuses anything we would not play anyway, so the
     // endpoint can never be used to make our server fetch arbitrary hosts.
     const { kind, platform, canonical, src, vertical } = classifyMedia(url);

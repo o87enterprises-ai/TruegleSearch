@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Loader2, Check, Send, AlertCircle, Play } from 'lucide-react';
 import api from '../../services/api';
-import { getPlayable } from '../../utils/videoEmbed';
+import { usePastedLink } from '../../hooks/usePastedLink';
 import { usePlayInPlayer } from '../../hooks/usePlayInPlayer';
 
 // Paste a playable link into the feed's search box and it can become a post.
@@ -30,7 +30,22 @@ export default function FeedLinkSubmit({ url, onPosted }) {
   const [posted, setPosted] = useState(null);
   const playInPlayer = usePlayInPlayer();
 
-  const playable = getPlayable(url);
+  // Share links (vm.tiktok.com/…) are followed to the video first.
+  const { playable, resolving, failed } = usePastedLink(url);
+  if (resolving) {
+    return (
+      <div data-feed-submit="resolving" className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-yellow-500/25 text-xs text-white/70">
+        <Loader2 size={14} className="animate-spin text-yellow-300" /> Finding the video behind that link…
+      </div>
+    );
+  }
+  if (failed) {
+    return (
+      <div data-feed-submit="unresolved" className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-yellow-500/25 text-xs text-white/70">
+        <AlertCircle size={14} className="text-amber-300" /> That share link didn’t lead to a video Truegle can play.
+      </div>
+    );
+  }
   // Not a link, or not one the player can host: this component is simply not
   // here, and the bar is a search bar again.
   if (!playable) return null;
@@ -39,7 +54,7 @@ export default function FeedLinkSubmit({ url, onPosted }) {
   // everyone — when what you usually want is to watch it (owner, 2026-10-06:
   // "I can't figure out how to search a TikTok link to test on feed").
   const playNowClick = () => {
-    playInPlayer({ ...playable, title: `${playable.kind} link`, pageUrl: url.trim() });
+    playInPlayer({ ...playable, title: playable.title || `${playable.kind} link` });
   };
 
   const send = async () => {

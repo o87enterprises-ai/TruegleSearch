@@ -5,6 +5,8 @@ import { ExternalLink, Loader2, Plus, X } from 'lucide-react';
 import SearchPageShell from '../components/layout/SearchPageShell';
 import SearchBar from '../components/ui/SearchBar';
 import FeedLinkSubmit from '../components/feed/FeedLinkSubmit';
+import { usePastedLink } from '../hooks/usePastedLink';
+import { usePlayInPlayer } from '../hooks/usePlayInPlayer';
 import FeedCard from '../components/feed/FeedCards';
 import { PROVIDERS, platformsFor, needsAuth, isConnectable, BROWSE_ONLY } from '../config/socialProviders';
 import FeedServers from '../components/feed/FeedServers';
@@ -181,7 +183,19 @@ export default function FeedPage() {
   // SEARCHES THE FEEDS IN PLACE — never the web. `submitted` feeds straight
   // back into useSocialFeed's query above, which asks /api/social/feed across
   // the switched-on servers only.
-  const submit = useCallback(() => setSubmitted(query.trim()), [query]);
+  // A pasted video link + the bar's arrow / Enter = PLAY it. Searching the
+  // feeds for a URL finds nothing ("Nothing to show yet" — owner, 2026-10-06,
+  // with a TikTok share link). Ordinary text still searches.
+  const pasted = usePastedLink(query);
+  const playInPlayer = usePlayInPlayer();
+  const submit = useCallback(() => {
+    if (pasted.playable) {
+      playInPlayer({ ...pasted.playable, title: pasted.playable.title || `${pasted.playable.kind} link` });
+      return;
+    }
+    if (pasted.resolving) return;      // still finding the video; the bar says so
+    setSubmitted(query.trim());
+  }, [query, pasted.playable, pasted.resolving, playInPlayer]);
 
   // Which sources answered with a failure this time round. Handed to
   // FeedServers so those rows grey out and say "service coming soon" rather
