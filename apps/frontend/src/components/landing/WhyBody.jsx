@@ -1,4 +1,5 @@
 import { Lock } from 'lucide-react';
+import { NuclearOptionButton } from '../ui/SessionWipe';
 
 // "Why Truegle?" — the three promises (bias, tracking, censorship). Its tile's
 // pitch says the same thing in a line; this is the detail behind it.
@@ -34,6 +35,9 @@ export default function WhyBody({ safeModeOff, canDisableSafeSearch, toggleSafeM
           <SurfWithout tone="text-green-300/80" />
           <span className="font-bold text-base text-green-400">Tracking</span>
           <span className="text-white/80 text-sm">0 ads, 0 user data, 0 digital ID</span>
+          {/* Proof, not a claim: wipe it all, right here (explained at the
+              bottom of this page — the asterisk). */}
+          <NuclearOptionButton size="md" asterisk className="mt-2" />
         </div>
         {/* Censorship: the one item on this card that is not just a
             claim — it is a real, working control. Toggling it
@@ -51,12 +55,13 @@ export default function WhyBody({ safeModeOff, canDisableSafeSearch, toggleSafeM
             className="inline-flex items-center gap-1.5 text-white/80 text-sm hover:text-white transition-colors"
           >
             {!canDisableSafeSearch && <Lock size={12} className="text-white/60 flex-shrink-0" aria-hidden="true" />}
-            <span>+18 safe mode {safeModeOff ? 'off' : 'on'} — tap to toggle*</span>
+            <span>+18 safe mode {safeModeOff ? 'off' : 'on'} — tap to toggle†</span>
           </button>
         </div>
       </div>
       <p className="mt-4 text-center text-[11px] text-white/35">
-        *Turning safe mode off needs a verified sign-in.
+        †Turning safe mode off needs a verified sign-in (18+).{' '}
+        <a href="#nuclear-option" className="underline-offset-2 hover:underline hover:text-white/60">*What the Nuclear Option does</a>
       </p>
     </div>
   );

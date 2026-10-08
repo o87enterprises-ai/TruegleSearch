@@ -1,3 +1,4 @@
+import { NuclearStrip } from '../components/ui/SessionWipe';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -9,6 +10,7 @@ import CursorGlow from '../components/ui/CursorGlow';
 import NeonButton from '../components/ui/NeonButton';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import AccountCodeModal from '../components/ui/AccountCodeModal';
+import AgeGate from '../components/auth/AgeGate';
 import authService from '../services/authService';
 import { useToast } from '../components/ui/ToastProvider';
 
@@ -40,16 +42,18 @@ export default function SignInPage() {
     try { return localStorage.getItem('truegle_remember_me') !== 'false'; } catch { return true; }
   });
   const [revealedCode, setRevealedCode] = useState(null); // one-time account-code reveal
+  // 18+ and the terms, agreed before anything else on this page (AgeGate.jsx).
+  const [ageAgreed, setAgeAgreed] = useState(false);
 
   const goAfterSignIn = () => {
-    // Priority 1: honour explicit redirectTo (set by ProtectedRoute)
-    if (redirectTo) return navigate(redirectTo);
-    // Priority 2: anonymous navigation state flags
-    if (location.state?.fromOSINT) return navigate('/search?mode=ocean');
-    if (location.state?.fromBiased) return navigate('/search?mode=purple');
-    // Priority 3: fall back to universal search, preserving pill mode
-    const isRedPillMode = localStorage.getItem('isRedPillMode') === 'true';
-    navigate(isRedPillMode ? '/red' : '/search');
+    // STRAIGHT TO SETTINGS, to choose how search storage is handled (owner,
+    // 2026-10-08 — and the age gate promised it). Where they were headed is
+    // carried along: Settings offers to continue there.
+    const next = redirectTo
+      || (location.state?.fromOSINT ? '/search?mode=ocean' : null)
+      || (location.state?.fromBiased ? '/search?mode=purple' : null)
+      || (localStorage.getItem('isRedPillMode') === 'true' ? '/red' : '/search');
+    return navigate(`/settings?welcome=1&next=${encodeURIComponent(next)}#search-storage`);
   };
 
   const handleSendCode = async () => {
@@ -136,7 +140,7 @@ export default function SignInPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
-        className="relative z-10 w-full max-w-[90%] sm:max-w-sm"
+        className={`relative z-10 w-full max-w-[94%] ${ageAgreed ? 'sm:max-w-sm' : 'sm:max-w-lg'}`}
       >
         {/* Logo */}
         <motion.div
@@ -174,7 +178,13 @@ export default function SignInPage() {
           </button>
         </motion.div>
 
+        {/* 18+ and the terms first (AgeGate.jsx); the form only after. */}
+        {!ageAgreed && (
+          <AgeGate onAccept={() => setAgeAgreed(true)} onDecline={() => navigate('/search')} />
+        )}
+
         {/* Form Card */}
+        {ageAgreed && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -313,11 +323,14 @@ export default function SignInPage() {
             </button>
           </p>
         </motion.div>
+        )}
 
         {/* Footer Links */}
         <div className="mt-6 flex justify-center">
           <AnonymousSearchLink />
         </div>
+
+        <NuclearStrip className="mt-8" />
 
         <div className="mt-4 text-center">
           <div className="flex justify-center gap-6 text-sm text-gray-500 font-body">

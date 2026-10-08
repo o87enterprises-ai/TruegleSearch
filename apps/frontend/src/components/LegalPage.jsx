@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { NuclearStrip } from './ui/SessionWipe';
 
 /**
  * Shared layout for static legal/info pages (Privacy, Terms, About).
@@ -53,7 +54,8 @@ const LegalPage = ({ title, lastUpdated, children }) => {
               Proton VPN
             </a>
           </div>
-          <p className="mt-4">© {new Date().getFullYear()} Truegle Search. All rights reserved.</p>
+          <NuclearStrip className="mt-8" />
+          <p className="mt-6">© {new Date().getFullYear()} Truegle Search. All rights reserved.</p>
         </footer>
       </div>
     </div>

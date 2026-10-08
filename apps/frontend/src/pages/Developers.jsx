@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { NuclearStrip } from '../components/ui/SessionWipe';
 
 /*
  * /developers — the public documentation for Truegle's search API.
@@ -259,6 +260,7 @@ const Developers = () => (
 
       <footer className="mt-16 pt-8 border-t border-white/10 text-sm text-white/40">
         <Link to="/" className="hover:text-white/70">← Back to Truegle</Link>
+        <NuclearStrip className="mt-8" />
       </footer>
     </div>
   </div>

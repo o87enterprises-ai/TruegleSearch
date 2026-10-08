@@ -39,8 +39,8 @@ class AuthService {
   async verifyCode({ email, phone, code, remember = true }) {
     try {
       const body = email
-        ? { email: email.toLowerCase().trim(), code: code.trim(), remember }
-        : { phone: phone.trim(), code: code.trim(), remember };
+        ? { email: email.toLowerCase().trim(), code: code.trim(), remember, adult: true }
+        : { phone: phone.trim(), code: code.trim(), remember, adult: true };
 
       const response = await api.post('/auth/verify-access-code', body);
 

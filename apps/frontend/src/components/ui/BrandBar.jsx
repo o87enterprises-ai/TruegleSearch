@@ -6,6 +6,7 @@ import { Menu, X, ArrowLeft } from 'lucide-react';
 import { MODE_COLORS } from '../../config/modeTheme';
 import { OPEN_INSTALL_EVENT } from './InstallTruegle';
 import { useInstallState } from '../../utils/installPrompt';
+import { NuclearOptionButton } from './SessionWipe';
 
 // Global navigation — ONLY a hamburger button that opens a slide-out drawer.
 // No logo, no search, no pill row: each page owns its own hero (logo + pill +
@@ -193,7 +194,12 @@ export default function BrandBar() {
                     Settings
                   </button>
                 </div>
-                <div className="px-4 py-4 border-t border-white/10 text-[11px] text-white/30">
+                {/* The Nuclear Option, reachable from every page — including the
+                    full-screen ones (Tube, Chat, Map) that have no footer. */}
+                <div className="px-4 pt-4 border-t border-white/10 flex justify-center">
+                  <NuclearOptionButton size="md" asterisk className="w-full" />
+                </div>
+                <div className="px-4 py-4 text-[11px] text-white/30">
                   Truegle — private, unbiased search
                 </div>
               </motion.nav>

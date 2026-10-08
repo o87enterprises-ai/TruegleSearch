@@ -1640,6 +1640,14 @@
         "body": "2026-10-08 censorship audit: media_signals votes never hide platform-wide; broken hides YouTube/Vimeo only when oEmbed confirms gone (400/401/403/404), other kinds need 5+ups reports; brokenKeys re-verifies and unhides (Despacito kJQP7kiw5Fk was falsely hidden). Migration 024 unhid vote-hidden rows. site: operator = that site only (siteOperator.js); empty site: + SafeSearch on shows a hint. Audit: sensitive topics + outlets across spectrum all returned; strict SafeSearch (default) makes engines drop whole sites (4chan) — default is an OWNER decision, not changed.",
         "ts": "2026-10-08",
         "created": "2026-10-08"
+      },
+      "age-gate-nuclear": {
+        "Id": "age-gate-nuclear",
+        "Type": "decision",
+        "Label": "18+ sign-in gate, Safe Search notice, Nuclear Option everywhere",
+        "body": "2026-10-08 owner: Safe Search default stays STRICT. Sign-in opens on AgeGate (18+ checkbox + disclaimer; server requires adult:true on verify-access-code); after code → /settings?welcome=1&next=…#search-storage. Disclaimer says server keeps ONLY the email (truthful; owner's 'no personal info' was inaccurate). SafeSearchNotice 'Safe search on. For 18+ search click here' on adult-term queries or empty site: queries (utils/safeSearchHint.js). NuclearStrip (Nuclear Option*) in SearchPageShell, UniversalSearch, LegalPage, Developers, SignIn, landing footer + Why card + BrandBar menu; '* The Nuclear Option' explained at #nuclear-option on landing. Settings ad personalization/cookie dialog removed; landing footer: Pricing removed, Feeling Biased → Wonderland.",
+        "ts": "2026-10-08",
+        "created": "2026-10-08"
       }
     },
     "thread": {
@@ -2152,7 +2160,7 @@
         "Type": "thread",
         "Label": "Owner: decide Safe Search default (Strict vs Moderate)",
         "body": "Strict (current default, 'safe') makes upstream engines drop whole sites (site:4chan.org → 0). Moderate ('blur') returns them. Google's signed-out default is closer to Moderate/blur. Needs owner decision (minors/legal).",
-        "status": "open",
+        "status": "done",
         "ts": "2026-10-08",
         "created": "2026-10-08"
       }

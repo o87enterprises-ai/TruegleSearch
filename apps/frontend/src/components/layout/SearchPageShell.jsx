@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import TruegleLogo from '../ui/TruegleLogo';
 import SmartPill from '../landing/SmartPill';
 import ErrorBoundary from '../ui/ErrorBoundary';
+import { NuclearStrip } from '../ui/SessionWipe';
 import { LITE_BG, MODE_COLORS } from '../../config/modeTheme';
 
 // '#eab308' -> '234, 179, 8', for the glow below. Every mode's own accent,
@@ -144,6 +145,11 @@ export default function SearchPageShell({
           {searchBar && <div className="max-w-4xl mx-auto mb-6">{searchBar}</div>}
 
           {children}
+
+          {/* The Nuclear Option at the foot of every page (owner, 2026-10-08). */}
+          <footer className="mt-16 mb-6 pt-6 border-t border-white/10">
+            <NuclearStrip />
+          </footer>
         </div>
       </div>
     </div>

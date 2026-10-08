@@ -28,7 +28,7 @@ async function signIn(body) {
     .mockResolvedValueOnce({ rows: [] })                     // premium codes
     .mockResolvedValueOnce({ rows: [{ id: 1, code_hash: hash }] }) // login codes
     .mockResolvedValue({ rows: [] });
-  return request(app).post('/api/auth/verify-access-code').send({ email: 'a@b.co', code: 'abc123', ...body });
+  return request(app).post('/api/auth/verify-access-code').send({ email: 'a@b.co', code: 'abc123', adult: true, ...body });
 }
 
 describe('remember me', () => {

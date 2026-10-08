@@ -129,6 +129,9 @@ import { usePlayer } from '../context/PlayerContext';
 import VideoRow from '../components/search/VideoRow';
 import ResultsPager from '../components/search/ResultsPager';
 import LocalPackCard from '../components/search/LocalPackCard';
+import { NuclearStrip } from '../components/ui/SessionWipe';
+import SafeSearchNotice from '../components/ui/SafeSearchNotice';
+import { safeSearchMayHaveFiltered } from '../utils/safeSearchHint';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
 // (mainstream, conspiracy, democratic, republican, nonpartisan, music, videos,
@@ -2826,11 +2829,26 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
             <div className="lg:col-span-1 space-y-4">
             </div>
           </div>
+          {/* The Nuclear Option at the foot of every page (owner, 2026-10-08). */}
+          <footer className="mt-16 mb-6 pt-6 border-t border-white/10">
+            <NuclearStrip />
+          </footer>
         </div>
       </div>
 
       {/* The follow-up chat now lives inline in the expanded summary card
           (InlineSummaryChat), not in a separate modal overlay. */}
+
+      {/* "Safe search on. For 18+ search click here" — when this search was
+          plainly for adult material, or a site: search came back empty, with
+          Safe Search on (utils/safeSearchHint.js). */}
+      <SafeSearchNotice
+        show={!searchLoading && !searchError && safeSearchMayHaveFiltered({
+          query: lastSearchedQuery, resultCount: searchResults.length, safeSearch: settings.safeSearch,
+        })}
+        signedIn={isAuthenticated}
+        searchKey={lastSearchedQuery}
+      />
 
       {/* REELS. Mounted last so it layers over the whole page, and only while
           open so its search and its embeds cost nothing the rest of the time.

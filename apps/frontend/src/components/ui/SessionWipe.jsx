@@ -4,6 +4,7 @@
  * Part of P1 Core Foundation - Session Wipe Feature
  */
 import { useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, AlertTriangle, CheckCircle, Loader2, X } from 'lucide-react';
 
@@ -125,7 +126,16 @@ async function wipeServerData(token) {
 /**
  * Nuclear Option Button Component
  */
-export function NuclearOptionButton({ onWipeComplete, token, className = '' }) {
+// Medium for page footers and cards, large where it is the point of the
+// section. Owner, 2026-10-08: a "medium to large" button in every footer, so
+// it reads as something that can be pressed at will from any page.
+const SIZES = {
+  sm: 'px-4 py-2 text-sm gap-2',
+  md: 'px-5 py-2.5 text-base gap-2',
+  lg: 'px-7 py-3.5 text-lg gap-2.5',
+};
+
+export function NuclearOptionButton({ onWipeComplete, token, className = '', size = 'sm', asterisk = false }) {
   const [showModal, setShowModal] = useState(false);
   const [isWiping, setIsWiping] = useState(false);
   const [wipeResult, setWipeResult] = useState(null);
@@ -141,7 +151,7 @@ export function NuclearOptionButton({ onWipeComplete, token, className = '' }) {
       // Then wipe server-side data. ALWAYS — signed in or not. See
       // wipeServerData: skipping this for signed-out visitors is what made the
       // success screen a lie for most of the people who saw it.
-      const serverResults = await wipeServerData(token);
+      const serverResults = await wipeServerData(token ?? (() => { try { return localStorage.getItem('truegle_token'); } catch { return null; } })());
 
       // The client legs decide success. A server that is unreachable does not
       // make "your data was cleared from this device" untrue, and the result
@@ -174,9 +184,11 @@ export function NuclearOptionButton({ onWipeComplete, token, className = '' }) {
     <>
       {/* Trigger Button */}
       <button
-        onClick={() => setShowModal(true)}
+        type="button"
+        data-nuclear-option=""
+        onClick={(e) => { e.stopPropagation(); setShowModal(true); }}
         className={`
-          flex items-center gap-2 px-4 py-2
+          inline-flex items-center justify-center ${SIZES[size] || SIZES.sm}
           bg-gradient-to-r from-red-600 to-red-700
           hover:from-red-500 hover:to-red-600
           text-white font-semibold rounded-lg
@@ -186,19 +198,22 @@ export function NuclearOptionButton({ onWipeComplete, token, className = '' }) {
           ${className}
         `}
       >
-        <Trash2 size={18} />
-        <span>Nuclear Option</span>
+        <Trash2 size={size === 'lg' ? 22 : 18} />
+        <span>Nuclear Option{asterisk ? '*' : ''}</span>
       </button>
 
-      {/* Confirmation Modal */}
+      {/* Confirmation Modal — portalled to <body>: the button now lives inside
+          animated landing cards, and a transformed ancestor turns
+          position:fixed into "fixed to the card". */}
+      {typeof document !== 'undefined' && createPortal(
       <AnimatePresence>
         {showModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-            onClick={() => !isWiping && setShowModal(false)}
+            className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={(e) => { e.stopPropagation(); if (!isWiping) setShowModal(false); }}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -328,8 +343,12 @@ export function NuclearOptionButton({ onWipeComplete, token, className = '' }) {
 
                   <button
                     onClick={() => {
+                      const wiped = wipeResult?.success;
                       setShowModal(false);
                       setWipeResult(null);
+                      // What was wiped can still be held in memory by the page
+                      // (sign-in, settings, the player's queue). Start fresh.
+                      if (wiped && !onWipeComplete) window.location.assign('/');
                     }}
                     className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
                   >
@@ -340,8 +359,24 @@ export function NuclearOptionButton({ onWipeComplete, token, className = '' }) {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>,
+      document.body)}
     </>
+  );
+}
+
+/**
+ * The Nuclear Option as it sits at the foot of every page: the button, and a
+ * pointer to what it does (explained at the bottom of the landing page).
+ */
+export function NuclearStrip({ size = 'md', className = '' }) {
+  return (
+    <div data-nuclear-strip="" className={`flex flex-col items-center gap-1.5 ${className}`}>
+      <NuclearOptionButton size={size} asterisk />
+      <a href="/#nuclear-option" className="text-[11px] text-white/40 hover:text-white/70 underline-offset-2 hover:underline">
+        *What this does — wipe everything Truegle has on this device, from any page
+      </a>
+    </div>
   );
 }
 

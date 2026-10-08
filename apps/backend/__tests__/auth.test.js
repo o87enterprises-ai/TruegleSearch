@@ -100,12 +100,21 @@ describe('Auth Routes', () => {
       expect(response.status).toBe(400);
     });
 
+    it('refuses a sign-in that has not confirmed 18+ (the age gate)', async () => {
+      const response = await request(app).post('/api/auth/verify-access-code').send({
+        email: 'test@example.com', code: '123456',
+      });
+      expect(response.status).toBe(400);
+      expect(response.body.error).toMatch(/18 or older/);
+    });
+
     it('should return 401 for an account that does not exist', async () => {
       mockQuery.mockResolvedValueOnce({ rows: [] }); // no user found
 
       const response = await request(app).post('/api/auth/verify-access-code').send({
         email: 'nonexistent@example.com',
         code: '123456',
+        adult: true,
       });
 
       expect(response.status).toBe(401);
@@ -121,6 +130,7 @@ describe('Auth Routes', () => {
       const response = await request(app).post('/api/auth/verify-access-code').send({
         email: 'test@example.com',
         code: '000000',
+        adult: true,
       });
 
       expect(response.status).toBe(401);

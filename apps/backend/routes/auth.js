@@ -381,6 +381,12 @@ router.post('/verify-access-code', async (req, res) => {
     if (!code || (!email && !phone)) {
       return res.status(400).json({ error: 'Email/phone and access code are required' });
     }
+    // 18+ and the terms (the sign-in page's AgeGate), enforced here too: a
+    // signed-in account is what unlocks Safe Search "off" (routes/search.js),
+    // so the confirmation cannot be skipped by calling the API directly.
+    if (req.body.adult !== true) {
+      return res.status(400).json({ error: 'Please confirm you are 18 or older to sign in.' });
+    }
 
     const contact = email
       ? email.trim().toLowerCase()

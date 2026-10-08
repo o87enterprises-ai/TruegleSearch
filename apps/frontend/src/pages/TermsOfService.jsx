@@ -2,7 +2,7 @@ import React from 'react';
 import LegalPage, { LegalSection } from '../components/LegalPage';
 
 const TermsOfService = () => (
-  <LegalPage title="Terms of Service" lastUpdated="August 26, 2026">
+  <LegalPage title="Terms of Service" lastUpdated="October 8, 2026">
     <p>
       Welcome to Truegle Search. By accessing or using <strong>truegle.info</strong> and our
       related services (the "Service"), you agree to these Terms of Service. If you do not
@@ -24,6 +24,19 @@ const TermsOfService = () => (
         You may use Truegle without an account. If you create one, you are responsible for
         keeping your credentials secure and for activity under your account. Provide accurate
         information and notify us of any unauthorized use.
+      </p>
+      <p>
+        <strong>Accounts are for adults (18+).</strong> Signing in requires confirming that you are
+        18 or older and agreeing to the terms shown on the sign-in page.
+      </p>
+    </LegalSection>
+
+    <LegalSection heading="Safe Search">
+      <p>
+        Safe Search is on for everyone by default, to protect children from harmful content.
+        Parental guidance is suggested for parents of minors on the internet. Only a signed-in
+        adult can turn Safe Search off, and <strong>by turning it off you accept all liability</strong>
+        for the content you choose to see.
       </p>
     </LegalSection>
 

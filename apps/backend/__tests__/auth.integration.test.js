@@ -133,7 +133,7 @@ describe('Passwordless auth integration (request-code -> verify-access-code)', (
 
     const response = await request(app)
       .post('/api/auth/verify-access-code')
-      .send({ email: 'roundtrip@example.com', code });
+      .send({ email: 'roundtrip@example.com', code , adult: true });
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
@@ -149,12 +149,12 @@ describe('Passwordless auth integration (request-code -> verify-access-code)', (
 
     const first = await request(app)
       .post('/api/auth/verify-access-code')
-      .send({ email: 'onceonly@example.com', code });
+      .send({ email: 'onceonly@example.com', code , adult: true });
     expect(first.status).toBe(200);
 
     const second = await request(app)
       .post('/api/auth/verify-access-code')
-      .send({ email: 'onceonly@example.com', code });
+      .send({ email: 'onceonly@example.com', code , adult: true });
     expect(second.status).toBe(401);
   });
 
@@ -163,7 +163,7 @@ describe('Passwordless auth integration (request-code -> verify-access-code)', (
 
     const response = await request(app)
       .post('/api/auth/verify-access-code')
-      .send({ email: 'wrongcode@example.com', code: '000000' });
+      .send({ email: 'wrongcode@example.com', code: '000000' , adult: true });
 
     expect(response.status).toBe(401);
   });
@@ -174,7 +174,7 @@ describe('Passwordless auth integration (request-code -> verify-access-code)', (
 
     const first = await request(app)
       .post('/api/auth/verify-access-code')
-      .send({ email: 'durable@example.com', code });
+      .send({ email: 'durable@example.com', code , adult: true });
     expect(first.status).toBe(200);
     expect(first.body.accountCode).toMatch(/^[A-Z2-9]{10}$/); // shown once
 
@@ -183,14 +183,14 @@ describe('Passwordless auth integration (request-code -> verify-access-code)', (
     // Reusable: the same account code signs in again with no emailed code.
     const second = await request(app)
       .post('/api/auth/verify-access-code')
-      .send({ email: 'durable@example.com', code: accountCode });
+      .send({ email: 'durable@example.com', code: accountCode , adult: true });
     expect(second.status).toBe(200);
     expect(second.body.accountCode).toBeNull(); // only revealed the first time
 
     // And again — it's durable, not one-time.
     const third = await request(app)
       .post('/api/auth/verify-access-code')
-      .send({ email: 'durable@example.com', code: accountCode });
+      .send({ email: 'durable@example.com', code: accountCode , adult: true });
     expect(third.status).toBe(200);
   });
 });

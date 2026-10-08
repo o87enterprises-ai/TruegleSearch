@@ -46,6 +46,9 @@ async function ctxWith(validate) {
   const { ctx, sent } = await ctxWith((json) => json(200, { valid: true, user: USER }));
   const page = await ctx.newPage();
   await openApp(page, `${BASE}/auth/login`);
+  await until(() => page.locator('[data-age-agree]').count(), { what: 'the age gate' });
+  await page.locator('[data-age-agree]').check();
+  await page.locator('[data-age-yes]').click();
   const box = page.locator('[data-remember-me]');
   await until(() => box.count(), { what: 'the remember-me box' });
   check(await box.isChecked(), '"Keep me signed in on this device" is on the sign-in form, ticked');
@@ -54,6 +57,7 @@ async function ctxWith(validate) {
   await page.getByRole('button', { name: /^Sign In/ }).click();
   await until(() => sent.length, { what: 'the sign-in request' }).catch(() => {});
   check(sent[0]?.remember === true, 'signing in asks the server to remember', JSON.stringify(sent[0] || {}));
+  await until(async () => (await page.evaluate(() => localStorage.getItem('truegle_token')).catch(() => null)) === 'tok-first', { what: 'the stored sign-in' }).catch(() => {});
   check(await page.evaluate(() => localStorage.getItem('truegle_token')) === 'tok-first', '…and the sign-in is stored on this device');
   await ctx.close();
 }
@@ -61,6 +65,9 @@ async function ctxWith(validate) {
   const { ctx, sent } = await ctxWith((json) => json(200, { valid: true, user: USER }));
   const page = await ctx.newPage();
   await openApp(page, `${BASE}/auth/login`);
+  await until(() => page.locator('[data-age-agree]').count(), { what: 'the age gate' });
+  await page.locator('[data-age-agree]').check();
+  await page.locator('[data-age-yes]').click();
   await until(() => page.locator('[data-remember-me]').count(), { what: 'the box' });
   await page.locator('[data-remember-me]').uncheck();
   await page.locator('input[type="email"]').fill('a@b.co');

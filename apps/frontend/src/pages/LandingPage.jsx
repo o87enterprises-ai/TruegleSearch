@@ -38,6 +38,7 @@ import { SEARCH_SCOPES } from '../utils/playerQuery';
 import { OSINT_TOOLS } from '../components/ui/OSINTToolsPanel';
 import { CATEGORIES as FEED_CATEGORIES } from '../config/feedCategories';
 import { searchPath } from '../utils/modeRoute';
+import { NuclearOptionButton } from '../components/ui/SessionWipe';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -583,7 +584,7 @@ export default function LandingPage() {
                       href="/red?fold=1"
                       className="text-body-medium text-gray-400 hover:text-purple-400 transition-colors"
                     >
-                      Feeling Biased
+                      Wonderland
                     </a>
                   </li>
                   <li>
@@ -592,14 +593,6 @@ export default function LandingPage() {
                       className="text-body-medium text-gray-400 hover:text-purple-400 transition-colors"
                     >
                       OSINT Tools
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="/pricing"
-                      className="text-body-medium text-gray-400 hover:text-purple-400 transition-colors"
-                    >
-                      Pricing
                     </a>
                   </li>
                 </ul>
@@ -673,6 +666,43 @@ export default function LandingPage() {
             <div className="mt-8 text-center">
               <TrailGameLink />
             </div>
+
+            <div className="mt-10 flex justify-center">
+              <NuclearOptionButton size="lg" asterisk />
+            </div>
+
+            {/* THE ASTERISK, explained. Owner, 2026-10-08: the button sits at
+                the foot of every page (and in the ☰ menu) so it can be pressed
+                at will from anywhere; this is what it does. Keep it in step
+                with clearClientStorage / wipeServerData in SessionWipe.jsx. */}
+            <section id="nuclear-option" data-nuclear-explained="" className="mt-10 max-w-2xl mx-auto text-left scroll-mt-24">
+              <h4 className="text-title-small text-red-300 mb-3">* The Nuclear Option</h4>
+              <p className="text-sm text-gray-400 mb-3">
+                The red <strong className="text-gray-200">Nuclear Option</strong> button is at the bottom of
+                every Truegle page and in the ☰ menu, so you can use it at any moment, from anywhere. One
+                press, one confirmation, and Truegle:
+              </p>
+              <ul className="list-disc pl-5 space-y-1.5 text-sm text-gray-400 mb-3">
+                <li>
+                  <strong className="text-gray-200">Erases everything Truegle keeps on this device</strong> — your
+                  sign-in, settings, search history, player queue and saved lists, likes and dislikes, and every
+                  cached page and result (the browser&apos;s local storage, session storage, IndexedDB and
+                  offline cache). Only your theme and language choice are kept.
+                </li>
+                <li>
+                  <strong className="text-gray-200">Asks Truegle&apos;s server to delete the short-lived logs tied
+                  to your connection</strong> — the ones that otherwise expire on their own within 24 hours.
+                </li>
+                <li>
+                  <strong className="text-gray-200">Starts you over</strong> on a fresh home page, as if you had
+                  never been here.
+                </li>
+              </ul>
+              <p className="text-xs text-gray-500">
+                It cannot be undone. It does not close a Truegle account, and it only reaches the device you
+                press it on — press it on each device you use.
+              </p>
+            </section>
           </div>
         </footer>
       </div>
