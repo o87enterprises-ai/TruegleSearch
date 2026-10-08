@@ -1624,6 +1624,14 @@
         "body": "2026-10-06, third 'random skip' report: the 25s silent-embed watchdog now only shows 'Not loading? Skip' (data-embed-silent-skip); only real YouTube error codes 2/100/101/150 auto-skip (5 dropped). TikTok v1 stuck buffering 9s after ready -> card fallback.",
         "ts": "2026-10-06",
         "created": "2026-10-06"
+      },
+      "universal-embed": {
+        "Id": "universal-embed",
+        "Type": "decision",
+        "Label": "Universal embed: any site's offered embed plays",
+        "body": "2026-10-08: /api/media/resolve falls back to services/EmbedDiscovery (oEmbed link > og:video > twitter:player > JSON-LD embedUrl > page/escaped iframe > video file), reading pages via utils/safeFetch (public-IP-only at the socket lookup, manual redirects, size/time caps). Unknown players are kind 'embed', sandbox without popups (OPEN_EMBED_SANDBOX); CSP frame-src allows https:. Not offered for community Post. SearXNG iframe_src rows playable via embedFromIframeSrc.",
+        "ts": "2026-10-08",
+        "created": "2026-10-08"
       }
     },
     "thread": {
@@ -3547,5 +3555,5 @@
       }
     }
   },
-  "updated": "2026-10-06"
+  "updated": "2026-10-08"
 }

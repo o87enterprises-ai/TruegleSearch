@@ -53,7 +53,9 @@ for (const phone of [true, false]) {
   await until(async () => (await boxValue()) === 'duck sauce', { what: 'the player box to hold the search', timeout: 8000 }).catch(() => {});
   const floating = await box.count();
   check(!floating || (await boxValue()) === 'duck sauce', `${tag} after the pick, the player's own search box still holds "duck sauce"`, floating ? `"${await boxValue()}"` : 'player docked to the page bar');
-  const otherQueries = await page.locator('text=/^(?!duck sauce).* result \\d$/').count();
+  // (Not the "Not loading? Skip" offer, which can sit beside the title when
+  // the stubbed embed stays silent — it is not a result row.)
+  const otherQueries = await page.locator('text=/^(?!duck sauce|Not loading).* result \\d$/').count();
   check(otherQueries === 0, `${tag} …and the player shows that search's results, not unrelated ones`, `${otherQueries} foreign rows`);
 
   // A trip away from Tube: the player floats everywhere else.

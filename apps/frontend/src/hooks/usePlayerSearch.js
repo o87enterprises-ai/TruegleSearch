@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { getPlayable, mediaKey } from '../utils/videoEmbed';
+import { getPlayable, mediaKey, embedFromIframeSrc } from '../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../utils/playerLink';
 import { parsePlayerQuery, rankPlayable, isolatePlatform, isShortsScope, toHandle } from '../utils/playerQuery';
 import { withoutBroken, loadBrokenList } from '../utils/broken';
@@ -53,7 +53,7 @@ function asShortSource(row) {
 // for Reddit (!reddit / !r). Pasting a Reddit link still always works: that
 // path never comes through here.
 function toSource(r, allowReddit = false) {
-  const base = getPlayable(r.url) || fromThumbnail(r.image);
+  const base = getPlayable(r.url) || embedFromIframeSrc(r.iframeSrc) || fromThumbnail(r.image);
   if (!base) return null;
   if (base.kind === 'reddit' && !allowReddit) return null;
   return {
@@ -188,9 +188,35 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
           .catch(() => { /* offline or a private track — the plain row still plays */ });
         return;
       }
-      // A real link we simply can't play. Say which host, and say it plainly.
-      setResults([]);
-      setUnsupported(asUrl.hostname.replace(/^www\./, ''));
+      // ANY OTHER SITE: ask the backend to find the embed the page offers
+      // (oEmbed, og:video, a player card, an embed code on the page — see
+      // EmbedDiscovery.js). Owner, 2026-10-08: "If there's a free embed code
+      // listed on a site I want Truegle to be able to play it, period." Only
+      // when there is none does it say so — naming the host, plainly.
+      const host = asUrl.hostname.replace(/^www\./, '');
+      setResults(null);
+      setUnsupported('');
+      setLoading(true);
+      const controller = new AbortController();
+      abortRef.current = controller;
+      fetch(`${BACKEND}/api/media/resolve?url=${encodeURIComponent(q)}`, { signal: controller.signal })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (controller.signal.aborted) return;
+          const m = d && d.media;
+          setLoading(false);
+          if (!m || !m.src) { setResults([]); setUnsupported(host); return; }
+          setResults([{
+            kind: m.kind, src: m.src, ...(m.vertical ? { vertical: true } : {}),
+            title: m.title || host, pageUrl: q, poster: m.poster || null, channel: m.channel || host,
+          }]);
+        })
+        .catch(() => {
+          if (controller.signal.aborted) return;
+          setLoading(false);
+          setResults([]);
+          setUnsupported(host);
+        });
       return;
     }
     setUnsupported('');

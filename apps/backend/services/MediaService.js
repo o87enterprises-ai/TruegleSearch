@@ -18,6 +18,13 @@
  * apps/frontend/src/utils/videoEmbed.js — keep the two in step.
  */
 const { expandShortLink } = require('./ShortLinkService');
+const { discoverEmbed } = require('./EmbedDiscovery');
+
+// Discovered embeds, briefly remembered: the same pasted page should not be
+// read again for every person who pastes it. Small and in-process.
+const DISCOVERED = new Map();
+const DISCOVERED_TTL_MS = 60 * 60 * 1000;
+const DISCOVERED_MAX = 500;
 const { query } = require('../db/connection');
 const logger = require('../utils/logger');
 // A stranger supplies no text, so the title has to come from the platform.
@@ -562,9 +569,17 @@ const MediaService = {
     if (!url) throw new MediaError('INVALID', 'No link was provided.');
     // Share links (vm.tiktok.com/…) → the video they point at, tracking dropped.
     url = (await expandShortLink(url)) || url;
-    // Classify first: this refuses anything we would not play anyway, so the
-    // endpoint can never be used to make our server fetch arbitrary hosts.
-    const { kind, platform, canonical, src, vertical } = classifyMedia(url);
+    // A known platform first. Anything else: read the page for the embed it
+    // offers (services/EmbedDiscovery.js, through utils/safeFetch, which only
+    // ever reaches the public internet).
+    let known;
+    try {
+      known = classifyMedia(url);
+    } catch (err) {
+      if (!(err instanceof MediaError) || err.code !== 'UNSUPPORTED') throw err;
+      return this.discover(url);
+    }
+    const { kind, platform, canonical, src, vertical } = known;
 
     const ENDPOINTS = {
       soundcloud: 'https://soundcloud.com/oembed?format=json&url=',
@@ -613,6 +628,43 @@ const MediaService = {
       poster: meta.thumbnail || deriveThumbnail(kind, canonical),
       ...(vertical ? { vertical: true } : {}),
     };
+  },
+
+  /** The embed a page on any other site offers — or UNSUPPORTED if none. */
+  async discover(url) {
+    const hit = DISCOVERED.get(url);
+    if (hit && Date.now() - hit.at < DISCOVERED_TTL_MS) {
+      if (!hit.media) throw new MediaError('UNSUPPORTED', 'No playable video or audio was found on that page.');
+      return hit.media;
+    }
+    const classify = (target) => {
+      try {
+        const k = classifyMedia(target);
+        return { kind: k.kind, platform: k.platform, canonical: k.canonical, src: k.src, ...(k.vertical ? { vertical: true } : {}) };
+      } catch { return null; }
+    };
+    let found = null;
+    try {
+      found = await discoverEmbed(url, { classify });
+    } catch (err) {
+      logger.warn('embed discovery failed', { error: err && err.message });
+    }
+    const media = found ? {
+      kind: found.kind,
+      platform: found.platform || null,
+      canonical: found.canonical || null,
+      src: found.src,
+      pageUrl: url,
+      title: found.title || null,
+      channel: found.platform || null,
+      poster: found.poster || null,
+      via: found.via || null,
+      ...(found.vertical ? { vertical: true } : {}),
+    } : null;
+    if (DISCOVERED.size >= DISCOVERED_MAX) DISCOVERED.delete(DISCOVERED.keys().next().value);
+    DISCOVERED.set(url, { at: Date.now(), media });
+    if (!media) throw new MediaError('UNSUPPORTED', 'No playable video or audio was found on that page.');
+    return media;
   },
 
   /** Best-effort play counter; never fails a playback because of a write. */

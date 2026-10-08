@@ -38,6 +38,7 @@
     "tubephone:test": "node scripts/verify-tube-phone.mjs",
     "tiktok:test": "node scripts/verify-tiktok-control.mjs",
     "rememberme:test": "node scripts/verify-remember-me.mjs",
+    "openembed:test": "node scripts/verify-open-embed.mjs",
     "maptransit:test": "node scripts/verify-map-transit.mjs",
     "maprail:test": "node scripts/verify-map-rail.mjs",
     "searchhistory:test": "node scripts/verify-search-history.mjs",

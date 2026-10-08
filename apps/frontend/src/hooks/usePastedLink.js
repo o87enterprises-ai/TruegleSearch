@@ -9,7 +9,13 @@ import { getPlayable } from '../utils/videoEmbed';
 // sent to the backend (/api/media/resolve), which follows the redirect on
 // TikTok's own hosts and hands back the canonical video — tracking stripped.
 // Ordinary links are read locally, with no request.
+//
+// And ANY OTHER http(s) link is sent the same way: the backend reads the page
+// for the embed it offers (EmbedDiscovery.js). Owner, 2026-10-08: "If there's a
+// free embed code listed on a site I want Truegle to be able to play it,
+// period."
 
+const ANY_LINK = /^https?:\/\/[^\s/$.?#][^\s]*$/i;
 const SHARE_LINK = /^https?:\/\/(?:(?:vm|vt)\.tiktok\.com\/[\w-]+\/?|(?:www\.|m\.)?tiktok\.com\/t\/[\w-]+\/?)(?:[?#].*)?$/i;
 export const isShareLink = (text) => SHARE_LINK.test(String(text || '').trim());
 
@@ -21,7 +27,7 @@ export const isShareLink = (text) => SHARE_LINK.test(String(text || '').trim());
 export function usePastedLink(text) {
   const trimmed = String(text || '').trim();
   const direct = getPlayable(trimmed);
-  const share = !direct && isShareLink(trimmed);
+  const share = !direct && (isShareLink(trimmed) || ANY_LINK.test(trimmed));
   const [resolved, setResolved] = useState({ for: '', source: null, failed: false });
 
   useEffect(() => {
@@ -34,7 +40,7 @@ export function usePastedLink(text) {
         if (!live) return;
         setResolved({
           for: trimmed,
-          source: m?.src ? { kind: m.kind, src: m.src, vertical: !!m.vertical, title: m.title || null, pageUrl: m.pageUrl || trimmed } : null,
+          source: m?.src ? { kind: m.kind, src: m.src, vertical: !!m.vertical, title: m.title || null, channel: m.channel || null, poster: m.poster || null, pageUrl: m.pageUrl || trimmed } : null,
           failed: !m?.src,
         });
       })

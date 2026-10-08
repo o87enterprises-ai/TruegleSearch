@@ -348,6 +348,24 @@ export function getPlayable(url) {
   return null;
 }
 
+/**
+ * A player address a SEARCH ENGINE already handed us (SearXNG's iframe_src on
+ * video results) → a source. A known platform keeps its own kind (and its
+ * controls); anything else is that site's own player, kind 'embed', played in
+ * the stricter sandbox (playerSandbox.js). https only — a secure page cannot
+ * frame http.
+ */
+export function embedFromIframeSrc(src) {
+  if (!src) return null;
+  try {
+    const u = new URL(src);
+    if (u.protocol !== 'https:') return null;
+    return getPlayable(src) || { kind: 'embed', src: u.toString() };
+  } catch {
+    return null;
+  }
+}
+
 // TikTok's controllable embed player — see TIKTOK_ORIGIN in useEmbedPlayback.
 // autoplay: the person already pressed play to get here. rel=0: no "more
 // videos" wall at the end (the queue decides what is next). The rest of

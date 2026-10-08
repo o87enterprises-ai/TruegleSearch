@@ -12,4 +12,13 @@
 export const PLAYER_SANDBOX =
   'allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox';
 
+// ANY OTHER SITE'S PLAYER (kind 'embed' — found by the backend's
+// EmbedDiscovery, owner 2026-10-08: "if there's a free embed code listed on a
+// site I want Truegle to be able to play it, period"). A site we know nothing
+// about gets less: no popups at all, which is how pop-under ads and "you won a
+// prize" windows open. It can still play, go full screen and keep its storage.
+export const OPEN_EMBED_SANDBOX = 'allow-scripts allow-same-origin allow-presentation';
+
+export const sandboxFor = (kind) => (kind === 'embed' ? OPEN_EMBED_SANDBOX : PLAYER_SANDBOX);
+
 export default PLAYER_SANDBOX;

@@ -3,7 +3,7 @@ import { Music } from 'lucide-react';
 import TruegleWatermark from '../ui/TruegleWatermark';
 import PlayerStarters from './PlayerStarters';
 import PlayerBrowse from './PlayerBrowse';
-import { PLAYER_SANDBOX } from './playerSandbox';
+import { PLAYER_SANDBOX, sandboxFor } from './playerSandbox';
 import { upgradeTikTokSrc, tiktokCardSrc } from '../../utils/videoEmbed';
 
 export { PLAYER_SANDBOX };
@@ -75,7 +75,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // player is not properly firing", and it was not the iframe: there was no
   // iframe. ADD THE KIND HERE IN THE SAME COMMIT AS THE getPlayable() RULE.
   const isVideoIframe = ['youtube', 'vimeo', 'tiktok', 'dailymotion', 'rumble', 'odysee', 'reddit',
-    'twitter', 'truthsocial'].includes(kind);
+    'twitter', 'truthsocial', 'embed'].includes(kind);
   // Post embeds are CARDS, not video players — a tweet or a Truth is text,
   // sized to its own content, with no controls to reach. Same reasoning as
   // the TikTok note below: err tall and lose a band of background rather
@@ -215,7 +215,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
             onLoad={(e) => { e.currentTarget.dataset.loaded = '1'; }}
             className="absolute inset-0 w-full h-full"
             title={title || 'Video player'}
-            sandbox={PLAYER_SANDBOX}
+            sandbox={sandboxFor(kind)}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />

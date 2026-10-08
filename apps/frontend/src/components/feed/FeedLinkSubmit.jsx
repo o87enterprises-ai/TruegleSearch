@@ -42,13 +42,19 @@ export default function FeedLinkSubmit({ url, onPosted }) {
   if (failed) {
     return (
       <div data-feed-submit="unresolved" className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-yellow-500/25 text-xs text-white/70">
-        <AlertCircle size={14} className="text-amber-300" /> That share link didn’t lead to a video Truegle can play.
+        <AlertCircle size={14} className="text-amber-300" /> No video or audio Truegle can play was found at that link.
       </div>
     );
   }
   // Not a link, or not one the player can host: this component is simply not
   // here, and the bar is a search bar again.
   if (!playable) return null;
+  // Another site's own player (found by the backend's embed discovery) plays
+  // for whoever pasted it, but is not offered for posting: a post puts that
+  // frame in front of EVERY visitor, and the feed only carries players from
+  // platforms Truegle knows.
+  const open = playable.kind === 'embed';
+  const from = open ? (playable.channel || 'that site') : playable.kind;
 
   // JUST PLAY IT. A pasted link used to offer only "Post" — sharing it with
   // everyone — when what you usually want is to watch it (owner, 2026-10-06:
@@ -105,9 +111,9 @@ export default function FeedLinkSubmit({ url, onPosted }) {
       <span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="text-xs text-white/80 truncate">
-          {state === 'error' ? message : `${playable.kind} link — play it, or post it to the feed`}
+          {state === 'error' ? message : open ? `Video from ${from} — play it here` : `${playable.kind} link — play it, or post it to the feed`}
         </p>
-        {state !== 'error' && (
+        {state !== 'error' && !open && (
           // Said before the button is pressed, not after. Anonymous is the
           // default here and somebody should know that before they act, not
           // discover it afterwards.
@@ -124,7 +130,7 @@ export default function FeedLinkSubmit({ url, onPosted }) {
       >
         <Play size={13} /> Play
       </button>
-      <button
+      {!open && <button
         type="button"
         data-feed-submit-go
         onClick={send}
@@ -137,7 +143,7 @@ export default function FeedLinkSubmit({ url, onPosted }) {
             ? <AlertCircle size={13} />
             : <Send size={13} />}
         {state === 'sending' ? 'Posting' : state === 'error' ? 'Retry' : 'Post'}
-      </button>
+      </button>}
     </div>
   );
 }

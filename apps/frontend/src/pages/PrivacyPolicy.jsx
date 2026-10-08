@@ -92,8 +92,9 @@ const PrivacyPolicy = () => (
       <p>
         When you play something in the Truegle player, Reels, or Tube, the media is delivered
         to your browser <strong>directly by the platform that hosts it</strong> — YouTube,
-        Vimeo, TikTok, X, Rumble, Odysee, Dailymotion, Reddit or SoundCloud. Truegle does not
-        relay the stream. This means that platform{' '}
+        Vimeo, TikTok, X, Rumble, Odysee, Dailymotion, Reddit or SoundCloud — or{' '}
+        <strong>any other site whose own embed you choose to play</strong> (a link you paste,
+        or a search result that offers one). Truegle does not relay the stream. This means that platform{' '}
         <strong>sees your IP address and can log the request</strong>, exactly as it would if
         you opened the video on its own site. We would rather say so plainly than let the
         surrounding page imply otherwise.
@@ -112,6 +113,13 @@ const PrivacyPolicy = () => (
         <li>
           Every embed is <strong>sandboxed</strong>: it cannot navigate your tab away, and it
           cannot reach Truegle's storage.
+        </li>
+        <li>
+          A link from a site Truegle does not know is <strong>read by Truegle's server</strong>,
+          not your browser, to find the embed it offers — so that site sees our server at that
+          step, not you. Nothing about you is sent with it. Only pressing play loads the site's
+          player in your browser, and a site we do not know gets a <strong>stricter
+          sandbox</strong>: it cannot open popups or new windows at all.
         </li>
         <li>Do Not Track is signalled to platforms that honour it.</li>
       </ul>
