@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { authHeader } from '../utils/authHeader';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -42,6 +43,7 @@ export function useSearch() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...authHeader(),
         },
         body: JSON.stringify({
           query,

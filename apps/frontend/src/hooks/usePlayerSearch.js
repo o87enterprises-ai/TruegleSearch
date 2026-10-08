@@ -5,6 +5,7 @@ import { parsePlayerQuery, rankPlayable, isolatePlatform, isShortsScope, toHandl
 import { withoutBroken, loadBrokenList } from '../utils/broken';
 import { isPlaylistUrl } from '../utils/playlistImport';
 import { isShortForm, asReel } from '../utils/shortForm';
+import { authHeader, storedSafeSearch } from '../utils/authHeader';
 
 // A video result whose URL we can't classify is sometimes still a YouTube
 // video — the search backend hands back a watch page on a host we don't
@@ -253,8 +254,8 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
     const steps = [];
     const once = (category, query, page = 1) => fetch(`${BACKEND}/api/search`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, filters: { category, bias: 'all', dateRange: 'any', perPage: 20, page } }),
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
+      body: JSON.stringify({ query, filters: { category, bias: 'all', dateRange: 'any', perPage: 20, page, safeSearch: storedSafeSearch() } }),
       signal: controller.signal,
     })
       .then((r) => r.json())
@@ -506,10 +507,10 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
     const nextPage = pageRef.current + 1;
     fetch(`${BACKEND}/api/search`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeader() },
       body: JSON.stringify({
         query: won.query,
-        filters: { category: won.category, bias: 'all', dateRange: 'any', perPage: 20, page: nextPage },
+        filters: { category: won.category, bias: 'all', dateRange: 'any', perPage: 20, page: nextPage, safeSearch: storedSafeSearch() },
       }),
       signal: controller.signal,
     })

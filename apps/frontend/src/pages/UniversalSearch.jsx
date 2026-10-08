@@ -132,6 +132,8 @@ import LocalPackCard from '../components/search/LocalPackCard';
 import { NuclearStrip } from '../components/ui/SessionWipe';
 import SafeSearchNotice from '../components/ui/SafeSearchNotice';
 import { safeSearchMayHaveFiltered } from '../utils/safeSearchHint';
+import { authHeader } from '../utils/authHeader';
+import SafeSearchToggle from '../components/ui/SafeSearchToggle';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
 // (mainstream, conspiracy, democratic, republican, nonpartisan, music, videos,
@@ -1049,7 +1051,9 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
         `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/search`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          // The sign-in goes with it, or the server treats every search as
+          // signed out and Safe Search "off" never applies (utils/authHeader).
+          headers: { 'Content-Type': 'application/json', ...authHeader() },
           body: JSON.stringify({
             query: effectiveQuery,
             mode: backendMode,
@@ -1866,7 +1870,8 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
             {/* Tube ⇄ Reels, one tap apart — two distinct feeds, the same
                 switch that sits on the Reels top bar. */}
             {mode === 'tube' && (
-              <div className="flex justify-end mb-1.5 px-1">
+              <div className="flex justify-end items-center gap-2 mb-1.5 px-1">
+                <SafeSearchToggle />
                 <TubeReelsToggle active="tube" onReels={() => selectCategory('reels')} />
               </div>
             )}

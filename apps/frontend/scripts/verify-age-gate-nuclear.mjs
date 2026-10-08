@@ -146,6 +146,65 @@ const ROW = { url: 'https://example.com/a', title: 'A', snippet: 's', domain: 'e
   check(essex.shown === 0, '…nor a word that merely contains one ("essex")');
 }
 
+// ── searches carry the sign-in, so Safe Search "off" actually applies ──────
+{
+  const { c, page } = await ctx({ signedIn: true, results: [ROW] });
+  await c.addInitScript("localStorage.setItem('truegle_settings', JSON.stringify({ safeSearch: 'off' }))");
+  const seen = [];
+  page.on('request', (r) => { if (r.url().includes('/api/search')) seen.push({ auth: r.headers().authorization, body: r.postData() }); });
+  await openApp(page, `${BASE}/search?q=${encodeURIComponent('anything')}`);
+  await until(() => seen.length, { what: 'the search request' }).catch(() => {});
+  check(seen[0]?.auth === 'Bearer tok', 'a signed-in search sends the sign-in with it (it used to go out anonymous)', String(seen[0]?.auth));
+  check(/"safeSearch":"off"/.test(seen[0]?.body || ''), '…with the Safe Search choice', (/"safeSearch":"[a-z]+"/.exec(seen[0]?.body || '') || [''])[0]);
+  await c.close();
+}
+
+// ── the account code is remembered on this device ───────────────────────────
+{
+  const { c, page } = await ctx();
+  await c.route('**/api/auth/verify-access-code', (r) => r.fulfill({ status: 200, contentType: 'application/json',
+    body: JSON.stringify({ success: true, token: 'tok', user: USER, accountCode: null, codeKind: 'account' }) }));
+  await openApp(page, `${BASE}/auth/login`);
+  await page.locator('[data-age-agree]').check();
+  await page.locator('[data-age-yes]').click();
+  await page.locator('input[type="email"]').fill('a@b.co');
+  await page.locator('input[placeholder="Your code"]').fill('TRU-ABCD');
+  await page.getByRole('button', { name: /^Sign In/ }).click();
+  await until(() => /\/settings/.test(page.url()), { what: 'settings' }).catch(() => {});
+  const saved = await page.evaluate(() => localStorage.getItem('truegle_saved_codes'));
+  check(/a@b\.co/.test(saved || '') && /TRU-ABCD/.test(saved || ''), 'signing in with the account code keeps it on this device', saved);
+  // a later visit: type the email, the code fills itself in
+  await page.evaluate(() => { localStorage.removeItem('truegle_token'); localStorage.removeItem('truegle_user'); });
+  await openApp(page, `${BASE}/auth/login`);
+  await page.locator('[data-age-agree]').check();
+  await page.locator('[data-age-yes]').click();
+  await page.locator('input[type="email"]').fill('A@B.co');
+  const filled = await page.locator('input[placeholder="Your code"]').inputValue();
+  check(filled === 'TRU-ABCD', 'typing that email again fills the code in — no new email needed', filled);
+  await c.close();
+}
+
+// ── a Safe Search control on Tube and Feed ──────────────────────────────────
+for (const path of ['/tube', '/feed']) {
+  const { c, page } = await ctx({ signedIn: true });
+  const feedBodies = [];
+  page.on('request', (r) => { if (r.url().includes('/api/social/feed')) feedBodies.push(r.postData() || ''); });
+  await openApp(page, `${BASE}${path}`);
+  const t = page.locator('[data-safesearch-toggle]').first();
+  await until(() => t.count(), { what: `toggle on ${path}`, timeout: 10000 }).catch(() => {});
+  check(await t.count() === 1, `${path} has a Safe Search control`);
+  const before = await t.getAttribute('data-safesearch-toggle').catch(() => null);
+  await t.click().catch(() => {});
+  await t.click().catch(() => {});
+  const after = await page.locator('[data-safesearch-toggle]').first().getAttribute('data-safesearch-toggle').catch(() => null);
+  check(before === 'safe' && after === 'off', `${path}: a signed-in adult can turn it Safe → Blur → Off`, `${before} → ${after}`);
+  if (path === '/feed') {
+    await page.waitForTimeout(800);
+    check(feedBodies.some((b) => /"safeSearch":"off"/.test(b)), '…and the Feed asks again with Safe Search off');
+  }
+  await c.close();
+}
+
 console.log([...ok, ...bad].join('\n'));
 console.log(`\n${ok.length} passed, ${bad.length} failed`);
 await browser.close();

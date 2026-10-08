@@ -6,6 +6,7 @@ import { retentionScore, watchedChannels } from '../utils/retention';
 import { hasSeen, markSeen, markAllSeen, recentSeen } from '../utils/seen';
 import { scoreCandidates, draw, dedupeScored, poolFor, POOL } from '../utils/feedDraw';
 import { shouldExplore, exploreOffset, exploreSeed, EXPLORE_RATE } from '../utils/explore';
+import { authHeader, storedSafeSearch } from '../utils/authHeader';
 
 // What plays next, and what fills an empty player.
 //
@@ -166,8 +167,8 @@ export function useUpNext() {
       if (!seed) return [];
       const d = await json(`${BACKEND}/api/search`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: seed, filters: { category: 'videos', perPage: wide ? 32 : 16 } }),
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
+        body: JSON.stringify({ query: seed, filters: { category: 'videos', perPage: wide ? 32 : 16, safeSearch: storedSafeSearch() } }),
       });
       return (d?.results || []).map(toSource).filter(Boolean).map((s) => ({ s, boost: 0 }));
     };

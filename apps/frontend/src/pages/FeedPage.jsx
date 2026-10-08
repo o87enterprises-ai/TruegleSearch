@@ -19,6 +19,7 @@ import { useFeedFocus } from '../hooks/useFeedFocus';
 import { useFeedCursor } from '../hooks/useFeedCursor';
 import { usePlayer } from '../context/PlayerContext';
 import { parseSocialQuery } from '../utils/queryIntent';
+import SafeSearchToggle from '../components/ui/SafeSearchToggle';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -270,7 +271,8 @@ export default function FeedPage() {
           between them any more, see the header note. */}
       <div className="max-w-4xl mx-auto mb-4 flex flex-wrap items-center justify-between gap-2">
         <FeedModeSelector active="feed" />
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <SafeSearchToggle />
           {/* HOME / BROWSE. Home is the randomized timeline; Browse is the
               category rows. An opened category counts as Browse, because that
               is where its Back button returns to. */}

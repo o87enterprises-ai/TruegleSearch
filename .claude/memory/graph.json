@@ -2163,6 +2163,15 @@
         "status": "done",
         "ts": "2026-10-08",
         "created": "2026-10-08"
+      },
+      "csp-dropped": {
+        "Id": "csp-dropped",
+        "Type": "thread",
+        "Label": "Live site sends NO Content-Security-Policy",
+        "body": "2026-10-08: curl -sI truegle.info shows no CSP though public/_headers defines one under /*; likely Cloudflare Pages' 2000-char header value limit. Shorten (frame-src/child-src have https:, per-host entries redundant) or set from functions/_middleware.js. Don't break embeds/maps/analytics.",
+        "status": "open",
+        "ts": "2026-10-08",
+        "created": "2026-10-08"
       }
     },
     "entity": {
@@ -3551,6 +3560,14 @@
         "body": "Unmuted autoplay of TikTok player/v1 can be refused by the browser (black frame). useEmbedPlayback sets tiktokNeedsTap if no onStateChange 1 within 2.5s of play; TrueglePlayer then removes its tap layer/swipe sheet and shows 'Tap the video to start it'. Tested in tiktok:test (28).",
         "ts": "2026-10-06",
         "created": "2026-10-06"
+      },
+      "safesearch-signin-rootcause": {
+        "Id": "safesearch-signin-rootcause",
+        "Type": "fact",
+        "Label": "Safe Search off never applied (fixed 2026-10-08)",
+        "body": "Search fetches (UniversalSearch, usePlayerSearch, useUpNext, useSearch, useSocialFeed) sent no Authorization, so routes/search.js downgraded 'off' to 'safe' for everyone; use utils/authHeader.js. Settings now load synchronously (child effects searched before saved settings loaded). middleware/auth.js verifies with config.jwtSecret (trimmed) — it used raw process.env.JWT_SECRET while routes/auth signs with the trimmed one. Feed: posts carry nsfw (reddit over_18, mastodon sensitive, lemmy nsfw, bluesky labels), filtered unless safeSearch off + signed in. Red mode topic-word expansion ('whistleblower') removed — caused one FB article atop every 18+ query.",
+        "ts": "2026-10-08",
+        "created": "2026-10-08"
       }
     }
   },

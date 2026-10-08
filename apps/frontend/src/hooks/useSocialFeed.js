@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSettings } from '../context/SettingsContext';
+import { authHeader } from '../utils/authHeader';
 import { roundRobin } from '../utils/roundRobin';
 import { hasSeenPost, markPostsSeen, forgetPostsSeen } from '../utils/feedSeen';
 
@@ -67,7 +69,11 @@ export function useSocialFeed({
   // makes this file read as binary to grep and every other line-based
   // tool, and is one careless formatter away from being silently
   // stripped — at which point two different feeds would share a cache key.
-  const key = `${query}\0${[...platforms].sort().join(',')}`;
+  // Safe Search is part of WHICH feed this is: changing it reloads the feed
+  // (adult posts in or out — see SAFE SEARCH IN THE FEED in routes/social.js).
+  const { settings } = useSettings();
+  const safeSearch = settings?.safeSearch || 'safe';
+  const key = `${query}\0${[...platforms].sort().join(',')}\0${safeSearch}`;
   const activeKey = useRef(key);
 
   const fetchPage = useCallback(async (first) => {
@@ -91,9 +97,10 @@ export function useSocialFeed({
     try {
       const res = await fetch(`${BACKEND}/api/social/feed`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
         signal: controller.signal,
         body: JSON.stringify({
+          safeSearch,
           // An empty query is the home feed, not an error — the server sends
           // it to each platform's popular listing instead of its search.
           query,
@@ -219,7 +226,7 @@ export function useSocialFeed({
       clearTimeout(timer);
       if (forKey === activeKey.current) { setLoading(false); inFlight.current = false; }
     }
-  }, [enabled, query, platforms.join(','), done, interleave, rememberSeen]);
+  }, [enabled, query, platforms.join(','), done, interleave, rememberSeen, safeSearch]);
 
   // A new query or a changed provider set is a NEW feed, not more of the old
   // one: reset the cursors and the dedupe ledger before asking.

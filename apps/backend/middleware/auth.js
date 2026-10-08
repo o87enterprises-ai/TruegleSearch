@@ -1,6 +1,16 @@
 const jwt = require('jsonwebtoken');
 const logger = require('../utils/logger');
 const tokenDenylist = require('../services/tokenDenylist');
+const config = require('../config/env');
+
+// THE SAME SECRET THE TOKENS ARE SIGNED WITH. routes/auth.js signs with
+// config.jwtSecret, which is TRIMMED (config/env.js); this used to verify
+// with the raw process.env.JWT_SECRET. A secret saved with a trailing newline
+// then signs one way and verifies another: every sign-in "worked" and was
+// rejected a moment later — searches treated as signed out (Safe Search stuck
+// on), and the 401 wiped the sign-in (owner, 2026-10-08: "relogin is
+// necessary"). One source for both.
+const jwtSecret = () => config.jwtSecret;
 
 /**
  * Authentication middleware
@@ -29,14 +39,14 @@ const authenticate = (req, res, next) => {
     }
 
     // Verify token - JWT_SECRET is required, no fallback allowed
-    if (!process.env.JWT_SECRET) {
+    if (!jwtSecret()) {
       logger.error('CRITICAL: JWT_SECRET environment variable is not set');
       return res.status(500).json({
         error: 'Server configuration error',
         message: 'Authentication service is not properly configured',
       });
     }
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, jwtSecret());
 
     // Add user info to request
     req.user = {
@@ -85,14 +95,14 @@ const optionalAuth = (req, res, next) => {
     if (
       authHeader &&
       authHeader.startsWith('Bearer ') &&
-      process.env.JWT_SECRET
+      jwtSecret()
     ) {
       const token = authHeader.substring(7);
       if (tokenDenylist.isRevoked(token)) {
         req.user = { isAuthenticated: false, role: 'guest' };
         return next();
       }
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = jwt.verify(token, jwtSecret());
 
       req.user = {
         userId: decoded.userId,

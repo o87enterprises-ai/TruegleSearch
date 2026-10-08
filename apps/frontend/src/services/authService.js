@@ -50,6 +50,7 @@ class AuthService {
           user: response.data.user,
           token: response.data.token,
           accountCode: response.data.accountCode || null, // revealed once, first sign-in
+          codeKind: response.data.codeKind || null,
         };
       }
 

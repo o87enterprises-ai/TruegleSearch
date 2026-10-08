@@ -11,6 +11,7 @@ import NeonButton from '../components/ui/NeonButton';
 import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import AccountCodeModal from '../components/ui/AccountCodeModal';
 import AgeGate from '../components/auth/AgeGate';
+import { savedCodeFor, saveCode, forgetCode } from '../utils/savedAccountCode';
 import authService from '../services/authService';
 import { useToast } from '../components/ui/ToastProvider';
 
@@ -102,6 +103,15 @@ export default function SignInPage() {
       if (!result.success) {
         setCodeError(result.error);
         return;
+      }
+
+      // Keep the durable code on this device when it is known — typed in, or
+      // revealed below — and only if they chose to stay signed in.
+      const contactEmail = codeContactType === 'email' ? codeContact.trim() : null;
+      if (contactEmail) {
+        if (!remember) forgetCode(contactEmail);
+        else if (result.codeKind === 'account') saveCode(contactEmail, accessCode.trim());
+        else if (result.accountCode) saveCode(contactEmail, result.accountCode);
       }
 
       toast.success('Welcome!', 'Signed in.', { pageTheme: 'landing' });
@@ -258,7 +268,17 @@ export default function SignInPage() {
             <input
               type={codeContactType === 'email' ? 'email' : 'tel'}
               value={codeContact}
-              onChange={(e) => { setCodeContact(e.target.value); setCodeSentNote(''); }}
+              onChange={(e) => {
+                const v = e.target.value;
+                setCodeContact(v);
+                setCodeSentNote('');
+                // A code this device kept for that email: fill it in, so no
+                // new email has to be sent (utils/savedAccountCode.js).
+                const saved = codeContactType === 'email' ? savedCodeFor(v) : null;
+                if (saved) { setAccessCode(saved); setCodeSentNote('Your saved account code was filled in — just press Sign In.'); }
+              }}
+              name="email"
+              autoComplete="username"
               placeholder={codeContactType === 'email' ? 'your@email.com' : '+1 (555) 000-0000'}
               className="w-full px-4 py-2.5 bg-black/30 border border-gray-700 text-white placeholder-gray-500 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all text-sm"
             />

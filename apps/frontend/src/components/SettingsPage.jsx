@@ -12,6 +12,7 @@ import AccountCodeModal from './ui/AccountCodeModal';
 import authService from '../services/authService';
 import { formatMicros } from '../utils/rewardsFormat';
 import { clearHistory } from '../utils/searchHistory';
+import { saveCode } from '../utils/savedAccountCode';
 
 const { FiSettings, FiShield, FiEye, FiDollarSign, FiGlobe, FiLock, FiClock, FiTrash2, FiKey } =
   FiIcons;
@@ -19,7 +20,7 @@ const { FiSettings, FiShield, FiEye, FiDollarSign, FiGlobe, FiLock, FiClock, FiT
 const SettingsPage = () => {
   const { settings, updateSetting, canDisableSafeSearch } = useSettings();
   const { optedIn: rewardsOptedIn, balanceMicros: rewardsBalanceMicros } = useRewards();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [historyCleared, setHistoryCleared] = useState(false);
   const [acctCode, setAcctCode] = useState(null);
   const [regenerating, setRegenerating] = useState(false);
@@ -43,7 +44,14 @@ const SettingsPage = () => {
     setRegenerating(true);
     const res = await authService.regenerateAccountCode(localStorage.getItem('truegle_token'));
     setRegenerating(false);
-    if (res.success) setAcctCode(res.accountCode);
+    if (res.success) {
+      setAcctCode(res.accountCode);
+      // The old code no longer works, so the copy this device kept (for
+      // filling in at sign-in) is replaced too — if they chose to stay signed in.
+      let remembered = true;
+      try { remembered = localStorage.getItem('truegle_remember_me') !== 'false'; } catch { /* default */ }
+      if (remembered && user?.email) saveCode(user.email, res.accountCode);
+    }
   };
 
   const handleClearHistory = () => {

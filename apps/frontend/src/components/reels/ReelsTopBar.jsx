@@ -1,5 +1,6 @@
 import { ArrowLeft, Search, Shuffle, Loader2 } from 'lucide-react';
 import TubeReelsToggle from './TubeReelsToggle';
+import SafeSearchToggle from '../ui/SafeSearchToggle';
 
 // The bar over both reel views: back to where you came from, a search that
 // fills the reels feed, Shuffle for a fresh draw from your likes, and the
@@ -51,6 +52,7 @@ export default function ReelsTopBar({
       >
         <Shuffle size={16} />
       </button>
+      <SafeSearchToggle compact />
       <TubeReelsToggle active="reels" onTube={onTube} />
     </div>
   );

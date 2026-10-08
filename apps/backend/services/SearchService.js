@@ -328,17 +328,21 @@ class SearchService {
                 `${query} site:substack.com OR site:rumble.com OR site:odysee.com OR site:zerohedge.com OR site:rt.com OR site:corbettreport.com`,
                 { ...filters, perPage: 10 }
               ));
+              // A SECOND SET OF OUTLETS — not topic words. This used to append
+              // "censored suppressed alternative independent whistleblower" to
+              // every search, which pulled in pages that merely CONTAIN those
+              // words: one article ("Hitman, whistleblower, nude photos: all of
+              // Facebook's problems") topped every 18+ search (owner,
+              // 2026-10-08). Widening by WHERE, never by WHAT, keeps the
+              // results about what was actually asked.
               searchPromises.push(this.performBraveSearch(
-                `${query} censored suppressed alternative independent whistleblower`,
+                `${query} site:theintercept.com OR site:thegrayzone.com OR site:mintpressnews.com OR site:consortiumnews.com`,
                 { ...filters, perPage: 10 }
               ));
             }
           } else if (isRedPill && this.googleApiKey && this.googleSearchEngineId) {
             // Brave not available — fall back to Google for alternative terms
-            searchPromises.push(this.performGoogleSearch(
-              `${query} "censored" OR "suppressed" OR "alternative view" OR "independent analysis"`,
-              { ...filters, perPage: 5 }
-            ));
+            // (No topic-word query here either — see the Brave branch above.)
             searchPromises.push(this.performGoogleSearch(
               `${query} site:theintercept.com OR site:thegrayzone.com OR site:mintpressnews.com OR site:corbettreport.com`,
               { ...filters, perPage: 5 }

@@ -277,6 +277,7 @@ function normaliseReddit(posts, query) {
       comments: d.num_comments ?? null,
       thumbnail: (d.thumbnail && d.thumbnail.startsWith('http')) ? d.thumbnail : null,
       flair: d.link_flair_text || null,
+      nsfw: !!d.over_18,
     };
   });
 }
@@ -460,6 +461,16 @@ const {
 } = require('../services/feed/PublicSocialSource');
 const { seedTopics, seedForPage } = require('../services/feed/FeedSeeds');
 
+// ── SAFE SEARCH IN THE FEED ─────────────────────────────────────────────────
+// Owner, 2026-10-08: a Safe Search control on Feed. Each platform marks its
+// own adult posts — Reddit over_18, Mastodon sensitive, Lemmy nsfw, Bluesky's
+// labels — and the feed used to drop that mark and show them regardless. Now
+// they are kept out unless Safe Search is OFF and the request is signed in:
+// the same rule /api/search applies.
+const ADULT_LABELS = new Set(['porn', 'sexual', 'nudity', 'graphic-media', 'gore']);
+const { optionalAuth } = require('../middleware/auth');
+const safeFeed = (items, allowAdult) => (allowAdult ? items : (items || []).filter((it) => !it.nsfw));
+
 async function fetchViaSearx(platform, query, limit, cursor, seeds) {
   const page = Number.isInteger(cursor) && cursor > 0 ? cursor : 1;
   // A typed query IS the topic. Only the home feed needs seeding, and each page
@@ -533,6 +544,7 @@ async function fetchMastodon(query, limit, cursor) {
       comments: typeof t.replies_count === 'number' ? t.replies_count : null,
       thumbnail: t.media_attachments?.[0]?.preview_url || null,
       flair: null,
+      nsfw: !!t.sensitive,
     })),
     // Mastodon pages by "older than this id", so the cursor is the last id seen.
     next: rows.length ? String(rows[rows.length - 1].id) : null,
@@ -569,6 +581,7 @@ async function fetchBluesky(query, limit, cursor) {
       const handle = p.author?.handle;
       const web = handle && rkey ? `https://bsky.app/profile/${handle}/post/${rkey}` : null;
       return {
+        nsfw: (p.labels || []).some((l) => ADULT_LABELS.has(String(l?.val || '').toLowerCase())),
         id: String(p.uri),
         platform: 'Bluesky',
         title: (p.record?.text || '').slice(0, 200) || '(no text)',
@@ -609,6 +622,7 @@ async function fetchLemmy(query, limit, cursor) {
     items: rows.filter((v) => v?.post?.id).map((v) => ({
       id: String(v.post.id),
       platform: 'Lemmy',
+      nsfw: !!(v.post.nsfw || v.community?.nsfw),
       title: v.post.name,
       // A Lemmy post either links out or is a self post; ap_id is always the
       // post itself, so it is the honest permalink either way.
@@ -796,9 +810,10 @@ async function fetchGitHub(query, limit, page = 1) {
  *
  * Returns: { query, results, platforms: {…}, nextCursor: {…}, errors: {…} }
  */
-router.post('/feed', async (req, res) => {
+router.post('/feed', optionalAuth, async (req, res) => {
   try {
     const { query, platforms: requestedPlatforms, cursor, limit: rawLimit } = req.body || {};
+    const allowAdult = req.body?.safeSearch === 'off' && !!req.user?.isAuthenticated;
     // An empty query used to be a 400. It is the home feed now, so the only
     // bad input left is a non-string that is not absent.
     const q = typeof query === 'string' ? query.trim() : '';
@@ -851,17 +866,17 @@ router.post('/feed', async (req, res) => {
     ]);
 
     const settle = (r) => (r.status === 'fulfilled' ? r.value : NONE);
-    const reddit = settle(redditResult).items;
-    const hackernews = settle(hnResult).items;
-    const github = settle(ghResult).items;
-    const news = settle(newsResult).items;
-    const community = settle(communityResult).items;
-    const mastodon = settle(mastodonResult).items;
-    const bluesky = settle(blueskyResult).items;
-    const lemmy = settle(lemmyResult).items;
-    const creators = settle(creatorsResult).items;
-    const newsvideo = settle(newsVideoResult).items;
-    const marketsvideo = settle(marketsVideoResult).items;
+    const reddit = safeFeed(settle(redditResult).items, allowAdult);
+    const hackernews = safeFeed(settle(hnResult).items, allowAdult);
+    const github = safeFeed(settle(ghResult).items, allowAdult);
+    const news = safeFeed(settle(newsResult).items, allowAdult);
+    const community = safeFeed(settle(communityResult).items, allowAdult);
+    const mastodon = safeFeed(settle(mastodonResult).items, allowAdult);
+    const bluesky = safeFeed(settle(blueskyResult).items, allowAdult);
+    const lemmy = safeFeed(settle(lemmyResult).items, allowAdult);
+    const creators = safeFeed(settle(creatorsResult).items, allowAdult);
+    const newsvideo = safeFeed(settle(newsVideoResult).items, allowAdult);
+    const marketsvideo = safeFeed(settle(marketsVideoResult).items, allowAdult);
 
     // Zip the SearXNG results back onto their ids. Built as objects rather than
     // named consts because there are six of them and they are all identical —
@@ -872,7 +887,7 @@ router.post('/feed', async (req, res) => {
     const searxErrors = {};
     SEARX_IDS.forEach((id, i) => {
       const r = searxResults[i];
-      searxItems[id] = settle(r).items;
+      searxItems[id] = safeFeed(settle(r).items, allowAdult);
       searxCursors[id] = settle(r).next;
       searxErrors[id] = r.status === 'rejected' ? (r.reason?.message || 'unavailable') : null;
       if (r.status === 'rejected') logger.warn(`${id} feed failed:`, r.reason?.message);

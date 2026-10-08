@@ -37,43 +37,41 @@ export const SettingsProvider = ({ children }) => {
   // carries the same "real, verified person" signal googleVerified used to.
   const canDisableSafeSearch = isAuthenticated;
 
-  const [settings, setSettings] = useState({
-    safeSearch: 'safe', // 'safe' | 'blur' | 'off'
-    dataCollection: false,
-    saveHistory: true, // persist recent searches in localStorage (off = no search history stored)
-    defaultFilters: 'all',
-    resultsPerPage: 10,
-    language: detectBrowserLanguage(), // engine language, synced to browser by default
-    country: detectBrowserCountry(), // region hint for result localization
-  });
-
-  // Load settings from localStorage on mount
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('truegle_settings');
-    if (savedSettings) {
-      try {
-        const parsedSettings = JSON.parse(savedSettings);
-        // Migrate legacy boolean safeSearch -> tri-state string
-        let migratedSafeSearch = parsedSettings.safeSearch;
-        if (typeof migratedSafeSearch === 'boolean') {
-          migratedSafeSearch = migratedSafeSearch ? 'safe' : 'off';
-        }
-        if (!['safe', 'blur', 'off'].includes(migratedSafeSearch)) {
-          migratedSafeSearch = 'safe';
-        }
-        // Ad personalization and a cookie preference were settings once;
-        // Truegle has no ads and sets no cookies, so old copies are dropped.
-        const { adPersonalization: _ads, cookiePreference: _cookies, ...kept } = parsedSettings;
-        setSettings((prev) => ({
-          ...prev,
-          ...kept,
-          safeSearch: migratedSafeSearch,
-        }));
-      } catch (error) {
-        console.error('Failed to parse saved settings:', error);
+  // READ ON THE FIRST RENDER, not in an effect. Child effects run before a
+  // parent's, so a page that searches on mount (/search?q=… from the landing
+  // bar) used to search with the DEFAULT — Strict — before the saved choice
+  // had loaded (owner, 2026-10-08: "the safe search isn't remembering").
+  const [settings, setSettings] = useState(() => {
+    const defaults = {
+      safeSearch: 'safe', // 'safe' | 'blur' | 'off'
+      dataCollection: false,
+      saveHistory: true, // persist recent searches in localStorage (off = no search history stored)
+      defaultFilters: 'all',
+      resultsPerPage: 10,
+      language: detectBrowserLanguage(), // engine language, synced to browser by default
+      country: detectBrowserCountry(), // region hint for result localization
+    };
+    try {
+      const savedSettings = localStorage.getItem('truegle_settings');
+      if (!savedSettings) return defaults;
+      const parsedSettings = JSON.parse(savedSettings);
+      // Migrate legacy boolean safeSearch -> tri-state string
+      let migratedSafeSearch = parsedSettings.safeSearch;
+      if (typeof migratedSafeSearch === 'boolean') {
+        migratedSafeSearch = migratedSafeSearch ? 'safe' : 'off';
       }
+      if (!['safe', 'blur', 'off'].includes(migratedSafeSearch)) {
+        migratedSafeSearch = 'safe';
+      }
+      // Ad personalization and a cookie preference were settings once;
+      // Truegle has no ads and sets no cookies, so old copies are dropped.
+      const { adPersonalization: _ads, cookiePreference: _cookies, ...kept } = parsedSettings;
+      return { ...defaults, ...kept, safeSearch: migratedSafeSearch };
+    } catch (error) {
+      console.error('Failed to parse saved settings:', error);
+      return defaults;
     }
-  }, []);
+  });
 
   // Save settings to localStorage whenever they change
   useEffect(() => {

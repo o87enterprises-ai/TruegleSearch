@@ -472,6 +472,10 @@ router.post('/verify-access-code', async (req, res) => {
       token,
       remember,
       accountCode, // non-null only on the first-ever sign-in — show it once
+      // Which kind of code worked. 'account' means the typed code IS the
+      // durable account code, so the browser may keep it (owner, 2026-10-08:
+      // "the browser can remember the user's actual sign in code").
+      codeKind: matchedTable === 'account_code' ? 'account' : matchedTable === 'premium_access_codes' ? 'premium' : 'email',
       user: {
         id: user.id,
         email: user.email,
