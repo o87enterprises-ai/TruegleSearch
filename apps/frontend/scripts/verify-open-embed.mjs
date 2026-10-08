@@ -70,6 +70,17 @@ await bar.fill('');
 await bar.fill(EMPTY);
 await until(() => page.locator('[data-feed-submit="unresolved"]').count(), { what: 'the no-video note', timeout: 6000 }).catch(() => {});
 check(await page.locator('[data-feed-submit="unresolved"]').count() === 1, 'a page with nothing playable says so');
+// ── a pasted EMBED CODE plays with no request at all ──────────────────────
+// For sites that refuse to let any server read them (C-SPAN 403s us).
+const before = resolveCalls.length;
+await bar.fill('');
+await bar.fill('<iframe width="512" height="330" src="https://player.example.org/standalone/?533535-1" allowfullscreen></iframe>');
+await until(() => page.locator('[data-feed-play-link]').count(), { what: 'Play for the code', timeout: 6000 }).catch(() => {});
+check(await page.locator('[data-feed-play-link]').count() === 1, 'pasting a site\'s embed CODE (<iframe src=…>) offers Play');
+check(resolveCalls.length === before, '…read in the browser, with no request to anyone');
+await page.locator('[data-feed-play-link]').dispatchEvent('click');
+await until(() => page.locator('iframe[src^="https://player.example.org/standalone/"]').count(), { what: 'the coded player', timeout: 6000 }).catch(() => {});
+check(await page.locator('iframe[src^="https://player.example.org/standalone/"]').count() > 0, '…and plays that player');
 await c.close();
 
 // ── a search result the engine already gave an embed for ────────────────────
@@ -77,6 +88,10 @@ const { embedFromIframeSrc } = await server.ssrLoadModule('/src/utils/videoEmbed
 check(embedFromIframeSrc('https://vid.example.com/embed/9')?.kind === 'embed', 'a search result with an engine-supplied embed (iframe_src) is playable');
 check(embedFromIframeSrc('https://www.youtube.com/embed/dQw4w9WgXcQ')?.kind === 'youtube', '…and a known platform keeps its own controllable player');
 check(embedFromIframeSrc('http://insecure.example.com/embed/1') === null, '…but never an insecure http frame');
+const { embedFromCode } = await server.ssrLoadModule('/src/utils/videoEmbed.js');
+check(embedFromCode('<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ?si=x"></iframe>')?.kind === 'youtube', 'a YouTube embed code plays as YouTube');
+check(embedFromCode('<iframe src="javascript:alert(1)"></iframe>') === null, 'a code whose src is not https is refused');
+check(embedFromCode('<script src="https://evil.example/x.js"></script>') === null, 'anything that is not an iframe is ignored');
 
 console.log([...ok, ...bad].join('\n'));
 console.log(`\n${ok.length} passed, ${bad.length} failed`);

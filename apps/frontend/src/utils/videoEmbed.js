@@ -366,6 +366,20 @@ export function embedFromIframeSrc(src) {
   }
 }
 
+/**
+ * A pasted EMBED CODE — the `<iframe src="…">` snippet a site's Share → Embed
+ * box hands out — → a source. Read here, in the browser, with no request: so
+ * it works even for sites that refuse to let Truegle's server read their pages
+ * (C-SPAN, for one, answers every server with 403). Only the src is used;
+ * nothing else in the snippet runs.
+ */
+export function embedFromCode(text) {
+  const m = /<iframe\b[^>]*?\bsrc\s*=\s*["']([^"']+)["']/i.exec(String(text || ''));
+  if (!m) return null;
+  const src = m[1].replace(/&amp;/g, '&').replace(/^\/\//, 'https://');
+  return embedFromIframeSrc(src);
+}
+
 // TikTok's controllable embed player — see TIKTOK_ORIGIN in useEmbedPlayback.
 // autoplay: the person already pressed play to get here. rel=0: no "more
 // videos" wall at the end (the queue decides what is next). The rest of

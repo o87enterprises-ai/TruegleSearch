@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { getPlayable, mediaKey, embedFromIframeSrc } from '../utils/videoEmbed';
+import { getPlayable, mediaKey, embedFromIframeSrc, embedFromCode } from '../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../utils/playerLink';
 import { parsePlayerQuery, rankPlayable, isolatePlatform, isShortsScope, toHandle } from '../utils/playerQuery';
 import { withoutBroken, loadBrokenList } from '../utils/broken';
@@ -139,6 +139,18 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
     setLoadingMore(false);
     const q = raw.trim();
     if (q.length < MIN_CHARS) { setResults(null); setLoading(false); setError(''); return; }
+
+    // A pasted EMBED CODE (a site's <iframe src=…> snippet): play its player.
+    const coded = embedFromCode(q);
+    if (coded) {
+      const host = (() => { try { return new URL(coded.src).hostname.replace(/^www\./, ''); } catch { return 'embed'; } })();
+      setLoading(false);
+      setError('');
+      setUnsupported('');
+      setTrace(null);
+      setResults([{ ...coded, title: `Video from ${host}`, pageUrl: coded.src, channel: host }]);
+      return;
+    }
 
     // Typed or pasted a link? Resolve it directly — no round trip, and it
     // accepts Truegle player links as well as raw media URLs. A link that

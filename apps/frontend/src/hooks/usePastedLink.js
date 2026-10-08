@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
-import { getPlayable } from '../utils/videoEmbed';
+import { getPlayable, embedFromCode } from '../utils/videoEmbed';
 
 // What a pasted link plays as — including SHARE links.
 //
@@ -26,7 +26,8 @@ export const isShareLink = (text) => SHARE_LINK.test(String(text || '').trim());
  */
 export function usePastedLink(text) {
   const trimmed = String(text || '').trim();
-  const direct = getPlayable(trimmed);
+  // A pasted embed CODE (<iframe src=…>) is read right here, no request.
+  const direct = getPlayable(trimmed) || embedFromCode(trimmed);
   const share = !direct && (isShareLink(trimmed) || ANY_LINK.test(trimmed));
   const [resolved, setResolved] = useState({ for: '', source: null, failed: false });
 
@@ -48,7 +49,16 @@ export function usePastedLink(text) {
     return () => { live = false; };
   }, [share, trimmed]);
 
-  if (direct) return { playable: { ...direct, pageUrl: trimmed }, resolving: false, failed: false };
+  if (direct) {
+    // For an embed code the "page" is the player itself — never the snippet.
+    const isCode = trimmed.startsWith('<');
+    const host = isCode ? (() => { try { return new URL(direct.src).hostname.replace(/^www\./, ''); } catch { return null; } })() : null;
+    return {
+      playable: { ...direct, pageUrl: isCode ? direct.src : trimmed, ...(host ? { channel: host } : {}) },
+      resolving: false,
+      failed: false,
+    };
+  }
   if (!share) return { playable: null, resolving: false, failed: false };
   if (resolved.for !== trimmed) return { playable: null, resolving: true, failed: false };
   return { playable: resolved.source, resolving: false, failed: resolved.failed };
