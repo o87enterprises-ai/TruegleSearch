@@ -36,11 +36,11 @@ class AuthService {
   }
 
   // Exchange an emailed (or SMS/phone, once wired) code for a session.
-  async verifyCode({ email, phone, code }) {
+  async verifyCode({ email, phone, code, remember = true }) {
     try {
       const body = email
-        ? { email: email.toLowerCase().trim(), code: code.trim() }
-        : { phone: phone.trim(), code: code.trim() };
+        ? { email: email.toLowerCase().trim(), code: code.trim(), remember }
+        : { phone: phone.trim(), code: code.trim(), remember };
 
       const response = await api.post('/auth/verify-access-code', body);
 
@@ -97,6 +97,8 @@ class AuthService {
         return {
           valid: true,
           user: response.data.user,
+          // A remembered sign-in comes back renewed (another 90 days).
+          token: response.data.token || null,
         };
       }
 
@@ -104,23 +106,21 @@ class AuthService {
     } catch (error) {
       console.error('[Auth] Validate error:', error);
 
-      // Token is invalid or expired
+      // Token is invalid or expired — the ONLY answer that signs someone out.
       if (error.response?.status === 401) {
-        return { valid: false, error: 'Session expired' };
+        return { valid: false, expired: true, error: 'Session expired' };
       }
 
-      // Network error - don't invalidate the session, let user retry
-      if (!error.response) {
-        console.warn('[Auth] Network error during validation, keeping session');
-        // Return valid with cached user data if available
-        const cachedUser = localStorage.getItem('truegle_user');
-        if (cachedUser) {
-          try {
-            return { valid: true, user: JSON.parse(cachedUser) };
-          } catch {
-            return { valid: false, error: 'Network error' };
-          }
-        }
+      // Anything else — offline, a timeout, the server starting up or briefly
+      // failing (5xx, 429) — says nothing about the sign-in itself. Keep it.
+      // (Owner, 2026-10-08: having to sign in every time. A hiccup here used
+      // to delete a perfectly good 30-day sign-in.)
+      console.warn('[Auth] Could not check the session right now, keeping it');
+      const cachedUser = localStorage.getItem('truegle_user');
+      if (cachedUser) {
+        try {
+          return { valid: true, user: JSON.parse(cachedUser) };
+        } catch { /* fall through */ }
       }
 
       return { valid: false, error: 'Validation failed' };

@@ -12,6 +12,22 @@ const logger = require('../utils/logger');
 
 const FRONTEND_URL = config.frontendUrl || 'https://truegle.info';
 
+// ── REMEMBER ME ─────────────────────────────────────────────────────────────
+// Owner, 2026-10-08: "add a remember me for the email sign-in so users don't
+// have to sign in every time." A remembered sign-in lasts REMEMBER_TTL and is
+// RENEWED whenever the app checks it (once a day at most), so someone who keeps
+// coming back is never asked again. Not remembered = this browser session only,
+// with a short token as the backstop. The token lives in the browser's own
+// storage — not a cookie; Truegle still sets none.
+const REMEMBER_TTL = '90d';
+const SESSION_TTL = '1d';
+const RENEW_AFTER_S = 24 * 60 * 60;
+const signSession = (user, remember) => jwt.sign(
+  { userId: user.id, email: user.email, role: user.role, ...(remember ? { rem: 1 } : {}) },
+  config.jwtSecret,
+  { expiresIn: remember ? REMEMBER_TTL : SESSION_TTL }
+);
+
 /**
  * @route   GET /api/auth/validate
  * @desc    Validate JWT token and return user
@@ -51,8 +67,14 @@ router.get('/validate', async (req, res) => {
     // Get token balance
     const tokenBalance = await TokenService.getBalance(user.id);
 
+    // A remembered sign-in more than a day old gets a fresh 90 days.
+    const renewed = decoded.rem && decoded.iat && (Date.now() / 1000 - decoded.iat) > RENEW_AFTER_S
+      ? signSession({ id: user.id, email: user.email, role: user.role }, true)
+      : null;
+
     res.json({
       valid: true,
+      ...(renewed ? { token: renewed } : {}),
       user: {
         id: user.id,
         email: user.email,
@@ -354,6 +376,8 @@ router.post('/request-code', async (req, res) => {
 router.post('/verify-access-code', async (req, res) => {
   try {
     const { email, phone, code } = req.body;
+    // Remembered unless the person unticked it.
+    const remember = req.body.remember !== false;
     if (!code || (!email && !phone)) {
       return res.status(400).json({ error: 'Email/phone and access code are required' });
     }
@@ -435,15 +459,12 @@ router.post('/verify-access-code', async (req, res) => {
     }
 
     const tokenBalance = await TokenService.getBalance(user.id);
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role },
-      config.jwtSecret,
-      { expiresIn: '30d' }
-    );
+    const token = signSession(user, remember);
 
     res.json({
       success: true,
       token,
+      remember,
       accountCode, // non-null only on the first-ever sign-in — show it once
       user: {
         id: user.id,

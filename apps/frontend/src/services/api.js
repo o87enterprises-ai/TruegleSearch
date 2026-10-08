@@ -45,7 +45,12 @@ api.interceptors.response.use(
       // Don't clear auth for login/register attempts
       const isAuthEndpoint = error.config?.url?.includes('/auth/login') ||
                             error.config?.url?.includes('/auth/register');
-      if (!isAuthEndpoint) {
+      // Only a 401 that is ABOUT THE SIGN-IN signs someone out. A 401 from a
+      // route with its own gate (admin, a wrong code) is not one.
+      const aboutToken = ['Token expired', 'Invalid token', 'Token revoked', 'Unauthorized'].includes(error.response?.data?.error)
+        && !!error.config?.headers?.Authorization
+        && !error.config?.url?.includes('/admin');
+      if (!isAuthEndpoint && aboutToken) {
         console.warn('[API] Session expired, clearing auth state');
         // Token is invalid - clear it (but don't redirect, let the app handle it)
         localStorage.removeItem('truegle_token');

@@ -34,6 +34,11 @@ export default function SignInPage() {
   const [sendingCode, setSendingCode] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
   const [rememberMeFreemium, setRememberMeFreemium] = useState(false);
+  // Keep me signed in — ticked unless the person unticks it (a shared or
+  // public computer). See REMEMBER ME in the backend's routes/auth.js.
+  const [remember, setRemember] = useState(() => {
+    try { return localStorage.getItem('truegle_remember_me') !== 'false'; } catch { return true; }
+  });
   const [revealedCode, setRevealedCode] = useState(null); // one-time account-code reveal
 
   const goAfterSignIn = () => {
@@ -86,8 +91,8 @@ export default function SignInPage() {
     try {
       const result = await authService.verifyCode(
         codeContactType === 'email'
-          ? { email: codeContact.trim(), code: accessCode.trim() }
-          : { phone: codeContact.trim(), code: accessCode.trim() }
+          ? { email: codeContact.trim(), code: accessCode.trim(), remember }
+          : { phone: codeContact.trim(), code: accessCode.trim(), remember }
       );
 
       if (!result.success) {
@@ -96,7 +101,7 @@ export default function SignInPage() {
       }
 
       toast.success('Welcome!', 'Signed in.', { pageTheme: 'landing' });
-      login({ user: result.user, token: result.token }, true);
+      login({ user: result.user, token: result.token }, remember);
 
       // First-ever sign-in reveals a durable account code once — hold
       // navigation until the user has seen and saved it.
@@ -271,6 +276,18 @@ export default function SignInPage() {
               Have your account code? Enter it to sign in on any device. New here or lost it? Tap
               <span className="text-cyan-400"> Email me one</span> for a fresh code.
             </p>
+
+            <label className="flex items-center gap-2 text-xs text-white/70 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                data-remember-me=""
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="w-4 h-4 rounded border-white/30 bg-black/40 accent-cyan-500"
+              />
+              Keep me signed in on this device
+              <span className="text-white/35">(untick on a shared computer)</span>
+            </label>
 
             {codeSentNote && <p className="text-emerald-400 text-xs">{codeSentNote}</p>}
             {codeError && <p className="text-red-400 text-xs">{codeError}</p>}

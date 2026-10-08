@@ -47,11 +47,13 @@ export const AuthProvider = ({ children }) => {
         const result = await authService.validateSession(token);
 
         if (result.valid) {
+          if (result.token) localStorage.setItem('truegle_token', result.token);
+          if (result.user) localStorage.setItem('truegle_user', JSON.stringify(result.user));
           setIsAuthenticated(true);
           setUser(result.user);
           console.log('Auth restored:', result.user);
-        } else {
-          // Clear invalid token
+        } else if (result.expired) {
+          // Clear invalid token — only when the server SAID it is invalid
           localStorage.removeItem('truegle_token');
           localStorage.removeItem('truegle_user');
           localStorage.removeItem('truegle_remember_me');
