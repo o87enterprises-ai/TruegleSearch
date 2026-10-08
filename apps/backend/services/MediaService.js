@@ -38,6 +38,48 @@ class MediaError extends Error {
   }
 }
 
+// ── NO ONE CAN HIDE A VIDEO FROM EVERYONE ─────────────────────────────────────
+// Owner audit, 2026-10-08: "make sure that results aren't being blocked or
+// censored." media_signals used to hide a video from EVERY visitor after five
+// anonymous 👎 or two "broken" reports — nothing stops one person sending five
+// requests, and the old silence watchdog filed "broken" by itself on slow
+// phones. The one video it had hidden was Luis Fonsi's "Despacito", public and
+// embeddable. So:
+//   · votes NEVER hide anything for everyone (they shape recommendations only)
+//   · "broken" hides a YouTube/Vimeo video only once the platform itself says
+//     it is gone — removed, private, or embedding switched off
+//   · other platforms, which cannot be checked, need BROKEN_UNVERIFIED reports
+const BROKEN_UNVERIFIED = 5;
+const VERIFY_ENDPOINTS = {
+  youtube: (id) => `https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`,
+  vimeo: (id) => `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(`https://vimeo.com/${id}`)}`,
+};
+const verified = new Map(); // key → { at, gone }
+const VERIFY_TTL_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Is this media really unplayable here? true = gone, false = plays,
+ * null = this platform cannot be checked (or the check itself failed).
+ */
+async function isReallyGone(mediaKey, fetchImpl = fetch) {
+  const [platform, id] = String(mediaKey).split(':');
+  const endpoint = VERIFY_ENDPOINTS[platform];
+  if (!endpoint || !id) return null;
+  const hit = verified.get(mediaKey);
+  if (hit && Date.now() - hit.at < VERIFY_TTL_MS) return hit.gone;
+  try {
+    const r = await fetchImpl(endpoint(id), { signal: AbortSignal.timeout(5000) });
+    // 200 = public and embeddable. 401/403 = embedding off or private, 400/404 =
+    // removed or never existed: unplayable in Truegle either way. Anything else
+    // (429, 5xx) proves nothing.
+    const gone = r.status === 200 ? false : [400, 401, 403, 404].includes(r.status) ? true : null;
+    if (gone !== null) verified.set(mediaKey, { at: Date.now(), gone });
+    return gone;
+  } catch {
+    return null;
+  }
+}
+
 const MAX_TITLE = 200;
 const MAX_URL = 2048;
 const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|wav|flac)(\?|#|$)/i;
@@ -396,21 +438,27 @@ const MediaService = {
            page_url = COALESCE(media_signals.page_url, EXCLUDED.page_url),
            poster   = COALESCE(media_signals.poster, EXCLUDED.poster),
            channel  = COALESCE(media_signals.channel, EXCLUDED.channel),
-           -- Dead OR disliked into the ground. Both are "stop offering this",
-           -- and both scale with how many people liked it: something people
-           -- enjoy needs more reports before it disappears.
-           hidden   = (GREATEST(media_signals.downs + $8, 0)
-                        >= 5 + 3 * GREATEST(media_signals.ups + $7, 0))
-                      OR (GREATEST(media_signals.broken + $10, 0)
-                        >= 2 + GREATEST(media_signals.ups + $7, 0)),
+           -- Only "broken" can hide, never votes (see NO ONE CAN HIDE A VIDEO
+           -- FROM EVERYONE). Reaching the count is a CANDIDATE: a checkable
+           -- platform is asked below before anything stays hidden.
+           hidden   = (GREATEST(media_signals.broken + $10, 0)
+                        >= $11 + GREATEST(media_signals.ups + $7, 0)),
            updated_at = NOW()
          RETURNING ups, downs, broken, hidden`,
         [
           mediaKey, clean(kind, 32), clean(title, MAX_TITLE), clean(pageUrl, MAX_URL),
           clean(poster, MAX_URL), clean(channel, 120), dUp, dDown, dPlay, dBroken,
+          // A checkable platform is verified anyway, so two reports may ask; an
+          // uncheckable one needs more people.
+          VERIFY_ENDPOINTS[mediaKey.split(':')[0]] ? 2 : BROKEN_UNVERIFIED,
         ],
       );
-      return { ok: true, ...rows[0] };
+      const row = rows[0] || {};
+      if (row.hidden && (await isReallyGone(mediaKey)) === false) {
+        await this.unhide(mediaKey);
+        return { ok: true, ...row, hidden: false };
+      }
+      return { ok: true, ...row };
     } catch (err) {
       logger.warn('Media signal failed', { error: err && err.message });
       return { ok: false };
@@ -436,7 +484,19 @@ const MediaService = {
           LIMIT $1`,
         [capped],
       );
-      return rows.map((r) => r.media_key);
+      // Anything hidden under the old rules is re-checked before it is served
+      // as dead, and restored if the platform says it plays (a few per call,
+      // cached, so this list stays fast).
+      const keys = [];
+      let checks = 0;
+      for (const { media_key: key } of rows) {
+        if (checks < 10 && VERIFY_ENDPOINTS[key.split(':')[0]]) {
+          checks += 1;
+          if ((await isReallyGone(key)) === false) { await this.unhide(key); continue; }
+        }
+        keys.push(key);
+      }
+      return keys;
     } catch (err) {
       logger.warn('Broken list failed', { error: err && err.message });
       return [];
@@ -667,6 +727,15 @@ const MediaService = {
     return media;
   },
 
+  /** Put a wrongly hidden video back, and forget the reports against it. */
+  async unhide(mediaKey) {
+    try {
+      await query('UPDATE media_signals SET hidden = FALSE, broken = 0, updated_at = NOW() WHERE media_key = $1', [mediaKey]);
+    } catch (err) {
+      logger.warn('Unhide failed', { error: err && err.message });
+    }
+  },
+
   /** Best-effort play counter; never fails a playback because of a write. */
   async countPlay(id) {
     try {
@@ -694,4 +763,4 @@ const MediaService = {
   },
 };
 
-module.exports = { MediaService, MediaError };
+module.exports = { MediaService, MediaError, isReallyGone, __verified: verified };

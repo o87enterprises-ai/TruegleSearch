@@ -2689,6 +2689,18 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
                       <p className="text-white/40 text-xs max-w-md mx-auto">
                         Try different keywords, broader terms, or another search mode.
                       </p>
+                      {/* SAID, NOT HIDDEN (owner audit, 2026-10-08). Under
+                          strict Safe Search the engines Truegle asks drop some
+                          WHOLE SITES — site:4chan.org came back with nothing
+                          from 4chan. The person should know that is a setting
+                          they control, not a site Truegle chose to block. */}
+                      {/site:\S+/i.test(lastSearchedQuery) && settings.safeSearch !== 'off' && (
+                        <p data-safesearch-site-hint="" className="text-amber-200/80 text-xs max-w-md mx-auto mt-2">
+                          Safe Search is {settings.safeSearch === 'blur' ? 'on (Moderate)' : 'on (Strict)'}, and the search engines
+                          Truegle uses hide some whole sites under it. Truegle does not block any site —
+                          set Safe Search to {settings.safeSearch === 'blur' ? 'Off' : 'Moderate or Off'} to include them.
+                        </p>
+                      )}
                     </div>
                   )}
 

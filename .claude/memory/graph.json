@@ -1632,6 +1632,14 @@
         "body": "2026-10-08: /api/media/resolve falls back to services/EmbedDiscovery (oEmbed link > og:video > twitter:player > JSON-LD embedUrl > page/escaped iframe > video file), reading pages via utils/safeFetch (public-IP-only at the socket lookup, manual redirects, size/time caps). Unknown players are kind 'embed', sandbox without popups (OPEN_EMBED_SANDBOX); CSP frame-src allows https:. Not offered for community Post. SearXNG iframe_src rows playable via embedFromIframeSrc.",
         "ts": "2026-10-08",
         "created": "2026-10-08"
+      },
+      "no-mob-hiding": {
+        "Id": "no-mob-hiding",
+        "Type": "decision",
+        "Label": "No one can hide media from everyone",
+        "body": "2026-10-08 censorship audit: media_signals votes never hide platform-wide; broken hides YouTube/Vimeo only when oEmbed confirms gone (400/401/403/404), other kinds need 5+ups reports; brokenKeys re-verifies and unhides (Despacito kJQP7kiw5Fk was falsely hidden). Migration 024 unhid vote-hidden rows. site: operator = that site only (siteOperator.js); empty site: + SafeSearch on shows a hint. Audit: sensitive topics + outlets across spectrum all returned; strict SafeSearch (default) makes engines drop whole sites (4chan) — default is an OWNER decision, not changed.",
+        "ts": "2026-10-08",
+        "created": "2026-10-08"
       }
     },
     "thread": {
@@ -2138,6 +2146,15 @@
         "status": "open",
         "ts": "2026-10-06",
         "created": "2026-10-06"
+      },
+      "safesearch-default": {
+        "Id": "safesearch-default",
+        "Type": "thread",
+        "Label": "Owner: decide Safe Search default (Strict vs Moderate)",
+        "body": "Strict (current default, 'safe') makes upstream engines drop whole sites (site:4chan.org → 0). Moderate ('blur') returns them. Google's signed-out default is closer to Moderate/blur. Needs owner decision (minors/legal).",
+        "status": "open",
+        "ts": "2026-10-08",
+        "created": "2026-10-08"
       }
     },
     "entity": {

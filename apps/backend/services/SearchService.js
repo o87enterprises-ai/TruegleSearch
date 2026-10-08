@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const config = require('../config/env');
 const paidBudget = require('./PaidProviderBudget');
 const { AI_CONTENT_DOMAINS } = require('../data/aiContentDomains');
+const { siteOperatorDomain, onlyFromSite } = require('./siteOperator');
 const sourceBias = require('../data/sourceBias');
 const modeEngines = require('../data/modeEngines');
 const QueryInterpreter = require('./QueryInterpreter');
@@ -147,6 +148,8 @@ class SearchService {
    * mode: 'blue-pill' | 'red-pill' | 'purple' | 'ocean'
    */
   async performSearch(query, filters, mode = 'blue-pill') {
+    // As typed — `query` is rewritten below (site keywords stripped).
+    const originalQuery = query;
     try {
       // Never the query text itself: this line lands in the host's runtime logs.
       console.log('🔍 SearchService.performSearch', { queryLength: String(query || '').length, category: filters?.category, mode });
@@ -582,6 +585,15 @@ class SearchService {
       // surfaces us first instead of third-party mentions further down.
       if ((mode === 'blue-pill' || isGreen) && searchWeb) {
         finalResults = this.pinOfficialResult(query, finalResults);
+      }
+
+      // `site:` means that site only (services/siteOperator.js).
+      const siteOnly = siteOperatorDomain(originalQuery);
+      if (siteOnly) {
+        const before = finalResults.length;
+        finalResults = onlyFromSite(finalResults, siteOnly);
+        // Counts only — the site is part of the query, and queries are never logged.
+        console.log(`🔎 site: operator — kept ${finalResults.length}/${before}`);
       }
 
       console.log(`✨ Final results: ${finalResults.length}`);
