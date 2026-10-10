@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import ChatModeRow from '../components/landing/ChatModeRow';
 import CategoryModeRow from '../components/landing/CategoryModeRow';
 import SmartPill from '../components/landing/SmartPill';
+import SearchChatToggle from '../components/landing/SearchChatToggle';
 import { MODE_COLORS, MODE_HINT_TEXT, searchThemeFor, searchGradientFor, searchIconFor, normalizePillMode } from '../config/modeTheme';
 import HoverHint from '../components/ui/HoverHint';
 import { useUnhingedGate } from '../hooks/useUnhingedGate';
@@ -57,11 +58,36 @@ export default function LandingPage() {
   };
 
   // Pill Mode (spec #2, ABOVE the search bar): the SEARCH mode selector.
-  // Single-select — one active at a time. Black = Chat, the default state,
-  // no navigation. Every other color navigates immediately when clicked.
+  // Single-select — one active at a time. Every other color navigates
+  // immediately when clicked.
+  //
+  // Owner, 2026-10-10: "launches on mainstream search by default... like
+  // Google or DuckDuckGo." normalizePillMode('') resolves to 'black' (Chat)
+  // by design (it's also what an unrecognised/retired stored value falls
+  // back to, and UniversalSearch relies on that) — so a brand-new visitor
+  // with nothing in storage is special-cased here, on the one path that
+  // means "nothing chosen yet," to land on 'blue' (Mainstream) instead.
+  // Anyone who has ever picked a pill keeps getting exactly that pill back.
   const [pillMode, setPillMode] = useState(() => {
-    return normalizePillMode(localStorage.getItem('truegle_pill_mode_pref'));
+    const stored = localStorage.getItem('truegle_pill_mode_pref');
+    return stored ? normalizePillMode(stored) : 'blue';
   });
+
+  // The Search/Chat toggle's "back to Search" needs to restore whichever
+  // search-flavored pill the user was last on, not hard-reset to blue —
+  // otherwise picking Chat then tapping back to Search would silently
+  // discard a Green/Rabbit-Hole/Wonderland/Privacy/Feed/Tube choice.
+  const [lastSearchMode, setLastSearchMode] = useState(() => {
+    const stored = localStorage.getItem('truegle_last_search_pill');
+    return stored && stored !== 'black' ? normalizePillMode(stored) : 'blue';
+  });
+  useEffect(() => {
+    if (pillMode !== 'black') {
+      setLastSearchMode(pillMode);
+      localStorage.setItem('truegle_last_search_pill', pillMode);
+    }
+  }, [pillMode]);
+
   const [pillToast, setPillToast] = useState(null); // { label, sub, color }
 
   const PILL_TOAST_CONFIG = {
@@ -356,7 +382,7 @@ export default function LandingPage() {
             </div>
 
             {/* Search Bar */}
-            <div className="w-full max-w-2xl mx-auto px-4 mb-2 relative">
+            <div className="w-full max-w-3xl mx-auto px-4 mb-2 relative flex items-center gap-2">
               {/* Mode toast — portalled to <body> so it escapes the hero's
                   transformed/filtered ancestors (which would otherwise capture
                   position:fixed and pin it mid-page over the controls). Anchored
@@ -376,6 +402,7 @@ export default function LandingPage() {
                 </motion.div>,
                 document.body
               )}
+              <div className="flex-1 min-w-0">
               <SearchBar
                 // Chat pill = a chat box: declutter to a normal-search-box feel
                 // (mic/camera/attach behind a "+", more compact growth).
@@ -447,6 +474,31 @@ export default function LandingPage() {
               />
               {/* The one thing a first-time visitor needs to know. Quiet, and
                   gone once they start typing — by then they know. */}
+              </div>
+
+              {/* Owner, 2026-10-10: "a toggle to the right of the search bar
+                  that says 'search' / 'chat'... make the pill mode and search
+                  bar components sync to the users selection." SmartPill above
+                  already offers 8 modes and keeps its own query-detection
+                  countdown untouched; this is the fast Google/DuckDuckGo-style
+                  binary choice beside the box. It reads pillMode and writes
+                  through handlePillModeSelect — the same state SmartPill
+                  drives — so either control moves both.
+                  Hidden below `sm` (640px): at phone width there is not
+                  enough room beside the bar for both the toggle and the
+                  bar's own clear (✕) button without the two overlapping —
+                  confirmed by searchbar:test, which covers exactly that
+                  button at a 390px viewport. SmartPill (always visible)
+                  already reaches Chat on a phone; this is the desktop/tablet
+                  fast path the pill row doesn't have room to be on every
+                  page. */}
+              <div className="hidden sm:flex shrink-0">
+                <SearchChatToggle
+                  mode={pillMode === 'black' ? 'chat' : 'search'}
+                  onSearch={() => handlePillModeSelect(lastSearchMode)}
+                  onChat={() => handlePillModeSelect('black')}
+                />
+              </div>
             </div>
 
             {/* Chat Mode row (multi-select chat lenses) — directly below the
