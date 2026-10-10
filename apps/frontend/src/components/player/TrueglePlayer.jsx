@@ -17,6 +17,7 @@ import { useEmbedPlayback } from '../../hooks/useEmbedPlayback';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
 import { useUpNext } from '../../hooks/useUpNext';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
+import { useWheelNav } from '../../hooks/useWheelNav';
 import { useOverlayReveal } from '../../hooks/useOverlayReveal';
 import { useLockedGestures } from '../../hooks/useLockedGestures';
 import { rate, useRating, signalPlay } from '../../utils/taste';
@@ -87,14 +88,25 @@ export default function TrueglePlayer({
   // the button column. The transport bar under the picture has the same three
   // buttons, so the centre row is dropped there and the column gets the height.
   const [pictureW, setPictureW] = useState(0);
+  const [pictureH, setPictureH] = useState(0);
   useEffect(() => {
     const el = rootRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
-    const ro = new ResizeObserver(([e]) => setPictureW(Math.round(e.contentRect.width)));
+    const ro = new ResizeObserver(([e]) => {
+      setPictureW(Math.round(e.contentRect.width));
+      setPictureH(Math.round(e.contentRect.height));
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
   const narrowPicture = pictureW > 0 && pictureW < 340;
+  // The OTHER way a picture runs out of room: Feed's docked card is full
+  // width but only ~210px tall, which is the real constraint the overlay
+  // rail hit — four buttons at 40px + gaps already fill it (owner,
+  // 2026-10-01, "the on-screen share / controls aren't working"; pinned by
+  // verify-feed-controls.mjs). A fifth has nowhere to go but into the
+  // transport row underneath.
+  const shortPicture = pictureH > 0 && pictureH < 260;
   const [listOpen, setListOpen] = useState(false);
   // ONE search per query, shared by the list below and the browse deck in the
   // viewport. It used to live inside PlayerListSlot; with two consumers that
@@ -530,6 +542,18 @@ export default function TrueglePlayer({
   // without a flash, a working jump is indistinguishable from a dead zone.
   const [jump, setJump] = useState(null); // { dir: -1 | 1, at }
   const jumpTimer = useRef(null);
+  // CLICK-THROUGH TO THE EMBED (owner, 2026-10-10) — see PlayerOverlay's own
+  // note on why this is its own thing, not `onInteract`. Off for every new
+  // track: it is a deliberate, temporary choice about THIS clip, never a
+  // setting that should silently carry into the next one.
+  const [clickThrough, setClickThrough] = useState(false);
+  const toggleClickThrough = useCallback(() => setClickThrough((v) => !v), []);
+  useEffect(() => { setClickThrough(false); }, [current?.src]);
+  // The HUD itself sits ON TOP of the picture (z-20) — its own centred
+  // Play/Pause chief among them — so leaving it up while clickThrough is on
+  // would put OUR button back in the way of exactly the press this is for.
+  // The exit pill (below) is the one thing that stays reachable regardless.
+  // (hudVisible is computed just below, once `overlay` itself exists.)
   const seekBy = useCallback((delta) => {
     const el = mediaRef.current;
     if (el && typeof el.currentTime === 'number') {
@@ -547,6 +571,11 @@ export default function TrueglePlayer({
   // summons it. Disabled while locked — the lock exists so a pocket cannot
   // reach anything, and a rail that appears on a hold would be exactly that.
   const overlay = useOverlayReveal({ enabled: !!current && !locked });
+  // While clickThrough is on, the HUD (and its own centred Play/Pause,
+  // dead over the picture) stands down the same as the click-catching
+  // layers do, below — otherwise OUR button would still be first in line
+  // for the very press this is for.
+  const hudVisible = overlay.visible && !locked && !clickThrough;
 
   // ── RUNNING IT LOCKED, AND DARK ───────────────────────────────────────────
   // The lock used to mean "no controls at all". It means "different controls"
@@ -593,6 +622,15 @@ export default function TrueglePlayer({
     onTap: () => { overlay.reveal(); if (current && embed.canCommand) togglePause(); },
     doubleTap: canDoubleTap,
     onDoubleTap: (side) => seekBy(side === 'left' ? -10 : 10),
+  });
+
+  // Owner, 2026-10-10: "the scroll function on desktop for tube ... doesn't
+  // work" — useSwipeNav above answers TOUCH only. A mouse wheel or trackpad
+  // over the same full-screen band now does what a swipe does on a phone.
+  const wheelNav = useWheelNav({
+    active: fullscreen && !locked,
+    onNext: goNext,
+    onPrev: prev,
   });
 
   // ── THE KEYBOARD, AS YOUTUBE HAS IT ───────────────────────────────────────
@@ -772,6 +810,11 @@ export default function TrueglePlayer({
       // inside it are exempted there.
       data-player-root=""
       onTouchStartCapture={swipeHint ? () => setSwipeHint(false) : undefined}
+      // On the ROOT, not the swipe band: wheel events bubble from whatever
+      // child was actually under the cursor, the HUD's own centred buttons
+      // included, so this is the one place a handler sees every wheel/scroll
+      // in full screen regardless of what else is on screen at the moment.
+      onWheel={wheelNav?.onWheel}
       // `relative` so the lock sheet can cover exactly this component and
       // nothing else on the page.
       className={`relative ${fullscreen ? 'flex flex-col w-full h-full bg-black' : className}`}
@@ -929,7 +972,7 @@ export default function TrueglePlayer({
             resized window. */}
         {current && !clipScreen && !browseOverScreen && (
           <PlayerOverlay
-            visible={overlay.visible && !locked}
+            visible={hudVisible}
             rating={rating}
             onRate={current ? onRate : undefined}
             onShare={current ? share : undefined}
@@ -940,7 +983,30 @@ export default function TrueglePlayer({
             accent={accent}
             onInteract={overlay.reveal}
             compact={narrowPicture}
+            clickThrough={clickThrough}
+            // Not on a compact picture (Feed's small docked card): that rail
+            // already fills its whole height with four buttons — the exact,
+            // previously-fixed overflow this would reopen (verify-feed-
+            // controls.mjs). Full screen, where there is room, still offers it.
+            onToggleClickThrough={embed.canCommand && !narrowPicture && !shortPicture ? toggleClickThrough : undefined}
           />
+        )}
+
+        {/* CLICK-THROUGH IS ON: our own layers step aside (below) so a press
+            reaches the embed itself — a YouTube end-card, a link inside a
+            Reddit or X embed, whatever the PLATFORM put on screen. This pill
+            is the one thing that stays clickable regardless, so there is
+            always a way back even though the HUD's own hover/hold reveal no
+            longer fires (its layer is gone too). */}
+        {clickThrough && current && !clipScreen && !browseOverScreen && (
+          <button
+            type="button"
+            data-clickthrough-exit=""
+            onClick={toggleClickThrough}
+            className="absolute top-2 right-2 z-30 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-amber-500/90 text-black text-[11px] font-semibold shadow-lg"
+          >
+            Interacting — tap to get controls back
+          </button>
         )}
 
         {/* TAP THE PICTURE TO SEE WHAT'S PLAYING, outside full screen — never
@@ -966,7 +1032,7 @@ export default function TrueglePlayer({
             <span className="px-3 py-1.5 rounded-full bg-black/70 text-white text-xs font-semibold">Tap the video to start it</span>
           </div>
         )}
-        {!swipe && current && embed.canCommand && !embed.tiktokNeedsTap && !locked && !clipScreen && !browseOverScreen && (
+        {!swipe && !clickThrough && current && embed.canCommand && !embed.tiktokNeedsTap && !locked && !clipScreen && !browseOverScreen && (
           <button
             type="button"
             onClick={overlay.reveal}
@@ -983,9 +1049,9 @@ export default function TrueglePlayer({
             useOverlayReveal's timer. Pointer-transparent except the seek bar. */}
         {current && !clipScreen && !locked && !browseOverScreen && (
           <div
-            data-player-hud={overlay.visible ? 'shown' : 'hidden'}
-            aria-hidden={!overlay.visible}
-            className={`absolute inset-0 z-20 flex flex-col justify-between pointer-events-none transition-opacity duration-200 ${overlay.visible ? 'opacity-100' : 'opacity-0'}`}
+            data-player-hud={hudVisible ? 'shown' : 'hidden'}
+            aria-hidden={!hudVisible}
+            className={`absolute inset-0 z-20 flex flex-col justify-between pointer-events-none transition-opacity duration-200 ${hudVisible ? 'opacity-100' : 'opacity-0'}`}
           >
             <div className={`flex items-center gap-2 p-2 pr-14 bg-gradient-to-b from-black/75 to-transparent ${onFeedPage ? (fullscreen ? 'pl-16' : 'pl-12') : ''}`}>
               {current.poster && (
@@ -1004,25 +1070,25 @@ export default function TrueglePlayer({
                 picture and swallowed the second tap of every double-tap, so
                 "double-tap to skip 10s" never worked (player suite). */}
             {!narrowPicture && (
-            <div data-player-hud-transport="" className={`flex items-center justify-center pointer-events-none gap-6 ${overlay.visible ? '[&>button]:pointer-events-auto' : ''}`}>
+            <div data-player-hud-transport="" className={`flex items-center justify-center pointer-events-none gap-6 ${hudVisible ? '[&>button]:pointer-events-auto' : ''}`}>
               <button type="button" onClick={() => { overlay.reveal(); prev(); }} disabled={!history.length}
-                aria-label="Previous" tabIndex={overlay.visible ? 0 : -1}
+                aria-label="Previous" tabIndex={hudVisible ? 0 : -1}
                 className="flex items-center justify-center w-11 h-11 rounded-full bg-black/50 backdrop-blur-sm text-white disabled:opacity-30">
                 <SkipBack size={20} fill="currentColor" />
               </button>
               <button type="button" onClick={() => { overlay.reveal(); togglePause(); }}
-                aria-label={paused ? 'Play' : 'Pause'} tabIndex={overlay.visible ? 0 : -1}
+                aria-label={paused ? 'Play' : 'Pause'} tabIndex={hudVisible ? 0 : -1}
                 className="flex items-center justify-center w-14 h-14 rounded-full bg-black/55 backdrop-blur-sm text-white">
                 {paused ? <Play size={26} fill="currentColor" className="ml-1" /> : <Pause size={26} fill="currentColor" />}
               </button>
               <button type="button" onClick={() => { overlay.reveal(); goNext(); }}
-                aria-label="Next" tabIndex={overlay.visible ? 0 : -1}
+                aria-label="Next" tabIndex={hudVisible ? 0 : -1}
                 className="flex items-center justify-center w-11 h-11 rounded-full bg-black/50 backdrop-blur-sm text-white">
                 <SkipForward size={20} fill="currentColor" />
               </button>
             </div>
             )}
-            <div className={overlay.visible ? 'pointer-events-auto' : ''}>
+            <div className={hudVisible ? 'pointer-events-auto' : ''}>
               <PlayerProgress
                 mediaRef={mediaRef}
                 source={current}
@@ -1034,13 +1100,17 @@ export default function TrueglePlayer({
             </div>
           </div>
         )}
-        {swipe && current && !embed.tiktokNeedsTap && (
+        {swipe && !clickThrough && current && !embed.tiktokNeedsTap && (
           <div
             {...swipe}
             {/* The reveal gesture rides alongside the swipe sheet in full
                 screen: useSwipeNav listens on TOUCH events and this on POINTER
                 ones, so they observe the same gestures without either
-                intercepting the other. */ ...overlay.handlers}
+                intercepting the other. wheelNav (a mouse wheel / trackpad) is
+                NOT here — it is on the player's root, below, because a wheel
+                event bubbles through whatever sits under the cursor (the HUD's
+                own centred Play/Pause among them) and a handler only on this
+                band would go silent the moment that HUD is showing. */ ...overlay.handlers}
             style={{
               // Vertical panning has to be ours or the browser starts scrolling
               // the page and the gesture never completes.

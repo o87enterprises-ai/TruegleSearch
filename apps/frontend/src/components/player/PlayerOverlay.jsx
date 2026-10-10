@@ -1,6 +1,6 @@
 import {
   ThumbsUp, ThumbsDown, Share2, Check, AlertTriangle,
-  Repeat, Repeat1, Shuffle, ArrowDownUp,
+  Repeat, Repeat1, Shuffle, ArrowDownUp, MousePointerClick,
 } from 'lucide-react';
 
 // The controls that belong ON the picture rather than under it.
@@ -32,6 +32,18 @@ export default function PlayerOverlay({
   accent = '#f43f5e',
   onInteract,         // a press on the rail keeps it on screen (it hides after a few seconds)
   compact = false,    // a very small picture: use its whole height
+  // CLICK-THROUGH TO THE EMBED ITSELF. Owner, 2026-10-10: "add a way to
+  // interact with any on screen (in viewport) clicks or functions ... if
+  // there is something on the screen when viewing a social feed that there
+  // is no way to interact." On a platform we command (YouTube, Vimeo…) our
+  // own transparent layer covers the whole picture so taps reach US, not the
+  // embed — which also hides anything the PLATFORM put on screen: a YouTube
+  // end-card, a clickable link inside a Reddit or X embed, a suggested-video
+  // tile. This lets that layer stand down so a press goes straight through.
+  // Not `onInteract` above — that keeps the RAIL on screen; this is a
+  // different thing, deliberately named apart from it.
+  clickThrough = false,
+  onToggleClickThrough,
 }) {
   // ALWAYS MOUNTED, never conditionally rendered: fading out an element that
   // has been removed from the tree is not possible, and popping in and out is
@@ -100,6 +112,21 @@ export default function PlayerOverlay({
             : playMode === 'shuffle' ? <Shuffle size={19} />
               : playMode === 'loop' ? <Repeat size={19} />
                 : <ArrowDownUp size={19} />}
+        </button>
+      )}
+
+      {onToggleClickThrough && (
+        <button
+          type="button"
+          data-clickthrough-toggle=""
+          onClick={onToggleClickThrough}
+          tabIndex={visible ? 0 : -1}
+          aria-pressed={clickThrough}
+          title={clickThrough ? 'Back to Truegle\'s controls' : 'Interact with what\'s on screen'}
+          aria-label={clickThrough ? 'Stop interacting with the video, restore Truegle\'s controls' : "Interact with the video's own on-screen content"}
+          className={`${btn} ${clickThrough ? 'text-amber-300' : ''}`}
+        >
+          <MousePointerClick size={19} />
         </button>
       )}
 

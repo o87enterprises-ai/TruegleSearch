@@ -16,6 +16,8 @@ import {
   PlayCircle,
   PauseCircle,
   ChevronsDown,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 
 // Backgrounds - Import all backgrounds
@@ -1542,6 +1544,20 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
     // actions showing, so the trip lands on the thing you tapped rather than
     // on a list you have to find it in again.
     const [viewerOpen, setViewerOpen] = useState(() => selectedUrl === result.url);
+    // "Open in app" full screen — owner, 2026-10-10: a way to see the preview
+    // at full size, with a way back that doesn't mean losing your place in
+    // the results (Minimize) and one that always works (Escape). A CSS
+    // overlay rather than the real Fullscreen API: TruegleMap settled on the
+    // same approach for the same reason — reliable in a cross-origin iframe,
+    // on mobile Safari, and under test automation, where requestFullscreen()
+    // is flaky or outright refused.
+    const [viewerFullscreen, setViewerFullscreen] = useState(false);
+    useEffect(() => {
+      if (!viewerFullscreen) return undefined;
+      const onKey = (e) => { if (e.key === 'Escape') setViewerFullscreen(false); };
+      document.addEventListener('keydown', onKey);
+      return () => document.removeEventListener('keydown', onKey);
+    }, [viewerFullscreen]);
     const videoEmbed = getVideoEmbed(result.url);
     const playable = getPlayable(result.url);
     // THIS CARD NO LONGER PLAYS ANYTHING.
@@ -1749,8 +1765,42 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
             </div>
           </div>
 
-          {/* Inline iframe viewer (Open in app, or feed autoplay) */}
-          {showViewer && (
+          {/* Inline iframe viewer (Open in app, or feed autoplay). Full screen is
+              the SAME block, portalled to a fixed overlay over everything
+              else — one iframe, one `key`, so going full screen never
+              reloads the page underneath it. */}
+          {showViewer && (viewerFullscreen ? createPortal(
+            <div className="fixed inset-0 z-[9995] bg-black flex flex-col" data-viewer-fullscreen-open="">
+              <div className="flex items-center justify-between px-3 py-2 bg-black/80 border-b border-white/10">
+                <span className="text-xs text-white/50 truncate flex-1 mr-2">{result.url}</span>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <a href={result.url} target="_blank" rel="noopener noreferrer"
+                    className={`text-xs ${accent.link} flex items-center gap-1`}>
+                    <ExternalLink size={11} /> Open link
+                  </a>
+                  <button
+                    type="button"
+                    data-viewer-fullscreen=""
+                    onClick={() => setViewerFullscreen(false)}
+                    title="Minimize"
+                    aria-label="Minimize"
+                    className="text-white/60 hover:text-white"
+                  >
+                    <Minimize2 size={14} />
+                  </button>
+                  <button onClick={() => { setViewerOpen(false); setViewerFullscreen(false); }} className="text-sm text-white/40 hover:text-white">✕</button>
+                </div>
+              </div>
+              <iframe
+                key={result.url}
+                src={result.url}
+                className="flex-1 w-full"
+                title="Result preview"
+                sandbox="allow-scripts allow-same-origin"
+              />
+            </div>,
+            document.body,
+          ) : (
             <div className={`mt-3 rounded-xl overflow-hidden border ${accent.iframeBorder}`}>
               <div className="flex items-center justify-between px-3 py-1.5 bg-black/40 border-b border-white/5">
                 <span className="text-xs text-white/40 truncate flex-1 mr-2">{result.url}</span>
@@ -1759,7 +1809,17 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
                     className={`text-xs ${accent.link} flex items-center gap-1`}>
                     <ExternalLink size={11} /> Open link
                   </a>
-                  <button onClick={() => setViewerOpen(false)} className="text-xs text-white/30 hover:text-white">✕</button>
+                  <button
+                    type="button"
+                    data-viewer-fullscreen=""
+                    onClick={() => setViewerFullscreen((v) => !v)}
+                    title={viewerFullscreen ? 'Minimize' : 'Full screen'}
+                    aria-label={viewerFullscreen ? 'Minimize' : 'Full screen'}
+                    className="text-white/50 hover:text-white"
+                  >
+                    {viewerFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                  </button>
+                  <button onClick={() => { setViewerOpen(false); setViewerFullscreen(false); }} className="text-xs text-white/30 hover:text-white">✕</button>
                 </div>
               </div>
               {(
@@ -1783,7 +1843,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
                 />
               )}
             </div>
-          )}
+          ))}
         </div>
       </motion.div>
     );

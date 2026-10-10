@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutGrid, ThumbsUp, ThumbsDown, Share2, Check } from 'lucide-react';
+import { LayoutGrid, ThumbsUp, ThumbsDown, Share2, Check, ChevronUp, ChevronDown } from 'lucide-react';
+import { useWheelNav } from '../../hooks/useWheelNav';
 import { PLAYER_SANDBOX } from '../player/playerSandbox';
 import { rate, useRating } from '../../utils/taste';
 import { buildPlayerLink } from '../../utils/playerLink';
@@ -41,11 +42,19 @@ export default function ReelsPlayer({
   onNext,
   onPrev,
   hasPrev = false,
+  hasNext = true,
 }) {
   const rating = useRating(reel);
   const [shared, setShared] = useState(false);
   const [hint, setHint] = useState(true);
   const start = useRef(null);
+
+  // Owner, 2026-10-10: "no way to select/change videos in reel once playing
+  // in full screen" and "the scroll function on desktop ... doesn't work".
+  // Reels had only the swipe gesture below — a touch (or a mouse DRAG, via
+  // Pointer Events, which answers both) but nothing a desktop person would
+  // find: no click target, no wheel. Both now exist alongside it.
+  const wheelNav = useWheelNav({ active: true, onNext, onPrev });
 
   // The swipe hint shows once and gets out of the way. A surface whose only
   // navigation is an invisible gesture has to say so exactly once — leaving it
@@ -132,10 +141,45 @@ export default function ReelsPlayer({
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onPointerCancel={() => { start.current = null; }}
+        onWheel={wheelNav?.onWheel}
       />
 
       {/* "Back" is the top bar's (ReelsTopBar) — it leaves Reels for the
           page you came from. The grid is one tap away on the rail below. */}
+
+      {/* CHANGE VIDEOS — A BUTTON, NOT JUST A GESTURE. Owner, 2026-10-10: "no
+          way to select/change videos in reel once playing in full screen
+          mode." Swiping (now also wheel/scroll, above) was the only way to
+          move, and nothing on screen said so unless you caught the 2.6s hint.
+          Vertically centred on the right edge, clear of both the rating rail
+          below and the top bar above — a scrollbar's worth of travel, not a
+          rating action, so it reads as its own thing. */}
+      <div
+        className="absolute right-3 top-1/2 z-20 flex flex-col items-center gap-2 -translate-y-1/2"
+      >
+        <button
+          type="button"
+          data-reels-prev=""
+          onClick={onPrev}
+          disabled={!hasPrev}
+          aria-label="Previous reel"
+          title="Previous reel"
+          className={`${btn} text-white/75 disabled:opacity-30 disabled:cursor-default`}
+        >
+          <ChevronUp size={20} />
+        </button>
+        <button
+          type="button"
+          data-reels-next=""
+          onClick={onNext}
+          disabled={!hasNext}
+          aria-label="Next reel"
+          title="Next reel"
+          className={`${btn} text-white/75 disabled:opacity-30 disabled:cursor-default`}
+        >
+          <ChevronDown size={20} />
+        </button>
+      </div>
 
       {/* The rail: is it good, is it bad, send it on. Right-hand side, thumb
           height — the same place every vertical feed puts them, because that is
@@ -194,7 +238,7 @@ export default function ReelsPlayer({
         {reel.channel && (
           <p className="text-sm font-semibold text-white drop-shadow-lg truncate">{reel.channel}</p>
         )}
-        <p className="text-[13px] text-white/80 drop-shadow-lg line-clamp-2 leading-snug mt-0.5">
+        <p data-reel-title="" className="text-[13px] text-white/80 drop-shadow-lg line-clamp-2 leading-snug mt-0.5">
           {reel.title || ''}
         </p>
       </div>

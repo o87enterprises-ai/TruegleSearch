@@ -40,6 +40,7 @@
     "rememberme:test": "node scripts/verify-remember-me.mjs",
     "openembed:test": "node scripts/verify-open-embed.mjs",
     "agegate:test": "node scripts/verify-age-gate-nuclear.mjs",
+    "playerinteract:test": "node scripts/verify-player-interact.mjs",
     "maptransit:test": "node scripts/verify-map-transit.mjs",
     "maprail:test": "node scripts/verify-map-rail.mjs",
     "searchhistory:test": "node scripts/verify-search-history.mjs",

@@ -1648,6 +1648,14 @@
         "body": "2026-10-08 owner: Safe Search default stays STRICT. Sign-in opens on AgeGate (18+ checkbox + disclaimer; server requires adult:true on verify-access-code); after code → /settings?welcome=1&next=…#search-storage. Disclaimer says server keeps ONLY the email (truthful; owner's 'no personal info' was inaccurate). SafeSearchNotice 'Safe search on. For 18+ search click here' on adult-term queries or empty site: queries (utils/safeSearchHint.js). NuclearStrip (Nuclear Option*) in SearchPageShell, UniversalSearch, LegalPage, Developers, SignIn, landing footer + Why card + BrandBar menu; '* The Nuclear Option' explained at #nuclear-option on landing. Settings ad personalization/cookie dialog removed; landing footer: Pricing removed, Feeling Biased → Wonderland.",
         "ts": "2026-10-08",
         "created": "2026-10-08"
+      },
+      "player-fullscreen-wheel-interact": {
+        "Id": "player-fullscreen-wheel-interact",
+        "Type": "decision",
+        "Label": "Full-screen view-in-app, desktop scroll nav, Reels buttons, click-through to embeds",
+        "body": "2026-10-10 owner: (1) 'Open in app' result preview now has a CSS pseudo-fullscreen overlay (Maximize2/Minimize2, data-viewer-fullscreen[-open]) with Minimize + Escape, same iframe/key so no reload. (2) useWheelNav.js: wheel/trackpad maps to next/prev, attached to TrueglePlayer's rootRef (NOT the swipe-sheet) so it bubbles past the HUD's own centred Play/Pause — a sheet-only handler went silent whenever the HUD was showing. (3) ReelsPlayer: visible ChevronUp/Down Next/Prev buttons + wheel, data-reels-next/prev, data-reel-title added for testability. (4) TrueglePlayer clickThrough state + PlayerOverlay's MousePointerClick toggle (data-clickthrough-toggle) lets a press reach the embed's own on-screen content (YouTube end-cards, embed links); gates the click-catcher + fullscreen swipe-sheet; hudVisible = overlay.visible && !locked && !clickThrough also gates the HUD/transport itself (was still catching clicks via its own pointer-events-auto override). Exit via always-visible data-clickthrough-exit pill. Resets per track. Excluded on compact/short pictures (Feed's ~210px docked card has zero slack for a 5th rail button — verify-feed-controls.mjs regression, fixed via new pictureH/shortPicture<260 signal alongside pictureW/narrowPicture<340). New suite scripts/verify-player-interact.mjs (24 checks). KNOWN ISSUE FOUND: ResultCard is defined INSIDE UniversalSearch's render (nested function component) — React treats it as a new type on every UniversalSearch re-render, occasionally remounting ResultCard mid-interaction and losing its local state (viewerOpen/viewerFullscreen). Intermittent in testing; worth hoisting ResultCard to module scope (closures: selectedUrl, feed.activeIndex/autoplay/register, mode, navigate) as a follow-up — may explain some of the owner's 'still having issues with the embeds' reports.",
+        "ts": "2026-10-10",
+        "created": "2026-10-10"
       }
     },
     "thread": {
@@ -2172,6 +2180,15 @@
         "status": "open",
         "ts": "2026-10-08",
         "created": "2026-10-08"
+      },
+      "resultcard-remount": {
+        "Id": "resultcard-remount",
+        "Type": "thread",
+        "Label": "ResultCard inline-defined in UniversalSearch — occasional remount loses local state",
+        "body": "Hoist to module scope, pass selectedUrl/feed.activeIndex/feed.autoplay/feed.register/mode/navigate as props or context. Suspected contributor to intermittent embed/viewer flakiness.",
+        "status": "open",
+        "ts": "2026-10-10",
+        "created": "2026-10-10"
       }
     },
     "entity": {
@@ -3597,5 +3614,5 @@
       }
     }
   },
-  "updated": "2026-10-08"
+  "updated": "2026-10-10"
 }
