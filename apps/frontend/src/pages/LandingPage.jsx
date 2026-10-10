@@ -466,7 +466,7 @@ export default function LandingPage() {
                 placeholder={
                   pillMode === 'red' ? 'Explore the Rabbit Hole...' :
                   pillMode === 'green' ? 'Search — concise summaries...' :
-                  'Search Like G****e'
+                  'Like Google, but better.'
                 }
                 size="large"
               />
