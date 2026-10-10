@@ -62,16 +62,15 @@ export default function LandingPage() {
   // immediately when clicked.
   //
   // Owner, 2026-10-10: "launches on mainstream search by default... like
-  // Google or DuckDuckGo." normalizePillMode('') resolves to 'black' (Chat)
-  // by design (it's also what an unrecognised/retired stored value falls
-  // back to, and UniversalSearch relies on that) — so a brand-new visitor
-  // with nothing in storage is special-cased here, on the one path that
-  // means "nothing chosen yet," to land on 'blue' (Mainstream) instead.
-  // Anyone who has ever picked a pill keeps getting exactly that pill back.
-  const [pillMode, setPillMode] = useState(() => {
-    const stored = localStorage.getItem('truegle_pill_mode_pref');
-    return stored ? normalizePillMode(stored) : 'blue';
-  });
+  // Google or DuckDuckGo"; 2026-10-10 again: "make mainstream/blue the
+  // default state of the landing page." The first pass only special-cased a
+  // brand-new visitor with nothing in storage — but anyone who had ever
+  // landed on Chat before this feature existed already had 'black' saved,
+  // so they kept opening on Chat. The landing page's default is now simply
+  // 'blue', every load, full stop — like Google's homepage never "remembers"
+  // you were on Images last time. A pick made during the visit still works
+  // normally; it just isn't carried into the NEXT visit.
+  const [pillMode, setPillMode] = useState('blue');
 
   // The Search/Chat toggle's "back to Search" needs to restore whichever
   // search-flavored pill the user was last on, not hard-reset to blue —
@@ -111,7 +110,6 @@ export default function LandingPage() {
   // mode is active at that moment.
   const handlePillModeSelect = (id) => {
     setPillMode(id);
-    localStorage.setItem('truegle_pill_mode_pref', id);
     const cfg = PILL_TOAST_CONFIG[id];
     if (cfg) {
       setPillToast(cfg);
