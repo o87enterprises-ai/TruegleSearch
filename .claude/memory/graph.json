@@ -1704,6 +1704,14 @@
         "body": "Owner: 'don't store any adult content; if a user searches it let them see it with safe search off, but don't index adult titles.' Search reads engines, never our tables, so refusing to store changes nothing about finding/playing. Guards (all use utils/explicitTitle.js isExplicitRow; swearing never consulted, music passes soft words): MediaService.signal (adult plays/votes skipped; a 'broken' report is still recorded but with title/page_url/poster/channel NULL so the global dead list works), MediaService.index (playlist import, per-video skip, rest of playlist still indexed), MediaService.submit (community_media: throws NOT_INDEXED, route -> 422), ReelsService.submit (same). Legacy rows: MediaService.purgeExplicit + scripts/purge-explicit-media.js (DRY RUN by default, --apply to delete; rows with broken>0 are scrubbed not deleted). NOT run on prod (needs prod DATABASE_URL + owner go-ahead). Read-time filter in trending stays as defense for legacy rows. Limits: title/channel heuristic; title comes from the browser for plays/votes; clean-titled adult videos still stored. Playlists: ALL videos indexed on import (cap 200/playlist; RSS fallback ~15), played or not. Tests: __tests__/noAdultStored.test.js.",
         "ts": "2026-10-13",
         "created": "2026-10-13"
+      },
+      "creators-library-of-the-untold": {
+        "Id": "creators-library-of-the-untold",
+        "Type": "decision",
+        "Label": "Added Library of the Untold to the creators roster",
+        "body": "2026-10-13 (owner request): added slug library-of-the-untold, channelId UCur0Zbb7iwP95tVlxi5Q58A (@LibraryoftheUntold; id resolved via live /api/creators/resolve, name confirmed by YouTube oEmbed). Same 5 files as the last add (8c9c29b): backend/config/creatorsRoster.js, frontend/src/content/creators.js, public/sitemap.xml (seo:test enforces it), scripts/seed-creator-videos.mjs, content/creatorVideosFallback.js. It was NEVER in the roster before (git history). adam-mockler was in the original 10 (659e218) but dropped by 0364513; the seed script still lists him (UC8DA4o0SyaGfyVaBLbF5EXg) - not re-added, owner has not asked.",
+        "ts": "2026-10-13",
+        "created": "2026-10-13"
       }
     },
     "thread": {
@@ -2244,6 +2252,15 @@
         "Label": "Cold-start pool serves explicit/junk rows to every visitor incl. Safe Search users",
         "body": "2026-10-13: live GET api.truegle.info/api/media/trending returns explicit titles (hentai/porn-titled uploads) and junk rows (title 'youtube.com/playlist', 'youtu.be/...', embed id 'videoseries') to every new visitor's Up next, bypassing Safe Search (the pool is not filtered by it). Pre-existing, NOT changed in session 2026-10-13 (product/censorship-policy call). Needs owner decision: filter pool by the visitor's own Safe Search setting (client-side, utils/adultKeywords) vs leave as is; and drop non-video rows (playlist/short-link titles).",
         "status": "done",
+        "ts": "2026-10-13",
+        "created": "2026-10-13"
+      },
+      "creators-feed-crowding": {
+        "Id": "creators-feed-crowding",
+        "Type": "thread",
+        "Label": "Creators feed is newest-first so daily uploaders crowd out the rest",
+        "body": "2026-10-13: owner 'not seeing darkwaters9/true story/jon levi'. They ARE in the roster and on /creators (live+preview verified, 12 channels). But /api/creators/feed (fetchCreatorsFeed, routes/creators.js ~L197) merges all roster videos NEWEST-FIRST: of the top 50, epicdaily=12 + SpaceWeatherNews=11 (both added in 8c9c29b); Dark Waters 9 first appears #28, True Story #31, Jon Levi #115, Mind Unveiled #124 of 144. Proposed fix (not built, needs owner OK): interleave round-robin per creator and/or cap per creator per page.",
+        "status": "open",
         "ts": "2026-10-13",
         "created": "2026-10-13"
       }
