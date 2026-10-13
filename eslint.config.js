@@ -87,6 +87,9 @@ export default [
       '**/verify-globe-texture.mjs',
       '**/verify-no-select.mjs',
       '**/verify-osint-gate.mjs',
+      // Tube verifiers that read `window` / `document` inside page.evaluate.
+      '**/verify-up-next-runway.mjs',
+      '**/verify-docked-scroll.mjs',
     ],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },

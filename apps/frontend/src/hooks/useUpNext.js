@@ -147,7 +147,15 @@ export function useUpNext() {
       // A cold launch asks for more than a single swipe does: it has a whole
       // queue to fill and nothing playing to narrow things down.
       const limit = wide ? 48 : 24;
-      const d = await json(`${BACKEND}/api/media/trending?limit=${limit}&offset=${offset}&exclude=${encodeURIComponent(exclude)}`);
+      // THE VISITOR'S OWN SAFE SEARCH, so the pool can leave explicit titles
+      // out of what is recommended unprompted. The server only honours "off"
+      // for a signed-in visitor, so the sign-in rides along in that case and
+      // only that case — everyone else sends a plain GET.
+      const safe = storedSafeSearch();
+      const d = await json(
+        `${BACKEND}/api/media/trending?limit=${limit}&offset=${offset}&safe=${safe}&exclude=${encodeURIComponent(exclude)}`,
+        safe === 'off' ? { headers: authHeader() } : undefined,
+      );
       return (d?.results || []).map((r) => {
         const s = toSource({ ...r, url: r.pageUrl || urlFromKey(r.mediaKey) }, { channel: r.channel });
         // Platform score is already a 0–1-ish confidence bound; scale it into

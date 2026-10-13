@@ -1688,6 +1688,14 @@
         "body": "2026-10-13: the docked frame (MiniPlayer.jsx) was position:fixed repositioned from a scroll listener -> trailed the page (440px gap measured) and its caps used the slot's LIVE viewport top so the player's height changed while scrolling (423->489->542). Now absolute at the slot's offset from its containing block (scroll-invariant), no scroll listener, caps use docTop (slot top at scrollY=0). Floating/footer forms are still fixed. Test: npm run dockedscroll:test (fails on old code).",
         "ts": "2026-10-13",
         "created": "2026-10-13"
+      },
+      "safe-search-pool-and-music": {
+        "Id": "safe-search-pool-and-music",
+        "Type": "decision",
+        "Label": "Safe Search: pool hides explicit titles; player search lets music through",
+        "body": "2026-10-13 (owner-approved): (1) Cold-start pool (MediaService.trending) hides sexual titles unless request is signed-in AND ?safe=off (same rule as social feed/search); client useUpNext sends safe=<storedSafeSearch>. Non-video rows (youtube:videoseries, /playlist urls) hidden for everyone; URL-TITLED real videos are NOT junk (Despacito/Gangnam were wrongly hidden by a first rule - caught on live data). (2) Player search (usePlayerSearch sends filters.purpose='player'): under 'safe' the engines are asked at MODERATE (blur) not strict - strict drops pages with profanity so songs vanished - then routes/search.js keepForSafePlayer applies utils/explicitTitle.js (HARD terms/adult hosts always hidden; SOFT words like naked/nude/lingerie allowed when row looksLikeMusic: ' - Topic' channel, VEVO, 'official video/audio', lyrics, soundcloud etc.) + services/AgeGate.js drops YouTube videos flagged contentRating.ytAgeRestricted via Data API videos.list (1 unit/50 ids, 24h cache, FAILS OPEN w/o key/quota). Swearing is NOT on any list. Web search page unchanged (strict). Live check: moderate returned songs strict dropped ('Kill You') but not all - going to engine 'off' + Truegle filter would be fuller but weaker for kids. Not covered: /api/creators/search (YouTube API fallback) has no age-gate filter. Tests: backend playerSafeSearch/poolSafeSearch/mediaIndex.test.js.",
+        "ts": "2026-10-13",
+        "created": "2026-10-13"
       }
     },
     "thread": {
@@ -2227,7 +2235,7 @@
         "Type": "thread",
         "Label": "Cold-start pool serves explicit/junk rows to every visitor incl. Safe Search users",
         "body": "2026-10-13: live GET api.truegle.info/api/media/trending returns explicit titles (hentai/porn-titled uploads) and junk rows (title 'youtube.com/playlist', 'youtu.be/...', embed id 'videoseries') to every new visitor's Up next, bypassing Safe Search (the pool is not filtered by it). Pre-existing, NOT changed in session 2026-10-13 (product/censorship-policy call). Needs owner decision: filter pool by the visitor's own Safe Search setting (client-side, utils/adultKeywords) vs leave as is; and drop non-video rows (playlist/short-link titles).",
-        "status": "open",
+        "status": "done",
         "ts": "2026-10-13",
         "created": "2026-10-13"
       }

@@ -258,7 +258,7 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
     const once = (category, query, page = 1) => fetch(`${BACKEND}/api/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify({ query, filters: { category, bias: 'all', dateRange: 'any', perPage: 20, page, safeSearch: storedSafeSearch() } }),
+      body: JSON.stringify({ query, filters: { category, bias: 'all', dateRange: 'any', perPage: 20, page, safeSearch: storedSafeSearch(), purpose: 'player' } }),
       signal: controller.signal,
     })
       .then((r) => r.json())
@@ -513,7 +513,7 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
       headers: { 'Content-Type': 'application/json', ...authHeader() },
       body: JSON.stringify({
         query: won.query,
-        filters: { category: won.category, bias: 'all', dateRange: 'any', perPage: 20, page: nextPage, safeSearch: storedSafeSearch() },
+        filters: { category: won.category, bias: 'all', dateRange: 'any', perPage: 20, page: nextPage, safeSearch: storedSafeSearch(), purpose: 'player' },
       }),
       signal: controller.signal,
     })
