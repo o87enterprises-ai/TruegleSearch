@@ -23,10 +23,13 @@ import { byNewest, publishedAt } from './published';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
+// YouTube's own chips — Latest / Popular / Oldest — after Relevant, which is
+// the free default. 'newest' keeps its id so nothing remembered breaks.
 export const SORTS = [
   { id: 'relevant', label: 'Relevant' },
-  { id: 'newest', label: 'Newest' },
+  { id: 'newest', label: 'Latest' },
   { id: 'popular', label: 'Popular' },
+  { id: 'oldest', label: 'Oldest' },
 ];
 export const SORT_IDS = new Set(SORTS.map((s) => s.id));
 
@@ -44,6 +47,18 @@ export const datedCount = (rows) =>
 export function sortResults(rows, sort, scores = {}) {
   const list = Array.isArray(rows) ? rows : [];
   if (sort === 'newest') return [...list].sort(byNewest);
+  if (sort === 'oldest') {
+    // Oldest first, but undated rows still go LAST — an unknown date is not
+    // an old one.
+    return [...list].sort((a, b) => {
+      const av = publishedAt(a?.published);
+      const bv = publishedAt(b?.published);
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      return av - bv;
+    });
+  }
   if (sort === 'popular') {
     // Stable within each group: `index` preserves the relevance order for rows
     // that tie, and for the whole unscored tail.

@@ -15,6 +15,8 @@ import PlayerProgress from './PlayerProgress';
 import PlayerBrowse from './PlayerBrowse';
 import { useEmbedPlayback } from '../../hooks/useEmbedPlayback';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
+import { publishPlayerResults } from '../../utils/playerResultsStore';
+import { useSortedRows } from '../../utils/tubeSort';
 import { useUpNext } from '../../hooks/useUpNext';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
 import { useWheelNav } from '../../hooks/useWheelNav';
@@ -112,6 +114,16 @@ export default function TrueglePlayer({
   // viewport. It used to live inside PlayerListSlot; with two consumers that
   // would have been two identical round trips per keystroke.
   const search = usePlayerSearch(query, scope, provider);
+  // Docked on Tube, the page's grid lists these same rows — see
+  // playerResultsStore. Only the docked ('expanded') player is the page's.
+  useEffect(() => {
+    if (presentation !== 'expanded') return undefined;
+    publishPlayerResults(search);
+    return undefined;
+  }, [presentation, search.results, search.loading, search.error, search.more, search.loadMore, search.loadingMore]);  
+  useEffect(() => () => { if (presentation === 'expanded') publishPlayerResults(null); }, [presentation]);
+  // The browse deck follows the one Tube order (Latest / Popular / Oldest).
+  const sortedResults = useSortedRows(search.results);
   // ── THE LOCKED VOICE PANEL ────────────────────────────────────────────────
   // Its own query and therefore its own search: the host's `query` is the page's
   // search bar, and speaking into a locked player must not rewrite what is in a
@@ -352,11 +364,17 @@ export default function TrueglePlayer({
   const goNext = useCallback(async () => {
     if (playingList) { listNext(true); return; }
     if (followFeed) { feedNext(); return; }
-    if (feedSpent) return;
+    // A spent feed STAYS PUT only when something is parked behind it (a queue
+    // it must not tip into) or on the Feed page, where nothing random belongs.
+    // With nothing parked there is nothing to protect, and staying put meant a
+    // new visitor — whose whole opening feed is the 12-card idle deck — hit
+    // Next on the last card and got the same video forever. It is discovery
+    // from there, exactly as it already is when a clip ends on its own.
+    if (feedSpent && (queue.length > 0 || onFeedPage)) return;
     if (followQueue || !current || onFeedPage) { skipNext(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) play(nextUp); else skipNext();
-  }, [playingList, listNext, followFeed, feedNext, feedSpent, followQueue, current, upNext, play, skipNext, onFeedPage]);
+  }, [playingList, listNext, followFeed, feedNext, feedSpent, queue.length, followQueue, current, upNext, play, skipNext, onFeedPage]);
 
   // Next pressed OUTSIDE the player (minimized bar, lock-screen keys, the
   // map's transport) arrives as a nonce so it runs the same rules as above.
@@ -392,7 +410,8 @@ export default function TrueglePlayer({
     filling.current = true;
     let cancelled = false;
     (async () => {
-      const batch = await upNext.fill(null, 12);
+      // 24, not 12: the deck is a new visitor's whole opening runway.
+      const batch = await upNext.fill(null, 24);
       if (!cancelled && batch.length) setIdleDeck(batch);
     })();
     return () => { cancelled = true; };
@@ -788,7 +807,7 @@ export default function TrueglePlayer({
       fill={fullscreen}
       compact={presentation === 'popped'}
       maxHeight={presentation === 'popped' ? 320 : 420}
-      browse={search.results?.length ? search.results : (query.trim().length >= 2 ? search.results : idleDeck)}
+      browse={search.results?.length ? sortedResults : (query.trim().length >= 2 ? search.results : idleDeck)}
       browseLoading={search.loading}
       browseMore={search.more}
       onBrowseMore={search.loadMore}
@@ -955,7 +974,7 @@ export default function TrueglePlayer({
         {browseOverScreen && (
           <div data-player-standby-browse="" className="absolute inset-0 z-[15] flex flex-col">
             <PlayerBrowse
-              rows={search.results}
+              rows={sortedResults}
               loading={search.loading}
               compact={presentation === 'popped'}
               fill

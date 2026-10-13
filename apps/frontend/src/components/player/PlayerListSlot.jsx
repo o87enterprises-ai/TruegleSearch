@@ -12,7 +12,9 @@ import { reportBroken, useBrokenFlag, useBrokenVersion, withoutBroken } from '..
 import { useMediaMeta, formatDuration } from '../../utils/mediaMeta';
 import { resolveTitles } from '../../utils/resolveTitles';
 import { publishedLabel } from '../../utils/published';
-import { SORTS, sortResults, fetchScores, datedCount } from '../../utils/resultSort';
+import { SORTS, datedCount } from '../../utils/resultSort';
+import { useTubeSort, setTubeSort, useSortedRows } from '../../utils/tubeSort';
+import SafeSearchToggle from '../ui/SafeSearchToggle';
 import PlayerLibrary from './PlayerLibrary';
 import { useWatchHistory, clearWatchHistory } from '../../utils/watchHistory';
 
@@ -71,20 +73,11 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
   const own = usePlayerSearch(search ? '' : query, scope, provider);
   const { results, loading, error, unsupported, trace, more, loadMore, loadingMore } = search || own;
   // ── ORDER ─────────────────────────────────────────────────────────────────
-  // 'relevant' is what the search already produced, so it costs nothing and is
-  // the default. The other two are asked for explicitly, and Popular only
-  // fetches Truegle's own counts when somebody actually picks it — a request
-  // per search for a sort nobody chose would be pure waste.
-  const [sort, setSort] = useState('relevant');
-  const [scores, setScores] = useState({});
-  useEffect(() => {
-    if (sort !== 'popular' || !results || results.length === 0) return undefined;
-    const ac = new AbortController();
-    fetchScores(results, ac.signal).then(setScores);
-    return () => ac.abort();
-  }, [sort, results]);
-  // A new search is a new question; the order it is asked in is not sticky.
-  useEffect(() => { setSort('relevant'); setScores({}); }, [query]);
+  // Relevant / Latest / Popular / Oldest, shared with the browse deck and the
+  // Tube page's grid (utils/tubeSort.js) — pick it in either place and both
+  // follow. Popular only fetches Truegle's own counts when somebody picks it.
+  const sort = useTubeSort();
+  const sortedResults = useSortedRows(results);
   // Asking for a channel should be able to give you the CHANNEL, not a
   // scattering of its videos: one row to open its real feed, newest first.
   const intent = parsePlayerQuery(query, scope, provider);
@@ -231,36 +224,43 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
             </button>
           ))}
         </div>
-        {!feedRows && results && results.length > 1 && (
+        {/* SORT + SAFE SEARCH, one row. Shown whenever there are results —
+            Safe Search applies to the search itself, so it re-runs it. */}
+        {!feedRows && (
           <div className="flex items-center gap-1 px-3 pb-1.5 text-[10px] uppercase tracking-wider text-white/40">
-            <span className="text-white/25 mr-0.5">Sort</span>
-            <span className="flex items-center gap-1">
-              {SORTS.map((o) => {
-                // Newest is offered only when the rows actually carry dates.
-                // The index supplies one for some providers and not others, so
-                // a Newest that silently reorders nothing would read as broken.
-                const dead = o.id === 'newest' && datedCount(results) < 2;
-                return (
-                  <button
-                    key={o.id}
-                    type="button"
-                    data-sort={o.id}
-                    disabled={dead}
-                    onClick={() => setSort(o.id)}
-                    aria-pressed={sort === o.id}
-                    title={o.id === 'popular'
-                      ? "Most played and best rated ON TRUEGLE — our own anonymous counts, not the platform's view count"
-                      : (dead ? 'These results carry no publish dates' : `Sort by ${o.label.toLowerCase()}`)}
-                    className={`px-1.5 py-0.5 rounded transition-colors ${
-                      dead ? 'text-white/15 cursor-not-allowed'
-                        : sort === o.id ? 'bg-white/15 text-white' : 'text-white/35 hover:text-white/70'
-                    }`}
-                  >
-                    {o.label}
-                  </button>
-                );
-              })}
-            </span>
+            {results && results.length > 1 && (
+              <>
+                <span className="text-white/25 mr-0.5">Sort</span>
+                <span className="flex items-center gap-1 flex-wrap">
+                  {SORTS.map((o) => {
+                    // Date orders are offered only when the rows actually
+                    // carry dates — a Latest that silently reorders nothing
+                    // would read as broken.
+                    const dead = (o.id === 'newest' || o.id === 'oldest') && datedCount(results) < 2;
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        data-sort={o.id}
+                        disabled={dead}
+                        onClick={() => setTubeSort(o.id)}
+                        aria-pressed={sort === o.id}
+                        title={o.id === 'popular'
+                          ? "Most played and best rated ON TRUEGLE — our own anonymous counts, not the platform's view count"
+                          : (dead ? 'These results carry no publish dates' : `Sort by ${o.label.toLowerCase()}`)}
+                        className={`px-1.5 py-0.5 rounded transition-colors ${
+                          dead ? 'text-white/15 cursor-not-allowed'
+                            : sort === o.id ? 'bg-white/15 text-white' : 'text-white/35 hover:text-white/70'
+                        }`}
+                      >
+                        {o.label}
+                      </button>
+                    );
+                  })}
+                </span>
+              </>
+            )}
+            <SafeSearchToggle compact className="ml-auto normal-case" />
           </div>
         )}
         {/* The channel itself, offered before its scattered videos. YouTube
@@ -399,7 +399,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
           )}
           {/* A new query clears the old rows at once rather than leaving the
               previous search's results under the loading skeleton. */}
-          {withoutBroken(feedRows || (pending ? [] : sortResults(results || [], sort, scores))).map((r) => (
+          {withoutBroken(feedRows || (pending ? [] : (sortedResults || []))).map((r) => (
             /* WHICH PLATFORM THIS CAME FROM, in colour. The Where chips are
                gone and a search now fans out across every provider at once, so
                a list mixing YouTube, Rumble, Odysee and SoundCloud had nothing

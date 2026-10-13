@@ -82,6 +82,8 @@ async function isReallyGone(mediaKey, fetchImpl = fetch) {
 
 const MAX_TITLE = 200;
 const MAX_URL = 2048;
+// One playlist import's worth, and no more per call.
+const INDEX_MAX = 200;
 const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|wav|flac)(\?|#|$)/i;
 const VIDEO_EXT = /\.(mp4|webm|mov|m4v)(\?|#|$)/i;
 
@@ -466,6 +468,60 @@ const MediaService = {
   },
 
   /**
+   * Put videos into the platform pool WITHOUT a play, vote or any other signal
+   * — so a whole imported playlist becomes something new visitors can be
+   * offered, not just the tracks the importer happened to sit through.
+   *
+   * TRUSTED INPUT ONLY. The caller is a server route that has just fetched
+   * these from the platform itself (the playlist import). Browsers cannot reach
+   * this: a public endpoint taking client-supplied keys would let anyone seed
+   * every visitor's cold-start feed with whatever they like.
+   *
+   * Counters are never touched — an existing row keeps its ups/plays/broken and
+   * only has missing descriptive fields filled in. New rows start at zero, which
+   * ranks them BELOW anything people have actually played (see trending), so
+   * they widen the pool without displacing what is proven.
+   *
+   * YouTube only, with the id shape checked: that is what the playlist import
+   * produces, and a malformed key would sit in the pool as an unplayable row.
+   * Never throws.
+   *
+   * @param {Array<{videoId:string,title?:string,thumbnail?:string,channel?:string}>} videos
+   * @returns {Promise<number>} how many rows were offered to the table
+   */
+  async index(videos = []) {
+    const rows = (Array.isArray(videos) ? videos : [])
+      .filter((v) => v && /^[\w-]{11}$/.test(String(v.videoId || '')))
+      .slice(0, INDEX_MAX);
+    if (rows.length === 0) return 0;
+    try {
+      const keys = []; const titles = []; const pages = []; const posters = []; const channels = [];
+      for (const v of rows) {
+        keys.push(`youtube:${v.videoId}`);
+        titles.push(clean(v.title, MAX_TITLE) || null);
+        pages.push(`https://www.youtube.com/watch?v=${v.videoId}`);
+        posters.push(clean(v.thumbnail, MAX_URL) || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`);
+        channels.push(clean(v.channel, 120) || null);
+      }
+      await query(
+        `INSERT INTO media_signals (media_key, kind, title, page_url, poster, channel)
+         SELECT k, 'youtube', t, p, po, c
+           FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[]) AS x(k, t, p, po, c)
+         ON CONFLICT (media_key) DO UPDATE SET
+           title    = COALESCE(media_signals.title, EXCLUDED.title),
+           page_url = COALESCE(media_signals.page_url, EXCLUDED.page_url),
+           poster   = COALESCE(media_signals.poster, EXCLUDED.poster),
+           channel  = COALESCE(media_signals.channel, EXCLUDED.channel)`,
+        [keys, titles, pages, posters, channels],
+      );
+      return rows.length;
+    } catch (err) {
+      logger.warn('Media index failed', { error: err && err.message });
+      return 0;
+    }
+  },
+
+  /**
    * Everything currently considered dead — the blocklist the player filters
    * search results through before showing them.
    *
@@ -585,7 +641,9 @@ const MediaService = {
                 ) AS score
            FROM media_signals
           WHERE hidden = FALSE
-            AND (ups > 0 OR plays > 0)
+            -- Played or voted on, OR indexed with no complaints against it (see
+            -- index()). A row whose only signal is "broken" stays out.
+            AND (ups > 0 OR plays > 0 OR broken = 0)
             AND ($2::text[] IS NULL OR NOT (media_key = ANY($2)))
           ORDER BY score DESC, updated_at DESC
           LIMIT $1 OFFSET $3`,

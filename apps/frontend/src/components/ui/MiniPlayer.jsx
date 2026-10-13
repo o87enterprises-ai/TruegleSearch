@@ -166,34 +166,57 @@ export default function MiniPlayer() {
   const wantSlot = !poppedOut;
   useEffect(() => {
     if (!wantSlot) { setSlot(null); return undefined; }
+    // PAGE COORDINATES, NOT VIEWPORT ONES — and no scroll listener.
+    //
+    // This used to re-measure the slot on every scroll event and move a
+    // position:fixed frame to match. Scroll events arrive AFTER the browser has
+    // already scrolled the page, so the player trailed it — measured on a phone
+    // viewport, one 100px scroll left the slot at top 224 and the player still
+    // at 324 until the handler and a React render caught up. It also re-rendered
+    // the whole player on every scroll tick. Both read as "glitchy".
+    //
+    // The frame is now position:absolute inside the page, at the slot's offset
+    // from its containing block. That offset does not change when the page
+    // scrolls (they scroll together), so scrolling is entirely the browser's
+    // own and costs this component nothing. It is only re-measured when the
+    // LAYOUT moves — resize, and the poll below for things nothing announces.
     const measure = () => {
       const el = document.querySelector('[data-player-slot]');
       if (!el) { setSlot(null); return; }
       const r = el.getBoundingClientRect();
-      // How much room is actually left below the page's header. A 9:16 reel
-      // capped only against the viewport still ran past the bottom once the
-      // logo, pill row and search bar had taken their share — the transport
-      // ended up just off screen, which is exactly when you need it.
+      // The slot's top as if the page were scrolled to the top. Everything that
+      // sizes the player from "how much room is below the header" uses THIS —
+      // using the live on-screen position meant the caps (and so the player's
+      // height, and so the page's height) changed as you scrolled.
+      const docTop = r.top + window.scrollY;
       document.documentElement.style.setProperty(
         '--truegle-player-cap',
-        `${Math.max(180, Math.round(window.innerHeight - r.top - 120))}px`,
+        `${Math.max(180, Math.round(window.innerHeight - docTop - 120))}px`,
       );
+      // Offsets are against the frame's containing block: the nearest positioned
+      // ancestor, or the document itself when there is none.
+      let cb = frameRef.current?.parentElement || document.getElementById('main-content');
+      while (cb && cb !== document.body && getComputedStyle(cb).position === 'static') cb = cb.parentElement;
+      if (cb === document.body || cb === document.documentElement) cb = null;
+      const origin = cb
+        ? (() => { const c = cb.getBoundingClientRect(); return { left: c.left + cb.clientLeft, top: c.top + cb.clientTop }; })()
+        : { left: -window.scrollX, top: -window.scrollY };
+      const next = { left: r.left - origin.left, top: r.top - origin.top, width: r.width, docTop };
       setSlot((prev) => (prev
-        && Math.abs(prev.left - r.left) < 0.5
-        && Math.abs(prev.top - r.top) < 0.5
-        && Math.abs(prev.width - r.width) < 0.5
+        && Math.abs(prev.left - next.left) < 0.5
+        && Math.abs(prev.top - next.top) < 0.5
+        && Math.abs(prev.width - next.width) < 0.5
+        && Math.abs(prev.docTop - next.docTop) < 0.5
         ? prev
-        : { left: r.left, top: r.top, width: r.width }));
+        : next));
     };
     measure();
-    window.addEventListener('scroll', measure, { passive: true, capture: true });
     window.addEventListener('resize', measure);
     // Catches the layout changes nothing tells us about — the slot appearing
     // on a later render, ads loading above it, the bar growing a row.
     const poll = setInterval(measure, 250);
     return () => {
       clearInterval(poll);
-      window.removeEventListener('scroll', measure, { capture: true });
       window.removeEventListener('resize', measure);
       document.documentElement.style.removeProperty('--truegle-player-cap');
     };
@@ -525,10 +548,10 @@ export default function MiniPlayer() {
       left: slot.left,
       top: slot.top,
       width: slot.width,
-      // The frame is FIXED, so anything of its own that runs past the bottom
-      // of the screen can never be scrolled to — the page scrolls, the frame
-      // doesn't. Cap it at what's actually visible and let it scroll itself,
-      // so an opened panel (a long queue, the results list) stays reachable.
+      // Cap it at what fits below the slot and let it scroll itself, so an
+      // opened panel (a long queue, the results list) stays reachable without
+      // pushing the page's own height around. Measured from the slot's
+      // page-scrolled-to-top position (docTop) so scrolling never changes it.
       //
       // The KEYBOARD counts as "not visible". This was the one geometry path
       // that ignored it: 100svh does not shrink for the keyboard on Android,
@@ -538,7 +561,7 @@ export default function MiniPlayer() {
       // subtracted this; docked never did.
       maxHeight: `${Math.max(140, Math.round(
         (typeof window !== 'undefined' ? window.innerHeight : 800)
-        - keyboardInset - Math.max(0, slot.top) - 8,
+        - keyboardInset - Math.max(0, slot.docTop) - 8,
       ))}px`,
       overflowY: 'auto',
     }
@@ -626,7 +649,9 @@ export default function MiniPlayer() {
           // round would draw a line through the middle of one surface.
           padding: docked ? '0 1.5px 1.5px' : 1.5,
         }}
-        className={`fixed shadow-2xl transition-shadow ${dragging ? 'select-none' : ''} ${
+        // Docked: ABSOLUTE in the page, so it scrolls with it natively (see the
+        // measure() note). Every other form floats over the page and stays fixed.
+        className={`${docked ? 'absolute' : 'fixed'} shadow-2xl transition-shadow ${dragging ? 'select-none' : ''} ${
           docked
             // Below the page's own dropdowns (suggestions drop over this
             // space), above the results underneath it.
