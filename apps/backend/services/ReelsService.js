@@ -14,6 +14,7 @@
  */
 const { query } = require('../db/connection');
 const logger = require('../utils/logger');
+const { isExplicitRow } = require('../utils/explicitTitle');
 
 class ReelError extends Error {
   constructor(code, message) {
@@ -93,6 +94,12 @@ const ReelsService = {
     if (!raw) throw new ReelError('INVALID', 'No link was provided.');
 
     const { platform, canonical } = classifyReel(raw);
+    // ADULT TITLES ARE NOT STORED (owner, 2026-10-13). The title is the
+    // submitter's own text, so it can be judged; a link with no title is stored
+    // as before. Playing the reel is unaffected.
+    if (isExplicitRow({ title: clean(title, MAX_TITLE), url: raw })) {
+      throw new ReelError('NOT_INDEXED', "That reel looks like adult content, so it is not added to Truegle's shared catalog. You can still watch it yourself.");
+    }
     const thumbnail = deriveThumbnail(platform, canonical);
 
     const { rows } = await query(

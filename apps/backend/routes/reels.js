@@ -9,6 +9,8 @@ const { ReelsService } = require('../services/ReelsService');
 const ERRORS = {
   INVALID: 400,
   UNSUPPORTED: 422,
+  // An adult title is not added to the shared catalog (it can still be played).
+  NOT_INDEXED: 422,
   NOT_FOUND: 404,
 };
 
