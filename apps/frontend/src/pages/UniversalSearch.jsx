@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue, Fragment } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -71,6 +71,7 @@ import { classifyQuery, describeLink } from '../utils/urlQuery';
 import { useSearchStashContext } from '../context/SearchStashContext';
 import ReelsSurface from '../components/reels/ReelsSurface';
 import TubeReelsToggle from '../components/reels/TubeReelsToggle';
+import TubeResultsGrid from '../components/tube/TubeResultsGrid';
 import { recordSearch } from '../utils/playerSearchMemory';
 import { cachedVideos } from '../content/creatorVideos';
 import SingleLinkCard from '../components/search/SingleLinkCard';
@@ -135,7 +136,6 @@ import { NuclearStrip } from '../components/ui/SessionWipe';
 import SafeSearchNotice from '../components/ui/SafeSearchNotice';
 import { safeSearchMayHaveFiltered } from '../utils/safeSearchHint';
 import { authHeader } from '../utils/authHeader';
-import SafeSearchToggle from '../components/ui/SafeSearchToggle';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
 // (mainstream, conspiracy, democratic, republican, nonpartisan, music, videos,
@@ -477,11 +477,16 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
   }, [autoVoice]);
   // Whatever the dock, a search typed on Tube is the one a pick came from.
   useEffect(() => { if (mode === 'tube') rememberTubeSearch(searchValue); }, [mode, searchValue]);
+  // DEFERRED, so a keystroke paints first and the player (whose iframe is
+  // busy playing) catches up after. Publishing every letter synchronously is
+  // what made typing here lag while media played — the player's own bar never
+  // had this hop and never lagged.
+  const deferredSearchValue = useDeferredValue(searchValue);
   useEffect(() => {
     if (!tubeDocked) return undefined;
-    setPlayerQuery(searchValue, tubeScope, tubeProvider);
+    setPlayerQuery(deferredSearchValue, tubeScope, tubeProvider);
     return () => setPlayerQuery('', 'all', 'all');
-  }, [tubeDocked, searchValue, tubeScope, tubeProvider]);
+  }, [tubeDocked, deferredSearchValue, tubeScope, tubeProvider]);
   const autoExpanded = useRef(false);
   useEffect(() => {
     if (autoExpanded.current) return;
@@ -987,6 +992,17 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
           sourceName: link.host,
         }], modeToBackend(mode));
       }
+      return;
+    }
+
+    // TUBE SEARCHES PLAYABLE THINGS ONLY. The grid under the player is the
+    // player's own playable-only search (TubeResultsGrid); a whole-web search
+    // here was a second request whose results Tube no longer shows.
+    if (mode === 'tube') {
+      setSearchResults([]);
+      setSearchError(false);
+      setSearchLoading(false);
+      setLastSearchedQuery(searchValue);
       return;
     }
 
@@ -1931,7 +1947,6 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
                 switch that sits on the Reels top bar. */}
             {mode === 'tube' && (
               <div className="flex justify-end items-center gap-2 mb-1.5 px-1">
-                <SafeSearchToggle />
                 <TubeReelsToggle active="tube" onReels={() => selectCategory('reels')} />
               </div>
             )}
@@ -2661,7 +2676,9 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
                   </button>
                 </div>
               )}
-              {searchLoading ? (
+              {mode === 'tube' ? (
+                <TubeResultsGrid docked={tubeDocked} query={lastSearchedQuery} />
+              ) : searchLoading ? (
                 <div className="space-y-4">
                   <div className="text-sm text-white/60 mb-4">Searching...</div>
                   {[1, 2, 3, 4, 5].map((i) => (
@@ -2908,7 +2925,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
           plainly for adult material, or a site: search came back empty, with
           Safe Search on (utils/safeSearchHint.js). */}
       <SafeSearchNotice
-        show={!searchLoading && !searchError && safeSearchMayHaveFiltered({
+        show={mode !== 'tube' && !searchLoading && !searchError && safeSearchMayHaveFiltered({
           query: lastSearchedQuery, resultCount: searchResults.length, safeSearch: settings.safeSearch,
         })}
         signedIn={isAuthenticated}

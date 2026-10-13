@@ -30,6 +30,7 @@
     "gsc:test": "node scripts/verify-gsc.mjs",
     "oneplayer:test": "node scripts/verify-one-player.mjs",
     "carrysearch:test": "node scripts/verify-player-carry-search.mjs",
+    "tubegrid:test": "node scripts/verify-tube-grid.mjs",
     "playall:test": "node scripts/verify-play-all.mjs",
     "player:suite": "node scripts/verify-player-suite.mjs",
     "feedcontrols:test": "node scripts/verify-feed-controls.mjs",

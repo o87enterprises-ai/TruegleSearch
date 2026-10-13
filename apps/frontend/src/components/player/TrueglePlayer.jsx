@@ -15,6 +15,8 @@ import PlayerProgress from './PlayerProgress';
 import PlayerBrowse from './PlayerBrowse';
 import { useEmbedPlayback } from '../../hooks/useEmbedPlayback';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
+import { publishPlayerResults } from '../../utils/playerResultsStore';
+import { useSortedRows } from '../../utils/tubeSort';
 import { useUpNext } from '../../hooks/useUpNext';
 import { useSwipeNav } from '../../hooks/useSwipeNav';
 import { useWheelNav } from '../../hooks/useWheelNav';
@@ -112,6 +114,16 @@ export default function TrueglePlayer({
   // viewport. It used to live inside PlayerListSlot; with two consumers that
   // would have been two identical round trips per keystroke.
   const search = usePlayerSearch(query, scope, provider);
+  // Docked on Tube, the page's grid lists these same rows — see
+  // playerResultsStore. Only the docked ('expanded') player is the page's.
+  useEffect(() => {
+    if (presentation !== 'expanded') return undefined;
+    publishPlayerResults(search);
+    return undefined;
+  }, [presentation, search.results, search.loading, search.error, search.more, search.loadMore, search.loadingMore]);  
+  useEffect(() => () => { if (presentation === 'expanded') publishPlayerResults(null); }, [presentation]);
+  // The browse deck follows the one Tube order (Latest / Popular / Oldest).
+  const sortedResults = useSortedRows(search.results);
   // ── THE LOCKED VOICE PANEL ────────────────────────────────────────────────
   // Its own query and therefore its own search: the host's `query` is the page's
   // search bar, and speaking into a locked player must not rewrite what is in a
@@ -788,7 +800,7 @@ export default function TrueglePlayer({
       fill={fullscreen}
       compact={presentation === 'popped'}
       maxHeight={presentation === 'popped' ? 320 : 420}
-      browse={search.results?.length ? search.results : (query.trim().length >= 2 ? search.results : idleDeck)}
+      browse={search.results?.length ? sortedResults : (query.trim().length >= 2 ? search.results : idleDeck)}
       browseLoading={search.loading}
       browseMore={search.more}
       onBrowseMore={search.loadMore}
@@ -955,7 +967,7 @@ export default function TrueglePlayer({
         {browseOverScreen && (
           <div data-player-standby-browse="" className="absolute inset-0 z-[15] flex flex-col">
             <PlayerBrowse
-              rows={search.results}
+              rows={sortedResults}
               loading={search.loading}
               compact={presentation === 'popped'}
               fill

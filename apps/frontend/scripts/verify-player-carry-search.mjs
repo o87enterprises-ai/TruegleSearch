@@ -55,7 +55,10 @@ for (const phone of [true, false]) {
   check(!floating || (await boxValue()) === 'duck sauce', `${tag} after the pick, the player's own search box still holds "duck sauce"`, floating ? `"${await boxValue()}"` : 'player docked to the page bar');
   // (Not the "Not loading? Skip" offer, which can sit beside the title when
   // the stubbed embed stays silent — it is not a result row.)
-  const otherQueries = await page.locator('text=/^(?!duck sauce|Not loading).* result \\d$/').count();
+  // The page's Tube grid is left out: its cards read "YOUTUBE" + the title, so
+  // the pattern below matched them, and they ARE this search's rows anyway.
+  const otherQueries = await page.locator('text=/^(?!duck sauce|Not loading).* result \\d$/')
+    .evaluateAll((els) => els.filter((e) => !e.closest('[data-tube-grid]')).length);
   check(otherQueries === 0, `${tag} …and the player shows that search's results, not unrelated ones`, `${otherQueries} foreign rows`);
 
   // A trip away from Tube: the player floats everywhere else.

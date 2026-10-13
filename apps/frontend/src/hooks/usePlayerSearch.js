@@ -6,6 +6,7 @@ import { withoutBroken, loadBrokenList } from '../utils/broken';
 import { isPlaylistUrl } from '../utils/playlistImport';
 import { isShortForm, asReel } from '../utils/shortForm';
 import { authHeader, storedSafeSearch } from '../utils/authHeader';
+import { useSettings } from '../context/SettingsContext';
 
 // A video result whose URL we can't classify is sometimes still a YouTube
 // video — the search backend hands back a watch page on a host we don't
@@ -73,6 +74,8 @@ function toSource(r, allowReddit = false) {
     // through before that was fixed would have printed "today" over a video
     // from 2019 — worse than the blank it replaced. Null now means null.
     published: r.date || r.published || r.publishedAt || null,
+    // The description line, for the Tube page's full-size cards.
+    description: r.snippet || r.description || null,
   };
 }
 
@@ -544,10 +547,14 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
   // re-fetching per search would be a request per keystroke.
   useEffect(() => { loadBrokenList(); }, []);
 
+  // Safe Search is read from storage inside run(); changing it must re-ask
+  // the same question, or the toggle would only apply to the NEXT search.
+  const { settings } = useSettings();
+  const safeSearch = settings?.safeSearch;
   useEffect(() => {
     const id = setTimeout(() => run(query || '', scope, provider), DEBOUNCE_MS);
     return () => clearTimeout(id);
-  }, [query, scope, provider, run]);
+  }, [query, scope, provider, run, safeSearch]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 

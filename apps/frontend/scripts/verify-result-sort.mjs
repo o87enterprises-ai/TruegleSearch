@@ -56,6 +56,9 @@ check(ids(rows) === 'abcd', '…and without mutating it');
 check(ids(sortResults(rows, 'newest')) === 'badc', 'newest first, undated last',
   ids(sortResults(rows, 'newest')));
 
+check(ids(sortResults(rows, 'oldest')) === 'dabc', 'oldest first, undated still last',
+  ids(sortResults(rows, 'oldest')));
+
 // ── 3. popular: no signal is not zero ───────────────────────────────────────
 // The whole trap. Most rows have never been played on Truegle, so if absence
 // read as 0 the entire result set would sort beneath whichever row happened to
@@ -84,8 +87,8 @@ check(datedCount([{ published: null }, { published: 'nonsense' }]) === 0,
 check(datedCount(null) === 0, 'and no rows is no dates');
 
 // ── 5. the labels are the promise ───────────────────────────────────────────
-check(SORTS.map((s) => s.id).join(',') === 'relevant,newest,popular',
-  'three sorts, relevance first', SORTS.map((s) => s.id).join(','));
+check(SORTS.map((s) => s.id).join(',') === 'relevant,newest,popular,oldest',
+  'four sorts, relevance first', SORTS.map((s) => s.id).join(','));
 
 rmSync(OUT, { force: true });
 console.log([...ok, ...bad].join('\n'));
