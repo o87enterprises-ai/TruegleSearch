@@ -364,11 +364,17 @@ export default function TrueglePlayer({
   const goNext = useCallback(async () => {
     if (playingList) { listNext(true); return; }
     if (followFeed) { feedNext(); return; }
-    if (feedSpent) return;
+    // A spent feed STAYS PUT only when something is parked behind it (a queue
+    // it must not tip into) or on the Feed page, where nothing random belongs.
+    // With nothing parked there is nothing to protect, and staying put meant a
+    // new visitor — whose whole opening feed is the 12-card idle deck — hit
+    // Next on the last card and got the same video forever. It is discovery
+    // from there, exactly as it already is when a clip ends on its own.
+    if (feedSpent && (queue.length > 0 || onFeedPage)) return;
     if (followQueue || !current || onFeedPage) { skipNext(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) play(nextUp); else skipNext();
-  }, [playingList, listNext, followFeed, feedNext, feedSpent, followQueue, current, upNext, play, skipNext, onFeedPage]);
+  }, [playingList, listNext, followFeed, feedNext, feedSpent, queue.length, followQueue, current, upNext, play, skipNext, onFeedPage]);
 
   // Next pressed OUTSIDE the player (minimized bar, lock-screen keys, the
   // map's transport) arrives as a nonce so it runs the same rules as above.
@@ -404,7 +410,8 @@ export default function TrueglePlayer({
     filling.current = true;
     let cancelled = false;
     (async () => {
-      const batch = await upNext.fill(null, 12);
+      // 24, not 12: the deck is a new visitor's whole opening runway.
+      const batch = await upNext.fill(null, 24);
       if (!cancelled && batch.length) setIdleDeck(batch);
     })();
     return () => { cancelled = true; };

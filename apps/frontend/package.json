@@ -31,6 +31,8 @@
     "oneplayer:test": "node scripts/verify-one-player.mjs",
     "carrysearch:test": "node scripts/verify-player-carry-search.mjs",
     "tubegrid:test": "node scripts/verify-tube-grid.mjs",
+    "upnext:test": "node scripts/verify-up-next-runway.mjs",
+    "dockedscroll:test": "node scripts/verify-docked-scroll.mjs",
     "playall:test": "node scripts/verify-play-all.mjs",
     "player:suite": "node scripts/verify-player-suite.mjs",
     "feedcontrols:test": "node scripts/verify-feed-controls.mjs",

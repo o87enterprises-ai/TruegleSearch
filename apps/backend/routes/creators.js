@@ -4,6 +4,7 @@ const logger = require('../utils/logger');
 const { query } = require('../db/connection');
 const gateway = require('../services/YouTubeGateway');
 const roster = require('../config/creatorsRoster');
+const { MediaService } = require('../services/MediaService');
 
 /*
  * Creator hub — YouTube channel feed proxy.
@@ -419,6 +420,12 @@ router.get('/playlist', async (req, res) => {
       payload = { ...(await playlistViaRss(playlistId)), source: 'rss' };
     }
     cache.set(cacheKey, { at: Date.now(), payload });
+    // EVERY video in an imported playlist joins the platform pool, played or
+    // not — the pool is what a new visitor's "Up next" is drawn from, and it
+    // only ever grew from tracks somebody sat through. Fire and forget: the
+    // import must not wait on, or fail because of, the pool. Titles and ids
+    // come from the platform fetch above, never from the browser.
+    MediaService.index(payload.videos).catch(() => {});
     return res.json({ playlistId, ...payload });
   } catch (err) {
     logger.warn('Playlist fetch failed:', { playlistId, error: err.message });

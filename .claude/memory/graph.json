@@ -1664,6 +1664,30 @@
         "body": "2026-10-13: Tube no longer runs the whole-web search (handleSearch returns early for mode==='tube'). Under the player the page shows components/tube/TubeResultsGrid.jsx: playable rows only, 16:9 thumb + title + channel·date + description, 2/row phone, 3/row lg. Docked it reads the PLAYER's own search via utils/playerResultsStore.js (no second request); popped out it runs usePlayerSearch(lastSearchedQuery). Sort Relevant/Latest/Popular/Oldest is ONE shared store (utils/tubeSort.js, localStorage truegle_tube_sort) used by grid, player list and browse deck. Safe Search toggle lives in the grid filter row + player results header; usePlayerSearch re-runs on safeSearch change. Typing lag fix: setPlayerQuery fed by useDeferredValue + no web ResultCards on Tube (median keystroke 520ms->110ms at 4x CPU throttle). Test: npm run tubegrid:test.",
         "ts": "2026-10-13",
         "created": "2026-10-13"
+      },
+      "pool-index-playlists": {
+        "Id": "pool-index-playlists",
+        "Type": "decision",
+        "Label": "Playlist imports are indexed server-side into media_signals",
+        "body": "2026-10-13: /api/creators/playlist now calls MediaService.index(videos) (fire-and-forget) so EVERY video of an imported playlist joins the cold-start pool, not just ones played. Server-trusted input only (ids from the platform fetch, YouTube 11-char id shape enforced, cap 200); there is deliberately NO public client-write endpoint (spam would seed every visitor's feed). Counters/hidden are never touched on conflict. trending eligibility is now (ups>0 OR plays>0 OR broken=0): zero-signal rows rank BELOW played/voted ones; a row whose only signal is 'broken' stays out. Played tracks were already indexed by signalPlay on TrueglePlayer. Unplayed SEARCH results are deliberately NOT indexed (unvetted, would bypass Safe Search). Test: apps/backend/__tests__/mediaIndex.test.js.",
+        "ts": "2026-10-13",
+        "created": "2026-10-13"
+      },
+      "up-next-no-freeze": {
+        "Id": "up-next-no-freeze",
+        "Type": "decision",
+        "Label": "Spent feed + empty queue falls to discovery on manual Next",
+        "body": "2026-10-13: 'Up next loops ~12 videos for new users' = opening idle deck was 12 cards (now 24) AND goNext() did 'if (feedSpent) return' so manual Next froze on the last card even with nothing parked (live pool measured: 40 presses -> 12 distinct, frozen from #13). Now stays put ONLY if queue.length>0 or onFeedPage (the original reason: don't tip into a parked queue); otherwise upNext.pick(). Measured after: 39-40 distinct. Test: npm run upnext:test (fails on old code).",
+        "ts": "2026-10-13",
+        "created": "2026-10-13"
+      },
+      "docked-player-native-scroll": {
+        "Id": "docked-player-native-scroll",
+        "Type": "decision",
+        "Label": "Docked Tube player is position:absolute, not fixed+scroll-listener",
+        "body": "2026-10-13: the docked frame (MiniPlayer.jsx) was position:fixed repositioned from a scroll listener -> trailed the page (440px gap measured) and its caps used the slot's LIVE viewport top so the player's height changed while scrolling (423->489->542). Now absolute at the slot's offset from its containing block (scroll-invariant), no scroll listener, caps use docTop (slot top at scrollY=0). Floating/footer forms are still fixed. Test: npm run dockedscroll:test (fails on old code).",
+        "ts": "2026-10-13",
+        "created": "2026-10-13"
       }
     },
     "thread": {
@@ -2197,6 +2221,15 @@
         "status": "open",
         "ts": "2026-10-10",
         "created": "2026-10-10"
+      },
+      "cold-pool-content": {
+        "Id": "cold-pool-content",
+        "Type": "thread",
+        "Label": "Cold-start pool serves explicit/junk rows to every visitor incl. Safe Search users",
+        "body": "2026-10-13: live GET api.truegle.info/api/media/trending returns explicit titles (hentai/porn-titled uploads) and junk rows (title 'youtube.com/playlist', 'youtu.be/...', embed id 'videoseries') to every new visitor's Up next, bypassing Safe Search (the pool is not filtered by it). Pre-existing, NOT changed in session 2026-10-13 (product/censorship-policy call). Needs owner decision: filter pool by the visitor's own Safe Search setting (client-side, utils/adultKeywords) vs leave as is; and drop non-video rows (playlist/short-link titles).",
+        "status": "open",
+        "ts": "2026-10-13",
+        "created": "2026-10-13"
       }
     },
     "entity": {
