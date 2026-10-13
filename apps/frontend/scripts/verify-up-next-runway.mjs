@@ -29,6 +29,7 @@ const POOL = Array.from({ length: 80 }, (_, i) => {
   const id = `pool${String(i).padStart(7, '0')}`;
   return { mediaKey: `youtube:${id}`, kind: 'youtube', title: `Pool video ${i}`, pageUrl: `https://www.youtube.com/watch?v=${id}`, poster: '', channel: `Chan ${i}`, ups: 1, downs: 0, score: 0.3 - i / 1000 };
 });
+const SAFE_ASKED = [];   // the `safe=` value on every pool request
 const SEARCH_IDS = [0, 1, 2, 3].map((i) => `row0000000${i}`);
 
 // A fresh browser profile per scenario — the "seen" ledger is remembered in
@@ -40,6 +41,7 @@ async function openFresh() {
     const url = new URL(r.request().url());
     const json = (b) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
     if (url.pathname.endsWith('/api/media/trending')) {
+      SAFE_ASKED.push(url.searchParams.get('safe'));
       const limit = Number(url.searchParams.get('limit')) || 20;
       const offset = Number(url.searchParams.get('offset')) || 0;
       const skip = new Set((url.searchParams.get('exclude') || '').split(',').filter(Boolean));
@@ -111,6 +113,8 @@ const longestRun = (list) => {
   await ctx.close();
 }
 
+check(SAFE_ASKED.length > 0 && SAFE_ASKED.every((v) => v === 'safe'),
+  'every pool request carries the visitor\'s Safe Search (default: safe)', [...new Set(SAFE_ASKED)].join(','));
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 
 console.log([...ok, ...bad].join('\n'));

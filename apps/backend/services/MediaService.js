@@ -29,6 +29,7 @@ const { query } = require('../db/connection');
 const logger = require('../utils/logger');
 // A stranger supplies no text, so the title has to come from the platform.
 const OembedService = require('./OembedService');
+const { isExplicitRow, isJunkRow } = require('../utils/explicitTitle');
 
 class MediaError extends Error {
   constructor(code, message) {
@@ -626,7 +627,14 @@ const MediaService = {
     }
   },
 
-  async trending({ limit = 20, exclude = [], offset = 0 } = {}) {
+  /**
+   * @param allowExplicit show explicit titles too. The ROUTE decides this — only
+   * a signed-in visitor who has asked for Safe Search "off" — never the caller's
+   * say-so alone. Everything else gets a pool with them taken out (see
+   * utils/explicitTitle.js). Rows that are not a single video (a playlist, a
+   * "videoseries" embed, a title that is only a link) are dropped for everyone.
+   */
+  async trending({ limit = 20, exclude = [], offset = 0, allowExplicit = false } = {}) {
     const capped = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
     const from = Math.min(Math.max(parseInt(offset, 10) || 0, 0), 500);
     const skip = (Array.isArray(exclude) ? exclude : [])
@@ -647,9 +655,14 @@ const MediaService = {
             AND ($2::text[] IS NULL OR NOT (media_key = ANY($2)))
           ORDER BY score DESC, updated_at DESC
           LIMIT $1 OFFSET $3`,
-        [capped, skip.length ? skip : null, from],
+        // The filter runs after the query (one regex, in JS), so ask for more
+        // than the page needs — otherwise a page that lands on a cluster of
+        // filtered rows would come back short. 3x, never past 150.
+        [Math.min(capped * 3, 150), skip.length ? skip : null, from],
       );
-      return rows.map((r) => ({
+      return rows.filter((r) => !isJunkRow({ mediaKey: r.media_key, title: r.title, pageUrl: r.page_url })
+        && (allowExplicit || !isExplicitRow({ title: r.title, channel: r.channel, kind: r.kind, url: r.page_url })))
+        .slice(0, capped).map((r) => ({
         mediaKey: r.media_key,
         kind: r.kind,
         title: r.title,

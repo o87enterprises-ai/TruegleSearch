@@ -10,6 +10,8 @@ const QueryInterpreter = require('../services/QueryInterpreter');
 const weatherService = require('../services/WeatherService');
 const watermark = require('../utils/watermark');
 const { query: dbQuery } = require('../db/connection');
+const { isExplicitRow } = require('../utils/explicitTitle');
+const { ageRestrictedIds, idOf } = require('../services/AgeGate');
 
 // Initialize search service
 const searchService = new SearchService();
@@ -61,8 +63,22 @@ router.post('/', rateLimitSearch, optionalAuth, async (req, res) => {
       validFilters.safeSearch = 'safe';
     }
 
+    // THE PLAYER'S SEARCH IS NOT THE WEB SEARCH. Under "safe" the engines run at
+    // their STRICTEST setting, which drops any page with profanity in it — so a
+    // search for a song with swearing in it came back without the song (owner,
+    // 2026-10-13: "searching for songs becomes cumbersome"). For the player the
+    // engines are asked at MODERATE instead, and Truegle applies its own filter
+    // afterwards: sexual material is still hidden, swearing is not a reason to
+    // hide anything, and a YouTube video YouTube itself has age-gated is dropped.
+    // The web search page keeps the strict setting.
+    const playerSafe = validFilters.purpose === 'player' && validFilters.safeSearch !== 'off';
+    const engineFilters = playerSafe && validFilters.safeSearch === 'safe'
+      ? { ...validFilters, safeSearch: 'blur' }
+      : validFilters;
+
     // Perform search using the search service
-    const results = await searchService.performSearch(query, validFilters, mode);
+    let results = await searchService.performSearch(query, engineFilters, mode);
+    if (playerSafe) results = await keepForSafePlayer(results);
 
     const instantAnswer = await buildInstantAnswer(query.trim(), results);
 
@@ -212,6 +228,23 @@ router.get('/health', async (req, res) => {
 });
 
 // Helper function to validate and sanitize filters
+/**
+ * What the player's search may show a visitor who has Safe Search on.
+ * Sexual material out (see utils/explicitTitle.js — swearing is not consulted),
+ * and any YouTube video YouTube itself marks 18+ (services/AgeGate.js; fails
+ * open if the check is unavailable).
+ */
+async function keepForSafePlayer(results) {
+  const list = Array.isArray(results) ? results : [];
+  const clean = list.filter((r) => !isExplicitRow({
+    title: r?.title, channel: r?.sourceName || r?.channel, url: r?.url,
+  }));
+  const ids = clean.map((r) => idOf(r?.url)).filter(Boolean);
+  if (!ids.length) return clean;
+  const gated = await ageRestrictedIds(ids);
+  return gated.size ? clean.filter((r) => !gated.has(idOf(r?.url))) : clean;
+}
+
 function validateFilters(filters) {
   const defaultFilters = {
     category: 'all',
@@ -225,6 +258,9 @@ function validateFilters(filters) {
   };
 
   const validFilters = { ...defaultFilters, ...filters };
+  // Who is asking: only the player search ('player') gets the music-friendly
+  // Safe Search; anything else is an ordinary search.
+  validFilters.purpose = validFilters.purpose === 'player' ? 'player' : undefined;
 
   // Validate category
   const validCategories = [

@@ -114,10 +114,15 @@ router.post('/signal', rateLimitSearch, async (req, res) => {
  * reaches past the head, which is what the player's exploration path uses to
  * find organic clips the score ordering would otherwise never surface.
  */
-router.get('/trending', async (req, res) => {
+router.get('/trending', optionalAuth, async (req, res) => {
   const exclude = String(req.query.exclude || '').split(',').filter(Boolean);
+  // THE SAME RULE AS THE SOCIAL FEED AND SEARCH: Safe Search counts as "off"
+  // only when it is asked for AND the visitor is signed in. Anonymous requests
+  // cannot unlock it by sending ?safe=off — the sign-in is checked here, not
+  // taken on trust. Everything else (including "blur") gets the filtered pool.
+  const allowExplicit = req.query.safe === 'off' && !!req.user?.isAuthenticated;
   const results = await MediaService.trending({
-    limit: req.query.limit, exclude, offset: req.query.offset,
+    limit: req.query.limit, exclude, offset: req.query.offset, allowExplicit,
   });
   return res.json({ success: true, results });
 });
