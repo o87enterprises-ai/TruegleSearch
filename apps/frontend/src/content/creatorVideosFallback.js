@@ -228,6 +228,50 @@ export const CREATOR_VIDEOS_FALLBACK = {
       "thumbnail": "https://i.ytimg.com/vi/Sqwa_Wm1flM/hqdefault.jpg",
       "url": "https://www.youtube.com/watch?v=Sqwa_Wm1flM"
     }
+  ],
+  "UCur0Zbb7iwP95tVlxi5Q58A": [
+    {
+      "videoId": "9c00FyIMnls",
+      "title": "Living Proof: Quantum Entanglement in a \"Fine-Tuned\" Universe #entanglement #137 #quantum #proof",
+      "published": "2026-10-12T18:37:19Z",
+      "thumbnail": "https://i.ytimg.com/vi/9c00FyIMnls/hqdefault.jpg",
+      "url": "https://www.youtube.com/watch?v=9c00FyIMnls"
+    },
+    {
+      "videoId": "jmVZ9DlsjMs",
+      "title": "Reality = Gravitational Entropy Emergence in 2 Dimensional Spherical Surface #holographic #blackhole",
+      "published": "2026-10-11T14:37:03Z",
+      "thumbnail": "https://i.ytimg.com/vi/jmVZ9DlsjMs/hqdefault.jpg",
+      "url": "https://www.youtube.com/watch?v=jmVZ9DlsjMs"
+    },
+    {
+      "videoId": "ZnWB1nx9b9s",
+      "title": "7 Colors 7 Notes 7 Heavens 7 Chakras #rainbow #esotericism #occultscience #occultphilosophy #seven",
+      "published": "2026-10-08T16:09:14Z",
+      "thumbnail": "https://i.ytimg.com/vi/ZnWB1nx9b9s/hqdefault.jpg",
+      "url": "https://www.youtube.com/watch?v=ZnWB1nx9b9s"
+    },
+    {
+      "videoId": "-drM-E6TRro",
+      "title": "Extra-Dimensional Life: We can see down but not up! #4thdimension #5thdimension #5d #monad #matrix",
+      "published": "2026-10-06T16:33:20Z",
+      "thumbnail": "https://i.ytimg.com/vi/-drM-E6TRro/hqdefault.jpg",
+      "url": "https://www.youtube.com/watch?v=-drM-E6TRro"
+    },
+    {
+      "videoId": "M1SsV8LhH2U",
+      "title": "Who/What Were the Fish Teachers of the Depths? #dagon #enki #nomos #dogon #matsya #sirius #oannes",
+      "published": "2026-10-03T15:37:07Z",
+      "thumbnail": "https://i.ytimg.com/vi/M1SsV8LhH2U/hqdefault.jpg",
+      "url": "https://www.youtube.com/watch?v=M1SsV8LhH2U"
+    },
+    {
+      "videoId": "MQlDcYJk6lk",
+      "title": "Plasmatic Alchemy in Ancient Egypt: They gave us the Recipe #ancientegypt #plasma #electromagnetism",
+      "published": "2026-10-01T16:11:06Z",
+      "thumbnail": "https://i.ytimg.com/vi/MQlDcYJk6lk/hqdefault.jpg",
+      "url": "https://www.youtube.com/watch?v=MQlDcYJk6lk"
+    }
   ]
 };
 

@@ -15,6 +15,8 @@ const ERRORS = {
   // answer to it is "paste a platform link" as often as "sign in".
   SIGN_IN_REQUIRED: 401,
   UNSUPPORTED: 422,
+  // An adult title is not added to the shared catalog (it can still be played).
+  NOT_INDEXED: 422,
   NOT_FOUND: 404,
 };
 

@@ -83,6 +83,7 @@ async function isReallyGone(mediaKey, fetchImpl = fetch) {
 
 const MAX_TITLE = 200;
 const MAX_URL = 2048;
+const NOT_INDEXED_MESSAGE = "That link looks like adult content, so it is not added to Truegle's shared catalog. You can still play it yourself.";
 // One playlist import's worth, and no more per call.
 const INDEX_MAX = 200;
 const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|wav|flac)(\?|#|$)/i;
@@ -326,6 +327,14 @@ const MediaService = {
       } catch { /* no title for this one */ }
     }
 
+    // ADULT TITLES ARE NOT STORED (owner, 2026-10-13: "I don't want the adult
+    // titles indexed if at all possible"). The catalog is what new visitors are
+    // offered, so an adult title is refused here rather than saved and hidden.
+    // Playing the link is unaffected — nothing about playing needs this row.
+    if (isExplicitRow({ title: storedTitle, kind, url: raw })) {
+      throw new MediaError('NOT_INDEXED', NOT_INDEXED_MESSAGE);
+    }
+
     const thumbnail = deriveThumbnail(kind, canonical);
 
     const { rows } = await query(
@@ -428,6 +437,16 @@ const MediaService = {
     const dBroken = broken ? 1 : 0;
     if (!dUp && !dDown && !dPlay && !dBroken) return { ok: true };
 
+    // ADULT TITLES ARE NOT STORED. A play or a thumb on an adult video is not
+    // recorded at all — even from a signed-in visitor with Safe Search off, who
+    // can still find and watch it (search never reads this table). The one
+    // exception is a "broken" report: the dead-video list is global and has to
+    // keep working for every video, so that is recorded — but with none of the
+    // descriptive fields, so no adult title is kept.
+    const adult = isExplicitRow({ title, channel, kind, url: pageUrl });
+    if (adult && !dBroken) return { ok: true, skipped: 'adult' };
+    if (adult) { title = null; pageUrl = null; poster = null; channel = null; }
+
     try {
       const { rows } = await query(
         `INSERT INTO media_signals (media_key, kind, title, page_url, poster, channel, ups, downs, plays, broken)
@@ -491,8 +510,14 @@ const MediaService = {
    * @returns {Promise<number>} how many rows were offered to the table
    */
   async index(videos = []) {
+    // Each video is judged on its own: one adult entry does not stop the rest of
+    // a playlist being indexed, and is not stored itself (see signal()).
     const rows = (Array.isArray(videos) ? videos : [])
       .filter((v) => v && /^[\w-]{11}$/.test(String(v.videoId || '')))
+      .filter((v) => !isExplicitRow({
+        title: v.title, channel: v.channel, kind: 'youtube',
+        url: `https://www.youtube.com/watch?v=${v.videoId}`,
+      }))
       .slice(0, INDEX_MAX);
     if (rows.length === 0) return 0;
     try {
@@ -520,6 +545,54 @@ const MediaService = {
       logger.warn('Media index failed', { error: err && err.message });
       return 0;
     }
+  },
+
+  /**
+   * Clean out adult titles stored BEFORE they stopped being stored (owner,
+   * 2026-10-13). Reads the three shared tables, judges each row with the same
+   * rule that now guards every write, and — only when `apply` is true — removes
+   * them. DRY RUN BY DEFAULT: a deletion in a shared table is not something to
+   * do by accident, so the default is to say what it would do.
+   *
+   * A media_signals row with "broken" reports is SCRUBBED rather than deleted:
+   * that row is the global dead-video list, and deleting it would put a dead
+   * video back in front of people. Scrubbing keeps the key and the counters and
+   * drops the title, link, poster and channel.
+   *
+   * @returns {Promise<{apply:boolean, signals:number, scrubbed:number, media:number, reels:number, sample:string[]}>}
+   */
+  async purgeExplicit({ apply = false } = {}) {
+    const out = { apply, signals: 0, scrubbed: 0, media: 0, reels: 0, sample: [] };
+    const note = (t) => { if (out.sample.length < 15 && t) out.sample.push(String(t).slice(0, 80)); };
+
+    const { rows: sig } = await query('SELECT media_key, kind, title, page_url, channel, broken FROM media_signals');
+    const adultSig = sig.filter((r) => isExplicitRow({ title: r.title, channel: r.channel, kind: r.kind, url: r.page_url }));
+    const del = adultSig.filter((r) => !(r.broken > 0)).map((r) => r.media_key);
+    const scrub = adultSig.filter((r) => r.broken > 0).map((r) => r.media_key);
+    adultSig.forEach((r) => note(r.title));
+    out.signals = del.length; out.scrubbed = scrub.length;
+
+    const { rows: med } = await query('SELECT id, kind, title, url FROM community_media');
+    const adultMed = med.filter((r) => isExplicitRow({ title: r.title, kind: r.kind, url: r.url })).map((r) => r.id);
+    med.filter((r) => adultMed.includes(r.id)).forEach((r) => note(r.title));
+    out.media = adultMed.length;
+
+    const { rows: reels } = await query('SELECT id, title, url FROM community_reels');
+    const adultReels = reels.filter((r) => isExplicitRow({ title: r.title, url: r.url })).map((r) => r.id);
+    out.reels = adultReels.length;
+
+    if (apply) {
+      if (del.length) await query('DELETE FROM media_signals WHERE media_key = ANY($1::text[])', [del]);
+      if (scrub.length) {
+        await query(
+          'UPDATE media_signals SET title = NULL, page_url = NULL, poster = NULL, channel = NULL WHERE media_key = ANY($1::text[])',
+          [scrub],
+        );
+      }
+      if (adultMed.length) await query('DELETE FROM community_media WHERE id = ANY($1)', [adultMed]);
+      if (adultReels.length) await query('DELETE FROM community_reels WHERE id = ANY($1)', [adultReels]);
+    }
+    return out;
   },
 
   /**
