@@ -29,17 +29,20 @@ export const isTall = (s) => !!s && (!!s.vertical || s.kind === 'tiktok');
 // The full player's root — never the collapsed strip in Tube's bar. It mounts
 // a frame or two after playback starts, so this waits for it; the tap's
 // permission to go full screen lasts a few seconds, plenty for that.
-function fullscreenPlayerWhenReady(tries = 60) {
+// iPhone Safari has no element full screen, so there it asks the player,
+// whose own request falls back to its fixed box.
+function fullscreenPlayerWhenReady(askPlayer, tries = 60) {
   const el = document.querySelector('[data-mini] [data-player-root]');
-  if (el && el.requestFullscreen) {
-    el.requestFullscreen().catch(() => { /* iPhone Safari: no element full screen — plays inline */ });
+  if (el) {
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => { /* denied — plays inline */ });
+    else askPlayer();
     return;
   }
-  if (tries > 0) requestAnimationFrame(() => fullscreenPlayerWhenReady(tries - 1));
+  if (tries > 0) requestAnimationFrame(() => fullscreenPlayerWhenReady(askPlayer, tries - 1));
 }
 
 export default function ShareGate({ sources, onStart, playlistUrl = null }) {
-  const { startFeed, setPlayMode, setMinimized } = usePlayer();
+  const { startFeed, setPlayMode, setMinimized, requestFullscreen } = usePlayer();
   // A shared PLAYLIST plays as one (usePlayAll): saved to Lists, the queue
   // replaced, track one first. Its single "videoseries" embed showed "This
   // video is unavailable" and left the old queue playing behind it.
@@ -59,7 +62,7 @@ export default function ShareGate({ sources, onStart, playlistUrl = null }) {
     setPlayMode('auto');
     if (playlistUrl) playAll(playlistUrl); else startFeed(sources);
     setMinimized(false);
-    fullscreenPlayerWhenReady();
+    fullscreenPlayerWhenReady(requestFullscreen);
     onStart?.();
   };
 

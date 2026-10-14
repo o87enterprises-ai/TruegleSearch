@@ -15,6 +15,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* iPhone full screen (TrueglePlayer: no element full screen on iPhone, so the
+   player becomes a fixed box). A fixed box only covers the SCREEN while no
+   ancestor makes a containing block (transform, filter…) or holds it in a
+   low stacking context — the player's frame does both (translateX in the
+   footer dock, z-30 when docked). The real :fullscreen escapes all of that by
+   construction; this stands the ancestors down for as long as the box is up,
+   and stops the page scrolling (and Safari's bars resizing it) behind it. */
+:root:has([data-pseudo-fullscreen]) {
+  overflow: hidden;
+}
+:has([data-pseudo-fullscreen]) {
+  transform: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  contain: none !important;
+  will-change: auto !important;
+  z-index: 2147483000 !important;
+}
+
 :root {
   /* Spacing scale */
   --ds-space-0: 0px;

@@ -3634,6 +3634,14 @@
         "body": "Search fetches (UniversalSearch, usePlayerSearch, useUpNext, useSearch, useSocialFeed) sent no Authorization, so routes/search.js downgraded 'off' to 'safe' for everyone; use utils/authHeader.js. Settings now load synchronously (child effects searched before saved settings loaded). middleware/auth.js verifies with config.jwtSecret (trimmed) — it used raw process.env.JWT_SECRET while routes/auth signs with the trimmed one. Feed: posts carry nsfw (reddit over_18, mastodon sensitive, lemmy nsfw, bluesky labels), filtered unless safeSearch off + signed in. Red mode topic-word expansion ('whistleblower') removed — caused one FB article atop every 18+ query.",
         "ts": "2026-10-08",
         "created": "2026-10-08"
+      },
+      "ios-player-taps": {
+        "Id": "ios-player-taps",
+        "Type": "fact",
+        "Label": "iPhone: no element fullscreen + hover-tap rule",
+        "body": "iPhone Safari has NO Element.requestFullscreen (iPad only). TrueglePlayer falls back to a pseudo-fullscreen fixed box ONLY when requestFullscreen is undefined (data-pseudo-fullscreen; index.css :has() rule stands down ancestor transform/filter/z-index + locks html scroll). Android keeps the real API (owner rejected fixed-box there 2026-08-25). Separately, iOS spends a tap on :hover first and drops the click if hover REVEALS content (mouseenter handler showing UI, or opacity-0 -> group-hover:opacity-100). Fixes: tailwind future.hoverOnlyWhenSupported=true; JS hover handlers must gate on pointerType==='mouse'. Pinned by npm run iphone:test (Chromium with requestFullscreen deleted; WebKit not installed in container).",
+        "ts": "2026-10-14",
+        "created": "2026-10-14"
       }
     }
   },
@@ -3663,5 +3671,5 @@
       }
     }
   },
-  "updated": "2026-10-13"
+  "updated": "2026-10-14"
 }
