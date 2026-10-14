@@ -158,17 +158,31 @@ export default function TrueglePlayer({
   // screen, and a player whose picture fills the screen is worth more than a
   // clock that is visible while it doesn't. The drop-down search bar and the
   // playlist — the parts that were WANTED — are untouched by this and stay.
-  const [fullscreen, setFullscreen] = useState(false);
+  const [nativeFullscreen, setNativeFullscreen] = useState(false);
+  // EXCEPT ON AN IPHONE, where there is no Fullscreen API to go back to:
+  // Safari offers element full screen on iPad only, so requestFullscreen is
+  // simply undefined and the button did nothing at all (owner, 2026-10-14).
+  // There, and only there, full screen is a fixed box — the same box the
+  // browser's own :fullscreen rule draws (see index.css). Android keeps the
+  // real API, per the note above.
+  const [pseudoFullscreen, setPseudoFullscreen] = useState(false);
+  const fullscreen = nativeFullscreen || pseudoFullscreen;
 
   // Full screen is OURS, not the embed's. Handing it to YouTube's own button
   // gives their iframe the whole screen and takes our transport and list with
   // it; requesting it on this container keeps the controller bar and the
   // retracting list exactly where they were.
   useEffect(() => {
-    const sync = () => setFullscreen(document.fullscreenElement === rootRef.current);
+    const sync = () => setNativeFullscreen(document.fullscreenElement === rootRef.current);
     document.addEventListener('fullscreenchange', sync);
     return () => document.removeEventListener('fullscreenchange', sync);
   }, []);
+
+  // The real API leaves full screen when its element goes; the box has to be
+  // told. The collapsed strip renders no root at all.
+  useEffect(() => {
+    if (presentation === 'collapsed') setPseudoFullscreen(false);
+  }, [presentation]);
 
   // FULL SCREEN TAKES THE CLIP'S OWN SHAPE on a phone: a 9:16 Short, TikTok
   // or Reel locks the screen upright, anything else turns it sideways — the
@@ -201,12 +215,25 @@ export default function TrueglePlayer({
     return () => clearTimeout(t);
   }, [fullscreen, touchDevice, locked]);
 
-  const toggleFullscreen = useCallback(() => {
+  const enterFullscreen = useCallback(() => {
     const el = rootRef.current;
-    if (!el) return;
-    if (document.fullscreenElement) document.exitFullscreen?.();
-    else el.requestFullscreen?.().catch(() => { /* denied — stay inline */ });
+    if (!el || document.fullscreenElement) return;
+    if (typeof el.requestFullscreen === 'function') {
+      el.requestFullscreen().catch(() => { /* denied — stay inline */ });
+    } else {
+      setPseudoFullscreen(true);
+    }
   }, []);
+
+  const exitFullscreen = useCallback(() => {
+    setPseudoFullscreen(false);
+    if (document.fullscreenElement) document.exitFullscreen?.();
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (fullscreen) exitFullscreen();
+    else enterFullscreen();
+  }, [fullscreen, enterFullscreen, exitFullscreen]);
 
   // ASKED FOR FROM OUTSIDE: "Open in app" on a feed card plays the card and
   // takes the player full screen in the same press, so the card becomes the
@@ -244,9 +271,8 @@ export default function TrueglePlayer({
     if (fullscreenNonce === seenFullscreenNonce.current) return;
     seenFullscreenNonce.current = fullscreenNonce;
     if (presentation === 'collapsed') return;
-    if (document.fullscreenElement) return;
-    rootRef.current?.requestFullscreen?.().catch(() => { /* denied — stay inline */ });
-  }, [fullscreenNonce, presentation]);
+    enterFullscreen();
+  }, [fullscreenNonce, presentation, enterFullscreen]);
 
   // The transport's right-hand control, which changes with where the player
   // is — one button, one meaning, at all times:
@@ -828,6 +854,7 @@ export default function TrueglePlayer({
       // screen stop smearing a highlight across the overlay text. Inputs
       // inside it are exempted there.
       data-player-root=""
+      data-pseudo-fullscreen={pseudoFullscreen ? '' : undefined}
       onTouchStartCapture={swipeHint ? () => setSwipeHint(false) : undefined}
       // On the ROOT, not the swipe band: wheel events bubble from whatever
       // child was actually under the cursor, the HUD's own centred buttons
@@ -836,7 +863,9 @@ export default function TrueglePlayer({
       onWheel={wheelNav?.onWheel}
       // `relative` so the lock sheet can cover exactly this component and
       // nothing else on the page.
-      className={`relative ${fullscreen ? 'flex flex-col w-full h-full bg-black' : className}`}
+      className={pseudoFullscreen
+        ? 'fixed inset-0 z-[2147483000] flex flex-col bg-black'
+        : `relative ${fullscreen ? 'flex flex-col w-full h-full bg-black' : className}`}
     >
       {/* THE WAY BACK TO THE FEED, one press, top corner. The feed player's
           full screen IS the feed card blown up, so leaving it has to feel
@@ -852,7 +881,7 @@ export default function TrueglePlayer({
           data-feed-fullscreen-close=""
           aria-label="Close and return to the feed"
           title="Back to the feed"
-          onClick={() => document.exitFullscreen?.()}
+          onClick={exitFullscreen}
           className="absolute top-3 right-3 z-40 w-10 h-10 rounded-full bg-black/60 backdrop-blur-sm
                      flex items-center justify-center text-white/90 hover:bg-black/80 hover:text-white
                      transition-colors"

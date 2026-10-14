@@ -79,8 +79,12 @@ function VolumeControl({ level, onChange, btn, size, accent }) {
   return (
     <div
       className="relative shrink-0"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      // A MOUSE ONLY. iOS fires mouseenter on a tap, and when that handler
+      // shows something new Safari spends the tap on it as a "hover" and
+      // never sends the click — the first press opened the slider, did not
+      // mute, and the second press closed it again (owner, 2026-10-14).
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') setOpen(true); }}
+      onPointerLeave={(e) => { if (e.pointerType === 'mouse') setOpen(false); }}
     >
       <button
         type="button"
