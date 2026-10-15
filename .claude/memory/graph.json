@@ -1704,6 +1704,14 @@
         "body": "PlayerLoading.jsx shows Truegle-logo ring over the picture until the embed reports playing (useEmbedPlayback.started; iframes with no signal use frame-load; native uses onPlaying). Retry appears at 9s, Skip only after the 25s silence watchdog (verify-silent-embed pins that). Replay = transport button + minibar + ended card (PlayerEnded); context action 'restart' bumps playToken. DO NOT put Replay in the HUD centre row: it sits in the double-tap-seek zone and swallowed the 2nd tap (player:suite caught it). Start-kick re-sends play at 1.5/4/7s until started. YouTube embed now has playsinline=1. SoundCloud iframe now has ref={frameRef} (pause/volume were dead). Test: npm run playerloading:test.",
         "ts": "2026-10-15",
         "created": "2026-10-15"
+      },
+      "volume-slider-hover-2026-10-15": {
+        "Id": "volume-slider-hover-2026-10-15",
+        "Type": "decision",
+        "Label": "Volume slider no longer retracts (2026-10-15)",
+        "body": "PlayerTransport VolumeControl: popup was 4px ABOVE the button (mb-1 outside the hover wrapper) so the mouse left on the way up. Now flush with pb-1.5 padding inside the subtree, horizontal slider (vertical writing-mode isn't honoured everywhere), drag-guard so wandering off mid-drag doesn't close it, click never closes (it used to toggle), outside press closes on touch. Test: npm run volumeslider:test.",
+        "ts": "2026-10-15",
+        "created": "2026-10-15"
       }
     },
     "thread": {
