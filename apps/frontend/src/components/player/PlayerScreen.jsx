@@ -25,7 +25,11 @@ function withPlaybackChannel(kind, src, tiktokCard = false) {
   const sep = src.includes('?') ? '&' : '?';
   if (kind === 'youtube') {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    return `${src}${sep}autoplay=1&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
+    // playsinline=1: without it iPhone Safari lifts the video out of the page
+    // into its native full-screen player the moment it starts, which reads as
+    // the player "glitching" and strands our controls behind it. The reels and
+    // browse decks already pass it; this was the one embed that did not.
+    return `${src}${sep}autoplay=1&playsinline=1&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
   }
   return `${src}${sep}autoplay=1`;
 }
@@ -42,6 +46,11 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // becomes a swipeable deck of those results instead of a black rectangle.
   browse = null, browseLoading = false,
   browseMore = false, onBrowseMore = null, browseLoadingMore = false,
+  // The loading animation's two inputs. `onFrameLoad` fires when an iframe has
+  // finished loading (the only "started" signal SoundCloud and generic embeds
+  // give); `onPlaying` when a native <video>/<audio> is actually producing
+  // frames or sound.
+  onFrameLoad = null, onPlaying = null,
 }, ref) {
   // Idle. An empty black rectangle reads as a player that has never worked.
   // If a search has run, the results themselves fill it — full-size, one flick
@@ -195,8 +204,14 @@ const PlayerScreen = forwardRef(function PlayerScreen({
     >
       {isSoundcloud ? (
         <iframe
-          key={src}
+          // key and ref both matter: the ref is what lets pause, play and the
+          // volume control reach this widget at all. It had none, so for
+          // SoundCloud the transport's pause button changed state and did
+          // nothing to the sound.
+          ref={frameRef}
+          key={source.playToken ? `${src}#${source.playToken}` : src}
           src={src}
+          onLoad={(e) => { e.currentTarget.dataset.loaded = '1'; onFrameLoad?.(); }}
           className="w-full block"
           style={{ height: 166 }}
           title={title || 'SoundCloud player'}
@@ -212,7 +227,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
             // When the frame finished loading — useEmbedPlayback's silence
             // clock starts here, not at mount, so a slow network is not
             // mistaken for a dead clip.
-            onLoad={(e) => { e.currentTarget.dataset.loaded = '1'; }}
+            onLoad={(e) => { e.currentTarget.dataset.loaded = '1'; onFrameLoad?.(); }}
             className="absolute inset-0 w-full h-full"
             title={title || 'Video player'}
             sandbox={sandboxFor(kind)}
@@ -223,13 +238,13 @@ const PlayerScreen = forwardRef(function PlayerScreen({
       ) : kind === 'video' ? (
         // object-contain IS the letterbox for a native file: the black bands
         // above and below a widescreen clip in a portrait box come from here.
-        <video ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay playsInline onEnded={onEnded} onError={onError}
+        <video ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay playsInline onEnded={onEnded} onError={onError} onPlaying={onPlaying}
           style={fill ? undefined : { ...(portrait ? { aspectRatio: ratio, width: '100%', objectFit: 'contain', background: '#000' } : {}), maxHeight: maxHeight ? `min(${maxHeight}px, ${cap})` : cap }}
           className={fill ? 'w-full h-full bg-black object-contain' : 'w-full bg-black'} />
       ) : (
         <div className="flex items-center gap-2 px-3 py-3">
           <Music size={16} className="text-white/40 shrink-0" />
-          <audio ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay onEnded={onEnded} onError={onError} className="w-full" />
+          <audio ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay onEnded={onEnded} onError={onError} onPlaying={onPlaying} className="w-full" />
         </div>
       )}
 

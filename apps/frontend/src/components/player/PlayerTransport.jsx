@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Play, Pause, SkipBack, SkipForward,
   ListMusic, PictureInPicture2, Minimize2, PanelBottom,
-  Maximize, Minimize, Lock, Volume2, Volume1, VolumeX,
+  Maximize, Minimize, Lock, Volume2, Volume1, VolumeX, RotateCcw,
 } from 'lucide-react';
 
 // The one transport row. Identical in all three presentations — collapsed
@@ -152,6 +152,11 @@ export default function PlayerTransport({
   onPlayPause,
   onPrev,
   onNext,
+  // Start the clip over. Previous used to be the only way back to the top, and
+  // it goes to the previous CLIP unless the history is empty — so restarting
+  // what you were watching meant re-finding it in the list.
+  showReplay = false,
+  onReplay,
   onToggleList,
   onPopOut,
   onDock,
@@ -212,6 +217,12 @@ export default function PlayerTransport({
         aria-label="Next" className={btn}>
         <SkipForward size={size} />
       </button>
+      {showReplay && onReplay && (
+        <button type="button" onClick={onReplay} title="Replay from the start"
+          aria-label="Replay from the start" data-player-replay-btn="" className={btn}>
+          <RotateCcw size={size - 1} />
+        </button>
+      )}
 
       {showVolume && onVolume && (
         <VolumeControl level={volume} onChange={onVolume} btn={btn} size={size} accent={accent} />
