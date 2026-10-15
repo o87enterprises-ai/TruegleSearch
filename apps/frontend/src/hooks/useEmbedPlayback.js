@@ -150,6 +150,12 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // guess, not a fact, so it no longer moves anything: the player offers a
   // Skip and the person decides. Clips that REPORT an error still move on.
   const [silent, setSilent] = useState(false);
+  // The embed said it is PLAYING — the proof the loading animation waits for.
+  // Stored as the key it was seen for rather than a boolean, so the render
+  // after a track change cannot read the PREVIOUS clip's "true" for one frame
+  // (which flashed the new clip's loader off and straight back on).
+  const startKey = `${src}#${source?.playToken || 0}`;
+  const [startedFor, setStartedFor] = useState('');
 
   useEffect(() => {
     setProgress({ time: 0, duration: 0 });
@@ -201,7 +207,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
           tiktokGiveUpTimer = setTimeout(() => { if (!tiktokPlaying) setTikTokFallback(true); }, TIKTOK_PLAY_MS);
         }
         // 1 = playing. Proof the start worked, however it was started.
-        if (type === 'onStateChange' && value === 1) { tiktokPlaying = true; setTikTokNeedsTap(false); }
+        if (type === 'onStateChange' && value === 1) { tiktokPlaying = true; setTikTokNeedsTap(false); setStartedFor(startKey); }
         if (type === 'onStateChange' && value === 0 && !done) { done = true; endedRef.current?.(); }
         if (type === 'onCurrentTime' && value && typeof value === 'object') {
           setProgress((p) => ({
@@ -225,9 +231,11 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
               duration: typeof info.duration === 'number' && info.duration > 0 ? info.duration : p.duration,
             }));
           }
+          if (info.playerState === 1) setStartedFor(startKey); // 1 = playing
           if (info.playerState === 0 && !done) { done = true; endedRef.current?.(); }
           if (DEAD_YT_CODES.includes(info.errorCode)) deadRef.current?.(info.errorCode);
         }
+        if (data.event === 'onStateChange' && data.info === 1) setStartedFor(startKey);
         if (data.event === 'onStateChange' && data.info === 0 && !done) {
           done = true;
           endedRef.current?.();
@@ -240,8 +248,10 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
         }
       } else {
         if (data.event === 'ended' && !done) { done = true; endedRef.current?.(); }
+        if (data.event === 'play' || data.event === 'playing') setStartedFor(startKey);
         if (data.event === 'timeupdate' && data.data) {
           setProgress({ time: data.data.seconds || 0, duration: data.data.duration || 0 });
+          if (data.data.seconds > 0) setStartedFor(startKey);
         }
       }
     };
@@ -278,6 +288,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
         if (kind === 'youtube') {
           win.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*');
         } else {
+          win.postMessage(JSON.stringify({ method: 'addEventListener', value: 'play' }), '*');
           win.postMessage(JSON.stringify({ method: 'addEventListener', value: 'ended' }), '*');
           win.postMessage(JSON.stringify({ method: 'addEventListener', value: 'timeupdate' }), '*');
         }
@@ -420,7 +431,11 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // embeds, which have no element to reach.
   const canSetVolume = canCommand;
 
-  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback, tiktokNeedsTap: tiktokNeedsTap && !tiktokFallback, silent };
+  // `tracksStart`: this kind reports when it begins playing. SoundCloud and the
+  // generic embeds do not, so for those the caller falls back to "frame loaded"
+  // instead of showing a loader that can never clear.
+  const tracksStart = (kind === 'youtube' || kind === 'vimeo' || (kind === 'tiktok' && !tiktokFallback));
+  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback, tiktokNeedsTap: tiktokNeedsTap && !tiktokFallback, silent, started: startedFor === startKey, tracksStart };
 }
 
 export default useEmbedPlayback;

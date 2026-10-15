@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Play, Pause, SkipBack, SkipForward,
   ListMusic, PictureInPicture2, Minimize2, PanelBottom,
-  Maximize, Minimize, Lock, Volume2, Volume1, VolumeX,
+  Maximize, Minimize, Lock, Volume2, Volume1, VolumeX, RotateCcw,
 } from 'lucide-react';
 
 // The one transport row. Identical in all three presentations — collapsed
@@ -67,6 +67,10 @@ const POP_OUT = {
 // when you reach for it.
 function VolumeControl({ level, onChange, btn, size, accent }) {
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  // A drag that wanders off the popup is still a drag. Without this the slider
+  // closed the instant the pointer left its box mid-adjustment.
+  const dragging = useRef(false);
   // What to go back to when you un-mute. Muting by dragging to zero and muting
   // by pressing the button are the same state, so the level to restore has to
   // be remembered rather than inferred.
@@ -76,25 +80,47 @@ function VolumeControl({ level, onChange, btn, size, accent }) {
   const Icon = level === 0 ? VolumeX : (level < 0.5 ? Volume1 : Volume2);
   const pct = Math.round(level * 100);
 
+  // Touch has no "pointer left": a slider opened by a tap closes on a press
+  // anywhere else, and a drag that ends outside the control closes it too.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => { if (!wrapRef.current?.contains(e.target)) setOpen(false); };
+    const onUp = (e) => {
+      if (!dragging.current) return;
+      dragging.current = false;
+      if (e.pointerType === 'mouse' && !wrapRef.current?.matches(':hover')) setOpen(false);
+    };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onUp);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onUp);
+    };
+  }, [open]);
+
   return (
     <div
+      ref={wrapRef}
       className="relative shrink-0"
       // A MOUSE ONLY. iOS fires mouseenter on a tap, and when that handler
       // shows something new Safari spends the tap on it as a "hover" and
       // never sends the click — the first press opened the slider, did not
       // mute, and the second press closed it again (owner, 2026-10-14).
       onPointerEnter={(e) => { if (e.pointerType === 'mouse') setOpen(true); }}
-      onPointerLeave={(e) => { if (e.pointerType === 'mouse') setOpen(false); }}
+      onPointerLeave={(e) => { if (e.pointerType === 'mouse' && !dragging.current) setOpen(false); }}
     >
       <button
         type="button"
         className={btn}
         title={level === 0 ? 'Unmute' : `Volume ${pct}%`}
         aria-label={level === 0 ? 'Unmute' : `Volume, ${pct} percent`}
-        // Touch has no hover: the press opens the slider AND toggles mute, so
-        // the control still does something useful on the first tap either way.
+        // The press mutes/unmutes and makes sure the slider is out. It never
+        // CLOSES it: with a mouse the slider is already open from the hover,
+        // and the old toggle shut it on the click that was meant to mute.
         onClick={() => {
-          setOpen((v) => !v);
+          setOpen(true);
           onChange(level === 0 ? lastAudible.current : 0);
         }}
       >
@@ -102,21 +128,28 @@ function VolumeControl({ level, onChange, btn, size, accent }) {
       </button>
 
       {open && (
-        <div
-          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-2 rounded-lg bg-[#0d0d14] border border-white/15 shadow-xl z-50"
-          // Vertical, so it never widens the row it is trying not to crowd.
-          style={{ writingMode: 'vertical-lr', direction: 'rtl' }}
-        >
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={pct}
-            onChange={(e) => onChange(Number(e.target.value) / 100)}
-            aria-label="Volume"
-            className="h-20 w-4 cursor-pointer accent-white"
-            style={{ accentColor: accent }}
-          />
+        // The outer box is flush with the button and carries the gap as its own
+        // padding, so there is NO dead strip between the two for the pointer to
+        // fall through — the 4px margin that used to be here sat outside both
+        // and ended the hover on the way up. Horizontal, because that is the
+        // way people reach for a volume bar, and because a vertical range
+        // input (writing-mode) is not honoured by every mobile browser.
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 pb-1.5 z-50">
+          <div className="px-3 py-2.5 rounded-lg bg-[#0d0d14] border border-white/15 shadow-xl">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={pct}
+              onChange={(e) => onChange(Number(e.target.value) / 100)}
+              onPointerDown={() => { dragging.current = true; }}
+              aria-label="Volume"
+              className="block w-28 h-4 cursor-pointer"
+              // Horizontal drags are the slider's; stop the page or the frame
+              // reading them as a scroll or a window move.
+              style={{ accentColor: accent, touchAction: 'none' }}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -152,6 +185,11 @@ export default function PlayerTransport({
   onPlayPause,
   onPrev,
   onNext,
+  // Start the clip over. Previous used to be the only way back to the top, and
+  // it goes to the previous CLIP unless the history is empty — so restarting
+  // what you were watching meant re-finding it in the list.
+  showReplay = false,
+  onReplay,
   onToggleList,
   onPopOut,
   onDock,
@@ -212,6 +250,12 @@ export default function PlayerTransport({
         aria-label="Next" className={btn}>
         <SkipForward size={size} />
       </button>
+      {showReplay && onReplay && (
+        <button type="button" onClick={onReplay} title="Replay from the start"
+          aria-label="Replay from the start" data-player-replay-btn="" className={btn}>
+          <RotateCcw size={size - 1} />
+        </button>
+      )}
 
       {showVolume && onVolume && (
         <VolumeControl level={volume} onChange={onVolume} btn={btn} size={size} accent={accent} />

@@ -304,8 +304,21 @@ check(vim[0].targetOrigin === 'https://player.vimeo.com',
 
 check(volumeCommands('youtube', 5)[1].payload.args[0] === 100, 'levels above 1 clamp');
 check(volumeCommands('youtube', -3)[1].payload.args[0] === 0, 'levels below 0 clamp');
-check(volumeCommands('tiktok', 0.5).length === 0,
+// TikTok HAS a channel since 2026-10-06 (player/v1): mute/unMute, no level.
+check(volumeCommands('tiktok', 0.5).length === 1 && volumeCommands('tiktok', 0.5)[0].payload.type === 'unMute',
+  'tiktok takes mute/unMute only, as one message');
+check(volumeCommands('rumble', 0.5).length === 0,
   'a platform with no channel gets no messages rather than a broken one');
+
+// ── restart (the Replay button) ─────────────────────────────────────────────
+{
+  const a = { src: 'https://www.youtube-nocookie.com/embed/aaaaaaaaaaa', kind: 'youtube' };
+  const s1 = reducer({ ...INITIAL, current: a, paused: true }, { type: 'restart' });
+  check(s1.current.src === a.src && s1.current.playToken === 1, 'restart keeps the clip and bumps its playToken (remounts the media node)');
+  check(s1.paused === false, '…and un-pauses it');
+  check(reducer(s1, { type: 'restart' }).current.playToken === 2, 'every restart is a new token');
+  check(reducer(INITIAL, { type: 'restart' }) === INITIAL, 'restart with nothing playing is a no-op');
+}
 
 // ── 4a. minimize is explicit, not a toggle ──────────────────────────────────
 // The feed player's end-of-queue rule (advance() in TrueglePlayer) says "be

@@ -1696,6 +1696,22 @@
         "body": "2026-10-13 (owner-approved): (1) Cold-start pool (MediaService.trending) hides sexual titles unless request is signed-in AND ?safe=off (same rule as social feed/search); client useUpNext sends safe=<storedSafeSearch>. Non-video rows (youtube:videoseries, /playlist urls) hidden for everyone; URL-TITLED real videos are NOT junk (Despacito/Gangnam were wrongly hidden by a first rule - caught on live data). (2) Player search (usePlayerSearch sends filters.purpose='player'): under 'safe' the engines are asked at MODERATE (blur) not strict - strict drops pages with profanity so songs vanished - then routes/search.js keepForSafePlayer applies utils/explicitTitle.js (HARD terms/adult hosts always hidden; SOFT words like naked/nude/lingerie allowed when row looksLikeMusic: ' - Topic' channel, VEVO, 'official video/audio', lyrics, soundcloud etc.) + services/AgeGate.js drops YouTube videos flagged contentRating.ytAgeRestricted via Data API videos.list (1 unit/50 ids, 24h cache, FAILS OPEN w/o key/quota). Swearing is NOT on any list. Web search page unchanged (strict). Live check: moderate returned songs strict dropped ('Kill You') but not all - going to engine 'off' + Truegle filter would be fuller but weaker for kids. Not covered: /api/creators/search (YouTube API fallback) has no age-gate filter. Tests: backend playerSafeSearch/poolSafeSearch/mediaIndex.test.js.",
         "ts": "2026-10-13",
         "created": "2026-10-13"
+      },
+      "player-loader-replay-2026-10-15": {
+        "Id": "player-loader-replay-2026-10-15",
+        "Type": "decision",
+        "Label": "Player: loader + Replay + start-kick (2026-10-15)",
+        "body": "PlayerLoading.jsx shows Truegle-logo ring over the picture until the embed reports playing (useEmbedPlayback.started; iframes with no signal use frame-load; native uses onPlaying). Retry appears at 9s, Skip only after the 25s silence watchdog (verify-silent-embed pins that). Replay = transport button + minibar + ended card (PlayerEnded); context action 'restart' bumps playToken. DO NOT put Replay in the HUD centre row: it sits in the double-tap-seek zone and swallowed the 2nd tap (player:suite caught it). Start-kick re-sends play at 1.5/4/7s until started. YouTube embed now has playsinline=1. SoundCloud iframe now has ref={frameRef} (pause/volume were dead). Test: npm run playerloading:test.",
+        "ts": "2026-10-15",
+        "created": "2026-10-15"
+      },
+      "volume-slider-hover-2026-10-15": {
+        "Id": "volume-slider-hover-2026-10-15",
+        "Type": "decision",
+        "Label": "Volume slider no longer retracts (2026-10-15)",
+        "body": "PlayerTransport VolumeControl: popup was 4px ABOVE the button (mb-1 outside the hover wrapper) so the mouse left on the way up. Now flush with pb-1.5 padding inside the subtree, horizontal slider (vertical writing-mode isn't honoured everywhere), drag-guard so wandering off mid-drag doesn't close it, click never closes (it used to toggle), outside press closes on touch. Test: npm run volumeslider:test.",
+        "ts": "2026-10-15",
+        "created": "2026-10-15"
       }
     },
     "thread": {
@@ -3642,6 +3658,14 @@
         "body": "iPhone Safari has NO Element.requestFullscreen (iPad only). TrueglePlayer falls back to a pseudo-fullscreen fixed box ONLY when requestFullscreen is undefined (data-pseudo-fullscreen; index.css :has() rule stands down ancestor transform/filter/z-index + locks html scroll). Android keeps the real API (owner rejected fixed-box there 2026-08-25). Separately, iOS spends a tap on :hover first and drops the click if hover REVEALS content (mouseenter handler showing UI, or opacity-0 -> group-hover:opacity-100). Fixes: tailwind future.hoverOnlyWhenSupported=true; JS hover handlers must gate on pointerType==='mouse'. Pinned by npm run iphone:test (Chromium with requestFullscreen deleted; WebKit not installed in container).",
         "ts": "2026-10-14",
         "created": "2026-10-14"
+      },
+      "truetube-logo-badge-removed": {
+        "Id": "truetube-logo-badge-removed",
+        "Type": "fact",
+        "Label": "TrueTube logo 'Made with AI' badge removed",
+        "body": "apps/frontend/public/truetube.png: badge was opaque px at x858-1013,y9-50 on a transparent bg; cleared box (840,0,1024,70) to alpha 0. Verified art starts y=314. Other logos (truegle.png, embedded OSINT letterhead, branding assets) had no badge; src/assets/images/truegle-osint-logo.png has a fake checkerboard baked in (RGB) but no AI badge.",
+        "ts": "2026-10-15",
+        "created": "2026-10-15"
       }
     }
   },
@@ -3671,5 +3695,5 @@
       }
     }
   },
-  "updated": "2026-10-14"
+  "updated": "2026-10-15"
 }

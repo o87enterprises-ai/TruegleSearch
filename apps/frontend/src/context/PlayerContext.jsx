@@ -291,6 +291,12 @@ export function reducer(s, a) {
       return { ...s, current: null, paused: false, feedActive: false, feed: [], list: null, currentStandby: null };
     case 'togglePause':
       return { ...s, paused: !s.paused };
+    // START THE CLIP OVER. A fresh playToken remounts the media node, which is
+    // the one restart that works for every kind — an embed that has already
+    // ended ignores seekTo+play on some platforms, and the end-of-clip guard in
+    // useEmbedPlayback only resets on a new mount.
+    case 'restart':
+      return s.current ? { ...s, current: replay(s.current), paused: false } : s;
     case 'setPaused':
       return { ...s, paused: !!a.value };
     case 'setPlayMode':
@@ -621,6 +627,7 @@ export const PlayerProvider = ({ children }) => {
   const setMinimized = useCallback((value) => dispatch({ type: 'setMinimized', value }), []);
   const stop = useCallback(() => dispatch({ type: 'stop' }), []);
   const togglePause = useCallback(() => dispatch({ type: 'togglePause' }), []);
+  const restart = useCallback(() => dispatch({ type: 'restart' }), []);
   const setPaused = useCallback((value) => dispatch({ type: 'setPaused', value }), []);
   const setExpanded = useCallback((value) => dispatch({ type: 'setExpanded', value }), []);
   const setPoppedOut = useCallback((value) => dispatch({ type: 'setPoppedOut', value }), []);
@@ -634,11 +641,11 @@ export const PlayerProvider = ({ children }) => {
       ...state,
       play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize, setMinimized,
       startFeed, appendFeed, feedNext, stopFeed, resumeQueue, resumeStandby, requestNext, playList, listNext, switchDeck, requestFullscreen,
-      stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume,
+      stop, togglePause, restart, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume,
     }),
     [state, play, playNow, enqueue, enqueueMany, next, skipNext, prev, jump, removeFromQueue, close, clearQueue, armQueue, toggleMinimize, setMinimized,
       startFeed, appendFeed, feedNext, stopFeed, resumeQueue, resumeStandby, requestNext, playList, listNext, switchDeck, requestFullscreen,
-      stop, togglePause, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume]
+      stop, togglePause, restart, setPaused, setExpanded, setPoppedOut, setDock, setFooterView, setPlayMode, setLocked, setVolume]
   );
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;

@@ -6,6 +6,7 @@ import { useNarrowViewport } from '../../hooks/useNarrowViewport';
 import { useTouchDevice } from '../../hooks/useTouchDevice';
 import { buildPlayerLink } from '../../utils/playerLink';
 import PlayerScreen from './PlayerScreen';
+import { PlayerLoading, PlayerEnded } from './PlayerLoading';
 import PlayerTransport, { PLAY_MODES, PLAY_MODE_LABEL } from './PlayerTransport';
 import PlayerOverlay from './PlayerOverlay';
 import PlayerListSlot from './PlayerListSlot';
@@ -67,7 +68,7 @@ export default function TrueglePlayer({
 }) {
   const {
     current, queue, history, paused, dock, locked, setLocked,
-    next, skipNext, prev, stop, togglePause, setPoppedOut, setDock, play,
+    next, skipNext, prev, stop, togglePause, restart, setPoppedOut, setDock, play,
     playMode, setPlayMode, volume, setVolume,
     feedActive, feed: feedRest, feedNext, activeDeck, fullscreenNonce, setMinimized,
     list: playingList, listNext, resumeQueue, nextNonce,
@@ -453,10 +454,21 @@ export default function TrueglePlayer({
     advance();
   }, [current, advance]);
 
+  // ── LOADING, ENDED, REPLAY ────────────────────────────────────────────────
+  // Everything here is keyed on the clip AND its playToken, never a boolean, so
+  // a replay (new token) or a new clip starts from "not started" on the very
+  // render it changes — a boolean reset in an effect shows the old clip's
+  // answer for one frame.
+  const sourceKey = current ? `${current.src}#${current.playToken || 0}` : '';
+  const [loadedKey, setLoadedKey] = useState('');   // an iframe finished loading
+  const [playingKey, setPlayingKey] = useState(''); // a native element is playing
+  const [endedKey, setEndedKey] = useState('');     // the clip ran to its end
+  const handleEnded = useCallback(() => { setEndedKey(sourceKey); advance(); }, [sourceKey, advance]);
+
   const embed = useEmbedPlayback({
     frameRef,
     source: current,
-    onEnded: () => advance(),
+    onEnded: handleEnded,
     // The embed said it cannot play this. Report it and move on rather than
     // leaving the visitor staring at a black rectangle — this is the whole
     // error-review loop working without anybody having to notice or press
@@ -582,6 +594,50 @@ export default function TrueglePlayer({
   // double-tap window, so play/pause keeps its immediate response.
   const nativeMedia = current?.kind === 'file' || current?.kind === 'audio' || current?.kind === 'video';
   const canDoubleTap = !!current && (embed.canSeek || nativeMedia);
+
+  // HAS IT ACTUALLY STARTED? An embed that reports its state says so itself; a
+  // native element says so on `playing`; an embed that reports nothing
+  // (SoundCloud, Rumble, a Reddit card…) is taken at its word once its frame has
+  // loaded, because a loader waiting on a signal that never comes would spin
+  // forever over a clip that is playing fine.
+  const began = !!current && (
+    embed.started
+    || playingKey === sourceKey
+    || (!embed.tracksStart && loadedKey === sourceKey)
+  );
+  // TikTok waiting for the viewer's own tap must stay uncovered — see
+  // useEmbedPlayback; a loader over it would hide the one thing to press.
+  const loading = !!current && !paused && !began && !embed.tiktokNeedsTap;
+  const ended = !!current && endedKey === sourceKey;
+
+  // REPLAY. A native element restarts in place (instant, no reload). Every
+  // embed remounts through the context, which is the only restart that is
+  // reliable across platforms and that re-arms the end-of-clip detector.
+  const replayCurrent = useCallback(() => {
+    if (!current) return;
+    setEndedKey('');
+    const el = mediaRef.current;
+    if (el && nativeMedia) {
+      try { el.currentTime = 0; } catch { /* not seekable yet — play() below still starts it */ }
+      setPaused(false);
+      el.play?.().catch(() => { /* autoplay policy — the controls are right there */ });
+      return;
+    }
+    restart();
+  }, [current, nativeMedia, restart, setPaused]);
+
+  // "SOMETIMES THEY WON'T START AT ALL." The one play command sent when a clip
+  // is picked goes to an iframe that has not booted yet and is dropped, and
+  // autoplay=1 alone is not honoured everywhere (iOS in particular). So until it
+  // has started, ask again a few times as it boots — the same retry the volume
+  // and handshake already use. Stops the moment it reports playing, and never
+  // fires while the viewer has it paused.
+  const embedPlay = embed.command;
+  useEffect(() => {
+    if (!current || paused || began || !embed.canCommand) return undefined;
+    const t = [1500, 4000, 7000].map((d) => setTimeout(() => embedPlay('play'), d));
+    return () => t.forEach(clearTimeout);
+  }, [sourceKey, paused, began, embed.canCommand, embedPlay]);
   // The jump has to be VISIBLE. Ten seconds of a talking head looks identical
   // to ten seconds earlier, and ten seconds of audio has no picture at all —
   // without a flash, a working jump is indistinguishable from a dead zone.
@@ -791,6 +847,8 @@ export default function TrueglePlayer({
       onPlayPause={() => (current ? togglePause() : null)}
       onPrev={prev}
       onNext={goNext}
+      showReplay={!!current}
+      onReplay={replayCurrent}
       onToggleList={() => setListOpen((v) => !v)}
       onPopOut={cyclePopOut}
     />
@@ -828,8 +886,10 @@ export default function TrueglePlayer({
       mediaRef={mediaRef}
       frameRef={frameRef}
       tiktokCard={embed.tiktokFallback}
-      onEnded={advance}
+      onEnded={handleEnded}
       onError={skipBroken}
+      onFrameLoad={() => setLoadedKey(sourceKey)}
+      onPlaying={() => setPlayingKey(sourceKey)}
       fill={fullscreen}
       compact={presentation === 'popped'}
       maxHeight={presentation === 'popped' ? 320 : 420}
@@ -1066,7 +1126,24 @@ export default function TrueglePlayer({
         {/* TikTok waiting for a tap of its own: no layer over its frame, so
             the tap lands on TikTok's player (see useEmbedPlayback). */}
         {/* Quiet for a long time — offered, never forced (useEmbedPlayback). */}
-        {embed.silent && current && !clipScreen && !browseOverScreen && (
+        {/* THE LOADER. Over the picture from the moment a clip is picked until
+            it reports playing. Keyed on the clip so each one gets a fresh
+            "taking longer than usual" clock. Skip joins Retry only once the
+            silence watchdog has fired (25s) — an offered skip, never an
+            automatic one, per the owner's rule in useEmbedPlayback. */}
+        {loading && !clipScreen && !browseOverScreen && (
+          <PlayerLoading
+            key={sourceKey}
+            compact={presentation === 'popped' || narrowPicture}
+            title={current.title}
+            onRetry={restart}
+            onSkip={embed.silent ? skipBroken : undefined}
+          />
+        )}
+        {ended && !loading && !clipScreen && !browseOverScreen && !locked && (
+          <PlayerEnded onReplay={replayCurrent} />
+        )}
+        {embed.silent && !loading && current && !clipScreen && !browseOverScreen && (
           <div data-embed-silent="" className="absolute inset-x-0 bottom-14 z-30 flex justify-center pointer-events-none">
             <span className="pointer-events-auto flex items-center gap-2 pl-3 pr-1 py-1 rounded-full bg-black/75 text-white text-xs">
               Not loading?

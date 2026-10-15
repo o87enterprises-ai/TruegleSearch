@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Maximize2, Lock, X } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, RotateCcw, Maximize2, Lock, X } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { useTouchDevice } from '../../hooks/useTouchDevice';
 
@@ -25,7 +25,7 @@ export default function PlayerMiniBar({ onExpand, onClose, accent = '#f43f5e', c
   const touchDevice = useTouchDevice();
   const {
     current, paused, history, queue,
-    togglePause, prev, requestNext, setLocked,
+    togglePause, prev, requestNext, restart, setLocked,
   } = usePlayer();
 
   // Marquee only when it actually overflows. A title that fits and scrolls
@@ -62,6 +62,12 @@ export default function PlayerMiniBar({ onExpand, onClose, accent = '#f43f5e', c
         title="Next" aria-label="Next" className={btn}>
         <SkipForward size={16} />
       </button>
+      {current && (
+        <button type="button" onClick={restart} title="Replay from the start"
+          aria-label="Replay from the start" className={btn}>
+          <RotateCcw size={15} />
+        </button>
+      )}
 
       {/* Title and channel. The only thing here that isn't a control, and the
           only way to know what you're listening to without expanding. */}
