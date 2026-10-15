@@ -1712,6 +1712,14 @@
         "body": "PlayerTransport VolumeControl: popup was 4px ABOVE the button (mb-1 outside the hover wrapper) so the mouse left on the way up. Now flush with pb-1.5 padding inside the subtree, horizontal slider (vertical writing-mode isn't honoured everywhere), drag-guard so wandering off mid-drag doesn't close it, click never closes (it used to toggle), outside press closes on touch. Test: npm run volumeslider:test.",
         "ts": "2026-10-15",
         "created": "2026-10-15"
+      },
+      "results-hint-channel-loader-2026-10-15": {
+        "Id": "results-hint-channel-loader-2026-10-15",
+        "Type": "decision",
+        "Label": "Tube: retracted list + results hint, channel presses, loader escape (2026-10-15)",
+        "body": "1) Docked on /tube (presentation expanded && pageMode tube) a search leaves the player's list RETRACTED; PlayerResultsHint strip under the controls points at [data-tube-grid]. Strip must keep CONSTANT height (it quietens via data-seen, never unmounts) because verify-docked-scroll forbids the player resizing on scroll. 'Seen' = first [data-tube-card] in top 75% of viewport (grid header peeks in far earlier). Popped player keeps dropping its own list. 2) Channel name in Tube grid cards and the browse deck is a ChannelLink button (YouTube only) that opens that channel's feed in place via useChannelFeed with a ChannelBar back button, and launches NOTHING; it used to sit inside the card's play button. 3) Loader was stuck over playing video: YouTube sends playerState only on CHANGE, so currentTime>0 now also counts as started; loader has an X and Esc (dismissedKey). Tests: resultshint:test, channelresults:test, playerloading:test (16). verify-tube-grid/carry-search updated for the new contract.",
+        "ts": "2026-10-15",
+        "created": "2026-10-15"
       }
     },
     "thread": {

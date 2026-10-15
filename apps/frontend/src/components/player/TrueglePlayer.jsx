@@ -7,6 +7,7 @@ import { useTouchDevice } from '../../hooks/useTouchDevice';
 import { buildPlayerLink } from '../../utils/playerLink';
 import PlayerScreen from './PlayerScreen';
 import { PlayerLoading, PlayerEnded } from './PlayerLoading';
+import PlayerResultsHint from './PlayerResultsHint';
 import PlayerTransport, { PLAY_MODES, PLAY_MODE_LABEL } from './PlayerTransport';
 import PlayerOverlay from './PlayerOverlay';
 import PlayerListSlot from './PlayerListSlot';
@@ -314,14 +315,22 @@ export default function TrueglePlayer({
   // playing on standby behind it — stays tucked away. Opening it offers
   // Resume / Return (see PlayerListSlot's standby layer).
   const activelyPlaying = !!current && !paused;
+  // DOCKED ON TUBE, THE RESULTS ARE ALREADY ON THE PAGE — the grid right under
+  // the player lists these same rows (playerResultsStore). Dropping the list
+  // out of the player as well put a second copy of them between the person and
+  // that grid, and the player stayed the thing they were looking at. So here a
+  // search leaves the list RETRACTED (the list button still opens it) and a
+  // strip under the controls points down at the results (PlayerResultsHint).
+  // Popped out there is no grid under it, so it keeps dropping its own list.
+  const resultsBelow = presentation === 'expanded' && onTube;
   const mountQuery = useRef(query);
   useEffect(() => {
     if (query === mountQuery.current) return;
     mountQuery.current = null;
-    if (query.trim().length >= 2) setListOpen(activelyPlaying);
+    if (query.trim().length >= 2) setListOpen(resultsBelow ? false : activelyPlaying);
   }, [query]);
   useEffect(() => {
-    if (openListNonce) setListOpen(activelyPlaying);
+    if (openListNonce) setListOpen(resultsBelow ? false : activelyPlaying);
   }, [openListNonce]);
   // Paused under a search: the results cover the paused picture (which stays
   // mounted, on standby) until something is picked or play is pressed.
@@ -463,6 +472,7 @@ export default function TrueglePlayer({
   const [loadedKey, setLoadedKey] = useState('');   // an iframe finished loading
   const [playingKey, setPlayingKey] = useState(''); // a native element is playing
   const [endedKey, setEndedKey] = useState('');     // the clip ran to its end
+  const [dismissedKey, setDismissedKey] = useState(''); // the viewer hid this clip's loader
   const handleEnded = useCallback(() => { setEndedKey(sourceKey); advance(); }, [sourceKey, advance]);
 
   const embed = useEmbedPlayback({
@@ -607,7 +617,7 @@ export default function TrueglePlayer({
   );
   // TikTok waiting for the viewer's own tap must stay uncovered — see
   // useEmbedPlayback; a loader over it would hide the one thing to press.
-  const loading = !!current && !paused && !began && !embed.tiktokNeedsTap;
+  const loading = !!current && !paused && !began && !embed.tiktokNeedsTap && dismissedKey !== sourceKey;
   const ended = !!current && endedKey === sourceKey;
 
   // REPLAY. A native element restarts in place (instant, no reload). Every
@@ -1137,6 +1147,7 @@ export default function TrueglePlayer({
             compact={presentation === 'popped' || narrowPicture}
             title={current.title}
             onRetry={restart}
+            onDismiss={() => setDismissedKey(sourceKey)}
             onSkip={embed.silent ? skipBroken : undefined}
           />
         )}
@@ -1306,6 +1317,12 @@ export default function TrueglePlayer({
       {/* relative z-30 keeps the controls ABOVE the frame's move overlay (z-20).
           Without it, arming move mode covered the very button that disarms it. */}
       <div className="relative z-30 shrink-0 px-1.5 py-1 border-t border-white/10 bg-black/20">{transport}</div>
+      {/* "Your results are down there." Only where the grid IS down there, only
+          once there are results, and not while the list is open (it would be
+          pointing past the thing it sits above). */}
+      {resultsBelow && hasResults && !listVisible && !fullscreen && (
+        <PlayerResultsHint query={query} count={search.results.length} accent={accent} />
+      )}
       {listVisible && (
         <div className={fullscreen ? 'shrink-0 max-h-[45vh] overflow-y-auto' : ''}>
           <PlayerListSlot

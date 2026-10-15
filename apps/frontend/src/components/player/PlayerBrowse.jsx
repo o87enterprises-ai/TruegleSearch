@@ -8,6 +8,8 @@ import { publishedLabel } from '../../utils/published';
 import { PLAYER_SANDBOX } from './playerSandbox';
 import PlayAllButton from './PlayAllButton';
 import { usePlayAll } from '../../hooks/usePlayAll';
+import { useChannelFeed } from '../../hooks/useChannelFeed';
+import { ChannelLink, ChannelBar } from './ChannelLink';
 
 // The viewport, while nothing is playing and a search has run.
 //
@@ -53,13 +55,21 @@ function previewSrc(source) {
 }
 
 export default function PlayerBrowse({
-  rows, loading = false, compact = false, fill = false,
+  rows: searchRows, loading = false, compact = false, fill = false,
   // Reaching the end of the deck asks for the next page. A swipe deck has no
   // bottom to put a button at — you are always looking at exactly one card —
   // so the gesture that means "keep going" has to be the trigger.
   more = false, onMore = null, loadingMore = false,
 }) {
   const { enqueue, startFeed } = usePlayer();
+  // A pressed channel name swaps the deck to that creator's feed, newest first,
+  // without playing anything — see ChannelLink. A new search puts the results
+  // back.
+  const feed = useChannelFeed();
+  const clearChannel = feed.clear;
+  const rows = feed.videos || searchRows;
+  const searchKey = searchRows && searchRows.length ? (mediaKey(searchRows[0]) || searchRows[0].src) : null;
+  useEffect(() => { clearChannel(); }, [searchKey, clearChannel]);
   // The scroll hint stays loud until the deck has been scrolled once.
   const [scrolled, setScrolled] = useState(false);
   const scroller = useRef(null);
@@ -96,10 +106,10 @@ export default function PlayerBrowse({
   // "keep going" has to be the trigger. Fires two cards early so the next page
   // is usually already there by the time it is swiped to.
   useEffect(() => {
-    if (!more || !onMore || loadingMore) return;
+    if (!more || !onMore || loadingMore || feed.videos) return;
     if (!rows || rows.length === 0) return;
     if (active >= rows.length - 2) onMore();
-  }, [active, rows, more, onMore, loadingMore]);
+  }, [active, rows, more, onMore, loadingMore, feed.videos]);
 
   // Storyboard frames, while a card is held and before the embed takes over.
   useEffect(() => {
@@ -285,10 +295,13 @@ export default function PlayerBrowse({
                   {r.title}
                 </p>
                 {(r.channel || publishedLabel(r.published)) && (
-                  <p className="text-[10px] text-white/60 truncate mt-0.5">
-                    {r.channel}
-                    {r.channel && publishedLabel(r.published) && <span className="text-white/30"> · </span>}
-                    {publishedLabel(r.published)}
+                  <p className="flex items-center gap-1 min-w-0 text-[10px] text-white/60 mt-0.5">
+                    {/* The overlay is pointer-transparent so presses fall through
+                        to the card; the channel name opts back in, and opens the
+                        channel instead of playing. */}
+                    <ChannelLink row={r} name={r.channel} onOpen={feed.open} className="pointer-events-auto py-1" />
+                    {r.channel && publishedLabel(r.published) && <span className="text-white/30 shrink-0">·</span>}
+                    {publishedLabel(r.published) && <span className="shrink-0 whitespace-nowrap">{publishedLabel(r.published)}</span>}
                   </p>
                 )}
                 {/* PLAY NOW · ADD TO QUEUE · ADD TO LIST, on every card. Add to
@@ -342,6 +355,12 @@ export default function PlayerBrowse({
           );
         })}
       </div>
+
+      {(feed.videos || feed.loading) && (
+        <div className="absolute top-2 left-2 z-10 max-w-[70%] px-1 py-1 rounded-full bg-black/60 backdrop-blur">
+          <ChannelBar handle={feed.handle} loading={feed.loading && !feed.videos} onBack={clearChannel} />
+        </div>
+      )}
 
       {/* Where you are, and the mouse equivalent of the swipe. */}
       <div className="absolute top-1/2 -translate-y-1/2 right-1 flex flex-col items-center gap-1 pointer-events-none">

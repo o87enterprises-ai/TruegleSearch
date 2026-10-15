@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { Play, Plus, Check, Loader2, ChevronDown } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { useSettings } from '../../context/SettingsContext';
@@ -11,6 +11,8 @@ import { sourceColour, sourceProviderLabel } from '../../utils/playerQuery';
 import { publishedLabel } from '../../utils/published';
 import { useMediaMeta, formatDuration } from '../../utils/mediaMeta';
 import { withoutBroken, useBrokenVersion } from '../../utils/broken';
+import { useChannelFeed } from '../../hooks/useChannelFeed';
+import { ChannelLink, ChannelBar } from '../player/ChannelLink';
 import SafeSearchToggle from '../ui/SafeSearchToggle';
 
 // TUBE'S RESULTS: PLAYABLE ONLY, LAID OUT LIKE YOUTUBE.
@@ -37,7 +39,16 @@ function TubeResultsGrid({ docked, query }) {
   const src = docked ? shared : own;
   useBrokenVersion();
   const rows = useSortedRows(src.results);
-  const visible = withoutBroken(rows || []);
+  const results = withoutBroken(rows || []);
+  // ONE CHANNEL, when a channel name was pressed: that creator's own feed in
+  // place of the results, newest first, until "Results" is pressed or a new
+  // search arrives. It never starts playback — see ChannelLink.
+  const feed = useChannelFeed();
+  const clearChannel = feed.clear;
+  const searchSig = (src.results || []).slice(0, 3).map((r) => mediaKey(r) || r.src).join('|');
+  useEffect(() => { clearChannel(); }, [searchSig, clearChannel]);
+  const inChannel = !!feed.videos;
+  const visible = inChannel ? withoutBroken(feed.videos) : results;
   const sort = useTubeSort();
   const { settings } = useSettings();
   const blur = settings.safeSearch === 'blur';
@@ -63,7 +74,17 @@ function TubeResultsGrid({ docked, query }) {
 
   return (
     <section aria-label="Videos" data-tube-grid="">
+      {/* ONE CHANNEL: the bar replaces the filter row — that creator's uploads
+          are already newest-first and the sort chips would re-order a feed
+          whose whole point is its order. */}
+      {(inChannel || feed.loading) && (
+        <ChannelBar handle={feed.handle} loading={feed.loading && !inChannel} onBack={clearChannel} className="mb-3" />
+      )}
+      {feed.error && !inChannel && (
+        <p className="mb-2 text-[11px] text-amber-300/90">{feed.error}</p>
+      )}
       {/* THE FILTER ROW — YouTube's chips, plus Safe Search, in one place. */}
+      {!inChannel && !feed.loading && (
       <div className="flex items-center gap-1.5 mb-3 flex-wrap">
         {SORTS.map((o) => {
           const dead = (o.id === 'newest' || o.id === 'oldest') && src.results?.length > 0 && !datedOk;
@@ -89,6 +110,7 @@ function TubeResultsGrid({ docked, query }) {
         })}
         <SafeSearchToggle className="ml-auto" />
       </div>
+      )}
 
       {src.loading && !visible.length && (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-5" aria-live="polite">
@@ -156,19 +178,23 @@ function TubeResultsGrid({ docked, query }) {
                   )}
                 </button>
                 <div className="flex gap-1.5 mt-2">
-                  <button type="button" onClick={() => playFrom(i)} className="flex-1 min-w-0 text-left">
-                    <h3 className="text-[13px] sm:text-sm font-semibold text-white leading-snug line-clamp-2">{r.title}</h3>
+                  <div className="flex-1 min-w-0 text-left">
+                    <button type="button" onClick={() => playFrom(i)} className="block w-full text-left">
+                      <h3 className="text-[13px] sm:text-sm font-semibold text-white leading-snug line-clamp-2">{r.title}</h3>
+                    </button>
                     {(channel || when) && (
-                      <p className="mt-0.5 text-[11px] sm:text-xs text-white/50 truncate">
-                        {channel}
-                        {channel && when && <span className="text-white/30"> · </span>}
-                        {when}
+                      <p className="mt-0.5 flex items-center gap-1 min-w-0 text-[11px] sm:text-xs text-white/50">
+                        <ChannelLink row={r} name={channel} onOpen={feed.open} />
+                        {channel && when && <span className="text-white/30 shrink-0">·</span>}
+                        {when && <span className="shrink-0 whitespace-nowrap">{when}</span>}
                       </p>
                     )}
                     {r.description && (
-                      <p className="mt-1 text-[11px] sm:text-xs text-white/40 leading-snug line-clamp-2">{r.description}</p>
+                      <button type="button" onClick={() => playFrom(i)} className="block w-full text-left">
+                        <span className="mt-1 block text-[11px] sm:text-xs text-white/40 leading-snug line-clamp-2">{r.description}</span>
+                      </button>
                     )}
-                  </button>
+                  </div>
                   <button
                     type="button"
                     onClick={() => queue(r)}
@@ -187,7 +213,7 @@ function TubeResultsGrid({ docked, query }) {
         </div>
       )}
 
-      {src.more && src.loadMore && visible.length > 0 && (
+      {!inChannel && src.more && src.loadMore && visible.length > 0 && (
         <button
           type="button"
           onClick={src.loadMore}

@@ -52,6 +52,8 @@
     "silentembed:test": "node scripts/verify-silent-embed.mjs",
     "playerloading:test": "node scripts/verify-player-loading.mjs",
     "volumeslider:test": "node scripts/verify-volume-slider.mjs",
+    "resultshint:test": "node scripts/verify-results-hint.mjs",
+    "channelresults:test": "node scripts/verify-channel-results.mjs",
     "cameraview:test": "node scripts/verify-camera-view.mjs",
     "mapui:test": "node scripts/verify-map-ui.mjs",
     "chatmap:test": "node scripts/verify-chat-map.mjs",
