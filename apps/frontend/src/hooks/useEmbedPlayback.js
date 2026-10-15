@@ -210,6 +210,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
         if (type === 'onStateChange' && value === 1) { tiktokPlaying = true; setTikTokNeedsTap(false); setStartedFor(startKey); }
         if (type === 'onStateChange' && value === 0 && !done) { done = true; endedRef.current?.(); }
         if (type === 'onCurrentTime' && value && typeof value === 'object') {
+          if (typeof value.currentTime === 'number' && value.currentTime > 0) setStartedFor(startKey);
           setProgress((p) => ({
             time: typeof value.currentTime === 'number' ? value.currentTime : p.time,
             duration: typeof value.duration === 'number' && value.duration > 0 ? value.duration : p.duration,
@@ -232,6 +233,12 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
             }));
           }
           if (info.playerState === 1) setStartedFor(startKey); // 1 = playing
+          // THE PLAY HEAD MOVING IS PROOF TOO. YouTube reports playerState only
+          // when it CHANGES, so a clip that began before our handshake finished
+          // (a fast connection, or a retry) never sends the "1" we were waiting
+          // for — it just ticks currentTime forever. The loader stayed up over a
+          // video that was playing (owner, 2026-10-15, with a screenshot).
+          if (typeof info.currentTime === 'number' && info.currentTime > 0) setStartedFor(startKey);
           if (info.playerState === 0 && !done) { done = true; endedRef.current?.(); }
           if (DEAD_YT_CODES.includes(info.errorCode)) deadRef.current?.(info.errorCode);
         }

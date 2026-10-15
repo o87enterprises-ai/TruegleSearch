@@ -94,6 +94,14 @@ for (const phone of [true, false]) {
   await cards.first().locator('button').first().click();
   await until(() => page.locator('iframe[src*="youtube"]').count(), { what: 'playback', timeout: 8000 }).catch(() => {});
   await bar.click(); await bar.fill('duck sauce two');
+  // 2026-10-15: docked on Tube a search leaves the player's list RETRACTED (the
+  // grid under the player is where results go; a strip points at it). The list
+  // is one press of its button away, and carries the same controls.
+  await page.waitForTimeout(600);
+  check(await page.locator('[data-player-results]').count() === 0, `${tag} a search while playing leaves the player's list retracted`);
+  // The page is scrolled down at the grid here, so the docked player is its mini
+  // bar; press the list button in the DOM rather than through the bar.
+  await page.locator('button[aria-label="Queue and results"]').first().evaluate((el) => el.click());
   await until(() => page.locator('[data-player-results] [data-safesearch-toggle]').count(), { what: 'the player list', timeout: 8000 }).catch(() => {});
   check(await page.locator('[data-player-results] [data-safesearch-toggle]').count() >= 1, `${tag} Safe Search is in the player's results list`);
   check(await page.locator('[data-player-results] [data-sort="oldest"]').count() >= 1, `${tag} …beside Latest / Popular / Oldest`);

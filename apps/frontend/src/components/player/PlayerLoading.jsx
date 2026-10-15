@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { RotateCcw, SkipForward } from 'lucide-react';
+import { RotateCcw, SkipForward, X } from 'lucide-react';
 
 // What the picture shows between "you picked it" and "it is playing".
 //
@@ -19,7 +19,7 @@ import { RotateCcw, SkipForward } from 'lucide-react';
 // see useEmbedPlayback), shorter than the 25s silence watchdog.
 export const SLOW_LOAD_MS = 9000;
 
-export function PlayerLoading({ compact = false, onRetry, onSkip, title }) {
+export function PlayerLoading({ compact = false, onRetry, onSkip, onDismiss, title }) {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
     // The parent keys this component on the clip, so every new clip gets a
@@ -27,6 +27,16 @@ export function PlayerLoading({ compact = false, onRetry, onSkip, title }) {
     const t = setTimeout(() => setSlow(true), SLOW_LOAD_MS);
     return () => clearTimeout(t);
   }, []);
+
+  // THE WAY OUT. The loader is a guess — "nothing has told us it is playing" —
+  // and a guess has to be dismissible, because when it is wrong the picture is
+  // playing underneath a box that will not go away. Escape does the same.
+  useEffect(() => {
+    if (!onDismiss) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') onDismiss(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onDismiss]);
 
   const logo = compact ? 'w-20' : 'w-28';
   const ring = compact ? 'w-24 h-24' : 'w-36 h-36';
@@ -40,6 +50,13 @@ export function PlayerLoading({ compact = false, onRetry, onSkip, title }) {
       aria-label={title ? `Loading ${title}` : 'Loading'}
       className="absolute inset-0 z-[22] flex flex-col items-center justify-center gap-2 bg-black/70 pointer-events-none"
     >
+      {onDismiss && (
+        <button type="button" data-player-loading-dismiss="" onClick={onDismiss}
+          aria-label="Hide the loading indicator" title="Hide (Esc)"
+          className="pointer-events-auto absolute top-2 right-2 flex items-center justify-center w-8 h-8 rounded-full bg-white/15 hover:bg-white/30 text-white transition-colors">
+          <X size={16} />
+        </button>
+      )}
       <div className={`relative flex items-center justify-center ${ring}`}>
         {/* The ring: a brand-coloured arc that turns, over a faint full circle,
             so there is a visible track even on the frame the arc is hidden. */}

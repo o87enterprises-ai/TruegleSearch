@@ -9,6 +9,10 @@
  *   KICK  boots after 2.5s and then plays ONLY if it is told to (a blocked
  *         autoplay — what a phone does) — the retry must rescue it
  *   END   plays, then reports the clip ended
+ *   TIME  plays but only ever ticks currentTime — never a playerState (what the
+ *         real player does when it started before our handshake finished; the
+ *         loader used to sit over a playing video, owner 2026-10-15)
+ *   STUCK never starts and ignores every play command
  *
  *   npm run playerloading:test
  */
@@ -25,6 +29,7 @@ const BASE = `http://localhost:${PORT}`;
 const browser = await launchChromium();
 
 const AUTO = 'autoAAAAAA1'; const KICK = 'kickAAAAAA1'; const END = 'endAAAAAAA1';
+const TIME = 'timeAAAAAA1'; const STUCK = 'stuckAAAAA1';
 
 const stub = (mode) => `<html><body style="background:#000"><script>
   var send = function (o) { parent.postMessage(JSON.stringify(o), '*'); };
@@ -35,9 +40,10 @@ const stub = (mode) => `<html><body style="background:#000"><script>
     addEventListener('message', function (e) {
       var d; try { d = JSON.parse(e.data); } catch (x) { return; }
       if (!d) return;
-      if (d.event === 'command' && d.func === 'playVideo') playing = true;
+      if (d.event === 'command' && d.func === 'playVideo' && ${mode === 'STUCK' ? 'false' : 'true'}) playing = true;
       if (d.event !== 'listening' || talking) return;
       talking = true;
+      ${mode === 'TIME' ? "setInterval(function () { send({ event: 'infoDelivery', info: { currentTime: 7, duration: 200 }, channel: 'widget', id: 1 }); }, 500); return;" : ''}
       setInterval(function () {
         send({ event: 'infoDelivery', info: { playerState: ended ? 0 : (playing ? 1 : 3), currentTime: playing ? 1 : 0, duration: 200 }, channel: 'widget', id: 1 });
       }, 500);
@@ -55,7 +61,7 @@ async function run(id, viewport) {
   await ctx.route('**/www.youtube-nocookie.com/embed/**', async (r) => {
     hits.n += 1;
     const url = r.request().url();
-    const mode = url.includes(KICK) ? 'KICK' : url.includes(END) ? 'END' : 'AUTO';
+    const mode = url.includes(KICK) ? 'KICK' : url.includes(END) ? 'END' : url.includes(TIME) ? 'TIME' : url.includes(STUCK) ? 'STUCK' : 'AUTO';
     await r.fulfill({ status: 200, contentType: 'text/html', body: stub(mode) }).catch(() => {});
   });
   const page = await ctx.newPage();
@@ -103,6 +109,35 @@ const shots = process.env.SHOTS_DIR;
   await until(async () => (await src() || '').includes(KICK), { what: 'the clip to load' });
   await until(async () => !(await loader()), { timeout: 15000, what: 'the stubborn clip to start' }).catch(() => {});
   check(await loader() === 0, 'a clip whose autoplay was blocked is started by the retry (no tap needed)');
+  await ctx.close();
+}
+
+// ── the loader clears on a moving play head alone ───────────────────────────
+{
+  const { ctx, page, loader, src } = await run(TIME, { width: 390, height: 844 });
+  await until(async () => (await src() || '').includes(TIME), { what: 'the clip to load' });
+  await until(async () => !(await loader()), { timeout: 12000, what: 'the loader to clear' }).catch(() => {});
+  check(await loader() === 0, 'a playing clip that only reports its time (no "playing" state) does not keep the loader up');
+  await ctx.close();
+}
+
+// ── and when the loader is wrong or the clip is stuck, there is a way out ───
+{
+  const { ctx, page, loader, src } = await run(STUCK, { width: 390, height: 844 });
+  await until(async () => (await src() || '').includes(STUCK), { what: 'the clip to load' });
+  await until(loader, { timeout: 5000, what: 'the loader' }).catch(() => {});
+  check(await loader() === 1, 'a clip that never starts keeps the loader up');
+  await page.locator('[data-mini] [data-player-loading-dismiss]').click();
+  check(await loader() === 0, 'the X hides the loader');
+  await ctx.close();
+}
+{
+  const { ctx, page, loader, src } = await run(STUCK, { width: 1280, height: 800 });
+  await until(async () => (await src() || '').includes(STUCK), { what: 'the clip to load' });
+  await until(loader, { timeout: 5000, what: 'the loader' }).catch(() => {});
+  await page.keyboard.press('Escape');
+  await until(async () => !(await loader()), { timeout: 3000, what: 'Escape to hide it' }).catch(() => {});
+  check(await loader() === 0, 'Escape hides the loader');
   await ctx.close();
 }
 
