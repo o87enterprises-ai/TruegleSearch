@@ -1720,6 +1720,14 @@
         "body": "Player Radio switch (utils/radio.js, useUpNext radio branch): when a song plays and the queue runs out, next = same artist + 2 similar artists from MusicBrainz name->MBID + ListenBrainz labs similar-artists (free, keyless; backend /api/music/similar, 1 req/s to MB, 24h cache, fails open). LB Radio API needs an auth token, so not used. Last.fm (key) is the planned upgrade; true audio similarity is out of scope (cost + YouTube ToS; Spotify audio-features closed 2024).",
         "ts": "2026-10-17",
         "created": "2026-10-17"
+      },
+      "tube-stations-radio-browser": {
+        "Id": "tube-stations-radio-browser",
+        "Type": "decision",
+        "Label": "Tube Stations tuner uses Radio Browser",
+        "body": "Tube page 'Stations' chip opens a live-radio tuner (components/tube/StationsPanel.jsx): country + region pickers and opt-in 'Near me'. Backend /api/stations (services/StationsService.js) proxies Radio Browser (free, keyless, mirrors de1/fi1/de2), lists ONLY https non-HLS streams (http would be mixed-content blocked; relaying audio through Vercel rejected on /bin/bash budget), rounds coords to 0.1deg, caches 10min/24h, fails open. Stations play as kind:'audio' in the one player.",
+        "ts": "2026-10-17",
+        "created": "2026-10-17"
       }
     },
     "thread": {
