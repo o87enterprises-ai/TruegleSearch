@@ -5,12 +5,17 @@
  * plain up-next path searches the current title, which is how a song turned
  * into a run of covers, lyric videos and reaction clips of the same song.
  *
- * Two free, keyless, open sources (owner, 2026-10-17: ListenBrainz first):
- *   1. MusicBrainz — artist name → MBID (its database id).
- *   2. ListenBrainz labs — MBID → artists people listen to in the same
- *      sessions. That is co-listening, not audio analysis; it is how most
- *      "radio" features work, and it lands on music that sounds alike far more
- *      often than any title match does.
+ * Two sources, tried in this order:
+ *   1. LAST.FM, when LASTFM_API_KEY is set (free key; owner, 2026-10-17). One
+ *      call — artist.getSimilar — and the best match data of the lot, built on
+ *      years of what people actually scrobble together. No name lookup needed.
+ *   2. LISTENBRAINZ, keyless and open, as the default and the fallback:
+ *      MusicBrainz (artist name → MBID), then ListenBrainz labs (MBID →
+ *      artists people listen to in the same sessions).
+ * Both are co-listening, not audio analysis; it is how most "radio" features
+ * work, and it lands on music that sounds alike far more often than any title
+ * match does. A missing key, a Last.fm error or an artist it has never heard of
+ * all fall through to ListenBrainz — Radio never depends on the key.
  *
  * MusicBrainz allows ONE request per second per client and asks for a
  * User-Agent naming the app and a contact. Lookups are therefore serialised
@@ -25,6 +30,7 @@ const axios = require('axios');
 const UA = 'TruegleSearch/1.0 ( https://truegle.info )';
 const MB = 'https://musicbrainz.org/ws/2/artist';
 const LB = 'https://labs.api.listenbrainz.org/similar-artists/json';
+const LASTFM = 'https://ws.audioscrobbler.com/2.0/';
 // ListenBrainz labs names its model in the URL; this is the one its own
 // "similar artists" page uses.
 const ALGORITHM = 'session_based_days_7500_session_300_contribution_5_threshold_10_limit_100_filter_True_skip_30';
@@ -66,6 +72,31 @@ function mbLookup(name) {
   return result;
 }
 
+/** Last.fm artist.getSimilar → { artist, similar } or null (no key / unknown / error). */
+async function lastfmSimilar(artist, limit) {
+  const key = process.env.LASTFM_API_KEY;
+  if (!key) return null;
+  try {
+    const { data } = await axios.get(LASTFM, {
+      params: { method: 'artist.getsimilar', artist, api_key: key, format: 'json', limit: Math.min(limit * 2, 50), autocorrect: 1 },
+      headers: { 'User-Agent': UA },
+      timeout: TIMEOUT_MS,
+    });
+    // Errors arrive as HTTP 200 with { error, message } (6 = artist not found).
+    const rows = data && !data.error ? data.similarartists?.artist : null;
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+    const similar = rows
+      .sort((a, b) => (Number(b.match) || 0) - (Number(a.match) || 0))
+      .map((a) => a && a.name)
+      .filter((n, i, all) => n && all.indexOf(n) === i)
+      .slice(0, limit);
+    return similar.length ? { artist: data.similarartists['@attr']?.artist || artist, similar } : null;
+  } catch {
+    // The key is part of the failed request's URL, so the error is dropped, not logged.
+    return null;
+  }
+}
+
 /**
  * @param {string} artist  name as it appears on the playing item
  * @param {number} limit   how many similar artists to return
@@ -76,6 +107,9 @@ async function similarArtists(artist, limit = 20) {
   if (!key || key.length > 100) return { artist: null, similar: [] };
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
+
+  const fm = await lastfmSimilar(artist, limit);
+  if (fm) return remember(key, fm);
 
   try {
     const found = await mbLookup(artist);

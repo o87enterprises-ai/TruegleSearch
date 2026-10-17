@@ -69,7 +69,8 @@ do not use), `OPENROUTER_API_KEY`, `OPENROUTER_API_KEY_2` … `_6`,
 
 **Search:** `GOOGLE_API_KEY`, `GOOGLE_SEARCH_ENGINE_ID`, `BING_API_KEY`,
 `BRAVE_API_KEY`, `SERP_API_KEY`, `SERP_DAILY_LIMIT`, `NEWS_API_KEY`,
-`YOUTUBE_API_KEY`, `SEARXNG_URL`, `SEARXNG_PRIMARY`, `SEARXNG_PRIMARY_MIN`.
+`YOUTUBE_API_KEY`, `SEARXNG_URL`, `SEARXNG_PRIMARY`, `SEARXNG_PRIMARY_MIN`,
+`LASTFM_API_KEY` (optional — player Radio's similar artists; ListenBrainz is the keyless fallback; the Last.fm "shared secret" is NOT used and should not be stored).
 (`SEARXNG_RESULT_PROXY_URL`/`_KEY` retired 2026-10-05 — no longer read; safe to delete from Vercel.)
 
 **Speech / media:** `STT_BASE_URL`, `STT_MODEL`, `STT_API_KEY` (only for a
