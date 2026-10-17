@@ -25,19 +25,27 @@ import { NewsBody, MarketsBody } from './NewsFeed';
 // single exception is Why Truegle on a PHONE, which descends by itself as you
 // scroll down to it (useAutoOpenOnScroll), and only into a quiet page.
 //
+// WHY TRUEGLE IS NOT A TILE BUT A CARD: full width, and its body opens inside
+// its own border instead of in a panel under a row shared with Search.
+//
 // NOTHING IS ASKED FOR WHILE A TILE IS CLOSED: only the open tile's body is
 // mounted, so its fetches and polling start on open and stop on close.
 
 const MODULES = [
-  { id: 'why', title: 'Why Truegle?', icon: ShieldCheck, pitch: 'Search without bias, tracking, or censorship.' },
+  // `card`: full width, and its body opens INSIDE the same bordered card
+  // rather than in a separate panel under the row (owner, 2026-10-17: the
+  // dropdown and the Why Truegle tile were two components, and Search sat
+  // between them). Search is the next tile, directly below.
+  { id: 'why', title: 'Why Truegle?', icon: ShieldCheck, pitch: 'Search without bias, tracking, or censorship.', card: true },
   { id: 'search', title: 'Search', icon: Compass, pitch: 'Same query, different lens. Pick your reality.' },
   { id: 'chat', title: 'Chat', icon: MessageCircle, pitch: 'Ask TrueGLE. Stack lenses. See every angle.' },
   { id: 'tube', title: 'Tube', icon: PlayCircle, pitch: 'Every video, reel and song. One player. Zero ads.' },
   { id: 'feed', title: 'Feed', icon: Clapperboard, pitch: 'Reddit, Bluesky, Mastodon and creators. One scroll.' },
-  { id: 'news', title: 'News', icon: Newspaper, pitch: 'Today’s headlines, as video. Tap and watch.' },
-  // The last tile takes two columns, so seven tiles fill both the two-column
-  // phone grid and the four-column desktop grid with no orphan.
-  { id: 'markets', title: 'Markets', icon: LineChart, pitch: 'Prices, charts, and the takes moving them.', span: 2 },
+  { id: 'news', title: 'News', icon: Newspaper, pitch: 'Today’s headlines, as video. Tap and watch.', wide: true },
+  // `wide`: two columns on desktop only. Below Why Truegle's full-width card
+  // sit six tiles: three rows of two on a phone, and on desktop four across
+  // then News and Markets two wide each — no orphan in either grid.
+  { id: 'markets', title: 'Markets', icon: LineChart, pitch: 'Prices, charts, and the takes moving them.', wide: true },
 ];
 
 /** Two columns on a phone, four from 768px up. */
@@ -55,13 +63,16 @@ function useColumns() {
   return wide ? 4 : 2;
 }
 
+/** Columns a tile takes: a card is the full width, `wide` is two on desktop. */
+const spanOf = (m, cols) => (m.card ? cols : m.wide && cols === 4 ? 2 : 1);
+
 /** Tile indices by row, given each tile's column span. */
 function packRows(mods, cols) {
   const rows = [];
   let row = [];
   let used = 0;
   mods.forEach((m, i) => {
-    const span = Math.min(m.span || 1, cols);
+    const span = spanOf(m, cols);
     if (used + span > cols) { rows.push(row); row = []; used = 0; }
     row.push(i);
     used += span;
@@ -70,7 +81,7 @@ function packRows(mods, cols) {
   return rows;
 }
 
-function Tile({ mod, open, onToggle, tileRef }) {
+function Tile({ mod, open, onToggle, tileRef, cols, bare = false }) {
   const color = CARD_ACCENT[mod.id];
   const Icon = mod.icon;
   return (
@@ -85,8 +96,13 @@ function Tile({ mod, open, onToggle, tileRef }) {
       // flex-col + justify-start: a button centres its content vertically by
       // default, which floated the wide Markets tile's title below its
       // neighbours'.
-      className={`relative flex flex-col justify-start text-left rounded-2xl border p-3 backdrop-blur-sm transition-colors duration-200 hover:bg-white/[0.07] ${mod.span === 2 ? 'col-span-2' : ''}`}
-      style={{ borderColor: `${color}${open ? 'bb' : '55'}`, background: open ? `${color}18` : 'rgba(255,255,255,0.03)' }}
+      // `bare`: the card around it owns the border and background.
+      className={bare
+        ? 'relative flex flex-col justify-start text-left w-full rounded-2xl p-3 transition-colors duration-200 hover:bg-white/[0.04]'
+        : 'relative flex flex-col justify-start text-left rounded-2xl border p-3 backdrop-blur-sm transition-colors duration-200 hover:bg-white/[0.07]'}
+      style={bare
+        ? undefined
+        : { gridColumn: `span ${spanOf(mod, cols)}`, borderColor: `${color}${open ? 'bb' : '55'}`, background: open ? `${color}18` : 'rgba(255,255,255,0.03)' }}
     >
       <span className="flex items-center gap-1.5 sm:gap-2">
         <span
@@ -105,6 +121,40 @@ function Tile({ mod, open, onToggle, tileRef }) {
           AND a chevron left "Why Truegle?" room for "Why Tru…". */}
       <ChevronDown size={14} aria-hidden="true" className={`absolute bottom-2.5 right-2.5 text-white/40 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
     </button>
+  );
+}
+
+/** A tile and its body as ONE bordered card: the body opens inside it. */
+function CardTile({ mod, open, onToggle, tileRef, cols, children }) {
+  const reduce = useReducedMotion();
+  const color = CARD_ACCENT[mod.id];
+  return (
+    <div
+      data-card={mod.id}
+      className="rounded-2xl border backdrop-blur-sm transition-colors duration-200"
+      style={{ gridColumn: `span ${spanOf(mod, cols)}`, borderColor: `${color}${open ? 'bb' : '55'}`, background: open ? `${color}18` : 'rgba(255,255,255,0.03)' }}
+    >
+      <Tile mod={mod} open={open} onToggle={onToggle} tileRef={tileRef} cols={cols} bare />
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            id={`landing-panel-${mod.id}`}
+            data-panel={mod.id}
+            role="region"
+            aria-label={mod.title}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 380, damping: 34, opacity: { duration: 0.18 } }}
+            className="overflow-hidden"
+          >
+            <div className="mx-3 mb-3 pt-3 border-t" style={{ borderColor: `${color}55` }}>
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -162,21 +212,22 @@ export default function LandingModules({ safeModeOff, canDisableSafeSearch, togg
           <Fragment key={row.join('-')}>
             {row.map((i) => {
               const mod = MODULES[i];
-              return (
-                <Tile
-                  key={mod.id}
-                  mod={mod}
-                  open={openId === mod.id}
-                  onToggle={() => toggle(mod.id)}
-                  tileRef={mod.id === 'why' ? whyRef : undefined}
-                />
-              );
+              const common = {
+                mod,
+                cols,
+                open: openId === mod.id,
+                onToggle: () => toggle(mod.id),
+                tileRef: mod.id === 'why' ? whyRef : undefined,
+              };
+              return mod.card
+                ? <CardTile key={mod.id} {...common}>{body(mod.id)}</CardTile>
+                : <Tile key={mod.id} {...common} />;
             })}
             {/* The panel sits under the row of the tile that opened it. Each
                 row has its own slot so closing animates in place and moving to
                 another row animates out here and in there. */}
             <AnimatePresence initial={false}>
-              {row.some((i) => MODULES[i].id === openId) && (
+              {row.some((i) => !MODULES[i].card && MODULES[i].id === openId) && (
                 <Panel key={openId} mod={MODULES.find((m) => m.id === openId)}>
                   {body(openId)}
                 </Panel>
