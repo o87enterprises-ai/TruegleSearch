@@ -7,6 +7,7 @@ import { hasSeen, markSeen, markAllSeen, recentSeen } from '../utils/seen';
 import { scoreCandidates, draw, dedupeScored, poolFor, POOL } from '../utils/feedDraw';
 import { shouldExplore, exploreOffset, exploreSeed, EXPLORE_RATE } from '../utils/explore';
 import { authHeader, storedSafeSearch } from '../utils/authHeader';
+import { isRadioOn, artistOf, nameKey } from '../utils/radio';
 
 // What plays next, and what fills an empty player.
 //
@@ -94,6 +95,23 @@ const json = (url, opts) => fetch(url, opts)
   .then((r) => (r.ok ? r.json() : null))
   .catch(() => null);
 
+// Similar artists per artist, for the life of the tab: a radio session asks
+// about each artist once. The backend caches too; this saves the round trip.
+const similarCache = new Map();
+async function similarTo(artist) {
+  const key = nameKey(artist);
+  if (!similarCache.has(key)) {
+    similarCache.set(key, json(`${BACKEND}/api/music/similar?artist=${encodeURIComponent(artist)}`)
+      .then((d) => (Array.isArray(d?.similar) ? d.similar : [])));
+  }
+  return similarCache.get(key);
+}
+
+const shuffled = (list) => list.map((x) => [Math.random(), x]).sort((a, b) => a[0] - b[0]).map(([, x]) => x);
+
+/** The artist Radio should follow, or null: Radio off, or not a song. */
+const radioArtist = (current) => (isRadioOn() ? artistOf(current) : null);
+
 export function useUpNext() {
   const remember = useCallback((source) => markSeen(source), []);
 
@@ -178,13 +196,39 @@ export function useUpNext() {
         headers: { 'Content-Type': 'application/json', ...authHeader() },
         body: JSON.stringify({ query: seed, filters: { category: 'videos', perPage: wide ? 32 : 16, safeSearch: storedSafeSearch() } }),
       });
-      return (d?.results || []).map(toSource).filter(Boolean).map((s) => ({ s, boost: 0 }));
+      return (d?.results || [])
+        .map((r) => toSource(r, r.channel || r.author ? { channel: r.channel || r.author } : {}))
+        .filter(Boolean).map((s) => ({ s, boost: 0 }));
     };
 
     const fromSearch = () => searchFor(
       (currentTitle || titleFromUrl(current?.pageUrl || current?.src || '')
         || likedWords(4).join(' ')).slice(0, 120),
     );
+
+    // What you said plus what you did — see the note on the ranked path below.
+    const preference = (s) => tasteScore(s) + retentionScore(s);
+
+    // ── RADIO ───────────────────────────────────────────────────────────────
+    //
+    // The same artist once, and two artists people play alongside them,
+    // searched as songs. So about a third of what comes next is the artist and
+    // two thirds is music that sounds like them — never the playing TITLE
+    // again. A result has to name the artist it was searched for (title or
+    // channel), which is what keeps covers, reactions and lyric channels of
+    // unrelated people out. Nothing usable → the ordinary path below.
+    const artist = radioArtist(current);
+    if (artist) {
+      const similar = await similarTo(artist);
+      const seeds = [artist, ...shuffled(similar.slice(0, 12)).slice(0, 2)];
+      const lists = await Promise.all(seeds.map(async (seed) => {
+        const want = nameKey(seed);
+        const found = await searchFor(`${seed} official audio`);
+        return found.filter(({ s }) => nameKey(`${s.title} ${s.channel || ''}`).includes(want));
+      }));
+      const radio = scoreCandidates(lists.flat(), usable, preference);
+      if (radio.length) return { scored: radio, seenRate: seenRate(), explored: false };
+    }
 
     // ── the exploration path ────────────────────────────────────────────────
     //
@@ -221,7 +265,6 @@ export function useUpNext() {
     // A thumbs-DOWN still wins outright: tasteScore returns -Infinity for one,
     // and no amount of having watched the thing changes that. Someone who
     // watched it all and then said no meant the no.
-    const preference = (s) => tasteScore(s) + retentionScore(s);
     let scored = scoreCandidates(raw, usable, preference);
     if (scored.length < (wide ? POOL : 1)) {
       scored = dedupeScored([...scored, ...scoreCandidates(await fromSearch(), usable, preference)]);
@@ -244,7 +287,9 @@ export function useUpNext() {
    */
   const pick = useCallback(async (current) => {
     remember(current);
-    const explore = shouldExplore();
+    // Exploration exists to leave a rut; on Radio, staying with the music IS
+    // the point, so it sits out while Radio has an artist to follow.
+    const explore = !radioArtist(current) && shouldExplore();
     let { scored, seenRate } = await candidatesFor(current, { explore });
     // An exploration that came back empty must not cost the swipe — the pool
     // may simply have no tail yet on a young platform. Fall back to the normal

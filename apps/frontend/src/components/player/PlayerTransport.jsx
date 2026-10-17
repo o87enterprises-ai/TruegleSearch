@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Play, Pause, SkipBack, SkipForward,
   ListMusic, PictureInPicture2, Minimize2, PanelBottom,
-  Maximize, Minimize, Lock, Volume2, Volume1, VolumeX, RotateCcw,
+  Maximize, Minimize, Lock, Volume2, Volume1, VolumeX, RotateCcw, Radio,
 } from 'lucide-react';
+import { useRadio } from '../../utils/radio';
 
 // The one transport row. Identical in all three presentations — collapsed
 // inside the Tube search bar, expanded under the player screen, and inside the
@@ -219,6 +220,7 @@ export default function PlayerTransport({
   const tight = w < 340;
   const veryTight = w < 260;
 
+  const [radio, setRadio] = useRadio();
   const size = tight ? 15 : 16;
   const btn = `flex items-center justify-center shrink-0 rounded-lg text-white/60 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors ${
     tight ? 'w-8 h-8' : 'w-9 h-9'
@@ -272,6 +274,17 @@ export default function PlayerTransport({
           this row is what stops it running out of width in a resized window,
           which is what "controls get lost on resize" was. */}
       <div className={`flex items-center shrink-0 ${veryTight ? 'w-full justify-center' : 'ml-auto'} ${tight ? 'gap-0' : 'gap-0.5'}`}>
+        {/* RADIO. Self-contained (utils/radio.js) so every presentation gets
+            it without threading a prop: when the queue runs out and what's
+            playing is a song, next is the artist and similar artists. */}
+        <button type="button" onClick={() => setRadio(!radio)}
+          title={radio ? 'Radio on — more from this artist and similar artists' : 'Radio off — turn on to keep playing similar music'}
+          aria-label="Radio: more from this artist and similar artists" aria-pressed={radio}
+          data-player-radio=""
+          style={radio ? { color: accent } : undefined}
+          className={`${btn} ${radio ? 'bg-white/10' : ''}`}>
+          <Radio size={size} />
+        </button>
         {showList && (
           <button type="button" onClick={onToggleList} title="Queue and results"
             aria-label="Queue and results" aria-pressed={listOpen}

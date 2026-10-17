@@ -350,6 +350,7 @@ app.use('/api/extract', require('./routes/extract'));
 app.use('/api/share', require('./routes/share'));
 app.use('/api/reels', require('./routes/reels'));
 app.use('/api/media', require('./routes/media'));
+app.use('/api/music', [searchLimiter, require('./routes/music')]);
 app.use('/api/news', require('./routes/news'));
 
 // 404 handler

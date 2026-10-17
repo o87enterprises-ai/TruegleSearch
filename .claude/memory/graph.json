@@ -1712,6 +1712,14 @@
         "body": "PlayerTransport VolumeControl: popup was 4px ABOVE the button (mb-1 outside the hover wrapper) so the mouse left on the way up. Now flush with pb-1.5 padding inside the subtree, horizontal slider (vertical writing-mode isn't honoured everywhere), drag-guard so wandering off mid-drag doesn't close it, click never closes (it used to toggle), outside press closes on touch. Test: npm run volumeslider:test.",
         "ts": "2026-10-15",
         "created": "2026-10-15"
+      },
+      "player-radio-listenbrainz": {
+        "Id": "player-radio-listenbrainz",
+        "Type": "decision",
+        "Label": "Player Radio uses ListenBrainz",
+        "body": "Player Radio switch (utils/radio.js, useUpNext radio branch): when a song plays and the queue runs out, next = same artist + 2 similar artists from MusicBrainz name->MBID + ListenBrainz labs similar-artists (free, keyless; backend /api/music/similar, 1 req/s to MB, 24h cache, fails open). LB Radio API needs an auth token, so not used. Last.fm (key) is the planned upgrade; true audio similarity is out of scope (cost + YouTube ToS; Spotify audio-features closed 2024).",
+        "ts": "2026-10-17",
+        "created": "2026-10-17"
       }
     },
     "thread": {
@@ -3695,5 +3703,5 @@
       }
     }
   },
-  "updated": "2026-10-15"
+  "updated": "2026-10-17"
 }
