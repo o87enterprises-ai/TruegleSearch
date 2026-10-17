@@ -181,6 +181,11 @@ const envVarsSchema = Joi.object({
   // Brave Search API
   BRAVE_API_KEY: Joi.string().optional().description('Brave Search API key'),
 
+  // Last.fm (free key). Optional: the player's Radio uses it for similar artists
+  // when set, and falls back to ListenBrainz when it is not. Read straight from
+  // process.env by services/MusicSimilarity.js; declared here so it is documented.
+  LASTFM_API_KEY: Joi.string().optional().description('Last.fm API key (similar artists for the player Radio)'),
+
   // SearXNG self-hosted instance URL (no API key required)
   SEARXNG_URL: Joi.string().optional().description('SearXNG instance URL e.g. https://xyz.ngrok-free.dev'),
   SEARXNG_PRIMARY: Joi.boolean().default(false).description('Query SearXNG first; paid API providers become fallback'),
