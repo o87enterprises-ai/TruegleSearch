@@ -348,9 +348,9 @@ export default function TrueglePlayer({
 
   // Nothing queued? Keep going anyway — build the next thing from this
   // browser's own 👍/👎 profile and the platform's anonymous vote pool, the way
-  // an autoplay feed does. Only in 'auto': the other play modes are explicit
-  // instructions about what comes next and quietly overriding them would be
-  // wrong.
+  // an autoplay feed does. Only in 'auto' (and in 'shuffle' once the queue is
+  // empty — see advance): repeat-one and loop are explicit instructions about
+  // what comes next and quietly overriding them would be wrong.
   const upNext = useUpNext();
   // THE QUEUE IS FOLLOWED WHENEVER IT HAS SOMETHING IN IT — unless it is on
   // standby behind a feed run (feed clips, or picks from the viewport deck),
@@ -378,7 +378,15 @@ export default function TrueglePlayer({
     // Anywhere else, a run of picks that has finished hands back to the
     // queue (or saved list) it parked, and carries on from there.
     if (feedSpent) { resumeQueue(); if (queue.length) { next(); return; } }
-    if (followQueue || playMode !== 'auto' || !current || onFeedPage) { next(); return; }
+    //
+    // SHUFFLE WITH NOTHING QUEUED IS NOT AN INSTRUCTION TO STOP. It shuffles
+    // the queue, and with no queue there is nothing to shuffle — so it goes
+    // looking for something new, exactly as the Next button always has (goNext
+    // ignores the play mode). It used to call next() here and fall silent: with
+    // Radio on and Shuffle selected (owner, 2026-10-17) Next kept the music
+    // going and a song ending did not. Repeat-one and loop are different: each
+    // is an explicit instruction to replay, and the reducer carries it out.
+    if (followQueue || (playMode !== 'auto' && playMode !== 'shuffle') || !current || onFeedPage) { next(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) { play(nextUp); return; }
     next();
