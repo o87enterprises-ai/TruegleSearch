@@ -7,7 +7,9 @@
  * only one is open at a time; and only Why Truegle ever opens by itself, on a
  * phone, as you scroll down to it.
  *
- *   - seven tiles in a grid: 4 columns on desktop, 2 on a phone, equal heights
+ *   - Why Truegle is ONE full-width card (its dropdown opens inside it), with
+ *     Search directly below; the other six tiles: 4 columns on desktop, 2 on a
+ *     phone, equal heights
  *   - titles: Why Truegle? · Search · Chat · Tube · Feed · News · Markets
  *   - each wears its pill's colour; News and Markets are shades of Feed's
  *   - each pitch is ten words or fewer
@@ -95,11 +97,15 @@ await guarded('desktop run', async () => {
   check(JSON.stringify(t.map((x) => x.name)) === JSON.stringify(TITLES), 'seven tiles with one-word titles', t.map((x) => x.name).join(' · '));
 
   // A GRID, not a list.
+  // Why Truegle is a full-width card on its own row (2026-10-17); Search is
+  // the first tile directly under it, then four across, then News + Markets.
   const ys = [...new Set(t.map((x) => x.y))];
-  const row1 = t.filter((x) => x.y === ys[0]);
-  check(ys.length === 2 && row1.length === 4 && new Set(row1.map((x) => x.x)).size === 4, 'desktop: a grid of four columns, two rows (not a vertical list)', `${ys.length} rows, ${row1.length} in the first`);
-  check(t.filter((x) => x.y === ys[0]).every((x) => x.h === row1[0].h) && t.filter((x) => x.y === ys[1]).every((x) => x.h === t.find((y) => y.y === ys[1]).h), 'tiles in a row are the same height');
-  check(t.find((x) => x.id === 'markets').w > t.find((x) => x.id === 'feed').w * 1.9, 'the last tile spans two columns, so the grid has no orphan');
+  const row2 = t.filter((x) => x.y === ys[1]);
+  check(ys.length === 3 && t.filter((x) => x.y === ys[0]).length === 1 && row2.length === 4 && new Set(row2.map((x) => x.x)).size === 4, 'desktop: Why Truegle alone on row one, then a grid of four columns', `${ys.length} rows, ${row2.length} in the second`);
+  check(t.filter((x) => x.y === ys[1]).every((x) => x.h === row2[0].h) && t.filter((x) => x.y === ys[2]).every((x) => x.h === t.find((y) => y.y === ys[2]).h), 'tiles in a row are the same height');
+  check(t.find((x) => x.id === 'why').w > t.find((x) => x.id === 'search').w * 3.5, 'Why Truegle is a full-width card');
+  check(t.find((x) => x.id === 'search').y === ys[1] && Math.abs(t.find((x) => x.id === 'search').x - t.find((x) => x.id === 'why').x) <= 2, 'Search is the first tile directly under Why Truegle');
+  check(t.find((x) => x.id === 'markets').w > t.find((x) => x.id === 'feed').w * 1.9 && t.find((x) => x.id === 'news').w > t.find((x) => x.id === 'feed').w * 1.9, 'News and Markets are two columns each, so the grid has no orphan');
   check(t.every((x) => x.open === 'closed'), 'none is open at load');
 
   for (const [id, hex] of Object.entries(ACCENT)) {
@@ -120,6 +126,18 @@ await guarded('desktop run', async () => {
   await page.waitForTimeout(1200);
   check((await tiles(page)).every((x) => x.open === 'closed'), 'desktop: scrolling opens nothing, Why Truegle included');
   check(!asked.some((p) => p.startsWith('/api/news') || p === '/api/social/feed'), 'nothing is fetched while every tile is closed', asked.join(' ') || 'no requests');
+
+  // Why Truegle's body opens INSIDE its own card, and Search stays directly under it
+  await press(page, 'why');
+  await until(() => page.locator('[data-card="why"] [data-panel="why"] [data-why-body]').count(), { what: 'the Why body inside its card' });
+  await page.waitForTimeout(600);
+  const whyBox = await page.locator('[data-card="why"]').boundingBox();
+  const searchBox = await page.locator(tile('search')).boundingBox();
+  const gap = Math.round(searchBox.y - (whyBox.y + whyBox.height));
+  check(gap >= 0 && gap <= 16, 'Why Truegle and its dropdown are one card, with Search directly below it', `gap ${gap}px`);
+  check(await page.locator(panel('why')).count() === 1 && await page.locator('[data-panel]').evaluateAll((els) => els.every((e) => e.closest('[data-card]'))), 'the Why body is not a separate panel');
+  await press(page, 'why');
+  await until(() => page.locator('[data-panel]').count().then((n) => n === 0), { what: 'the Why card to retract' });
 
   // press → a panel under the row, no tile moves; press again → exactly as before
   const before = shape(t);
@@ -181,7 +199,8 @@ await guarded('phone run', async () => {
   await page.waitForTimeout(1200);
   const t = await tiles(page);
   const ys = [...new Set(t.map((x) => x.y))];
-  check(ys.length === 4 && t.filter((x) => x.y === ys[0]).length === 2, 'phone: a grid of two columns, four rows', `${ys.length} rows`);
+  check(ys.length === 4 && t.filter((x) => x.y === ys[0]).length === 1 && t.filter((x) => x.y === ys[1]).length === 2, 'phone: Why Truegle full width, then a grid of two columns', `${ys.length} rows`);
+  check(t.find((x) => x.id === 'search').y === ys[1], 'phone: Search is directly under Why Truegle');
   check(t.every((x) => x.open === 'closed'), 'phone: every tile is retracted at load, Why Truegle included');
 
   // Scroll down to it by hand: it descends by itself, alone.
