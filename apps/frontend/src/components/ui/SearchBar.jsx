@@ -900,6 +900,9 @@ export default function SearchBar({
   onOSINTToggle,
   // Category Props
   showCategories = false,
+  // Replaces the stock CategoryBar when a page has its own chip row (Tube's
+  // media scopes), so the bar never offers categories the page can't search.
+  categorySlot = null,
   activeCategory = 'all',
   onSelectCategory,
   // Map Props
@@ -2449,7 +2452,8 @@ const handleChange = useCallback((e) => {
       </form>
 
       {/* Category Bar - Above Action Buttons */}
-      {showCategories && onSelectCategory && (
+      {showCategories && categorySlot}
+      {showCategories && !categorySlot && onSelectCategory && (
         <CategoryBar
           activeCategory={activeCategory}
           onSelectCategory={onSelectCategory}

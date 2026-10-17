@@ -123,7 +123,7 @@ export const SEARCH_SCOPES = [
   { id: 'all', label: 'All' },
   { id: 'shorts', label: 'Shorts' },
   { id: 'channel', label: 'Channel' },
-  { id: 'song', label: 'Song' },
+  { id: 'song', label: 'Track' },
   { id: 'artist', label: 'Artist' },
   { id: 'title', label: 'Title' },
   { id: 'topic', label: 'Topic' },
