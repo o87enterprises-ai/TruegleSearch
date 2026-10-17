@@ -10,7 +10,7 @@
  *   - Why Truegle is ONE full-width card (its dropdown opens inside it), with
  *     Search directly below; the other six tiles: 4 columns on desktop, 2 on a
  *     phone, equal heights
- *   - titles: Why Truegle? · Search · Chat · Tube · Feed · News · Markets
+ *   - titles: Why Truegle? · Search · Tube · Chat · Feed · News · Markets
  *   - each wears its pill's colour; News and Markets are shades of Feed's
  *   - each pitch is ten words or fewer
  *   - none open at load; nothing fetched while closed
@@ -48,8 +48,8 @@ const CREATOR_POSTS = Array.from({ length: 3 }, (_, i) => ({
   permalink: `https://www.youtube.com/watch?v=creatr000${i}`, author: 'A Creator', date: '2026-09-28T00:00:00Z', thumbnail: null,
 }));
 
-const TITLES = ['Why Truegle?', 'Search', 'Chat', 'Tube', 'Feed', 'News', 'Markets'];
-const IDS = ['why', 'search', 'chat', 'tube', 'feed', 'news', 'markets'];
+const TITLES = ['Why Truegle?', 'Search', 'Tube', 'Chat', 'Feed', 'News', 'Markets'];
+const IDS = ['why', 'search', 'tube', 'chat', 'feed', 'news', 'markets'];
 const ACCENT = { why: '#a855f7', search: '#3b82f6', chat: '#e5e7eb', tube: '#9aa7b8', feed: '#eab308', news: '#facc15', markets: '#ca8a04' };
 const rgbOf = (hex) => { const n = parseInt(hex.slice(1), 16); return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`; };
 const tile = (id) => `[data-tile="${id}"]`;

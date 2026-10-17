@@ -38,8 +38,8 @@ const MODULES = [
   // between them). Search is the next tile, directly below.
   { id: 'why', title: 'Why Truegle?', icon: ShieldCheck, pitch: 'Search without bias, tracking, or censorship.', card: true },
   { id: 'search', title: 'Search', icon: Compass, pitch: 'Same query, different lens. Pick your reality.' },
-  { id: 'chat', title: 'Chat', icon: MessageCircle, pitch: 'Ask TrueGLE. Stack lenses. See every angle.' },
   { id: 'tube', title: 'Tube', icon: PlayCircle, pitch: 'Every video, reel and song. One player. Zero ads.' },
+  { id: 'chat', title: 'Chat', icon: MessageCircle, pitch: 'Ask TrueGLE. Stack lenses. See every angle.' },
   { id: 'feed', title: 'Feed', icon: Clapperboard, pitch: 'Reddit, Bluesky, Mastodon and creators. One scroll.' },
   { id: 'news', title: 'News', icon: Newspaper, pitch: 'Today’s headlines, as video. Tap and watch.', wide: true },
   // `wide`: two columns on desktop only. Below Why Truegle's full-width card
