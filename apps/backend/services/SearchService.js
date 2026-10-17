@@ -561,6 +561,16 @@ class SearchService {
         });
       }
 
+      // Padding is not results (see dropOffTopic). Web search only: a site
+      // keyword or `site:` query already scopes the set another way.
+      if (searchWeb && !boostDomain && !/\bsite:/i.test(originalQuery)) {
+        const before = finalResults.length;
+        finalResults = this.dropOffTopic(query, finalResults);
+        if (finalResults.length < before) {
+          console.log(`🧹 Off-topic floor — kept ${finalResults.length}/${before}`);
+        }
+      }
+
       // EXACT KEYWORDS FIRST, for a plain keyword search (see exactMatch.js):
       // results holding more of the words as typed come first, the blended
       // score above only breaks ties. Not for a brand lookup (the homepage
@@ -694,6 +704,36 @@ class SearchService {
     const phrase = docText.includes((query || '').toLowerCase().trim()) ? 1 : 0;
 
     return Math.min(coverage * 0.65 + titleCoverage * 0.25 + phrase * 0.1, 1);
+  }
+
+  /**
+   * Drop rows that share no word with the query.
+   *
+   * REPORTED 2026-10-17: "Truegle.info" returned ~115 results and only the
+   * first two or three were about Truegle — the rest were Windows
+   * network-sharing threads. A metasearch that has run out of real matches pads
+   * the page with loosely related rows, and ranking only ever sorts, so the
+   * padding stayed. A row with none of the query's words in its title, snippet
+   * or URL is not an answer to it, however it ranks.
+   *
+   * A bare domain means the SITE: "truegle.info" is looked for as "truegle".
+   * Matching the TLD word too would let any page that says "info" through.
+   *
+   * Never empties the page — when nothing matches (a misspelling the engines
+   * corrected, a query in another script) every row stays.
+   */
+  dropOffTopic(query, results) {
+    if (!Array.isArray(results) || results.length === 0) return results;
+    const q = String(query || '').trim();
+    const host = q.match(/^(?:https?:\/\/)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)*)\.[a-z]{2,}(?:\/\S*)?$/i);
+    const terms = relevanceTerms(host ? host[1] : q);
+    if (terms.length === 0) return results;
+
+    const kept = results.filter((r) => {
+      const stems = new Set(tokenize(`${r.title || ''} ${r.snippet || ''} ${r.url || ''}`).map(stem));
+      return terms.some((t) => stems.has(t));
+    });
+    return kept.length > 0 ? kept : results;
   }
 
   /**
