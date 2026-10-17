@@ -30,7 +30,8 @@ import LetterGlitch from '../components/backgrounds/LetterGlitch';
 
 // Components
 import TruegleLogo from '../components/ui/TruegleLogo';
-import SearchBar, { CategoryBar } from '../components/ui/SearchBar';
+import SearchBar from '../components/ui/SearchBar';
+import TubeScopeBar from '../components/tube/TubeScopeBar';
 import MultimediaInterface from '../components/ui/MultimediaInterface';
 import { isPlaylistUrl } from '../utils/playlistImport';
 import InlineSummaryChat from '../components/search/InlineSummaryChat';
@@ -456,10 +457,13 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
   // sets it, which is exactly what /shorts needs (it redirects to
   // /tube?scope=shorts and must land on the short-form deck, not a generic
   // Tube page that makes the redirect look misrouted).
-  const tubeScope = useMemo(() => {
+  const urlScope = useMemo(() => {
     const s = searchParams.get('scope');
     return s && SEARCH_SCOPE_IDS.has(s) ? s : 'all';
   }, [searchParams]);
+  // The URL seeds it; the Tube chip row (TubeScopeBar) changes it from there.
+  const [tubeScope, setTubeScope] = useState(urlScope);
+  useEffect(() => { setTubeScope(urlScope); }, [urlScope]);
   // Every provider, always. The picker that used to narrow this is gone (see
   // the note where the chip rows were): a search fans out across all of them
   // and the results say which is which by colour. A bang — !yt, !reddit, !sc —
@@ -1988,6 +1992,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
               // OSINT exception: the ocean page swaps the content categories for
               // the investigation-class row rendered below the bar.
               showCategories={mode !== 'ocean' && !tubeDocked && pillMode !== 'black'}
+              categorySlot={mode === 'tube' ? <TubeScopeBar activeScope={tubeScope} onSelectScope={setTubeScope} /> : null}
               showMultiInput
               autoVoice={autoVoice}
               showCameraInput={!tubeDocked}
@@ -2042,23 +2047,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
                       this slot when the pill is Chat, same as the undocked bar. */}
                   {pillMode !== 'black' && (
                     <div className="px-3 pb-2 pt-1 bg-black/30">
-                      <CategoryBar
-                        activeCategory={activeCategory}
-                        onSelectCategory={selectCategory}
-                        value={searchValue}
-                        themeColor="cyan"
-                        showMap={showMap || (autoOpenMap && !mapManuallyClosed)}
-                        onMapToggle={() => {
-                          if (showMap || (autoOpenMap && !mapManuallyClosed)) {
-                            setShowMap(false);
-                            setMapManuallyClosed(true);
-                          } else {
-                            setShowMap(true);
-                            setMapManuallyClosed(false);
-                          }
-                        }}
-                        isLocationQuery={isLocationQuery}
-                      />
+                      <TubeScopeBar activeScope={tubeScope} onSelectScope={setTubeScope} />
                     </div>
                   )}
                 </div>
