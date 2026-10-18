@@ -122,6 +122,19 @@ export function addToPlaylist(id, source) {
   return true;
 }
 
+/** Is this track already in that list? */
+export function playlistHas(id, source) {
+  const list = lists.find((p) => p.id === id);
+  return !!list && !!source && list.items.some((i) => i.key === mediaKey(source));
+}
+
+/** Take a track out of a list by what it IS rather than where it sits — the
+ *  add sheet toggles membership, and it only has the track in hand. */
+export function removeSourceFromPlaylist(id, source) {
+  const k = mediaKey(source);
+  commit(lists.map((p) => (p.id === id ? { ...p, items: p.items.filter((i) => i.key !== k) } : p)));
+}
+
 export function removeFromPlaylist(id, index) {
   commit(lists.map((p) => (p.id === id ? { ...p, items: p.items.filter((_, i) => i !== index) } : p)));
 }

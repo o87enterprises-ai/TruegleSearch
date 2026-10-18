@@ -11,6 +11,7 @@ import { sourceColour, sourceProviderLabel } from '../../utils/playerQuery';
 import { publishedLabel } from '../../utils/published';
 import { useMediaMeta, formatDuration } from '../../utils/mediaMeta';
 import { withoutBroken, useBrokenVersion } from '../../utils/broken';
+import { SaveTo } from '../player/PlayerLibrary';
 import SafeSearchToggle from '../ui/SafeSearchToggle';
 
 // TUBE'S RESULTS: PLAYABLE ONLY, LAID OUT LIKE YOUTUBE.
@@ -169,6 +170,7 @@ function TubeResultsGrid({ docked, query }) {
                       <p className="mt-1 text-[11px] sm:text-xs text-white/40 leading-snug line-clamp-2">{r.description}</p>
                     )}
                   </button>
+                  <SaveTo source={r} className="shrink-0 self-start flex items-center justify-center w-7 h-7 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors" />
                   <button
                     type="button"
                     onClick={() => queue(r)}

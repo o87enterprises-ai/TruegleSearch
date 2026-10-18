@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Play, X, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ListPlus } from 'lucide-react';
+import { Play, X, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ListPlus, Pencil, Check } from 'lucide-react';
+import AddToListSheet from './AddToListSheet';
 import { usePlayer } from '../../context/PlayerContext';
 import {
   useWatchHistory, removeFromHistory, clearWatchHistory,
@@ -37,54 +38,22 @@ const toSource = (e) => ({
   poster: e.poster, channel: e.channel,
 });
 
-/** The "save this somewhere" control: your saved lists, plus New list. Shared
- *  by both tabs here and by the viewport's result cards (with a `label`). */
-export function SaveTo({ source, accent, label = '', className = '' }) {
-  const lists = usePlaylists();
+/** The "save this somewhere" control. A button that opens the one shared
+ *  AddToListSheet; used by both tabs here, the result cards, the queue rows and
+ *  the now-playing bar (with a `label` where there is room for one). */
+export function SaveTo({ source, label = '', className = '' }) {
   const [open, setOpen] = useState(false);
-  const [saved, setSaved] = useState('');
-
   if (!playlistable(source)) return null;
-
-  const save = (id) => {
-    const ok = addToPlaylist(id, source);
-    setSaved(ok ? 'Saved' : 'Already in it');
-    setOpen(false);
-    setTimeout(() => setSaved(''), 1600);
-  };
-
-  const create = () => {
-    const id = createPlaylist(`List ${lists.length + 1}`, [source]);
-    if (id) { setSaved('Saved'); setOpen(false); setTimeout(() => setSaved(''), 1600); }
-  };
-
   return (
-    <span className="relative shrink-0">
-      {saved ? (
-        <span className="text-[9px] uppercase tracking-wider px-1" style={{ color: accent }}>{saved}</span>
-      ) : (
-        <button type="button" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }} title="Save to a list" aria-label="Save to a list"
-          aria-expanded={open}
-          className={className || 'flex items-center justify-center w-8 h-8 rounded text-white/30 hover:text-white hover:bg-white/10 transition-colors'}>
-          <ListPlus size={13} />
-          {label && <span>{label}</span>}
-        </button>
-      )}
-      {open && (
-        <div data-save-to-list="" className="absolute right-0 bottom-full mb-1 z-30 min-w-[9rem] max-h-48 overflow-y-auto rounded-lg border border-white/15 bg-[#0d0d14] shadow-xl py-1">
-          {lists.map((p) => (
-            <button key={p.id} type="button" onClick={() => save(p.id)}
-              className="block w-full text-left px-2.5 py-1.5 text-[11px] text-white/70 hover:text-white hover:bg-white/10 truncate">
-              {p.name}
-            </button>
-          ))}
-          <button type="button" onClick={create}
-            className="flex items-center gap-1 w-full px-2.5 py-1.5 text-[11px] text-white/50 hover:text-white hover:bg-white/10 border-t border-white/10">
-            <Plus size={11} /> New list
-          </button>
-        </div>
-      )}
-    </span>
+    <>
+      <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }}
+        title="Add to a list" aria-label="Add to a list" data-save-to-list-btn=""
+        className={className || 'flex items-center justify-center w-8 h-8 rounded text-white/30 hover:text-white hover:bg-white/10 transition-colors'}>
+        <ListPlus size={13} />
+        {label && <span>{label}</span>}
+      </button>
+      {open && <AddToListSheet source={source} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 
@@ -126,6 +95,8 @@ function PlaylistsTab({ accent, rowH, maxH }) {
   const lists = usePlaylists();
   const [openId, setOpenId] = useState(null);
   const [editing, setEditing] = useState(null); // { id, name }
+  const [confirmDel, setConfirmDel] = useState(null); // id awaiting a second press
+  const [newName, setNewName] = useState(null); // null = closed, string = naming a new list
 
   // The single most useful way to make a playlist: keep the run you already
   // built. Without it, saving a queue means re-adding every track by hand.
@@ -138,10 +109,24 @@ function PlaylistsTab({ accent, rowH, maxH }) {
   return (
     <div className={`overflow-y-auto ${maxH}`}>
       <div className="flex items-center gap-2 px-2 py-1.5 border-b border-white/10">
-        <button type="button" onClick={() => createPlaylist(`List ${lists.length + 1}`)}
-          className="flex items-center gap-1 px-2 h-6 rounded-md border border-white/15 text-[10px] uppercase tracking-wider text-white/50 hover:text-white hover:bg-white/10 transition-colors">
-          <Plus size={11} /> New
-        </button>
+        {newName === null ? (
+          <button type="button" onClick={() => setNewName('')}
+            className="flex items-center gap-1 px-2 h-6 rounded-md border border-white/15 text-[10px] uppercase tracking-wider text-white/50 hover:text-white hover:bg-white/10 transition-colors">
+            <Plus size={11} /> New
+          </button>
+        ) : (
+          <form className="flex items-center gap-1 min-w-0 flex-1"
+            onSubmit={(ev) => { ev.preventDefault(); createPlaylist(newName || `List ${lists.length + 1}`); setNewName(null); }}>
+            <input autoFocus value={newName} onChange={(ev) => setNewName(ev.target.value)}
+              onKeyDown={(ev) => { if (ev.key === 'Escape') setNewName(null); }}
+              placeholder="List name" maxLength={60} aria-label="New list name"
+              className="min-w-0 flex-1 h-6 px-2 rounded-md bg-white/5 border border-white/20 text-[11px] text-white outline-none" />
+            <button type="submit" title="Create list" aria-label="Create list"
+              className="flex items-center justify-center w-6 h-6 rounded-md border border-white/20 text-white/70 hover:text-white hover:bg-white/10"><Check size={12} /></button>
+            <button type="button" onClick={() => setNewName(null)} title="Cancel" aria-label="Cancel"
+              className="flex items-center justify-center w-6 h-6 rounded-md text-white/40 hover:text-white"><X size={12} /></button>
+          </form>
+        )}
         {(current || queue.length > 0) && (
           <button type="button" onClick={saveQueue}
             className="px-2 h-6 rounded-md border border-white/15 text-[10px] uppercase tracking-wider text-white/50 hover:text-white hover:bg-white/10 transition-colors">
@@ -178,12 +163,17 @@ function PlaylistsTab({ accent, rowH, maxH }) {
               ) : (
                 <button type="button" onDoubleClick={() => setEditing({ id: p.id, name: p.name })}
                   onClick={() => setOpenId(open ? null : p.id)}
-                  title="Double-click to rename"
+                  title="Tap the pencil to rename"
                   className="flex-1 min-w-0 text-left text-[11px] text-white/70 hover:text-white truncate">
                   {p.name}
                 </button>
               )}
               <span className="text-[9px] text-white/25 tabular-nums shrink-0">{p.items.length}</span>
+              <button type="button" onClick={() => setEditing({ id: p.id, name: p.name })} title="Rename this list" aria-label={`Rename ${p.name}`}
+                data-list-rename=""
+                className="flex items-center justify-center w-8 h-8 rounded text-white/30 hover:text-white hover:bg-white/10 transition-colors">
+                <Pencil size={12} />
+              </button>
               {/* PLAY, not append. enqueueMany mixes the list into whatever is
                   already queued and — correctly for its other callers — never
                   arms the queue, so autoplay walked off into discovery after
@@ -193,14 +183,22 @@ function PlaylistsTab({ accent, rowH, maxH }) {
                 className="flex items-center justify-center w-8 h-8 rounded text-white/30 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors">
                 <Play size={13} />
               </button>
-              <button type="button" onClick={() => deletePlaylist(p.id)} title="Delete this list"
-                className="flex items-center justify-center w-8 h-8 rounded text-white/30 hover:text-white hover:bg-white/10 transition-colors">
-                <Trash2 size={12} />
-              </button>
+              {confirmDel === p.id ? (
+                <button type="button" onClick={() => { deletePlaylist(p.id); setConfirmDel(null); }}
+                  onBlur={() => setConfirmDel(null)} autoFocus data-list-delete-confirm=""
+                  className="h-8 px-2 rounded text-[10px] uppercase tracking-wider text-red-300 border border-red-400/40 hover:bg-red-400/10">
+                  Delete?
+                </button>
+              ) : (
+                <button type="button" onClick={() => setConfirmDel(p.id)} title="Delete this list" aria-label={`Delete ${p.name}`}
+                  className="flex items-center justify-center w-8 h-8 rounded text-white/30 hover:text-white hover:bg-white/10 transition-colors">
+                  <Trash2 size={12} />
+                </button>
+              )}
             </div>
 
             {open && (p.items.length === 0 ? (
-              <p className="px-3 pb-2 text-[10px] text-white/30">Empty — add something from the history or the queue.</p>
+              <p className="px-3 pb-2 text-[10px] text-white/30">Empty — press the list icon on any song to add it here.</p>
             ) : p.items.map((it, i) => (
               <div key={`${it.key}-${i}`} className="flex items-center gap-1 pl-7 pr-2 py-1 hover:bg-white/5">
                 {/* A row plays THE LIST FROM HERE. It used to playNow the one
@@ -226,6 +224,12 @@ function PlaylistsTab({ accent, rowH, maxH }) {
                 </button>
               </div>
             )))}
+            {open && current && playlistable(current) && (
+              <button type="button" onClick={() => addToPlaylist(p.id, current)}
+                className="flex items-center gap-1 ml-7 my-1 px-2 h-6 rounded-md border border-white/15 text-[10px] text-white/50 hover:text-white hover:bg-white/10">
+                <Plus size={11} /> Add what&apos;s playing
+              </button>
+            )}
           </div>
         );
       })}

@@ -7,6 +7,7 @@ import { parsePlayerQuery, toHandle, sourceColour, sourceProviderLabel } from '.
 import { hasTaste, forgetTaste } from '../../utils/taste';
 import { hasRetention, forgetRetention } from '../../utils/retention';
 import { isPlaylistUrl } from '../../utils/playlistImport';
+import { SaveTo } from './PlayerLibrary';
 import PlayAllButton from './PlayAllButton';
 import { reportBroken, useBrokenFlag, useBrokenVersion, withoutBroken } from '../../utils/broken';
 import { useMediaMeta, formatDuration } from '../../utils/mediaMeta';
@@ -497,6 +498,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
                 {added === r.src ? <Check size={13} /> : <Plus size={13} />}
                 {added === r.src ? 'Added' : 'Add'}
               </button>
+              <SaveTo source={r} className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg border border-white/15 text-white/70 hover:text-white hover:bg-white/10 transition-colors" />
               <BrokenFlag source={r} />
             </div>
           ))}

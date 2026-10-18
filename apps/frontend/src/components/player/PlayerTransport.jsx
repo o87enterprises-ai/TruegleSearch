@@ -169,6 +169,8 @@ export default function PlayerTransport({
   popOutMode = 'pop',
   showDock = false,
   showFullscreen = false,
+  // The now-playing song's "add to a list" button, supplied by the player.
+  saveSlot = null,
   fullscreen = false,
   // 👍/👎. `rating` is 1, -1 or 0; pressing the thumb that's already lit
   // clears it, so the pair behaves like every other vote control.
@@ -316,6 +318,7 @@ export default function PlayerTransport({
             <Lock size={size - 1} />
           </button>
         )}
+        {saveSlot}
         {showFullscreen && (
           <button type="button" onClick={onToggleFullscreen} aria-pressed={fullscreen}
             title={fullscreen ? 'Leave full screen' : 'Full screen'}
