@@ -22,6 +22,7 @@ import ChatModeRow from '../components/landing/ChatModeRow';
 import CategoryModeRow from '../components/landing/CategoryModeRow';
 import SmartPill from '../components/landing/SmartPill';
 import SearchChatToggle from '../components/landing/SearchChatToggle';
+import { ACTIVITY_LABEL } from '../components/landing/PillModeRow';
 import { MODE_COLORS, MODE_HINT_TEXT, searchThemeFor, searchGradientFor, searchIconFor, normalizePillMode } from '../config/modeTheme';
 import HoverHint from '../components/ui/HoverHint';
 import { useUnhingedGate } from '../hooks/useUnhingedGate';
@@ -70,15 +71,18 @@ export default function LandingPage() {
   // 'blue', every load, full stop — like Google's homepage never "remembers"
   // you were on Images last time. A pick made during the visit still works
   // normally; it just isn't carried into the NEXT visit.
-  const [pillMode, setPillMode] = useState('blue');
+  //
+  // 2026-10-18, owner: "make tube be default on landing page." Same rule, new
+  // default — every load opens on Tube (the pill cycle now starts there too).
+  const [pillMode, setPillMode] = useState('tube');
 
   // The Search/Chat toggle's "back to Search" needs to restore whichever
-  // search-flavored pill the user was last on, not hard-reset to blue —
+  // search-flavored pill the user was last on, not hard-reset to the default —
   // otherwise picking Chat then tapping back to Search would silently
   // discard a Green/Rabbit-Hole/Wonderland/Privacy/Feed/Tube choice.
   const [lastSearchMode, setLastSearchMode] = useState(() => {
     const stored = localStorage.getItem('truegle_last_search_pill');
-    return stored && stored !== 'black' ? normalizePillMode(stored) : 'blue';
+    return stored && stored !== 'black' ? normalizePillMode(stored) : 'tube';
   });
   useEffect(() => {
     if (pillMode !== 'black') {
@@ -493,6 +497,7 @@ export default function LandingPage() {
               <div className="hidden sm:flex shrink-0">
                 <SearchChatToggle
                   mode={pillMode === 'black' ? 'chat' : 'search'}
+                  searchLabel={pillMode === 'black' ? 'Search' : (ACTIVITY_LABEL[pillMode] || 'Search')}
                   onSearch={() => handlePillModeSelect(lastSearchMode)}
                   onChat={() => handlePillModeSelect('black')}
                 />

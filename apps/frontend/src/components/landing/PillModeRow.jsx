@@ -5,29 +5,36 @@ import { MODE_COLORS, MODE_GRADIENT, searchModeLabel, solidTextClass } from '../
 // Pill Mode — lives ABOVE the search bar (spec #2). This is the SEARCH mode
 // selector: a single pill, not a row. Clicking it cycles to the next mode
 // (never navigates by itself — navigation happens when the query is actually
-// submitted, via the search bar's Enter/play button). Black = Chat, the
-// default state. A small non-clickable "Chat"/"Search" label sits directly
-// above it as a passive status indicator.
+// submitted, via the search bar's Enter/play button). Black = Chat. The
+// landing page opens on Tube (LandingPage); Chat is the last stop in the cycle.
+// A small non-clickable "Chat"/"Search" label sits directly above it as a
+// passive status indicator.
 // 'orange' (Rewards) removed 2026-07-24 — ad-pay/rewards program paused.
 // 'purple' (Perspectives) removed 2026-08-08 — folded into the Rabbit Hole as
 // the re-ask fold, so it is a control on Red rather than a mode of its own.
 // ?mode=purple still resolves (see FOLDED_MODES in UniversalSearch).
-const CYCLE = ['black', 'tube', 'blue', 'green', 'red', 'ocean', 'yellow'];
+//
+// ORDER (owner, 2026-10-18): Tube · Feed · Green · Mainstream · Rabbit Hole ·
+// Privacy/OSINT · Chat. Tube leads because it is where the landing page opens;
+// Chat comes last. The landing cards list the modes in this same order.
+const CYCLE = ['tube', 'yellow', 'green', 'blue', 'red', 'ocean', 'black'];
 
-// The passive status word above the pill — what KIND of thing this mode does,
-// not which mode it is (the pill itself already says that in its own label).
-// blue/green/red are all "Search" because they are three takes on the same
-// verb; ocean and yellow are different verbs entirely.
-const ACTIVITY_LABEL = {
-  black: 'Chat',
+// The passive status word above the pill — what the current mode is FOR, in
+// plain words, not which mode it is (the pill itself already says that in its
+// own label). Owner, 2026-10-18, in the pill's order:
+//   Tube → Play · Feed → Socials · Green → AI Free · Mainstream → Search ·
+//   Rabbit Hole → Deep Dive · OSINT → Investigate · Chat → Chat / Search
+// (Chat answers, but it searches first to ground the answer, so it says both.)
+export const ACTIVITY_LABEL = {
   tube: 'Play',
+  yellow: 'Socials',
+  green: 'AI Free',
   blue: 'Search',
-  green: 'Search',
-  red: 'Search',
+  red: 'Deep Dive',
   ocean: 'Investigate',
-  yellow: 'Social',
+  black: 'Chat / Search',
 };
-const HOLD_MS = 2200; // press-and-hold this long (mobile long-press or desktop click-hold) to jump straight back to Chat
+const HOLD_MS = 2200; // press-and-hold this long (mobile long-press or desktop click-hold) to jump straight to Chat
 
 export default function PillModeRow({ activeMode, onSelect, onHold }) {
   const [holding, setHolding] = useState(false);
@@ -79,7 +86,7 @@ export default function PillModeRow({ activeMode, onSelect, onHold }) {
         onContextMenu={(e) => activeMode !== 'black' && e.preventDefault()} // long-press shouldn't open a context menu
         whileHover={{ scale: 1.04 }}
         whileTap={{ scale: 0.96 }}
-        title={activeMode === 'black' ? 'Click to switch mode' : 'Click to switch mode — hold to jump back to Chat'}
+        title={activeMode === 'black' ? 'Click to switch mode' : 'Click to switch mode — hold to jump to Chat'}
         className={`relative overflow-hidden flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-150 select-none ${solidTextClass(activeMode)}`}
         style={{
           // touch-action:none is what makes the 2.2s hold actually reachable on

@@ -25,6 +25,10 @@ import { NewsBody, MarketsBody } from './NewsFeed';
 // single exception is Why Truegle on a PHONE, which descends by itself as you
 // scroll down to it (useAutoOpenOnScroll), and only into a quiet page.
 //
+// TILE ORDER FOLLOWS THE PILL (owner, 2026-10-18): Tube · Feed · Search (Green,
+// Mainstream, Rabbit Hole, OSINT) · Chat — the pill's own order, with the four
+// search lenses living together inside the Search tile.
+//
 // WHY TRUEGLE IS NOT A TILE BUT A CARD: full width, and its body opens inside
 // its own border instead of in a panel under a row shared with Search.
 //
@@ -37,10 +41,10 @@ const MODULES = [
   // dropdown and the Why Truegle tile were two components, and Search sat
   // between them). Search is the next tile, directly below.
   { id: 'why', title: 'Why Truegle?', icon: ShieldCheck, pitch: 'Search without bias, tracking, or censorship.', card: true },
-  { id: 'search', title: 'Search', icon: Compass, pitch: 'Same query, different lens. Pick your reality.' },
   { id: 'tube', title: 'Tube', icon: PlayCircle, pitch: 'Every video, reel and song. One player. Zero ads.' },
-  { id: 'chat', title: 'Chat', icon: MessageCircle, pitch: 'Ask TrueGLE. Stack lenses. See every angle.' },
   { id: 'feed', title: 'Feed', icon: Clapperboard, pitch: 'Reddit, Bluesky, Mastodon and creators. One scroll.' },
+  { id: 'search', title: 'Search', icon: Compass, pitch: 'Same query, different lens. Pick your reality.' },
+  { id: 'chat', title: 'Chat', icon: MessageCircle, pitch: 'Ask TrueGLE. Stack lenses. See every angle.' },
   { id: 'news', title: 'News', icon: Newspaper, pitch: 'Today’s headlines, as video. Tap and watch.', wide: true },
   // `wide`: two columns on desktop only. Below Why Truegle's full-width card
   // sit six tiles: three rows of two on a phone, and on desktop four across

@@ -6,9 +6,10 @@ import { MODE_COLORS } from '../../config/modeTheme';
 // and the way in. This used to be three paragraphs (the lenses, the Unhinged
 // register, and how TrueGLE's Grand Logic Equation works); a visitor glancing
 // at a landing page wants the jist, and the rest is one tap deeper in Chat.
+// In the pill's order (owner, 2026-10-18); Unhinged is a register, so it stays last.
 const LENSES = [
-  { id: 'blue', label: 'Mainstream' },
   { id: 'green', label: 'Green' },
+  { id: 'blue', label: 'Mainstream' },
   { id: 'red', label: 'Rabbit Hole' },
   { id: 'ocean', label: 'Privacy/OSINT' },
   { id: 'unhinged', label: 'Unhinged' },
