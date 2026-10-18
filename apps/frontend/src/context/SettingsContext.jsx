@@ -44,7 +44,6 @@ export const SettingsProvider = ({ children }) => {
   const [settings, setSettings] = useState(() => {
     const defaults = {
       safeSearch: 'safe', // 'safe' | 'blur' | 'off'
-      dataCollection: false,
       saveHistory: true, // persist recent searches in localStorage (off = no search history stored)
       defaultFilters: 'all',
       resultsPerPage: 10,
@@ -63,9 +62,10 @@ export const SettingsProvider = ({ children }) => {
       if (!['safe', 'blur', 'off'].includes(migratedSafeSearch)) {
         migratedSafeSearch = 'safe';
       }
-      // Ad personalization and a cookie preference were settings once;
-      // Truegle has no ads and sets no cookies, so old copies are dropped.
-      const { adPersonalization: _ads, cookiePreference: _cookies, ...kept } = parsedSettings;
+      // Ad personalization, a cookie preference and a "data collection"
+      // switch were settings once; Truegle has no ads, sets no cookies and the
+      // switch controlled nothing, so old copies are dropped.
+      const { adPersonalization: _ads, cookiePreference: _cookies, dataCollection: _data, ...kept } = parsedSettings;
       return { ...defaults, ...kept, safeSearch: migratedSafeSearch };
     } catch (error) {
       console.error('Failed to parse saved settings:', error);

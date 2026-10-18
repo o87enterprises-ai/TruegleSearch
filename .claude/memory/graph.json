@@ -1736,6 +1736,14 @@
         "body": "MusicSimilarity tries Last.fm artist.getSimilar first when LASTFM_API_KEY is set (Vercel backend env), else/falls back to MusicBrainz+ListenBrainz. Only the API key is used; the Last.fm shared secret is NOT used and must never be stored or pasted in chat. Documented in docs/SECRETS-MAP.md.",
         "ts": "2026-10-17",
         "created": "2026-10-17"
+      },
+      "settings-no-data-collection-toggle": {
+        "Id": "settings-no-data-collection-toggle",
+        "Type": "decision",
+        "Label": "No 'Data Collection' toggle in Settings",
+        "body": "Removed 2026-10-18 at owner request. settings.dataCollection was a boolean nothing read (default false) — a privacy switch that did nothing; legacy saved copies are dropped on load in SettingsContext. Truegle's only measurement is Cloudflare Web Analytics (cookieless, off on DNT/GPC) and has no per-person setting. Do not re-add a toggle unless it actually gates something.",
+        "ts": "2026-10-18",
+        "created": "2026-10-18"
       }
     },
     "thread": {
@@ -3719,5 +3727,5 @@
       }
     }
   },
-  "updated": "2026-10-17"
+  "updated": "2026-10-18"
 }
