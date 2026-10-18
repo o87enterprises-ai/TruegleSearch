@@ -16,6 +16,7 @@ import { FREE_ACCESS_MODE } from '../config/access';
 import { MODE_COLORS, MODE_LABELS, MODE_TO_CONTEXT, getModeAccent, solidTextClass } from '../config/modeTheme';
 import { getVideoEmbed, getPlayable } from '../utils/videoEmbed';
 import { canPreview, opensOnLabel } from '../utils/embeddable';
+import PagePreview from '../components/ui/PagePreview';
 import { classifyQuery, describeLink } from '../utils/urlQuery';
 import { filterCitations } from '../utils/citationRelevance';
 import ChatLinkAction from '../components/chat/ChatLinkAction';
@@ -287,12 +288,11 @@ function CitationChip({ result, accent }) {
       </div>
       {expanded && !videoEmbed && (
         <div className={`border-t ${accent.iframeBorder}`}>
-          <iframe
-            key={result.url}
-            src={result.url}
-            className="w-full h-64"
+          <PagePreview
+            url={result.url}
             title={result.title || 'Preview'}
-            sandbox="allow-scripts allow-same-origin"
+            linkClass={accent.link}
+            onClose={() => setExpanded(false)}
           />
         </div>
       )}

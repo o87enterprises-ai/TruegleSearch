@@ -2286,6 +2286,15 @@
         "status": "done",
         "ts": "2026-10-13",
         "created": "2026-10-13"
+      },
+      "search-preview-fullscreen-zindex": {
+        "Id": "search-preview-fullscreen-zindex",
+        "Type": "thread",
+        "Label": "Search 'Open in app' full screen overlaps the clock",
+        "body": "UniversalSearch ResultCard viewer full-screen overlay is z-[9995], so the PageClock (z 9997) covers its Minimize/X on screen (same bug fixed in chat PagePreview at z-[10000]). One-line fix; consider swapping ResultCard's viewer to the shared components/ui/PagePreview.jsx.",
+        "status": "open",
+        "ts": "2026-10-18",
+        "created": "2026-10-18"
       }
     },
     "entity": {
@@ -3698,6 +3707,14 @@
         "body": "apps/frontend/public/truetube.png: badge was opaque px at x858-1013,y9-50 on a transparent bg; cleared box (840,0,1024,70) to alpha 0. Verified art starts y=314. Other logos (truegle.png, embedded OSINT letterhead, branding assets) had no badge; src/assets/images/truegle-osint-logo.png has a fake checkerboard baked in (RGB) but no AI badge.",
         "ts": "2026-10-15",
         "created": "2026-10-15"
+      },
+      "fullscreen-overlay-zindex": {
+        "Id": "fullscreen-overlay-zindex",
+        "Type": "fact",
+        "Label": "Full-screen overlays need z >= 10000",
+        "body": "PageClock (z 9997) and the BrandBar menu button (z 9998) are fixed chrome above z-[9995]; a full-screen overlay must sit at z-[10000] (below ShareGate 10001) or the clock visually covers its top-right buttons. PageClock is pointer-events:none, so elementFromPoint will NOT detect it — test by stacking order (see scripts/verify-chat-preview.mjs).",
+        "ts": "2026-10-18",
+        "created": "2026-10-18"
       }
     }
   },
