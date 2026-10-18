@@ -24,4 +24,7 @@ module.exports = [
   { slug: 'epicdaily', name: 'epicdaily', channelId: 'UCimX2_A-ncFiU9QoSOTJ12A' },
   { slug: 'barry-stepp', name: 'Barry Stepp', channelId: 'UCSwx_jY_zYBJtrIa1i-osMA' },
   { slug: 'space-weather-news', name: 'SpaceWeatherNews', channelId: 'UCTiL1q9YbrVam5nP2xzFTWQ' },
+  { slug: 'dxmnitbobby', name: 'DxmnItBobby', channelId: 'UC59aErv1lJXCFZoruDmB4Og' },
+  { slug: 'library-of-the-untold', name: 'Library of the Untold', channelId: 'UCur0Zbb7iwP95tVlxi5Q58A' },
+  { slug: 'jake-abdo', name: 'Jake Abdo', channelId: 'UCF_N19axxdvbVBhtLgWot3Q' },
 ];

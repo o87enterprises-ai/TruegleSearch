@@ -96,6 +96,27 @@ export const CREATORS = [
     avatar: null, refCode: 'space-weather-news', featured: false,
     socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@SpaceWeatherNewsS0s' }],
   },
+  {
+    slug: 'dxmnitbobby', name: 'DxmnItBobby', tagline: '',
+    channelId: 'UC59aErv1lJXCFZoruDmB4Og',
+    channelUrl: 'https://www.youtube.com/@dxmnitbobby',
+    avatar: null, refCode: 'dxmnitbobby', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@dxmnitbobby' }],
+  },
+  {
+    slug: 'library-of-the-untold', name: 'Library of the Untold', tagline: '',
+    channelId: 'UCur0Zbb7iwP95tVlxi5Q58A',
+    channelUrl: 'https://www.youtube.com/@libraryoftheuntold',
+    avatar: null, refCode: 'library-of-the-untold', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@libraryoftheuntold' }],
+  },
+  {
+    slug: 'jake-abdo', name: 'Jake Abdo', tagline: '',
+    channelId: 'UCF_N19axxdvbVBhtLgWot3Q',
+    channelUrl: 'https://www.youtube.com/@thejakeabdo',
+    avatar: null, refCode: 'jake-abdo', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@thejakeabdo' }],
+  },
 ];
 
 export const getCreator = (slug) => CREATORS.find((c) => c.slug === slug) || null;
