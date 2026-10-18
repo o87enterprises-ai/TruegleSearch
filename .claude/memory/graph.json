@@ -3715,6 +3715,14 @@
         "body": "PageClock (z 9997) and the BrandBar menu button (z 9998) are fixed chrome above z-[9995]; a full-screen overlay must sit at z-[10000] (below ShareGate 10001) or the clock visually covers its top-right buttons. PageClock is pointer-events:none, so elementFromPoint will NOT detect it — test by stacking order (see scripts/verify-chat-preview.mjs).",
         "ts": "2026-10-18",
         "created": "2026-10-18"
+      },
+      "add-a-creator-checklist": {
+        "Id": "add-a-creator-checklist",
+        "Type": "fact",
+        "Label": "Adding a creator touches 5 files",
+        "body": "To add a YouTube creator: (1) apps/frontend/src/content/creators.js entry, (2) apps/backend/config/creatorsRoster.js mirror — this one feeds the Feed's Creators tab (no cap; whole roster), kept in sync BY HAND, same slug/name/channelId, (3) apps/frontend/public/sitemap.xml /creator/<slug>, (4) scripts/seed-creator-videos.mjs list, (5) src/content/creatorVideosFallback.js key (empty is fine; reseed from a network YouTube allows). Resolve the UC id from the channel page: curl https://www.youtube.com/@handle and read canonical/channelId. YouTube RSS 404s from the cloud sandbox for every channel (control-tested) — not evidence an id is wrong. Strip ?si= share tokens from pasted links. Added 2026-10-18: DxmnItBobby, Library of the Untold, Jake Abdo.",
+        "ts": "2026-10-18",
+        "created": "2026-10-18"
       }
     }
   },

@@ -228,7 +228,10 @@ export const CREATOR_VIDEOS_FALLBACK = {
       "thumbnail": "https://i.ytimg.com/vi/Sqwa_Wm1flM/hqdefault.jpg",
       "url": "https://www.youtube.com/watch?v=Sqwa_Wm1flM"
     }
-  ]
+  ],
+  "UC59aErv1lJXCFZoruDmB4Og": [],
+  "UCur0Zbb7iwP95tVlxi5Q58A": [],
+  "UCF_N19axxdvbVBhtLgWot3Q": []
 };
 
 export const fallbackVideos = (channelId) => CREATOR_VIDEOS_FALLBACK[channelId] || [];
