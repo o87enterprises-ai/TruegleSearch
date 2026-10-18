@@ -21,7 +21,12 @@ import { Search, MessageSquare } from 'lucide-react';
 // anything else on the page. It never competes for attention with alerts —
 // index.css's ad-glow keyframes are red/amber on purpose; this is a soft,
 // slow brand pulse, not a warning.
-export default function SearchChatToggle({ mode, onSearch, onChat, className = '' }) {
+//
+// THE LEFT WORD follows the pill (owner, 2026-10-18): Play on Tube, Socials on
+// Feed, AI Free on Green, Search on Mainstream, Deep Dive on Rabbit Hole,
+// Investigate on OSINT — and plain Search while Chat is active, since that is
+// where the segment takes you back to. `searchLabel` carries it.
+export default function SearchChatToggle({ mode, onSearch, onChat, searchLabel = 'Search', className = '' }) {
   const seg = (on) => `relative flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-semibold transition-colors ${
     on ? 'bg-white text-black toggle-pulse-glow' : 'text-white/60 hover:text-white'}`;
   // The glow's colour follows the active segment — blue for Search (the
@@ -42,7 +47,7 @@ export default function SearchChatToggle({ mode, onSearch, onChat, className = '
         style={mode === 'search' ? style('rgba(59,130,246,0.55)') : undefined}
         className={seg(mode === 'search')}
       >
-        <Search size={13} /> Search
+        <Search size={13} /> {searchLabel}
       </button>
       <button
         type="button"

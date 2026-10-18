@@ -5,13 +5,24 @@ import CollapsibleCard, { CollapsibleCardGroup } from './CollapsibleCard';
 
 // ── Search: the lenses ─────────────────────────────────────────────────────
 //
-// Five lenses, one line each. Tube and Feed used to be listed here too, but
+// Five lenses, one line each, in the pill's order (owner, 2026-10-18): Green,
+// Mainstream (blue), Rabbit Hole (red), Wonderland — the fold inside the Rabbit
+// Hole, so it stays right after it — then OSINT. Tube and Feed used to be listed here too, but
 // they have tiles of their own now; the long paragraphs about each lens, the
 // example query lines and the link-check / anonymous-view notes are gone — a
 // visitor glancing at a landing page wants the jist, and "Try it" runs a real
 // search for anyone who wants more. Colours are the pills' (blue, red, purple
 // for Wonderland, green, ocean).
 const MODES = [
+  {
+    // Green fires no model at all (AI_FREE_MODES in UniversalSearch), so the
+    // claim is literal. No numbers: the saving has not been measured.
+    id: 'green', label: 'Green',
+    description: 'Zero AI. Nothing generated. Just results.',
+    color: 'from-green-600 to-emerald-400', dot: 'bg-green-400', textAccent: 'text-green-300',
+    border: 'border-green-500/30 hover:border-green-400/60',
+    path: '/green?q=how+to+repair+a+bike+chain',
+  },
   {
     id: 'blue', label: 'Blue',
     description: 'Mainstream sources first. The evening news, searchable.',
@@ -36,15 +47,6 @@ const MODES = [
     path: '/red?fold=1&q=immigration+policy+effects',
   },
   {
-    // Green fires no model at all (AI_FREE_MODES in UniversalSearch), so the
-    // claim is literal. No numbers: the saving has not been measured.
-    id: 'green', label: 'Green',
-    description: 'Zero AI. Nothing generated. Just results.',
-    color: 'from-green-600 to-emerald-400', dot: 'bg-green-400', textAccent: 'text-green-300',
-    border: 'border-green-500/30 hover:border-green-400/60',
-    path: '/green?q=how+to+repair+a+bike+chain',
-  },
-  {
     id: 'ocean', label: 'Ocean',
     description: 'OSINT toolkit: domains, records, digital footprints.',
     color: 'from-cyan-600 to-teal-400', dot: 'bg-cyan-400', textAccent: 'text-cyan-400',
@@ -52,6 +54,7 @@ const MODES = [
     path: '/search?mode=ocean&q=domain+registrant+lookup',
   },
 ];
+
 
 function ModeCard({ mode, index }) {
   const navigate = useNavigate();

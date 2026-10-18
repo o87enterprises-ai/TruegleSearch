@@ -8,9 +8,11 @@
  * phone, as you scroll down to it.
  *
  *   - Why Truegle is ONE full-width card (its dropdown opens inside it), with
- *     Search directly below; the other six tiles: 4 columns on desktop, 2 on a
+ *     Tube directly below; the other six tiles: 4 columns on desktop, 2 on a
  *     phone, equal heights
- *   - titles: Why Truegle? · Search · Tube · Chat · Feed · News · Markets
+ *   - titles: Why Truegle? · Tube · Feed · Search · Chat · News · Markets
+ *     (the pill's order, 2026-10-18: Tube · Feed · Green · Mainstream · Rabbit
+ *     Hole · OSINT · Chat — the four search lenses live inside the Search tile)
  *   - each wears its pill's colour; News and Markets are shades of Feed's
  *   - each pitch is ten words or fewer
  *   - none open at load; nothing fetched while closed
@@ -48,8 +50,8 @@ const CREATOR_POSTS = Array.from({ length: 3 }, (_, i) => ({
   permalink: `https://www.youtube.com/watch?v=creatr000${i}`, author: 'A Creator', date: '2026-09-28T00:00:00Z', thumbnail: null,
 }));
 
-const TITLES = ['Why Truegle?', 'Search', 'Tube', 'Chat', 'Feed', 'News', 'Markets'];
-const IDS = ['why', 'search', 'tube', 'chat', 'feed', 'news', 'markets'];
+const TITLES = ['Why Truegle?', 'Tube', 'Feed', 'Search', 'Chat', 'News', 'Markets'];
+const IDS = ['why', 'tube', 'feed', 'search', 'chat', 'news', 'markets'];
 const ACCENT = { why: '#a855f7', search: '#3b82f6', chat: '#e5e7eb', tube: '#9aa7b8', feed: '#eab308', news: '#facc15', markets: '#ca8a04' };
 const rgbOf = (hex) => { const n = parseInt(hex.slice(1), 16); return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`; };
 const tile = (id) => `[data-tile="${id}"]`;
@@ -104,7 +106,7 @@ await guarded('desktop run', async () => {
   check(ys.length === 3 && t.filter((x) => x.y === ys[0]).length === 1 && row2.length === 4 && new Set(row2.map((x) => x.x)).size === 4, 'desktop: Why Truegle alone on row one, then a grid of four columns', `${ys.length} rows, ${row2.length} in the second`);
   check(t.filter((x) => x.y === ys[1]).every((x) => x.h === row2[0].h) && t.filter((x) => x.y === ys[2]).every((x) => x.h === t.find((y) => y.y === ys[2]).h), 'tiles in a row are the same height');
   check(t.find((x) => x.id === 'why').w > t.find((x) => x.id === 'search').w * 3.5, 'Why Truegle is a full-width card');
-  check(t.find((x) => x.id === 'search').y === ys[1] && Math.abs(t.find((x) => x.id === 'search').x - t.find((x) => x.id === 'why').x) <= 2, 'Search is the first tile directly under Why Truegle');
+  check(t.find((x) => x.id === 'tube').y === ys[1] && Math.abs(t.find((x) => x.id === 'tube').x - t.find((x) => x.id === 'why').x) <= 2, 'Tube is the first tile directly under Why Truegle');
   check(t.find((x) => x.id === 'markets').w > t.find((x) => x.id === 'feed').w * 1.9 && t.find((x) => x.id === 'news').w > t.find((x) => x.id === 'feed').w * 1.9, 'News and Markets are two columns each, so the grid has no orphan');
   check(t.every((x) => x.open === 'closed'), 'none is open at load');
 
@@ -132,9 +134,9 @@ await guarded('desktop run', async () => {
   await until(() => page.locator('[data-card="why"] [data-panel="why"] [data-why-body]').count(), { what: 'the Why body inside its card' });
   await page.waitForTimeout(600);
   const whyBox = await page.locator('[data-card="why"]').boundingBox();
-  const searchBox = await page.locator(tile('search')).boundingBox();
-  const gap = Math.round(searchBox.y - (whyBox.y + whyBox.height));
-  check(gap >= 0 && gap <= 16, 'Why Truegle and its dropdown are one card, with Search directly below it', `gap ${gap}px`);
+  const tubeBox = await page.locator(tile('tube')).boundingBox();
+  const gap = Math.round(tubeBox.y - (whyBox.y + whyBox.height));
+  check(gap >= 0 && gap <= 16, 'Why Truegle and its dropdown are one card, with Tube directly below it', `gap ${gap}px`);
   check(await page.locator(panel('why')).count() === 1 && await page.locator('[data-panel]').evaluateAll((els) => els.every((e) => e.closest('[data-card]'))), 'the Why body is not a separate panel');
   await press(page, 'why');
   await until(() => page.locator('[data-panel]').count().then((n) => n === 0), { what: 'the Why card to retract' });
@@ -176,13 +178,13 @@ await guarded('desktop run', async () => {
   await press(page, 'search');
   await until(() => page.locator('[data-mode-card]').count().then((n) => n === 5), { what: 'the five lenses' });
   const lens = (id) => page.locator(`[data-mode-card="${id}"]`);
-  await lens('blue').locator('[data-card-toggle]').click();
+  await lens('blue').locator('[data-card-toggle]').dispatchEvent('click'); // dispatched, like press(): opening a lens reflows the grid under a moving pointer
   await until(() => lens('blue').getAttribute('data-open').then((s) => s === 'pinned'), { what: 'the Blue lens to open' });
   check(await openOf(page, 'search') === 'open' && await page.locator(panel('search')).count() === 1, 'opening a lens inside Search leaves Search open');
-  await lens('red').locator('[data-card-toggle]').click();
+  await lens('red').locator('[data-card-toggle]').dispatchEvent('click'); // dispatched, like press(): opening a lens reflows the grid under a moving pointer
   await until(() => lens('red').getAttribute('data-open').then((s) => s === 'pinned'), { what: 'the Red lens to open' });
   check(await lens('blue').getAttribute('data-open') === 'closed' && await openOf(page, 'search') === 'open', 'lenses are one at a time among themselves, and Search stays open around them');
-  await lens('red').locator('[data-card-toggle]').click();
+  await lens('red').locator('[data-card-toggle]').dispatchEvent('click'); // dispatched, like press(): opening a lens reflows the grid under a moving pointer
   await until(() => lens('red').getAttribute('data-open').then((s) => s === 'closed'), { what: 'the Red lens to close' });
   check(await openOf(page, 'search') === 'open', 'closing a lens leaves Search open too');
   await press(page, 'search');
@@ -200,7 +202,7 @@ await guarded('phone run', async () => {
   const t = await tiles(page);
   const ys = [...new Set(t.map((x) => x.y))];
   check(ys.length === 4 && t.filter((x) => x.y === ys[0]).length === 1 && t.filter((x) => x.y === ys[1]).length === 2, 'phone: Why Truegle full width, then a grid of two columns', `${ys.length} rows`);
-  check(t.find((x) => x.id === 'search').y === ys[1], 'phone: Search is directly under Why Truegle');
+  check(t.find((x) => x.id === 'tube').y === ys[1], 'phone: Tube is directly under Why Truegle');
   check(t.every((x) => x.open === 'closed'), 'phone: every tile is retracted at load, Why Truegle included');
 
   // Scroll down to it by hand: it descends by itself, alone.

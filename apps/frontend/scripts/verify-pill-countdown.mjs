@@ -75,12 +75,20 @@ const press = (loc) => loc.dispatchEvent('click');
 // ── an app-made suggestion is undone by ✕ ───────────────────────────────────
 {
   const { ctx, page, pill, input } = await landing();
+  // The landing page OPENS ON TUBE (2026-10-18), so a video link has nothing to
+  // suggest there. Move to another mode first — one click on is Feed — and keep
+  // it with ✕, which is exactly the "keep your pick" behaviour pinned above.
+  await press(pill);
+  await until(() => status(page).count(), { what: 'the countdown' });
+  await page.locator('[aria-label="Cancel switching mode"]').dispatchEvent('click');
+  await until(async () => (await status(page).count()) === 0, { what: 'the countdown to leave', timeout: 3000 });
   const before = await pillLabel(pill);
+  check(before !== 'Tube', 'the suggestion scenario starts somewhere a video link has something to suggest', before);
   await input.click();
   await input.fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
   await until(() => status(page).count(), { what: 'the Tube suggestion', timeout: 6000 });
   const suggested = await pillLabel(pill);
-  check(suggested !== before, 'a video link makes the app suggest a mode', `${before} → ${suggested}`);
+  check(suggested === 'Tube', 'a video link makes the app suggest Tube', `${before} → ${suggested}`);
   await page.locator('[aria-label="Cancel switching mode"]').dispatchEvent('click');
   await page.waitForTimeout(400);
   check(await pillLabel(pill) === before, '✕ on the app\'s own suggestion puts the pill back — you never chose it', `${suggested} → ${await pillLabel(pill)}`);
