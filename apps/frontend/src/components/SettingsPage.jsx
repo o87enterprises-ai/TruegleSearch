@@ -132,17 +132,13 @@ const SettingsPage = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-medium text-white">Data Collection</h3>
-                  <p className="text-sm text-white/60">Allow anonymous usage analytics</p>
-                </div>
-                <Toggle
-                  checked={settings.dataCollection}
-                  onChange={(v) => updateSetting('dataCollection', v)}
-                  label="Data Collection"
-                />
-              </div>
+              {/* "Data Collection" (Allow anonymous usage analytics) removed
+                  2026-10-18, at the owner's request. Like VPN Auto-Connect below
+                  it stored a boolean that nothing read: no analytics ride on it,
+                  so the switch was a promise of a control that did not exist.
+                  Truegle's only measurement is Cloudflare Web Analytics —
+                  cookieless, off on Do Not Track / Global Privacy Control — and
+                  it has no per-person setting to offer. */}
 
               {/* "VPN Auto-Connect" removed 2026-08-25. It stored a boolean
                   nothing read, over a VPN that did not exist. A privacy switch
