@@ -25,6 +25,7 @@ import { useOverlayReveal } from '../../hooks/useOverlayReveal';
 import { useLockedGestures } from '../../hooks/useLockedGestures';
 import { rate, useRating, signalPlay } from '../../utils/taste';
 import { playlists, createPlaylist, addToPlaylist } from '../../utils/playlists';
+import { SaveTo } from './PlayerLibrary';
 import { recordRetention } from '../../utils/retention';
 import { reportBroken } from '../../utils/broken';
 import { learnMeta } from '../../utils/mediaMeta';
@@ -848,6 +849,7 @@ export default function TrueglePlayer({
       // them, which is the point of each of those states.
       showPopOut={!fullscreen}
       popOutMode={popOutMode}
+      saveSlot={current ? <SaveTo source={current} className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors" /> : null}
       showFullscreen={presentation !== 'collapsed'}
       fullscreen={fullscreen}
       onToggleFullscreen={toggleFullscreen}
