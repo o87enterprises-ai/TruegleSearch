@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { RotateCcw, SkipForward } from 'lucide-react';
+import { RotateCcw, SkipForward, X } from 'lucide-react';
 
 // What the picture shows between "you picked it" and "it is playing".
 //
@@ -21,12 +21,15 @@ export const SLOW_LOAD_MS = 9000;
 
 export function PlayerLoading({ compact = false, onRetry, onSkip, title }) {
   const [slow, setSlow] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   useEffect(() => {
     // The parent keys this component on the clip, so every new clip gets a
     // fresh clock and the "taking a while" message never carries over.
     const t = setTimeout(() => setSlow(true), SLOW_LOAD_MS);
     return () => clearTimeout(t);
   }, []);
+
+  if (dismissed) return null;
 
   const logo = compact ? 'w-20' : 'w-28';
   const ring = compact ? 'w-24 h-24' : 'w-36 h-36';
@@ -40,6 +43,17 @@ export function PlayerLoading({ compact = false, onRetry, onSkip, title }) {
       aria-label={title ? `Loading ${title}` : 'Loading'}
       className="absolute inset-0 z-[22] flex flex-col items-center justify-center gap-2 bg-black/70 pointer-events-none"
     >
+      {/* Dismiss — lets the user hide a stuck spinner while the underlying
+          embed keeps loading; the overlay is the frustration, not the load. */}
+      <button
+        type="button"
+        data-player-loading-dismiss=""
+        aria-label="Dismiss loading overlay"
+        onClick={() => setDismissed(true)}
+        className="absolute top-3 right-3 pointer-events-auto flex items-center justify-center w-7 h-7 rounded-full bg-white/15 hover:bg-white/30 text-white/80 hover:text-white transition-colors"
+      >
+        <X size={14} />
+      </button>
       <div className={`relative flex items-center justify-center ${ring}`}>
         {/* The ring: a brand-coloured arc that turns, over a faint full circle,
             so there is a visible track even on the frame the arc is hidden. */}
