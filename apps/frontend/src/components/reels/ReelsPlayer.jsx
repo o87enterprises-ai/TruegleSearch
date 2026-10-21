@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutGrid, ThumbsUp, ThumbsDown, Share2, Check, ChevronUp, ChevronDown } from 'lucide-react';
+import { LayoutGrid, ThumbsUp, ThumbsDown, Share2, Check, ChevronUp, ChevronDown, VolumeX } from 'lucide-react';
 import { useWheelNav } from '../../hooks/useWheelNav';
 import { PLAYER_SANDBOX } from '../player/playerSandbox';
 import { rate, useRating } from '../../utils/taste';
@@ -49,6 +49,24 @@ export default function ReelsPlayer({
   const [shared, setShared] = useState(false);
   const [hint, setHint] = useState(true);
   const start = useRef(null);
+  // iOS starts reels muted (it refuses unmuted autoplay) and pauses one that
+  // is unmuted by script alone, so sound waits for this real tap. The tap
+  // also lifts the swipe layer for this reel: if iOS still ignores our
+  // command, YouTube's own "tap to unmute" underneath becomes reachable.
+  const frameRef = useRef(null);
+  const [soundAsked, setSoundAsked] = useState(false);
+  useEffect(() => { setSoundAsked(false); }, [reel?.src]);
+  const askSound = useCallback(() => {
+    const win = frameRef.current?.contentWindow;
+    if (win) {
+      const send = (o) => win.postMessage(JSON.stringify(o), '*');
+      send({ event: 'listening', id: 1, channel: 'widget' });
+      send({ event: 'command', func: 'unMute', args: [] });
+      send({ event: 'command', func: 'setVolume', args: [100] });
+      send({ event: 'command', func: 'playVideo', args: [] });
+    }
+    setSoundAsked(true);
+  }, []);
 
   // Owner, 2026-10-10: "no way to select/change videos in reel once playing
   // in full screen" and "the scroll function on desktop ... doesn't work".
@@ -114,12 +132,13 @@ export default function ReelsPlayer({
       <AnimatePresence mode="wait">
         <motion.iframe
           key={reel.src}
+          ref={frameRef}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
           // iOS refuses unmuted autoplay in a frame, so the reel sat frozen.
-          src={`${reel.src}${reel.src.includes('?') ? '&' : '?'}autoplay=1${IS_IOS ? '&mute=1' : ''}&playsinline=1`}
+          src={`${reel.src}${reel.src.includes('?') ? '&' : '?'}autoplay=1${IS_IOS ? '&mute=1&enablejsapi=1' : ''}&playsinline=1`}
           title={reel.title || 'Reel'}
           sandbox={PLAYER_SANDBOX}
           allow="autoplay; encrypted-media; picture-in-picture"
@@ -139,7 +158,7 @@ export default function ReelsPlayer({
           so the buttons still take their own taps. */}
       <div
         className="absolute inset-0 z-10"
-        style={{ touchAction: 'pan-y' }}
+        style={{ touchAction: 'pan-y', pointerEvents: soundAsked ? 'none' : undefined }}
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
         onPointerCancel={() => { start.current = null; }}
@@ -244,6 +263,17 @@ export default function ReelsPlayer({
           {reel.title || ''}
         </p>
       </div>
+
+      {IS_IOS && !soundAsked && (
+        <button
+          type="button"
+          data-reels-sound=""
+          onClick={askSound}
+          className="absolute left-1/2 top-16 z-20 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-black/70 border border-white/20 text-sm text-white"
+        >
+          <VolumeX size={16} /> Tap for sound
+        </button>
+      )}
 
       <AnimatePresence>
         {hint && (
