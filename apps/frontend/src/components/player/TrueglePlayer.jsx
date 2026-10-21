@@ -570,6 +570,10 @@ export default function TrueglePlayer({
   // this re-sent mute/setVolume (with three retries) on every progress tick.
   const embedSetVolume = embed.setVolume;
   const embedCanSetVolume = embed.canSetVolume;
+  // Extracted so the effect re-fires the instant the embed starts playing —
+  // critical for iOS where YouTube embeds start muted (see PlayerScreen's
+  // mute=1 note) and need an immediate unMute once playerState=1 is heard.
+  const embedStarted = embed.started;
   useEffect(() => {
     if (!current) return undefined;
     const apply = () => {
@@ -580,7 +584,7 @@ export default function TrueglePlayer({
     apply();
     const t = [250, 900, 2000].map((d) => setTimeout(apply, d));
     return () => t.forEach(clearTimeout);
-  }, [volume, current, embedCanSetVolume, embedSetVolume]);
+  }, [volume, current, embedCanSetVolume, embedSetVolume, embedStarted]);
 
 
   // 👍/👎. The thumb steers what plays next; a dislike also guarantees this
