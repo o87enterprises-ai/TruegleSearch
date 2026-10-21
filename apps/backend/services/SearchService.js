@@ -577,7 +577,7 @@ class SearchService {
       // must win), a site keyword (its own boost follows), a date sort, or the
       // Red/Purple lenses, which order by perspective on purpose.
       if (filters.sortBy !== 'date' && (mode === 'blue-pill' || isGreen)
-          && !boostDomain && !this.isNavigationalQuery(query)) {
+          && !boostDomain && !this.isNavigationalQuery(query, finalResults)) {
         finalResults = orderByExactMatch(query, finalResults);
       }
 
@@ -885,13 +885,8 @@ class SearchService {
    * Detect if a query is navigational — a short brand/service name lookup
    * where the user wants the official website, not editorial commentary about it.
    */
-  isNavigationalQuery(query) {
-    const q = (query || '').trim();
-    const words = q.split(/\s+/);
-    if (words.length > 3) return false;
-    // Exclude informational question patterns
-    if (/^(what|how|why|when|who|where|is|are|was|were|will|can|does|do|did|define|explain)\b/i.test(q)) return false;
-    return true;
+  isNavigationalQuery(query, results) {
+    return QueryInterpreter.isNavigationalQuery(query, results);
   }
 
   /**
@@ -918,7 +913,7 @@ class SearchService {
   rankResults(query, results, { boostAlternative = false, googleParity = false } = {}) {
     if (!results || results.length === 0) return [];
 
-    const isNavigational = this.isNavigationalQuery(query);
+    const isNavigational = this.isNavigationalQuery(query, results);
     const isTimeSensitive = this.isTimeSensitiveQuery(query);
 
     // TWO PASSES, AND THE SECOND ONE IS THE POINT.

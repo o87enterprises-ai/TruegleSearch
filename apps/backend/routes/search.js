@@ -339,7 +339,7 @@ const NEAR_ME_RE = /\b(?:near(?:by)?\s+me|near\s*by|nearby|around\s+me|close\s+t
 /**
  * Detect query type to determine instant answer card type.
  */
-function detectQueryType(query) {
+function detectQueryType(query, results) {
   const q = query.toLowerCase().trim();
 
   // Phone number pattern
@@ -398,13 +398,9 @@ function detectQueryType(query) {
   // Person name (2-4 capitalized words, no other keywords)
   if (/^[A-Z][a-z]+ ([A-Z][a-z]+ ?){1,2}$/.test(query)) return 'person';
 
-  // Navigational: short brand/company query — 1-3 words, no question prefix.
-  // Catches popular services (aws, cloudflare, stripe …) that are not in APP_NAMES.
-  const words = q.split(/\s+/);
-  if (
-    words.length <= 3 &&
-    !/^(what|how|why|when|who|where|is|are|was|were|will|can|does|do|did|define|explain)\b/.test(q)
-  ) return 'navigational';
+  // Navigational: a brand on its own (aws, cloudflare, stripe …) or with
+  // "take me there" words only — see QueryInterpreter.isNavigationalQuery.
+  if (QueryInterpreter.isNavigationalQuery(q, results)) return 'navigational';
 
   return null;
 }
@@ -434,7 +430,7 @@ const APP_NAMES = [
  * Extract structured instant answer data from search results + pagemap.
  */
 async function buildInstantAnswer(query, results) {
-  const type = detectQueryType(query);
+  const type = detectQueryType(query, results);
   if (!type) return null;
 
   // A near-me question gets no card from here. Answering it needs a position
