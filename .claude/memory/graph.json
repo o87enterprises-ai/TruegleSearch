@@ -1744,6 +1744,14 @@
         "body": "Removed 2026-10-18 at owner request. settings.dataCollection was a boolean nothing read (default false) — a privacy switch that did nothing; legacy saved copies are dropped on load in SettingsContext. Truegle's only measurement is Cloudflare Web Analytics (cookieless, off on DNT/GPC) and has no per-person setting. Do not re-add a toggle unless it actually gates something.",
         "ts": "2026-10-18",
         "created": "2026-10-18"
+      },
+      "ios-embed-muted": {
+        "Id": "ios-embed-muted",
+        "Type": "decision",
+        "Label": "iOS embeds: start muted, never auto-unmute",
+        "body": "WebKit blocks unmuted autoplay in iframes AND pauses a muted-autoplay video unmuted without a user tap. So on iOS (utils/isIOS.js) YouTube/reels start mute=1 and are never auto-unmuted; elsewhere unmute only after playerState=1. PR #54 got this wrong (auto-unmute); fixed in #55. Unverified on a real iPhone (no Apple device).",
+        "ts": "2026-10-21",
+        "created": "2026-10-21"
       }
     },
     "thread": {
@@ -3752,5 +3760,5 @@
       }
     }
   },
-  "updated": "2026-10-18"
+  "updated": "2026-10-21"
 }
