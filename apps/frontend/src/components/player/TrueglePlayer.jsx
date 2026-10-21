@@ -33,6 +33,7 @@ import { recordWatch } from '../../utils/watchHistory';
 import { copyText } from '../../utils/clipboard';
 import { mediaKey } from '../../utils/videoEmbed';
 import { useSearchStashContext } from '../../context/SearchStashContext';
+import { IS_IOS } from '../../utils/isIOS';
 
 // THE player. There is only one, and this is it.
 //
@@ -570,21 +571,28 @@ export default function TrueglePlayer({
   // this re-sent mute/setVolume (with three retries) on every progress tick.
   const embedSetVolume = embed.setVolume;
   const embedCanSetVolume = embed.canSetVolume;
-  // Extracted so the effect re-fires the instant the embed starts playing —
-  // critical for iOS where YouTube embeds start muted (see PlayerScreen's
-  // mute=1 note) and need an immediate unMute once playerState=1 is heard.
+  // YouTube starts muted (PlayerScreen's mute=1). Unmuting BEFORE it plays
+  // turns its autoplay back into an unmuted one, which browsers block — so
+  // wait for it to report playing. On iOS, never auto-unmute at all: WebKit
+  // pauses a muted-autoplay video that is unmuted without the viewer's own
+  // tap, which is the "frozen" clip. There, only a volume change the viewer
+  // makes is sent; otherwise YouTube's own "tap to unmute" handles sound.
   const embedStarted = embed.started;
+  const isYouTube = current?.kind === 'youtube';
+  const volumeAtSource = useRef(volume);
+  useEffect(() => { volumeAtSource.current = volume; }, [sourceKey]);
   useEffect(() => {
     if (!current) return undefined;
+    const holdYouTube = isYouTube && (!embedStarted || (IS_IOS && volume === volumeAtSource.current));
     const apply = () => {
-      if (embedCanSetVolume) embedSetVolume(volume);
+      if (embedCanSetVolume && !holdYouTube) embedSetVolume(volume);
       // Native <audio>/<video> have a real property; no channel needed.
       if (mediaRef.current) mediaRef.current.volume = volume;
     };
     apply();
     const t = [250, 900, 2000].map((d) => setTimeout(apply, d));
     return () => t.forEach(clearTimeout);
-  }, [volume, current, embedCanSetVolume, embedSetVolume, embedStarted]);
+  }, [volume, current, embedCanSetVolume, embedSetVolume, embedStarted, isYouTube]);
 
 
   // 👍/👎. The thumb steers what plays next; a dislike also guarantees this
