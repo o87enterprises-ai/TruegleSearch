@@ -6,6 +6,7 @@ import { PLAYER_SANDBOX } from '../player/playerSandbox';
 import { rate, useRating } from '../../utils/taste';
 import { buildPlayerLink } from '../../utils/playerLink';
 import { copyText } from '../../utils/clipboard';
+import { IS_IOS } from '../../utils/isIOS';
 
 /* ── The reel, full screen ──────────────────────────────────────────────────
  *
@@ -117,7 +118,8 @@ export default function ReelsPlayer({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
-          src={`${reel.src}${reel.src.includes('?') ? '&' : '?'}autoplay=1&playsinline=1`}
+          // iOS refuses unmuted autoplay in a frame, so the reel sat frozen.
+          src={`${reel.src}${reel.src.includes('?') ? '&' : '?'}autoplay=1${IS_IOS ? '&mute=1' : ''}&playsinline=1`}
           title={reel.title || 'Reel'}
           sandbox={PLAYER_SANDBOX}
           allow="autoplay; encrypted-media; picture-in-picture"
