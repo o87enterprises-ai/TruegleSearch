@@ -468,6 +468,34 @@ function parseQueryHost(query) {
   return { host, root: labels[labels.length - 2] };
 }
 
+// Words that ask for a way INTO a brand rather than about a topic: "bing
+// login" still wants Bing's front door, "bing image generation" does not.
+const NAV_MODIFIERS = new Set([
+  'login', 'log', 'signin', 'sign', 'signup', 'in', 'up', 'account', 'my',
+  'official', 'site', 'website', 'homepage', 'home', 'page', 'web', 'online',
+  'app', 'download', 'dashboard', 'portal', 'console', 'support', 'help',
+  'contact', 'com', 'www',
+]);
+
+/**
+ * Is this a "take me to the brand's site" query? One word, a typed address,
+ * a brand plus only NAV_MODIFIERS, or a query some result's address spells
+ * out whole. Any other extra word is a topic, and a
+ * topic query must rank by relevance — not hand 70% of the score to homepages.
+ */
+function isNavigationalQuery(query, results) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return false;
+  if (/^(what|how|why|when|who|where|is|are|was|were|will|can|does|do|did|define|explain)\b/.test(q)) return false;
+  const words = q.split(/\s+/);
+  if (words.length > 3) return false;
+  if (words.length === 1 || parseQueryHost(q)) return true;
+  if (words.filter((w) => !NAV_MODIFIERS.has(w.replace(/[^a-z0-9]/g, ''))).length <= 1) return true;
+  // A brand typed in pieces: "chat gpt" → chatgpt.com, "dash cloudflare" →
+  // dash.cloudflare.com. Only when a result's address spells the whole query.
+  return (results || []).some((r) => scoreNavigationalMatch(query, r && r.url) >= 0.9);
+}
+
 /**
  * Heuristic gate for the BUSINESS PANEL: does this query look like it is
  * asking about a real, physical place?
@@ -512,6 +540,7 @@ module.exports = {
   buildExpandedQuery,
   isAnswerableQuery,
   scoreNavigationalMatch,
+  isNavigationalQuery,
   levenshtein,
   OFFICIAL_SITE,
   SITE_KEYWORDS,

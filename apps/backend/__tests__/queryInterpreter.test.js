@@ -344,3 +344,24 @@ describe('QueryInterpreter.scoreNavigationalMatch', () => {
     expect(s(null, null)).toBe(0);
   });
 });
+
+describe('QueryInterpreter.isNavigationalQuery', () => {
+  const nav = (q, r) => QueryInterpreter.isNavigationalQuery(q, r);
+  const R = [{ url: 'https://chatgpt.com/' }, { url: 'https://dash.cloudflare.com/' }, { url: 'https://www.bing.com/' }];
+  it('treats a bare brand, an address, or brand + access words as navigational', () => {
+    expect(nav('bing')).toBe(true);
+    expect(nav('reddit.com')).toBe(true);
+    expect(nav('bing login')).toBe(true);
+    expect(nav('stripe dashboard')).toBe(true);
+  });
+  it('treats brand + topic as a topic search', () => {
+    expect(nav('bing image generation', R)).toBe(false);
+    expect(nav('cloudflare pricing', R)).toBe(false);
+    expect(nav('how to use bing')).toBe(false);
+  });
+  it('recognises a brand typed in pieces when a result spells it', () => {
+    expect(nav('chat gpt', R)).toBe(true);
+    expect(nav('dash cloudflare', R)).toBe(true);
+    expect(nav('chat gpt')).toBe(false);
+  });
+});
