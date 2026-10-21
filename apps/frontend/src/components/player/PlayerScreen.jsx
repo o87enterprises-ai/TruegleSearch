@@ -29,7 +29,10 @@ function withPlaybackChannel(kind, src, tiktokCard = false) {
     // into its native full-screen player the moment it starts, which reads as
     // the player "glitching" and strands our controls behind it. The reels and
     // browse decks already pass it; this was the one embed that did not.
-    return `${src}${sep}autoplay=1&playsinline=1&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
+    // mute=1: iOS blocks audio autoplay in iframes, so the video never starts and
+    // the loading spinner never clears. Muted autoplay IS allowed, and the
+    // volume effect in TrueglePlayer unmutes the moment the embed reports playing.
+    return `${src}${sep}autoplay=1&mute=1&playsinline=1&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
   }
   return `${src}${sep}autoplay=1`;
 }
