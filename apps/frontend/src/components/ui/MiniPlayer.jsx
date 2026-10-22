@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { usePlayer } from '../../context/PlayerContext';
 import { X, Minus, GripHorizontal, PictureInPicture2, PanelBottom, Search } from 'lucide-react';
 import { MODE_COLORS, BRAND_GRADIENT } from '../../config/modeTheme';
@@ -43,6 +44,9 @@ const MIN_W = 240;
 const MAX_W = 900;
 const BANNER_CLEARANCE = 80;  // px above the bottom pre-production banner
 const GEOM_KEY = 'truegle_player_geom';
+// Just under PageClock (fixed top-3 right-3, ~34px tall) — where the
+// minimized widget parks while you browse.
+const UNDER_CLOCK_TOP = 56;
 
 const clampW = (w) => Math.max(MIN_W, Math.min(w, MAX_W, window.innerWidth - 16));
 
@@ -329,6 +333,19 @@ export default function MiniPlayer() {
   // it expands and collapses, and it buys back the space the suggestions need.
   const small = minimized || (pageTyping && !peekOpen);
 
+  // ── LEAVING A PAGE SHRINKS THE PLAYER TO ITS WIDGET ─────────────────────
+  // Navigating means you went to do something else; a full player following
+  // you onto the next page covers it. It keeps playing as the mini bar, parked
+  // top-right under the clock (see `parked` below), one press from full size.
+  const { pathname } = useLocation();
+  const lastPath = useRef(pathname);
+  useEffect(() => {
+    if (pathname === lastPath.current) return;
+    lastPath.current = pathname;
+    if (current && !minimized) setMinimized(true);
+  }, [pathname]);
+  const parked = minimized && !docked;
+
   // ── drag + resize ────────────────────────────────────────────────────────
   const onMove = useCallback((e) => {
     const d = drag.current;
@@ -413,7 +430,7 @@ export default function MiniPlayer() {
   // which is the "why can't I get past this" the docked pages were reporting.
   // `!docked` makes these agree with the style ternary and with line ~683's
   // grab-bar condition, which already draws this line correctly.
-  const footerAnchored = footerDock && !docked;
+  const footerAnchored = footerDock && !docked && !parked;
 
   // Pinned across the bottom, the player is competing for the same strip as
   // the early-access feedback bar — and it loses, because that bar is z-[60]
@@ -543,7 +560,13 @@ export default function MiniPlayer() {
     return Math.max(base, Math.round(visible - pageBar.top + 8));
   })();
 
-  const style = docked
+  const style = parked
+    ? {
+      top: UNDER_CLOCK_TOP,
+      right: 12,
+      width: 'min(320px, calc(100vw - 24px))',
+    }
+    : docked
     ? {
       left: slot.left,
       top: slot.top,

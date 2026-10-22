@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Play, Plus, Check, Loader2, ChevronDown } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { useSettings } from '../../context/SettingsContext';
@@ -62,8 +62,38 @@ function TubeResultsGrid({ docked, query }) {
 
   const datedOk = datedCount(src.results) >= 2;
 
+  // RESULTS LANDED OUT OF SIGHT. Results only ever show here, below the
+  // player — so when a search comes back while this grid is below the fold, a
+  // bouncing chip says so. Gone the moment the grid scrolls into view; a new
+  // set of results (different first row) brings it back.
+  const sectionRef = useRef(null);
+  const [inView, setInView] = useState(true);
+  const [seenKey, setSeenKey] = useState('');
+  const firstKey = visible.length ? (mediaKey(visible[0]) || visible[0].src) : '';
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), { rootMargin: '0px 0px -15% 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  useEffect(() => { if (inView && firstKey) setSeenKey(firstKey); }, [inView, firstKey]);
+  const showHint = !!firstKey && !inView && seenKey !== firstKey;
+
   return (
-    <section aria-label="Videos" data-tube-grid="">
+    <section ref={sectionRef} aria-label="Videos" data-tube-grid="" className="scroll-mt-4">
+      {showHint && (
+        <button
+          type="button"
+          data-results-below=""
+          onClick={() => sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          className="fixed left-1/2 -translate-x-1/2 bottom-24 z-[9995] flex items-center gap-1.5 pl-3 pr-2.5 py-1.5
+                     rounded-full bg-white text-black text-xs font-semibold shadow-xl animate-bounce"
+        >
+          {visible.length} result{visible.length === 1 ? '' : 's'} below
+          <ChevronDown size={15} />
+        </button>
+      )}
       {/* THE FILTER ROW — YouTube's chips, plus Safe Search, in one place. */}
       <div className="flex items-center gap-1.5 mb-3 flex-wrap">
         {SORTS.map((o) => {

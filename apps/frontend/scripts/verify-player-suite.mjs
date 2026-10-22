@@ -314,18 +314,18 @@ async function touchChecks(device, layout, page) {
     await page.touchscreen.tap(cx, cy);
     return (await sawCmd(page, n, 'playVideo', 2000)) || 'the second tap did not play';
   });
-  await check(device, layout, 'double-tap the right side → +10s', async () => {
+  await check(device, layout, 'tap mid-picture does NOT pause', async () => {
     const n = await mark(page);
-    const x = box.x + box.width * 0.85;
-    // Raw touch events with a thumb's gap (~120 ms) between the taps, so this
-    // measures the gesture, not how quickly the test tool can dispatch.
-    const cdp = await page.context().newCDPSession(page);
-    const tapAt = async () => {
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: cy }] });
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    };
-    await tapAt();
-    await page.waitForTimeout(120); await tapAt();
+    // Off the centre button (which IS allowed to pause) and below the corners.
+    await page.touchscreen.tap(box.x + box.width * 0.2, box.y + box.height * 0.62);
+    return (await sawCmd(page, n, 'pauseVideo', 900)) ? 'paused on a stray tap' : true;
+  });
+  await check(device, layout, 'hold top-right corner 1.5s → +10s', async () => {
+    const zone = await page.locator('[data-hold-seek="forward"]').first().boundingBox();
+    if (!zone) return 'no hold zone';
+    const n = await mark(page);
+    await page.mouse.move(zone.x + zone.width / 2, zone.y + zone.height / 2);
+    await page.mouse.down(); await page.waitForTimeout(1700); await page.mouse.up();
     return (await sawCmd(page, n, 'seekTo', 2000)) || 'no seek';
   });
   await check(device, layout, 'swipe up → next clip', async () => {

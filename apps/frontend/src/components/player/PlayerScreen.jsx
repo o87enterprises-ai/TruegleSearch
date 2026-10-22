@@ -54,6 +54,10 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // give); `onPlaying` when a native <video>/<audio> is actually producing
   // frames or sound.
   onFrameLoad = null, onPlaying = null,
+  // The clip's real width/height once a native <video> knows it, so full
+  // screen can lock the phone the right way round; and that ratio coming
+  // back in, so the box is shaped by the clip rather than guessed from its URL.
+  onAspect = null, aspect = null,
 }, ref) {
   // Idle. An empty black rectangle reads as a player that has never worked.
   // If a search has run, the results themselves fill it — full-size, one flick
@@ -181,10 +185,21 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // flex sizing stopped applying, its height resolved to `auto`, and the
   // `h-full` box below resolved against auto to ZERO — a 0px-tall iframe.
   // Playing audio over a black screen, which is exactly what that was.
+  // FULL SCREEN FITS THE CLIP'S OWN SHAPE. A landscape screen with a 9:16
+  // Short, or a portrait screen with a 16:9 film, used to stretch the iframe
+  // edge to edge and leave the platform to letterbox inside it — which also
+  // stretched the hit area over black bars. Now the box is the largest one of
+  // the clip's ratio that fits the screen, centred (container units against
+  // the fill root, which is a size container in full screen).
+  const fitRatio = aspect || (onCard ? 9 / 21 : isPostCard ? 3 / 4 : (vertical ? 9 / 16 : 16 / 9));
   const boxStyle = fill
     ? (portrait ? {
       aspectRatio: ratio, height: '100%', width: 'auto', maxWidth: '100%', margin: '0 auto',
-    } : undefined)
+    } : {
+      aspectRatio: String(fitRatio),
+      width: `min(100cqw, calc(100cqh * ${fitRatio.toFixed(4)}))`,
+      margin: 'auto',
+    })
     : {
       aspectRatio: ratio,
       maxHeight: cap,
@@ -203,7 +218,8 @@ const PlayerScreen = forwardRef(function PlayerScreen({
       // Portrait in full screen has to CENTRE its column against a landscape
       // screen, so the root becomes the flex container that does it. Outside
       // full screen the box centres itself with `margin: 0 auto` as before.
-      className={`relative w-full bg-black ${fill ? `flex-1 min-h-0${portrait ? ' flex justify-center' : ''}` : ''}`}
+      className={`relative w-full bg-black ${fill ? `flex-1 min-h-0${portrait ? ' flex justify-center' : ' flex items-center justify-center'}` : ''}`}
+      style={fill && !portrait ? { containerType: 'size' } : undefined}
     >
       {isSoundcloud ? (
         <iframe
@@ -222,7 +238,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
           allow="autoplay"
         />
       ) : isVideoIframe ? (
-        <div className={fill && !portrait ? 'relative w-full h-full' : 'relative'} style={boxStyle}>
+        <div className="relative" style={boxStyle}>
           <iframe
             ref={frameRef}
             key={source.playToken ? `${src}#${source.playToken}` : src}
@@ -241,7 +257,8 @@ const PlayerScreen = forwardRef(function PlayerScreen({
       ) : kind === 'video' ? (
         // object-contain IS the letterbox for a native file: the black bands
         // above and below a widescreen clip in a portrait box come from here.
-        <video ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay playsInline onEnded={onEnded} onError={onError} onPlaying={onPlaying}
+        <video ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay playsInline onEnded={onEnded}
+          onLoadedMetadata={(e) => { const v = e.currentTarget; if (v.videoWidth && v.videoHeight) onAspect?.(v.videoWidth / v.videoHeight); }} onError={onError} onPlaying={onPlaying}
           style={fill ? undefined : { ...(portrait ? { aspectRatio: ratio, width: '100%', objectFit: 'contain', background: '#000' } : {}), maxHeight: maxHeight ? `min(${maxHeight}px, ${cap})` : cap }}
           className={fill ? 'w-full h-full bg-black object-contain' : 'w-full bg-black'} />
       ) : (

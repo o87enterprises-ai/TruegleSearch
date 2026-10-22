@@ -7,7 +7,7 @@ import { hasSeen, markSeen, markAllSeen, recentSeen } from '../utils/seen';
 import { scoreCandidates, draw, dedupeScored, poolFor, POOL } from '../utils/feedDraw';
 import { shouldExplore, exploreOffset, exploreSeed, EXPLORE_RATE } from '../utils/explore';
 import { authHeader, storedSafeSearch } from '../utils/authHeader';
-import { isRadioOn, artistOf, nameKey } from '../utils/radio';
+import { isRadioOn, artistOf, nameKey, setRadioStatus } from '../utils/radio';
 
 // What plays next, and what fills an empty player.
 //
@@ -227,7 +227,13 @@ export function useUpNext() {
         return found.filter(({ s }) => nameKey(`${s.title} ${s.channel || ''}`).includes(want));
       }));
       const radio = scoreCandidates(lists.flat(), usable, preference);
-      if (radio.length) return { scored: radio, seenRate: seenRate(), explored: false };
+      if (radio.length) {
+        setRadioStatus({ state: 'following', artist });
+        return { scored: radio, seenRate: seenRate(), explored: false };
+      }
+      setRadioStatus({ state: 'fallback', reason: `nothing new found for ${artist}` });
+    } else if (isRadioOn() && current) {
+      setRadioStatus({ state: 'fallback', reason: 'this clip doesn\'t look like a song' });
     }
 
     // ── the exploration path ────────────────────────────────────────────────

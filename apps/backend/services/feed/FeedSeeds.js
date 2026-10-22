@@ -100,6 +100,31 @@ async function seedTopics(limit = 6) {
   });
 }
 
+// ── TOP POSTS, PER PLATFORM ─────────────────────────────────────────────────
+// Trending searches and headline words are good seeds for Mastodon or News,
+// and nearly useless for the login-walled video platforms: `site:tiktok.com
+// <five words of a headline>` rarely matches a public post page, so narrowing
+// the feed to TikTok, Instagram or Facebook came back EMPTY. These are the
+// kinds of words those platforms' popular public posts are actually indexed
+// under. Used when the shared seed finds nothing, and walked page by page so a
+// long scroll keeps broadening instead of repeating.
+const TOP_POST_SEEDS = {
+  tiktok: ['viral', 'trending', 'funny', 'fyp', 'dance', 'recipe', 'comedy', 'pets', 'life hack', 'music'],
+  instagram: ['reel', 'viral reel', 'photography', 'travel', 'food', 'fashion', 'art', 'fitness', 'nature', 'music'],
+  facebook: ['viral video', 'reels', 'funny video', 'watch', 'music video', 'cooking', 'news video', 'sports highlights'],
+  x: ['breaking', 'viral', 'video', 'news', 'sports', 'tech'],
+  pinterest: ['ideas', 'recipe', 'home decor', 'art', 'outfit', 'diy'],
+  rumble: ['video', 'news', 'podcast', 'sports', 'comedy'],
+  truthsocial: ['news', 'video', 'breaking'],
+};
+
+/** The top-posts seed for a platform on a page, or null if it has none. */
+function topSeedFor(platform, page) {
+  const list = TOP_POST_SEEDS[platform];
+  if (!list) return null;
+  return list[(Math.max(1, page) - 1) % list.length];
+}
+
 /**
  * Pick one seed for a given page, walking the list rather than repeating.
  * Page 1 gets the first topic, page 2 the second, and it wraps.
@@ -109,4 +134,4 @@ function seedForPage(topics, page) {
   return topics[(Math.max(1, page) - 1) % topics.length];
 }
 
-module.exports = { seedTopics, seedForPage, STATIC_SEEDS };
+module.exports = { seedTopics, seedForPage, topSeedFor, TOP_POST_SEEDS, STATIC_SEEDS };

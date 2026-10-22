@@ -22,6 +22,22 @@ export function setRadio(on) {
 
 const subscribe = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
 
+// WHAT RADIO LAST DID, so the button can say it. Radio only steers "next"
+// when the clip reads as a song (artistOf) and a search for that artist
+// finds something; otherwise the ordinary up-next plays. That fallback used
+// to be silent, which made Radio look like it worked only sometimes.
+//   { state: 'following', artist } | { state: 'fallback', reason } | null
+let status = null;
+const statusListeners = new Set();
+export function setRadioStatus(next) {
+  status = next;
+  statusListeners.forEach((fn) => fn());
+}
+const subscribeStatus = (fn) => { statusListeners.add(fn); return () => statusListeners.delete(fn); };
+export function useRadioStatus() {
+  return useSyncExternalStore(subscribeStatus, () => status, () => null);
+}
+
 /** [on, setOn] — shared by every player presentation. */
 export function useRadio() {
   const on = useSyncExternalStore(subscribe, isRadioOn, () => false);

@@ -1752,6 +1752,54 @@
         "body": "WebKit blocks unmuted autoplay in iframes AND pauses a muted-autoplay video unmuted without a user tap. So on iOS (utils/isIOS.js) YouTube/reels start mute=1 and are never auto-unmuted; elsewhere unmute only after playerState=1. PR #54 got this wrong (auto-unmute); fixed in #55. Unverified on a real iPhone (no Apple device).",
         "ts": "2026-10-21",
         "created": "2026-10-21"
+      },
+      "d-player-nav-minimize": {
+        "Id": "d-player-nav-minimize",
+        "Type": "decision",
+        "Label": "Player auto-minimizes on page change, parks under clock",
+        "body": "MiniPlayer: pathname change with a current clip -> setMinimized(true). Minimized + not docked ('parked') is fixed top:56 right:12 width min(320px,100vw-24px), just under PageClock; parked never footer-anchors (no body padding). Verified in verify-player-carry-search.mjs.",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
+      },
+      "d-player-deliberate-input": {
+        "Id": "d-player-deliberate-input",
+        "Type": "decision",
+        "Label": "Player touch: deliberate tap to pause, 1.5s corner hold to seek",
+        "body": "Pause ONLY via deliberate tap (hooks/useDeliberateTap: down+up on same control, <600ms, <10px; keyboard always ok) on HUD centre button, transport play/pause, mini bar. Picture tap/fullscreen sheet tap only reveals HUD; double-tap/double-click seek REMOVED. Top-left/top-right zones (30%x38%, data-hold-seek) hold 1.5s -> -/+10s, repeat every 700ms. Swipe up/down next/prev in fullscreen kept. Suite checks: 'tap mid-picture does NOT pause', 'hold top-right corner 1.5s'.",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
+      },
+      "d-results-below-player": {
+        "Id": "d-results-below-player",
+        "Type": "decision",
+        "Label": "Search results live below the player; paused video stays on screen",
+        "body": "Removed browseOverScreen: pausing no longer swaps the picture for the query's deck (lost-your-video bug). PlayerListSlot auto-opens on a query only in fullscreen or popped (no page area below there); list button still opens it anywhere. Idle (no clip) viewport deck unchanged. TubeResultsGrid shows a bouncing 'N results below' chip (data-results-below) when fresh results land out of view.",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
+      },
+      "d-fullscreen-aspect-fit": {
+        "Id": "d-fullscreen-aspect-fit",
+        "Type": "decision",
+        "Label": "Fullscreen fits the clip's real aspect + orientation lock",
+        "body": "PlayerScreen fill: non-portrait box = largest box of the clip ratio (container units on a size-container root), centred. Native <video> reports videoWidth/Height via onAspect; TrueglePlayer uses it for clipIsTall (portrait/landscape screen.orientation.lock on touch), falling back to source.vertical/tiktok for embeds. iOS still has no lock API.",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
+      },
+      "d-radio-button-clear": {
+        "Id": "d-radio-button-clear",
+        "Type": "decision",
+        "Label": "Radio button: unmistakable on/off + says when it falls back",
+        "body": "PlayerTransport Radio: ON = filled accent pill with 'Radio' (or 'ON' when very tight), OFF = dim struck-through icon; data-player-radio=on|off|fallback. utils/radio.js setRadioStatus/useRadioStatus: useUpNext reports following <artist> or fallback (clip not a song / nothing found) — amber dot on the pill + a 3s on-screen message on every change (phones have no hover tooltip). Root of 'works sometimes': Radio only steers when artistOf() finds an artist; otherwise ordinary Up Next plays.",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
+      },
+      "d-feed-top-posts": {
+        "Id": "d-feed-top-posts",
+        "Type": "decision",
+        "Label": "Feed: per-platform top-posts seeds fill TikTok/Instagram/Facebook",
+        "body": "routes/social.js fetchViaSearx (home feed only, no query): shared seed first; if it finds nothing, FeedSeeds.TOP_POST_SEEDS[platform] word for that page (tiktok/instagram/facebook/x/pinterest/rumble/truthsocial), then the next word; two empty words in a row -> cursor null. Typed queries are never replaced. Feed page already round-robins per platform (interleave:true). Test: __tests__/feedTopPosts.test.js. new-endpoints.test.js was failing before this change.",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
       }
     },
     "thread": {
@@ -3760,5 +3808,5 @@
       }
     }
   },
-  "updated": "2026-10-21"
+  "updated": "2026-10-22"
 }

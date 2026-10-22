@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { useDeliberateTap } from '../../hooks/useDeliberateTap';
 import {
   Play, Pause, SkipBack, SkipForward,
   ListMusic, PictureInPicture2, Minimize2, PanelBottom,
   Maximize, Minimize, Lock, Volume2, Volume1, VolumeX, RotateCcw, Radio,
 } from 'lucide-react';
-import { useRadio } from '../../utils/radio';
+import { useRadio, useRadioStatus } from '../../utils/radio';
 
 // The one transport row. Identical in all three presentations — collapsed
 // inside the Tube search bar, expanded under the player screen, and inside the
@@ -223,6 +224,30 @@ export default function PlayerTransport({
   const veryTight = w < 260;
 
   const [radio, setRadio] = useRadio();
+  const radioStatus = useRadioStatus();
+  const radioFellBack = radio && radioStatus?.state === 'fallback';
+  const radioTitle = !radio
+    ? 'Radio OFF — tap to keep playing this artist and similar music'
+    : radioStatus?.state === 'following'
+      ? `Radio ON — following ${radioStatus.artist}`
+      : radioFellBack
+        ? `Radio ON, but ${radioStatus.reason} — playing Up Next instead`
+        : 'Radio ON — next song will follow this artist';
+  // Phones have no hover, so the tooltip above never shows there: say it out
+  // loud for 3s whenever Radio is switched or changes what it is doing.
+  const [radioFlash, setRadioFlash] = useState('');
+  const radioSeen = useRef(null);
+  const radioSig = `${radio}|${radioStatus?.state || ''}|${radioStatus?.artist || ''}`;
+  useEffect(() => {
+    if (radioSeen.current === null) { radioSeen.current = radioSig; return undefined; }
+    if (radioSeen.current === radioSig) return undefined;
+    radioSeen.current = radioSig;
+    setRadioFlash(radioTitle);
+    const t = setTimeout(() => setRadioFlash(''), 3000);
+    return () => clearTimeout(t);
+  }, [radioSig]);
+  // Play/pause answers a deliberate tap only — see useDeliberateTap.
+  const playTap = useDeliberateTap(onPlayPause);
   const size = tight ? 15 : 16;
   const btn = `flex items-center justify-center shrink-0 rounded-lg text-white/60 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors ${
     tight ? 'w-8 h-8' : 'w-9 h-9'
@@ -231,8 +256,14 @@ export default function PlayerTransport({
   return (
     <div
       ref={rowRef}
-      className={`flex items-center ${veryTight ? 'flex-wrap justify-center' : ''} ${tight ? 'gap-0' : 'gap-0.5'} ${className}`}
+      className={`relative flex items-center ${veryTight ? 'flex-wrap justify-center' : ''} ${tight ? 'gap-0' : 'gap-0.5'} ${className}`}
     >
+      {radioFlash && (
+        <span role="status" data-radio-flash=""
+          className="absolute bottom-full right-1 mb-1.5 max-w-[90%] px-2.5 py-1 rounded-full bg-black/85 border border-white/15 text-white text-[11px] font-semibold pointer-events-none truncate">
+          {radioFlash}
+        </span>
+      )}
       {/* BACK, PLAY, FORWARD — in that order, which is the order they are on
           every remote control and every other player anyone has used. Play/pause
           sat at the far left with Stop between it and the skips, so the two
@@ -246,7 +277,7 @@ export default function PlayerTransport({
         aria-label="Previous" className={btn}>
         <SkipBack size={size} />
       </button>
-      <button type="button" onClick={onPlayPause} title={playing ? 'Pause' : 'Play'}
+      <button type="button" {...playTap} title={playing ? 'Pause' : 'Play'}
         aria-label={playing ? 'Pause' : 'Play'} className={btn}>
         {playing ? <Pause size={size} /> : <Play size={size} />}
       </button>
@@ -279,13 +310,26 @@ export default function PlayerTransport({
         {/* RADIO. Self-contained (utils/radio.js) so every presentation gets
             it without threading a prop: when the queue runs out and what's
             playing is a song, next is the artist and similar artists. */}
+        {/* ON IS UNMISTAKABLE: a filled accent pill with the word "Radio"
+            (and ON/OFF for screen readers and the long-press tooltip). OFF is
+            a plain dim icon with a strike. An amber dot means Radio is on but
+            could not steer the last pick (not a song / nothing found), so Up
+            Next played instead — it used to fall back silently. */}
         <button type="button" onClick={() => setRadio(!radio)}
-          title={radio ? 'Radio on — more from this artist and similar artists' : 'Radio off — turn on to keep playing similar music'}
-          aria-label="Radio: more from this artist and similar artists" aria-pressed={radio}
-          data-player-radio=""
-          style={radio ? { color: accent } : undefined}
-          className={`${btn} ${radio ? 'bg-white/10' : ''}`}>
-          <Radio size={size} />
+          title={radioTitle}
+          aria-label={radioTitle} aria-pressed={radio}
+          data-player-radio={radio ? (radioFellBack ? 'fallback' : 'on') : 'off'}
+          style={radio ? { background: accent, color: '#000' } : undefined}
+          className={radio
+            ? `relative flex items-center justify-center gap-1 shrink-0 rounded-full font-bold ${tight ? 'h-7 px-2 text-[10px]' : 'h-8 px-2.5 text-[11px]'}`
+            : `relative ${btn} text-white/35`}>
+          <Radio size={radio ? size - 2 : size} />
+          {radio
+            ? <span>{veryTight ? 'ON' : 'Radio'}</span>
+            : <span aria-hidden="true" className="absolute w-[18px] h-[1.5px] bg-current rotate-45 rounded" />}
+          {radioFellBack && (
+            <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border border-black" />
+          )}
         </button>
         {showList && (
           <button type="button" onClick={onToggleList} title="Queue and results"
