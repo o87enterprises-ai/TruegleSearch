@@ -35,6 +35,7 @@ import { mediaKey } from '../../utils/videoEmbed';
 import { useSearchStashContext } from '../../context/SearchStashContext';
 import { IS_IOS } from '../../utils/isIOS';
 import { useDeliberateTap } from '../../hooks/useDeliberateTap';
+import { useRadioSession, startRadioFrom } from '../../utils/radio';
 
 // THE player. There is only one, and this is it.
 //
@@ -75,7 +76,7 @@ export default function TrueglePlayer({
     playMode, setPlayMode, volume, setVolume,
     feedActive, feed: feedRest, feedNext, activeDeck, fullscreenNonce, setMinimized,
     list: playingList, listNext, resumeQueue, nextNonce,
-    queueStandby, listStandby, currentStandby, resumeStandby, setPaused, jump: jumpToQueued,
+    queueStandby, listStandby, currentStandby, resumeStandby, setPaused, jump: jumpToQueued, stopFeed,
   } = usePlayer();
   const pageMode = usePageMode();
   // ONE PLAYER, AND ON THE FEED PAGE IT NEVER AUTOPLAYS RANDOM LINKS. Feed
@@ -377,7 +378,10 @@ export default function TrueglePlayer({
   // (phone browsers recycle background tabs) a perfectly good queue was
   // ignored and Next went to Up Next's picks instead — reported as "it
   // defaults to shuffle even though shuffle isn't selected".
-  const followQueue = queue.length > 0 && !feedActive;
+  // A RADIO SESSION (Start Radio) parks the queue the same way a feed run
+  // does: untouched, and followed again the moment Radio is switched off.
+  const radioSession = useRadioSession();
+  const followQueue = queue.length > 0 && !feedActive && !radioSession;
   // A feed run outranks the queue while it has clips left.
   const followFeed = feedActive && feedRest.length > 0;
   // A feed run that has played its last clip. The queue is still parked
@@ -395,7 +399,7 @@ export default function TrueglePlayer({
     if (onFeedPage && current && !followQueue && playMode === 'auto') { setMinimized(true); return; }
     // Anywhere else, a run of picks that has finished hands back to the
     // queue (or saved list) it parked, and carries on from there.
-    if (feedSpent) { resumeQueue(); if (queue.length) { next(); return; } }
+    if (feedSpent && !radioSession) { resumeQueue(); if (queue.length) { next(); return; } }
     //
     // SHUFFLE WITH NOTHING QUEUED IS NOT AN INSTRUCTION TO STOP. It shuffles
     // the queue, and with no queue there is nothing to shuffle — so it goes
@@ -408,7 +412,7 @@ export default function TrueglePlayer({
     const nextUp = await upNext.pick(current);
     if (nextUp) { play(nextUp); return; }
     next();
-  }, [playingList, listNext, followFeed, feedNext, feedSpent, resumeQueue, queue.length, followQueue, playMode, current, next, play, upNext, onFeedPage, setMinimized]);
+  }, [playingList, listNext, followFeed, feedNext, feedSpent, resumeQueue, queue.length, followQueue, playMode, current, next, play, upNext, onFeedPage, setMinimized, radioSession]);
 
   // A manual Next. A playing list walks the list; a feed run walks the feed
   // and, once spent, STAYS PUT — it never dips into the parked queue (that is
@@ -423,11 +427,11 @@ export default function TrueglePlayer({
     // new visitor — whose whole opening feed is the 12-card idle deck — hit
     // Next on the last card and got the same video forever. It is discovery
     // from there, exactly as it already is when a clip ends on its own.
-    if (feedSpent && (queue.length > 0 || onFeedPage)) return;
+    if (feedSpent && !radioSession && (queue.length > 0 || onFeedPage)) return;
     if (followQueue || !current || onFeedPage) { skipNext(); return; }
     const nextUp = await upNext.pick(current);
     if (nextUp) play(nextUp); else skipNext();
-  }, [playingList, listNext, followFeed, feedNext, feedSpent, queue.length, followQueue, current, upNext, play, skipNext, onFeedPage]);
+  }, [playingList, listNext, followFeed, feedNext, feedSpent, queue.length, followQueue, current, upNext, play, skipNext, onFeedPage, radioSession]);
 
   // Next pressed OUTSIDE the player (minimized bar, lock-screen keys, the
   // map's transport) arrives as a nonce so it runs the same rules as above.
@@ -1170,6 +1174,10 @@ export default function TrueglePlayer({
             // previously-fixed overflow this would reopen (verify-feed-
             // controls.mjs). Full screen, where there is room, still offers it.
             onToggleClickThrough={embed.canCommand && !narrowPicture && !shortPicture ? toggleClickThrough : undefined}
+            // Not on the Feed page (its player never autoplays picks — see
+            // onFeedPage) nor a picture too short for another rail button.
+            onStartRadio={!onFeedPage && !shortPicture ? () => { overlay.reveal(); stopFeed(); startRadioFrom(current); } : undefined}
+            radioActive={radioSession}
           />
         )}
 

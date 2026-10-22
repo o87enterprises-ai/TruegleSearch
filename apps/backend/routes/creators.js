@@ -206,6 +206,42 @@ router.get('/:channelId/videos', async (req, res) => {
  * `query`, when given, filters by title/channel name rather than searching
  * anything upstream — the roster is small and curated, not indexed.
  */
+// ── ONE CHANNEL MUST NOT OWN THE FEED ───────────────────────────────────────
+// A plain newest-first sort let whichever partner uploads most fill every top
+// slot. Instead: each channel's own videos stay newest-first, and the feed
+// takes ONE from each channel per round, in a shuffled channel order. Every
+// channel gets the same share of the top of the feed, and which one leads
+// changes.
+//
+// The shuffle is SEEDED BY THE HOUR, not random per request: the feed pages
+// by offset, so page 2 has to be cut from the same order page 1 was, or a
+// scroll would repeat and skip videos. A new order every hour keeps it moving.
+function seededRandom(seed) {
+  let t = seed >>> 0;
+  return () => {
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function spreadByChannel(items, seed = Math.floor(Date.now() / 3600000)) {
+  const byChannel = new Map();
+  for (const it of items) {
+    if (!byChannel.has(it.author)) byChannel.set(it.author, []);
+    byChannel.get(it.author).push(it);
+  }
+  const lanes = [...byChannel.values()].map((list) => list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)));
+  const rand = seededRandom(seed);
+  const out = [];
+  for (let round = 0; lanes.some((l) => l.length > round); round += 1) {
+    const order = lanes.filter((l) => l.length > round).map((l) => [rand(), l]).sort((a, b) => a[0] - b[0]);
+    for (const [, l] of order) out.push(l[round]);
+  }
+  return out;
+}
+
 async function fetchCreatorsFeed(query, limit = 20, cursor) {
   const settled = await Promise.allSettled(
     roster.map((c) => getChannelVideos(c.channelId).then((r) => ({ creator: c, videos: r.videos }))),
@@ -236,12 +272,11 @@ async function fetchCreatorsFeed(query, limit = 20, cursor) {
     }
   }
 
-  items.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-
   if (query) {
     const q = String(query).toLowerCase();
     items = items.filter((it) => it.title.toLowerCase().includes(q) || it.author.toLowerCase().includes(q));
   }
+  items = spreadByChannel(items);
 
   const offset = Number.isInteger(cursor) ? cursor : 0;
   const page = items.slice(offset, offset + limit);
@@ -661,5 +696,6 @@ function decode(s) {
 // logic directly (no HTTP self-call) while GET /feed above stays the normal
 // standalone entry point — same require, two ways in.
 router.fetchCreatorsFeed = fetchCreatorsFeed;
+router.spreadByChannel = spreadByChannel;
 
 module.exports = router;

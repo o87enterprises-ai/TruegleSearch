@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { Play, Plus, Check, Loader2, ChevronDown } from 'lucide-react';
+import { Play, Plus, Check, Loader2, ChevronDown, Radio } from 'lucide-react';
+import { startRadioFrom } from '../../utils/radio';
 import { usePlayer } from '../../context/PlayerContext';
 import { useSettings } from '../../context/SettingsContext';
 import { usePlayerSearch } from '../../hooks/usePlayerSearch';
@@ -43,7 +44,7 @@ function TubeResultsGrid({ docked, query }) {
   const { settings } = useSettings();
   const blur = settings.safeSearch === 'blur';
   const metaFor = useMediaMeta();
-  const { startFeed, enqueue } = usePlayer();
+  const { startFeed, enqueue, playNow, stopFeed } = usePlayer();
   const [added, setAdded] = useState(null);
 
   // Play this, then the rest of the results in order — the same "play from
@@ -201,6 +202,23 @@ function TubeResultsGrid({ docked, query }) {
                     )}
                   </button>
                   <SaveTo source={r} className="shrink-0 self-start flex items-center justify-center w-7 h-7 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors" />
+                  <button
+                    type="button"
+                    data-start-radio=""
+                    onClick={() => {
+                      // Radio from this song: it plays now, Radio picks what
+                      // follows, and the queue waits untouched (startRadioFrom).
+                      stopFeed();
+                      playNow(r);
+                      startRadioFrom(r);
+                      if (docked) window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    title="Start Radio from this song"
+                    aria-label={`Start Radio from ${r.title || 'this'}`}
+                    className="shrink-0 self-start flex items-center justify-center w-7 h-7 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
+                  >
+                    <Radio size={14} />
+                  </button>
                   <button
                     type="button"
                     onClick={() => queue(r)}

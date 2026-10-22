@@ -132,4 +132,41 @@ async function similarArtists(artist, limit = 20) {
   }
 }
 
-module.exports = { similarArtists, _cache: cache };
+// ── WHO RECORDED THIS? ───────────────────────────────────────────────────────
+// Radio reads the artist off the title ("Artist - Song") or the channel
+// ("Artist - Topic", "ArtistVEVO"). A title like "Song Name (Lyrics)" carries
+// neither, and Radio used to give up there. This asks MusicBrainz's recording
+// index for the title instead, through the same one-per-second queue, and
+// accepts only a confident match. Cached a day, "no idea" included.
+const TITLE_NOISE = /\[[^\]]*\]|\((?:official|lyrics?|audio|video|hd|hq|4k|visuali[sz]er|music video|lyric video|full song|live)[^)]*\)|\b(?:official (?:music )?video|official audio|lyrics?|lyric video|visuali[sz]er|hd|4k)\b|#\w+/gi;
+const cleanTitle = (t) => String(t || '').replace(TITLE_NOISE, ' ').replace(/[|•·]+.*$/, ' ').replace(/\s+/g, ' ').trim();
+
+async function artistForTitle(title) {
+  const q = cleanTitle(title);
+  if (q.length < 2 || q.length > 120) return { artist: null };
+  const key = `title:${norm(q)}`;
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
+  const run = async () => {
+    const wait = mbLast + MB_GAP_MS - Date.now();
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    mbLast = Date.now();
+    const { data } = await axios.get('https://musicbrainz.org/ws/2/recording', {
+      params: { query: `recording:"${q.replace(/"/g, '')}"`, fmt: 'json', limit: 5 },
+      headers: { 'User-Agent': UA },
+      timeout: TIMEOUT_MS,
+    });
+    // Only a near-certain hit: the most-scored recording, ≥ 95, with a credited artist.
+    const rec = (data?.recordings || []).find((r) => Number(r.score) >= 95 && r['artist-credit']?.[0]?.name);
+    return { artist: rec ? rec['artist-credit'][0].name : null };
+  };
+  try {
+    const result = mbQueue.then(run, run);
+    mbQueue = result.catch(() => {});
+    return remember(key, await result);
+  } catch {
+    return { artist: null };
+  }
+}
+
+module.exports = { similarArtists, artistForTitle, cleanTitle, _cache: cache };

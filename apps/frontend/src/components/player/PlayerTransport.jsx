@@ -229,7 +229,7 @@ export default function PlayerTransport({
   const radioTitle = !radio
     ? 'Radio OFF — tap to keep playing this artist and similar music'
     : radioStatus?.state === 'following'
-      ? `Radio ON — following ${radioStatus.artist}`
+      ? `Radio ON — following ${radioStatus.artist}${radioStatus.carried ? ' (this song named no artist, so Radio kept going with them)' : ''}`
       : radioFellBack
         ? `Radio ON, but ${radioStatus.reason} — playing Up Next instead`
         : 'Radio ON — next song will follow this artist';

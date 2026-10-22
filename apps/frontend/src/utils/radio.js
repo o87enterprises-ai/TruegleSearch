@@ -17,7 +17,35 @@ export function isRadioOn() {
 
 export function setRadio(on) {
   try { localStorage.setItem(KEY, on ? '1' : '0'); } catch { /* private mode: session only */ }
+  // Off ends the session: the next time it is switched on it starts from
+  // whatever is playing then, not from an artist remembered from before.
+  if (!on) { anchor = null; session = false; }
   listeners.forEach((fn) => fn());
+}
+
+// ── THE ARTIST RADIO IS FOLLOWING, kept across the session ─────────────────
+// Radio used to work the artist out afresh from every clip, so one song with
+// a messy title ("Song (Lyrics)", a fan upload) broke the chain and handed
+// "next" to plain Up Next. The last artist it followed is now remembered and
+// used whenever the current clip can't be identified. Tab-only, never stored.
+let anchor = null;
+export const getRadioAnchor = () => anchor;
+export function setRadioAnchor(name) { anchor = name || null; }
+
+// ── STARTED ON PURPOSE ─────────────────────────────────────────────────────
+// "Start Radio" from a song: Radio takes over "next" straight away, even with
+// a queue waiting — the queue is parked, untouched, and comes back when Radio
+// is switched off. Plain Radio (the switch) still only fills in once the
+// queue is empty.
+let session = false;
+export const isRadioSession = () => session;
+export function startRadioFrom(source) {
+  anchor = artistOf(source) || anchor;
+  session = true;
+  setRadio(true);
+}
+export function useRadioSession() {
+  return useSyncExternalStore(subscribe, () => session && isRadioOn(), () => false);
 }
 
 const subscribe = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
