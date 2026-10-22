@@ -401,9 +401,12 @@ async function sweep(device, layout, page, errs) {
     // Pressing everything presses Start Radio, and a Radio session parks the
     // queue until Radio is switched off — by design. Switch it off again so
     // the next layout's Next/Previous checks start from the queue they set up.
-    const radioBtn = page.locator('[data-player-radio]:visible').first();
+    // Not only a VISIBLE one: in the popped window Start Radio (on the
+    // picture) can be pressed while the transport's Radio switch is out of view.
+    const radioBtn = page.locator('[data-player-radio]').first();
     if ((await radioBtn.count()) && (await radioBtn.getAttribute('data-player-radio')) !== 'off') {
-      await radioBtn.click({ timeout: 1500 }).catch(() => {});
+      await radioBtn.dispatchEvent('click').catch(() => {});
+      await page.waitForTimeout(150);
     }
     const stillThere = (await page.locator('iframe[src*="youtube-nocookie"]').count()) > 0 || (await page.locator('[data-player-deck], [data-mini]').count()) > 0;
     const newErrs = errs.slice(before);
