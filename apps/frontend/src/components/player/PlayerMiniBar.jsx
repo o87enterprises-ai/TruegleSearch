@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward, RotateCcw, Maximize2, Lock, X } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
+import { useDeliberateTap } from '../../hooks/useDeliberateTap';
 import { useTouchDevice } from '../../hooks/useTouchDevice';
 
 // THE minimized player. One footprint, everywhere.
@@ -46,6 +47,7 @@ export default function PlayerMiniBar({ onExpand, onClose, accent = '#f43f5e', c
     return () => ro?.disconnect();
   }, [label]);
 
+  const playTap = useDeliberateTap(() => (current ? togglePause() : null));
   const btn = 'flex items-center justify-center w-9 h-9 rounded-lg text-white/70 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors shrink-0';
 
   return (
@@ -54,7 +56,7 @@ export default function PlayerMiniBar({ onExpand, onClose, accent = '#f43f5e', c
         title="Previous" aria-label="Previous" className={btn}>
         <SkipBack size={16} />
       </button>
-      <button type="button" onClick={() => (current ? togglePause() : null)}
+      <button type="button" {...playTap}
         title={paused ? 'Play' : 'Pause'} aria-label={paused ? 'Play' : 'Pause'} className={btn}>
         {paused ? <Play size={17} /> : <Pause size={17} />}
       </button>

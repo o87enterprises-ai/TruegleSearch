@@ -34,6 +34,7 @@ import { copyText } from '../../utils/clipboard';
 import { mediaKey } from '../../utils/videoEmbed';
 import { useSearchStashContext } from '../../context/SearchStashContext';
 import { IS_IOS } from '../../utils/isIOS';
+import { useDeliberateTap } from '../../hooks/useDeliberateTap';
 
 // THE player. There is only one, and this is it.
 //
@@ -193,7 +194,15 @@ export default function TrueglePlayer({
   // while in full screen, which is exactly when this runs); iOS has no lock
   // API and simply follows how the phone is held. Re-locks if the next clip
   // is the other shape; released on the way out.
-  const clipIsTall = !!current && (!!current.vertical || current.kind === 'tiktok');
+  // The clip's REAL shape wins when we can read it: a native <video> reports
+  // its pixel size on loadedmetadata (PlayerScreen's onAspect). Embeds don't
+  // expose theirs, so they fall back to what the URL says (Shorts, TikTok…).
+  const [mediaAspect, setMediaAspect] = useState(null); // { key, ratio }
+  const clipKey = current ? current.src : '';
+  const knownAspect = mediaAspect && mediaAspect.key === clipKey ? mediaAspect.ratio : null;
+  const clipIsTall = !!current && (knownAspect
+    ? knownAspect < 1
+    : (!!current.vertical || current.kind === 'tiktok'));
   useEffect(() => {
     const o = typeof window !== 'undefined' ? window.screen?.orientation : null;
     if (!o?.lock) return;
@@ -210,8 +219,8 @@ export default function TrueglePlayer({
   useEffect(() => {
     if (!fullscreen || !touchDevice || locked) return undefined;
     try {
-      if (localStorage.getItem('truegle_swipe_hint_seen')) return undefined;
-      localStorage.setItem('truegle_swipe_hint_seen', '1');
+      if (localStorage.getItem('truegle_swipe_hint_seen_v2')) return undefined;
+      localStorage.setItem('truegle_swipe_hint_seen_v2', '1');
     } catch { /* private mode: show it this once anyway */ }
     setSwipeHint(true);
     const t = setTimeout(() => setSwipeHint(false), 5000);
@@ -316,19 +325,26 @@ export default function TrueglePlayer({
   // playing on standby behind it — stays tucked away. Opening it offers
   // Resume / Return (see PlayerListSlot's standby layer).
   const activelyPlaying = !!current && !paused;
+  // RESULTS LIVE BELOW THE PLAYER (the page's results grid), not in a list
+  // dropping out of it. The list still opens by itself in full screen, where
+  // there is no page below, and in the popped-out window, whose own search
+  // box has nowhere else to show what it found. The list button still opens
+  // it anywhere, on purpose.
+  const listDropsDown = fullscreen || presentation === 'popped';
   const mountQuery = useRef(query);
   useEffect(() => {
     if (query === mountQuery.current) return;
     mountQuery.current = null;
-    if (query.trim().length >= 2) setListOpen(activelyPlaying);
+    if (query.trim().length >= 2) setListOpen(activelyPlaying && listDropsDown);
   }, [query]);
   useEffect(() => {
-    if (openListNonce) setListOpen(activelyPlaying);
+    if (openListNonce) setListOpen(activelyPlaying && listDropsDown);
   }, [openListNonce]);
-  // Paused under a search: the results cover the paused picture (which stays
-  // mounted, on standby) until something is picked or play is pressed.
-  const hasResults = query.trim().length >= 2 && (search.results?.length || 0) > 0;
-  const browseOverScreen = !!current && paused && hasResults;
+  // A PAUSE IS NOT "NOTHING PLAYING". Paused results used to cover the
+  // picture, so a quick pause swapped the video you were watching for the
+  // last query's deck — and pressing play on that deck lost your place.
+  // The paused clip now stays on screen; results only take the viewport when
+  // nothing is loaded at all (PlayerScreen's own idle deck).
   // The queue, a saved list or the clip that was on is waiting behind the
   // current activity — the list offers to Resume it or Return to it.
   const standby = (!activelyPlaying && (queue.length > 0 || !!current))
@@ -607,14 +623,10 @@ export default function TrueglePlayer({
   // iframe swallows touches), and that sheet costs the platform's own
   // controls — a fair trade only when our controller bar is already pinned to
   // the bottom of the screen, which is exactly what full screen is.
-  // Double-tap a side to jump ten seconds, the gesture every video app has
-  // trained people to make. It works on the platforms whose play head we
-  // actually track, and on a native <video>/<audio> where it is just a
-  // property. Elsewhere it is off entirely rather than silently doing nothing:
-  // with `canDoubleTap` false the single tap also stops waiting on the
-  // double-tap window, so play/pause keeps its immediate response.
+  // Seeking by hand (a held top corner) needs a play head we can move: the
+  // embeds whose position we track, or a native <video>/<audio>.
   const nativeMedia = current?.kind === 'file' || current?.kind === 'audio' || current?.kind === 'video';
-  const canDoubleTap = !!current && (embed.canSeek || nativeMedia);
+  const canSeekHold = !!current && (embed.canSeek || nativeMedia);
 
   // HAS IT ACTUALLY STARTED? An embed that reports its state says so itself; a
   // native element says so on `playing`; an embed that reports nothing
@@ -721,17 +733,8 @@ export default function TrueglePlayer({
     onRecall: stash.hasStash ? stash.recall : undefined,
   });
 
-  // OUTSIDE FULL SCREEN A TAP NEVER PAUSES. Tapping anywhere on the docked,
-  // floating or footer player used to toggle pause, and on a phone that fired
-  // on every stray touch. Now a tap brings up the heads-up display (title,
-  // thumbnail, play head, on-screen controls) and only the play buttons pause.
-  // Full screen keeps tap-to-pause via the swipe sheet below. A double-click
-  // still jumps ten seconds on a desktop.
-  const onScreenDoubleClick = useCallback((e) => {
-    const box = e.currentTarget.getBoundingClientRect();
-    seekBy(e.clientX - box.left < box.width / 2 ? -10 : 10);
-  }, [seekBy]);
-
+  // OUTSIDE FULL SCREEN A TAP NEVER PAUSES — it brings up the heads-up
+  // display, and only a deliberate tap on a play button pauses.
   const swipe = useSwipeNav({
     active: fullscreen && !locked,
     onNext: goNext,
@@ -741,10 +744,52 @@ export default function TrueglePlayer({
     // restarting the video is far worse than a tap doing nothing.
     // Full screen: a tap pauses/plays AND brings up the heads-up display, the
     // way YouTube's own player answers a tap.
-    onTap: () => { overlay.reveal(); if (current && embed.canCommand) togglePause(); },
-    doubleTap: canDoubleTap,
-    onDoubleTap: (side) => seekBy(side === 'left' ? -10 : 10),
+    // A touch on the picture only brings up the controls. Pausing takes a
+    // deliberate tap on a play button; seeking takes a 1.5s hold in a top
+    // corner (holdSeek, below). Anything else on the glass does nothing.
+    onTap: () => overlay.reveal(),
+    doubleTap: false,
   });
+
+  // ── HOLD A TOP CORNER TO SEEK ───────────────────────────────────────────
+  // 1.5s on the top-left rewinds 10s, top-right forwards 10s, and holding on
+  // keeps going every 700ms. The wait is the point: nothing a pocket, a palm
+  // or a passing thumb does lasts 1.5s in one spot. A move or a lift before
+  // then cancels it; a quick tap there just shows the controls.
+  const HOLD_MS = 1500;
+  const holdRef = useRef(null);
+  const endHold = useCallback(() => {
+    const h = holdRef.current;
+    if (!h) return;
+    clearTimeout(h.timer); clearInterval(h.repeat);
+    holdRef.current = null;
+  }, []);
+  useEffect(() => endHold, [endHold]);
+  const holdHandlers = useCallback((dir) => ({
+    onPointerDown: (e) => {
+      if (e.button > 0) return;
+      endHold();
+      const h = { x: e.clientX, y: e.clientY, fired: false };
+      h.timer = setTimeout(() => {
+        h.fired = true;
+        seekBy(dir * 10);
+        h.repeat = setInterval(() => seekBy(dir * 10), 700);
+      }, HOLD_MS);
+      holdRef.current = h;
+    },
+    onPointerMove: (e) => {
+      const h = holdRef.current;
+      if (h && !h.fired && Math.hypot(e.clientX - h.x, e.clientY - h.y) > 12) endHold();
+    },
+    onPointerUp: () => {
+      const h = holdRef.current;
+      endHold();
+      if (h && !h.fired) overlay.reveal();
+    },
+    onPointerCancel: endHold,
+    onPointerLeave: endHold,
+    onContextMenu: (e) => e.preventDefault(),
+  }), [endHold, seekBy, overlay]);
 
   // Owner, 2026-10-10: "the scroll function on desktop for tube ... doesn't
   // work" — useSwipeNav above answers TOUCH only. A mouse wheel or trackpad
@@ -820,6 +865,8 @@ export default function TrueglePlayer({
       setTimeout(() => setShareState('idle'), 2000);
     } catch { /* user dismissed the sheet */ }
   }, [current, queue]);
+
+  const hudPlayTap = useDeliberateTap(() => { overlay.reveal(); togglePause(); });
 
   const transport = (
     <PlayerTransport
@@ -912,6 +959,8 @@ export default function TrueglePlayer({
       onError={skipBroken}
       onFrameLoad={() => setLoadedKey(sourceKey)}
       onPlaying={() => setPlayingKey(sourceKey)}
+      onAspect={(ratio) => setMediaAspect({ key: clipKey, ratio })}
+      aspect={knownAspect}
       fill={fullscreen}
       compact={presentation === 'popped'}
       maxHeight={presentation === 'popped' ? 320 : 420}
@@ -1003,7 +1052,7 @@ export default function TrueglePlayer({
             <ChevronUp size={40} strokeWidth={2.5} />
             <span className="text-sm font-semibold">Swipe up · next</span>
           </div>
-          <span className="px-3 py-1.5 rounded-full bg-black/60 text-white/85 text-xs">Tap · pause &amp; controls</span>
+          <span className="px-3 py-1.5 rounded-full bg-black/60 text-white/85 text-xs text-center">Tap · controls<br />Hold a top corner 1.5s · rewind / forward</span>
           <div className="flex flex-col items-center gap-1 text-white/80 animate-bounce" style={{ animationDelay: '0.5s' }}>
             <span className="text-sm font-semibold">Swipe down · previous</span>
             <ChevronDown size={40} strokeWidth={2.5} />
@@ -1070,7 +1119,7 @@ export default function TrueglePlayer({
         // crop it instead, which is the opposite of the point. The media node
         // is untouched, so nothing reloads and playback does not stutter.
         style={voiceOpen && !clipScreen ? { maxHeight: '38%' }
-          : (browseOverScreen && !fullscreen ? { minHeight: presentation === 'popped' ? 'min(34svh, var(--truegle-player-cap, 100svh))' : 'min(52svh, var(--truegle-player-cap, 100svh))' } : undefined)}
+          : undefined}
         aria-hidden={clipScreen}
       >
         {/* THE FEED PLAYER IS 9:16 IN EVERY STATE — docked, popped out and
@@ -1082,25 +1131,12 @@ export default function TrueglePlayer({
             on and collapsed the picture to zero height — audio over a black
             screen. See the note by boxStyle in PlayerScreen.jsx. */}
         {screen}
-        {browseOverScreen && (
-          <div data-player-standby-browse="" className="absolute inset-0 z-[15] flex flex-col">
-            <PlayerBrowse
-              rows={sortedResults}
-              loading={search.loading}
-              compact={presentation === 'popped'}
-              fill
-              more={search.more}
-              onMore={search.loadMore}
-              loadingMore={search.loadingMore}
-            />
-          </div>
-        )}
         {/* The controls that sit ON the picture: thumbs, share, play mode. They
             are always mounted and fade rather than appearing, so nothing pops
             in over the video — and they take no width from the transport row
             underneath, which is what stopped it running out of room in a
             resized window. */}
-        {current && !clipScreen && !browseOverScreen && (
+        {current && !clipScreen && (
           <PlayerOverlay
             visible={hudVisible}
             rating={rating}
@@ -1128,7 +1164,7 @@ export default function TrueglePlayer({
             is the one thing that stays clickable regardless, so there is
             always a way back even though the HUD's own hover/hold reveal no
             longer fires (its layer is gone too). */}
-        {clickThrough && current && !clipScreen && !browseOverScreen && (
+        {clickThrough && current && !clipScreen && (
           <button
             type="button"
             data-clickthrough-exit=""
@@ -1153,7 +1189,7 @@ export default function TrueglePlayer({
             "taking longer than usual" clock. Skip joins Retry only once the
             silence watchdog has fired (25s) — an offered skip, never an
             automatic one, per the owner's rule in useEmbedPlayback. */}
-        {loading && !clipScreen && !browseOverScreen && (
+        {loading && !clipScreen && (
           <PlayerLoading
             key={sourceKey}
             compact={presentation === 'popped' || narrowPicture}
@@ -1162,10 +1198,10 @@ export default function TrueglePlayer({
             onSkip={embed.silent ? skipBroken : undefined}
           />
         )}
-        {ended && !loading && !clipScreen && !browseOverScreen && !locked && (
+        {ended && !loading && !clipScreen && !locked && (
           <PlayerEnded onReplay={replayCurrent} />
         )}
-        {embed.silent && !loading && current && !clipScreen && !browseOverScreen && (
+        {embed.silent && !loading && current && !clipScreen && (
           <div data-embed-silent="" className="absolute inset-x-0 bottom-14 z-30 flex justify-center pointer-events-none">
             <span className="pointer-events-auto flex items-center gap-2 pl-3 pr-1 py-1 rounded-full bg-black/75 text-white text-xs">
               Not loading?
@@ -1174,16 +1210,15 @@ export default function TrueglePlayer({
             </span>
           </div>
         )}
-        {embed.tiktokNeedsTap && current && !clipScreen && !browseOverScreen && (
+        {embed.tiktokNeedsTap && current && !clipScreen && (
           <div data-tiktok-tap-hint="" className="absolute inset-x-0 bottom-14 z-30 flex justify-center pointer-events-none">
             <span className="px-3 py-1.5 rounded-full bg-black/70 text-white text-xs font-semibold">Tap the video to start it</span>
           </div>
         )}
-        {!swipe && !clickThrough && current && embed.canCommand && !embed.tiktokNeedsTap && !locked && !clipScreen && !browseOverScreen && (
+        {!swipe && !clickThrough && current && embed.canCommand && !embed.tiktokNeedsTap && !locked && !clipScreen && (
           <button
             type="button"
             onClick={overlay.reveal}
-            onDoubleClick={onScreenDoubleClick}
             {...overlay.handlers}
             aria-label="Show what's playing and the controls"
             className="absolute inset-0 z-10 cursor-default"
@@ -1194,7 +1229,7 @@ export default function TrueglePlayer({
             the play head along the bottom, the on-screen controls (above) at
             the side — all summoned by the tap and faded out again by
             useOverlayReveal's timer. Pointer-transparent except the seek bar. */}
-        {current && !clipScreen && !locked && !browseOverScreen && (
+        {current && !clipScreen && !locked && (
           <div
             data-player-hud={hudVisible ? 'shown' : 'hidden'}
             aria-hidden={!hudVisible}
@@ -1223,7 +1258,7 @@ export default function TrueglePlayer({
                 className="flex items-center justify-center w-11 h-11 rounded-full bg-black/50 backdrop-blur-sm text-white disabled:opacity-30">
                 <SkipBack size={20} fill="currentColor" />
               </button>
-              <button type="button" onClick={() => { overlay.reveal(); togglePause(); }}
+              <button type="button" {...hudPlayTap}
                 aria-label={paused ? 'Play' : 'Pause'} tabIndex={hudVisible ? 0 : -1}
                 className="flex items-center justify-center w-14 h-14 rounded-full bg-black/55 backdrop-blur-sm text-white">
                 {paused ? <Play size={26} fill="currentColor" className="ml-1" /> : <Pause size={26} fill="currentColor" />}
@@ -1285,6 +1320,16 @@ export default function TrueglePlayer({
           />
         )}
 
+        {canSeekHold && !clickThrough && !locked && !clipScreen && !embed.tiktokNeedsTap && [-1, 1].map((dir) => (
+          <div
+            key={dir}
+            data-hold-seek={dir < 0 ? 'back' : 'forward'}
+            aria-hidden="true"
+            {...holdHandlers(dir)}
+            className={`absolute top-0 ${dir < 0 ? 'left-0' : 'right-0'} z-[11] w-[30%] h-[38%]`}
+            style={{ WebkitTouchCallout: 'none', touchAction: fullscreen ? 'none' : 'pan-y' }}
+          />
+        ))}
         {/* The jump, made visible. Sits on the half that was tapped, so it
             also confirms WHICH way — a badge in the middle would leave you
             guessing whether you hit back or forward. */}

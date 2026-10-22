@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useDeliberateTap } from '../../hooks/useDeliberateTap';
 import {
   Play, Pause, SkipBack, SkipForward,
   ListMusic, PictureInPicture2, Minimize2, PanelBottom,
@@ -223,6 +224,8 @@ export default function PlayerTransport({
   const veryTight = w < 260;
 
   const [radio, setRadio] = useRadio();
+  // Play/pause answers a deliberate tap only — see useDeliberateTap.
+  const playTap = useDeliberateTap(onPlayPause);
   const size = tight ? 15 : 16;
   const btn = `flex items-center justify-center shrink-0 rounded-lg text-white/60 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors ${
     tight ? 'w-8 h-8' : 'w-9 h-9'
@@ -246,7 +249,7 @@ export default function PlayerTransport({
         aria-label="Previous" className={btn}>
         <SkipBack size={size} />
       </button>
-      <button type="button" onClick={onPlayPause} title={playing ? 'Pause' : 'Play'}
+      <button type="button" {...playTap} title={playing ? 'Pause' : 'Play'}
         aria-label={playing ? 'Pause' : 'Play'} className={btn}>
         {playing ? <Pause size={size} /> : <Play size={size} />}
       </button>

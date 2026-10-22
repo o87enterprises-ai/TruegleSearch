@@ -64,6 +64,17 @@ for (const phone of [true, false]) {
   // A trip away from Tube: the player floats everywhere else.
   // In-app navigation, as a visitor does it — a reload would restart the app.
   await page.evaluate("history.pushState({}, '', '/chat'); dispatchEvent(new PopStateEvent('popstate'))");
+  // Changing page shrinks the player to its widget, parked top-right under
+  // the clock; expanding it brings the full player (and its box) back.
+  const mini = page.locator('[data-mini-bar]').first();
+  await until(() => mini.count(), { what: 'the player to minimize on navigation', timeout: 5000 }).catch(() => {});
+  const frame = page.locator('[data-mini]').first();
+  await until(async () => ((await frame.boundingBox().catch(() => null))?.y ?? 0) < 90, { what: 'the widget to park', timeout: 4000 }).catch(() => {});
+  const mb = await frame.boundingBox().catch(() => null);
+  const vw = page.viewportSize().width;
+  check(!!mb && mb.y >= 40 && mb.y < 90 && Math.abs(vw - (mb.x + mb.width) - 12) < 6,
+    `${tag} changing page shrinks the player to the widget, top-right under the clock`, mb ? `x=${Math.round(mb.x)} y=${Math.round(mb.y)} w=${Math.round(mb.width)}` : 'no frame');
+  await page.locator('[aria-label="Expand the player"]').first().click().catch(() => {});
   await until(() => box.count(), { what: 'the floating player on another page', timeout: 10000 }).catch(() => {});
   check((await boxValue()) === 'duck sauce', `${tag} away from Tube (on Chat) the player still has the search — no retyping`, `"${await boxValue()}"`);
   check(errs.length === 0, `${tag} nothing threw`, errs.join(' | ') || 'clean');
