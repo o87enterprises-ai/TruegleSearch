@@ -145,28 +145,28 @@ describe('Browser Settings API', () => {
   it('should provide Chrome instructions', () => {
     const instructions = BROWSER_API.getInstructions('Chrome');
     expect(instructions.title).toBe('Manual Setup for Chrome');
-    expect(instructions.steps).toHaveLength(4);
+    expect(instructions.steps).toHaveLength(5);
     expect(instructions.steps[0]).toContain('Chrome settings');
   });
 
   it('should provide Safari instructions', () => {
     const instructions = BROWSER_API.getInstructions('Safari');
     expect(instructions.title).toBe('Manual Setup for Safari');
-    expect(instructions.steps).toHaveLength(4);
+    expect(instructions.steps).toHaveLength(5);
     expect(instructions.steps[0]).toContain('Safari');
   });
 
   it('should provide Firefox instructions', () => {
     const instructions = BROWSER_API.getInstructions('Firefox');
     expect(instructions.title).toBe('Manual Setup for Firefox');
-    expect(instructions.steps).toHaveLength(4);
-    expect(instructions.steps[2]).toContain('truegle.com');
+    expect(instructions.steps).toHaveLength(6);
+    expect(instructions.steps[3]).toContain('truegle.com');
   });
 
   it('should provide Edge instructions', () => {
     const instructions = BROWSER_API.getInstructions('Edge');
     expect(instructions.title).toBe('Manual Setup for Edge');
-    expect(instructions.steps).toHaveLength(4);
+    expect(instructions.steps).toHaveLength(6);
   });
 
   it('should fall back to Chrome instructions for unknown browsers', () => {

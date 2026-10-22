@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import BROWSER_API from '../api/browserSettings';
+import BROWSER_API from '../../api/browserSettings';
 
 const PERMISSIONS_KEY = 'truegle_permissions';
 const PERMISSIONS_DISMISSED_KEY = 'truegle_permissions_dismissed';

@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
 
   return {
   plugins: [react()],
+  test: { environment: 'jsdom', setupFiles: ['./src/test/setup.js'] },
   base: './',
   assetsInlineLimit: 0,
   // Bake the resolved backend URL into the bundle so every
