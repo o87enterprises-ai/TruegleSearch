@@ -2391,6 +2391,15 @@
         "status": "open",
         "ts": "2026-10-18",
         "created": "2026-10-18"
+      },
+      "ios-longform-playback": {
+        "Id": "ios-longform-playback",
+        "Type": "thread",
+        "Label": "iPhone: long-form YouTube reportedly won't show/play (parked by owner)",
+        "body": "Tester (no further detail coming): on iPhone Shorts/Reels work, long-form videos don't. Emulated iPhone vs Android lists are identical (Tube grid, viewport deck, idle deck, Feed) and live /api/search returns long-form for an iPhone UA, so likely PLAYBACK in real WebKit. Lead to compare: Shorts go through ReelsPlayer (reel.src + autoplay=1&mute=1&enablejsapi=1&playsinline=1, PLAYER_SANDBOX); long-form through PlayerScreen withPlaybackChannel (youtube-nocookie + autoplay/mute/playsinline/enablejsapi + origin=). No WebKit in the sandbox to test; needs a real iPhone or Playwright WebKit. Owner said 'save that edit for later' 2026-10-22.",
+        "status": "open",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
       }
     },
     "entity": {
