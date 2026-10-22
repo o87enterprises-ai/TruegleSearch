@@ -122,6 +122,7 @@ const LEADING_CHANNEL = /^channel\s+(?:for\s+)?(.+)$/i;
 export const SEARCH_SCOPES = [
   { id: 'all', label: 'All' },
   { id: 'shorts', label: 'Shorts' },
+  { id: 'lists', label: 'Lists' },
   { id: 'channel', label: 'Channel' },
   { id: 'song', label: 'Track' },
   { id: 'artist', label: 'Artist' },
@@ -139,6 +140,10 @@ export const SEARCH_SCOPES = [
 // without folding that would have quietly orphaned every reel anyone
 // submitted, so this scope is what reaches it (see usePlayerSearch).
 export const isShortsScope = (scope) => scope === 'shorts';
+
+// Lists is a scope that searches PLAYLISTS — your saved ones, then public ones —
+// instead of single videos. See usePlayerSearch and utils/listRows.js.
+export const isListsScope = (scope) => scope === 'lists';
 const SCOPE_IDS = new Set(SEARCH_SCOPES.map((s) => s.id));
 
 /**

@@ -18,6 +18,7 @@ import { useTubeSort, setTubeSort, useSortedRows } from '../../utils/tubeSort';
 import SafeSearchToggle from '../ui/SafeSearchToggle';
 import PlayerLibrary from './PlayerLibrary';
 import { useWatchHistory, clearWatchHistory } from '../../utils/watchHistory';
+import ListRowActions from './ListRowActions';
 
 // The list that lives under the player — the same one in all three
 // presentations.
@@ -467,6 +468,11 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
                   );
                 })()}
               </span>
+              {r.isList ? (
+                // A PLAYLIST row: Play / Play All and Save list, not the
+                // single-video Play now / Add / Save below.
+                <ListRowActions row={r} onDone={scheduleRevert} />
+              ) : (<>
               {/* Play now: jumps the queue and comes back to what was on. */}
               <button
                 type="button"
@@ -500,6 +506,7 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
               </button>
               <SaveTo source={r} className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg border border-white/15 text-white/70 hover:text-white hover:bg-white/10 transition-colors" />
               <BrokenFlag source={r} />
+              </>)}
             </div>
           ))}
 

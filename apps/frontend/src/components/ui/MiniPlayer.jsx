@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { usePlayer } from '../../context/PlayerContext';
-import { X, Minus, GripHorizontal, PictureInPicture2, PanelBottom, Search } from 'lucide-react';
+import { X, Minus, GripHorizontal, PictureInPicture2, PanelBottom, Search, ChevronDown } from 'lucide-react';
 import { MODE_COLORS, BRAND_GRADIENT } from '../../config/modeTheme';
 import { usePageMode, BRAND } from '../../hooks/usePageMode';
 import TrueglePlayer from '../player/TrueglePlayer';
 import { useFeedbackBarHeight } from './PreProductionBanner';
 import { useBottomDockClaim } from '../../hooks/useBottomDock';
-import { usePlayerQuery, getLastTubeSearch } from '../../utils/playerQueryStore';
+import { usePlayerQuery, getLastTubeSearch, setPlayerQuery as publishPageQuery } from '../../utils/playerQueryStore';
+import { SEARCH_SCOPES } from '../../utils/playerQuery';
 import { lastQuery, setLastQuery, recordSearch } from '../../utils/playerSearchMemory';
 import PlayerSearchMemory from '../player/PlayerSearchMemory';
 import { toHandle } from '../../utils/playerQuery';
@@ -131,8 +132,21 @@ export default function MiniPlayer() {
   // costs no screen to offer. Kept as named constants rather than inlined
   // because TrueglePlayer still takes them, and the day one of them becomes a
   // real setting again this is the seam.
-  const playerScope = 'all';
+  // EXCEPT ON TUBE, popped out: there the player's bar is the ONE search bar
+  // (the page's steps aside — see UniversalSearch tubeOneBar), so it needs the
+  // category control the page bar had. Everywhere else the scope stays 'all'
+  // and the two bars stay independent.
+  const onTubePage = pageMode === 'tube';
+  const tubeOneBar = onTubePage && poppedOut;
+  const [scopeSel, setScopeSel] = useState('all');
+  const playerScope = tubeOneBar ? scopeSel : 'all';
   const playerProvider = 'all';
+  const queryNow = useRef('');
+  useEffect(() => { queryNow.current = playerQuery; });
+  useEffect(() => {
+    if (!tubeOneBar) return;
+    publishPageQuery(queryNow.current, scopeSel, 'all');
+  }, [tubeOneBar, submitNonce, scopeSel]);
   const playerInputRef = useRef(null);
   const submitPlayerQuery = useCallback(() => {
     recordSearch(playerInputRef.current?.value);
@@ -144,6 +158,26 @@ export default function MiniPlayer() {
   }, []);
   const frameRef = useRef(null);
   const page = usePlayerQuery();
+
+  // ── ONE BAR ON TUBE: carrying the search across pop-out and back ─────────
+  // Popping out hands the page's search to the player's bar (the text and the
+  // category the page bar held), because the page bar steps aside. The player
+  // publishes what it SUBMITS back to the shared store, so the page's grid
+  // follows it and docking again returns the same search to the page bar.
+  const lastPageScope = useRef('all');
+  useEffect(() => { if (!poppedOut) lastPageScope.current = page.scope || 'all'; }, [page.scope, poppedOut]);
+  const wasOneBar = useRef(false);
+  useEffect(() => {
+    if (tubeOneBar && !wasOneBar.current) {
+      const t = getLastTubeSearch();
+      if (t) setPlayerQuery(t);
+      setScopeSel(lastPageScope.current || 'all');
+    }
+    // Left Tube entirely while popped: drop the search we published, so the
+    // next page's player does not inherit it.
+    if (wasOneBar.current && !onTubePage) publishPageQuery('', 'all', 'all');
+    wasOneBar.current = tubeOneBar;
+  }, [tubeOneBar, onTubePage]);
   // A PICK FROM A PAGE SEARCH CARRIES THE SEARCH WITH IT. On Tube the page's
   // bar drives the player only while the player is docked to the page; the
   // moment it floats (always, on a phone) or you leave Tube, it shows its OWN
@@ -730,6 +764,21 @@ export default function MiniPlayer() {
               TUCKED after a pick sits idle for ten seconds: the bar shrinks to
               a one-tap chip; tapping it restores the bar and reopens the last
               query's results. */}
+          {tubeOneBar && !searchTucked && (
+            <label className="relative shrink-0" onPointerDown={(e) => e.stopPropagation()}>
+              <span className="sr-only">Category</span>
+              <select
+                data-player-scope=""
+                value={scopeSel}
+                onChange={(e) => { setScopeSel(e.target.value); setSubmitNonce((n) => n + 1); }}
+                className="appearance-none h-8 pl-2 pr-5 rounded-lg bg-white/10 border border-white/15 text-white text-[11px] font-semibold outline-none"
+                style={{ colorScheme: 'dark' }}
+              >
+                {SEARCH_SCOPES.map((sc) => <option key={sc.id} value={sc.id}>{sc.label}</option>)}
+              </select>
+              <ChevronDown size={11} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" />
+            </label>
+          )}
           {searchTucked ? (
             <button
               type="button"

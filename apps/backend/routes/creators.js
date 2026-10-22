@@ -411,6 +411,41 @@ async function playlistViaDataApi(playlistId) {
   return { videos: out, complete: false };
 }
 
+// THE KEYLESS FULL LIST. RSS hands back ~15 videos, so a 200-track playlist
+// "played" its first fifteen and stopped — and the Data API is often down or
+// out of quota. Invidious serves a playlist 100 at a time with no key, so it
+// sits between the two: Data API → Invidious → RSS.
+const INVIDIOUS_PLAYLIST_PAGES = 5;      // 5 * 100 = the 500-video cap
+async function playlistViaInvidious(playlistId) {
+  const out = [];
+  let total = 0;
+  for (let page = 1; page <= INVIDIOUS_PLAYLIST_PAGES; page += 1) {
+    const hit = await gateway.fromPool(
+      `/api/v1/playlists/${encodeURIComponent(playlistId)}?page=${page}`,
+      { accept: (d) => Array.isArray(d?.videos) && d.videos.length > 0 },
+    );
+    if (!hit) break;
+    total = Number(hit.data.videoCount) || total;
+    for (const v of hit.data.videos) {
+      if (!v?.videoId) continue;          // private / deleted placeholders
+      const thumb = Array.isArray(v.videoThumbnails)
+        ? (v.videoThumbnails.find((t) => t.quality === 'high') || v.videoThumbnails[0])?.url
+        : null;
+      out.push({
+        videoId: v.videoId,
+        title: v.title || '',
+        published: null,
+        thumbnail: thumb && !thumb.startsWith('//') ? thumb : `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
+        channel: v.author || null,
+        url: `https://www.youtube.com/watch?v=${v.videoId}`,
+      });
+    }
+    if (hit.data.videos.length < 100 || out.length >= PLAYLIST_CAP) break;
+  }
+  if (!out.length) return null;
+  return { videos: out.slice(0, PLAYLIST_CAP), complete: !total || out.length >= total || out.length < 100 };
+}
+
 async function playlistViaRss(playlistId) {
   const r = await fetch(
     `https://www.youtube.com/feeds/videos.xml?playlist_id=${encodeURIComponent(playlistId)}`,
@@ -450,6 +485,14 @@ router.get('/playlist', async (req, res) => {
         return res.status(404).json({ error: 'playlist_not_found', videos: [] });
       }
       logger.warn('Playlist Data API failed, trying RSS:', { playlistId, error: e.message });
+    }
+    if (!payload || payload.videos.length === 0) {
+      try {
+        const viaPool = await playlistViaInvidious(playlistId);
+        if (viaPool) payload = { ...viaPool, source: 'invidious' };
+      } catch (e) {
+        logger.warn('Playlist Invidious failed, trying RSS:', { playlistId, error: e.message });
+      }
     }
     if (!payload || payload.videos.length === 0) {
       payload = { ...(await playlistViaRss(playlistId)), source: 'rss' };
@@ -692,10 +735,104 @@ function decode(s) {
     .replace(/&#39;/g, "'");
 }
 
+// ── PLAYLIST SEARCH (the Tube "Lists" chip) ─────────────────────────────────
+// Finds PLAYLISTS, not videos. Every row carries a real `playlistUrl`, which
+// the player turns into tracks through GET /playlist above (Play All), so a
+// tapped result plays instead of landing on YouTube's playlist embed (which
+// shows "This video is unavailable" here).
+//
+//   1. Invidious search (type=playlist) — keyless, first.
+//   2. The YouTube Data API, when a key works.
+//   3. Our own SearXNG, keeping only links that carry a playlist id.
+// Cached an hour. Every rung fails soft; total failure is an empty list.
+const plSearchCache = new Map();
+const plRow = (id, title, channel, count, thumbnail) => ({
+  playlistId: id,
+  title: title || 'YouTube playlist',
+  channel: channel || null,
+  count: Number.isFinite(Number(count)) && Number(count) > 0 ? Number(count) : null,
+  thumbnail: thumbnail || null,
+  url: `https://www.youtube.com/playlist?list=${id}`,
+});
+
+async function playlistSearch(q) {
+  const enc = encodeURIComponent(q);
+  try {
+    const hit = await gateway.fromPool(`/api/v1/search?type=playlist&q=${enc}`, {
+      accept: (d) => Array.isArray(d) && d.some((x) => x?.type === 'playlist' && x.playlistId),
+    });
+    if (hit) {
+      const rows = hit.data.filter((x) => x?.type === 'playlist' && /^[A-Za-z0-9_-]{12,64}$/.test(x.playlistId || ''))
+        .map((x) => {
+          const t = x.playlistThumbnail || x.videos?.[0]?.videoThumbnails?.[0]?.url || null;
+          return plRow(x.playlistId, x.title, x.author, x.videoCount, t && !t.startsWith('//') ? t : null);
+        });
+      if (rows.length) return rows;
+    }
+  } catch { /* fall through */ }
+
+  const key = process.env.YOUTUBE_API_KEY;
+  if (key) {
+    try {
+      const r = await fetch('https://www.googleapis.com/youtube/v3/search'
+        + `?part=snippet&type=playlist&maxResults=12&q=${enc}&key=${key}`);
+      if (r.ok) {
+        const j = await r.json();
+        const rows = (j.items || []).map((it) => (it.id?.playlistId
+          ? plRow(it.id.playlistId, it.snippet?.title, it.snippet?.channelTitle, null,
+            it.snippet?.thumbnails?.high?.url || it.snippet?.thumbnails?.medium?.url)
+          : null)).filter(Boolean);
+        if (rows.length) return rows;
+      }
+    } catch { /* fall through */ }
+  }
+
+  try {
+    const axios = require('axios');
+    const config = require('../config/env');
+    if (config.searxng && config.searxng.url) {
+      // Domain-only site: — a path prefix is honoured by Google alone.
+      const res = await axios.get(`${config.searxng.url}/search`, {
+        params: { q: `site:youtube.com ${q} playlist`, format: 'json', categories: 'general' },
+        headers: { 'ngrok-skip-browser-warning': 'true', 'User-Agent': 'TruegleSearch/1.0' },
+        timeout: 5000,
+      });
+      const seen = new Set();
+      const rows = [];
+      for (const r of (res.data && res.data.results) || []) {
+        const id = playlistIdFrom(r.url);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        rows.push(plRow(id, String(r.title || '').replace(/\s*-\s*YouTube\s*$/i, ''), null, null, r.thumbnail || r.img_src));
+      }
+      if (rows.length) return rows;
+    }
+  } catch { /* nothing left to try */ }
+  return [];
+}
+
+/** GET /api/creators/playlists/search?q= → { playlists: [{ playlistId, title, channel, count, thumbnail, url }] } */
+router.get('/playlists/search', async (req, res) => {
+  const q = String(req.query.q || '').trim().slice(0, 120);
+  if (q.length < 2) return res.status(400).json({ error: 'bad_query', playlists: [] });
+  const key = q.toLowerCase();
+  const hit = plSearchCache.get(key);
+  if (hit && Date.now() - hit.at < SEARCH_TTL_MS) return res.json({ playlists: hit.rows, cached: true });
+  try {
+    const rows = await playlistSearch(q);
+    if (rows.length) plSearchCache.set(key, { at: Date.now(), rows });
+    return res.json({ playlists: rows });
+  } catch (e) {
+    logger.warn('Playlist search failed:', { error: e.message });
+    return res.json({ playlists: [] });
+  }
+});
+
 // Attached to the router function so routes/social.js can call the fetch
 // logic directly (no HTTP self-call) while GET /feed above stays the normal
 // standalone entry point — same require, two ways in.
 router.fetchCreatorsFeed = fetchCreatorsFeed;
+router.playlistSearch = playlistSearch;
 router.spreadByChannel = spreadByChannel;
 
 module.exports = router;

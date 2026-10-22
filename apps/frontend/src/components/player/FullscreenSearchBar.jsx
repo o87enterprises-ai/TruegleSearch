@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ChevronDown, X, Play, Loader2, Mic, ClipboardPaste, ArrowRight } from 'lucide-react';
 import { isPlaylistUrl } from '../../utils/playlistImport';
 import { usePlayAll } from '../../hooks/usePlayAll';
+import { usePlayer } from '../../context/PlayerContext';
+import { playlistById } from '../../utils/playlists';
 import { SEARCH_SCOPES } from '../../utils/playerQuery';
 
 /* ── The drop-down bar in full screen ───────────────────────────────────────
@@ -94,15 +96,22 @@ export default function FullscreenSearchBar({
     } catch { inputRef.current?.focus(); }
   }, []);
 
+  const { playList } = usePlayer();
   const pick = useCallback((r) => {
     if (r?.playlistUrl) { playAll(r.playlistUrl); setQuery(''); setOpen(false); return; }
+    // One of YOUR saved lists (the Lists category): play its own tracks.
+    if (r?.savedListId) {
+      const list = playlistById(r.savedListId);
+      if (list?.items.length) playList(list.items, 'tube', list.id, 0);
+      setQuery(''); setOpen(false); return;
+    }
     onSelect?.(r);
     // Same contract as everywhere else in the player: a selection puts the
     // list away and empties the box. Nobody wants to close their own search
     // after choosing from it.
     setQuery('');
     setOpen(false);
-  }, [onSelect]);
+  }, [onSelect, playAll, playList]);
 
   return (
     <div className="absolute inset-x-0 top-0 z-30 pointer-events-none">

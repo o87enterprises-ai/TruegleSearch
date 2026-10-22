@@ -46,7 +46,7 @@ const sel = page.locator('[data-fs-scope]');
 await until(() => sel.count(), { what: 'the full-screen category dropdown', timeout: 3000 }).catch(() => {});
 check(await sel.count() === 1, 'the full-screen search bar has a category dropdown');
 const opts = await sel.locator('option').allInnerTexts();
-check(opts.join(',') === 'All,Shorts,Channel,Track,Artist,Title,Topic', '…listing the same categories', opts.join(','));
+check(opts.join(',') === 'All,Shorts,Lists,Channel,Track,Artist,Title,Topic', '…listing the same categories', opts.join(','));
 await sel.selectOption('shorts');
 check(await sel.inputValue() === 'shorts', '…and picking one sticks', await sel.inputValue());
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');

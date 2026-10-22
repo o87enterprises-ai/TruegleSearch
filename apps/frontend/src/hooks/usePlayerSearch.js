@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getPlayable, mediaKey, embedFromIframeSrc, embedFromCode } from '../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../utils/playerLink';
-import { parsePlayerQuery, rankPlayable, isolatePlatform, isShortsScope, toHandle } from '../utils/playerQuery';
+import { parsePlayerQuery, rankPlayable, isolatePlatform, isShortsScope, isListsScope, toHandle } from '../utils/playerQuery';
+import { savedListRows, publicListRows } from '../utils/listRows';
 import { withoutBroken, loadBrokenList } from '../utils/broken';
 import { isPlaylistUrl } from '../utils/playlistImport';
 import { isShortForm, asReel } from '../utils/shortForm';
@@ -236,6 +237,35 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
       return;
     }
     setUnsupported('');
+
+    // THE "LISTS" CHIP searches PLAYLISTS, not videos: your saved lists first
+    // (local, instant — they show before any network answers), then public
+    // playlists from the backend. Every row says what tapping it does —
+    // savedListId plays your list, playlistUrl is Play All — see listRows.js.
+    if (isListsScope(activeScope)) {
+      const saved = savedListRows(q);
+      const controller = new AbortController();
+      abortRef.current = controller;
+      setError('');
+      setResults(saved);
+      setLoading(true);
+      fetch(`${BACKEND}/api/creators/playlists/search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
+        .then((r) => (r.ok ? r.json() : { playlists: [] }))
+        .then((d) => {
+          if (controller.signal.aborted) return;
+          // A public playlist you have already saved shows once, as YOURS.
+          const mine = new Set(saved.map((r) => r.origin).filter(Boolean));
+          const pub = publicListRows(d.playlists).filter((r) => {
+            const id = (() => { try { return new URL(r.playlistUrl).searchParams.get('list'); } catch { return null; } })();
+            return !mine.has(`yt:${id}`);
+          });
+          setResults([...saved, ...pub]);
+          setTrace({ steps: [`lists saved ${saved.length} · public ${pub.length}`], community: 0, query: q });
+        })
+        .catch((e) => { if (e.name !== 'AbortError') setError('Playlist search is unreachable right now.'); })
+        .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+      return;
+    }
 
     const controller = new AbortController();
     abortRef.current = controller;

@@ -1848,6 +1848,14 @@
         "body": "Owner 2026-10-22: TubeScopeBar renders above the SearchBar on Tube (data-tube-scope-above), not inside the bar nor under the docked player (SearchBar categorySlot gets an empty span to block the generic CategoryBar). FullscreenSearchBar takes scope/onScope and renders a native <select> (data-fs-scope); TrueglePlayer keeps fsScope (follows the page scope) for voiceSearch. verify-tube-scope-placement.mjs.",
         "ts": "2026-10-22",
         "created": "2026-10-22"
+      },
+      "d-tube-lists-one-bar": {
+        "Id": "d-tube-lists-one-bar",
+        "Type": "decision",
+        "Label": "Tube Lists scope + playable playlists + one bar on Tube (owner 2026-10-22)",
+        "body": "SEARCH_SCOPES += lists. usePlayerSearch lists branch: savedListRows (utils/listRows.js, local, first) then public via GET /api/creators/playlists/search (Invidious type=playlist -> Data API -> SearXNG filtered to list= urls). Rows carry savedListId (playList of own items) or playlistUrl (usePlayAll -> importPlaylist). ListRowActions (components/player): saved = Play + Add to queue; public = Play All + Save list (import without playing). Used in TubeResultsGrid, PlayerListSlot, PlayerBrowse; FullscreenSearchBar handles savedListId. /api/creators/playlist now Data API -> Invidious (fromPool /api/v1/playlists/<id>?page=, up to 500) -> RSS(~15). ONE BAR: UniversalSearch tubeOneBar = tube && poppedOut && !minimized hides page SearchBar + chips; MiniPlayer shows category <select data-player-scope>, carries page text/scope on pop-out (getLastTubeSearch + lastPageScope), publishes submitted query via playerQueryStore, UniversalSearch adopts it on dock-back; grid follows playerStore.text/scope. Other pages unchanged (two independent bars). Tests: verify-tube-lists.mjs (22), creatorsPlaylists.test.js (5).",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
       }
     },
     "thread": {
