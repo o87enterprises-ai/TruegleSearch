@@ -1954,6 +1954,14 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
                 <TubeReelsToggle active="tube" onReels={() => selectCategory('reels')} />
               </div>
             )}
+            {/* TUBE'S CATEGORIES SIT ABOVE THE BAR (owner, 2026-10-22). Below
+                it they landed under the docked player, far from the box they
+                steer; up here they read as "what kind of thing to search". */}
+            {mode === 'tube' && pillMode !== 'black' && (
+              <div className="mb-2 px-1" data-tube-scope-above="">
+                <TubeScopeBar activeScope={tubeScope} onSelectScope={setTubeScope} />
+              </div>
+            )}
             <SearchBar
               value={searchValue}
               // No buttons below the bar (uniform with landing/chat) — submit
@@ -1992,7 +2000,9 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
               // OSINT exception: the ocean page swaps the content categories for
               // the investigation-class row rendered below the bar.
               showCategories={mode !== 'ocean' && !tubeDocked && pillMode !== 'black'}
-              categorySlot={mode === 'tube' ? <TubeScopeBar activeScope={tubeScope} onSelectScope={setTubeScope} /> : null}
+              // Tube's chips render ABOVE the bar now (see data-tube-scope-above);
+              // an empty slot here stops the generic CategoryBar taking the spot.
+              categorySlot={mode === 'tube' ? <span hidden /> : null}
               showMultiInput
               autoVoice={autoVoice}
               showCameraInput={!tubeDocked}
@@ -2039,17 +2049,6 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
                     </div>
                   )}
 
-                  {/* Docking the player took over showCategories' usual spot
-                      inside the bar (singleLine has no room for it) — so it
-                      never showed at all while docked. Same row, same
-                      activeCategory/selectCategory wiring, just relocated to
-                      under the player instead of dropped. Chat lenses take
-                      this slot when the pill is Chat, same as the undocked bar. */}
-                  {pillMode !== 'black' && (
-                    <div className="px-3 pb-2 pt-1 bg-black/30">
-                      <TubeScopeBar activeScope={tubeScope} onSelectScope={setTubeScope} />
-                    </div>
-                  )}
                 </div>
               ) : null}
               activeCategory={activeCategory}

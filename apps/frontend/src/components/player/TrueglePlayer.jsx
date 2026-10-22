@@ -135,7 +135,11 @@ export default function TrueglePlayer({
   // box the user cannot see. Empty until something is actually said, so this
   // costs one no-op hook and no request.
   const [voiceQuery, setVoiceQuery] = useState('');
-  const voiceSearch = usePlayerSearch(voiceQuery, scope, provider);
+  // The full-screen bar's own category, starting from the page's and
+  // following it when the page changes it (FullscreenSearchBar's dropdown).
+  const [fsScope, setFsScope] = useState(scope);
+  useEffect(() => { setFsScope(scope); }, [scope]);
+  const voiceSearch = usePlayerSearch(voiceQuery, fsScope, provider);
   // Drives the viewport shrink: "list drops down, viewport shrinks to
   // accommodate". The picture gets smaller rather than being covered, because
   // a list over the video means picking a track blind — and this exists to be
@@ -1089,6 +1093,8 @@ export default function TrueglePlayer({
           onSearch={setVoiceQuery}
           onSelect={(r) => { play(r); setVoiceQuery(''); }}
           onVoice={onVoiceSearch}
+          scope={fsScope}
+          onScope={setFsScope}
         />
       )}
 

@@ -1840,6 +1840,14 @@
         "body": "Why Truegle tile has no pitch line. Tracking: 'No tracking, ads, or user data.' Censorship: '+18 safe mode toggle' button + ON/OFF badge. Tube: 'One customizable player for all media.\\nFree streaming, no ads, ever.' Feed: 'One feed for all social media.' Search: 'Multiple modes for discovering what other search methods suppress.' Chat: 'Unbiased, unopinionated, and indifferent deep research agent.' verify-landing-cards allows <=12 words, why bare.",
         "ts": "2026-10-22",
         "created": "2026-10-22"
+      },
+      "d-tube-scope-above": {
+        "Id": "d-tube-scope-above",
+        "Type": "decision",
+        "Label": "Tube categories above the search bar; full-screen bar has a category dropdown",
+        "body": "Owner 2026-10-22: TubeScopeBar renders above the SearchBar on Tube (data-tube-scope-above), not inside the bar nor under the docked player (SearchBar categorySlot gets an empty span to block the generic CategoryBar). FullscreenSearchBar takes scope/onScope and renders a native <select> (data-fs-scope); TrueglePlayer keeps fsScope (follows the page scope) for voiceSearch. verify-tube-scope-placement.mjs.",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
       }
     },
     "thread": {
@@ -2391,6 +2399,15 @@
         "status": "open",
         "ts": "2026-10-18",
         "created": "2026-10-18"
+      },
+      "ios-longform-playback": {
+        "Id": "ios-longform-playback",
+        "Type": "thread",
+        "Label": "iPhone: long-form YouTube reportedly won't show/play (parked by owner)",
+        "body": "Tester (no further detail coming): on iPhone Shorts/Reels work, long-form videos don't. Emulated iPhone vs Android lists are identical (Tube grid, viewport deck, idle deck, Feed) and live /api/search returns long-form for an iPhone UA, so likely PLAYBACK in real WebKit. Lead to compare: Shorts go through ReelsPlayer (reel.src + autoplay=1&mute=1&enablejsapi=1&playsinline=1, PLAYER_SANDBOX); long-form through PlayerScreen withPlaybackChannel (youtube-nocookie + autoplay/mute/playsinline/enablejsapi + origin=). No WebKit in the sandbox to test; needs a real iPhone or Playwright WebKit. Owner said 'save that edit for later' 2026-10-22.",
+        "status": "open",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
       }
     },
     "entity": {
