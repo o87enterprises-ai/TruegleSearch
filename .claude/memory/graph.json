@@ -1800,6 +1800,22 @@
         "body": "routes/social.js fetchViaSearx (home feed only, no query): shared seed first; if it finds nothing, FeedSeeds.TOP_POST_SEEDS[platform] word for that page (tiktok/instagram/facebook/x/pinterest/rumble/truthsocial), then the next word; two empty words in a row -> cursor null. Typed queries are never replaced. Feed page already round-robins per platform (interleave:true). Test: __tests__/feedTopPosts.test.js. new-endpoints.test.js was failing before this change.",
         "ts": "2026-10-22",
         "created": "2026-10-22"
+      },
+      "d-ios-sound-unmute": {
+        "Id": "d-ios-sound-unmute",
+        "Type": "decision",
+        "Label": "iPhone: speaker shows MUTED until the viewer asks; tap sends unMute in the gesture",
+        "body": "Bug: iOS YouTube/TikTok autoplay muted but speaker showed stored level; tap1 'muted' a silent clip, tap2 restored a level the old 'volume === volumeAtSource' iOS hold refused to send -> no sound ever. Now TrueglePlayer: startsMutedOnIOS + soundAskedFor(sourceKey); shownVolume=0 until asked; onVolume sends embedSetVolume synchronously inside the tap; 'Tap for sound' pill (data-ios-sound) over a playing silent clip. verify-iphone-player.mjs covers it.",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
+      },
+      "d-osint-people-search": {
+        "Id": "d-osint-people-search",
+        "Type": "decision",
+        "Label": "OSINT: pre-filled free people-search links + leaving-Truegle notice",
+        "body": "utils/peopleSearch.js builds deep links (Whitepages, TruePeopleSearch, FastPeopleSearch, That's Them, ZabaSearch, Radaris, Nuwber, Google; phone: + Sync.ME) from parsed name (2+ words) and US phone. LINKS ONLY — server never fetches them (bot walls, ToS, would leak subject from our box). PeopleSearchCard in Intel findings, gatherable into debrief. VerifyFrame: knownUnframeable(url) or blocked -> LeavingNotice (open in new tab, copy link + per-OS private-window steps). Browsers can't open incognito or an un-tapped tab, so one tap is required.",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
       }
     },
     "thread": {

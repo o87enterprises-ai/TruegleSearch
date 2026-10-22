@@ -93,12 +93,17 @@ check(await page.evaluate('getComputedStyle(document.documentElement).overflow')
   '…and the page behind it cannot scroll');
 check(await page.locator('[data-swipe-sheet]').count() === 1, '…and the full-screen gestures are live (swipe sheet up)');
 
-// A tap on the picture pauses, as in real full screen; the transport resumes.
+// A tap on the picture only brings up the controls — pausing takes a
+// deliberate tap on a Play/Pause button, same as on Android.
 const sheet = await page.locator('[data-swipe-sheet]').first().boundingBox().catch(() => null);
-if (sheet) await page.touchscreen.tap(sheet.x + sheet.width / 2, sheet.y + sheet.height / 2);
+if (sheet) await page.touchscreen.tap(sheet.x + sheet.width * 0.2, sheet.y + sheet.height * 0.7);
+await page.waitForTimeout(500);
+check(await page.locator('[data-player-root] button[aria-label="Play"]:visible').count() === 0, 'a stray tap on the picture in full screen does NOT pause it');
+const hudPause = page.locator('[data-player-hud-transport] button[aria-label="Pause"]').first();
+if (await hudPause.count()) await hudPause.tap();
 const playBtn = page.locator('[data-player-root] button[aria-label="Play"]:visible').first();
 await until(() => playBtn.count(), { what: 'the tap to pause', timeout: 2000 }).catch(() => {});
-check(await playBtn.count() === 1, 'a tap on the picture in full screen pauses it');
+check(await playBtn.count() > 0, 'a tap on the centre Pause button pauses it');
 if (await playBtn.count()) await playBtn.tap();
 await until(async () => (await page.locator('[data-player-root] button[aria-label="Play"]:visible').count()) === 0, { what: 'resume', timeout: 2000 }).catch(() => {});
 check(await page.locator('[data-player-root] button[aria-label="Pause"]:visible').count() > 0, '…and a tap on Play resumes it');
@@ -135,17 +140,17 @@ await until(async () => (await page.locator('[data-pseudo-fullscreen]').count())
 check(await page.evaluate("getComputedStyle(document.querySelector('[data-mini]')).transform") === frameTransform,
   '…and the frame gets its own transform back on the way out');
 
-// ── volume: a tap is a press, not a hover ─────────────────────────────────
-const vol = page.locator('[data-player-root] button[aria-label^="Volume"]:visible').first();
-if (await vol.count()) {
-  await vol.tap();
+// ── volume: the clip autoplays muted on an iPhone, and the speaker SAYS so ──
+// It used to show the stored level, so the first tap "muted" a silent video
+// and the second restored a level that was then never sent — no sound at all.
+const unmute = page.locator('[data-player-root] button[aria-label="Unmute"]:visible').first();
+check(await unmute.count() === 1, 'a fresh clip on an iPhone shows the speaker as MUTED');
+if (await unmute.count()) {
+  await unmute.tap();
   await page.waitForTimeout(200);
-  const muted = await page.locator('[data-player-root] button[aria-label="Unmute"]:visible').count();
+  const loud = await page.locator('[data-player-root] button[aria-label^="Volume,"]:visible').count();
   const slider = await page.locator('[data-player-root] input[aria-label="Volume"]:visible').count();
-  check(muted === 1 && slider === 1, 'one tap on Volume both mutes and opens the slider (hover no longer takes the tap)',
-    `muted=${muted} slider=${slider}`);
-} else {
-  check(false, 'the volume button is there to test');
+  check(loud === 1 && slider === 1, 'one tap on it turns the sound ON (and opens the slider)', `loud=${loud} slider=${slider}`);
 }
 
 // ── hover styles need a hover ─────────────────────────────────────────────
