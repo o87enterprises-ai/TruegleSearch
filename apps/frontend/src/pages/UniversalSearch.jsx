@@ -122,7 +122,7 @@ import { isShortForm, asReel } from '../utils/shortForm';
 import { useFeedAutoplay } from '../hooks/useFeedAutoplay';
 import TrueglePlayer from '../components/player/TrueglePlayer';
 import ShareGate from '../components/player/ShareGate';
-import { setPlayerQuery, rememberTubeSearch } from '../utils/playerQueryStore';
+import { setPlayerQuery, rememberTubeSearch, usePlayerQuery } from '../utils/playerQueryStore';
 import { toHandle, SEARCH_SCOPES } from '../utils/playerQuery';
 
 // Guarded so a hand-typed ?scope=whatever can't put the chips into a state
@@ -318,7 +318,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
   // Tube docks the one player into this page; popping it out hands it to the
   // floating frame and leaves a way back.
   const {
-    poppedOut, setPoppedOut, current: playerCurrent,
+    poppedOut, setPoppedOut, current: playerCurrent, minimized: playerMinimized,
     expanded: tubeExpanded, setExpanded, enqueueMany, play,
     startFeed, stopFeed, feedActive,
   } = usePlayer();
@@ -329,6 +329,26 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
   // Docked = the player is living inside this page's search bar. Popped out,
   // the page is an ordinary search page again.
   const tubeDocked = mode === 'tube' && !poppedOut;
+  // ONE BAR ON TUBE (owner, 2026-10-22). Popped out, the search bar travels with
+  // the player: the page's own bar and category chips step aside and the floating
+  // player's header bar is the only one — its results open in the player's list.
+  // Tube only: every other page keeps two independent bars, so the page's input
+  // stays on the page and the player's stays on the player. Minimized, the player
+  // has no bar of its own, so the page's comes back (never zero bars).
+  const tubeOneBar = mode === 'tube' && poppedOut && !playerMinimized;
+  // What the player's bar last searched (published by MiniPlayer while it holds
+  // the one bar). The page's grid follows it, and docking back adopts it.
+  const playerStore = usePlayerQuery();
+  const wasTubePopped = useRef(false);
+  useEffect(() => {
+    const popped = mode === 'tube' && poppedOut;
+    if (wasTubePopped.current && !popped && mode === 'tube') {
+      // Docked back: the page bar returns carrying what the player's bar held.
+      if (playerStore.text.trim()) setSearchValue(playerStore.text);
+      if (playerStore.scope && playerStore.scope !== 'all') setTubeScope(playerStore.scope);
+    }
+    wasTubePopped.current = popped;
+  }, [poppedOut, mode]); // eslint-disable-line react-hooks/exhaustive-deps
   // A shared player link is now just /tube?u=…&t=… — same page, arriving with
   // a queue. Everything a `u` has to survive (getPlayable or it isn't
   // rendered at all) is enforced inside parsePlayerParams; unplayable values
@@ -1957,11 +1977,12 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
             {/* TUBE'S CATEGORIES SIT ABOVE THE BAR (owner, 2026-10-22). Below
                 it they landed under the docked player, far from the box they
                 steer; up here they read as "what kind of thing to search". */}
-            {mode === 'tube' && pillMode !== 'black' && (
+            {mode === 'tube' && pillMode !== 'black' && !tubeOneBar && (
               <div className="mb-2 px-1" data-tube-scope-above="">
                 <TubeScopeBar activeScope={tubeScope} onSelectScope={setTubeScope} />
               </div>
             )}
+            {!tubeOneBar && (
             <SearchBar
               value={searchValue}
               // No buttons below the bar (uniform with landing/chat) — submit
@@ -2075,6 +2096,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
               }
               isLoading={searchLoading}
             />
+            )}
             {/* Chat lenses, in the slot the search categories just vacated —
                 the row under the bar always describes the mode the pill is
                 showing. Submitting carries them into /chat via localStorage,
@@ -2653,7 +2675,9 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
               {mode === 'tube' && poppedOut && (
                 <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
                   <span className="text-[11px] text-white/45 flex-1">
-                    Playing in the popped-out player — keep searching here, it won&apos;t interrupt.
+                    {tubeOneBar
+                      ? 'Search from the popped-out player — its bar is the one search bar on Tube.'
+                      : 'Playing in the popped-out player — keep searching here, it won\u2019t interrupt.'}
                   </span>
                   <button
                     type="button"
@@ -2665,7 +2689,13 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
                 </div>
               )}
               {mode === 'tube' ? (
-                <TubeResultsGrid docked={tubeDocked} query={lastSearchedQuery} />
+                <TubeResultsGrid
+                  docked={tubeDocked}
+                  // With one bar the page has no search of its own, so its
+                  // grid follows the player's last submitted search.
+                  query={tubeOneBar && playerStore.text.trim() ? playerStore.text : lastSearchedQuery}
+                  scope={tubeOneBar && playerStore.text.trim() ? playerStore.scope : 'all'}
+                />
               ) : searchLoading ? (
                 <div className="space-y-4">
                   <div className="text-sm text-white/60 mb-4">Searching...</div>

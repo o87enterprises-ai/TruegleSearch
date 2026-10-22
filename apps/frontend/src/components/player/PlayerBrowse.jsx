@@ -6,7 +6,8 @@ import { mediaKey } from '../../utils/videoEmbed';
 import { sourceColour, sourceProviderLabel } from '../../utils/playerQuery';
 import { publishedLabel } from '../../utils/published';
 import { PLAYER_SANDBOX } from './playerSandbox';
-import PlayAllButton from './PlayAllButton';
+import ListRowActions from './ListRowActions';
+import { playlistById } from '../../utils/playlists';
 import { usePlayAll } from '../../hooks/usePlayAll';
 
 // The viewport, while nothing is playing and a search has run.
@@ -59,7 +60,7 @@ export default function PlayerBrowse({
   // so the gesture that means "keep going" has to be the trigger.
   more = false, onMore = null, loadingMore = false,
 }) {
-  const { enqueue, startFeed } = usePlayer();
+  const { enqueue, startFeed, playList } = usePlayer();
   // The scroll hint stays loud until the deck has been scrolled once.
   const [scrolled, setScrolled] = useState(false);
   const scroller = useRef(null);
@@ -153,8 +154,14 @@ export default function PlayerBrowse({
   const { playAll } = usePlayAll();
   const playFrom = useCallback((source, rest) => {
     if (source?.playlistUrl) { playAll(source.playlistUrl); return; }
+    // One of YOUR saved lists: play its tracks, in order, no network.
+    if (source?.savedListId) {
+      const list = playlistById(source.savedListId);
+      if (list?.items.length) playList(list.items, 'tube', list.id, 0);
+      return;
+    }
     startFeed([source, ...rest]);
-  }, [startFeed, playAll]);
+  }, [startFeed, playAll, playList]);
 
   // A tap that never became a hold is a "play this".
   const drop = useCallback((source, rest) => {
@@ -293,12 +300,12 @@ export default function PlayerBrowse({
                 )}
                 {/* PLAY NOW · ADD TO QUEUE · ADD TO LIST, on every card. Add to
                     list opens your saved lists, with New list at the bottom. */}
-                {r.playlistUrl ? (
+                {r.playlistUrl || r.savedListId ? (
                   <div data-browse-actions="" className="mt-2 pointer-events-auto">
-                    <PlayAllButton
-                      url={r.playlistUrl}
+                    <ListRowActions
+                      row={r}
                       size={12}
-                      className={`${actionBtn} border-white/25 bg-white/15 text-white hover:bg-white/25`}
+                      btnClass={`${actionBtn} border-white/25 bg-white/15 text-white hover:bg-white/25`}
                     />
                   </div>
                 ) : (

@@ -13,6 +13,9 @@ import { publishedLabel } from '../../utils/published';
 import { useMediaMeta, formatDuration } from '../../utils/mediaMeta';
 import { withoutBroken, useBrokenVersion } from '../../utils/broken';
 import { SaveTo } from '../player/PlayerLibrary';
+import ListRowActions from '../player/ListRowActions';
+import { playlistById } from '../../utils/playlists';
+import { usePlayAll } from '../../hooks/usePlayAll';
 import SafeSearchToggle from '../ui/SafeSearchToggle';
 
 // TUBE'S RESULTS: PLAYABLE ONLY, LAID OUT LIKE YOUTUBE.
@@ -33,9 +36,9 @@ import SafeSearchToggle from '../ui/SafeSearchToggle';
 //
 // memo: the page re-renders on every keystroke in its bar; this grid's props
 // don't change while typing, so it doesn't.
-function TubeResultsGrid({ docked, query }) {
+function TubeResultsGrid({ docked, query, scope = 'all' }) {
   const shared = usePlayerResults();
-  const own = usePlayerSearch(docked ? '' : (query || ''));
+  const own = usePlayerSearch(docked ? '' : (query || ''), scope);
   const src = docked ? shared : own;
   useBrokenVersion();
   const rows = useSortedRows(src.results);
@@ -44,16 +47,29 @@ function TubeResultsGrid({ docked, query }) {
   const { settings } = useSettings();
   const blur = settings.safeSearch === 'blur';
   const metaFor = useMediaMeta();
-  const { startFeed, enqueue, playNow, stopFeed } = usePlayer();
+  const { startFeed, enqueue, playNow, stopFeed, playList } = usePlayer();
+  const { playAll } = usePlayAll();
   const [added, setAdded] = useState(null);
 
   // Play this, then the rest of the results in order — the same "play from
   // here" as the browse deck. Back to the top, where the player is, so the
   // tap visibly did something on a phone.
   const playFrom = useCallback((i) => {
+    const row = visible[i];
+    // PLAYLIST rows (the Lists scope) play AS a list, never as a feed of
+    // results: a public one is imported then played (Play All), one of yours
+    // plays its own tracks. A feed of "results" would hand YouTube's playlist
+    // embed a player it cannot start.
+    if (row?.playlistUrl) { playAll(row.playlistUrl); if (docked) window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    if (row?.savedListId) {
+      const list = playlistById(row.savedListId);
+      if (list?.items.length) playList(list.items, 'tube', list.id, 0);
+      if (docked) window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     startFeed(visible.slice(i), 'tube');
     if (docked) window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [startFeed, visible, docked]);
+  }, [startFeed, visible, docked, playAll, playList]);
 
   const queue = useCallback((r) => {
     enqueue(r, { deck: 'tube' });
@@ -186,7 +202,17 @@ function TubeResultsGrid({ docked, query }) {
                       {length}
                     </span>
                   )}
+                  {r.isList && (
+                    <span data-list-badge="" className="absolute bottom-1.5 right-1.5 px-1.5 rounded bg-black/80 text-[10px] font-semibold text-white">
+                      {r.savedListId ? 'YOUR LIST' : 'PLAYLIST'}{r.listCount ? ` · ${r.listCount}` : ''}
+                    </span>
+                  )}
                 </button>
+                {r.isList && (
+                  <div className="mt-2" data-list-card-actions="">
+                    <ListRowActions row={r} onDone={() => { if (docked) window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+                  </div>
+                )}
                 <div className="flex gap-1.5 mt-2">
                   <button type="button" onClick={() => playFrom(i)} className="flex-1 min-w-0 text-left">
                     <h3 className="text-[13px] sm:text-sm font-semibold text-white leading-snug line-clamp-2">{r.title}</h3>
@@ -201,9 +227,10 @@ function TubeResultsGrid({ docked, query }) {
                       <p className="mt-1 text-[11px] sm:text-xs text-white/40 leading-snug line-clamp-2">{r.description}</p>
                     )}
                   </button>
-                  <SaveTo source={r} className="shrink-0 self-start flex items-center justify-center w-7 h-7 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors" />
+                  {r.isList ? null : <SaveTo source={r} className="shrink-0 self-start flex items-center justify-center w-7 h-7 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors" />}
                   <button
                     type="button"
+                    hidden={!!r.isList}
                     data-start-radio=""
                     onClick={() => {
                       // Radio from this song: it plays now, Radio picks what
@@ -221,6 +248,7 @@ function TubeResultsGrid({ docked, query }) {
                   </button>
                   <button
                     type="button"
+                    hidden={!!r.isList}
                     onClick={() => queue(r)}
                     title="Add to queue"
                     aria-label={`Add ${r.title || 'this'} to the queue`}
