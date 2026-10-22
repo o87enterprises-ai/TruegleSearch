@@ -1840,6 +1840,14 @@
         "body": "Why Truegle tile has no pitch line. Tracking: 'No tracking, ads, or user data.' Censorship: '+18 safe mode toggle' button + ON/OFF badge. Tube: 'One customizable player for all media.\\nFree streaming, no ads, ever.' Feed: 'One feed for all social media.' Search: 'Multiple modes for discovering what other search methods suppress.' Chat: 'Unbiased, unopinionated, and indifferent deep research agent.' verify-landing-cards allows <=12 words, why bare.",
         "ts": "2026-10-22",
         "created": "2026-10-22"
+      },
+      "d-tube-scope-above": {
+        "Id": "d-tube-scope-above",
+        "Type": "decision",
+        "Label": "Tube categories above the search bar; full-screen bar has a category dropdown",
+        "body": "Owner 2026-10-22: TubeScopeBar renders above the SearchBar on Tube (data-tube-scope-above), not inside the bar nor under the docked player (SearchBar categorySlot gets an empty span to block the generic CategoryBar). FullscreenSearchBar takes scope/onScope and renders a native <select> (data-fs-scope); TrueglePlayer keeps fsScope (follows the page scope) for voiceSearch. verify-tube-scope-placement.mjs.",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
       }
     },
     "thread": {

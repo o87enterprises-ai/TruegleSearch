@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ChevronDown, X, Play, Loader2, Mic, ClipboardPaste, ArrowRight } from 'lucide-react';
 import { isPlaylistUrl } from '../../utils/playlistImport';
 import { usePlayAll } from '../../hooks/usePlayAll';
+import { SEARCH_SCOPES } from '../../utils/playerQuery';
 
 /* ── The drop-down bar in full screen ───────────────────────────────────────
  *
@@ -32,6 +33,10 @@ export default function FullscreenSearchBar({
   onSelect,
   onVoice,          // optional — omitted when the browser has no recogniser
   accent = '#f43f5e',
+  // Tube's categories (All, Shorts, Track…) as ONE compact dropdown, so the
+  // bar over the video stays a single uncluttered row.
+  scope = 'all',
+  onScope,
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -115,6 +120,21 @@ export default function FullscreenSearchBar({
           >
             <div data-fs-search="" className="flex items-center gap-2 px-3 py-2.5">
               <Search size={16} className="text-white/40 flex-shrink-0" />
+              {onScope && (
+                <label className="relative flex-shrink-0">
+                  <span className="sr-only">Category</span>
+                  <select
+                    data-fs-scope=""
+                    value={scope}
+                    onChange={(e) => onScope(e.target.value)}
+                    className="appearance-none pl-2.5 pr-6 py-1.5 rounded-lg bg-white/10 border border-white/15 text-white text-xs font-semibold outline-none"
+                    style={{ colorScheme: 'dark' }}
+                  >
+                    {SEARCH_SCOPES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                  <ChevronDown size={12} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none" />
+                </label>
+              )}
               <input
                 ref={inputRef}
                 value={query}
