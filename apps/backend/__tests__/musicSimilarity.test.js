@@ -98,3 +98,29 @@ describe('similarArtists with a Last.fm key', () => {
     expect(axios.get.mock.calls.every(([url]) => !/audioscrobbler/.test(url))).toBe(true);
   });
 });
+
+describe('artistForTitle', () => {
+  const { artistForTitle, cleanTitle } = require('../services/MusicSimilarity');
+  const rec = (recordings) => ({ data: { recordings } });
+
+  it('strips upload noise before asking', () => {
+    expect(cleanTitle('Bohemian Rhapsody (Official Video) [Remastered] #queen')).toBe('Bohemian Rhapsody');
+    expect(cleanTitle('Halo (Lyrics) | Best Songs 2024')).toBe('Halo');
+  });
+
+  it('names the artist from a confident recording match', async () => {
+    axios.get.mockResolvedValueOnce(rec([{ score: 100, title: 'Halo', 'artist-credit': [{ name: 'Beyoncé' }] }]));
+    expect(await artistForTitle('Halo (Lyrics)')).toEqual({ artist: 'Beyoncé' });
+    expect(axios.get.mock.calls[0][1].params.query).toBe('recording:"Halo"');
+  });
+
+  it('says nothing rather than guessing on a weak match', async () => {
+    axios.get.mockResolvedValueOnce(rec([{ score: 70, 'artist-credit': [{ name: 'Someone' }] }]));
+    expect(await artistForTitle('my cat vlog day 3')).toEqual({ artist: null });
+  });
+
+  it('fails open on a network error', async () => {
+    axios.get.mockRejectedValueOnce(new Error('down'));
+    expect(await artistForTitle('Anything')).toEqual({ artist: null });
+  });
+});

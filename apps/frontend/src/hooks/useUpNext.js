@@ -7,7 +7,7 @@ import { hasSeen, markSeen, markAllSeen, recentSeen } from '../utils/seen';
 import { scoreCandidates, draw, dedupeScored, poolFor, POOL } from '../utils/feedDraw';
 import { shouldExplore, exploreOffset, exploreSeed, EXPLORE_RATE } from '../utils/explore';
 import { authHeader, storedSafeSearch } from '../utils/authHeader';
-import { isRadioOn, artistOf, nameKey, setRadioStatus } from '../utils/radio';
+import { isRadioOn, artistOf, nameKey, setRadioStatus, getRadioAnchor, setRadioAnchor } from '../utils/radio';
 
 // What plays next, and what fills an empty player.
 //
@@ -109,8 +109,36 @@ async function similarTo(artist) {
 
 const shuffled = (list) => list.map((x) => [Math.random(), x]).sort((a, b) => a[0] - b[0]).map(([, x]) => x);
 
-/** The artist Radio should follow, or null: Radio off, or not a song. */
-const radioArtist = (current) => (isRadioOn() ? artistOf(current) : null);
+// Who recorded this title, per MusicBrainz — for clips whose title and channel
+// name no artist. Once per title for the life of the tab.
+const titleCache = new Map();
+async function artistByTitle(title) {
+  const t = String(title || '').trim();
+  if (!t) return null;
+  if (!titleCache.has(t)) {
+    titleCache.set(t, json(`${BACKEND}/api/music/artist?title=${encodeURIComponent(t)}`)
+      .then((d) => d?.artist || null));
+  }
+  return titleCache.get(t);
+}
+
+/** The artist Radio should follow, or null: Radio off, or nothing to go on. */
+const radioArtist = (current) => (isRadioOn() ? (artistOf(current) || getRadioAnchor()) : null);
+
+/**
+ * The artist to follow, best evidence first: the clip's own title/channel,
+ * then MusicBrainz by title, then the artist this session was already
+ * following. `carried` says the last one was used.
+ */
+async function resolveRadioArtist(current) {
+  if (!isRadioOn() || !current) return { artist: null };
+  const own = artistOf(current);
+  if (own) return { artist: own };
+  const looked = await artistByTitle(current.title);
+  if (looked) return { artist: looked };
+  const kept = getRadioAnchor();
+  return kept ? { artist: kept, carried: true } : { artist: null };
+}
 
 export function useUpNext() {
   const remember = useCallback((source) => markSeen(source), []);
@@ -217,7 +245,7 @@ export function useUpNext() {
     // again. A result has to name the artist it was searched for (title or
     // channel), which is what keeps covers, reactions and lyric channels of
     // unrelated people out. Nothing usable → the ordinary path below.
-    const artist = radioArtist(current);
+    const { artist, carried } = await resolveRadioArtist(current);
     if (artist) {
       const similar = await similarTo(artist);
       const seeds = [artist, ...shuffled(similar.slice(0, 12)).slice(0, 2)];
@@ -228,7 +256,8 @@ export function useUpNext() {
       }));
       const radio = scoreCandidates(lists.flat(), usable, preference);
       if (radio.length) {
-        setRadioStatus({ state: 'following', artist });
+        setRadioAnchor(artist);
+        setRadioStatus({ state: 'following', artist, carried: !!carried });
         return { scored: radio, seenRate: seenRate(), explored: false };
       }
       setRadioStatus({ state: 'fallback', reason: `nothing new found for ${artist}` });

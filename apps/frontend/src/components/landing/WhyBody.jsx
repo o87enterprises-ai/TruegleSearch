@@ -34,7 +34,7 @@ export default function WhyBody({ safeModeOff, canDisableSafeSearch, toggleSafeM
         <div className="flex flex-col items-center text-center gap-1.5 py-3 sm:py-0 sm:px-4">
           <SurfWithout tone="text-green-300/80" />
           <span className="font-bold text-base text-green-400">Tracking</span>
-          <span className="text-white/80 text-sm">0 ads, 0 user data, 0 digital ID</span>
+          <span className="text-white/80 text-sm">No tracking, ads, or user data.</span>
           {/* Proof, not a claim: wipe it all, right here (explained at the
               bottom of this page — the asterisk). */}
           <NuclearOptionButton size="md" asterisk className="mt-2" />
@@ -55,7 +55,8 @@ export default function WhyBody({ safeModeOff, canDisableSafeSearch, toggleSafeM
             className="inline-flex items-center gap-1.5 text-white/80 text-sm hover:text-white transition-colors"
           >
             {!canDisableSafeSearch && <Lock size={12} className="text-white/60 flex-shrink-0" aria-hidden="true" />}
-            <span>+18 safe mode {safeModeOff ? 'off' : 'on'} — tap to toggle†</span>
+            <span>+18 safe mode toggle†</span>
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${safeModeOff ? 'bg-red-500/20 text-red-300' : 'bg-emerald-500/20 text-emerald-300'}`}>{safeModeOff ? 'OFF' : 'ON'}</span>
           </button>
         </div>
       </div>

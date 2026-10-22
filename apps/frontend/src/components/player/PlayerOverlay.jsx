@@ -1,6 +1,6 @@
 import {
   ThumbsUp, ThumbsDown, Share2, Check, AlertTriangle,
-  Repeat, Repeat1, Shuffle, ArrowDownUp, MousePointerClick,
+  Repeat, Repeat1, Shuffle, ArrowDownUp, MousePointerClick, Radio,
 } from 'lucide-react';
 
 // The controls that belong ON the picture rather than under it.
@@ -44,6 +44,9 @@ export default function PlayerOverlay({
   // different thing, deliberately named apart from it.
   clickThrough = false,
   onToggleClickThrough,
+  // START RADIO FROM THIS SONG — see utils/radio.js startRadioFrom.
+  onStartRadio,
+  radioActive = false,
 }) {
   // ALWAYS MOUNTED, never conditionally rendered: fading out an element that
   // has been removed from the tree is not possible, and popping in and out is
@@ -127,6 +130,22 @@ export default function PlayerOverlay({
           className={`${btn} ${clickThrough ? 'text-amber-300' : ''}`}
         >
           <MousePointerClick size={19} />
+        </button>
+      )}
+
+      {onStartRadio && (
+        <button
+          type="button"
+          data-start-radio=""
+          onClick={onStartRadio}
+          tabIndex={visible ? 0 : -1}
+          aria-pressed={radioActive}
+          title={radioActive ? 'Radio is following this music' : 'Start Radio from this song — more of this artist and similar music next'}
+          aria-label={radioActive ? 'Radio is on from this song' : 'Start Radio from this song'}
+          className={btn}
+          style={radioActive ? { background: accent, color: '#000' } : undefined}
+        >
+          <Radio size={19} />
         </button>
       )}
 

@@ -1816,6 +1816,30 @@
         "body": "utils/peopleSearch.js builds deep links (Whitepages, TruePeopleSearch, FastPeopleSearch, That's Them, ZabaSearch, Radaris, Nuwber, Google; phone: + Sync.ME) from parsed name (2+ words) and US phone. LINKS ONLY — server never fetches them (bot walls, ToS, would leak subject from our box). PeopleSearchCard in Intel findings, gatherable into debrief. VerifyFrame: knownUnframeable(url) or blocked -> LeavingNotice (open in new tab, copy link + per-OS private-window steps). Browsers can't open incognito or an un-tapped tab, so one tap is required.",
         "ts": "2026-10-22",
         "created": "2026-10-22"
+      },
+      "d-radio-session-anchor-start": {
+        "Id": "d-radio-session-anchor-start",
+        "Type": "decision",
+        "Label": "Radio: session artist anchor, MusicBrainz title lookup, Start Radio",
+        "body": "utils/radio.js: anchor (last followed artist, tab-only) used when a clip names no artist; startRadioFrom(source) = session that parks the queue (TrueglePlayer followQueue && !radioSession; feedSpent doesn't resume queue) until Radio switched off. useUpNext resolveRadioArtist: artistOf -> GET /api/music/artist?title (MusicBrainz recording search, score>=95, 1 req/s queue, day cache) -> anchor. Start Radio buttons: PlayerOverlay rail (data-start-radio, not Feed page) + TubeResultsGrid cards. verify-radio.mjs 10 checks. Player suite's press-every-button switches Radio back off after.",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
+      },
+      "d-creators-spread": {
+        "Id": "d-creators-spread",
+        "Type": "decision",
+        "Label": "Creators feed: one video per channel per round, hourly-seeded shuffle",
+        "body": "routes/creators.js spreadByChannel: channels' own videos newest-first; each round takes one per channel in seeded-random order (seed = hour) so offset paging stays consistent. Stops a prolific partner owning the feed. __tests__/creatorsSpread.test.js.",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
+      },
+      "d-landing-minimal-copy": {
+        "Id": "d-landing-minimal-copy",
+        "Type": "decision",
+        "Label": "Landing tiles: minimal copy (owner 2026-10-22)",
+        "body": "Why Truegle tile has no pitch line. Tracking: 'No tracking, ads, or user data.' Censorship: '+18 safe mode toggle' button + ON/OFF badge. Tube: 'One customizable player for all media.\\nFree streaming, no ads, ever.' Feed: 'One feed for all social media.' Search: 'Multiple modes for discovering what other search methods suppress.' Chat: 'Unbiased, unopinionated, and indifferent deep research agent.' verify-landing-cards allows <=12 words, why bare.",
+        "ts": "2026-10-22",
+        "created": "2026-10-22"
       }
     },
     "thread": {

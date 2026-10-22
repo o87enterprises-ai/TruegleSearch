@@ -40,11 +40,11 @@ const MODULES = [
   // rather than in a separate panel under the row (owner, 2026-10-17: the
   // dropdown and the Why Truegle tile were two components, and Search sat
   // between them). Search is the next tile, directly below.
-  { id: 'why', title: 'Why Truegle?', icon: ShieldCheck, pitch: 'Search without bias, tracking, or censorship.', card: true },
-  { id: 'tube', title: 'Tube', icon: PlayCircle, pitch: 'Every video, reel and song. One player. Zero ads.' },
-  { id: 'feed', title: 'Feed', icon: Clapperboard, pitch: 'Reddit, Bluesky, Mastodon and creators. One scroll.' },
-  { id: 'search', title: 'Search', icon: Compass, pitch: 'Same query, different lens. Pick your reality.' },
-  { id: 'chat', title: 'Chat', icon: MessageCircle, pitch: 'Ask TrueGLE. Stack lenses. See every angle.' },
+  { id: 'why', title: 'Why Truegle?', icon: ShieldCheck, pitch: '', card: true },
+  { id: 'tube', title: 'Tube', icon: PlayCircle, pitch: 'One customizable player for all media.\nFree streaming, no ads, ever.' },
+  { id: 'feed', title: 'Feed', icon: Clapperboard, pitch: 'One feed for all social media.' },
+  { id: 'search', title: 'Search', icon: Compass, pitch: 'Multiple modes for discovering what other search methods suppress.' },
+  { id: 'chat', title: 'Chat', icon: MessageCircle, pitch: 'Unbiased, unopinionated, and indifferent deep research agent.' },
   { id: 'news', title: 'News', icon: Newspaper, pitch: 'Today’s headlines, as video. Tap and watch.', wide: true },
   // `wide`: two columns on desktop only. Below Why Truegle's full-width card
   // sit six tiles: three rows of two on a phone, and on desktop four across
@@ -120,7 +120,7 @@ function Tile({ mod, open, onToggle, tileRef, cols, bare = false }) {
             than a two-line one (the row stretches to match). */}
         <span className="min-w-0 text-sm sm:text-base font-bold leading-tight" style={{ color }}>{mod.title}</span>
       </span>
-      <span data-tile-pitch="" className="block mt-2 pr-4 text-[12px] leading-snug text-white/70">{mod.pitch}</span>
+      {mod.pitch && <span data-tile-pitch="" className="block mt-2 pr-4 text-[12px] leading-snug text-white/70 whitespace-pre-line">{mod.pitch}</span>}
       {/* In the corner rather than in the title row: a title row with an icon
           AND a chevron left "Why Truegle?" room for "Why Tru…". */}
       <ChevronDown size={14} aria-hidden="true" className={`absolute bottom-2.5 right-2.5 text-white/40 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />

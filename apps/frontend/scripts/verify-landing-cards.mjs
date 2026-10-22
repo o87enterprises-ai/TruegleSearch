@@ -116,10 +116,13 @@ await guarded('desktop run', async () => {
     check(got === rgbOf(hex), `${id}: title is its pill colour ${hex}`, got);
   }
   check(new Set([ACCENT.feed, ACCENT.news, ACCENT.markets]).size === 3, 'News and Markets are their own shades of the Feed yellow');
-  for (const id of IDS) {
+  // Minimal copy (owner, 2026-10-22): Why Truegle is a bare title; every
+  // other tile keeps one short line (the owner's Tube copy is 11 words).
+  check(await page.locator(`${tile('why')} [data-tile-pitch]`).count() === 0, 'why: a bare title, no line under it');
+  for (const id of IDS.filter((x) => x !== 'why')) {
     const pitch = (await page.locator(`${tile(id)} [data-tile-pitch]`).innerText()).trim();
     const words = pitch.split(/\s+/).filter(Boolean).length;
-    check(words > 0 && words <= 10, `${id}: pitch is ten words or fewer`, `${words} — "${pitch}"`);
+    check(words > 0 && words <= 12, `${id}: pitch is twelve words or fewer`, `${words} — "${pitch}"`);
   }
 
   // scroll the whole page by hand: on a desktop nothing opens by itself
@@ -225,7 +228,7 @@ await guarded('phone run', async () => {
   check(order.length === 3 && order.every(Boolean), '…each sitting directly above its title (Bias, Tracking, Censorship)', JSON.stringify(order));
   check(await page.locator('[data-why-body] svg line').count() === 0, '…and the round minus icons are gone');
   const toggles = await page.locator('[data-why-body] button[aria-pressed]').allInnerTexts();
-  check(toggles.length === 1 && /\+18 safe mode (on|off)/.test(toggles[0]), 'the +18 safe mode control is still there, as one button', JSON.stringify(toggles));
+  check(toggles.length === 1 && /\+18 safe mode toggle/.test(toggles[0]), 'the +18 safe mode control is still there, as one button', JSON.stringify(toggles));
   await press(page, 'why');
   await until(() => openOf(page, 'why').then((s) => s === 'closed'), { what: 'Why Truegle to retract' });
   await page.waitForTimeout(600);
