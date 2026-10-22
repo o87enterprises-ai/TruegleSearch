@@ -11,6 +11,8 @@ import { useAuth } from '../../context/AuthContext';
 import { OSINT_FREE_INVESTIGATIONS } from '../../config/access';
 import { canInvestigate, consumeInvestigation, investigationsRemaining } from '../../utils/osintGate';
 import LETTERHEAD_LOGO from '../../assets/osintLetterheadLogo';
+import { nameLookups, phoneLookups, knownUnframeable } from '../../utils/peopleSearch';
+import { copyText } from '../../utils/clipboard';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -549,6 +551,12 @@ export default function OSINTToolsPanel({ initialQuery = '', initialTool = '' })
                   onSplit={openSplit}
                 />
               ))}
+              <PeopleSearchCard
+                query={input.trim()}
+                gathered={gathered}
+                onToggleGather={toggleGather}
+                onSplit={openSplit}
+              />
             </div>
 
             {/* In-Intel verify iframe (X-Frame-aware) */}
@@ -875,7 +883,94 @@ function FindingCard({ toolId, res, query, gathered, onToggleGather, onPreview, 
   );
 }
 
+// THE FREE PEOPLE-SEARCH SITES, PRE-FILLED with the name and phone this
+// investigation parsed — see utils/peopleSearch.js for why these are links
+// the visitor opens and never pages our server fetches.
+function PeopleSearchCard({ query, gathered, onToggleGather, onSplit }) {
+  const ent = parseEntities(query);
+  const groups = [
+    { key: 'name', label: ent.name, tool: 'username', rows: nameLookups(ent.name) },
+    { key: 'phone', label: ent.phones[0], tool: 'phone', rows: phoneLookups(ent.phones[0]) },
+  ].filter((g) => g.rows.length);
+  if (!groups.length) return null;
+  return (
+    <div data-people-search="" className="rounded-xl bg-black/30 border border-white/10 overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border-b border-white/5">
+        <Search size={13} className="text-cyan-400" />
+        <span className="text-xs font-semibold text-white/80">People search · free lookups</span>
+      </div>
+      <div className="p-3 space-y-3">
+        <p className="text-xs text-white/40">
+          Pre-filled with your subject. These open on each site — Truegle never sends the name or number anywhere itself.
+        </p>
+        {groups.map((g) => (
+          <div key={g.key}>
+            <div className="text-[11px] uppercase tracking-wide text-cyan-300/50 mb-1.5">{g.key === 'name' ? 'Name' : 'Phone'} · {g.label}</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {g.rows.map((r) => {
+                const item = { id: `ps:${g.key}:${r.site}`, tool: g.tool, title: `${r.site} — ${g.label}`, detail: 'People-search lookup — verify manually', url: r.url, status: null };
+                return (
+                  <div key={r.site} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
+                    <GatherBox item={item} gathered={gathered} onToggle={onToggleGather} />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm text-white/90 truncate block">{r.site}</span>
+                      <div className="text-[11px] text-white/30 truncate">{r.url}</div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button onClick={() => onSplit(r.url)} className="text-xs text-cyan-400 hover:text-cyan-300">Verify</button>
+                      <a href={r.url} target="_blank" rel="noopener noreferrer" className="text-white/40 hover:text-white"><ExternalLink size={13} /></a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// LEAVING TRUEGLE. Shown instead of a preview that can't load (the site
+// refuses framing). One tap opens the real page in a new tab; or copy the link
+// and paste it into a private window. A page cannot open a private window
+// itself — no browser allows that — so the steps to do it are right here.
+// Nor can it open the tab on its own: browsers block a new tab that no tap
+// asked for, so the tap here is the one that counts.
+function LeavingNotice({ url }) {
+  const [copied, setCopied] = useState(false);
+  let host = url;
+  try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { /* keep the raw url */ }
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const how = /iPhone|iPad|iPod/.test(ua)
+    ? 'Safari: tap the tabs button → Private, then paste.'
+    : /Android/.test(ua)
+      ? 'Chrome: ⋮ menu → New Incognito tab, then paste.'
+      : 'Ctrl+Shift+N (Chrome/Edge) or Ctrl+Shift+P (Firefox/Safari: ⌘+Shift+N), then paste.';
+  return (
+    <div data-leaving-notice="" className="flex flex-col items-center justify-center gap-3 py-8 px-4 bg-black/30 text-center">
+      <p className="text-sm font-semibold text-white">You&apos;re leaving Truegle</p>
+      <p className="text-xs text-white/55 max-w-sm">
+        <span className="text-white/80">{host}</span> won&apos;t open inside Truegle. Open it directly — Truegle doesn&apos;t follow you there, but that site will see your visit.
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <a href={url} target="_blank" rel="noopener noreferrer"
+          className="px-3.5 py-2 rounded-lg bg-cyan-500 text-[#001020] text-xs font-bold flex items-center gap-1.5">
+          <ExternalLink size={13} /> Open {host}
+        </a>
+        <button type="button"
+          onClick={async () => { if (await copyText(url)) { setCopied(true); setTimeout(() => setCopied(false), 2500); } }}
+          className="px-3.5 py-2 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-semibold flex items-center gap-1.5">
+          <Lock size={12} /> {copied ? 'Link copied' : 'Copy link for a private window'}
+        </button>
+      </div>
+      <p className="text-[11px] text-white/40 max-w-sm">Private / incognito: {how}</p>
+    </div>
+  );
+}
+
 function VerifyFrame({ url, blocked, onBlocked, onClose, tall }) {
+  const cantFrame = blocked || knownUnframeable(url);
   return (
     <motion.div
       initial={{ opacity: 0, height: 0 }}
@@ -890,11 +985,8 @@ function VerifyFrame({ url, blocked, onBlocked, onClose, tall }) {
           <button onClick={onClose} className="text-xs text-white/30 hover:text-white"><X size={14} /></button>
         </div>
       </div>
-      {blocked ? (
-        <div className="flex flex-col items-center justify-center py-8 bg-black/20 gap-2">
-          <p className="text-sm text-white/50 text-center px-4">This page can’t be embedded (it blocks framing). Open it in a new tab to verify.</p>
-          <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"><ExternalLink size={12} /> Open in new tab</a>
-        </div>
+      {cantFrame ? (
+        <LeavingNotice url={url} />
       ) : (
         <iframe
           key={url}

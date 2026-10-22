@@ -1,5 +1,5 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
-import { X, Bookmark, SkipBack, SkipForward, Play, Pause, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, Bookmark, SkipBack, SkipForward, Play, Pause, ChevronUp, ChevronDown, VolumeX } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { usePageMode } from '../../hooks/usePageMode';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
@@ -595,11 +595,26 @@ export default function TrueglePlayer({
   // makes is sent; otherwise YouTube's own "tap to unmute" handles sound.
   const embedStarted = embed.started;
   const isYouTube = current?.kind === 'youtube';
-  const volumeAtSource = useRef(volume);
-  useEffect(() => { volumeAtSource.current = volume; }, [sourceKey]);
+  // ── iPHONE: SOUND IS THE VIEWER'S TAP, AND THE ICON SAYS SO ─────────────
+  // The clip autoplays muted (WebKit's rule), so until the viewer asks for
+  // sound on THIS clip the speaker shows MUTED — it used to show the stored
+  // level, so the first tap "muted" an already-silent video and the second
+  // restored a level the old value check then refused to send. Sound was
+  // unreachable. Now any press of the volume control marks this clip as
+  // asked-for and sends the command inside that same tap.
+  const startsMutedOnIOS = IS_IOS && (isYouTube || current?.kind === 'tiktok');
+  const [soundAskedFor, setSoundAskedFor] = useState('');
+  const iosSilent = startsMutedOnIOS && soundAskedFor !== sourceKey;
+  const shownVolume = iosSilent ? 0 : volume;
+  const onVolume = useCallback((v) => {
+    setSoundAskedFor(sourceKey);
+    setVolume(v);
+    if (embedCanSetVolume) embedSetVolume(v);
+    if (mediaRef.current) mediaRef.current.volume = v;
+  }, [sourceKey, setVolume, embedCanSetVolume, embedSetVolume]);
   useEffect(() => {
     if (!current) return undefined;
-    const holdYouTube = isYouTube && (!embedStarted || (IS_IOS && volume === volumeAtSource.current));
+    const holdYouTube = (isYouTube && !embedStarted) || iosSilent;
     const apply = () => {
       if (embedCanSetVolume && !holdYouTube) embedSetVolume(volume);
       // Native <audio>/<video> have a real property; no channel needed.
@@ -608,7 +623,7 @@ export default function TrueglePlayer({
     apply();
     const t = [250, 900, 2000].map((d) => setTimeout(apply, d));
     return () => t.forEach(clearTimeout);
-  }, [volume, current, embedCanSetVolume, embedSetVolume, embedStarted, isYouTube]);
+  }, [volume, current, embedCanSetVolume, embedSetVolume, embedStarted, isYouTube, iosSilent]);
 
 
   // 👍/👎. The thumb steers what plays next; a dislike also guarantees this
@@ -873,8 +888,8 @@ export default function TrueglePlayer({
       // Offered for the embeds we can command AND for native media, where the
       // element has a real .volume. Withheld only where neither is true.
       showVolume={!!current && (embed.canSetVolume || current.kind === 'audio' || current.kind === 'video')}
-      volume={volume}
-      onVolume={setVolume}
+      volume={shownVolume}
+      onVolume={onVolume}
       playing={!!current && !paused}
       canPrev={history.length > 0}
       canNext={queue.length > 0 || !!current}
@@ -1078,8 +1093,8 @@ export default function TrueglePlayer({
           onUnlock={() => setLocked(false)}
           gestures={lockedGestures}
           voice={{
-            volume,
-            setVolume,
+            volume: shownVolume,
+            setVolume: onVolume,
             results: voiceSearch.results || [],
             loading: voiceSearch.loading,
             onSearch: (q) => { setVoiceQuery(q); setVoiceOpen(true); },
@@ -1209,6 +1224,16 @@ export default function TrueglePlayer({
                 className="px-2.5 py-1 rounded-full bg-white/15 hover:bg-white/25 font-semibold">Skip</button>
             </span>
           </div>
+        )}
+        {iosSilent && began && !paused && !locked && !clipScreen && (
+          <button
+            type="button"
+            data-ios-sound=""
+            onClick={() => onVolume(volume > 0 ? volume : 1)}
+            className="absolute left-1/2 top-12 z-30 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-black/75 border border-white/20 text-sm font-semibold text-white"
+          >
+            <VolumeX size={16} /> Tap for sound
+          </button>
         )}
         {embed.tiktokNeedsTap && current && !clipScreen && (
           <div data-tiktok-tap-hint="" className="absolute inset-x-0 bottom-14 z-30 flex justify-center pointer-events-none">

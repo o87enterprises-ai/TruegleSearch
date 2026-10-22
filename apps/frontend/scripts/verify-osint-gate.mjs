@@ -158,6 +158,29 @@ const openOcean = async (ctx, query) => {
   await ctx.close();
 }
 
+// ── People search, pre-filled; a page that can't be framed says so ─────────
+{
+  const ctx = await freshContext();
+  const page = await openOcean(ctx, 'Ada Lovelace 5416230460');
+  await page.locator('form button[type="submit"]').click({ force: true });
+  const card = page.locator('[data-people-search]');
+  const t0 = Date.now();
+  while (Date.now() - t0 < 8000 && !(await card.count())) await page.waitForTimeout(250);
+  const hrefs = await card.locator('a[href]').evaluateAll((as) => as.map((a) => a.href));
+  ok('people-search links are pre-filled with the name',
+    hrefs.includes('https://www.whitepages.com/name/Ada-Lovelace'), `${hrefs.length} links`);
+  ok('…and with the phone number',
+    hrefs.includes('https://www.whitepages.com/phone/1-541-623-0460'));
+  await card.getByRole('button', { name: 'Verify' }).first().click({ force: true });
+  const notice = page.locator('[data-leaving-notice]');
+  const t1 = Date.now();
+  while (Date.now() - t1 < 4000 && !(await notice.count())) await page.waitForTimeout(200);
+  const txt = (await notice.first().innerText().catch(() => '')).replace(/\s+/g, ' ');
+  ok('Verify on an unframeable site shows the leaving-Truegle notice with a private-window option',
+    /leaving Truegle/i.test(txt) && /private window/i.test(txt), txt.slice(0, 90));
+  await ctx.close();
+}
+
 // ── A fresh visitor is not punished for someone else's run ──────────────────
 {
   const ctx = await freshContext();           // new context = new localStorage
