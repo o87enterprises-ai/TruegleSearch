@@ -2,22 +2,15 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import ChatInterface from '../ChatInterface';
+import { aiAPI } from '../../../services/api';
+
+const okResponse = {
+  data: { response: { choices: [{ message: { content: 'Mocked AI response' } }] } },
+};
 
 // Mock the aiAPI
 vi.mock('../../../services/api', () => ({
-  aiAPI: {
-    chat: vi.fn().mockResolvedValue({
-      data: {
-        response: {
-          choices: [{
-            message: {
-              content: 'Mocked AI response'
-            }
-          }]
-        }
-      }
-    })
-  }
+  aiAPI: { chat: vi.fn() },
 }));
 
 // Mock framer-motion
@@ -25,8 +18,21 @@ vi.mock('framer-motion', async () => {
   const actual = await vi.importActual('framer-motion');
   return {
     ...actual,
-    motion: ({ children }) => <div>{children}</div>,
-    AnimatePresence: ({ children }) => <div>{children}</div>,
+    // The component uses motion.div, so `motion` must be a namespace of
+    // tags. One cached component per tag: a fresh one per access would make
+    // React remount the whole tree on every render. Animation props dropped.
+    motion: new Proxy({}, {
+      get: (cache, tag) => {
+        if (!cache[tag]) {
+          const Tag = tag;
+          cache[tag] = ({ children, initial: _i, animate: _a, exit: _e, transition: _t, ...rest }) => (
+            <Tag {...rest}>{children}</Tag>
+          );
+        }
+        return cache[tag];
+      },
+    }),
+    AnimatePresence: ({ children }) => <>{children}</>,
   };
 });
 
@@ -36,7 +42,7 @@ vi.mock('lucide-react', async () => {
   return {
     ...actual,
     X: () => <span>X</span>,
-    Send: () => <span>Send</span>,
+    Send: () => <span>SendIcon</span>,
     Sparkles: () => <span>Sparkles</span>,
     RefreshCw: () => <span>RefreshCw</span>,
     ThumbsUp: () => <span>ThumbsUp</span>,
@@ -55,6 +61,7 @@ describe('ChatInterface', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(aiAPI.chat).mockResolvedValue(okResponse);
   });
 
   afterEach(() => {
@@ -96,7 +103,6 @@ describe('ChatInterface', () => {
   });
 
   it('calls aiAPI.chat when sending a message', async () => {
-    const { aiAPI } = await import('../../../services/api');
     render(<ChatInterface {...initialProps} />);
     
     const input = screen.getByPlaceholderText('Ask a follow-up question...');
@@ -106,7 +112,7 @@ describe('ChatInterface', () => {
     fireEvent.click(sendButton);
     
     await waitFor(() => {
-      expect(aiAPI.chat).toHaveBeenCalledWith('Test message');
+      expect(aiAPI.chat).toHaveBeenCalledWith('Test message', { context: 'general' });
     });
   });
 
@@ -126,7 +132,6 @@ describe('ChatInterface', () => {
 
   it('shows loading state while waiting for AI response', async () => {
     // Mock a delayed response
-    const { aiAPI } = await import('../../../services/api');
     vi.mocked(aiAPI.chat).mockImplementation(() => 
       new Promise(resolve => 
         setTimeout(() => resolve({
@@ -160,7 +165,6 @@ describe('ChatInterface', () => {
   });
 
   it('handles API errors gracefully', async () => {
-    const { aiAPI } = await import('../../../services/api');
     vi.mocked(aiAPI.chat).mockRejectedValue({
       response: {
         data: {
@@ -179,7 +183,7 @@ describe('ChatInterface', () => {
     
     await waitFor(() => {
       expect(screen.getByText(/I'm sorry, but I encountered an error processing your request/)).toBeInTheDocument();
-      expect(screen.getByText('API Error occurred')).toBeInTheDocument();
+      expect(screen.getByText(/API Error occurred/)).toBeInTheDocument();
     });
   });
 
@@ -193,25 +197,23 @@ describe('ChatInterface', () => {
   });
 
   it('submits message when Enter key is pressed', async () => {
-    const { aiAPI } = await import('../../../services/api');
     render(<ChatInterface {...initialProps} />);
     
     const input = screen.getByPlaceholderText('Ask a follow-up question...');
     fireEvent.change(input, { target: { value: 'Test message' } });
-    fireEvent.keyPress(input, { key: 'Enter', code: 'Enter' });
+    fireEvent.keyPress(input, { key: 'Enter', code: 'Enter', charCode: 13 });
     
     await waitFor(() => {
-      expect(aiAPI.chat).toHaveBeenCalledWith('Test message');
+      expect(aiAPI.chat).toHaveBeenCalledWith('Test message', { context: 'general' });
     });
   });
 
   it('does not submit message when Shift+Enter is pressed', async () => {
-    const { aiAPI } = await import('../../../services/api');
     render(<ChatInterface {...initialProps} />);
     
     const input = screen.getByPlaceholderText('Ask a follow-up question...');
     fireEvent.change(input, { target: { value: 'Test message' } });
-    fireEvent.keyPress(input, { key: 'Enter', code: 'Enter', shiftKey: true });
+    fireEvent.keyPress(input, { key: 'Enter', code: 'Enter', charCode: 13, shiftKey: true });
     
     // Wait a bit to ensure no API call was made
     await new Promise(resolve => setTimeout(resolve, 100));

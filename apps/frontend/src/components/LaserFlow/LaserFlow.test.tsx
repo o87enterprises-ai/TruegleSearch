@@ -1,41 +1,37 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import LaserFlow from '../LaserFlow';
+import { Renderer, Program } from 'ogl';
+// The .tsx component specifically: '../LaserFlow' resolves to the .jsx sibling.
+import LaserFlow from './LaserFlow.tsx';
 
-// Mock OGL library
+// Mock OGL library. Constructors are `function`s so `new` works, and Program
+// keeps its uniforms because the animation loop writes uTime every frame.
 vi.mock('ogl', () => ({
-  Renderer: vi.fn().mockImplementation(() => ({
-    gl: {
+  Renderer: vi.fn(function Renderer() {
+    this.gl = {
       canvas: document.createElement('canvas'),
-      program: null,
-      remove: vi.fn(),
-    },
-    setSize: vi.fn(),
-    render: vi.fn(),
-    scene: {
-      program: {
-        uniforms: {
-          uColor: { value: [1, 0.5, 0.8] },
-          uIntensity: { value: 1.0 },
-          uSpeed: { value: 0.5 },
-        },
-      },
-    },
-  })),
-  Program: vi.fn(),
-  Mesh: vi.fn(),
-  Triangle: vi.fn(),
+      getExtension: vi.fn(() => null),
+    };
+    this.setSize = vi.fn();
+    this.render = vi.fn();
+  }),
+  Program: vi.fn(function Program(_gl, opts) {
+    this.uniforms = opts.uniforms;
+  }),
+  Mesh: vi.fn(function Mesh() {}),
+  Triangle: vi.fn(function Triangle() {}),
 }));
 
-// Mock ResizeObserver
-global.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  disconnect: vi.fn(),
-}));
+global.ResizeObserver = vi.fn(function ResizeObserver() {
+  this.observe = vi.fn();
+  this.disconnect = vi.fn();
+});
 
 // Mock requestAnimationFrame
-global.requestAnimationFrame = vi.fn().mockImplementation((cb) => {
+// Implementation passed to vi.fn() itself, so restoreAllMocks between tests
+// cannot strip it (a stripped rAF returns undefined and nothing is cancelled).
+global.requestAnimationFrame = vi.fn((cb) => {
   setTimeout(cb, 16);
   return 1;
 });
@@ -77,10 +73,9 @@ describe('LaserFlow Component', () => {
 
   it('should handle errors gracefully', async () => {
     const onError = vi.fn();
-    const { Renderer } = require('ogl');
 
     // Mock renderer to throw an error
-    Renderer.mockImplementationOnce(() => {
+    vi.mocked(Renderer).mockImplementationOnce(() => {
       throw new Error('WebGL not supported');
     });
 
@@ -93,8 +88,7 @@ describe('LaserFlow Component', () => {
   });
 
   it('should display retry button on error', async () => {
-    const { Renderer } = require('ogl');
-    Renderer.mockImplementationOnce(() => {
+    vi.mocked(Renderer).mockImplementationOnce(() => {
       throw new Error('Test error');
     });
 
@@ -112,7 +106,6 @@ describe('LaserFlow Component', () => {
   });
 
   it('should handle custom props', () => {
-    const { Renderer } = require('ogl');
     render(
       <LaserFlow
         color="#FF0000"
@@ -134,19 +127,22 @@ describe('LaserFlow Component', () => {
   it('should convert hex colors to RGB correctly', () => {
     // This would be tested through the component's internal color conversion
     // Since it's a private method, we test the effect
-    const { Program } = require('ogl');
     render(<LaserFlow color="#00FF00" />);
 
     // Verify Program was called with color conversion
     expect(Program).toHaveBeenCalled();
   });
 
-  it('should clean up on unmount', () => {
-    const { container } = render(<LaserFlow />);
-    const renderer = require('ogl').Renderer;
+  it('should clean up on unmount', async () => {
+    const onReady = vi.fn();
+    const { unmount } = render(<LaserFlow onReady={onReady} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    // The cleanup is attached when initialisation's promise settles, a tick
+    // after onReady fires.
+    await new Promise((r) => setTimeout(r, 0));
 
     // Unmount
-    container.unmount();
+    unmount();
 
     // Verify cleanup was called
     expect(global.cancelAnimationFrame).toHaveBeenCalled();
@@ -154,13 +150,11 @@ describe('LaserFlow Component', () => {
 
   it('should handle resize events', () => {
     render(<LaserFlow />);
-    const { Renderer } = require('ogl');
-    const mockRenderer = Renderer.mock.results[0].value;
-
-    // Simulate resize
-    const resizeObserver = global.ResizeObserver.mock.results[0].value;
-    resizeObserver.observe();
-
+    // The component sizes the canvas once up front, then hands the same
+    // handler to a ResizeObserver watching its container.
+    const mockRenderer = vi.mocked(Renderer).mock.instances[0];
     expect(mockRenderer.setSize).toHaveBeenCalled();
+    const observer = vi.mocked(global.ResizeObserver).mock.instances[0];
+    expect(observer.observe).toHaveBeenCalled();
   });
 });

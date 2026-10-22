@@ -1,0 +1,10 @@
+import '@testing-library/jest-dom/vitest';
+import { afterEach } from 'vitest';
+import { cleanup } from '@testing-library/react';
+
+afterEach(() => cleanup());
+
+// jsdom does not implement layout, so scrolling APIs are missing.
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
