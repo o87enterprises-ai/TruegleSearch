@@ -459,7 +459,7 @@ async function fetchNews(query, limit, cursor) {
 const {
   fetchPublicSocial, PLATFORM_DOMAINS, isConfigured: publicSocialConfigured,
 } = require('../services/feed/PublicSocialSource');
-const { seedTopics, seedForPage } = require('../services/feed/FeedSeeds');
+const { seedTopics, seedForPage, topSeedFor } = require('../services/feed/FeedSeeds');
 
 // ── SAFE SEARCH IN THE FEED ─────────────────────────────────────────────────
 // Owner, 2026-10-08: a Safe Search control on Feed. Each platform marks its
@@ -476,8 +476,22 @@ async function fetchViaSearx(platform, query, limit, cursor, seeds) {
   // A typed query IS the topic. Only the home feed needs seeding, and each page
   // walks to the next seed so a long scroll broadens rather than repeating one
   // subject forever.
-  const topic = query || seedForPage(seeds, page);
-  return fetchPublicSocial({ platform, topic, limit, cursor: page });
+  if (query) return fetchPublicSocial({ platform, topic: query, limit, cursor: page });
+  // HOME FEED: the shared seed first, then this platform's own top-posts
+  // words when that finds nothing (see TOP_POST_SEEDS). The top-posts search
+  // always asks for page 1 of its word — the cursor walks the WORD list, so
+  // each scroll page is a fresh topic rather than page 7 of "viral".
+  const shared = await fetchPublicSocial({ platform, topic: seedForPage(seeds, page), limit, cursor: page });
+  if (shared.items.length) return { items: shared.items, next: page + 1 };
+  const top = topSeedFor(platform, page);
+  if (!top) return { items: [], next: null };
+  const found = await fetchPublicSocial({ platform, topic: top, limit, cursor: 1 });
+  // An empty top-posts page does not end the scroll on its own — the next
+  // word may well have posts — but a platform with nothing for two words in
+  // a row is done, or the client would ask forever.
+  if (found.items.length) return { items: found.items, next: page + 1 };
+  const again = await fetchPublicSocial({ platform, topic: topSeedFor(platform, page + 1), limit, cursor: 1 });
+  return { items: again.items, next: again.items.length ? page + 2 : null };
 }
 
 // ── the open fediverse: Mastodon, Bluesky, Lemmy ────────────────────────────
