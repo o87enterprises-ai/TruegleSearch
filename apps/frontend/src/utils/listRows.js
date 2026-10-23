@@ -16,16 +16,24 @@ import { playlists } from './playlists';
 
 const norm = (s) => String(s || '').toLowerCase();
 
-/** Your saved lists whose name — or any track title — matches the query. */
-export function savedListRows(query) {
+/**
+ * Your saved lists, as rows.
+ *
+ * `onlyMatches` true (the default — what the search ladder wants): just the lists
+ * whose name or any track title matches the query.
+ * `onlyMatches` false: EVERY list, matches first. This is what the Lists scope
+ * shows under the player — your lists are always there (owner, 2026-10-23), a
+ * typed query only decides which float to the top.
+ */
+function listRows(query, onlyMatches) {
   const q = norm(query).trim();
-  if (q.length < 2) return [];
+  if (onlyMatches && q.length < 2) return [];
   const rows = [];
   for (const list of playlists()) {
     if (!list.items.length) continue;
-    const byName = norm(list.name).includes(q);
-    const byTrack = !byName && list.items.some((it) => norm(it.title).includes(q));
-    if (!byName && !byTrack) continue;
+    const byName = q.length >= 2 && norm(list.name).includes(q);
+    const byTrack = !byName && q.length >= 2 && list.items.some((it) => norm(it.title).includes(q));
+    if (onlyMatches && !byName && !byTrack) continue;
     const first = list.items[0];
     rows.push({
       kind: first.kind || 'youtube',
@@ -38,11 +46,17 @@ export function savedListRows(query) {
       listCount: list.items.length,
       origin: list.origin || null,
       isList: true,
-      _rank: byName ? 0 : 1,
+      _rank: byName ? 0 : (byTrack ? 1 : 2),
     });
   }
   return rows.sort((a, b) => a._rank - b._rank).map(({ _rank, ...row }) => row);
 }
+
+/** Your saved lists whose name — or any track title — matches the query. */
+export const savedListRows = (query) => listRows(query, true);
+
+/** EVERY saved list, the ones matching the query first. */
+export const allSavedListRows = (query) => listRows(query, false);
 
 /** /api/creators/playlists/search rows → player-source-shaped list rows. */
 export function publicListRows(playlistsFound) {

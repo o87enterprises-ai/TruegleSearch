@@ -348,7 +348,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
       if (playerStore.scope && playerStore.scope !== 'all') setTubeScope(playerStore.scope);
     }
     wasTubePopped.current = popped;
-  }, [poppedOut, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [poppedOut, mode]);
   // A shared player link is now just /tube?u=…&t=… — same page, arriving with
   // a queue. Everything a `u` has to survive (getPlayable or it isn't
   // rendered at all) is enforced inside parsePlayerParams; unplayable values
@@ -2694,7 +2694,10 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
                   // With one bar the page has no search of its own, so its
                   // grid follows the player's last submitted search.
                   query={tubeOneBar && playerStore.text.trim() ? playerStore.text : lastSearchedQuery}
-                  scope={tubeOneBar && playerStore.text.trim() ? playerStore.scope : 'all'}
+                  // The category shown under the player: the player's when it holds
+                  // the one bar, the page's otherwise. Lists uses it to ALWAYS
+                  // show your saved lists here.
+                  scope={tubeOneBar ? (playerStore.scope || 'all') : tubeScope}
                 />
               ) : searchLoading ? (
                 <div className="space-y-4">
