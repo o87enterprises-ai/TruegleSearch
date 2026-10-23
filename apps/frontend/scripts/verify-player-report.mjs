@@ -62,6 +62,15 @@ async function open(ids, { userAgent } = {}) {
     const body = url.includes(SILENT) ? SILENT_PAGE : url.includes(STUCK) ? chattyPage(3) : chattyPage(1);
     await r.fulfill({ status: 200, contentType: 'text/html', body }).catch(() => {});
   });
+  // The automatic health beacon (utils/playerDiagnostics.js reportEvent) —
+  // caught here instead of letting it hit the real (absent) backend, so the
+  // test can see exactly what it sent without a server.
+  const beacons = [];
+  await ctx.route('**/api/player/diagnostics', (r) => {
+    let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { /* ignore */ }
+    beacons.push(body);
+    return r.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' });
+  });
   const page = await ctx.newPage();
   const errs = [];
   page.on('pageerror', (e) => { if (!/Access is denied/.test(e.message)) errs.push(e.message); });
@@ -70,7 +79,7 @@ async function open(ids, { userAgent } = {}) {
   await until(() => page.locator('[data-share-gate]').count(), { what: 'the share gate' });
   await page.locator('[data-share-gate]').click();
   await page.evaluate("if (document.fullscreenElement) document.exitFullscreen()").catch(() => {});
-  return { ctx, page, errs };
+  return { ctx, page, errs, beacons };
 }
 
 const ANDROID_FIREFOX = 'Mozilla/5.0 (Android 14; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0';
@@ -78,29 +87,35 @@ const IPHONE_SAFARI = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Ap
 
 // ── alive but never "started": the overlay stops waiting on it ─────────────
 {
-  const { ctx, page, errs } = await open([STUCK]);
+  const { ctx, page, errs, beacons } = await open([STUCK]);
   await until(() => page.locator('[data-player-loading]').count(), { what: 'the loading overlay' });
   await page.waitForTimeout(4000);
   check(await page.locator('[data-player-loading]').count() === 1, 'before the grace window: still showing — a chatty-but-unconfirmed clip is not trusted instantly');
   await until(() => page.locator('[data-player-alive-override="yes"]').count(), { timeout: 10000, what: 'the alive override' });
   check(await page.locator('[data-player-loading]').count() === 0, 'once the grace window passes: the overlay clears on its own — "spinning the entire video" fixed');
   check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
+  // The owner's actual ask: detail captured automatically, no tap. Nobody
+  // clicked anything in this block — the beacon is the only way this would
+  // ever show up anywhere.
+  await until(() => beacons.length > 0, { timeout: 2000, what: 'an automatic health beacon' }).catch(() => {});
+  check(beacons.some((b) => b.reason === 'alive_override' && b.kind === 'youtube'), 'an automatic beacon fired for the override, no tap involved', JSON.stringify(beacons[0]));
   await ctx.close();
 }
 
 // ── a normal clip never trips the override or the silence pill ─────────────
 {
-  const { ctx, page } = await open([PLAYS]);
+  const { ctx, page, beacons } = await open([PLAYS]);
   await until(async () => (await page.locator('[data-player-loading]').count()) === 0, { what: 'the overlay to clear normally' });
   await page.waitForTimeout(2000);
   check(await page.locator('[data-player-alive-override]').count() === 0, 'a clip that properly reports playing never needed the override');
+  check(beacons.length === 0, 'and nothing was logged for it — a healthy clip generates no health-log noise', JSON.stringify(beacons));
   await page.close();
   await ctx.close();
 }
 
 // ── a genuinely dead clip: Skip AND Report, with real technical detail ─────
 {
-  const { ctx, page } = await open([SILENT]);
+  const { ctx, page, beacons } = await open([SILENT]);
   await until(() => page.locator('[data-embed-silent-skip]').count(), { timeout: 32000, what: 'the silence watchdog (25s)' });
   check(await page.locator('[data-player-loading-report], [data-embed-silent-report]').count() >= 1, 'a Report link appears alongside Skip');
   const href = await page.locator('[data-player-loading-report], [data-embed-silent-report]').first().getAttribute('href');
@@ -110,6 +125,11 @@ const IPHONE_SAFARI = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Ap
   check(body.includes('Host: www.youtube-nocookie.com'), 'and the host actually used');
   check(/Heard anything from the embed\?: no/.test(body), 'and that nothing was ever heard — a genuinely dead frame, not a slow one');
   check(/Browser: Mozilla/.test(body), 'and the browser, for a report with no other way to ask');
+  // The private log already has this one too — fired the moment the 25s
+  // watchdog tripped, before the Report link above even existed to click.
+  const silentBeacon = beacons.find((b) => b.reason === 'silent');
+  check(!!silentBeacon, 'a "silent" beacon reached the log on its own, before anyone could press Report', JSON.stringify(beacons));
+  check(silentBeacon?.kind === 'youtube' && silentBeacon?.heard === false, 'carrying the same kind/heard detail the mailto does');
   await ctx.close();
 }
 

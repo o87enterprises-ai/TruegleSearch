@@ -35,7 +35,7 @@ import { mediaKey } from '../../utils/videoEmbed';
 import { useSearchStashContext } from '../../context/SearchStashContext';
 import { IS_IOS } from '../../utils/isIOS';
 import { IS_ANDROID } from '../../utils/isAndroid';
-import { reportHref, envContext } from '../../utils/playerDiagnostics';
+import { reportHref, envContext, reportEvent } from '../../utils/playerDiagnostics';
 import { useDeliberateTap } from '../../hooks/useDeliberateTap';
 import { useRadioSession, startRadioFrom } from '../../utils/radio';
 
@@ -484,8 +484,15 @@ export default function TrueglePlayer({
   // onUnplayable) and the native <video>/<audio> (via onError) — a direct
   // file that 403s or won't decode used to leave the run stopped on a dead
   // frame, which is most of what "the feed won't keep playing" was.
-  const skipBroken = useCallback(() => {
+  // `code` is a real error code when useEmbedPlayback calls this (a YouTube
+  // error, say) and a DOM Event when the native <video>/<audio> onError
+  // handler calls it directly — only the former is ever worth putting in a
+  // report, so anything that isn't a primitive is dropped rather than
+  // stringified into noise like "[object Event]".
+  const skipBroken = useCallback((code) => {
     if (!current) return;
+    const errorCode = (typeof code === 'string' || typeof code === 'number') ? String(code) : undefined;
+    reportEvent({ reason: 'dead_error', kind: current.kind, errorCode });
     reportBroken(current, { auto: true });
     advance();
   }, [current, advance]);
@@ -509,7 +516,10 @@ export default function TrueglePlayer({
     // leaving the visitor staring at a black rectangle — this is the whole
     // error-review loop working without anybody having to notice or press
     // anything, which is the only version of it that will actually run.
-    onUnplayable: () => skipBroken(),
+    // skipBroken itself fires the health beacon, with the error code when
+    // there is one — it is gone from the screen before anyone could tap
+    // Report, so this is the only record of it that exists at all.
+    onUnplayable: skipBroken,
   });
 
   // The list can't know how long anything is — the index doesn't carry it and
@@ -687,9 +697,29 @@ export default function TrueglePlayer({
   // clicking through the transport at the same moment can lose a click to.
   useEffect(() => {
     if (!hasCurrent || paused || !embedHeard || embedStarted) return undefined;
-    const t = setTimeout(() => setAliveOverrideFor(sourceKey), ALIVE_OVERRIDE_MS);
+    const t = setTimeout(() => {
+      setAliveOverrideFor(sourceKey);
+      // Worth a beacon on its own even though nothing visibly broke — "we had
+      // to stop trusting the handshake" is a signal in itself (see
+      // utils/playerDiagnostics.js).
+      reportEvent({ reason: 'alive_override', kind: current?.kind });
+    }, ALIVE_OVERRIDE_MS);
     return () => clearTimeout(t);
+    // `current` (read above only for its `kind`, at the moment the timeout
+    // fires) is deliberately left out of the deps — it is a fresh object
+    // most renders, for the object-identity reason noted above, and would
+    // re-arm the timer on every one of them.
   }, [hasCurrent, paused, embedHeard, embedStarted, sourceKey]);
+
+  // The 25s silence watchdog, reported exactly once per clip — a ref, not a
+  // second render-triggering state, since nothing on screen needs to change
+  // because of it (the UI already reacts to embed.silent directly).
+  const silentReported = useRef('');
+  useEffect(() => {
+    if (!embed.silent || !sourceKey || silentReported.current === sourceKey) return;
+    silentReported.current = sourceKey;
+    reportEvent({ reason: 'silent', kind: current?.kind, heard: embed.heard, muted: shownVolume === 0 });
+  }, [embed.silent, sourceKey, embed.heard, shownVolume, current?.kind]);
 
   // HAS IT ACTUALLY STARTED? An embed that reports its state says so itself; a
   // native element says so on `playing`; an embed that reports nothing
