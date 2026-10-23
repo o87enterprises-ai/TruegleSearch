@@ -32,6 +32,7 @@ const GUIDES = [
   { href: '/blog/why-multiple-perspectives-matter/', name: 'Why seeing multiple perspectives makes you better informed' },
   { href: '/blog/bias-free-search-results-perspective-modes/', name: 'How perspective modes show the full picture' },
   { href: '/blog/how-to-get-unbiased-search-results/', name: 'How to get unbiased search results' },
+  { href: '/blog/search-without-tracking-alternative-to-google/', name: 'Search engine without tracking: how Truegle compares' },
   { href: '/blog/how-to-search-privately/', name: 'How to search privately' },
   { href: '/blog/stop-google-tracking-searches/', name: 'How to stop Google tracking your searches' },
 ];

@@ -43,7 +43,7 @@ const META = {
   '/terms': {
     title: 'Terms of Service — Truegle',
     description:
-      'The terms governing your use of Truegle Search, including acceptable use, accounts, payments, and the Rewards Program.',
+      'The terms governing your use of Truegle Search, including acceptable use, accounts and payments.',
   },
   '/privacy-resource-hub': {
     title: 'The Ultimate Digital Privacy & OSINT Resource Hub — Truegle',

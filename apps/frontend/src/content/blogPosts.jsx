@@ -854,19 +854,35 @@ export const BLOG_POSTS = [
   },
   {
     slug: 'search-without-tracking-alternative-to-google',
-    title: 'Search Without Tracking: Why Truegle Is the Alternative to Google Built for Privacy',
+    title: 'Search Engine Without Tracking: How Truegle Compares',
     description:
-      'Search without tracking means your queries are not stored, profiled, or sold. Truegle is built as a privacy-first alternative to Google — here is what that means in practice.',
-    date: '2026-07-02',
-    readingTime: '6 min read',
+      'Looking for a search engine that doesn\'t track you? Compare Truegle with Google, DuckDuckGo, Brave Search and Startpage, and switch in five minutes.',
+    date: '2026-10-23',
+    readingTime: '7 min read',
     faq: [
+      {
+        q: 'Is there a search engine that doesn\'t track you?',
+        a: 'Yes. Truegle, DuckDuckGo, Brave Search and Startpage all avoid building a personal search history. Truegle keeps no per-account history, sets no cookies and carries no ads; the only server-side copy of a query is an anonymous, 7-day line used for trending.',
+      },
+      {
+        q: 'What is the best untracked search engine?',
+        a: 'It depends on what you need besides privacy. DuckDuckGo is the most familiar, Brave Search runs its own index, Startpage gives you Google results without the profile, and Truegle combines several providers, labels every source and adds perspective modes.',
+      },
       {
         q: 'What does "search without tracking" mean?',
         a: 'It means your queries are not logged to a personal profile, tied to an advertising ID, or sold. Truegle does not build a history of what you search; the only server-side copy is an anonymous, 7-day line used for trending.',
       },
       {
+        q: 'Can I use Google without being tracked?',
+        a: 'Only partly. Signing out, blocking third-party cookies and using a content blocker reduce what Google collects, but signed-out searches still feed its models. Switching your default to a search engine that doesn\'t track you removes the biggest source.',
+      },
+      {
+        q: 'How do I search 100% privately?',
+        a: 'Combine a no-track search engine with a privacy browser, a content blocker such as uBlock Origin, encrypted DNS, and a reputable VPN or Tor to hide your IP address. A search engine alone cannot hide your network identity.',
+      },
+      {
         q: 'Is Truegle a good alternative to Google?',
-        a: 'If your priority is privacy and unbiased, multi-engine results, yes — Truegle is built as a privacy-first alternative that does not track users.',
+        a: 'If your priority is privacy and unbiased, multi-engine results, yes. Truegle is built as a privacy-first alternative that does not track users and shows no ads.',
       },
       {
         q: 'Do I need an account to search privately?',
@@ -876,12 +892,22 @@ export const BLOG_POSTS = [
     body: (
       <>
         <p>
-          Search without tracking means your queries are not logged to an account,
-          not tied to an advertising profile, and not sold to data brokers.
-          Truegle is a privacy-first alternative to Google that was built with that
-          constraint from day one — not retrofitted onto an existing tracking
-          infrastructure.
+          A search engine without tracking is one that doesn't log your queries to a
+          profile, doesn't follow you across sites, and doesn't sell what you searched.
+          Google does all three. This guide explains what "no tracking" really means,
+          compares the main untracked search engines side by side, and shows how
+          Truegle works as a private alternative to Google. You can switch in about
+          five minutes.
         </p>
+
+        <LegalSection heading="What &quot;no tracking&quot; means in a search engine">
+          <p>
+            Search without tracking means your queries are not logged to an account,
+            not tied to an advertising profile, and not sold to data brokers. A search
+            engine still has to see your query to answer it; the difference is whether
+            it keeps that query, links it to you, and uses it to shape what you see next.
+          </p>
+        </LegalSection>
 
         <LegalSection heading="What Google actually tracks">
           <p>
@@ -898,7 +924,63 @@ export const BLOG_POSTS = [
           </p>
         </LegalSection>
 
-        <LegalSection heading="How Truegle differs">
+        <LegalSection heading="Search engines without tracking, compared">
+          <p>
+            Every engine below except Google avoids building a personal search history.
+            Where they differ is where the results come from and how they pay for
+            themselves:
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-white border-b border-gray-700">
+                  <th className="py-2 pr-4">Search engine</th>
+                  <th className="py-2 pr-4">Personal search history</th>
+                  <th className="py-2 pr-4">Where results come from</th>
+                  <th className="py-2">How it pays for itself</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">Google</td>
+                  <td className="py-2 pr-4">Stored in your account when signed in</td>
+                  <td className="py-2 pr-4">Its own index</td>
+                  <td className="py-2">Behaviorally targeted ads</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">DuckDuckGo</td>
+                  <td className="py-2 pr-4">Not kept</td>
+                  <td className="py-2 pr-4">Mostly Bing, plus its own sources</td>
+                  <td className="py-2">Contextual ads on the search term</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">Brave Search</td>
+                  <td className="py-2 pr-4">Not kept</td>
+                  <td className="py-2 pr-4">Its own independent index</td>
+                  <td className="py-2">Ads, plus a paid ad-free plan</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">Startpage</td>
+                  <td className="py-2 pr-4">Not kept</td>
+                  <td className="py-2 pr-4">Google results, fetched on your behalf</td>
+                  <td className="py-2">Contextual ads</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-4">Truegle</td>
+                  <td className="py-2 pr-4">Not kept (only an anonymous 7-day trending line)</td>
+                  <td className="py-2 pr-4">Multiple providers, each result labeled with its source</td>
+                  <td className="py-2">No ads at all</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            For an honest look at the most popular option, read{' '}
+            <a href="/blog/is-duckduckgo-really-private" className="text-blue-400 hover:text-blue-300">is DuckDuckGo really private?</a>
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="How Truegle works as an untracked search engine">
           <ul className="list-disc pl-6 space-y-2">
             <li>
               <strong>No search history stored per account.</strong> Queries are
@@ -909,9 +991,9 @@ export const BLOG_POSTS = [
               tracking pixels on third-party sites to follow you after you leave.
             </li>
             <li>
-              <strong>Ads are contextual, not behaviorally targeted.</strong>{' '}
-              Ads are based on the page or query, not a profile of your history, and
-              they're clearly labeled so you can see exactly what you're looking at.
+              <strong>No ads and no cookies.</strong> Truegle carries no
+              third-party advertising and sets zero cookies, so there is nothing to
+              target you with and nothing to consent to.
             </li>
             <li>
               <strong>Safe Search is on by default.</strong> Explicit content
@@ -970,13 +1052,13 @@ export const BLOG_POSTS = [
             bills without profiling you: contextual ads (matched to the query or
             page, not to a profile of you), subscriptions, and revenue-share or
             affiliate arrangements that don't require behavioral tracking. Truegle
-            relies on contextual, clearly labeled ads — so the lights stay on without
-            turning your curiosity into a product. The tracking isn't a requirement
-            of "free"; it's a business-model choice, and it's one we opted out of.
+            goes further: it carries no ads at all and isn't run for profit. It
+            exists to offer an alternative to the search monopoly. The tracking isn't
+            a requirement of "free"; it's a business-model choice.
           </p>
         </LegalSection>
 
-        <LegalSection heading="How to read a search engine's privacy policy">
+        <LegalSection heading="How to check if a search engine really doesn't track you">
           <p>
             Marketing says "we respect your privacy"; the privacy policy says what
             actually happens. Skim for four things: <strong>what is logged and for
@@ -992,8 +1074,9 @@ export const BLOG_POSTS = [
 
         <LegalSection heading="Summary">
           <ul className="list-disc pl-6 space-y-2">
-            <li>"Search without tracking" means your queries aren't logged to a profile, tied to an ad ID, or sold.</li>
-            <li>Google's search is the entry point to a behavioral ad network; Truegle was built privacy-first, with contextual ads and no per-account search history.</li>
+            <li>A search engine without tracking doesn't log your queries to a profile, tie them to an ad ID, or sell them.</li>
+            <li>DuckDuckGo, Brave Search, Startpage and Truegle all skip the personal history; they differ in where results come from and how they're funded.</li>
+            <li>Google's search is the entry point to a behavioral ad network; Truegle was built privacy-first, with no ads, no cookies and no per-account search history.</li>
             <li>Pair a no-track search engine with a privacy browser, a content blocker, encrypted DNS, and an audited VPN — all free — to close the gaps.</li>
             <li>You can switch in about five minutes. Start with the{' '}
               <a href="/privacy-resource-hub" className="text-blue-400 hover:text-blue-300">Privacy &amp; OSINT Resource Hub</a>{' '}
