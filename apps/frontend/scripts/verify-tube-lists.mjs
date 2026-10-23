@@ -83,6 +83,35 @@ check(await page.locator('[data-tube-grid] [data-list-actions="public"]').count(
 const firstIsSaved = await cards.first().locator('[data-list-actions]').first().getAttribute('data-list-actions');
 check(firstIsSaved === 'saved', 'saved lists come BEFORE public ones', firstIsSaved);
 
+// ── 1b. your lists are ALWAYS there when Lists is selected ──────────────
+const yours = page.locator('[data-tube-grid] [data-list-actions="saved"]');
+await pageBar.first().fill('zzzz nothing matches this');
+await pageBar.first().press('Enter');
+await page.waitForTimeout(1200);
+check(await yours.count() === 1, 'Lists selected + a query that matches nothing: your saved list is STILL shown', `${await yours.count()}`);
+check(await page.locator('[data-lists-heading="yours"]').count() === 1, '…under a "Your lists" heading');
+await pageBar.first().fill('');
+await page.waitForTimeout(900);
+check(await yours.count() === 1, 'Lists selected + an EMPTY box: your saved list is shown');
+await pageBar.first().fill('road'); await pageBar.first().press('Enter');
+await until(() => page.locator('[data-tube-grid] [data-list-actions="public"]').count(), { what: 'playlist results again', timeout: 8000 }).catch(() => {});
+check(await yours.count() === 1, 'a matching query lists your saved list ONCE (not duplicated by the search)', `${await yours.count()}`);
+check(await page.locator('[data-lists-heading="public"]').count() === 1, '…with public playlists under their own heading');
+await page.evaluate(() => {
+  const l = JSON.parse(localStorage.getItem('truegle_playlists_v1') || '[]');
+  l.push({ id: 'saved2', name: 'Gym songs', createdAt: Date.now(), items: [{ key: null, src: 'https://www.youtube-nocookie.com/embed/gymAAAAAAA1', kind: 'youtube', title: 'Gym one', pageUrl: 'https://www.youtube.com/watch?v=gymAAAAAAA1', poster: '', channel: 'G' }] });
+  localStorage.setItem('truegle_playlists_v1', JSON.stringify(l));
+});
+await page.reload({ waitUntil: 'domcontentloaded' });
+await until(() => pageBar.count(), { what: 'the bar after reload' });
+await page.locator('[data-tube-scope-bar] button', { hasText: 'Lists' }).first().click();
+await page.waitForTimeout(1200);
+check(await yours.count() === 2, 'every saved list shows — including ones that do not match the box', `${await yours.count()}`);
+await pageBar.first().click(); await pageBar.first().fill('road'); await pageBar.first().press('Enter');
+await until(() => page.locator('[data-tube-grid] [data-list-actions="public"]').count(), { what: 'results after reload', timeout: 8000 }).catch(() => {});
+const order = await page.locator('[data-tube-grid] [data-tube-card]').evaluateAll((els) => els.slice(0, 2).map((e) => e.querySelector('h3')?.innerText || ''));
+check(/Road trip mix/.test(order[0] || ''), 'lists matching the query float to the top', order.join(' | '));
+
 // ── 2. tapping plays ─────────────────────────────────────────────────────
 await cards.first().locator('[data-list-play]').click();
 await until(async () => (await nowId()) === 'roadAAAAAA1', { what: 'the saved list to play', timeout: 5000 }).catch(() => {});
@@ -100,6 +129,31 @@ await until(async () => (await second.locator('[data-list-save]').innerText()).i
 const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('truegle_playlists_v1') || '[]'));
 check(stored.some((l) => /^yt:PLpublicbbbbbbb$/.test(l.origin || '')), 'Save list adds the public playlist to Lists, without a second tap', stored.map((l) => l.name).join(' | '));
 check((await nowId()) === 'plvideo0001', '…and does not interrupt what is playing', await nowId());
+
+// ── 3b. add-to-list works IN FULL SCREEN ─────────────────────────────────
+// The sheet used to portal into <body>, which the Fullscreen API does not paint
+// — it landed in the page under the picture and could not be reached.
+await page.locator('[aria-label="Full screen"]:visible').first().click();
+await until(() => page.evaluate(() => !!document.fullscreenElement), { what: 'native full screen', timeout: 4000 }).catch(() => {});
+check(await page.evaluate(() => !!document.fullscreenElement), 'entered native full screen (setup)');
+await page.locator('[aria-label="Add to a list"]:visible').first().click();
+await until(() => page.locator('[data-add-to-list]').count(), { what: 'the add-to-list sheet', timeout: 4000 }).catch(() => {});
+const sheet = await page.evaluate(() => {
+  const d = document.querySelector('[data-add-to-list]');
+  if (!d) return { found: false };
+  const r = d.getBoundingClientRect();
+  const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+  return { found: true, inside: !!document.fullscreenElement && document.fullscreenElement.contains(d), onTop: !!hit && d.contains(hit) };
+});
+check(sheet.found && sheet.inside, 'in full screen the add-to-list sheet opens INSIDE the full-screen surface', JSON.stringify(sheet));
+check(sheet.onTop, '…and is on top, where it can be tapped');
+await page.locator('[data-add-to-list] [data-list-id="saved2"]').click();
+const gym = await page.evaluate(() => (JSON.parse(localStorage.getItem('truegle_playlists_v1') || '[]').find((l) => l.id === 'saved2') || { items: [] }).items.length);
+check(gym === 2, 'tapping a list in that sheet adds the playing video to it', `${gym} items in "Gym songs"`);
+await page.locator('[data-add-to-list] button', { hasText: 'Done' }).click();
+check(await page.locator('[data-add-to-list]').count() === 0, '…and Done closes it');
+await page.evaluate(() => document.exitFullscreen?.());
+await page.waitForTimeout(500);
 
 // ── 4. ONE bar on Tube ───────────────────────────────────────────────────
 check(await pageBar.count() === 1 && await playerBar.count() === 0, 'docked: exactly one search bar (the page\'s)');

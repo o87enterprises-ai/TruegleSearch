@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { overlayRoot } from '../../utils/overlayRoot';
 import { Check, Plus, X } from 'lucide-react';
 import {
   usePlaylists, createPlaylist, addToPlaylist, removeSourceFromPlaylist, playlistHas,
@@ -23,6 +24,9 @@ export default function AddToListSheet({ source, onClose }) {
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const inputRef = useRef(null);
+  // Mounted where it can be SEEN: inside the full-screen surface when the
+  // player is full screen (see utils/overlayRoot.js), <body> otherwise.
+  const mountAt = useMemo(() => overlayRoot(), []);
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -43,7 +47,15 @@ export default function AddToListSheet({ source, onClose }) {
 
   return createPortal(
     <div data-add-to-list="" role="dialog" aria-modal="true" aria-label="Add to a list"
-      className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+      // Above the iPhone full-screen box (z-index 2147483000) as well as the page.
+      className="fixed inset-0 z-[2147483001] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+      // A portal's events bubble through the REACT tree, and inside the player
+      // that tree is the player root — whose wheel and touch handlers mean
+      // next / previous in full screen. Scrolling this list must not skip tracks.
+      onWheel={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
       onClick={onClose}>
       <div className="w-full sm:max-w-sm max-h-[80svh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-white/15 bg-[#0d0d14] shadow-2xl"
         onClick={(e) => e.stopPropagation()}>
@@ -97,6 +109,6 @@ export default function AddToListSheet({ source, onClose }) {
         </div>
       </div>
     </div>,
-    document.body,
+    mountAt || document.body,
   );
 }

@@ -108,6 +108,27 @@ if (await playBtn.count()) await playBtn.tap();
 await until(async () => (await page.locator('[data-player-root] button[aria-label="Play"]:visible').count()) === 0, { what: 'resume', timeout: 2000 }).catch(() => {});
 check(await page.locator('[data-player-root] button[aria-label="Pause"]:visible').count() > 0, '…and a tap on Play resumes it');
 
+// The add-to-list sheet in the iPhone's full screen (a fixed box at z-index
+// 2147483000): it used to sit under that box and could not be reached.
+const addBtn = page.locator('[data-pseudo-fullscreen] [aria-label="Add to a list"]:visible').first();
+if (await addBtn.count()) {
+  await addBtn.tap();
+  await until(() => page.locator('[data-add-to-list]').count(), { what: 'the add-to-list sheet', timeout: 3000 }).catch(() => {});
+  const onTop = await page.evaluate(() => {
+    const d = document.querySelector('[data-add-to-list]');
+    if (!d) return 'no sheet';
+    const r = d.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    const box = document.querySelector('[data-pseudo-fullscreen]');
+    return !!hit && d.contains(hit) && !!box && box.contains(d);
+  });
+  check(onTop === true, 'on an iPhone the add-to-list sheet opens in full screen, on top of the player', String(onTop));
+  const done = page.locator('[data-add-to-list] button', { hasText: 'Done' });
+  if (await done.count()) await done.tap();
+} else {
+  check(false, 'the add-to-list button is in iPhone full screen to test');
+}
+
 const leave = page.locator('[aria-label="Leave full screen"]:visible').first();
 check(await leave.count() === 1, 'the button now offers the way out');
 if (await leave.count()) await leave.tap();

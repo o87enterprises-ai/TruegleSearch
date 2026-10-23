@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Play, Plus, Check, Loader2, ChevronDown, Radio } from 'lucide-react';
 import { startRadioFrom } from '../../utils/radio';
 import { usePlayer } from '../../context/PlayerContext';
@@ -14,7 +14,8 @@ import { useMediaMeta, formatDuration } from '../../utils/mediaMeta';
 import { withoutBroken, useBrokenVersion } from '../../utils/broken';
 import { SaveTo } from '../player/PlayerLibrary';
 import ListRowActions from '../player/ListRowActions';
-import { playlistById } from '../../utils/playlists';
+import { playlistById, usePlaylists } from '../../utils/playlists';
+import { allSavedListRows } from '../../utils/listRows';
 import { usePlayAll } from '../../hooks/usePlayAll';
 import SafeSearchToggle from '../ui/SafeSearchToggle';
 
@@ -43,6 +44,16 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
   useBrokenVersion();
   const rows = useSortedRows(src.results);
   const visible = withoutBroken(rows || []);
+  // THE LISTS SCOPE ALWAYS SHOWS YOUR LISTS (owner, 2026-10-23): every saved
+  // list sits under the player whether or not anything is typed — a query only
+  // floats the matching ones to the top. usePlaylists() keeps it live, so
+  // saving or deleting a list changes this section at once. The search's own
+  // saved-list rows are dropped from the results below so none shows twice.
+  const listsScope = scope === 'lists';
+  usePlaylists();
+  const savedRows = listsScope ? allSavedListRows(query) : [];
+  const publicRows = listsScope ? visible.filter((r) => !r.savedListId) : visible;
+  const allRows = listsScope ? [...savedRows, ...publicRows] : visible;
   const sort = useTubeSort();
   const { settings } = useSettings();
   const blur = settings.safeSearch === 'blur';
@@ -55,7 +66,7 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
   // here" as the browse deck. Back to the top, where the player is, so the
   // tap visibly did something on a phone.
   const playFrom = useCallback((i) => {
-    const row = visible[i];
+    const row = allRows[i];
     // PLAYLIST rows (the Lists scope) play AS a list, never as a feed of
     // results: a public one is imported then played (Play All), one of yours
     // plays its own tracks. A feed of "results" would hand YouTube's playlist
@@ -69,7 +80,7 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
     }
     startFeed(visible.slice(i), 'tube');
     if (docked) window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [startFeed, visible, docked, playAll, playList]);
+  }, [startFeed, visible, allRows, docked, playAll, playList]);
 
   const queue = useCallback((r) => {
     enqueue(r, { deck: 'tube' });
@@ -113,7 +124,7 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
       )}
       {/* THE FILTER ROW — YouTube's chips, plus Safe Search, in one place. */}
       <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-        {SORTS.map((o) => {
+        {!listsScope && SORTS.map((o) => {
           const dead = (o.id === 'newest' || o.id === 'oldest') && src.results?.length > 0 && !datedOk;
           return (
             <button
@@ -138,7 +149,7 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
         <SafeSearchToggle className="ml-auto" />
       </div>
 
-      {src.loading && !visible.length && (
+      {src.loading && !allRows.length && (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-5" aria-live="polite">
           <span className="sr-only">Finding something to watch…</span>
           {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -151,26 +162,44 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
         </div>
       )}
 
-      {!src.loading && query && src.results && visible.length === 0 && (
+      {listsScope && savedRows.length === 0 && (
+        <p data-lists-empty="" className="py-4 text-center text-sm text-white/55">
+          No saved lists yet. Tap <span className="text-white/80 font-semibold">Save list</span> on a
+          playlist, or the list button on any video, to start one.
+        </p>
+      )}
+      {!src.loading && query && src.results && publicRows.length === 0 && (
         <p className="py-6 text-center text-sm text-white/50">
-          Nothing playable for &ldquo;{query}&rdquo;. Try other words
-          {settings.safeSearch !== 'off' ? ', or loosen Safe Search' : ''}.
+          {listsScope
+            ? <>No public playlists found for &ldquo;{query}&rdquo;. Try other words.</>
+            : <>Nothing playable for &ldquo;{query}&rdquo;. Try other words
+              {settings.safeSearch !== 'off' ? ', or loosen Safe Search' : ''}.</>}
         </p>
       )}
       {src.error && !visible.length && (
         <p className="py-4 text-center text-xs text-amber-300/90">{src.error}</p>
       )}
 
-      {visible.length > 0 && (
+      {allRows.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-5">
-          {visible.map((r, i) => {
-            const key = mediaKey(r) || r.src;
+          {allRows.map((r, i) => {
+            // A list is keyed by ITS id — two lists can open on the same first track.
+            const key = r.isList ? r.pageUrl : (mediaKey(r) || r.src);
             const m = metaFor(r) || {};
             const channel = r.channel || m.c;
             const length = formatDuration(r.duration || m.d);
             const when = publishedLabel(r.published);
             return (
-              <article key={key} data-tube-card="" className="group min-w-0">
+              <Fragment key={key}>
+              {/* Lists scope: two labelled sections in one grid — YOUR lists
+                  first (always there), then public playlists from the search. */}
+              {listsScope && i === 0 && savedRows.length > 0 && (
+                <h2 data-lists-heading="yours" className="col-span-full text-[11px] uppercase tracking-widest text-white/45 -mb-2">Your lists</h2>
+              )}
+              {listsScope && i === savedRows.length && publicRows.length > 0 && (
+                <h2 data-lists-heading="public" className="col-span-full text-[11px] uppercase tracking-widest text-white/45 -mb-2 mt-2">Public playlists</h2>
+              )}
+              <article data-tube-card="" className="group min-w-0">
                 <button
                   type="button"
                   onClick={() => playFrom(i)}
@@ -260,6 +289,7 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
                   </button>
                 </div>
               </article>
+              </Fragment>
             );
           })}
         </div>
