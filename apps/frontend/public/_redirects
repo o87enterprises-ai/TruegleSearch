@@ -25,6 +25,7 @@
 /chat             /_index  200
 /s/*              /_index  200
 /w                /_index  200
+/v/*              /_index  200
 /shorts           /_index  200
 /tube             /_index  200
 /l                /_index  200

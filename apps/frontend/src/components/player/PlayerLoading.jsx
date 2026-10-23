@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { RotateCcw, SkipForward, X } from 'lucide-react';
+import { RotateCcw, SkipForward, Mail, X } from 'lucide-react';
 
 // What the picture shows between "you picked it" and "it is playing".
 //
@@ -19,7 +19,7 @@ import { RotateCcw, SkipForward, X } from 'lucide-react';
 // see useEmbedPlayback), shorter than the 25s silence watchdog.
 export const SLOW_LOAD_MS = 9000;
 
-export function PlayerLoading({ compact = false, onRetry, onSkip, title }) {
+export function PlayerLoading({ compact = false, onRetry, onSkip, reportHref, title }) {
   const [slow, setSlow] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   useEffect(() => {
@@ -91,6 +91,16 @@ export function PlayerLoading({ compact = false, onRetry, onSkip, title }) {
               </button>
             )}
           </span>
+          {/* Only once the clip is genuinely quiet (onSkip's own gate), not
+              at the first "taking a while" mark — before that there is
+              nothing wrong to report yet. Nothing is sent unless the
+              recipient presses send (utils/playerDiagnostics.js). */}
+          {onSkip && reportHref && (
+            <a data-player-loading-report="" href={reportHref}
+              className="flex items-center gap-1.5 text-white/60 hover:text-white/80 text-[11px] underline underline-offset-2">
+              <Mail size={12} /> Report this
+            </a>
+          )}
         </div>
       ) : (
         <span className="text-white/60 text-[11px] tracking-wide">Loading…</span>

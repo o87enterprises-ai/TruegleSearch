@@ -49,7 +49,7 @@ const backendFlag = argv.indexOf('--backend');
 const BACKEND = (backendFlag !== -1 ? argv[backendFlag + 1] : null)
   || process.env.TRUEGLE_BACKEND_URL
   || DEFAULT_BACKEND;
-const targets = argv.filter((a, i) => !a.startsWith('--') && i !== backendFlag + 1);
+const targets = argv.filter((a, i) => !a.startsWith('--') && (backendFlag === -1 || i !== backendFlag + 1));
 
 if (targets.length === 0) {
   console.error('Usage: npm run creators:fetch -- <slug|all> [--backend <url>]');
@@ -140,6 +140,7 @@ for (const creator of wanted) {
 }
 
 console.log(`\n${total} videos cached from ${wanted.length} channel(s) via ${BACKEND}`);
+console.log('Now run: npm run videoindex:build   (keeps /v/<id> pages and sitemap-videos.xml in sync with this)');
 if (rssOnly > 0) {
   // Loud, because fifteen rows is indistinguishable from a good seed by eye.
   console.error(

@@ -59,6 +59,11 @@
   Content-Type: text/html; charset=utf-8
 /creator/*
   Content-Type: text/html; charset=utf-8
+# /v/<id> is indexable ONLY for a roster video — the edge function decides per
+# id (functions/_middleware.js) via a meta robots tag, not a blanket header
+# here, since a header can't tell one id from another.
+/v/*
+  Content-Type: text/html; charset=utf-8
 /green
   Content-Type: text/html; charset=utf-8
 /red

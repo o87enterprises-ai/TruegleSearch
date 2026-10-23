@@ -1,4 +1,5 @@
 import { CREATORS, getCreator } from '../content/creators.js';
+import { SLUGS, VIDEOS } from '../content/videoIndex.generated.js';
 
 // WHAT GOOGLE SEES FOR THE APP'S OWN SURFACES.
 //
@@ -168,10 +169,16 @@ export function crawlBlock(page) {
   const links = page.links
     .map(([href, label]) => `<li><a href="${esc(href)}">${esc(label)}</a></li>`)
     .join('');
-  // Plain text, not links: playing happens in the app, and a list of links
-  // into shareable player URLs would hand a crawler thousands of near-copies.
+  // Each upload links to its OWN page (/v/<id>) when it's in the roster
+  // index — a real, distinct page, not a near-copy of a share link, so unlike
+  // the old plain-text list this one is safe to link. An id the index
+  // doesn't know (the live feed can run ahead of a stale creatorVideos.txt)
+  // falls back to plain text rather than linking to a page that isn't there.
   const uploads = page.videos?.length
-    ? `<h2>Latest uploads</h2><ul>${page.videos.map((v) => `<li>${esc(v.title)}${v.published ? ` <time datetime="${esc(v.published)}">${esc(v.published.slice(0, 10))}</time>` : ''}</li>`).join('')}</ul>`
+    ? `<h2>Latest uploads</h2><ul>${page.videos.map((v) => {
+      const label = `${esc(v.title)}${v.published ? ` <time datetime="${esc(v.published)}">${esc(v.published.slice(0, 10))}</time>` : ''}`;
+      return VIDEOS[v.id] ? `<li><a href="/v/${esc(v.id)}">${label}</a></li>` : `<li>${label}</li>`;
+    }).join('')}</ul>`
     : '';
   return `<main id="seo-static"><h1>${esc(page.h1)}</h1><p>${esc(page.text)}</p>${uploads}<nav><ul>${links}</ul></nav></main>`;
 }
@@ -211,8 +218,111 @@ export function videosSchema(page) {
         thumbnailUrl: v.thumbnail,
         ...(v.published ? { uploadDate: v.published } : {}),
         embedUrl: `https://www.youtube.com/embed/${v.id}`,
-        url: page.canonical,
+        // Its OWN page when the roster index knows the id, never the creator
+        // page for every item \u2014 THAT was the root cause of 2026-10-23's
+        // Search Console report: ~10 identical `url` values per page meant
+        // Google could only ever credit one video per creator page and
+        // ignored the rest. See videoPageFor() below.
+        url: VIDEOS[v.id] ? `${SITE}/v/${v.id}` : page.canonical,
       },
     })),
   };
+}
+
+// \u2500\u2500 /v/<id>: one page per roster video \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+//
+// Search Console, 2026-10-23: of ~5,000 roster videos, 3 were indexed \u2014 one
+// per creator page, because that is the most Google will credit a page with
+// ten embeds. This gives every cached video its OWN page, so there are as
+// many indexable pages as there are videos.
+//
+// Scope is deliberately the roster only (content/creators.js), not every clip
+// anyone plays: a page per arbitrary search result would be thin, near-
+// duplicate content risking a site-wide penalty, and building it from what
+// people play would mean recording plays, which breaks no-tracking. See
+// videoIndex.generated.js for where the id -> [creator, title] data comes
+// from and why it is its own generated file.
+
+const YT_ID = /^[A-Za-z0-9_-]{11}$/;
+
+/** The templated description shared by a video's own page and its sitemap entry. */
+export function videoDescription(title, creatorName) {
+  return `Watch \u201c${title}\u201d from ${creatorName} on Truegle \u2014 no tracking, no ads. `
+    + `Plays through YouTube\u2019s official embed, so ${creatorName} keeps every view.`;
+}
+
+/**
+ * The SEO data for /v/<id>, or null when the id isn't a roster video \u2014 an
+ * arbitrary id must never get a canonical, schema or an indexable page; the
+ * caller falls back to a bare noindex shell instead.
+ */
+export function videoPageFor(id) {
+  if (!YT_ID.test(id)) return null;
+  const hit = VIDEOS[id];
+  if (!hit) return null;
+  const [slugIdx, title] = hit;
+  const creator = getCreator(SLUGS[slugIdx]);
+  if (!creator) return null; // the index and the roster disagreed \u2014 never guess
+
+  // Up to 3 more from the same creator, for the "more from" links \u2014 titles
+  // only (no extra lookup), in index order, which is newest-first the same
+  // way creatorVideos.txt is.
+  const siblings = [];
+  for (const [vid, [s, t]] of Object.entries(VIDEOS)) {
+    if (s === slugIdx && vid !== id) siblings.push([vid, t]);
+    if (siblings.length >= 3) break;
+  }
+
+  return {
+    id,
+    title,
+    creator,
+    canonical: `${SITE}/v/${id}`,
+    thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+    description: videoDescription(title, creator.name),
+    h1: title,
+    siblings,
+    links: [
+      [`/creator/${creator.slug}`, `More from ${creator.name}`],
+      ['/creators', 'All creators'],
+      ['/tube', 'True Tube'],
+    ],
+  };
+}
+
+/** A single VideoObject \u2014 the video page's own, not the creator ItemList above. */
+export function videoSchema(page) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'VideoObject',
+    name: page.title,
+    description: page.description,
+    thumbnailUrl: page.thumbnail,
+    embedUrl: `https://www.youtube-nocookie.com/embed/${page.id}`,
+    url: page.canonical,
+  };
+}
+
+/**
+ * The video page's crawl block \u2014 UNLIKE crawlBlock() above, this carries a
+ * real `<iframe>`: Google's own guidance for video rich results is that the
+ * page have an actual player, not just a VideoObject with nothing to point
+ * at. youtube-nocookie, matching the player's own embed host (utils/
+ * videoEmbed.js) and the privacy stance everywhere else on the site.
+ * Replaced on mount same as crawlBlock() \u2014 the app takes over and plays it
+ * through the real player (with queueing, Radio, etc.) instead.
+ */
+export function videoCrawlBlock(page) {
+  const embedUrl = `https://www.youtube-nocookie.com/embed/${page.id}`;
+  const links = page.links
+    .map(([href, label]) => `<li><a href="${esc(href)}">${esc(label)}</a></li>`)
+    .join('');
+  const more = page.siblings?.length
+    ? `<h2>More from ${esc(page.creator.name)}</h2><ul>${page.siblings
+      .map(([vid, t]) => `<li><a href="/v/${esc(vid)}">${esc(t)}</a></li>`)
+      .join('')}</ul>`
+    : '';
+  return `<main id="seo-static"><h1>${esc(page.h1)}</h1>`
+    + `<iframe src="${esc(embedUrl)}" title="${esc(page.title)}" loading="lazy" allowfullscreen></iframe>`
+    + `<p>${esc(page.description)}</p>${more}<nav><ul>${links}</ul></nav></main>`;
 }

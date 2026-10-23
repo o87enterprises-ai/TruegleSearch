@@ -150,6 +150,13 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // guess, not a fact, so it no longer moves anything: the player offers a
   // Skip and the person decides. Clips that REPORT an error still move on.
   const [silent, setSilent] = useState(false);
+  // The frame has said ANYTHING at all — distinct from `started` (which
+  // specifically means playerState===1/playing). Exposed so a caller can
+  // tell "alive, just hasn't confirmed it's playing yet" apart from "we've
+  // heard nothing" — see TrueglePlayer's loading-overlay override, added
+  // 2026-10-23 after a report that the spinner could outlast a clip that
+  // was visibly playing underneath it.
+  const [heardAny, setHeardAny] = useState(false);
   // The embed said it is PLAYING — the proof the loading animation waits for.
   // Stored as the key it was seen for rather than a boolean, so the render
   // after a track change cannot read the PREVIOUS clip's "true" for one frame
@@ -162,6 +169,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
     setTikTokFallback(false);
     setTikTokNeedsTap(false);
     setSilent(false);
+    setHeardAny(false);
     if (kind !== 'youtube' && kind !== 'vimeo' && kind !== 'tiktok') return undefined;
     const frame = frameRef?.current;
     if (!frame) return undefined;
@@ -181,6 +189,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
       if (!origins.includes(e.origin)) return;           // not the host we embedded
       heard = true;                                       // the frame is alive
       setSilent(false);
+      setHeardAny(true);
       let data = e.data;
       if (typeof data === 'string') {
         try { data = JSON.parse(data); } catch { return; }
@@ -435,7 +444,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // generic embeds do not, so for those the caller falls back to "frame loaded"
   // instead of showing a loader that can never clear.
   const tracksStart = (kind === 'youtube' || kind === 'vimeo' || (kind === 'tiktok' && !tiktokFallback));
-  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback, tiktokNeedsTap: tiktokNeedsTap && !tiktokFallback, silent, started: startedFor === startKey, tracksStart };
+  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback, tiktokNeedsTap: tiktokNeedsTap && !tiktokFallback, silent, heard: heardAny, started: startedFor === startKey, tracksStart };
 }
 
 export default useEmbedPlayback;
