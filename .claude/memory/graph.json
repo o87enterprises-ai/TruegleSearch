@@ -1864,6 +1864,14 @@
         "body": "Tube Lists scope always renders all saved lists (allSavedListRows) above public playlist results. Overlays/portals must mount via utils/overlayRoot() (fullscreenElement or [data-pseudo-fullscreen]) or they are invisible in fullscreen.",
         "ts": "2026-10-23",
         "created": "2026-10-23"
+      },
+      "d-sharegate-safety-net": {
+        "Id": "d-sharegate-safety-net",
+        "Type": "decision",
+        "Label": "ShareGate checks its own tap; help card on failure",
+        "body": "After the Play tap, ShareGate hides (phase starting) and after 3s checks playerOnScreen() ([data-mini] [data-player-root] in viewport, visible). If not: data-share-gate-failed card (z 2147483002) with Try again (re-runs start inside a tap), Report (mailto:truegleai@proton.me with page URL, UA, up to 5 caught window errors; nothing sent by us), Close. npm run sharegate:test (10 checks, sabotage via CSS).",
+        "ts": "2026-10-23",
+        "created": "2026-10-23"
       }
     },
     "thread": {
