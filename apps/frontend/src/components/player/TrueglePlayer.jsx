@@ -34,6 +34,8 @@ import { copyText } from '../../utils/clipboard';
 import { mediaKey } from '../../utils/videoEmbed';
 import { useSearchStashContext } from '../../context/SearchStashContext';
 import { IS_IOS } from '../../utils/isIOS';
+import { IS_ANDROID } from '../../utils/isAndroid';
+import { reportHref, envContext } from '../../utils/playerDiagnostics';
 import { useDeliberateTap } from '../../hooks/useDeliberateTap';
 import { useRadioSession, startRadioFrom } from '../../utils/radio';
 
@@ -597,23 +599,30 @@ export default function TrueglePlayer({
   const embedCanSetVolume = embed.canSetVolume;
   // YouTube starts muted (PlayerScreen's mute=1). Unmuting BEFORE it plays
   // turns its autoplay back into an unmuted one, which browsers block — so
-  // wait for it to report playing. On iOS, never auto-unmute at all: WebKit
-  // pauses a muted-autoplay video that is unmuted without the viewer's own
-  // tap, which is the "frozen" clip. There, only a volume change the viewer
-  // makes is sent; otherwise YouTube's own "tap to unmute" handles sound.
+  // wait for it to report playing. On a phone, never auto-unmute at all:
+  // WebKit pauses a muted-autoplay video that is unmuted without the
+  // viewer's own tap (the "frozen" clip), and Android has its own version
+  // of the same rule (Firefox's Autoplay setting commonly blocks sound
+  // specifically; Chrome enforces its own Media Engagement score) — a
+  // script unmute with no tap behind it can simply be ignored. There, only
+  // a volume change the viewer makes is sent; otherwise the platform's own
+  // "tap to unmute" (where it offers one) handles sound.
   const embedStarted = embed.started;
   const isYouTube = current?.kind === 'youtube';
-  // ── iPHONE: SOUND IS THE VIEWER'S TAP, AND THE ICON SAYS SO ─────────────
-  // The clip autoplays muted (WebKit's rule), so until the viewer asks for
-  // sound on THIS clip the speaker shows MUTED — it used to show the stored
-  // level, so the first tap "muted" an already-silent video and the second
-  // restored a level the old value check then refused to send. Sound was
-  // unreachable. Now any press of the volume control marks this clip as
-  // asked-for and sends the command inside that same tap.
-  const startsMutedOnIOS = IS_IOS && (isYouTube || current?.kind === 'tiktok');
+  // ── PHONES: SOUND IS THE VIEWER'S TAP, AND THE ICON SAYS SO ─────────────
+  // The clip autoplays muted (the platform's rule), so until the viewer
+  // asks for sound on THIS clip the speaker shows MUTED — it used to show
+  // the stored level, so the first tap "muted" an already-silent video and
+  // the second restored a level the old value check then refused to send.
+  // Sound was unreachable. Now any press of the volume control marks this
+  // clip as asked-for and sends the command inside that same tap.
+  // Originally iPhone-only (WebKit); 2026-10-23: owner report on Android
+  // (Firefox) found the identical symptom there, with no prompt at all —
+  // the same fix, just never extended past the platform it was first found on.
+  const startsMutedWithoutGesture = (IS_IOS || IS_ANDROID) && (isYouTube || current?.kind === 'tiktok');
   const [soundAskedFor, setSoundAskedFor] = useState('');
-  const iosSilent = startsMutedOnIOS && soundAskedFor !== sourceKey;
-  const shownVolume = iosSilent ? 0 : volume;
+  const autoplaySilent = startsMutedWithoutGesture && soundAskedFor !== sourceKey;
+  const shownVolume = autoplaySilent ? 0 : volume;
   const onVolume = useCallback((v) => {
     setSoundAskedFor(sourceKey);
     setVolume(v);
@@ -622,7 +631,7 @@ export default function TrueglePlayer({
   }, [sourceKey, setVolume, embedCanSetVolume, embedSetVolume]);
   useEffect(() => {
     if (!current) return undefined;
-    const holdYouTube = (isYouTube && !embedStarted) || iosSilent;
+    const holdYouTube = (isYouTube && !embedStarted) || autoplaySilent;
     const apply = () => {
       if (embedCanSetVolume && !holdYouTube) embedSetVolume(volume);
       // Native <audio>/<video> have a real property; no channel needed.
@@ -631,7 +640,7 @@ export default function TrueglePlayer({
     apply();
     const t = [250, 900, 2000].map((d) => setTimeout(apply, d));
     return () => t.forEach(clearTimeout);
-  }, [volume, current, embedCanSetVolume, embedSetVolume, embedStarted, isYouTube, iosSilent]);
+  }, [volume, current, embedCanSetVolume, embedSetVolume, embedStarted, isYouTube, autoplaySilent]);
 
 
   // 👍/👎. The thumb steers what plays next; a dislike also guarantees this
@@ -651,6 +660,37 @@ export default function TrueglePlayer({
   const nativeMedia = current?.kind === 'file' || current?.kind === 'audio' || current?.kind === 'video';
   const canSeekHold = !!current && (embed.canSeek || nativeMedia);
 
+  // "IT IS PLAYING, THE SPINNER JUST DOESN'T KNOW IT." `embed.started`
+  // is a courtesy the platform's handshake sends once it reports
+  // playerState===1 — not a guarantee. On a slower or differently-timed
+  // handshake (a different browser, a flaky connection) the frame can be
+  // genuinely alive and playing while that one message never lands, and
+  // the loading overlay then sits forever over a clip that is fine. Owner,
+  // 2026-10-23 (Android/Firefox): "can keep spinning the entire video
+  // sometimes." Once the frame has said ANYTHING (`embed.heard` — distinct
+  // from `started`) and the run isn't paused, give the handshake a short
+  // grace window, then stop waiting on it: well past every real
+  // about-to-flip-to-started case the loading tuning notes above are built
+  // on, far short of the 25s dead-clip silence watchdog, which this does
+  // not touch — a frame that has said NOTHING is still judged exactly as
+  // it was.
+  const ALIVE_OVERRIDE_MS = 6000;
+  const [aliveOverrideFor, setAliveOverrideFor] = useState('');
+  const embedHeard = embed.heard;
+  const hasCurrent = !!current;
+  // Deps are `sourceKey` (already the stable identity for "this clip, this
+  // play") plus primitives — never `current` itself. `current` is a fresh
+  // object most renders (the queue reducer), so depending on it directly
+  // tore this timer down and re-armed it on renders that changed nothing
+  // about the clip, which was reliably harmless by itself but costs a
+  // render every time it fires — exactly the kind of churn a UI test
+  // clicking through the transport at the same moment can lose a click to.
+  useEffect(() => {
+    if (!hasCurrent || paused || !embedHeard || embedStarted) return undefined;
+    const t = setTimeout(() => setAliveOverrideFor(sourceKey), ALIVE_OVERRIDE_MS);
+    return () => clearTimeout(t);
+  }, [hasCurrent, paused, embedHeard, embedStarted, sourceKey]);
+
   // HAS IT ACTUALLY STARTED? An embed that reports its state says so itself; a
   // native element says so on `playing`; an embed that reports nothing
   // (SoundCloud, Rumble, a Reddit card…) is taken at its word once its frame has
@@ -660,11 +700,36 @@ export default function TrueglePlayer({
     embed.started
     || playingKey === sourceKey
     || (!embed.tracksStart && loadedKey === sourceKey)
+    || aliveOverrideFor === sourceKey
   );
   // TikTok waiting for the viewer's own tap must stay uncovered — see
   // useEmbedPlayback; a loader over it would hide the one thing to press.
   const loading = !!current && !paused && !began && !embed.tiktokNeedsTap;
   const ended = !!current && endedKey === sourceKey;
+
+  // THE REPORT, for the two stuck states below (the slow/dead loader and the
+  // silence pill) — see utils/playerDiagnostics.js. Built from exactly the
+  // signals this component already has: nothing new is tracked to make this
+  // possible, only exposed. Gated on `embed.silent`, the only condition it
+  // is ever actually shown under — this runs every render otherwise (a
+  // player plays far more renders than it goes quiet), so building a report
+  // nobody will see on every one of them is pure waste.
+  const playerReportHref = (() => {
+    if (!current || !embed.silent) return '';
+    let host = current.src;
+    try { host = new URL(current.src).hostname; } catch { /* not a URL (a packed id, a relative path) */ }
+    return reportHref({
+      subject: 'Truegle: a video would not play',
+      summary: `A clip got stuck while loading (${current.title || 'untitled'}).`,
+      context: {
+        Kind: current.kind,
+        Host: host,
+        'Heard anything from the embed?': embed.heard ? 'yes' : 'no',
+        Muted: shownVolume === 0 ? 'yes' : 'no',
+        ...envContext(),
+      },
+    });
+  })();
 
   // REPLAY. A native element restarts in place (instant, no reload). Every
   // embed remounts through the context, which is the only restart that is
@@ -1008,6 +1073,12 @@ export default function TrueglePlayer({
       // screen stop smearing a highlight across the overlay text. Inputs
       // inside it are exempted there.
       data-player-root=""
+      // The loading overlay stopped waiting on the platform's own "I'm
+      // playing" confirmation and trusted the frame instead — see the
+      // ALIVE_OVERRIDE_MS note above `began`. Carries no UI of its own;
+      // it exists so this is provable (verify-player-report.mjs) rather
+      // than only inferred from the overlay's absence.
+      data-player-alive-override={aliveOverrideFor === sourceKey ? 'yes' : undefined}
       data-pseudo-fullscreen={pseudoFullscreen ? '' : undefined}
       onTouchStartCapture={swipeHint ? () => setSwipeHint(false) : undefined}
       // On the ROOT, not the swipe band: wheel events bubble from whatever
@@ -1225,6 +1296,7 @@ export default function TrueglePlayer({
             title={current.title}
             onRetry={restart}
             onSkip={embed.silent ? skipBroken : undefined}
+            reportHref={embed.silent ? playerReportHref : undefined}
           />
         )}
         {ended && !loading && !clipScreen && !locked && (
@@ -1236,13 +1308,15 @@ export default function TrueglePlayer({
               Not loading?
               <button type="button" data-embed-silent-skip="" onClick={skipBroken}
                 className="px-2.5 py-1 rounded-full bg-white/15 hover:bg-white/25 font-semibold">Skip</button>
+              <a data-embed-silent-report="" href={playerReportHref}
+                className="px-2.5 py-1 rounded-full bg-white/15 hover:bg-white/25 font-semibold">Report</a>
             </span>
           </div>
         )}
-        {iosSilent && began && !paused && !locked && !clipScreen && (
+        {autoplaySilent && began && !paused && !locked && !clipScreen && (
           <button
             type="button"
-            data-ios-sound=""
+            data-sound-tap=""
             onClick={() => onVolume(volume > 0 ? volume : 1)}
             className="absolute left-1/2 top-12 z-30 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-black/75 border border-white/20 text-sm font-semibold text-white"
           >

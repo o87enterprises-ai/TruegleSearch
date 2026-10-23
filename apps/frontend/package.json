@@ -55,6 +55,7 @@
     "searchhistory:test": "node scripts/verify-search-history.mjs",
     "landing:test": "node scripts/verify-landing-cards.mjs",
     "silentembed:test": "node scripts/verify-silent-embed.mjs",
+    "playerreport:test": "node scripts/verify-player-report.mjs",
     "playerloading:test": "node scripts/verify-player-loading.mjs",
     "volumeslider:test": "node scripts/verify-volume-slider.mjs",
     "cameraview:test": "node scripts/verify-camera-view.mjs",
