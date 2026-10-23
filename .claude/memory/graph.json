@@ -1872,6 +1872,14 @@
         "body": "After the Play tap, ShareGate hides (phase starting) and after 3s checks playerOnScreen() ([data-mini] [data-player-root] in viewport, visible). If not: data-share-gate-failed card (z 2147483002) with Try again (re-runs start inside a tap), Report (mailto:truegleai@proton.me with page URL, UA, up to 5 caught window errors; nothing sent by us), Close. npm run sharegate:test (10 checks, sabotage via CSS).",
         "ts": "2026-10-23",
         "created": "2026-10-23"
+      },
+      "d-video-indexing-per-video-pages": {
+        "Id": "d-video-indexing-per-video-pages",
+        "Type": "decision",
+        "Label": "Every roster video gets its own /v/<id> page + sitemap-videos.xml",
+        "body": "Root cause (GSC 'Video indexing' export 2026-10-23): Google credits at most ONE video per page; creator pages carried ~10 embeds each, so only 3 of ~5000 roster videos were indexed. Fix: scripts/build-video-index.mjs reads creatorVideos.txt (now seeded via fixed creators:fetch -- all, 5192 videos/15 creators, real YouTube Data API) and writes src/content/videoIndex.generated.js (plain ESM id->[slugIdx,title], not Vite ?raw, since functions/_middleware.js is bundled by Wrangler not Vite). seoPages.js videoPageFor()/videoSchema()/videoCrawlBlock() build each page (own title/canonical/VideoObject/one youtube-nocookie iframe); middleware serves noindex for any id not in the index. New /sitemap-videos.xml (middleware-generated, not static) listed in robots.txt; gsc.mjs sitemap now submits both feeds. crawlBlock()/videosSchema() on creator pages now link each upload to its own /v/<id> when known (previously plain text / all pointing at the creator page — THIS was literally why Google could only pick one). SPA route /v/:id (VideoRedirectPage.jsx) redirects into /tube?u= for actual playback, reusing ShareGate etc. Also fixed same-session: packed queue links (/tube?p=) NEVER have an empty title — parsePlayerParams fills untitled entries with titleFromUrl() ('youtube.com/shorts/9XhW…', matches the user's own bug report) so a naive  check never fires; titleForSource() in middleware detects this exact filler by reconstructing it and compares, then resolves a real title from the roster index or one cached keyless oEmbed call. Bug fixed in scripts/fetch-creator-videos.mjs: targets filter excluded argv[0] whenever --backend was absent (backendFlag defaulted to -1, +1=0). Test: npm run videopages:test (34 checks) + npm run seo:test (89, unchanged) + npm run gsc:test (19, unchanged). Scope is the creator roster only, not arbitrary played videos (thin-content/penalty risk + would require recording plays). No uploadDate/duration in the generated index (creatorVideos.txt never had them either) — a known gap, not required by Google's VideoObject guidelines, only recommended.",
+        "ts": "2026-10-23",
+        "created": "2026-10-23"
       }
     },
     "thread": {

@@ -38,8 +38,13 @@
  * this, the more pressure builds on AI companies to formalize licensing deals.
  */
 
-import { parsePlayerParams } from '../src/utils/playerLink.js';
-import { seoFor, crawlBlock, creatorSchema, videosSchema, parseVideoFeed, withVideos } from '../src/utils/seoPages.js';
+import { parsePlayerParams, titleFromUrl } from '../src/utils/playerLink.js';
+import {
+  seoFor, crawlBlock, creatorSchema, videosSchema, parseVideoFeed, withVideos,
+  videoPageFor, videoSchema, videoCrawlBlock, videoDescription,
+} from '../src/utils/seoPages.js';
+import { SLUGS, VIDEOS } from '../src/content/videoIndex.generated.js';
+import { getCreator } from '../src/content/creators.js';
 
 // Known AI crawler families. Keys are substrings matched against User-Agent.
 const AI_BOTS = {
@@ -136,14 +141,67 @@ function escapeAttr(value) {
     .replace(/[\u0000-\u001f\u007f]/g, ' ');
 }
 
-// A thumbnail we can derive without an API key. `src` here is the embed URL
-// the player itself built, never the raw shared input. hqdefault is used
-// rather than maxresdefault because it exists for every video — a 404 in a
-// preview card is worse than a smaller image.
+// The embed URL the player itself built (youtube[-nocookie].com/embed/<id>),
+// never the raw shared input — shared by the thumbnail below and the title
+// lookup, so there is exactly one place that knows how to read a YouTube id
+// back out of a source.
+const YT_EMBED_ID_RE = /youtube(?:-nocookie)?\.com\/embed\/([\w-]{6,20})/;
+
+// A thumbnail we can derive without an API key. hqdefault is used rather than
+// maxresdefault because it exists for every video — a 404 in a preview card
+// is worse than a smaller image.
 function previewImage(source) {
-  const yt = /youtube(?:-nocookie)?\.com\/embed\/([\w-]{6,20})/.exec(source?.src || '');
+  const yt = YT_EMBED_ID_RE.exec(source?.src || '');
   if (yt) return `https://i.ytimg.com/vi/${yt[1]}/hqdefault.jpg`;
   return DEFAULT_IMAGE; // Vimeo/SoundCloud/direct files fall back to the site card
+}
+
+// A packed queue (utils/playerLinkPack) carries ids, never titles, so a
+// shared link from one often had nothing better to show than the raw
+// embed URL — "youtube.com/shorts/9XhW…" instead of the clip's real name.
+// Roster videos answer for free from the index already built for /v/<id>;
+// anything else gets ONE keyless, edge-cached oEmbed call. Never blocks the
+// preview: any failure just leaves the card with no title, same as before.
+async function titleForSource(source, context) {
+  // parsePlayerParams NEVER leaves title empty — an untitled entry (every
+  // packed queue, plus any `u=` with no matching `t=`) gets titleFromUrl's
+  // "hostname+path" filler instead ("youtube.com/shorts/9XhW…"), so a plain
+  // `if (source.title)` check never sees the untitled case at all. This is
+  // the one place that knows what that filler looks like, so it can be told
+  // apart from a real one — reconstructing it from the same url and comparing
+  // is exact, where guessing at "URL-shaped text" would not be.
+  const isFiller = source?.title && source.title === titleFromUrl(source.pageUrl || source.src || '');
+  if (source?.title && !isFiller) return source.title;
+  const id = YT_EMBED_ID_RE.exec(source?.src || '')?.[1];
+  if (!id) return null;
+
+  const known = VIDEOS[id];
+  if (known) return known[1];
+
+  const cache = typeof caches !== 'undefined' ? caches.default : null;
+  const key = new Request(`${SITE}/__oembed-title/${id}`);
+  try {
+    const hit = cache ? await cache.match(key) : null;
+    if (hit) return await hit.text();
+  } catch { /* fall through to a fresh lookup */ }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 1800);
+  try {
+    const watchUrl = `https://www.youtube.com/watch?v=${id}`;
+    const res = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(watchUrl)}`, { signal: controller.signal });
+    if (!res.ok) return null;
+    const title = String((await res.json())?.title || '').trim().slice(0, 200);
+    if (title && cache) {
+      const put = cache.put(key, new Response(title, { headers: { 'Cache-Control': 'public, max-age=86400' } }));
+      if (context?.waitUntil) context.waitUntil(put); else put.catch(() => {});
+    }
+    return title || null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // Tags we replace wholesale, so a crawler never sees both ours and the
@@ -153,7 +211,7 @@ const OVERRIDDEN_META = new Set([
   'twitter:title', 'twitter:description', 'twitter:image', 'twitter:card',
 ]);
 
-function injectWatchPreview(html, url) {
+async function injectWatchPreview(html, url, context) {
   let sources;
   try {
     ({ sources } = parsePlayerParams(url.search));
@@ -164,7 +222,10 @@ function injectWatchPreview(html, url) {
 
   const first = sources[0];
   const more = sources.length - 1;
-  const title = first.title || 'Watch on Truegle';
+  // A failed lookup still has the filler text to fall back to (better than
+  // the generic line below, which is for when there is truly no `src` to
+  // work from at all).
+  const title = (await titleForSource(first, context)) || first.title || 'Watch on Truegle';
   const description = more > 0
     ? `Plus ${more} more, queued up. Opens in Truegle's sandboxed player — no tracking, and the embed can't redirect your tab.`
     : "Opens in Truegle's sandboxed player — no tracking, and the embed can't redirect your tab.";
@@ -395,6 +456,83 @@ async function creatorFeed(creator, context) {
   }
 }
 
+// ── /v/<id>: one real page per roster video ─────────────────────────────────
+// See videoPageFor() in utils/seoPages.js for why this exists. A known id
+// gets its own title/canonical/VideoObject/iframe; an unknown one is left
+// noindex so a stray /v/<anything> never becomes an indexable empty page.
+function injectVideoPage(html, page) {
+  const meta = [
+    ['og:title', page.title],
+    ['og:description', page.description],
+    ['og:type', 'video.other'],
+    ['og:url', page.canonical],
+    ['og:image', page.thumbnail],
+    ['og:video', `https://www.youtube-nocookie.com/embed/${page.id}`],
+    ['og:site_name', 'Truegle'],
+    ['twitter:card', 'summary_large_image'],
+    ['twitter:title', page.title],
+    ['twitter:description', page.description],
+    ['twitter:image', page.thumbnail],
+  ];
+  let out = html.replace(
+    /<meta\s+(?:property|name)="([^"]+)"[^>]*>\s*/gi,
+    (match, key) => (OVERRIDDEN_META.has(key) ? '' : match),
+  );
+  const tags = meta
+    .map(([key, value]) => `<meta ${key.startsWith('og:') ? 'property' : 'name'}="${key}" content="${escapeAttr(value)}" />`)
+    .join('');
+  const schema = JSON.stringify(videoSchema(page)).replace(/</g, '\\u003c');
+  out = out.replace(/<link\s+rel="canonical"[^>]*>\s*/i, '');
+  out = out.replace(
+    '</head>',
+    `${tags}<link rel="canonical" href="${page.canonical}" /><script type="application/ld+json">${schema}</script></head>`,
+  );
+  out = out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeAttr(page.title)} — ${escapeAttr(page.creator.name)} | Truegle</title>`);
+  const block = videoCrawlBlock(page);
+  const marked = /<!--truegle-static-->[\s\S]*?<!--\/truegle-static-->/;
+  return marked.test(out)
+    ? out.replace(marked, () => block)
+    : out.replace('<div id="root"></div>', () => `<div id="root">${block}</div>`);
+}
+
+// A /v/<id> for an id outside the roster index: the SPA route still opens the
+// player for a human (see src/pages/VideoRedirectPage.jsx), but there is no
+// page here worth a crawler's time — noindex, not a 404, since the content
+// behind it is real once the app mounts.
+function noindexShell(html) {
+  return html.replace('</head>', '<meta name="robots" content="noindex, follow" /></head>');
+}
+
+// sitemap-videos.xml — every roster video, each pointing at its own /v/<id>.
+// A Pages Function response, not an HTML rewrite, so onRequest returns it
+// before the HTML-only logic below ever runs. Built fresh per request from
+// the same generated index /v/<id> itself reads, so it can never drift from
+// what those pages actually say; the browser-level cache header is what
+// keeps repeat crawls cheap.
+function videoSitemapResponse() {
+  const urls = Object.entries(VIDEOS).map(([id, [slugIdx, title]]) => {
+    const creator = getCreator(SLUGS[slugIdx]);
+    if (!creator) return '';
+    const description = videoDescription(title, creator.name);
+    return '<url>'
+      + `<loc>${SITE}/v/${id}</loc>`
+      + '<video:video>'
+      + `<video:thumbnail_loc>https://i.ytimg.com/vi/${id}/hqdefault.jpg</video:thumbnail_loc>`
+      + `<video:title>${escapeAttr(title)}</video:title>`
+      + `<video:description>${escapeAttr(description)}</video:description>`
+      + `<video:player_loc allow_embed="yes">https://www.youtube-nocookie.com/embed/${id}</video:player_loc>`
+      + '</video:video>'
+      + '</url>';
+  }).join('');
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>'
+    + '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
+    + 'xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">'
+    + `${urls}</urlset>`;
+  return new Response(xml, {
+    headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': 'public, max-age=3600' },
+  });
+}
+
 export async function onRequest(context) {
   const { request, next, env } = context;
 
@@ -403,6 +541,11 @@ export async function onRequest(context) {
   if (method !== 'GET' && method !== 'HEAD') return next();
 
   const url = new URL(request.url);
+
+  // Not HTML, not a rewrite — a response in its own right, so it returns
+  // before anything below touches `next()` or the HTML-only logic.
+  if (url.pathname === '/sitemap-videos.xml') return videoSitemapResponse();
+
   const ua = request.headers.get('user-agent') || '';
   const bot = detectBot(ua);
   // Preview rewriting is for every client, not just the AI-bot list: the
@@ -410,10 +553,11 @@ export async function onRequest(context) {
   const isWatch = url.pathname === '/w' || url.pathname === '/w/';
   const isLink = url.pathname === '/l' || url.pathname === '/l/';
   const isTube = url.pathname === '/tube' || url.pathname === '/tube/';
-  const seoPage = (isWatch || isLink || isTube) ? null : seoFor(url.pathname);
+  const videoMatch = /^\/v\/([A-Za-z0-9_-]{11})\/?$/.exec(url.pathname);
+  const seoPage = (isWatch || isLink || isTube || videoMatch) ? null : seoFor(url.pathname);
 
   // Nothing to do — pass through instantly
-  if (!bot && !isWatch && !isLink && !isTube && !seoPage) return next();
+  if (!bot && !isWatch && !isLink && !isTube && !videoMatch && !seoPage) return next();
 
   // Get the upstream response first (always serve content)
   const response = await next();
@@ -427,9 +571,14 @@ export async function onRequest(context) {
 
   // A broken preview must never cost the visitor the page itself.
   if (isWatch) {
-    try { html = injectWatchPreview(html, url); } catch { /* keep the shell */ }
+    try { html = await injectWatchPreview(html, url, context); } catch { /* keep the shell */ }
   } else if (isLink) {
     try { html = injectLinkPreview(html, url); } catch { /* keep the shell */ }
+  } else if (videoMatch) {
+    try {
+      const page = videoPageFor(videoMatch[1]);
+      html = page ? injectVideoPage(html, page) : noindexShell(html);
+    } catch { /* keep the shell */ }
   } else if (seoPage) {
     try {
       const page = seoPage.creator ? withVideos(seoPage, await creatorFeed(seoPage.creator, context)) : seoPage;
@@ -443,7 +592,7 @@ export async function onRequest(context) {
     // silently preview as the generic page.
     try {
       html = (url.searchParams.has('u') || url.searchParams.has('p'))
-        ? injectWatchPreview(html, url)
+        ? await injectWatchPreview(html, url, context)
         : injectTubePreview(html);
     } catch { /* keep the shell */ }
   }

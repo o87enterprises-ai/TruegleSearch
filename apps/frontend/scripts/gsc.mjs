@@ -3,7 +3,7 @@
  * Google account: is each page indexed, and if not, WHY.
  *
  *   node scripts/gsc.mjs sites                 # which properties the key can see (an access check)
- *   node scripts/gsc.mjs sitemap               # (re)submit https://truegle.info/sitemap.xml
+ *   node scripts/gsc.mjs sitemap               # (re)submit sitemap.xml and sitemap-videos.xml
  *   node scripts/gsc.mjs inspect [URL …]       # index status + reason for each URL (default: every sitemap URL)
  *   node scripts/gsc.mjs perf [--days 28]      # clicks / impressions / position, by page and by query
  *
@@ -104,14 +104,22 @@ async function sites(token) {
   for (const s of siteEntry) console.log(`${s.permissionLevel.padEnd(20)} ${s.siteUrl}`);
 }
 
+// Both feeds: the page sitemap (unchanged) and sitemap-videos.xml — a
+// per-request Pages Function (functions/_middleware.js), not a static file,
+// so there is nothing to regenerate here; submitting just tells Google to
+// re-read it.
+const SITEMAPS = ['sitemap.xml', 'sitemap-videos.xml'];
+
 async function sitemap(token, site) {
-  const feed = `${ORIGIN}/sitemap.xml`;
-  await call(token, 'PUT', `${API}/sites/${enc(site)}/sitemaps/${enc(feed)}`);
-  const s = await call(token, 'GET', `${API}/sites/${enc(site)}/sitemaps/${enc(feed)}`);
-  const warn = Number(s.warnings || 0); const err = Number(s.errors || 0);
-  console.log(`Submitted ${feed}`);
-  console.log(`  last downloaded: ${s.lastDownloaded || 'not yet'} · errors ${err} · warnings ${warn}${s.isPending ? ' · still pending' : ''}`);
-  for (const c of s.contents || []) console.log(`  ${c.type}: ${c.submitted} submitted, ${c.indexed ?? 'n/a'} indexed`);
+  for (const name of SITEMAPS) {
+    const feed = `${ORIGIN}/${name}`;
+    await call(token, 'PUT', `${API}/sites/${enc(site)}/sitemaps/${enc(feed)}`);
+    const s = await call(token, 'GET', `${API}/sites/${enc(site)}/sitemaps/${enc(feed)}`);
+    const warn = Number(s.warnings || 0); const err = Number(s.errors || 0);
+    console.log(`Submitted ${feed}`);
+    console.log(`  last downloaded: ${s.lastDownloaded || 'not yet'} · errors ${err} · warnings ${warn}${s.isPending ? ' · still pending' : ''}`);
+    for (const c of s.contents || []) console.log(`  ${c.type}: ${c.submitted} submitted, ${c.indexed ?? 'n/a'} indexed`);
+  }
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
