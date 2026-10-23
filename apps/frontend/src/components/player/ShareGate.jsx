@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
-import { Play } from 'lucide-react';
+import { Play, RotateCcw, Mail } from 'lucide-react';
 import { usePlayAll } from '../../hooks/usePlayAll';
 import { usePlayer } from '../../context/PlayerContext';
 import { mediaKey } from '../../utils/videoEmbed';
@@ -41,6 +41,37 @@ function fullscreenPlayerWhenReady(askPlayer, tries = 60) {
   if (tries > 0) requestAnimationFrame(() => fullscreenPlayerWhenReady(askPlayer, tries - 1));
 }
 
+// THE SAFETY NET. A tester on an iPhone tapped Play and was left on the bare
+// Tube page with no player and no word why (2026-10-22, not reproducible in
+// WebKit here). So the tap is now checked: if no player is on screen a few
+// seconds later, the visitor gets Try again and a Report that opens THEIR
+// mail app with what went wrong. Nothing is sent unless they send it.
+const CHECK_MS = 3000;
+const REPORT_TO = 'truegleai@proton.me';
+
+export function playerOnScreen() {
+  const el = document.querySelector('[data-mini] [data-player-root]');
+  if (!el) return false;
+  const r = el.getBoundingClientRect();
+  const w = Math.min(r.right, window.innerWidth) - Math.max(r.left, 0);
+  const h = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
+  if (w < 40 || h < 40) return false;
+  const cs = getComputedStyle(el);
+  return cs.visibility !== 'hidden' && Number(cs.opacity) > 0.05;
+}
+
+export function reportHref(errors) {
+  const body = [
+    'Tapped Play on a shared link and the player did not open.',
+    '',
+    '---',
+    `Page: ${location.href}`,
+    `Browser: ${navigator.userAgent}`,
+    `Errors: ${errors.length ? errors.join(' | ') : 'none caught'}`,
+  ].join('\n');
+  return `mailto:${REPORT_TO}?subject=${encodeURIComponent('Truegle: shared link would not play')}&body=${encodeURIComponent(body.slice(0, 1800))}`;
+}
+
 export default function ShareGate({ sources, onStart, playlistUrl = null }) {
   const { startFeed, setPlayMode, setMinimized, requestFullscreen } = usePlayer();
   // A shared PLAYLIST plays as one (usePlayAll): saved to Lists, the queue
@@ -58,13 +89,74 @@ export default function ShareGate({ sources, onStart, playlistUrl = null }) {
     return () => { document.body.style.overflow = prev; };
   }, []);
 
+  // 'door' → the poster; 'starting' → hidden while we check; 'failed' → help.
+  const [phase, setPhase] = useState('door');
+  const errors = useRef([]);
+  useEffect(() => {
+    if (phase !== 'starting') return undefined;
+    const note = (msg) => { if (msg && errors.current.length < 5) errors.current.push(String(msg).slice(0, 200)); };
+    const onErr = (e) => note(e.message || e.error);
+    const onRej = (e) => note(e.reason?.message || e.reason);
+    window.addEventListener('error', onErr);
+    window.addEventListener('unhandledrejection', onRej);
+    const t = setTimeout(() => {
+      if (playerOnScreen()) onStart?.(); else setPhase('failed');
+    }, CHECK_MS);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('error', onErr);
+      window.removeEventListener('unhandledrejection', onRej);
+    };
+  }, [phase, onStart]);
+
   const start = () => {
-    setPlayMode('auto');
-    if (playlistUrl) playAll(playlistUrl); else startFeed(sources);
-    setMinimized(false);
-    fullscreenPlayerWhenReady(requestFullscreen);
-    onStart?.();
+    errors.current = [];
+    try {
+      setPlayMode('auto');
+      if (playlistUrl) playAll(playlistUrl); else startFeed(sources);
+      setMinimized(false);
+      fullscreenPlayerWhenReady(requestFullscreen);
+    } catch (e) {
+      errors.current.push(String(e?.message || e).slice(0, 200));
+    }
+    setPhase('starting');
   };
+
+  if (phase === 'starting') return null;
+
+  if (phase === 'failed') {
+    return createPortal(
+      <div
+        data-share-gate-failed
+        role="alertdialog"
+        aria-label="The player could not start"
+        className="fixed inset-0 z-[2147483002] bg-black/95 flex flex-col items-center justify-center p-6 text-center"
+      >
+        <img src="/truegle.png" alt="" className="w-10 h-10 rounded-lg mb-4 opacity-90" />
+        <p className="text-white font-semibold text-base">Couldn&apos;t start the player</p>
+        <p className="text-white/60 text-sm mt-1 max-w-xs">Your browser didn&apos;t open it. Tap Try again — that usually does it.</p>
+        <button
+          type="button"
+          data-share-retry
+          onClick={start}
+          className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white text-black font-semibold text-sm"
+        >
+          <RotateCcw size={16} /> Try again
+        </button>
+        <a
+          data-share-report
+          href={reportHref(errors.current)}
+          className="mt-3 inline-flex items-center gap-1.5 text-white/70 text-xs underline underline-offset-2"
+        >
+          <Mail size={13} /> Report this (opens your email — nothing is sent unless you send it)
+        </a>
+        <button type="button" data-share-dismiss onClick={() => onStart?.()} className="mt-4 text-white/45 text-xs">
+          Close
+        </button>
+      </div>,
+      document.body,
+    );
+  }
 
   return createPortal(
     <motion.div

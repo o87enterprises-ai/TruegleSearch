@@ -1864,6 +1864,14 @@
         "body": "Tube Lists scope always renders all saved lists (allSavedListRows) above public playlist results. Overlays/portals must mount via utils/overlayRoot() (fullscreenElement or [data-pseudo-fullscreen]) or they are invisible in fullscreen.",
         "ts": "2026-10-23",
         "created": "2026-10-23"
+      },
+      "d-sharegate-safety-net": {
+        "Id": "d-sharegate-safety-net",
+        "Type": "decision",
+        "Label": "ShareGate checks its own tap; help card on failure",
+        "body": "After the Play tap, ShareGate hides (phase starting) and after 3s checks playerOnScreen() ([data-mini] [data-player-root] in viewport, visible). If not: data-share-gate-failed card (z 2147483002) with Try again (re-runs start inside a tap), Report (mailto:truegleai@proton.me with page URL, UA, up to 5 caught window errors; nothing sent by us), Close. npm run sharegate:test (10 checks, sabotage via CSS).",
+        "ts": "2026-10-23",
+        "created": "2026-10-23"
       }
     },
     "thread": {
@@ -2424,6 +2432,15 @@
         "status": "open",
         "ts": "2026-10-22",
         "created": "2026-10-22"
+      },
+      "ios-sharegate-tap-home": {
+        "Id": "ios-sharegate-tap-home",
+        "Type": "thread",
+        "Label": "iPhone Chrome: ShareGate Play tap lands on bare Tube page (unreproduced)",
+        "body": "Tester 2026-10-22 recording: iMessage -> Chrome iOS -> /tube?p=<25 ids> gate -> tap Play -> bare Tube page, no player. NOT reproduced in Playwright WebKit 26.5 (iPhone 15 descriptor) on live site with the same 25-id link, nor with every embed posting onError 150 (player skips and stays). WebKit CAN be installed per session: PLAYWRIGHT_BROWSERS_PATH=<scratch>/pw npx playwright install webkit && npx playwright install-deps webkit. YouTube embeds show 'Video unavailable' from the container IP, so real playback cannot be observed. Waiting on: Safari vs Chrome, every time or once.",
+        "status": "open",
+        "ts": "2026-10-23",
+        "created": "2026-10-23"
       }
     },
     "entity": {
