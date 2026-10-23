@@ -30,7 +30,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pub = path.join(here, '..', 'public');
@@ -194,6 +194,8 @@ async function main(argv) {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// pathToFileURL, not `file://${argv[1]}`: on Windows argv[1] is C:\\…, which never
+// matched import.meta.url (file:///C:/…), so every command exited silently.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main(process.argv.slice(2)).then((c) => process.exit(c), (e) => { console.error(`gsc: ${e.message}`); process.exit(1); });
 }
