@@ -118,7 +118,7 @@ await until(async () => (await nowId()) === 'roadAAAAAA1', { what: 'the saved li
 check((await nowId()) === 'roadAAAAAA1', 'Play on a saved list plays its first track', await nowId());
 
 const pub = page.locator('[data-tube-grid] [data-list-actions="public"]').first();
-await pub.locator('[data-play-all]').click();
+await pub.locator('[data-play-all]', { hasText: 'Play All' }).click();
 await until(async () => (await nowId()) === 'plvideo0001', { what: 'the public playlist to play', timeout: 6000 }).catch(() => {});
 check(importedFor.length >= 1 && (await nowId()) === 'plvideo0001', 'Play All on a public playlist imports it and plays track one', `${importedFor.length} import(s), now ${await nowId()}`);
 

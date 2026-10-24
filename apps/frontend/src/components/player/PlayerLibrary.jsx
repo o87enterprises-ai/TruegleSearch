@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Play, X, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ListPlus, Pencil, Check } from 'lucide-react';
+import { Play, X, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ListPlus, Pencil, Check, Shuffle } from 'lucide-react';
+import { shuffleList } from '../../utils/shuffleList';
 import AddToListSheet from './AddToListSheet';
 import { usePlayer } from '../../context/PlayerContext';
 import {
@@ -182,6 +183,12 @@ function PlaylistsTab({ accent, rowH, maxH }) {
                 disabled={!p.items.length} title="Play this list"
                 className="flex items-center justify-center w-8 h-8 rounded text-white/30 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors">
                 <Play size={13} />
+              </button>
+              <button type="button" onClick={() => playList(shuffleList(p.items.map(toSource)), 'tube', p.id)}
+                disabled={!p.items.length} title="Shuffle all — play this list in a random order" aria-label={`Shuffle all of ${p.name}`}
+                data-list-shuffle=""
+                className="flex items-center justify-center w-8 h-8 rounded text-white/30 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors">
+                <Shuffle size={13} />
               </button>
               {confirmDel === p.id ? (
                 <button type="button" onClick={() => { deletePlaylist(p.id); setConfirmDel(null); }}

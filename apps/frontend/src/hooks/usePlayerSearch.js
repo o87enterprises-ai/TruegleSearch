@@ -260,6 +260,9 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
             return !mine.has(`yt:${id}`);
           });
           setResults([...saved, ...pub]);
+          // A search that FAILED is not the same as one with no matches: say so,
+          // so the page does not claim "no playlists" when the source is down.
+          if (d.unavailable && !pub.length) setError('Public playlist search is unavailable right now. Your saved lists are still here.');
           setTrace({ steps: [`lists saved ${saved.length} · public ${pub.length}`], community: 0, query: q });
         })
         .catch((e) => { if (e.name !== 'AbortError') setError('Playlist search is unreachable right now.'); })

@@ -1,4 +1,4 @@
-import { Loader2, ListVideo } from 'lucide-react';
+import { Loader2, ListVideo, Shuffle } from 'lucide-react';
 import { usePlayAll } from '../../hooks/usePlayAll';
 
 /**
@@ -7,7 +7,7 @@ import { usePlayAll } from '../../hooks/usePlayAll';
  * link card, chat, the player's list and the player's viewport, so the wording
  * and the behaviour are the same wherever a playlist turns up.
  */
-export default function PlayAllButton({ url, className = '', size = 14, onDone }) {
+export default function PlayAllButton({ url, className = '', size = 14, onDone, shuffle = false }) {
   const { playAll, busy, message } = usePlayAll();
   return (
     <span className="inline-flex flex-col items-start gap-1">
@@ -17,13 +17,13 @@ export default function PlayAllButton({ url, className = '', size = 14, onDone }
         disabled={busy}
         onClick={async (e) => {
           e.stopPropagation();
-          const r = await playAll(url);
+          const r = await playAll(url, { shuffle });
           if (r.ok) onDone?.(r);
         }}
         className={`inline-flex items-center gap-2 font-semibold transition-colors disabled:opacity-60 ${className}`}
       >
-        {busy ? <Loader2 size={size} className="animate-spin" /> : <ListVideo size={size} />}
-        {busy ? 'Loading playlist…' : 'Play All'}
+        {busy ? <Loader2 size={size} className="animate-spin" /> : (shuffle ? <Shuffle size={size} /> : <ListVideo size={size} />)}
+        {busy ? 'Loading playlist…' : (shuffle ? 'Shuffle all' : 'Play All')}
       </button>
       {message && <span data-play-all-message="" className="text-[11px] text-white/55 leading-snug max-w-xs">{message}</span>}
     </span>
