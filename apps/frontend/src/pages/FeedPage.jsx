@@ -19,7 +19,7 @@ import { useFeedFocus } from '../hooks/useFeedFocus';
 import { useFeedCursor } from '../hooks/useFeedCursor';
 import { usePlayer } from '../context/PlayerContext';
 import { parseSocialQuery } from '../utils/queryIntent';
-import { modePlaceholder } from '../config/modePlaceholders';
+import { feedPlaceholderNow, advanceFeedPlaceholder } from '../config/modePlaceholders';
 import SafeSearchToggle from '../components/ui/SafeSearchToggle';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
@@ -66,6 +66,16 @@ export default function FeedPage() {
   // ?q= arrives from the pill countdown on another page carrying what was
   // typed there; the feed searches it straight away.
   const [searchParams] = useSearchParams();
+  // One network name per visit to the page. Shown from the stored position on
+  // render; the position moves on once per mount, from an effect guarded by a
+  // ref so React's development double-mount cannot skip a name.
+  const [feedPlaceholder] = useState(() => feedPlaceholderNow());
+  const advanced = useRef(false);
+  useEffect(() => {
+    if (advanced.current) return;
+    advanced.current = true;
+    advanceFeedPlaceholder();
+  }, []);
   const [query, setQuery] = useState(() => searchParams.get('q') || '');
   const [submitted, setSubmitted] = useState(() => (searchParams.get('q') || '').trim());
   const [pillMode, setPillMode] = useState('yellow');
@@ -218,7 +228,7 @@ export default function FeedPage() {
       onSubmit={submit}
       onSearch={submit}
       onClear={() => { setQuery(''); setSubmitted(''); }}
-      placeholder={modePlaceholder('yellow')}
+      placeholder={feedPlaceholder}
     />
   );
 
