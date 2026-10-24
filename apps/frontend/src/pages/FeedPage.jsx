@@ -19,6 +19,7 @@ import { useFeedFocus } from '../hooks/useFeedFocus';
 import { useFeedCursor } from '../hooks/useFeedCursor';
 import { usePlayer } from '../context/PlayerContext';
 import { parseSocialQuery } from '../utils/queryIntent';
+import { modePlaceholder } from '../config/modePlaceholders';
 import SafeSearchToggle from '../components/ui/SafeSearchToggle';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
@@ -217,7 +218,7 @@ export default function FeedPage() {
       onSubmit={submit}
       onSearch={submit}
       onClear={() => { setQuery(''); setSubmitted(''); }}
-      placeholder="Search these feeds, or paste a link to post…"
+      placeholder={modePlaceholder('yellow')}
     />
   );
 

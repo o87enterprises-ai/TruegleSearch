@@ -40,6 +40,7 @@ import { SEARCH_SCOPES } from '../utils/playerQuery';
 import { OSINT_TOOLS } from '../components/ui/OSINTToolsPanel';
 import { CATEGORIES as FEED_CATEGORIES } from '../config/feedCategories';
 import { searchPath } from '../utils/modeRoute';
+import { modePlaceholder } from '../config/modePlaceholders';
 import { NuclearOptionButton } from '../components/ui/SessionWipe';
 
 export default function LandingPage() {
@@ -470,7 +471,7 @@ export default function LandingPage() {
                 placeholder={
                   pillMode === 'red' ? 'Explore the Rabbit Hole...' :
                   pillMode === 'green' ? 'Search — concise summaries...' :
-                  'Like Google, but better.'
+                  modePlaceholder(pillMode)
                 }
                 size="large"
               />

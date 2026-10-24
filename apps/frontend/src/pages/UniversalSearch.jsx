@@ -136,6 +136,7 @@ import LocalPackCard from '../components/search/LocalPackCard';
 import { NuclearStrip } from '../components/ui/SessionWipe';
 import SafeSearchNotice from '../components/ui/SafeSearchNotice';
 import { safeSearchMayHaveFiltered } from '../utils/safeSearchHint';
+import { modePlaceholder } from '../config/modePlaceholders';
 import { authHeader } from '../utils/authHeader';
 
 // The SearchFiltersBar "category" dropdown offers political/content labels
@@ -2005,7 +2006,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
               // there instead of looking like a different product.
               variant={pillMode === 'black' ? 'chat' : 'default'}
               shape={pillMode === 'black' ? 'chat' : 'line'}
-              placeholder={mode === 'purple' ? 'Explore perspectives...' : mode === 'ocean' ? 'OSINT search...' : 'Search for unbiased truth...'}
+              placeholder={mode === 'purple' ? 'Explore perspectives...' : modePlaceholder(mode, 'Search for unbiased truth...')}
               size="medium"
               // Legacy in-bar pill + OSINT toggles removed — the single cycling
               // pill above the bar now covers all modes uniformly.
