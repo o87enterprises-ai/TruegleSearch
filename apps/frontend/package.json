@@ -116,6 +116,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@tomtom-international/web-sdk-services": "^6.25.0",
+    "axios": "^1.13.2",
     "@turf/turf": "^7.3.2",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
