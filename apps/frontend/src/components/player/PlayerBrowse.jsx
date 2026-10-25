@@ -9,6 +9,7 @@ import { PLAYER_SANDBOX } from './playerSandbox';
 import ListRowActions from './ListRowActions';
 import { playlistById } from '../../utils/playlists';
 import { usePlayAll } from '../../hooks/usePlayAll';
+import { usePlayResults } from '../../hooks/usePlayResults';
 
 // The viewport, while nothing is playing and a search has run.
 //
@@ -60,7 +61,8 @@ export default function PlayerBrowse({
   // so the gesture that means "keep going" has to be the trigger.
   more = false, onMore = null, loadingMore = false,
 }) {
-  const { enqueue, startFeed, playList } = usePlayer();
+  const { enqueue, playList } = usePlayer();
+  const playResults = usePlayResults();
   // The scroll hint stays loud until the deck has been scrolled once.
   const [scrolled, setScrolled] = useState(false);
   const scroller = useRef(null);
@@ -160,8 +162,8 @@ export default function PlayerBrowse({
       if (list?.items.length) playList(list.items, 'tube', list.id, 0);
       return;
     }
-    startFeed([source, ...rest]);
-  }, [startFeed, playAll, playList]);
+    playResults([source, ...rest]);
+  }, [playResults, playAll, playList]);
 
   // A tap that never became a hold is a "play this".
   const drop = useCallback((source, rest) => {

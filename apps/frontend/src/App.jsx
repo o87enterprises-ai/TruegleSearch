@@ -34,6 +34,7 @@ import UniversalSearch from './pages/UniversalSearch';
 import TruegleChat from './pages/TruegleChat';
 import SharedThread from './pages/SharedThread';
 import WatchPage from './pages/WatchPage';
+import VideoRedirectPage from './pages/VideoRedirectPage';
 import LinkPage from './pages/LinkPage';
 import FeelingBiasedPage from './pages/FeelingBiasedPage';
 import ExtractPage from './pages/ExtractPage';
@@ -330,6 +331,7 @@ const AppContent = () => {
         <Route path="/s/:id" element={<RouteBoundary><SharedThread /></RouteBoundary>} />
         {/* Shared Truegle player link — opens straight into the sandboxed player */}
         <Route path="/w" element={<RouteBoundary><WatchPage /></RouteBoundary>} />
+        <Route path="/v/:id" element={<RouteBoundary><VideoRedirectPage /></RouteBoundary>} />
         {/* /shorts folded into the player 2026-08-09. It was a second copy of
             a vertical swipe feed the player already had, with its own layout,
             its own search bar and its own drift. The route still resolves —

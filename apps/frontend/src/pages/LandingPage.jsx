@@ -40,6 +40,7 @@ import { SEARCH_SCOPES } from '../utils/playerQuery';
 import { OSINT_TOOLS } from '../components/ui/OSINTToolsPanel';
 import { CATEGORIES as FEED_CATEGORIES } from '../config/feedCategories';
 import { searchPath } from '../utils/modeRoute';
+import { modePlaceholder, feedPlaceholderNow, advanceFeedPlaceholder } from '../config/modePlaceholders';
 import { NuclearOptionButton } from '../components/ui/SessionWipe';
 
 export default function LandingPage() {
@@ -75,6 +76,14 @@ export default function LandingPage() {
   // 2026-10-18, owner: "make tube be default on landing page." Same rule, new
   // default — every load opens on Tube (the pill cycle now starts there too).
   const [pillMode, setPillMode] = useState('tube');
+  // The Feed line rotates to the next network each time the Feed pill is
+  // picked (effect on pillMode, so every route into Feed counts as a visit).
+  const [feedLine, setFeedLine] = useState('');
+  useEffect(() => {
+    if (pillMode !== 'yellow') return;
+    setFeedLine(feedPlaceholderNow());
+    advanceFeedPlaceholder();
+  }, [pillMode]);
 
   // The Search/Chat toggle's "back to Search" needs to restore whichever
   // search-flavored pill the user was last on, not hard-reset to the default —
@@ -470,7 +479,8 @@ export default function LandingPage() {
                 placeholder={
                   pillMode === 'red' ? 'Explore the Rabbit Hole...' :
                   pillMode === 'green' ? 'Search — concise summaries...' :
-                  'Like Google, but better.'
+                  pillMode === 'yellow' ? feedLine :
+                  modePlaceholder(pillMode)
                 }
                 size="large"
               />

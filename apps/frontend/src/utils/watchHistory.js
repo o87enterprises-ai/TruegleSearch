@@ -29,6 +29,7 @@ const trim = (s, at) => ({
   pageUrl: s.pageUrl || '',
   poster: s.poster || '',
   channel: s.channel || '',
+  ...(s.vertical ? { vertical: true } : {}),
   at,
 });
 

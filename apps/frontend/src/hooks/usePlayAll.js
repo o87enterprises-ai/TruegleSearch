@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import { importPlaylist, importMessage } from '../utils/playlistImport';
+import { shuffleList } from '../utils/shuffleList';
 
 // PLAY ALL — the one thing a playlist link does (owner, 2026-10-01).
 //
@@ -14,17 +15,23 @@ import { importPlaylist, importMessage } from '../utils/playlistImport';
 //   2. it REPLACES the queue — nothing old mixed in behind it,
 //   3. track one plays, and the rest are up next, locked to the list.
 //
-// Returns { playAll(url), busy, message }. Never throws.
+// `shuffle` plays the same list in a random order instead — "Shuffle all".
+// The saved list keeps its own order; only this play is shuffled.
+//
+// Returns { playAll(url, { shuffle }), busy, message }. Never throws.
 export function usePlayAll() {
   const { playList } = usePlayer();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const playAll = useCallback(async (url) => {
+  const playAll = useCallback(async (url, { shuffle = false } = {}) => {
     setBusy(true);
     setMessage('');
     const result = await importPlaylist(url);
     setBusy(false);
-    if (result.ok) playList(result.sources, 'tube', result.id, 0);
+    if (result.ok) {
+      const sources = shuffle ? shuffleList(result.sources) : result.sources;
+      playList(sources, 'tube', result.id, 0);
+    }
     setMessage(importMessage(result));
     return result;
   }, [playList]);

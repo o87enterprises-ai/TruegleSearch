@@ -5,6 +5,7 @@ import { Play, RotateCcw, Mail } from 'lucide-react';
 import { usePlayAll } from '../../hooks/usePlayAll';
 import { usePlayer } from '../../context/PlayerContext';
 import { mediaKey } from '../../utils/videoEmbed';
+import { reportHref as buildReportHref, envContext } from '../../utils/playerDiagnostics';
 
 // THE DOOR A SHARED LINK OPENS ONTO.
 //
@@ -46,8 +47,10 @@ function fullscreenPlayerWhenReady(askPlayer, tries = 60) {
 // WebKit here). So the tap is now checked: if no player is on screen a few
 // seconds later, the visitor gets Try again and a Report that opens THEIR
 // mail app with what went wrong. Nothing is sent unless they send it.
+// The report itself is built by utils/playerDiagnostics.js, shared with the
+// player's own stuck-state reporting (2026-10-23) — one mailto: builder,
+// one place that decides what "report a playback problem" looks like.
 const CHECK_MS = 3000;
-const REPORT_TO = 'truegleai@proton.me';
 
 export function playerOnScreen() {
   const el = document.querySelector('[data-mini] [data-player-root]');
@@ -61,15 +64,11 @@ export function playerOnScreen() {
 }
 
 export function reportHref(errors) {
-  const body = [
-    'Tapped Play on a shared link and the player did not open.',
-    '',
-    '---',
-    `Page: ${location.href}`,
-    `Browser: ${navigator.userAgent}`,
-    `Errors: ${errors.length ? errors.join(' | ') : 'none caught'}`,
-  ].join('\n');
-  return `mailto:${REPORT_TO}?subject=${encodeURIComponent('Truegle: shared link would not play')}&body=${encodeURIComponent(body.slice(0, 1800))}`;
+  return buildReportHref({
+    subject: 'Truegle: shared link would not play',
+    summary: 'Tapped Play on a shared link and the player did not open.',
+    context: { ...envContext(), Errors: errors.length ? errors.join(' | ') : 'none caught' },
+  });
 }
 
 export default function ShareGate({ sources, onStart, playlistUrl = null }) {

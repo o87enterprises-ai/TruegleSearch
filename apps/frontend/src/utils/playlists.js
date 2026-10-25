@@ -28,6 +28,9 @@ const trim = (s) => ({
   pageUrl: s.pageUrl || '',
   poster: s.poster || '',
   channel: s.channel || '',
+  // The clip's own shape. Dropping it made a saved Short come back as a
+  // widescreen video, and full screen then turned the phone sideways for it.
+  ...(s.vertical ? { vertical: true } : {}),
 });
 
 // An object URL is only valid inside the document that created it, so a device

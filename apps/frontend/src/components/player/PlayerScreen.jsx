@@ -58,6 +58,8 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // screen can lock the phone the right way round; and that ratio coming
   // back in, so the box is shaped by the clip rather than guessed from its URL.
   onAspect = null, aspect = null,
+  // The clip is portrait though its source never said so — see utils/clipShape.
+  tall = false,
 }, ref) {
   // Idle. An empty black rectangle reads as a player that has never worked.
   // If a search has run, the results themselves fill it — full-size, one flick
@@ -100,7 +102,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   const isSoundcloud = kind === 'soundcloud';
   // Shorts / Reels / TikToks are shot 9:16. Boxing them into a 16:9 frame
   // wastes most of the player and shrinks the clip to a stamp.
-  const vertical = !!source.vertical || kind === 'tiktok';
+  const vertical = !!source.vertical || kind === 'tiktok' || tall;
 
   // (History: TikTok used to be the /embed/v2 CARD, sized 9:21 for the reason
   // below. Since 2026-10-06 it is the player/v1 embed — just the video and its

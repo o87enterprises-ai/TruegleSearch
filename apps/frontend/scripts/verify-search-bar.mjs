@@ -167,7 +167,7 @@ const recents = (page) => page.locator('[data-suggestion="recent"]').count();
 {
   const { ctx, page, errs } = await open({ history: TOPICS });
   await openApp(page, `${BASE}/chat`);
-  const chat = page.locator('textarea[placeholder^="Ask Truegle"]').first();
+  const chat = page.locator('textarea[placeholder^="Like ChatGPT"]').first();
   await until(() => chat.count(), { what: 'the Chat box' });
   // Visible page text only — Playwright's text= selector also reads a textarea's value, i.e. the box itself.
   const bubbles = () => page.evaluate("(document.body.innerText.match(/topic \\d\\d/g) || []).length");

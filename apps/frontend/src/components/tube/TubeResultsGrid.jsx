@@ -17,6 +17,7 @@ import ListRowActions from '../player/ListRowActions';
 import { playlistById, usePlaylists } from '../../utils/playlists';
 import { allSavedListRows } from '../../utils/listRows';
 import { usePlayAll } from '../../hooks/usePlayAll';
+import { usePlayResults } from '../../hooks/usePlayResults';
 import SafeSearchToggle from '../ui/SafeSearchToggle';
 
 // TUBE'S RESULTS: PLAYABLE ONLY, LAID OUT LIKE YOUTUBE.
@@ -58,7 +59,8 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
   const { settings } = useSettings();
   const blur = settings.safeSearch === 'blur';
   const metaFor = useMediaMeta();
-  const { startFeed, enqueue, playNow, stopFeed, playList } = usePlayer();
+  const { enqueue, playNow, stopFeed, playList } = usePlayer();
+  const playResults = usePlayResults();
   const { playAll } = usePlayAll();
   const [added, setAdded] = useState(null);
 
@@ -78,9 +80,9 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
       if (docked) window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    startFeed(visible.slice(i), 'tube');
+    playResults(visible.slice(i), 'tube');
     if (docked) window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [startFeed, visible, allRows, docked, playAll, playList]);
+  }, [playResults, visible, allRows, docked, playAll, playList]);
 
   const queue = useCallback((r) => {
     enqueue(r, { deck: 'tube' });
@@ -168,13 +170,16 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
           playlist, or the list button on any video, to start one.
         </p>
       )}
-      {!src.loading && query && src.results && publicRows.length === 0 && (
+      {!src.loading && query && src.results && publicRows.length === 0 && !(listsScope && src.error) && (
         <p className="py-6 text-center text-sm text-white/50">
           {listsScope
             ? <>No public playlists found for &ldquo;{query}&rdquo;. Try other words.</>
             : <>Nothing playable for &ldquo;{query}&rdquo;. Try other words
               {settings.safeSearch !== 'off' ? ', or loosen Safe Search' : ''}.</>}
         </p>
+      )}
+      {listsScope && src.error && publicRows.length === 0 && (
+        <p data-lists-search-error="" className="py-4 text-center text-xs text-amber-300/90">{src.error}</p>
       )}
       {src.error && !visible.length && (
         <p className="py-4 text-center text-xs text-amber-300/90">{src.error}</p>

@@ -60,6 +60,24 @@ describe('GET /playlists/search', () => {
     expect(res.body.playlists).toEqual([]);
   });
 
+  test('says "unavailable" only when every source failed, not when a search ran and found nothing', async () => {
+    // Every source refused: the page must be able to say search is down.
+    gateway.fromPool.mockResolvedValueOnce(null);
+    process.env.YOUTUBE_API_KEY = 'k';
+    global.fetch.mockResolvedValueOnce({ ok: false, status: 403 });
+    let res = await request(app()).get('/api/creators/playlists/search').query({ q: 'refused case' });
+    expect(res.body.playlists).toEqual([]);
+    expect(res.body.unavailable).toBe(true);
+
+    // The Data API answered OK with zero playlists: a real "no matches", not down.
+    gateway.fromPool.mockResolvedValueOnce(null);
+    global.fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ items: [] }) });
+    res = await request(app()).get('/api/creators/playlists/search').query({ q: 'no matches here' });
+    expect(res.body.playlists).toEqual([]);
+    expect(res.body.unavailable).toBe(false);
+    delete process.env.YOUTUBE_API_KEY;
+  });
+
   test('rejects a one-letter query', async () => {
     const res = await request(app()).get('/api/creators/playlists/search').query({ q: 'a' });
     expect(res.status).toBe(400);

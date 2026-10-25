@@ -756,7 +756,12 @@ const plRow = (id, title, channel, count, thumbnail) => ({
 });
 
 async function playlistSearch(q) {
+  // Returns { rows, unavailable }. `unavailable` is true only when a source
+  // FAILED and nothing answered — a search that ran and found no playlists is
+  // not unavailable. The page needs to tell those apart: "no playlists match"
+  // and "playlist search is down" are different things to say to the visitor.
   const enc = encodeURIComponent(q);
+  let failed = false;
   try {
     const hit = await gateway.fromPool(`/api/v1/search?type=playlist&q=${enc}`, {
       accept: (d) => Array.isArray(d) && d.some((x) => x?.type === 'playlist' && x.playlistId),
@@ -767,24 +772,32 @@ async function playlistSearch(q) {
           const t = x.playlistThumbnail || x.videos?.[0]?.videoThumbnails?.[0]?.url || null;
           return plRow(x.playlistId, x.title, x.author, x.videoCount, t && !t.startsWith('//') ? t : null);
         });
-      if (rows.length) return rows;
+      if (rows.length) return { rows, unavailable: false };
+    } else {
+      failed = true; // no healthy instance answered
     }
-  } catch { /* fall through */ }
+  } catch { failed = true; }
 
   const key = process.env.YOUTUBE_API_KEY;
   if (key) {
     try {
       const r = await fetch('https://www.googleapis.com/youtube/v3/search'
         + `?part=snippet&type=playlist&maxResults=12&q=${enc}&key=${key}`);
-      if (r.ok) {
+      if (!r.ok) {
+        // Quota exhausted, key restricted, or the call refused: say so in the log
+        // instead of looking like an empty result.
+        logger.warn('Playlist search: Data API refused', { status: r.status });
+        failed = true;
+      } else {
         const j = await r.json();
         const rows = (j.items || []).map((it) => (it.id?.playlistId
           ? plRow(it.id.playlistId, it.snippet?.title, it.snippet?.channelTitle, null,
             it.snippet?.thumbnails?.high?.url || it.snippet?.thumbnails?.medium?.url)
           : null)).filter(Boolean);
-        if (rows.length) return rows;
+        // An OK answer with no playlists is a real "no matches", not a failure.
+        return { rows, unavailable: false };
       }
-    } catch { /* fall through */ }
+    } catch { failed = true; }
   }
 
   try {
@@ -805,10 +818,10 @@ async function playlistSearch(q) {
         seen.add(id);
         rows.push(plRow(id, String(r.title || '').replace(/\s*-\s*YouTube\s*$/i, ''), null, null, r.thumbnail || r.img_src));
       }
-      if (rows.length) return rows;
+      if (rows.length) return { rows, unavailable: false };
     }
-  } catch { /* nothing left to try */ }
-  return [];
+  } catch { failed = true; }
+  return { rows: [], unavailable: failed };
 }
 
 /** GET /api/creators/playlists/search?q= → { playlists: [{ playlistId, title, channel, count, thumbnail, url }] } */
@@ -819,9 +832,9 @@ router.get('/playlists/search', async (req, res) => {
   const hit = plSearchCache.get(key);
   if (hit && Date.now() - hit.at < SEARCH_TTL_MS) return res.json({ playlists: hit.rows, cached: true });
   try {
-    const rows = await playlistSearch(q);
+    const { rows, unavailable } = await playlistSearch(q);
     if (rows.length) plSearchCache.set(key, { at: Date.now(), rows });
-    return res.json({ playlists: rows });
+    return res.json({ playlists: rows, unavailable });
   } catch (e) {
     logger.warn('Playlist search failed:', { error: e.message });
     return res.json({ playlists: [] });

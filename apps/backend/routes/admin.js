@@ -7,6 +7,7 @@
 const express = require('express');
 const router = express.Router();
 const RewardsService = require('../services/RewardsService');
+const { PlayerHealthService } = require('../services/PlayerHealthService');
 
 // Gate every admin route on the shared key.
 router.use((req, res, next) => {
@@ -40,6 +41,25 @@ router.post('/rewards/credit', async (req, res) => {
   } catch (error) {
     console.error('Manual rewards credit error:', error);
     return res.status(500).json({ error: 'Failed to credit user' });
+  }
+});
+
+/**
+ * GET /api/admin/player-health?days=7
+ * The owner's "check it periodically" view onto the player's automatic
+ * health beacons (routes/player.js, PlayerHealthService) — counts by
+ * reason/kind/platform and the top error codes, never raw rows with
+ * anything identifying in them (there is nothing identifying to return:
+ * see migrations/025_player_health.sql). scripts/player-health.mjs is the
+ * normal way to read this.
+ */
+router.get('/player-health', async (req, res) => {
+  try {
+    const summary = await PlayerHealthService.summary({ days: req.query.days });
+    return res.json({ success: true, ...summary });
+  } catch (error) {
+    console.error('Player health summary error:', error);
+    return res.status(500).json({ error: 'Failed to read player health' });
   }
 });
 

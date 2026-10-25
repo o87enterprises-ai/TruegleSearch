@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ListPlus, Check, Loader2, Play, Plus } from 'lucide-react';
+import { ListPlus, Check, Loader2, Play, Plus, Shuffle } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { playlistById } from '../../utils/playlists';
 import { importPlaylist, importMessage } from '../../utils/playlistImport';
 import PlayAllButton from './PlayAllButton';
+import { shuffleList } from '../../utils/shuffleList';
 
 // THE ACTIONS ON A PLAYLIST RESULT (the Tube "Lists" scope), the same wherever
 // one turns up — the grid card, the player's list and its viewport deck:
@@ -30,6 +31,12 @@ export default function ListRowActions({ row, className = '', btnClass = '', siz
           className={btn}>
           <Play size={size} /> Play
         </button>
+        <button type="button" data-list-shuffle="" disabled={!items.length}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); playList(shuffleList(items), 'tube', list.id, 0); onDone?.(); }}
+          title="Play this list in a random order (the saved order is kept)"
+          className={btn}>
+          <Shuffle size={size} /> Shuffle all
+        </button>
         <button type="button" data-list-queue="" disabled={!items.length}
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); enqueueMany(items, 'tube'); setState('queued'); setTimeout(() => setState('idle'), 1500); }}
           className={btn}>
@@ -44,6 +51,7 @@ export default function ListRowActions({ row, className = '', btnClass = '', siz
   return (
     <span data-list-actions="public" className={`inline-flex flex-wrap items-start gap-1.5 ${className}`}>
       <PlayAllButton url={row.playlistUrl} size={size} onDone={onDone} className={btn} />
+      <PlayAllButton url={row.playlistUrl} size={size} onDone={onDone} className={btn} shuffle />
       <button type="button" data-list-save="" disabled={state === 'busy'}
         onClick={async (e) => {
           e.preventDefault(); e.stopPropagation();

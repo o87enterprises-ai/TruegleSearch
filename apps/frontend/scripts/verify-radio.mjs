@@ -95,6 +95,13 @@ check(afterRadio && afterRadio !== 'queued00001', 'Next goes to a Radio pick, no
 const status1 = await page.locator('[data-player-radio]').first().getAttribute('title');
 check(/following (Justice|Daft Punk)/.test(status1 || ''), 'Radio says who it is following', status1);
 
+// Off → the parked queue is followed again. (Start Radio PARKS the queue; it is
+// a fresh search + play from the grid, with Radio on, that clears it — covered
+// by verify-search-radio.mjs. So this has to be checked before any grid play.)
+await page.locator('[data-player-radio]').first().click();
+await pressNext();
+check((await nowId()) === 'queued00001', 'switching Radio off hands Next back to the parked queue', await nowId());
+
 // 2 + 3: play a clip with no artist in its title, then one nothing identifies.
 await page.locator('[aria-label="Play Untitled Groove (Lyrics)"]').first().click().catch(() => {});
 await page.waitForTimeout(400);
@@ -113,11 +120,6 @@ await page.locator('[data-player-root] [data-start-radio]').first().click({ forc
 await pressNext();
 const status3 = await page.locator('[data-player-radio]').first().getAttribute('title');
 check(/kept going/.test(status3 || ''), 'an unidentifiable clip keeps the artist Radio was following', status3);
-
-// 4. Off → the parked queue is followed again.
-await page.locator('[data-player-radio]').first().click();
-await pressNext();
-check((await nowId()) === 'queued00001', 'switching Radio off hands Next back to the parked queue', await nowId());
 
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 await ctx.close(); await browser.close(); await server.close();

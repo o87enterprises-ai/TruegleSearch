@@ -35,6 +35,7 @@ import FeedbackButtons from '../components/ui/FeedbackButtons';
 import LocalPackCard from '../components/search/LocalPackCard';
 import { requestPosition } from '../utils/geolocation';
 import SmartPill from '../components/landing/SmartPill';
+import { modePlaceholder } from '../config/modePlaceholders';
 import CategoryModeRow from '../components/landing/CategoryModeRow';
 
 // Truegle Chat is a designated route for chat-first users — the same brand
@@ -903,7 +904,7 @@ export default function TruegleChat() {
               handleSend();
             }
           }}
-          placeholder={attachedImage ? 'Ask about this image (or leave blank to describe it)…' : 'Ask Truegle anything...'}
+          placeholder={attachedImage ? 'Ask about this image (or leave blank to describe it)…' : modePlaceholder('black', 'Ask Truegle anything...')}
           style={{ minHeight: '40px', maxHeight: '240px' }}
           className="flex-1 bg-transparent resize-none overflow-y-auto outline-none text-white placeholder-white/30 text-sm p-2"
         />

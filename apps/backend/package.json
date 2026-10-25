@@ -19,7 +19,8 @@
     "cameras:test": "node scripts/verify-cameras.mjs",
     "groq:health": "node scripts/verify-groq-health.mjs",
     "osiris:probe": "node scripts/probe-osiris.mjs",
-    "osiris:warm": "node scripts/warm-osiris.mjs"
+    "osiris:warm": "node scripts/warm-osiris.mjs",
+    "player:health": "node scripts/player-health.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.1",
@@ -30,7 +31,6 @@
     "compression": "^1.7.4",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
-    "exiftool-vendored": "^30.2.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.1",
     "express-session": "^1.18.2",
