@@ -32,6 +32,7 @@ import { learnMeta } from '../../utils/mediaMeta';
 import { recordWatch } from '../../utils/watchHistory';
 import { copyText } from '../../utils/clipboard';
 import { mediaKey } from '../../utils/videoEmbed';
+import { lookupTall, knownTall } from '../../utils/clipShape';
 import { useSearchStashContext } from '../../context/SearchStashContext';
 import { IS_IOS } from '../../utils/isIOS';
 import { IS_ANDROID } from '../../utils/isAndroid';
@@ -207,9 +208,22 @@ export default function TrueglePlayer({
   const [mediaAspect, setMediaAspect] = useState(null); // { key, ratio }
   const clipKey = current ? current.src : '';
   const knownAspect = mediaAspect && mediaAspect.key === clipKey ? mediaAspect.ratio : null;
+  // A YouTube clip that arrived as a plain /watch link (a search row, an
+  // imported playlist, an older saved list) carries no `vertical`, so a Short
+  // played from one was framed widescreen and turned the phone sideways in full
+  // screen. Ask once, through the backend, what shape it really is (clipShape).
+  const askShapeKey = current?.kind === 'youtube' && !current.vertical ? mediaKey(current) : '';
+  const [shapeTallKey, setShapeTallKey] = useState('');
+  useEffect(() => {
+    if (!askShapeKey) return undefined;
+    let live = true;
+    lookupTall(askShapeKey).then((tall) => { if (live && tall) setShapeTallKey(askShapeKey); });
+    return () => { live = false; };
+  }, [askShapeKey]);
+  const shapeTall = !!askShapeKey && (shapeTallKey === askShapeKey || knownTall(askShapeKey) === true);
   const clipIsTall = !!current && (knownAspect
     ? knownAspect < 1
-    : (!!current.vertical || current.kind === 'tiktok'));
+    : (!!current.vertical || current.kind === 'tiktok' || shapeTall));
   useEffect(() => {
     const o = typeof window !== 'undefined' ? window.screen?.orientation : null;
     if (!o?.lock) return;
@@ -1079,6 +1093,7 @@ export default function TrueglePlayer({
       onPlaying={() => setPlayingKey(sourceKey)}
       onAspect={(ratio) => setMediaAspect({ key: clipKey, ratio })}
       aspect={knownAspect}
+      tall={shapeTall}
       fill={fullscreen}
       compact={presentation === 'popped'}
       maxHeight={presentation === 'popped' ? 320 : 420}

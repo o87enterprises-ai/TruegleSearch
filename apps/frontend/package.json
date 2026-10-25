@@ -43,6 +43,7 @@
     "addtolist:test": "node scripts/verify-add-to-list.mjs",
     "searchbar:test": "node scripts/verify-search-bar.mjs",
     "listsshuffle:test": "node scripts/verify-lists-shuffle.mjs",
+    "searchradio:test": "node scripts/verify-search-radio.mjs",
     "tubephone:test": "node scripts/verify-tube-phone.mjs",
     "iphone:test": "node scripts/verify-iphone-player.mjs",
     "sharegate:test": "node scripts/verify-share-gate.mjs",

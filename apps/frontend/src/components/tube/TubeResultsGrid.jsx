@@ -17,6 +17,7 @@ import ListRowActions from '../player/ListRowActions';
 import { playlistById, usePlaylists } from '../../utils/playlists';
 import { allSavedListRows } from '../../utils/listRows';
 import { usePlayAll } from '../../hooks/usePlayAll';
+import { usePlayResults } from '../../hooks/usePlayResults';
 import SafeSearchToggle from '../ui/SafeSearchToggle';
 
 // TUBE'S RESULTS: PLAYABLE ONLY, LAID OUT LIKE YOUTUBE.
@@ -58,7 +59,8 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
   const { settings } = useSettings();
   const blur = settings.safeSearch === 'blur';
   const metaFor = useMediaMeta();
-  const { startFeed, enqueue, playNow, stopFeed, playList } = usePlayer();
+  const { enqueue, playNow, stopFeed, playList } = usePlayer();
+  const playResults = usePlayResults();
   const { playAll } = usePlayAll();
   const [added, setAdded] = useState(null);
 
@@ -78,9 +80,9 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
       if (docked) window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    startFeed(visible.slice(i), 'tube');
+    playResults(visible.slice(i), 'tube');
     if (docked) window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [startFeed, visible, allRows, docked, playAll, playList]);
+  }, [playResults, visible, allRows, docked, playAll, playList]);
 
   const queue = useCallback((r) => {
     enqueue(r, { deck: 'tube' });

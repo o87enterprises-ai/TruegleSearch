@@ -1904,6 +1904,22 @@
         "body": "Owner reported 'around 100 security vulnerabilities' 2026-10-23. npm audit confirmed 112 (7 critical/77 high/25 moderate/3 low) across the shared workspace node_modules. Phase 1 (this commit): 'npm audit fix' x2 (non-breaking, no major bumps) resolved dompurify(critical,DIRECT)/axios/express/joi/multer/compression/postcss/vite among others. THREE direct deps confirmed genuinely unused anywhere in source (grep -rl across every file/casing, zero hits beyond package.json/lockfile) and removed instead of upgraded: @questlabs/react-sdk (frontend, moderate, no fix existed upstream anyway), echarts (frontend, moderate XSS -- no chart component anywhere in src), exiftool-vendored (backend, high arg-injection -- the only 'exiftool' hit in the whole backend was a PROMPT STRING mentioning the tool by name for an OSINT AI feature, never a require()). Result: 112->80 (-32, -29%). Verified: npm run lint (same pre-existing 40 problems on baseline too, not a regression), build:frontend clean (3602->3595 modules), backend jest 639/639 (+ same pre-existing unrelated new-endpoints.test.js suite failure, missing 3rd-party keys), videopages:test 34/34, seo:test 89/89, gsc:test 19/19, player-suite 250/250 (one run hit the already-documented desktop/off-Tube/Next-Previous flake, reproduces on unmodified main too, not caused by this). GAP FOUND DURING THIS PHASE, not originally caught: react-router-dom's vuln range is 6.0.0-alpha.0 - 7.17.0 -- EVERY 6.x is vulnerable, fix needs v7.18+, a real v6->v7 MAJOR (route API changes) across the whole app's routing. npm's fixAvailable:true on it was misleading (means 'npm COULD resolve this with --force', not 'non-breaking') -- missed in the original per-package severity scan because only entries with an OBJECT fixAvailable (an explicit named major target) were flagged as needing a major; a boolean true that still requires crossing a major line was not caught. This needs its own careful pass (every route/Link/useNavigate in the app) before touching it -- NOT done yet, flagged to owner. Remaining majors still to do: tailwindcss->4.3.3, jest->30.x (both dev-only, Phase 2), maplibre-gl+@tomtom-international/web-sdk-services together (Phase 3, the live map, feature-critical), react-router-dom->7.18+ (newly found, needs its own phase), nodemon has no real fix (chokidar's fix is in its 4.x+, nodemon upstream hasn't adopted it even in its own latest 3.1.14 release -- dev-only, waiting on nodemon not us).",
         "ts": "2026-10-23",
         "created": "2026-10-23"
+      },
+      "d-search-play-radio-clears-queue": {
+        "Id": "d-search-play-radio-clears-queue",
+        "Type": "decision",
+        "Label": "Radio on + fresh Tube search + play = fresh radio",
+        "body": "With Radio ON, tapping a search result (Tube grid or browse deck) plays ONLY that song: results are not lined up as a feed, the up-next queue is cleared, and Radio (Last.fm / ListenBrainz similar artists, via useUpNext) picks what follows. hooks/usePlayResults.js. Start Radio button still PARKS the queue instead. Radio off = old behaviour (results play in order). Owner 2026-10-24.",
+        "ts": "2026-10-25",
+        "created": "2026-10-25"
+      },
+      "d-clip-shape-oembed": {
+        "Id": "d-clip-shape-oembed",
+        "Type": "decision",
+        "Label": "Fullscreen orientation: ask oEmbed for plain /watch YouTube clips",
+        "body": "A YouTube clip with no vertical flag (search row, imported playlist, old saved list) gets its real shape from the backend oEmbed (/api/media/titles with a /shorts/ URL; portrait = height>width) via utils/clipShape.js, once per clip at play time. Saved lists + history now keep the vertical flag. Drives the orientation lock and PlayerScreen box. Owner 2026-10-24.",
+        "ts": "2026-10-25",
+        "created": "2026-10-25"
       }
     },
     "thread": {
@@ -3938,5 +3954,5 @@
       }
     }
   },
-  "updated": "2026-10-23"
+  "updated": "2026-10-25"
 }

@@ -37,6 +37,7 @@ function ago(ts) {
 const toSource = (e) => ({
   kind: e.kind, src: e.src, title: e.title, pageUrl: e.pageUrl,
   poster: e.poster, channel: e.channel,
+  ...(e.vertical ? { vertical: true } : {}),
 });
 
 /** The "save this somewhere" control. A button that opens the one shared
