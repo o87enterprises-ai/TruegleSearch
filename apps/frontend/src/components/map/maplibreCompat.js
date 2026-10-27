@@ -4,6 +4,14 @@
 // page crashed on "Show Map". This subclass puts both back; remove it once
 // react-map-gl ships v6 support.
 import * as maplibre from 'maplibre-gl';
+// maplibre 6 starts its tile worker from ./maplibre-gl-worker.mjs "next to the
+// module". Once Vite bundles the library that file does not exist, so every
+// worker died with "Worker failed to load" and the map stayed a blank panel
+// (no tiles are ever fetched without it). `?worker&url` has Vite build the
+// worker (with its shared chunk) as its own asset and hand back its URL.
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+
+maplibre.setWorkerUrl(workerUrl);
 
 class CompatMap extends maplibre.Map {
   get transform() {
