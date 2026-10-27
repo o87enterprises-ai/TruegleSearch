@@ -15,6 +15,12 @@ export function isRadioOn() {
   try { return localStorage.getItem(KEY) === '1'; } catch { return false; }
 }
 
+/** Stream is on, OR was never touched (so a fresh song search may start it).
+ *  An explicit OFF by the listener is respected. */
+export function isRadioAllowed() {
+  try { return localStorage.getItem(KEY) !== '0'; } catch { return true; }
+}
+
 export function setRadio(on) {
   try { localStorage.setItem(KEY, on ? '1' : '0'); } catch { /* private mode: session only */ }
   // Off ends the session: the next time it is switched on it starts from

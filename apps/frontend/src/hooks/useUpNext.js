@@ -7,6 +7,7 @@ import { hasSeen, markSeen, markAllSeen, recentSeen } from '../utils/seen';
 import { scoreCandidates, draw, dedupeScored, poolFor, POOL } from '../utils/feedDraw';
 import { shouldExplore, exploreOffset, exploreSeed, EXPLORE_RATE } from '../utils/explore';
 import { authHeader, storedSafeSearch } from '../utils/authHeader';
+import { isBroken } from '../utils/broken';
 import { isRadioOn, artistOf, nameKey, setRadioStatus, getRadioAnchor, setRadioAnchor } from '../utils/radio';
 
 // What plays next, and what fills an empty player.
@@ -162,6 +163,8 @@ export function useUpNext() {
       offered += 1;
       if (hasSeen(k)) { alreadySeen += 1; return false; }
       if (isDisliked(s)) return false;
+      // Not embeddable (YouTube 101/150) or reported dead: never queue it.
+      if (isBroken(s)) return false;
       // A different id for the same upload is still the same upload.
       return !nearDuplicate(currentTitle, s.title);
     };
