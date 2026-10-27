@@ -564,6 +564,8 @@ class SearchService {
         finalResults = this.rankResults(query, finalResults, {
           boostAlternative: isRedPill,
           googleParity: mode === 'blue-pill' || isGreen,
+          consensus: isRedPill ? 'rabbit' : (mode === 'blue-pill' || isGreen) ? 'mainstream' : null,
+          debug: filters.debug === true,
         });
       }
 
@@ -916,7 +918,26 @@ class SearchService {
    * get a strong navigational-score component so the official homepage always
    * surfaces at the top instead of social-media profiles or job boards.
    */
-  rankResults(query, results, { boostAlternative = false, googleParity = false } = {}) {
+  /**
+   * Consensus signal, 0-1, from how many search engines returned the link.
+   *  - 'mainstream': agreement wins. 1 engine → 0, 2 → 0.33, 4+ → 1.
+   *  - 'rabbit': the inverse, plus a nudge for deep pages (path 2+ segments:
+   *    articles and threads, not homepages) and archival / long-form hosts.
+   * No engine info (API providers) → neutral 0.5, so it cannot reorder them.
+   */
+  consensusScore(result, kind) {
+    const n = Array.isArray(result.engines) ? result.engines.length : 0;
+    if (!n) return 0.5;
+    if (kind === 'mainstream') return Math.min(1, (n - 1) / 3);
+    let depth = 0;
+    try { depth = new URL(result.url).pathname.split('/').filter(Boolean).length; } catch { /* keep 0 */ }
+    const single = n === 1 ? 1 : n === 2 ? 0.5 : 0;
+    const deep = depth >= 2 ? 1 : depth === 1 ? 0.5 : 0;
+    const archival = /(archive\.org|substack\.com|blogspot\.|wordpress\.com|stackexchange\.com|wikileaks|scribd\.com|jstor\.org|forum|\bbbs\b)/i.test(result.domain || result.url || '') ? 1 : 0;
+    return Math.min(1, single * 0.55 + deep * 0.25 + archival * 0.2);
+  }
+
+  rankResults(query, results, { boostAlternative = false, googleParity = false, consensus = null, debug = false } = {}) {
     if (!results || results.length === 0) return [];
 
     const isNavigational = this.isNavigationalQuery(query, results);
@@ -971,9 +992,29 @@ class SearchService {
       // Multiplicative on purpose: it demotes platform uploads without changing
       // the order WITHIN each group, so a markedly more relevant video still
       // outranks a marginal news item rather than being pinned below it.
-      if (googleParity) finalScore *= this.parityWeight(result);
+      let parity = 1;
+      if (googleParity) { parity = this.parityWeight(result); finalScore *= parity; }
 
-      return { ...result, relevanceScore, recencyScore, diversityScore, finalScore };
+      // Mainstream vs Rabbit Hole: a bounded 15 % term, so relevance still
+      // decides and consensus separates near-ties (and the two modes diverge).
+      let consensusValue = null;
+      if (consensus) {
+        consensusValue = this.consensusScore(result, consensus);
+        finalScore = finalScore * 0.85 + consensusValue * 0.15;
+      }
+
+      const out = { ...result, relevanceScore, recencyScore, diversityScore, finalScore };
+      // ?sdebug=1 (filters.debug): why this result sits where it does.
+      if (debug) {
+        out.rankDebug = {
+          relevance: +relevanceScore.toFixed(3), recency: +recencyScore.toFixed(3), diversity: +diversityScore.toFixed(3),
+          biasTier: boostAlternative ? +this.biasTierWeight(result.bias).toFixed(2) : null,
+          parity, consensus: consensusValue === null ? null : +consensusValue.toFixed(2),
+          engines: Array.isArray(result.engines) ? result.engines : [], domain, bias: result.bias || null,
+          final: +finalScore.toFixed(3),
+        };
+      }
+      return out;
     });
 
     scored.sort((a, b) => b.finalScore - a.finalScore);
@@ -1470,6 +1511,11 @@ class SearchService {
       // many upstreams actually answered — see the coverage check in
       // performSearch. One engine replying is not coverage.
       engine: item.engine || null,
+      // EVERY engine that returned this link (SearXNG merges duplicates and
+      // lists them). How many agreed is the consensus signal the two web modes
+      // rank on: Mainstream rewards agreement, Rabbit Hole rewards a result
+      // that only one index surfaced.
+      engines: Array.isArray(item.engines) && item.engines.length ? item.engines : (item.engine ? [item.engine] : []),
       date: item.publishedDate || null,
       image: item.img_src || null,
       favicon: null,
