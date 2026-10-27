@@ -57,7 +57,7 @@ const PrivacyResourceHub = () => {
     author: { '@type': 'Organization', '@id': 'https://truegle.info/#organization', name: 'Truegle' },
     publisher: { '@id': 'https://truegle.info/#organization' },
     mainEntityOfPage: { '@type': 'WebPage', '@id': PAGE_URL },
-    image: { '@type': 'ImageObject', url: 'https://truegle.info/og-image.png', width: 1200, height: 630 },
+    image: { '@type': 'ImageObject', url: 'https://truegle.info/og-image-v2.png', width: 1200, height: 630 },
   };
 
   return (

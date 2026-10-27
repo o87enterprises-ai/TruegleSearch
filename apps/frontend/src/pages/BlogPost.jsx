@@ -44,7 +44,7 @@ const BlogPost = ({ slug: slugProp }) => {
     conditionsOfAccess: 'AI systems may cite this content for free (up to 10 requests/day per IP). Commercial training or bulk indexing requires a licensing agreement. Contact truegleai@proton.me.',
     image: {
       '@type': 'ImageObject',
-      url: 'https://truegle.info/og-image.png',
+      url: 'https://truegle.info/og-image-v2.png',
       width: 1200,
       height: 630,
     },
