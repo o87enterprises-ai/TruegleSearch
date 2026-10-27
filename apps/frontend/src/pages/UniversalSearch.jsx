@@ -39,7 +39,6 @@ import { SkeletonSearchResult } from '../components/ui/Skeleton';
 import QuickAnswerCard from '../components/ui/QuickAnswerCard';
 import BusinessPanelCard from '../components/ui/BusinessPanelCard';
 import { usePlacePanel } from '../hooks/usePlacePanel';
-import AsSeenOn from '../components/Content/AsSeenOn';
 import GamesPanel from '../components/games/GamesPanel';
 import PerspectiveSelector from '../components/search/PerspectiveSelector';
 import RabbitHoleFold from '../components/search/RabbitHoleFold';
@@ -2199,43 +2198,6 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
             )}
           </AnimatePresence>
 
-          {/* Shopping Interface (same as SearchResults) */}
-          <AnimatePresence>
-            {activeCategory === 'shopping' && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                className="max-w-4xl mx-auto mb-6 overflow-hidden"
-              >
-                <div className="p-6 rounded-2xl bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 backdrop-blur-2xl border-2 border-emerald-500/50 shadow-lg shadow-emerald-500/20">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-400">
-                          <circle cx="6" cy="19" r="3"></circle>
-                          <circle cx="18" cy="19" r="3"></circle>
-                          <path d="M2.5 6.5h19v10h-19z"></path>
-                        </svg>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-white">As Seen On</h3>
-                        <p className="text-sm text-emerald-300/70">Find the best deals across retailers</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setActiveCategory('all')}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                    >
-                      <X size={20} className="text-white" />
-                    </button>
-                  </div>
-                  <AsSeenOn searchQuery={searchValue} />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {/* Games Panel — the touch-only emulator library (see PR notes:
               "games scrollable search categories"). Same shell/lifecycle as
