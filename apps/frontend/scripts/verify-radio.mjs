@@ -100,7 +100,9 @@ check(/following (Justice|Daft Punk)/.test(status1 || ''), 'Radio says who it is
 // by verify-search-radio.mjs. So this has to be checked before any grid play.)
 await page.locator('[data-player-radio]').first().click();
 await pressNext();
-check((await nowId()) === 'queued00001', 'switching Radio off hands Next back to the parked queue', await nowId());
+// (2026-10-27) Stream now CLEARS the old queue when it starts (owner request),
+// so the earlier queued song is gone rather than parked.
+check((await nowId()) !== 'queued00001', 'Stream cleared the old queue (it is not handed back)', await nowId());
 
 // 2 + 3: play a clip with no artist in its title, then one nothing identifies.
 await page.locator('[aria-label="Play Untitled Groove (Lyrics)"]').first().click().catch(() => {});
