@@ -150,6 +150,36 @@ async function check(device, layout, name, fn) {
   }
 }
 
+// ── the corner controls (owner request, 2026-10-27) ─────────────────────────
+// Lock is the FAR-RIGHT control on touch devices in every presentation that
+// shows a picture; a desktop has no pocket, so it is not offered there. And the
+// popped-out window carries no second pop-out / dock button in its transport —
+// its frame (Minimize, Float/Dock, Close) and, on Tube, the page's own
+// "Dock it back" link already do those jobs.
+async function cornerChecks(device, layout, page, { touch, popped }) {
+  await check(device, layout, touch ? 'Lock is offered, and is the far-right control' : 'Lock is not offered on a desktop', async () => {
+    const lock = page.locator('[aria-label="Lock the player controls"]:visible');
+    if (!touch) return (await lock.count()) === 0 || `Lock visible ${await lock.count()}x`;
+    if (!(await lock.count())) return 'no Lock button';
+    // The minimized strip (PlayerMiniBar) has a Lock of its own with the same label, so find the
+    // one in the FULL transport: the row that also holds the Full screen button.
+    const verdicts = await lock.evaluateAll((els) => els.map((el) => {
+      const buttons = [...el.parentElement.querySelectorAll('button')].filter((b) => b.offsetParent);
+      const labels = buttons.map((b) => b.getAttribute('aria-label') || '');
+      return { full: labels.some((l) => /full screen/i.test(l)), last: buttons[buttons.length - 1] === el, row: labels.join(' | ') };
+    }));
+    const mine = verdicts.filter((v) => v.full);
+    if (!mine.length) return `no Lock in the full transport; rows: ${verdicts.map((v) => v.row).join(' // ')}`;
+    return mine.every((v) => v.last) || `Lock is not last; row: ${mine.map((v) => v.row).join(' // ')}`;
+  });
+  if (popped) {
+    await check(device, layout, 'no second pop-out / dock button inside the popped-out window', async () => {
+      const n = await page.locator('[data-mini] [aria-label="Pop out the player"]:visible, [data-mini] [aria-label="Dock the player back into the search bar"]:visible').count();
+      return n === 0 || `${n} extra button(s)`;
+    });
+  }
+}
+
 // ── the checks run in every layout ──────────────────────────────────────────
 async function transportChecks(device, layout, page, { touch }) {
   // Any clip: Enter in the Tube bar plays the top search hit, by design.
@@ -453,6 +483,7 @@ for (const device of Object.keys(DEVICES)) {
     // DOCKED in Tube.
     await page.waitForTimeout(500);
     await transportChecks(device, 'docked in Tube', page, { touch });
+    await cornerChecks(device, 'docked in Tube', page, { touch, popped: false });
     await sweep(device, 'docked in Tube', page, errs);
 
     // POPPED OUT.
@@ -463,15 +494,21 @@ for (const device of Object.keys(DEVICES)) {
     });
     if (await page.locator('[data-mini]:visible').count()) {
       await transportChecks(device, 'popped out', page, { touch });
+      await cornerChecks(device, 'popped out', page, { touch, popped: true });
       await sweep(device, 'popped out', page, errs);
     }
 
     // ANOTHER PAGE: floating or footer.
+    // The popped-out transport no longer has its own dock button; on Tube the page's
+    // "Dock it back" link is the way home (it is what the old sweep pressed).
+    await page.locator('button:has-text("Dock it back"):visible').first().click({ timeout: 2000 }).catch(() => {});
+    await page.waitForTimeout(300);
     await page.evaluate("history.pushState({}, '', '/chat'); dispatchEvent(new PopStateEvent('popstate'))");
     await page.waitForTimeout(1200);
     const away = (await page.locator('[data-mini]:visible').count()) ? 'off Tube (floating/footer)' : null;
     if (away) {
       await transportChecks(device, away, page, { touch });
+      await cornerChecks(device, away, page, { touch, popped: true });
       await sweep(device, away, page, errs);
       await check(device, away, 'Minimize, then expand', async () => {
         if (!(await has(page, 'Minimize the player'))) return 'na';

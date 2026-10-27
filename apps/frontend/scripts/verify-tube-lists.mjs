@@ -175,7 +175,9 @@ await until(() => page.locator('[data-tube-grid]').count(), { what: 'page grid',
 const gridText = await page.locator('[data-tube-grid]').first().innerText().catch(() => '');
 check(/Road songs of the 70s/.test(gridText), 'the page grid follows the player\'s search', gridText.slice(0, 60).replace(/\s+/g, ' '));
 
-await page.locator('[aria-label="Dock the player back into the search bar"]:visible').first().click();
+// The transport no longer carries a second copy of this control inside the popped-out
+// window (2026-10-27); the page's own "Dock it back" link is the way home on Tube.
+await page.locator('button:has-text("Dock it back"):visible').first().click();
 await until(() => pageBar.count(), { what: 'the page bar back', timeout: 4000 }).catch(() => {});
 await page.waitForTimeout(400);
 check(await pageBar.count() === 1 && await playerBar.count() === 0, 'docked again: one bar, back on the page');
