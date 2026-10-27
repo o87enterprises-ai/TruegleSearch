@@ -4,10 +4,21 @@
 // header. Deliberately simple (single shared key, no user session) since these
 // are operator-only endpoints called by hand / a small internal tool, not by
 // the app UI.
+const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
 const RewardsService = require('../services/RewardsService');
 const { PlayerHealthService } = require('../services/PlayerHealthService');
+
+// Constant-time comparison: hash both sides so the buffers are the same length
+// (timingSafeEqual throws on a length mismatch) and the compare time does not
+// leak how much of the key a guess got right.
+function keyMatches(given, expected) {
+  if (typeof given !== 'string' || !given) return false;
+  const a = crypto.createHash('sha256').update(given).digest();
+  const b = crypto.createHash('sha256').update(String(expected)).digest();
+  return crypto.timingSafeEqual(a, b);
+}
 
 // Gate every admin route on the shared key.
 router.use((req, res, next) => {
@@ -15,7 +26,7 @@ router.use((req, res, next) => {
   if (!adminKey) {
     return res.status(503).json({ error: 'Admin API is not configured (ADMIN_API_KEY unset)' });
   }
-  if (req.headers['x-admin-key'] !== adminKey) {
+  if (!keyMatches(req.headers['x-admin-key'], adminKey)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   next();
@@ -75,4 +86,5 @@ router.get('/upstream-health', (req, res) => {
   res.json({ success: true, coolingDown: breakers.status(), youtubePool: YouTubeGateway.poolStatus() });
 });
 
+router.keyMatches = keyMatches;
 module.exports = router;
