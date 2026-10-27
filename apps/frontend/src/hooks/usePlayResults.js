@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { usePlayer } from '../context/PlayerContext';
-import { isRadioOn, startRadioFrom } from '../utils/radio';
+import { isRadioOn, isRadioAllowed, startRadioFrom, artistOf } from '../utils/radio';
 
 // "PLAY FROM HERE" ON A LIST OF SEARCH RESULTS.
 //
@@ -24,7 +24,11 @@ export function usePlayResults() {
   const { startFeed, stopFeed, clearQueue, play } = usePlayer();
   return useCallback((sources, deck) => {
     const first = (sources || []).find((s) => s?.src);
-    if (first && isRadioOn()) {
+    // A fresh search whose pick reads as a song starts a Stream by itself
+    // (unless the listener switched Stream off): queue cleared, similar music
+    // from Last.fm / ListenBrainz next, never the old history or this results
+    // page. Non-music keeps the results as a feed run.
+    if (first && (isRadioOn() || (isRadioAllowed() && artistOf(first)))) {
       stopFeed();
       clearQueue();
       play(first, deck);
