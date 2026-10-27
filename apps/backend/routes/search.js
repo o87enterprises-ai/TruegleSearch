@@ -82,7 +82,24 @@ router.post('/', rateLimitSearch, optionalAuth, async (req, res) => {
 
     // Perform search using the search service
     let results = await searchService.performSearch(query, engineFilters, mode);
+    const rawCount = Array.isArray(results) ? results.length : 0;
     if (playerSafe) results = await keepForSafePlayer(results);
+    // WHY A PLAYER SEARCH CAME BACK UNPLAYABLE. "Nothing playable" with 80+
+    // results behind it (2026-10-27) can't be diagnosed without knowing WHERE
+    // those results point. Hostnames and counts only — never the query, never
+    // a full URL, nothing about who asked.
+    if (validFilters.purpose === 'player') {
+      const hosts = {};
+      for (const r of results || []) {
+        let h = 'none';
+        try { h = new URL(r.url).hostname.replace(/^www\./, ''); } catch { /* keep 'none' */ }
+        hosts[h] = (hosts[h] || 0) + 1;
+      }
+      const top = Object.entries(hosts).sort((a, b) => b[1] - a[1]).slice(0, 8)
+        .map(([h, n]) => `${h}x${n}`).join(' ');
+      const withIframe = (results || []).filter((r) => r && r.iframeSrc).length;
+      console.log(`🎬 player ${validFilters.category}: ${rawCount}->${(results || []).length} iframe=${withIframe} hosts: ${top}`);
+    }
 
     const instantAnswer = await buildInstantAnswer(query.trim(), results);
 
