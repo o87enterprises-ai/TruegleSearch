@@ -7,6 +7,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 // map stylesheet before it could paint.
 import { Map as BaseMap, Marker, Popup, ScaleControl, Source, Layer } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { mapLib } from './maplibreCompat';
 // TrafficCone for traffic, Navigation for directions. Both buttons used to
 // import the SAME lucide glyph — `Navigation` once plainly and once as
 // `Navigation as NavigationIcon` — so Traffic and Directions were pixel
@@ -1245,6 +1246,7 @@ export default function TruegleMap({
       {state.mapViewMode === MAP_VIEW_MODES.STANDARD ? (
         <BaseMap
           ref={mapRef}
+          mapLib={mapLib}
           {...viewState}
           onMove={handleMove}
           onMoveEnd={handleMoveEnd}
