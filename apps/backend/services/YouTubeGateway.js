@@ -244,11 +244,45 @@ function toApiShape(videos, limit) {
   };
 }
 
+// SEARCH MUST NOT HOLD A SEARCH HOSTAGE. fromPool() walks instances one after
+// another, tries cooled-down ones as a "long shot", and pays 8s for each dead
+// one. With most public Invidious hosts gone that put 8-12 seconds on EVERY
+// search that reached this fallback (prod logs, 2026-10-27: /api/search 200 in
+// 11.4s, 12.2s, 11.6s) — the Tube search that "didn't seem to fire" was waiting
+// on it. A search is a latency-sensitive request, so: only instances that are
+// not cooling down, asked in parallel, first good answer wins, short ceiling.
+const SEARCH_FANOUT = 3;
+const SEARCH_TIMEOUT_MS = 3500;
+
+async function searchPool(path, accept) {
+  const now = Date.now();
+  const bases = ordered().filter((b) => state(b).until <= now).slice(0, SEARCH_FANOUT);
+  if (!bases.length) return null;
+  return new Promise((resolve) => {
+    let pending = bases.length;
+    let done = false;
+    const finish = (v) => { if (!done) { done = true; resolve(v); } };
+    const miss = () => { pending -= 1; if (!pending) finish(null); };
+    bases.forEach(async (base) => {
+      try {
+        const r = await axios.get(`${base}${path}`, requestOptions({ responseType: 'json', timeout: SEARCH_TIMEOUT_MS }));
+        if (r.status === 429 || r.status >= 500 || looksBlocked(r.status, r.data)) { penalize(base, `http ${r.status}`); return miss(); }
+        reward(base);
+        if (r.status >= 400 || !accept(r.data)) return miss();
+        return finish({ base, data: r.data });
+      } catch (err) {
+        penalize(base, err.code || err.message);
+        return miss();
+      }
+    });
+  });
+}
+
 async function searchVideos(query, limit = 25) {
   const q = String(query || '').trim();
   if (!q) return null;
   const path = `/api/v1/search?q=${encodeURIComponent(q)}&type=video&sort_by=relevance`;
-  const hit = await fromPool(path, { accept: (d) => Array.isArray(d) && d.length > 0 });
+  const hit = await searchPool(path, (d) => Array.isArray(d) && d.length > 0);
   if (!hit) return null;
   const shaped = toApiShape(hit.data, limit);
   return shaped.items.length ? shaped : null;
