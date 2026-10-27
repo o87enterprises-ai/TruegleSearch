@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { mediaKey } from './videoEmbed';
+import { artistOf } from './radio';
 
 // 👍 / 👎 — what comes next, and who gets to know about it.
 //
@@ -44,7 +45,7 @@ export function tokens(text) {
     .slice(0, 12);
 }
 
-const EMPTY = { ratings: {}, channels: {}, words: {} };
+const EMPTY = { ratings: {}, channels: {}, words: {}, artists: {} };
 
 function read() {
   try {
@@ -54,6 +55,7 @@ function read() {
       ratings: raw.ratings && typeof raw.ratings === 'object' ? raw.ratings : {},
       channels: raw.channels && typeof raw.channels === 'object' ? raw.channels : {},
       words: raw.words && typeof raw.words === 'object' ? raw.words : {},
+      artists: raw.artists && typeof raw.artists === 'object' ? raw.artists : {},
     };
   } catch {
     return EMPTY;
@@ -99,19 +101,24 @@ export function rate(source, dir) {
   // 👍→👎 would leave the channel/word weights permanently upvoted.
   const channels = { ...state.channels };
   const words = { ...state.words };
+  const artists = { ...state.artists };
   const delta = now - was;
   if (delta) {
     bump(channels, source?.channel, delta * 2);
     tokens(source?.title).forEach((w) => bump(words, w, delta));
+    // The ARTIST of a song, so Stream can start from likes with nothing playing.
+    bump(artists, artistOf(source), delta * 2);
   }
 
-  commit({ ratings, channels, words });
+  commit({ ratings, channels, words, artists });
   signal(source, was, now);
   return now;
 }
 
 export const ratingOf = (source) => state.ratings[mediaKey(source)] || 0;
-export const isDisliked = (source) => ratingOf(source) === -1;
+export const isDisliked = (source) => ratingOf(source) === -1
+  // An artist thumbed down twice (net) is out of Stream altogether.
+  || (state.artists[artistOf(source)] || 0) <= -4;
 
 /**
  * How well a candidate matches this browser's taste. Higher is better;
@@ -126,6 +133,8 @@ export function tasteScore(source) {
   const r = state.ratings[mediaKey(source)] || 0;
   if (r === -1) return -Infinity;
   let score = r * 3;
+  const who = artistOf(source);
+  if (who) score += (state.artists[who] || 0) * 1.5;
   if (source.channel) score += (state.channels[source.channel] || 0) * 1.5;
   const ws = tokens(source.title);
   if (ws.length) {
@@ -161,12 +170,21 @@ export function likedWords(limit = 6) {
     .map(([w]) => w);
 }
 
+/** Artists this browser has thumbed up, best first. Seeds Stream with nothing playing. */
+export function likedArtists(limit = 8) {
+  return Object.entries(state.artists)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([name]) => name);
+}
+
 /** Has this browser voted at all? Decides whether to lean on the platform pool. */
 export const hasTaste = () => Object.keys(state.ratings).length > 0;
 
 /** Wipe the profile. Offered in the UI — a taste profile you can't delete is a dossier. */
 export function forgetTaste() {
-  commit({ ratings: {}, channels: {}, words: {} });
+  commit({ ratings: {}, channels: {}, words: {}, artists: {} });
 }
 
 // ── the anonymous half ──────────────────────────────────────────────────────

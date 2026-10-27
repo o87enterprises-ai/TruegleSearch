@@ -23,7 +23,7 @@ import { useSwipeNav } from '../../hooks/useSwipeNav';
 import { useWheelNav } from '../../hooks/useWheelNav';
 import { useOverlayReveal } from '../../hooks/useOverlayReveal';
 import { useLockedGestures } from '../../hooks/useLockedGestures';
-import { rate, useRating, signalPlay } from '../../utils/taste';
+import { rate, useRating, signalPlay, likedArtists } from '../../utils/taste';
 import { playlists, createPlaylist, addToPlaylist } from '../../utils/playlists';
 import { SaveTo } from './PlayerLibrary';
 import { recordRetention } from '../../utils/retention';
@@ -39,7 +39,7 @@ import { reportHref, envContext, reportEvent } from '../../utils/playerDiagnosti
 import { trace, installTapRecorder } from '../../utils/playerTrace';
 import PlayerTraceOverlay from './PlayerTraceOverlay';
 import { useDeliberateTap } from '../../hooks/useDeliberateTap';
-import { useRadioSession, startRadioFrom } from '../../utils/radio';
+import { useRadioSession, startRadioFrom, useRadio, isRadioOn, asStreamPick, isStreamPick, claimSeed } from '../../utils/radio';
 
 // THE player. There is only one, and this is it.
 //
@@ -81,6 +81,7 @@ export default function TrueglePlayer({
     feedActive, feed: feedRest, feedNext, activeDeck, fullscreenNonce, setMinimized,
     list: playingList, listNext, resumeQueue, nextNonce,
     queueStandby, listStandby, currentStandby, resumeStandby, setPaused, jump: jumpToQueued, stopFeed,
+    clearQueue, enqueueMany,
   } = usePlayer();
   const pageMode = usePageMode();
   // ONE PLAYER, AND ON THE FEED PAGE IT NEVER AUTOPLAYS RANDOM LINKS. Feed
@@ -399,10 +400,58 @@ export default function TrueglePlayer({
   // (phone browsers recycle background tabs) a perfectly good queue was
   // ignored and Next went to Up Next's picks instead — reported as "it
   // defaults to shuffle even though shuffle isn't selected".
-  // A RADIO SESSION (Start Radio) parks the queue the same way a feed run
-  // does: untouched, and followed again the moment Radio is switched off.
   const radioSession = useRadioSession();
-  const followQueue = queue.length > 0 && !feedActive && !radioSession;
+  // Stream no longer PARKS the queue: it replaces it (see the reseed below), so
+  // the queue on screen is the stream and is followed like any other.
+  const followQueue = queue.length > 0 && !feedActive;
+
+  // ── STREAM RESEEDS FROM WHAT YOU CHOSE (owner, 2026-10-27) ────────────────
+  // Switch Stream on, or pick a song yourself while it is on: the queue and
+  // any pending run are cleared and refilled with similar music (Last.fm /
+  // ListenBrainz via useUpNext.streamFill), seeded by THAT song. Songs Stream
+  // queued itself carry `streamPick` and just continue the run; going back to
+  // something already played this session doesn't reseed; and a page load
+  // that restores a playing song doesn't wipe the queue it restored.
+  const [radioOn] = useRadio();
+  const streamPrevOn = useRef(radioOn);
+  const streamPlayed = useRef(new Set());
+  // The song a page load restored, if any: playing on, not a fresh pick.
+  const streamRestored = useRef(current?.src ? (mediaKey(current) || current.src) : null);
+  useEffect(() => {
+    const justOn = radioOn && !streamPrevOn.current;
+    streamPrevOn.current = radioOn;
+    if (!radioOn) { streamPlayed.current = new Set(); return; }
+    // Stream switched on with NOTHING playing: start from the artists this
+    // browser has thumbed up (and music like them), no seed song needed.
+    if (justOn && !current?.src && !onFeedPage && likedArtists(1).length) {
+      stopFeed(); clearQueue();
+      trace('stream', { seed: 'liked' });
+      upNext.streamFill(null, 10).then((picks) => {
+        if (!isRadioOn() || !picks.length) return;
+        const [first, ...rest] = picks.map(asStreamPick);
+        play(first);
+        if (rest.length) enqueueMany(rest, undefined, { quiet: true });
+      }).catch(() => {});
+      return;
+    }
+    if (!current?.src || onFeedPage) return;
+    const key = mediaKey(current) || current.src;
+    const userPick = !isStreamPick(current) && !streamPlayed.current.has(key);
+    streamPlayed.current.add(key);
+    if (!justOn && !userPick) return;
+    // Stream already on when the page loaded: the restored song is not a pick.
+    if (!justOn && key === streamRestored.current) { streamRestored.current = null; return; }
+    if (!claimSeed(key)) return;
+    stopFeed();
+    clearQueue();
+    startRadioFrom(current);
+    streamPlayed.current = new Set([key]);
+    trace('stream', { seed: true });
+    upNext.streamFill(current, 10).then((picks) => {
+      if (!isRadioOn() || !picks.length) return;
+      enqueueMany(picks.map(asStreamPick), undefined, { quiet: true });
+    }).catch(() => { /* nothing found: Up Next carries on when the clip ends */ });
+  }, [radioOn, current, onFeedPage, stopFeed, clearQueue, enqueueMany, upNext, play]);
   // A feed run outranks the queue while it has clips left.
   const followFeed = feedActive && feedRest.length > 0;
   // A feed run that has played its last clip. The queue is still parked
@@ -431,7 +480,7 @@ export default function TrueglePlayer({
     // is an explicit instruction to replay, and the reducer carries it out.
     if (followQueue || (playMode !== 'auto' && playMode !== 'shuffle') || !current || onFeedPage) { next(); return; }
     const nextUp = await upNext.pick(current);
-    if (nextUp) { play(nextUp); return; }
+    if (nextUp) { play(isRadioOn() ? asStreamPick(nextUp) : nextUp); return; }
     next();
   }, [playingList, listNext, followFeed, feedNext, feedSpent, resumeQueue, queue.length, followQueue, playMode, current, next, play, upNext, onFeedPage, setMinimized, radioSession]);
 
@@ -451,7 +500,7 @@ export default function TrueglePlayer({
     if (feedSpent && !radioSession && (queue.length > 0 || onFeedPage)) return;
     if (followQueue || !current || onFeedPage) { skipNext(); return; }
     const nextUp = await upNext.pick(current);
-    if (nextUp) play(nextUp); else skipNext();
+    if (nextUp) play(isRadioOn() ? asStreamPick(nextUp) : nextUp); else skipNext();
   }, [playingList, listNext, followFeed, feedNext, feedSpent, queue.length, followQueue, current, upNext, play, skipNext, onFeedPage, radioSession]);
 
   // Next pressed OUTSIDE the player (minimized bar, lock-screen keys, the
@@ -691,7 +740,12 @@ export default function TrueglePlayer({
   // through and simply registering an opinion, and losing your place to a
   // mis-tap is the same complaint that made the queue feel unsafe.
   const rating = useRating(current);
-  const onRate = useCallback((dir) => { if (current) rate(current, dir); }, [current]);
+  const onRate = useCallback((dir) => {
+    if (!current) return;
+    // A thumbs-down means "not this": register it AND move on. (Pressing it
+    // again to undo does not skip.)
+    if (rate(current, dir) === -1) goNext();
+  }, [current, goNext]);
 
   // Swipe up = next, swipe down = back, tap = play/pause. Only in full screen:
   // reading the gesture at all needs a transparent sheet over the embed (an

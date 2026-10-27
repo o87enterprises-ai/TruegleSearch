@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { getPlayable, mediaKey, urlFromKey } from '../utils/videoEmbed';
 import { titleFromUrl } from '../utils/playerLink';
-import { tasteScore, likedChannels, likedWords, tokens, isDisliked } from '../utils/taste';
+import { tasteScore, likedChannels, likedWords, tokens, isDisliked, likedArtists } from '../utils/taste';
 import { retentionScore, watchedChannels } from '../utils/retention';
 import { hasSeen, markSeen, markAllSeen, recentSeen } from '../utils/seen';
 import { trace } from '../utils/playerTrace';
@@ -134,7 +134,12 @@ const radioArtist = (current) => (isRadioOn() ? (artistOf(current) || getRadioAn
  * following. `carried` says the last one was used.
  */
 async function resolveRadioArtist(current) {
-  if (!isRadioOn() || !current) return { artist: null };
+  if (!isRadioOn()) return { artist: null };
+  // Nothing playing: start from a random artist this browser has thumbed up.
+  if (!current) {
+    const liked = likedArtists(8);
+    return liked.length ? { artist: liked[Math.floor(Math.random() * liked.length)], carried: true } : { artist: null };
+  }
   const own = artistOf(current);
   if (own) return { artist: own };
   const looked = await artistByTitle(current.title);
@@ -254,7 +259,8 @@ export function useUpNext() {
     const { artist, carried } = await resolveRadioArtist(current);
     if (artist) {
       const similar = await similarTo(artist);
-      const seeds = [artist, ...shuffled(similar.slice(0, 12)).slice(0, 2)];
+      // A queue fill (wide) wants range; a single swipe needs only a couple.
+      const seeds = [artist, ...shuffled(similar.slice(0, 12)).slice(0, wide ? 4 : 2)];
       const lists = await Promise.all(seeds.map(async (seed) => {
         const want = nameKey(seed);
         const found = await searchFor(`${seed} official audio`);
@@ -400,10 +406,24 @@ export function useUpNext() {
     return chosen;
   }, [candidatesFor]);
 
+  /**
+   * STREAM'S QUEUE: similar music for `current`, drawn without exploration —
+   * a stream is meant to stay with the music. Empty when nothing was found
+   * (the ordinary Up Next still plays when the queue runs out).
+   */
+  const streamFill = useCallback(async (current, count = 10) => {
+    if (current) remember(current);
+    const { scored, seenRate } = await candidatesFor(current, { wide: true });
+    const chosen = draw(scored, count, Math.random, poolFor(seenRate));
+    markAllSeen(chosen);
+    trace('stream', { n: chosen.length });
+    return chosen;
+  }, [remember, candidatesFor]);
+
   // Stable identity: callers put this in useCallback dependency lists, and a
   // fresh object every render would rebuild advance() (and re-run the effects
   // that depend on it) on every single keystroke elsewhere in the tree.
-  return useMemo(() => ({ pick, fill, remember }), [pick, fill, remember]);
+  return useMemo(() => ({ pick, fill, streamFill, remember }), [pick, fill, streamFill, remember]);
 }
 
 export default useUpNext;

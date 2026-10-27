@@ -25,7 +25,7 @@ export function setRadio(on) {
   try { localStorage.setItem(KEY, on ? '1' : '0'); } catch { /* private mode: session only */ }
   // Off ends the session: the next time it is switched on it starts from
   // whatever is playing then, not from an artist remembered from before.
-  if (!on) { anchor = null; session = false; }
+  if (!on) { anchor = null; session = false; lastSeed = null; }
   listeners.forEach((fn) => fn());
 }
 
@@ -117,3 +117,20 @@ export function artistOf(source) {
 export const nameKey = (s) => String(s || '')
   .normalize('NFKD').replace(/[̀-ͯ]/g, '')
   .toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+// ── STREAM RESEEDS FROM WHAT YOU CHOSE (owner, 2026-10-27) ─────────────────
+// Turning Stream on, or picking a song yourself while it is on, clears the
+// queue and the pending run and refills the queue with similar music from
+// Last.fm / ListenBrainz, seeded by THAT song. What Stream itself put in the
+// queue carries `streamPick`, so playing it continues the run instead of
+// reseeding. `claimSeed` makes the reseed happen once per song even when two
+// player presentations are mounted at the same time.
+export const asStreamPick = (s) => (s ? { ...s, streamPick: true } : s);
+export const isStreamPick = (s) => !!(s && s.streamPick);
+let lastSeed = null;
+export function claimSeed(key) {
+  if (!key || key === lastSeed) return false;
+  lastSeed = key;
+  return true;
+}
+export function resetSeed() { lastSeed = null; }
