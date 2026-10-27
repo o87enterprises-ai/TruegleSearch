@@ -15,6 +15,7 @@
  *
  *   node scripts/player-health.mjs                 # last 7 days
  *   node scripts/player-health.mjs --days 30
+ *   node scripts/player-health.mjs --reason silent   # + the 20 newest flight-recorder traces for that reason
  *   node scripts/player-health.mjs --backend https://your-backend.example
  *
  * ADMIN_API_KEY must be set (the same key the deployed backend checks on
@@ -26,6 +27,7 @@ const DEFAULT_BACKEND = 'https://backend-seven-khaki-60.vercel.app';
 const argv = process.argv.slice(2);
 const flag = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : undefined; };
 const days = Math.min(90, Math.max(1, Number(flag('--days')) || 7));
+const reason = flag('--reason');
 const BACKEND = (flag('--backend') || process.env.TRUEGLE_BACKEND_URL || DEFAULT_BACKEND).replace(/\/$/, '');
 
 const key = process.env.ADMIN_API_KEY;
@@ -34,7 +36,7 @@ if (!key) {
   process.exit(2);
 }
 
-const res = await fetch(`${BACKEND}/api/admin/player-health?days=${days}`, {
+const res = await fetch(`${BACKEND}/api/admin/player-health?days=${days}${reason ? `&reason=${encodeURIComponent(reason)}` : ''}`, {
   headers: { 'x-admin-key': key },
 }).catch((err) => { console.error(`Could not reach ${BACKEND}: ${err.message}`); process.exit(1); });
 
@@ -56,6 +58,22 @@ row('By reason', j.byReason, 'reason');
 row('By kind', j.byKind, 'kind');
 row('By platform', j.byPlatform, 'platform');
 row('Top error codes', j.byErrorCode, 'error_code');
+
+console.log('\nBy browser x reason');
+if (!(j.byBrowserReason || []).length) console.log('  (none)');
+for (const it of j.byBrowserReason || []) console.log(`  ${String(it.browser).padEnd(10)} ${String(it.reason).padEnd(18)} ${it.count}`);
+
+if (reason) {
+  console.log(`\nNewest traces for "${reason}" (t = seconds since page load; oldest event first)`);
+  if (!(j.recentTraces || []).length) console.log('  (none with a trace yet — traces only exist on beacons sent after the flight recorder shipped)');
+  for (const r of j.recentTraces || []) {
+    console.log(`\n  ${r.created_at}  ${r.platform}/${r.browser || '?'}/${r.device || '?'}  kind=${r.kind || '?'}  err=${r.error_code || '-'}  heard=${r.heard}  muted=${r.muted}`);
+    for (const ev of r.trace || []) {
+      const d = ev.d ? Object.entries(ev.d).map(([k, v]) => `${k}=${v}`).join(' ') : '';
+      console.log(`    ${String(ev.t).padStart(7)}  ${ev.e.padEnd(6)} ${d}`);
+    }
+  }
+}
 
 if (!j.total) {
   console.log('\nNothing reported in this window — either everything played cleanly, or nothing was played. The silence watchdog alone takes 25s to fire, so a quiet window on a slow day is not itself a red flag.');

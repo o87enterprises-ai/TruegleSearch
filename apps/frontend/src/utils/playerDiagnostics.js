@@ -17,6 +17,8 @@
 // still-kept mailto: for a person who wants to add their own word about
 // what happened; nothing is sent through it unless they press send.
 
+import { traceForBeacon, traceText, deviceBucket, browserBucket } from './playerTrace';
+
 const REPORT_TO = 'truegleai@proton.me';
 // Same pattern utils/broken.js and utils/taste.js already use for their own
 // anonymous signal bumps — a plain fetch with keepalive, not axios, so this
@@ -36,8 +38,11 @@ export function reportHref({ subject, summary, context = {} }) {
   const lines = Object.entries(context)
     .filter(([, v]) => v !== null && v !== undefined && v !== '')
     .map(([k, v]) => `${k}: ${v}`);
-  const body = [summary, '', '---', `Page: ${typeof location !== 'undefined' ? location.href : ''}`, ...lines].join('\n');
-  return `mailto:${REPORT_TO}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body.slice(0, 1800))}`;
+  const events = traceText(30, 700);
+  const head = [summary, '', '---', `Page: ${typeof location !== 'undefined' ? location.href : ''}`, ...lines].join('\n');
+  // The player's last events ride along (codes only — see utils/playerTrace.js).
+  const body = events ? `${head.slice(0, 1000)}\n\nPlayer trace:\n${events}` : head;
+  return `mailto:${REPORT_TO}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body.slice(0, 1900))}`;
 }
 
 // The two fields almost every player report wants, factored out so a caller
@@ -60,7 +65,7 @@ export function envContext() {
  * label and discards the rest; nothing here is a tracking identifier.
  *
  * @param {object} e
- * @param {string} e.reason      'silent' | 'dead_error' | 'alive_override'
+ * @param {string} e.reason      'silent' | 'dead_error' | 'alive_override' | 'unmute_rejected' | 'autonext_empty' | 'autonext_repeat' | 'mode_fail'
  * @param {string} [e.kind]      current.kind — 'youtube', 'vimeo', …
  * @param {string} [e.errorCode] a real platform error code, when there is one
  * @param {boolean} [e.heard]    did the embed ever say anything at all
@@ -74,6 +79,7 @@ export function reportEvent({ reason, kind, errorCode, heard, muted } = {}) {
       keepalive: true,
       body: JSON.stringify({
         reason, kind, errorCode, heard, muted,
+        trace: traceForBeacon(30), device: deviceBucket(), browser: browserBucket(),
         connection: typeof navigator !== 'undefined' ? navigator.connection?.effectiveType : undefined,
       }),
     }).catch(() => { /* a lost beacon is not an error anyone needs to see */ });

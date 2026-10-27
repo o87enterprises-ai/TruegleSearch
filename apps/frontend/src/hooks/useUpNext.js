@@ -4,6 +4,8 @@ import { titleFromUrl } from '../utils/playerLink';
 import { tasteScore, likedChannels, likedWords, tokens, isDisliked } from '../utils/taste';
 import { retentionScore, watchedChannels } from '../utils/retention';
 import { hasSeen, markSeen, markAllSeen, recentSeen } from '../utils/seen';
+import { trace } from '../utils/playerTrace';
+import { reportEvent } from '../utils/playerDiagnostics';
 import { scoreCandidates, draw, dedupeScored, poolFor, POOL } from '../utils/feedDraw';
 import { shouldExplore, exploreOffset, exploreSeed, EXPLORE_RATE } from '../utils/explore';
 import { authHeader, storedSafeSearch } from '../utils/authHeader';
@@ -335,6 +337,9 @@ export function useUpNext() {
     if (explore && !scored.length) ({ scored, seenRate } = await candidatesFor(current));
     const [choice] = draw(scored, 1, Math.random, poolFor(seenRate));
     if (choice) markSeen(choice);
+    // Counts and a rate only — never an id or title (see utils/playerTrace.js).
+    trace('next', { n: scored.length, seen: Math.round(seenRate * 100), explore, won: !!choice });
+    if (!choice) reportEvent({ reason: 'autonext_empty', kind: current?.kind });
     return choice || null;
   }, [remember, candidatesFor]);
 
