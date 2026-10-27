@@ -11,6 +11,7 @@
 
 const TomTomService = require('./TomTomService');
 const { breakers } = require('../utils/breaker');
+const upstream = require('../utils/upstreamStats');
 const { createTtlCache } = require('../utils/ttlCache');
 const RadarService = require('./RadarService');
 // Brave Search is optional - only load if configured
@@ -153,7 +154,7 @@ class BusinessEnrichmentService {
    * @private
    */
   async getTomTomData(name, lat, lng) {
-    if (breakers.isOpen('tomtom')) return null;
+    if (breakers.isOpen('tomtom')) { upstream.record('tomtom', 'skipped'); return null; }
     try {
       const searchOptions = {
         lat,
@@ -163,6 +164,7 @@ class BusinessEnrichmentService {
       };
 
       const results = await TomTomService.searchPlaces(name, searchOptions);
+      upstream.record('tomtom', 'ok');
 
       if (results && results.length > 0) {
         const place = results[0];
@@ -175,6 +177,7 @@ class BusinessEnrichmentService {
       return null;
     } catch (error) {
       // Any TomTom failure (almost always TooManyRequests): rest 5 minutes instead of hammering it.
+      upstream.record('tomtom', upstream.outcomeOf(error) || 'error');
       breakers.trip('tomtom', 5 * 60 * 1000, String(error && error.message));
       console.error('TomTom enrichment error:', error && error.message);
       return null;

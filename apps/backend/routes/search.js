@@ -1,4 +1,5 @@
 const express = require('express');
+const upstream = require('../utils/upstreamStats');
 const axios = require('axios');
 const router = express.Router();
 const { authenticate, optionalAuth } = require('../middleware/auth');
@@ -76,6 +77,9 @@ router.post('/', rateLimitSearch, optionalAuth, async (req, res) => {
       ? { ...validFilters, safeSearch: 'blur' }
       : validFilters;
 
+    // Collect which providers failed for THIS request (utils/upstreamStats.js).
+    upstream.beginRequest();
+
     // Perform search using the search service
     let results = await searchService.performSearch(query, engineFilters, mode);
     if (playerSafe) results = await keepForSafePlayer(results);
@@ -105,6 +109,8 @@ router.post('/', rateLimitSearch, optionalAuth, async (req, res) => {
       instantAnswer: instantAnswer || null,
       timestamp: new Date().toISOString(),
       resultCount: watermarkedResults.length,
+      // Providers that were out/limited for this request, e.g. ["brave","youtube"].
+      degraded: upstream.degraded(),
     });
   } catch (error) {
     console.error('Search error:', error);

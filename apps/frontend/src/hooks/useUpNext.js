@@ -229,6 +229,7 @@ export function useUpNext() {
         headers: { 'Content-Type': 'application/json', ...authHeader() },
         body: JSON.stringify({ query: seed, filters: { category: 'videos', perPage: wide ? 32 : 16, safeSearch: storedSafeSearch() } }),
       });
+      if (d?.degraded?.length) trace('upstream', { out: d.degraded.join('.').slice(0, 24), n: (d.results || []).length });
       return (d?.results || [])
         .map((r) => toSource(r, r.channel || r.author ? { channel: r.channel || r.author } : {}))
         .filter(Boolean).map((s) => ({ s, boost: 0 }));
