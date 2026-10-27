@@ -99,8 +99,9 @@ class AIService {
       : query;
 
     const { breakers } = require('../utils/breaker');
+    const upstream = require('../utils/upstreamStats');
     const candidates = this.modelList.filter((m) => !breakers.isOpen(`or:${m}`));
-    if (!candidates.length) throw new Error('OpenRouter: every model is cooling down');
+    if (!candidates.length) { upstream.record('openrouter', 'skipped'); throw new Error('OpenRouter: every model is cooling down'); }
 
     let data = null;
     let lastError = null;
@@ -132,7 +133,7 @@ class AIService {
 
       if (response.ok) {
         data = await response.json();
-        if (data.choices && data.choices.length) break;
+        if (data.choices && data.choices.length) { upstream.record('openrouter', 'ok'); break; }
         lastError = new Error(`No response from OpenRouter model ${m}`);
         data = null;
         continue;
@@ -141,6 +142,7 @@ class AIService {
       lastError = new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
       // 404 = model gone, 429 = its free allowance is used, 5xx = provider down: try the next
       // model and leave this one alone for a while. Auth errors would fail every model, so stop.
+      upstream.record('openrouter', upstream.outcomeOf({ status: response.status }));
       if (response.status === 401 || response.status === 403) throw lastError;
       breakers.trip(`or:${m}`, response.status === 404 ? 6 * 3600 * 1000 : 10 * 60 * 1000, `http ${response.status}`);
     }

@@ -1,3 +1,4 @@
+import { trace } from '../utils/playerTrace';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { getPlayable, mediaKey, embedFromIframeSrc, embedFromCode } from '../utils/videoEmbed';
 import { resolveShareInput, titleFromUrl } from '../utils/playerLink';
@@ -297,6 +298,7 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
       .then((r) => r.json())
       .then((d) => {
         const raw = (d.results || []).length;
+        if (d.degraded?.length) trace('upstream', { out: d.degraded.join('.').slice(0, 24), n: raw });
         const rows = (d.results || []).map((r) => toSource(r, allowReddit)).filter(Boolean);
         // raw vs playable is the whole diagnosis: 0/0 means the backend found
         // nothing, 12/0 means it found plenty and none of it can be played.

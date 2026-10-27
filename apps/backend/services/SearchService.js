@@ -37,6 +37,8 @@ const RELEVANCE_STOPWORDS = new Set([
 const { orderByExactMatch } = require('./exactMatch');
 const { braveGate } = require('./braveGate');
 const { breakers, msUntilPacificMidnight } = require('../utils/breaker');
+const upstream = require('../utils/upstreamStats');
+const { withStatus } = upstream;
 const { createTtlCache } = require('../utils/ttlCache');
 const YouTubeGateway = require('./YouTubeGateway');
 const tokenize = (text) => String(text || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
@@ -1183,11 +1185,11 @@ class SearchService {
         // 403 here is "API not enabled for this project" or quota: retry in 6 h, so enabling it in
         // the GCP console later starts working again with no deploy.
         breakers.trip('google_cse', 6 * 3600 * 1000, 'http 403');
-        throw new Error('Google API key invalid or quota exceeded');
+        throw withStatus(new Error('Google API key invalid or quota exceeded'), 403);
       }
       if (error.response?.status === 429) {
         breakers.trip('google_cse', 3600 * 1000, 'http 429');
-        throw new Error('Google API rate limit exceeded');
+        throw withStatus(new Error('Google API rate limit exceeded'), 429);
       }
       if (error.response?.status === 400) {
         console.error('Google 400 error - Bad request. Query might be invalid.');
@@ -1246,11 +1248,11 @@ class SearchService {
         // 403 here is "API not enabled for this project" or quota: retry in 6 h, so enabling it in
         // the GCP console later starts working again with no deploy.
         breakers.trip('google_cse', 6 * 3600 * 1000, 'http 403');
-        throw new Error('Google API key invalid or quota exceeded');
+        throw withStatus(new Error('Google API key invalid or quota exceeded'), 403);
       }
       if (error.response?.status === 429) {
         breakers.trip('google_cse', 3600 * 1000, 'http 429');
-        throw new Error('Google API rate limit exceeded');
+        throw withStatus(new Error('Google API rate limit exceeded'), 429);
       }
       throw new Error('Google Image Search service unavailable');
     }
@@ -1302,7 +1304,7 @@ class SearchService {
     } catch (error) {
       console.error('Brave Image Search API error:', error.response?.data || error.message);
       if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error('Brave API key invalid');
+        throw withStatus(new Error('Brave API key invalid'), 403);
       }
       if (error.response?.status === 429) {
         // QUOTA_LIMITED = the free plan's monthly 2000 is spent; RATE_LIMITED = just the 1/s limit
@@ -1310,7 +1312,7 @@ class SearchService {
         if (error.response?.data?.error?.code === 'QUOTA_LIMITED') {
           breakers.trip('brave', 2 * 3600 * 1000, 'monthly quota');
         }
-        throw new Error('Brave API rate limit exceeded');
+        throw withStatus(new Error('Brave API rate limit exceeded'), 429);
       }
       throw new Error('Brave Image Search service unavailable');
     }
@@ -1418,7 +1420,7 @@ class SearchService {
     } catch (error) {
       console.error('Brave Search API error:', error.response?.data || error.message);
       if (error.response?.status === 401 || error.response?.status === 403) {
-        throw new Error('Brave API key invalid');
+        throw withStatus(new Error('Brave API key invalid'), 403);
       }
       if (error.response?.status === 429) {
         // QUOTA_LIMITED = the free plan's monthly 2000 is spent; RATE_LIMITED = just the 1/s limit
@@ -1426,7 +1428,7 @@ class SearchService {
         if (error.response?.data?.error?.code === 'QUOTA_LIMITED') {
           breakers.trip('brave', 2 * 3600 * 1000, 'monthly quota');
         }
-        throw new Error('Brave API rate limit exceeded');
+        throw withStatus(new Error('Brave API rate limit exceeded'), 429);
       }
       throw new Error('Brave Search service unavailable');
     }
@@ -1736,12 +1738,12 @@ class SearchService {
       console.error('News API error:', JSON.stringify(error.response?.data, null, 2) || error.message);
 
       if (error.response?.status === 401) {
-        throw new Error('News API key invalid');
+        throw withStatus(new Error('News API key invalid'), 403);
       }
       if (error.response?.status === 429) {
         // Developer plan: 100 requests / 24 h, 50 per 12 h window.
         breakers.trip('newsapi', 3 * 3600 * 1000, 'rate limited');
-        throw new Error('News API rate limit exceeded');
+        throw withStatus(new Error('News API rate limit exceeded'), 429);
       }
 
       throw new Error('News service unavailable');
@@ -1773,6 +1775,9 @@ class SearchService {
           breakers.trip('youtube_api', msUntilPacificMidnight(), err.message);
         }
       }
+    } else if (this.youtubeApiKey) {
+      // Cooling down after a quota hit: not a call, but still a degraded answer.
+      upstream.record('youtube', 'skipped');
     }
 
     // 2) The keyless fallback: public Invidious instances (see YouTubeGateway).
@@ -1878,10 +1883,10 @@ class SearchService {
       );
 
       if (error.response?.status === 403) {
-        throw new Error('YouTube API key invalid or quota exceeded');
+        throw withStatus(new Error('YouTube API key invalid or quota exceeded'), 403);
       }
       if (error.response?.status === 429) {
-        throw new Error('YouTube API rate limit exceeded');
+        throw withStatus(new Error('YouTube API rate limit exceeded'), 429);
       }
 
       throw new Error('YouTube service unavailable');
@@ -2454,6 +2459,21 @@ class SearchService {
 
     return healthStatus;
   }
+}
+
+// COUNT EVERY PROVIDER ANSWER (utils/upstreamStats.js). Wrapped on the prototype,
+// once, rather than at each of the dozen call sites: the counters and the
+// per-request `degraded` list then cover every path that reaches a provider.
+const TRACKED = {
+  youtube: ['_youtubeApiSearch'],
+  brave: ['performBraveSearch', 'performBraveImageSearch'],
+  google_cse: ['performGoogleSearch', 'performGoogleImageSearch'],
+  newsapi: ['performNewsSearch'],
+  searxng: ['performSearXNGSearch', 'performSearXNGCategorySearch'],
+  serpapi: ['performSerpSearch'],
+};
+for (const [provider, methods] of Object.entries(TRACKED)) {
+  for (const m of methods) SearchService.prototype[m] = upstream.track(provider, SearchService.prototype[m]);
 }
 
 module.exports = SearchService;

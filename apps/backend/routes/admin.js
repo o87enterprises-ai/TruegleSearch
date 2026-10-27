@@ -80,10 +80,19 @@ router.get('/player-health', async (req, res) => {
  * plus the keyless YouTube pool's per-instance health. Per warm instance — serverless
  * instances each learn separately — so read it as "what this instance currently believes".
  */
-router.get('/upstream-health', (req, res) => {
+router.get('/upstream-health', async (req, res) => {
   const { breakers } = require('../utils/breaker');
   const YouTubeGateway = require('../services/YouTubeGateway');
-  res.json({ success: true, coolingDown: breakers.status(), youtubePool: YouTubeGateway.poolStatus() });
+  const upstream = require('../utils/upstreamStats');
+  let history = null;
+  try { history = await upstream.history(req.query.days); } catch { /* no database: instance counters only */ }
+  res.json({
+    success: true,
+    coolingDown: breakers.status(),
+    youtubePool: YouTubeGateway.poolStatus(),
+    history,                       // per UTC day: provider x outcome (may undercount — serverless)
+    thisInstance: upstream.snapshot(),
+  });
 });
 
 router.keyMatches = keyMatches;
