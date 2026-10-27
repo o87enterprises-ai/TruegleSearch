@@ -15,10 +15,20 @@ class AIService {
     this.deepseekApiKey = config.ai.deepseek.apiKey;
 
     // OpenRouter model selection (use free models)
+    // Free models come and go (google/gemma-2-9b-it:free was removed: 60+ 404s in 7 days), so the
+    // call walks a LIST. 'openrouter/free' is OpenRouter's own router across whatever free models
+    // exist today; the named ones are the backups. Override with OPENROUTER_MODELS="a,b,c".
+    const listed = (process.env.OPENROUTER_MODELS || '').split(',').map((m) => m.trim()).filter(Boolean);
+    this.modelList = listed.length ? listed : [
+      'openrouter/free',
+      'nvidia/nemotron-3.5-super-vl:free',
+      'recursive/flint-v1.0:free',
+      'xingchen-agi/xing4.0-29b-a4b:free',
+    ];
     this.models = {
-      summary: 'google/gemma-2-9b-it:free',
-      chat: 'google/gemma-2-9b-it:free',
-      gemini: 'google/gemini-flash-1.5:free',
+      summary: this.modelList[0],
+      chat: this.modelList[0],
+      gemini: this.modelList[0],
     };
 
     // Key rotation index
@@ -88,37 +98,53 @@ class AIService {
       ? `Based on the following search results for "${query}", provide a concise, unbiased summary that covers multiple perspectives:\n\n${context}\n\nProvide a balanced 2-3 sentence summary.`
       : query;
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://truegle.ai',
-        'X-Title': 'Truegle',
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an unbiased AI assistant that provides balanced, factual information from multiple perspectives. Avoid taking sides and present different viewpoints fairly.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        max_tokens: 200,
-        temperature: 0.7,
-      }),
-    });
+    const { breakers } = require('../utils/breaker');
+    const candidates = this.modelList.filter((m) => !breakers.isOpen(`or:${m}`));
+    if (!candidates.length) throw new Error('OpenRouter: every model is cooling down');
 
-    if (!response.ok) {
+    let data = null;
+    let lastError = null;
+    for (const m of candidates) {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://truegle.ai',
+          'X-Title': 'Truegle',
+        },
+        body: JSON.stringify({
+          model: m,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an unbiased AI assistant that provides balanced, factual information from multiple perspectives. Avoid taking sides and present different viewpoints fairly.',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          max_tokens: 200,
+          temperature: 0.7,
+        }),
+      });
+
+      if (response.ok) {
+        data = await response.json();
+        if (data.choices && data.choices.length) break;
+        lastError = new Error(`No response from OpenRouter model ${m}`);
+        data = null;
+        continue;
+      }
       const errorText = await response.text();
-      throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+      lastError = new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+      // 404 = model gone, 429 = its free allowance is used, 5xx = provider down: try the next
+      // model and leave this one alone for a while. Auth errors would fail every model, so stop.
+      if (response.status === 401 || response.status === 403) throw lastError;
+      breakers.trip(`or:${m}`, response.status === 404 ? 6 * 3600 * 1000 : 10 * 60 * 1000, `http ${response.status}`);
     }
-
-    const data = await response.json();
+    if (!data) throw lastError || new Error('No response from OpenRouter');
 
     if (!data.choices || data.choices.length === 0) {
       throw new Error('No response from OpenRouter');

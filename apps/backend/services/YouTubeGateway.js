@@ -197,6 +197,63 @@ async function fromPool(path, { as = 'json', accept } = {}) {
   return null;
 }
 
+
+/**
+ * Keyless video SEARCH through the Invidious pool, shaped exactly like the
+ * YouTube Data API's `search.list` + `videos.list` response so
+ * SearchService.formatYouTubeResults() needs no changes.
+ *
+ * This is the safety net under the keyed Data API (≈100 searches/day), not a
+ * replacement: the Data API is still tried first while its quota is open.
+ * Returns null when no instance answers, so the caller can fail honestly.
+ *
+ * @param {string} query
+ * @param {number} [limit=25]
+ * @returns {Promise<{kind:string, items:object[], _source:string}|null>}
+ */
+function isoDuration(totalSeconds) {
+  const n = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  if (!n) return undefined;
+  const h = Math.floor(n / 3600);
+  const m = Math.floor((n % 3600) / 60);
+  const sec = n % 60;
+  return `PT${h ? `${h}H` : ''}${m ? `${m}M` : ''}${sec || (!h && !m) ? `${sec}S` : ''}`;
+}
+
+function toApiShape(videos, limit) {
+  return {
+    kind: 'youtube#searchListResponse',
+    _source: 'invidious',
+    items: (videos || [])
+      .filter((v) => v && v.type === 'video' && /^[\w-]{11}$/.test(v.videoId || ''))
+      .slice(0, limit)
+      .map((v) => ({
+        id: { kind: 'youtube#video', videoId: v.videoId },
+        snippet: {
+          title: v.title || '',
+          description: v.description || '',
+          channelTitle: v.author || '',
+          publishedAt: v.published ? new Date(v.published * 1000).toISOString() : null,
+          // i.ytimg.com is YouTube's own image host — it does not depend on
+          // which Invidious instance answered.
+          thumbnails: { high: { url: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg` } },
+        },
+        contentDetails: { duration: isoDuration(v.lengthSeconds) },
+        statistics: v.viewCount != null ? { viewCount: String(v.viewCount) } : undefined,
+      })),
+  };
+}
+
+async function searchVideos(query, limit = 25) {
+  const q = String(query || '').trim();
+  if (!q) return null;
+  const path = `/api/v1/search?q=${encodeURIComponent(q)}&type=video&sort_by=relevance`;
+  const hit = await fromPool(path, { accept: (d) => Array.isArray(d) && d.length > 0 });
+  if (!hit) return null;
+  const shaped = toApiShape(hit.data, limit);
+  return shaped.items.length ? shaped : null;
+}
+
 /**
  * Fetch straight from youtube.com. Returns null when the response is the block
  * wall, so callers can fall through to the pool instead of parsing a captcha
@@ -307,6 +364,7 @@ function poolStatus() {
 module.exports = {
   channelUploads,
   channelAbout,
+  searchVideos,
   resolveHandle,
   captionList,
   captionBody,
@@ -317,5 +375,5 @@ module.exports = {
   poolStatus,
   DEFAULT_INSTANCES,
   // exported for tests
-  _internals: { penalize, reward, ordered, health },
+  _internals: { penalize, reward, ordered, health, toApiShape, isoDuration },
 };

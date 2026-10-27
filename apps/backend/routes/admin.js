@@ -63,4 +63,16 @@ router.get('/player-health', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/admin/upstream-health
+ * Which paid/quota-limited providers are cooling down right now, and why (utils/breaker.js),
+ * plus the keyless YouTube pool's per-instance health. Per warm instance — serverless
+ * instances each learn separately — so read it as "what this instance currently believes".
+ */
+router.get('/upstream-health', (req, res) => {
+  const { breakers } = require('../utils/breaker');
+  const YouTubeGateway = require('../services/YouTubeGateway');
+  res.json({ success: true, coolingDown: breakers.status(), youtubePool: YouTubeGateway.poolStatus() });
+});
+
 module.exports = router;

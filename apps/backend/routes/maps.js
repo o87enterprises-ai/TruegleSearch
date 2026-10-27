@@ -425,7 +425,7 @@ router.post('/local-businesses', async (req, res) => {
 
     // Calculate distance and enrich each business
     const enrichedBusinesses = await Promise.all(
-      allResults.slice(0, limit).map(async (place) => {
+      allResults.slice(0, limit).map(async (place, index) => {
         // Calculate distance from user location
         const distance = calculateDistance(
           location.lat,
@@ -440,7 +440,10 @@ router.post('/local-businesses', async (req, res) => {
           place.formattedAddress || place.address || '',
           place.location?.coordinates?.[1] || place.latitude,
           place.location?.coordinates?.[0] || place.longitude,
-          place.category || place.categories?.[0] || 'BUSINESS'
+          place.category || place.categories?.[0] || 'BUSINESS',
+          // Only the first few rows get the rate-limited TomTom/Brave lookups up front
+          // (every row at once tripped their limits); the rest get the cheap pass.
+          { light: index >= Number(process.env.MAPS_FULL_ENRICH_TOP || 5) }
         );
 
         return {
