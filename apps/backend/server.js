@@ -317,7 +317,8 @@ app.use('/api/tokens', require('./routes/tokens'));
 app.use('/api/rewards', require('./routes/rewards'));
 // Admin-only (ADMIN_API_KEY via x-admin-key header): manual reward crediting
 // after verifying a user's forwarded conversion-confirmation email.
-app.use('/api/admin', require('./routes/admin'));
+// authLimiter: the shared key must not be guessable at full speed.
+app.use('/api/admin', [authLimiter, require('./routes/admin')]);
 // Geo-targeted ad configuration (IP country-of-origin -> highest-CPM zones)
 app.use('/api/creators', require('./routes/creators'));
 app.use('/api/session', require('./routes/session'));
