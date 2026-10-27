@@ -1013,32 +1013,25 @@ export default function TrueglePlayer({
       queueCount={queue.length}
       accent={accent}
       showList={showList}
-      // FULL SCREEN ONLY. The lock is for watching undisturbed — a pocket, a
-      // propped-up phone — and that is exactly when you are in full screen.
-      // On the normal row it was an eleventh button competing with the two
-      // controls people actually reach for, and it pushed full screen and
-      // pop-out off the end.
-      // TOUCH DEVICES ONLY, as well as full screen only. The lock exists to
-      // stop a pocket from skipping the track; a desktop has no pocket and no
-      // stray presses, so there the control only ever removes the controls and
-      // then demands a 700ms hold to get them back. Removed rather than
-      // disabled — a visibly dead button is its own support question.
-      showLock={fullscreen && touchDevice}
+      // TOUCH DEVICES, IN EVERY PRESENTATION THAT SHOWS A PICTURE (docked, popped
+      // out, full screen). It used to be full-screen only, which meant the docked
+      // and popped-out players — where a phone actually sits in a pocket or on a
+      // desk — had no lock at all (owner report, 2026-10-27). Removed rather than
+      // disabled on a desktop: it has no pocket and no stray presses, and a
+      // visibly dead button is its own support question. The collapsed strip has
+      // no picture to lock, so it is not offered there either.
+      showLock={touchDevice && presentation !== 'collapsed'}
       onLock={() => setLocked(true)}
       playMode={playMode}
       onCyclePlayMode={() => setPlayMode(PLAY_MODES[(PLAY_MODES.indexOf(playMode) + 1) % PLAY_MODES.length])}
       listOpen={listOpen}
-      // NOT IN FULL SCREEN. This one button is pop-out / dock-back / MOVE
-      // depending on where the player is, and in full screen all three are
-      // nonsense: there is nowhere to pop out to, nothing to dock back into,
-      // and moving or resizing a window that IS the screen does nothing you
-      // can see. It was still rendering as the Move control, so full screen
-      // had a drag handle on it that appeared to do nothing.
-      //
-      // Move/resize belongs to the popped-out window and nowhere else —
-      // docked, minimized and full screen all have their geometry decided for
-      // them, which is the point of each of those states.
-      showPopOut={!fullscreen}
+      // ONLY WHEN DOCKED. This button pops the player out; once it IS a window
+      // the frame already carries every one of its jobs — Minimize, Float/Dock
+      // at the bottom, Close, and on Tube the page's own "Dock it back" link —
+      // so a second copy in the bottom-right corner was the "extra expand
+      // button" owners kept reporting (2026-10-27). Not in full screen either:
+      // there is nowhere to pop out to.
+      showPopOut={!fullscreen && presentation !== 'popped'}
       popOutMode={popOutMode}
       saveSlot={current ? <SaveTo source={current} className="flex items-center justify-center w-8 h-8 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-colors" /> : null}
       showFullscreen={presentation !== 'collapsed'}

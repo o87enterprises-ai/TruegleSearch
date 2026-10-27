@@ -351,17 +351,6 @@ export default function PlayerTransport({
             window on a desktop. A mode you have to switch on first, with a
             button that only exists in one presentation, was a second way to do
             what dragging already does. */}
-        {/* Lock the controls. A single press is enough to lock; UNLOCKING is a
-            long-press on the overlay, because a lock a pocket can undo is not
-            a lock. */}
-        {showLock && (
-          <button type="button" onClick={onLock}
-            title="Lock the controls — hold the padlock to unlock"
-            aria-label="Lock the player controls"
-            className={btn}>
-            <Lock size={size - 1} />
-          </button>
-        )}
         {saveSlot}
         {showFullscreen && (
           <button type="button" onClick={onToggleFullscreen} aria-pressed={fullscreen}
@@ -382,6 +371,18 @@ export default function PlayerTransport({
           <button type="button" onClick={onDock} title="Dock the player back into the search bar"
             aria-label="Dock the player" className={btn}>
             <Minimize2 size={size} />
+          </button>
+        )}
+        {/* LAST, so it is the far-right control on touch devices (owner request, 2026-10-27: "no
+            lock button, replace the far right corner button"). Lock the controls. A single press is enough to lock; UNLOCKING is a
+            long-press on the overlay, because a lock a pocket can undo is not
+            a lock. */}
+        {showLock && (
+          <button type="button" onClick={onLock}
+            title="Lock the controls — hold the padlock to unlock"
+            aria-label="Lock the player controls"
+            className={btn}>
+            <Lock size={size - 1} />
           </button>
         )}
       </div>
