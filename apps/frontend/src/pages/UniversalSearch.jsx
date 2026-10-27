@@ -1089,6 +1089,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
 
       const backendMode = modeToBackend(mode);
 
+      const postSearch = async (category) => {
       const response = await fetch(
         `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/search`,
         {
@@ -1100,7 +1101,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
             query: effectiveQuery,
             mode: backendMode,
             filters: {
-              category: searchCategory,
+              category,
               bias: effectiveBias,
               // Purple sends whatever is selected. Red sends only what the
               // user explicitly asked to search again for — a lens they are
@@ -1119,8 +1120,18 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
       );
 
       if (!response.ok) throw new Error(`Search error: ${response.status}`);
+      return response.json();
+      };
 
-      const data = await response.json();
+      let data = await postSearch(searchCategory);
+      // MAPS / LOCAL ASK THE SHOPPING INDEX, which only knows places and
+      // products. "weather near sacramento" or "aws" there came back as
+      // "No results" (owner screenshots, 2026-10-27) even though the web had
+      // plenty. When the place search is empty, answer from the web instead —
+      // the map above still opens on the detected location.
+      if (searchCategory === 'shopping' && !(data.results || []).length && !data.instantAnswer) {
+        data = await postSearch('all');
+      }
       // "Reels/Shorts" — whether picked as a category pill or from the filter
       // dropdown — maps to the backend's videos category, which returns
       // long-form too. Keep only what's actually short-form, otherwise the
