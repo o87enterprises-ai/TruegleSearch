@@ -227,12 +227,12 @@ export default function PlayerTransport({
   const radioStatus = useRadioStatus();
   const radioFellBack = radio && radioStatus?.state === 'fallback';
   const radioTitle = !radio
-    ? 'Radio OFF — tap to keep playing this artist and similar music'
+    ? 'Stream OFF — tap to keep playing this artist and similar music'
     : radioStatus?.state === 'following'
-      ? `Radio ON — following ${radioStatus.artist}${radioStatus.carried ? ' (this song named no artist, so Radio kept going with them)' : ''}`
+      ? `Stream ON — following ${radioStatus.artist}${radioStatus.carried ? ' (this song named no artist, so Stream kept going with them)' : ''}`
       : radioFellBack
-        ? `Radio ON, but ${radioStatus.reason} — playing Up Next instead`
-        : 'Radio ON — next song will follow this artist';
+        ? `Stream ON, but ${radioStatus.reason} — playing Up Next instead`
+        : 'Stream ON — next song will follow this artist';
   // Phones have no hover, so the tooltip above never shows there: say it out
   // loud for 3s whenever Radio is switched or changes what it is doing.
   const [radioFlash, setRadioFlash] = useState('');
@@ -325,7 +325,7 @@ export default function PlayerTransport({
             : `relative ${btn} text-white/35`}>
           <Radio size={radio ? size - 2 : size} />
           {radio
-            ? <span>{veryTight ? 'ON' : 'Radio'}</span>
+            ? <span>{veryTight ? 'ON' : 'Stream'}</span>
             : <span aria-hidden="true" className="absolute w-[18px] h-[1.5px] bg-current rotate-45 rounded" />}
           {radioFellBack && (
             <span aria-hidden="true" className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amber-400 border border-black" />

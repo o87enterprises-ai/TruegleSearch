@@ -35,7 +35,6 @@ import { mediaKey } from '../../utils/videoEmbed';
 import { lookupTall, knownTall } from '../../utils/clipShape';
 import { useSearchStashContext } from '../../context/SearchStashContext';
 import { IS_IOS } from '../../utils/isIOS';
-import { IS_ANDROID } from '../../utils/isAndroid';
 import { reportHref, envContext, reportEvent } from '../../utils/playerDiagnostics';
 import { useDeliberateTap } from '../../hooks/useDeliberateTap';
 import { useRadioSession, startRadioFrom } from '../../utils/radio';
@@ -643,7 +642,7 @@ export default function TrueglePlayer({
   // Originally iPhone-only (WebKit); 2026-10-23: owner report on Android
   // (Firefox) found the identical symptom there, with no prompt at all —
   // the same fix, just never extended past the platform it was first found on.
-  const startsMutedWithoutGesture = (IS_IOS || IS_ANDROID) && (isYouTube || current?.kind === 'tiktok');
+  const startsMutedWithoutGesture = IS_IOS && (isYouTube || current?.kind === 'tiktok');
   // Session-level: one tap on sound unlocks it for every later clip (auto-next
   // included) instead of re-asking per clip. Reverted if the browser rejects
   // the unmute (embed.silent after unlock), so the pill comes back.

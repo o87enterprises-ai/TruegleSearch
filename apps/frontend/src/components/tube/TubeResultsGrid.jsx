@@ -274,8 +274,8 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
                       startRadioFrom(r);
                       if (docked) window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    title="Start Radio from this song"
-                    aria-label={`Start Radio from ${r.title || 'this'}`}
+                    title="Start Stream from this song"
+                    aria-label={`Start Stream from ${r.title || 'this'}`}
                     className="shrink-0 self-start flex items-center justify-center w-7 h-7 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors"
                   >
                     <Radio size={14} />

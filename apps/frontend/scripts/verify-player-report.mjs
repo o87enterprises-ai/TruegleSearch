@@ -133,14 +133,21 @@ const IPHONE_SAFARI = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Ap
   await ctx.close();
 }
 
-// ── tap-for-sound on Android too, not only iPhone ───────────────────────────
-for (const [label, ua] of [['Android (Firefox)', ANDROID_FIREFOX], ['iPhone (Safari)', IPHONE_SAFARI]]) {
+// ── tap-for-sound: iPhone only (Android autoplays with sound) ───────────────────────────
+for (const [label, ua] of [['iPhone (Safari)', IPHONE_SAFARI]]) {
   const { ctx, page } = await open([PLAYS], { userAgent: ua });
   await until(() => page.locator('[data-sound-tap]').count(), { timeout: 10000, what: `${label}: the sound prompt` });
   check(true, `${label}: a playing clip that autoplayed muted shows "Tap for sound"`);
   await page.locator('[data-sound-tap]').click();
   await until(async () => (await page.locator('[data-sound-tap]').count()) === 0, { what: `${label}: the prompt to clear after the tap` });
   check(true, `${label}: tapping it asks for sound and the prompt goes away`);
+  await ctx.close();
+}
+
+{
+  const { ctx, page } = await open([PLAYS], { userAgent: ANDROID_FIREFOX });
+  await page.waitForTimeout(4000);
+  check((await page.locator('[data-sound-tap]').count()) === 0, 'Android (Firefox): no "Tap for sound" prompt');
   await ctx.close();
 }
 
