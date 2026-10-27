@@ -122,7 +122,7 @@ this notice travels with it. See https://truegle.info/ai-licensing for licensing
 // ── /w rich previews ───────────────────────────────────────────────────────
 
 const SITE = 'https://truegle.info';
-const DEFAULT_IMAGE = `${SITE}/og-image-v2.png`;
+const DEFAULT_IMAGE = `${SITE}/og-image-v3.png`;
 
 // Attacker-supplied text is about to become an HTML attribute value. Escape
 // every character that could end the attribute or open a tag.
