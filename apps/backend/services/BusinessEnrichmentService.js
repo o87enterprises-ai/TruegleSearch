@@ -10,6 +10,8 @@
  */
 
 const TomTomService = require('./TomTomService');
+const { breakers } = require('../utils/breaker');
+const { createTtlCache } = require('../utils/ttlCache');
 const RadarService = require('./RadarService');
 // Brave Search is optional - only load if configured
 let BraveSearchService = null;
@@ -18,6 +20,10 @@ try {
 } catch (error) {
   console.warn('BraveSearchService not available:', error.message);
 }
+
+// A place's phone/website/hours barely change: remember a SUCCESSFUL enrichment for 7 days so
+// reopening a map or panel does not spend TomTom/Brave calls again.
+const enrichCache = createTtlCache({ ttlMs: 7 * 24 * 3600 * 1000, max: 2000 });
 
 class BusinessEnrichmentService {
   /**
@@ -29,7 +35,13 @@ class BusinessEnrichmentService {
    * @param {string} category - Location category (RESTAURANT, HOTEL, etc.)
    * @returns {Promise<Object>} Enriched location data
    */
-  async enrichLocation(name, address, lat, lng, category) {
+  async enrichLocation(name, address, lat, lng, category, options = {}) {
+    // options.light = true: cheap pass for list rows beyond the first few (skips TomTom + Brave,
+    // which are rate-limited); the full pass runs when the person opens that place.
+    const light = options.light === true;
+    const cacheKey = `${name}|${Number(lat).toFixed(4)}|${Number(lng).toFixed(4)}`;
+    const hit = enrichCache.get(cacheKey);
+    if (hit) return { ...hit };
     const enrichedData = {
       name,
       address,
@@ -51,7 +63,7 @@ class BusinessEnrichmentService {
 
     try {
       // Step 1: Try TomTom Places Search for phone and website
-      const tomtomData = await this.getTomTomData(name, lat, lng);
+      const tomtomData = light ? null : await this.getTomTomData(name, lat, lng);
       if (tomtomData) {
         if (tomtomData.phone) {
           enrichedData.phone = tomtomData.phone;
@@ -93,7 +105,7 @@ class BusinessEnrichmentService {
       }
 
       // Step 3: Try Brave Search for additional data (email, hours, missing fields)
-      const braveData = await this.getBraveSearchData(name, address);
+      const braveData = light ? null : await this.getBraveSearchData(name, address);
       if (braveData) {
         if (braveData.email && !enrichedData.email) {
           enrichedData.email = braveData.email;
@@ -127,6 +139,7 @@ class BusinessEnrichmentService {
       // Mark as enriched if we got any additional data
       enrichedData.enriched = enrichedData.sources.length > 0;
 
+      if (enrichedData.enriched && !light) enrichCache.set(cacheKey, enrichedData);
       return enrichedData;
     } catch (error) {
       console.error('Business enrichment error:', error);
@@ -140,6 +153,7 @@ class BusinessEnrichmentService {
    * @private
    */
   async getTomTomData(name, lat, lng) {
+    if (breakers.isOpen('tomtom')) return null;
     try {
       const searchOptions = {
         lat,
@@ -160,7 +174,9 @@ class BusinessEnrichmentService {
 
       return null;
     } catch (error) {
-      console.error('TomTom enrichment error:', error);
+      // Any TomTom failure (almost always TooManyRequests): rest 5 minutes instead of hammering it.
+      breakers.trip('tomtom', 5 * 60 * 1000, String(error && error.message));
+      console.error('TomTom enrichment error:', error && error.message);
       return null;
     }
   }
@@ -171,7 +187,7 @@ class BusinessEnrichmentService {
    */
   async getBraveSearchData(name, address) {
     // Skip if BraveSearchService is not available
-    if (!BraveSearchService) {
+    if (!BraveSearchService || breakers.isOpen('brave')) {
       return null;
     }
 

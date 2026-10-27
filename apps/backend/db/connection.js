@@ -10,12 +10,16 @@ const pool = new Pool({
     rejectUnauthorized: false, // Neon uses self-signed certs sometimes
   },
 
-  // Increased timeouts for network issues
-  max: 20,
-  min: 2,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000, // Increased to 10s
-  statement_timeout: 30000, // Increased to 30s
+  // Serverless: every warm instance owns its own pool, so a big pool x many instances exhausts
+  // Neon's connection limit and produces "Connection terminated due to connection timeout"
+  // (~2,900 in 7 days). Keep each instance small and let it release idle sockets fast.
+  // Override with PG_POOL_MAX if this ever runs on a long-lived server.
+  max: Number(process.env.PG_POOL_MAX || 3),
+  min: 0,
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 8000,
+  statement_timeout: 30000,
+  allowExitOnIdle: true,
 });
 
 // Safe query function

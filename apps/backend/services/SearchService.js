@@ -36,6 +36,9 @@ const RELEVANCE_STOPWORDS = new Set([
 ]);
 const { orderByExactMatch } = require('./exactMatch');
 const { braveGate } = require('./braveGate');
+const { breakers, msUntilPacificMidnight } = require('../utils/breaker');
+const { createTtlCache } = require('../utils/ttlCache');
+const YouTubeGateway = require('./YouTubeGateway');
 const tokenize = (text) => String(text || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
 // Light stemming: enough that "lawyers"/"lawyer" and "companies"/"company"
 // meet, not so much that unrelated words collapse together.
@@ -85,6 +88,9 @@ class SearchService {
     // YouTube Data API
     this.youtubeApiKey = config.searchApis.youtube.apiKey;
     this.youtubeBaseUrl = 'https://www.googleapis.com/youtube/v3/search';
+    // Same query within 12 h is answered from memory: the Data API's daily quota
+    // is ~100 searches, so repeats (Up Next, Radio, shared links) must not spend it.
+    this.youtubeCache = createTtlCache({ ttlMs: 12 * 60 * 60 * 1000, max: 300 });
 
     // Unsplash API (images)
     this.unsplashAccessKey = config.unsplash && config.unsplash.accessKey;
@@ -1092,6 +1098,7 @@ class SearchService {
     if (!this.googleApiKey || !this.googleSearchEngineId) {
       throw new Error('Google Search API not configured');
     }
+    if (breakers.isOpen('google_cse')) throw new Error('Google Search paused (recent 403/quota); retrying later');
 
     // Google Custom Search API only allows num 1-10
     const googlePerPage = Math.min(filters.perPage || 10, 10);
@@ -1132,9 +1139,13 @@ class SearchService {
       );
 
       if (error.response?.status === 403) {
+        // 403 here is "API not enabled for this project" or quota: retry in 6 h, so enabling it in
+        // the GCP console later starts working again with no deploy.
+        breakers.trip('google_cse', 6 * 3600 * 1000, 'http 403');
         throw new Error('Google API key invalid or quota exceeded');
       }
       if (error.response?.status === 429) {
+        breakers.trip('google_cse', 3600 * 1000, 'http 429');
         throw new Error('Google API rate limit exceeded');
       }
       if (error.response?.status === 400) {
@@ -1154,6 +1165,7 @@ class SearchService {
     if (!this.googleApiKey || !this.googleSearchEngineId) {
       throw new Error('Google Search API not configured');
     }
+    if (breakers.isOpen('google_cse')) throw new Error('Google Search paused (recent 403/quota); retrying later');
 
     const googlePerPage = Math.min(filters.perPage || 10, 10);
     const params = {
@@ -1190,9 +1202,13 @@ class SearchService {
         JSON.stringify(error.response?.data, null, 2) || error.message
       );
       if (error.response?.status === 403) {
+        // 403 here is "API not enabled for this project" or quota: retry in 6 h, so enabling it in
+        // the GCP console later starts working again with no deploy.
+        breakers.trip('google_cse', 6 * 3600 * 1000, 'http 403');
         throw new Error('Google API key invalid or quota exceeded');
       }
       if (error.response?.status === 429) {
+        breakers.trip('google_cse', 3600 * 1000, 'http 429');
         throw new Error('Google API rate limit exceeded');
       }
       throw new Error('Google Image Search service unavailable');
@@ -1222,6 +1238,7 @@ class SearchService {
    * web search — no separate key required.
    */
   async performBraveImageSearch(query, filters) {
+    if (breakers.isOpen('brave')) throw new Error('Brave Search paused (monthly quota); retrying later');
     if (!this.braveApiKey) {
       throw new Error('Brave Search API not configured');
     }
@@ -1247,6 +1264,11 @@ class SearchService {
         throw new Error('Brave API key invalid');
       }
       if (error.response?.status === 429) {
+        // QUOTA_LIMITED = the free plan's monthly 2000 is spent; RATE_LIMITED = just the 1/s limit
+        // (braveGate already spaces and retries those, so don't pause for them).
+        if (error.response?.data?.error?.code === 'QUOTA_LIMITED') {
+          breakers.trip('brave', 2 * 3600 * 1000, 'monthly quota');
+        }
         throw new Error('Brave API rate limit exceeded');
       }
       throw new Error('Brave Image Search service unavailable');
@@ -1327,6 +1349,7 @@ class SearchService {
     if (!this.braveApiKey) {
       throw new Error('Brave Search API not configured');
     }
+    if (breakers.isOpen('brave')) throw new Error('Brave Search paused (monthly quota); retrying later');
 
     const params = {
       q: query,
@@ -1357,6 +1380,11 @@ class SearchService {
         throw new Error('Brave API key invalid');
       }
       if (error.response?.status === 429) {
+        // QUOTA_LIMITED = the free plan's monthly 2000 is spent; RATE_LIMITED = just the 1/s limit
+        // (braveGate already spaces and retries those, so don't pause for them).
+        if (error.response?.data?.error?.code === 'QUOTA_LIMITED') {
+          breakers.trip('brave', 2 * 3600 * 1000, 'monthly quota');
+        }
         throw new Error('Brave API rate limit exceeded');
       }
       throw new Error('Brave Search service unavailable');
@@ -1630,6 +1658,7 @@ class SearchService {
     if (!this.newsApiKey) {
       throw new Error('News API not configured');
     }
+    if (breakers.isOpen('newsapi')) throw new Error('News API paused (rate limit); retrying later');
 
     // NewsAPI only supports this subset of language codes; fall back to English otherwise
     const NEWS_SUPPORTED_LANGS = [
@@ -1664,6 +1693,8 @@ class SearchService {
         throw new Error('News API key invalid');
       }
       if (error.response?.status === 429) {
+        // Developer plan: 100 requests / 24 h, 50 per 12 h window.
+        breakers.trip('newsapi', 3 * 3600 * 1000, 'rate limited');
         throw new Error('News API rate limit exceeded');
       }
 
@@ -1675,6 +1706,42 @@ class SearchService {
    * Perform YouTube Search
    */
   async performYoutubeSearch(query, filters) {
+    const want = filters.perPage || 25;
+    const cacheKey = JSON.stringify([String(query).toLowerCase().trim(), want, filters.sortBy || '', filters.dateRange || 'any']);
+    const cached = this.youtubeCache.get(cacheKey);
+    if (cached) return cached;
+
+    let data = null;
+    let apiError = null;
+
+    // 1) The keyed Data API — best data, but only ~100 searches/day. While it is
+    //    cooling down (quota hit) we do not even try it.
+    if (this.youtubeApiKey && !breakers.isOpen('youtube_api')) {
+      try {
+        data = await this._youtubeApiSearch(query, filters);
+        breakers.ok('youtube_api');
+      } catch (err) {
+        apiError = err;
+        if (/quota|rate limit/i.test(err.message || '')) {
+          // YouTube's quota resets at midnight Pacific; sleep until then, then probe again.
+          breakers.trip('youtube_api', msUntilPacificMidnight(), err.message);
+        }
+      }
+    }
+
+    // 2) The keyless fallback: public Invidious instances (see YouTubeGateway).
+    if (!data || !(data.items || []).length) {
+      const free = await YouTubeGateway.searchVideos(query, want).catch(() => null);
+      if (free) data = free;
+    }
+
+    if (!data) throw apiError || new Error('YouTube service unavailable');
+    if ((data.items || []).length) this.youtubeCache.set(cacheKey, data);
+    return data;
+  }
+
+  /** The keyed YouTube Data API call (search.list + videos.list). Use performYoutubeSearch(). */
+  async _youtubeApiSearch(query, filters) {
     if (!this.youtubeApiKey) {
       throw new Error('YouTube API not configured');
     }
