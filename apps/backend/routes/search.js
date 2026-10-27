@@ -291,6 +291,9 @@ function validateFilters(filters) {
     validFilters.bias = 'all';
   }
 
+  // ?sdebug=1 — per-result score breakdown (rankDebug) in the response.
+  if (filters.debug === true) validFilters.debug = true;
+
   // Perspectives: array of UI perspective IDs for purple mode
   if (Array.isArray(filters.perspectives)) {
     validFilters.perspectives = filters.perspectives.filter(p => typeof p === 'string');
