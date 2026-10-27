@@ -72,26 +72,68 @@ const press = (loc) => loc.dispatchEvent('click');
   await ctx.close();
 }
 
-// ── an app-made suggestion is undone by ✕ ───────────────────────────────────
+// ── a typed suggestion ASKS; it never moves anything by itself ──────────────
+// (owner, 2026-10-27: the auto-switch looped and changed pages mid-search)
+const ask = (page) => page.locator('[data-smart-ask]').first();
+// Something that suggests a page OTHER than the one the pill is on.
+const triggerFor = (label) => (label === 'Chat' ? 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' : 'why is the sky blue at noon');
+{
+  const { ctx, page, pill, input, errs } = await landing();
+  const before = await pillLabel(pill);
+  await input.click();
+  await input.fill(triggerFor(before));
+  await until(() => ask(page).count(), { what: 'the "It looks like…" question', timeout: 6000 });
+  check(/It looks like/.test(await ask(page).innerText()), 'typing something with an obvious home asks "It looks like… Go to …?"');
+  check(await pillLabel(pill) === before, '…and the pill has NOT moved', `${before} → ${await pillLabel(pill)}`);
+  await page.waitForTimeout(6500);
+  check(new URL(page.url()).pathname === '/', '…and nothing navigates by itself, however long you wait', page.url());
+  await page.locator('[data-smart-no]').dispatchEvent('click');
+  await until(async () => (await ask(page).count()) === 0, { what: 'the question to close', timeout: 3000 });
+  await page.waitForTimeout(1500);
+  check(await ask(page).count() === 0, 'No closes it and it does not come back for the same text');
+  check(new URL(page.url()).pathname === '/', '…and you are still on the page');
+  check(errs.length === 0, 'nothing threw (suggestion No)', errs.join(' | ') || 'clean');
+  await ctx.close();
+}
 {
   const { ctx, page, pill, input } = await landing();
-  // The landing page OPENS ON TUBE (2026-10-18), so a video link has nothing to
-  // suggest there. Move to another mode first — one click on is Feed — and keep
-  // it with ✕, which is exactly the "keep your pick" behaviour pinned above.
+  const before = await pillLabel(pill);
+  await input.click();
+  await input.fill(triggerFor(before));
+  await until(() => ask(page).count(), { what: 'the question', timeout: 6000 });
+  await page.locator('[data-smart-yes]').dispatchEvent('click');
+  await until(() => new URL(page.url()).pathname !== '/', { what: 'Yes to navigate', timeout: 4000 }).catch(() => {});
+  check(new URL(page.url()).pathname !== '/', 'Yes takes you there', page.url());
+  await ctx.close();
+}
+{
+  // "Stop suggesting" is remembered.
+  const { ctx, page, pill, input } = await landing();
+  const before = await pillLabel(pill);
+  await input.click();
+  await input.fill(triggerFor(before));
+  await until(() => ask(page).count(), { what: 'the question', timeout: 6000 });
+  await page.getByLabel(/Stop suggesting/).check();
+  await page.locator('[data-smart-no]').dispatchEvent('click');
+  await input.fill('');
+  await input.fill(triggerFor(before) + ' again');
+  await page.waitForTimeout(2000);
+  check(await ask(page).count() === 0, '"Stop suggesting" silences the question for good');
+  await ctx.close();
+}
+{
+  // Clicking a pill mode by hand ends suggestions for the session.
+  const { ctx, page, pill, input } = await landing();
   await press(pill);
   await until(() => status(page).count(), { what: 'the countdown' });
   await page.locator('[aria-label="Cancel switching mode"]').dispatchEvent('click');
   await until(async () => (await status(page).count()) === 0, { what: 'the countdown to leave', timeout: 3000 });
-  const before = await pillLabel(pill);
-  check(before !== 'Tube', 'the suggestion scenario starts somewhere a video link has something to suggest', before);
+  const now = await pillLabel(pill);
   await input.click();
-  await input.fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
-  await until(() => status(page).count(), { what: 'the Tube suggestion', timeout: 6000 });
-  const suggested = await pillLabel(pill);
-  check(suggested === 'Tube', 'a video link makes the app suggest Tube', `${before} → ${suggested}`);
-  await page.locator('[aria-label="Cancel switching mode"]').dispatchEvent('click');
-  await page.waitForTimeout(400);
-  check(await pillLabel(pill) === before, '✕ on the app\'s own suggestion puts the pill back — you never chose it', `${suggested} → ${await pillLabel(pill)}`);
+  await input.fill(triggerFor(now));
+  await page.waitForTimeout(2500);
+  check(await ask(page).count() === 0, 'after you pick a pill mode yourself, no suggestion cuts in');
+  check(new URL(page.url()).pathname === '/', '…and the page does not change mid-search', page.url());
   await ctx.close();
 }
 

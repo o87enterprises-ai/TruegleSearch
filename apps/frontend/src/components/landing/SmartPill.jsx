@@ -21,15 +21,23 @@ import { useRecentActivity } from '../../hooks/useRecentActivity';
 //           — a long query was being cut off mid-sentence. "Go now" does not
 //           wait.
 //   TYPE    ~0.7s after you stop typing, a video link offers Tube, a social
-//           post Feed, a question Chat, a local-business search Mainstream —
-//           same countdown, with the reason shown. ✕ stops suggestions for
-//           that text and puts the pill back — the app moved it, you did not
-//           choose it.
+//           post Feed, a question Chat, a local-business search Mainstream.
+//           It ASKS ("It looks like a question. Go to Chat?  Yes / No") and
+//           moves nothing until you say Yes — the old auto-switch looped when
+//           you were already where you wanted to be and changed pages
+//           mid-search (owner, 2026-10-27). A "Stop suggesting" box remembers
+//           the answer; and once you click a pill mode yourself, suggestions
+//           stay quiet for the rest of the session.
 //
 // On the Chat page only links and local searches pull you away: typing there
 // is talking to the AI, so questions and topics stay put.
 
 const COUNTDOWN_MS = 5000;
+const PREF_KEY = 'truegle_smart_suggest_v1'; // '0' = the person turned suggestions off
+// Module-level on purpose: it survives the SmartPill remounting as you move
+// between pages, and resets on a reload.
+let pickedByHand = false;
+const suggestionsOn = () => { try { return localStorage.getItem(PREF_KEY) !== '0'; } catch { return true; } };
 const DEBOUNCE_MS = 700;
 const SEARCH_MODES = ['blue', 'green', 'red', 'ocean'];
 
@@ -45,6 +53,8 @@ export default function SmartPill({ activeMode, onSelect, pageMode = null, query
   const navigate = useNavigate();
   const location = useLocation();
   const [run, setRun] = useState(null); // { mode, reason, from, startedAt }
+  const [ask, setAsk] = useState(null); // { mode, reason } — a suggestion waiting for Yes / No
+  const [stopAsking, setStopAsking] = useState(false);
   const [now, setNow] = useState(Date.now());
   const suppressed = useRef(null);
   const queryRef = useRef(query);
@@ -91,12 +101,13 @@ export default function SmartPill({ activeMode, onSelect, pageMode = null, query
   }, [run, go, activity]);
 
   // Leaving the page (Enter, a link, the back button) ends any countdown.
-  useEffect(() => { setRun(null); }, [location.pathname, location.search]);
+  useEffect(() => { setRun(null); setAsk(null); }, [location.pathname, location.search]);
 
   // Typing detection.
   useEffect(() => {
     const text = query.trim();
-    if (!text || suppressed.current === text) return undefined;
+    if (!text) { setAsk(null); return undefined; }
+    if (suppressed.current === text || pickedByHand || !suggestionsOn()) return undefined;
     const id = setTimeout(() => {
       const intent = detectIntent(text);
       if (!intent) return;
@@ -107,17 +118,30 @@ export default function SmartPill({ activeMode, onSelect, pageMode = null, query
       if (intent.kind === 'link' && SEARCH_MODES.includes(here)) return;
       if (intent.kind === 'local' && (here === 'blue' || here === 'green')) return;
       if (intent.mode === here) return;
-      onSelect(intent.mode);
-      start(intent.mode, intent.reason);
+      // Ask, don't act: the pill and the page stay exactly where they are.
+      setAsk({ mode: intent.mode, reason: intent.reason, text });
     }, DEBOUNCE_MS);
     return () => clearTimeout(id);
     // activeMode deliberately left out: switching the pill must not re-run detection.
   }, [query, pageMode]);
 
   const onPill = useCallback((next) => {
+    // The person is steering by hand — no suggestions from here on.
+    pickedByHand = true;
+    setAsk(null);
     onSelect(next);
     start(next, null);
   }, [onSelect, start]);
+
+  const answer = useCallback((yes) => {
+    const a = ask;
+    if (!a) return;
+    if (stopAsking) { try { localStorage.setItem(PREF_KEY, '0'); } catch { /* session only */ } }
+    suppressed.current = a.text; // don't ask again about this same text
+    setAsk(null);
+    setStopAsking(false);
+    if (yes) { onSelect(a.mode); go(a.mode); }
+  }, [ask, stopAsking, onSelect, go]);
 
   const cancel = useCallback(() => {
     // A suggestion the app made: undo it and stop suggesting for this text.
@@ -134,8 +158,35 @@ export default function SmartPill({ activeMode, onSelect, pageMode = null, query
 
   return (
     <div className="flex flex-col items-center">
-      <PillModeRow activeMode={activeMode} onSelect={onPill} onHold={() => { onSelect('black'); go('black'); }} />
+      <PillModeRow activeMode={activeMode} onSelect={onPill} onHold={() => { pickedByHand = true; setAsk(null); onSelect('black'); go('black'); }} />
       <AnimatePresence>
+        {ask && !run && (
+          <motion.div
+            key="ask"
+            role="dialog"
+            aria-label="Switch page?"
+            data-smart-ask=""
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            className="mt-2 flex flex-col items-center gap-1.5 rounded-2xl border border-white/15 bg-black/70 backdrop-blur px-4 py-2.5 text-xs text-white/90"
+          >
+            <span>
+              It looks like <span className="text-white/60">{ask.reason.toLowerCase()}</span>. Go to{' '}
+              <strong style={{ color: MODE_COLORS[ask.mode] || '#22d3ee' }}>{labelFor(ask.mode)}</strong>?
+            </span>
+            <span className="flex items-center gap-2">
+              <button type="button" data-smart-yes="" onClick={() => answer(true)}
+                className="px-3 py-1 rounded-full bg-white/20 hover:bg-white/30 font-semibold">Yes</button>
+              <button type="button" data-smart-no="" onClick={() => answer(false)}
+                className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20">No</button>
+            </span>
+            <label className="flex items-center gap-1.5 text-white/60 cursor-pointer select-none">
+              <input type="checkbox" checked={stopAsking} onChange={(e) => setStopAsking(e.target.checked)} />
+              Stop suggesting — I'll switch pages myself
+            </label>
+          </motion.div>
+        )}
         {run && (
           <motion.div
             key="countdown"
