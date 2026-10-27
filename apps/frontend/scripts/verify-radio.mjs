@@ -77,7 +77,7 @@ const firstId = await nowId();
 check(firstId === 'queued00001', 'with nothing playing, adding to the queue plays it (setup)', firstId);
 
 // 1. Start Radio from a card.
-await page.locator('[aria-label="Start Radio from Justice - Genesis"]').first().click();
+await page.locator('[aria-label="Start Stream from Justice - Genesis"]').first().click();
 await until(async () => (await nowId()) === 'justice0001', { what: 'the Start Radio song to play', timeout: 4000 }).catch(() => {});
 check((await nowId()) === 'justice0001', 'Start Radio plays that song now', await nowId());
 const radioState = await page.locator('[data-player-radio]').first().getAttribute('data-player-radio');

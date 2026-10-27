@@ -140,8 +140,8 @@ export default function PlayerOverlay({
           onClick={onStartRadio}
           tabIndex={visible ? 0 : -1}
           aria-pressed={radioActive}
-          title={radioActive ? 'Radio is following this music' : 'Start Radio from this song — more of this artist and similar music next'}
-          aria-label={radioActive ? 'Radio is on from this song' : 'Start Radio from this song'}
+          title={radioActive ? 'Stream is following this music' : 'Start Stream from this song — more of this artist and similar music next'}
+          aria-label={radioActive ? 'Stream is on from this song' : 'Start Stream from this song'}
           className={btn}
           style={radioActive ? { background: accent, color: '#000' } : undefined}
         >

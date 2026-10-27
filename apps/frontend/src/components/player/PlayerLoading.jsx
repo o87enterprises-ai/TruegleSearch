@@ -31,9 +31,10 @@ export function PlayerLoading({ compact = false, onRetry, onSkip, reportHref, ti
 
   if (dismissed) return null;
 
-  const logo = compact ? 'w-20' : 'w-28';
-  const ring = compact ? 'w-24 h-24' : 'w-36 h-36';
+  const ring = compact ? 'w-9 h-9' : 'w-12 h-12';
 
+  // Just a spinner: no dimmed screen, no dismiss button to hunt for. The
+  // picture stays visible underneath; Retry/Skip appear only once it is slow.
   return (
     <div
       data-player-loading=""
@@ -41,43 +42,36 @@ export function PlayerLoading({ compact = false, onRetry, onSkip, reportHref, ti
       role="status"
       aria-live="polite"
       aria-label={title ? `Loading ${title}` : 'Loading'}
-      className="absolute inset-0 z-[22] flex flex-col items-center justify-center gap-2 bg-black/70 pointer-events-none"
+      className="absolute inset-0 z-[22] flex flex-col items-center justify-center gap-3 pointer-events-none"
     >
-      {/* Dismiss — lets the user hide a stuck spinner while the underlying
-          embed keeps loading; the overlay is the frustration, not the load. */}
+      {/* Escape hatch sits right above the spinner, where the eye already is. */}
       <button
         type="button"
         data-player-loading-dismiss=""
         aria-label="Dismiss loading overlay"
         onClick={() => setDismissed(true)}
-        className="absolute top-3 right-3 pointer-events-auto flex items-center justify-center w-7 h-7 rounded-full bg-white/15 hover:bg-white/30 text-white/80 hover:text-white transition-colors"
+        className="pointer-events-auto flex items-center justify-center w-7 h-7 rounded-full bg-white/20 hover:bg-white/35 text-white transition-colors"
       >
         <X size={14} />
       </button>
-      <div className={`relative flex items-center justify-center ${ring}`}>
-        {/* The ring: a brand-coloured arc that turns, over a faint full circle,
-            so there is a visible track even on the frame the arc is hidden. */}
-        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" aria-hidden="true">
-          <defs>
-            <linearGradient id="truegle-load-arc" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#4285f4" />
-              <stop offset="35%" stopColor="#ea4335" />
-              <stop offset="70%" stopColor="#fbbc05" />
-              <stop offset="100%" stopColor="#34a853" />
-            </linearGradient>
-          </defs>
-          <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="4" />
-          <g className="origin-center animate-spin motion-reduce:animate-none" style={{ transformOrigin: '50px 50px', animationDuration: '1.1s' }}>
-            <circle cx="50" cy="50" r="44" fill="none" stroke="url(#truegle-load-arc)" strokeWidth="4"
-              strokeLinecap="round" strokeDasharray="70 207" />
-          </g>
-        </svg>
-        <img src="/truegle.png" alt="" draggable="false"
-          className={`${logo} h-auto object-contain animate-pulse motion-reduce:animate-none select-none`} />
-      </div>
+      <svg viewBox="0 0 100 100" className={`${ring} drop-shadow`} aria-hidden="true">
+        <defs>
+          <linearGradient id="truegle-load-arc" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#4285f4" />
+            <stop offset="35%" stopColor="#ea4335" />
+            <stop offset="70%" stopColor="#fbbc05" />
+            <stop offset="100%" stopColor="#34a853" />
+          </linearGradient>
+        </defs>
+        <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="8" />
+        <g className="animate-spin motion-reduce:animate-none" style={{ transformOrigin: '50px 50px', animationDuration: '0.9s' }}>
+          <circle cx="50" cy="50" r="44" fill="none" stroke="url(#truegle-load-arc)" strokeWidth="8"
+            strokeLinecap="round" strokeDasharray="70 207" />
+        </g>
+      </svg>
 
       {slow ? (
-        <div className="flex flex-col items-center gap-2 pointer-events-auto">
+        <div className="flex flex-col items-center gap-2 pointer-events-auto px-3 py-2 rounded-xl bg-black/60">
           <span className="text-white/85 text-xs">Taking longer than usual…</span>
           <span className="flex items-center gap-2">
             <button type="button" data-player-loading-retry="" onClick={onRetry}
@@ -102,9 +96,7 @@ export function PlayerLoading({ compact = false, onRetry, onSkip, reportHref, ti
             </a>
           )}
         </div>
-      ) : (
-        <span className="text-white/60 text-[11px] tracking-wide">Loading…</span>
-      )}
+      ) : null}
     </div>
   );
 }
