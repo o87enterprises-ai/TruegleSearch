@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { trace } from '../utils/playerTrace';
 
 // Knowing when a PLATFORM EMBED finishes, without loading a vendor SDK.
 //
@@ -177,6 +178,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
     const origins = kind === 'youtube' ? YT_ORIGINS : kind === 'tiktok' ? [TIKTOK_ORIGIN] : [VIMEO_ORIGIN];
     let done = false;
     let heard = false;
+    let lastYtState = null;
     let tiktokReady = false;
     let tiktokPlaying = false;
     let tiktokStartTimer = null;
@@ -187,6 +189,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
     const onMessage = (e) => {
       if (e.source !== frame.contentWindow) return;      // not our iframe
       if (!origins.includes(e.origin)) return;           // not the host we embedded
+      if (!heard) trace('embed', { heard: true, kind });
       heard = true;                                       // the frame is alive
       setSilent(false);
       setHeardAny(true);
@@ -240,6 +243,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
               duration: typeof info.duration === 'number' && info.duration > 0 ? info.duration : p.duration,
             }));
           }
+          if (typeof info.playerState === 'number' && info.playerState !== lastYtState) { lastYtState = info.playerState; trace('embed', { yt: info.playerState }); }
           if (info.playerState === 1) setStartedFor(startKey); // 1 = playing
           if (info.playerState === 0 && !done) { done = true; endedRef.current?.(); }
           if (DEAD_YT_CODES.includes(info.errorCode)) deadRef.current?.(info.errorCode);
@@ -253,6 +257,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
         // a YouTube quirk, not two different faults.
         if (data.event === 'onError') {
           const code = typeof data.info === 'number' ? data.info : Number(data.info);
+          trace('embed', { ytErr: code });
           if (DEAD_YT_CODES.includes(code)) deadRef.current?.(code);
         }
       } else {

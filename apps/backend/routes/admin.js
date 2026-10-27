@@ -56,7 +56,7 @@ router.post('/rewards/credit', async (req, res) => {
 });
 
 /**
- * GET /api/admin/player-health?days=7
+ * GET /api/admin/player-health?days=7[&reason=silent]  (reason adds the 20 newest traces for it)
  * The owner's "check it periodically" view onto the player's automatic
  * health beacons (routes/player.js, PlayerHealthService) — counts by
  * reason/kind/platform and the top error codes, never raw rows with
@@ -66,7 +66,7 @@ router.post('/rewards/credit', async (req, res) => {
  */
 router.get('/player-health', async (req, res) => {
   try {
-    const summary = await PlayerHealthService.summary({ days: req.query.days });
+    const summary = await PlayerHealthService.summary({ days: req.query.days, reason: req.query.reason });
     return res.json({ success: true, ...summary });
   } catch (error) {
     console.error('Player health summary error:', error);

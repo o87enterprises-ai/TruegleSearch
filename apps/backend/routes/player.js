@@ -18,7 +18,7 @@ function platformOf(ua) {
 }
 
 /**
- * POST /api/player/diagnostics  { kind?, reason, errorCode?, heard?, muted?, connection? }
+ * POST /api/player/diagnostics  { kind?, reason, errorCode?, heard?, muted?, connection?, trace?, device?, browser? }
  * PUBLIC AND ANONYMOUS BY DESIGN, same rule as POST /api/media/signal: no
  * user, session or IP recorded. Fired automatically by the player the moment
  * it detects a stuck clip (see utils/playerDiagnostics.js) — never from a
@@ -34,6 +34,9 @@ router.post('/diagnostics', rateLimitSearch, async (req, res) => {
     heard: body.heard,
     muted: body.muted,
     connection: body.connection,
+    trace: body.trace,
+    device: body.device,
+    browser: body.browser,
     platform: platformOf(req.headers['user-agent']),
   });
   return res.json({ success: true });

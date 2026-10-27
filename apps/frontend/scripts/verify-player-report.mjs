@@ -51,7 +51,7 @@ const chattyPage = (playingState) => `<html><body style="background:#000"><scrip
   });
 </script></body></html>`;
 
-async function open(ids, { userAgent } = {}) {
+async function open(ids, { userAgent, extraQuery = '' } = {}) {
   const ctx = await testContext(browser, { viewport: { width: 390, height: 844 }, ...(userAgent ? { userAgent, isMobile: true, hasTouch: true } : {}) });
   await ctx.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));"
     + "localStorage.setItem('truegle_swipe_hint_seen', '1');");
@@ -75,7 +75,7 @@ async function open(ids, { userAgent } = {}) {
   const errs = [];
   page.on('pageerror', (e) => { if (!/Access is denied/.test(e.message)) errs.push(e.message); });
   const query = ids.map((id) => `u=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`).join('&');
-  await page.goto(`${BASE}/tube?${query}`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${BASE}/tube?${query}${extraQuery}`, { waitUntil: 'domcontentloaded' });
   await until(() => page.locator('[data-share-gate]').count(), { what: 'the share gate' });
   await page.locator('[data-share-gate]').click();
   await page.evaluate("if (document.fullscreenElement) document.exitFullscreen()").catch(() => {});
@@ -99,6 +99,30 @@ const IPHONE_SAFARI = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Ap
   // ever show up anywhere.
   await until(() => beacons.length > 0, { timeout: 2000, what: 'an automatic health beacon' }).catch(() => {});
   check(beacons.some((b) => b.reason === 'alive_override' && b.kind === 'youtube'), 'an automatic beacon fired for the override, no tap involved', JSON.stringify(beacons[0]));
+  // FLIGHT RECORDER: the beacon carries the player's last events, codes only.
+  const ob = beacons.find((b) => b.reason === 'alive_override');
+  const codes = new Set((ob?.trace || []).map((ev) => ev.e));
+  check(Array.isArray(ob?.trace) && codes.has('src') && codes.has('embed') && codes.has('sound'), 'the beacon carries a flight-recorder trace (src, embed, sound events)', [...codes].join(','));
+  check(JSON.stringify(ob?.trace || []).length <= 2048, 'trace is capped at 2 KB');
+  check(!JSON.stringify(ob || {}).includes(STUCK), 'and no video id or URL appears anywhere in the beacon — codes and numbers only');
+  check(['touch', 'desktop'].includes(ob?.device) && ['chrome', 'firefox', 'safari', 'samsung', 'other'].includes(ob?.browser), 'device and browser are coarse buckets', `${ob?.device}/${ob?.browser}`);
+  await ctx.close();
+}
+
+// ── ?pdebug=1: the on-screen trace with a Copy button ──────────────────────
+{
+  const { ctx, page } = await open([PLAYS], { extraQuery: '&pdebug=1' });
+  await until(() => page.locator('[data-player-trace]').count(), { what: 'the ?pdebug=1 trace overlay' });
+  await page.waitForTimeout(1500);
+  const txt = await page.locator('[data-player-trace]').innerText();
+  check(/\bsrc\b/.test(txt) && /\bembed\b/.test(txt), '?pdebug=1 shows the recorded events (src, embed)', txt.split('\n').slice(0, 4).join(' | '));
+  check(await page.locator('[data-player-trace] button:has-text("Copy")').count() === 1, 'with a Copy button');
+  await ctx.close();
+}
+{
+  const { ctx, page } = await open([PLAYS]);
+  await page.waitForTimeout(1500);
+  check(await page.locator('[data-player-trace]').count() === 0, 'without ?pdebug=1 the overlay is never shown');
   await ctx.close();
 }
 
@@ -130,6 +154,8 @@ const IPHONE_SAFARI = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Ap
   const silentBeacon = beacons.find((b) => b.reason === 'silent');
   check(!!silentBeacon, 'a "silent" beacon reached the log on its own, before anyone could press Report', JSON.stringify(beacons));
   check(silentBeacon?.kind === 'youtube' && silentBeacon?.heard === false, 'carrying the same kind/heard detail the mailto does');
+  check((silentBeacon?.trace || []).some((ev) => ev.e === 'embed' && ev.d?.silent === true), 'and its trace records the silence itself');
+  check(/Player trace:/.test(body), 'the mailto Report appends the last player events too');
   await ctx.close();
 }
 

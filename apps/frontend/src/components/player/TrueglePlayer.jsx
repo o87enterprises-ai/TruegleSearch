@@ -36,6 +36,8 @@ import { lookupTall, knownTall } from '../../utils/clipShape';
 import { useSearchStashContext } from '../../context/SearchStashContext';
 import { IS_IOS } from '../../utils/isIOS';
 import { reportHref, envContext, reportEvent } from '../../utils/playerDiagnostics';
+import { trace, installTapRecorder } from '../../utils/playerTrace';
+import PlayerTraceOverlay from './PlayerTraceOverlay';
 import { useDeliberateTap } from '../../hooks/useDeliberateTap';
 import { useRadioSession, startRadioFrom } from '../../utils/radio';
 
@@ -505,6 +507,7 @@ export default function TrueglePlayer({
   const skipBroken = useCallback((code) => {
     if (!current) return;
     const errorCode = (typeof code === 'string' || typeof code === 'number') ? String(code) : undefined;
+    trace('embed', { dead: true, code: errorCode });
     reportEvent({ reason: 'dead_error', kind: current.kind, errorCode });
     reportBroken(current, { auto: true });
     advance();
@@ -649,7 +652,21 @@ export default function TrueglePlayer({
   const [soundUnlocked, setSoundUnlocked] = useState(false);
   const autoplaySilent = startsMutedWithoutGesture && !soundUnlocked;
   const shownVolume = autoplaySilent ? 0 : volume;
+  // THE INPUTS TO THE MUTE DECISION, recorded whenever any of them changes.
+  useEffect(() => {
+    if (!current) return;
+    trace('sound', { ios: IS_IOS, mutedStart: startsMutedWithoutGesture, unlocked: soundUnlocked, silentPill: autoplaySilent });
+  }, [sourceKey, startsMutedWithoutGesture, soundUnlocked, autoplaySilent]);
+  // Flight recorder: where the player is showing, which kind of clip, and taps.
+  useEffect(() => {
+    trace('mode', { p: presentation, fs: fullscreen, feed: !!onFeedPage });
+  }, [presentation, fullscreen, onFeedPage]);
+  useEffect(() => {
+    if (sourceKey) trace('src', { kind: current?.kind || 'none', q: queue.length });
+  }, [sourceKey]);
+  useEffect(() => installTapRecorder(), []);
   const onVolume = useCallback((v) => {
+    trace('sound', { send: 'volume', v, gesture: true });
     if (v > 0) setSoundUnlocked(true);
     setVolume(v);
     if (embedCanSetVolume) embedSetVolume(v);
@@ -718,6 +735,7 @@ export default function TrueglePlayer({
       // Worth a beacon on its own even though nothing visibly broke — "we had
       // to stop trusting the handshake" is a signal in itself (see
       // utils/playerDiagnostics.js).
+      trace('embed', { aliveOverride: true });
       reportEvent({ reason: 'alive_override', kind: current?.kind });
     }, ALIVE_OVERRIDE_MS);
     return () => clearTimeout(t);
@@ -737,6 +755,7 @@ export default function TrueglePlayer({
     // Unlocked but still nothing heard: the browser likely refused the unmute.
     // Bring the "Tap for sound" pill back instead of staying silently silent.
     if (soundUnlocked && startsMutedWithoutGesture) setSoundUnlocked(false);
+    trace('embed', { silent: true, heard: !!embed.heard, muted: shownVolume === 0 });
     reportEvent({ reason: 'silent', kind: current?.kind, heard: embed.heard, muted: shownVolume === 0 });
   }, [embed.silent, sourceKey, embed.heard, shownVolume, current?.kind, soundUnlocked, startsMutedWithoutGesture]);
 
@@ -1135,6 +1154,7 @@ export default function TrueglePlayer({
         ? 'fixed inset-0 z-[2147483000] flex flex-col bg-black'
         : `relative ${fullscreen ? 'flex flex-col w-full h-full bg-black' : className}`}
     >
+      <PlayerTraceOverlay />
       {/* THE WAY BACK TO THE FEED, one press, top corner. The feed player's
           full screen IS the feed card blown up, so leaving it has to feel
           like closing a card rather than exiting a video player — the
