@@ -424,8 +424,7 @@ router.post('/local-businesses', async (req, res) => {
     }
 
     // Calculate distance and enrich each business
-    const enrichedBusinesses = await Promise.all(
-      allResults.slice(0, limit).map(async (place, index) => {
+    const enrichOne = async (place, index) => {
         // Calculate distance from user location
         const distance = calculateDistance(
           location.lat,
@@ -452,8 +451,14 @@ router.post('/local-businesses', async (req, res) => {
           distance,
           formattedDistance: formatDistance(distance),
         };
-      })
-    );
+    };
+
+    // The few full lookups (TomTom/Brave, both rate-limited) run one after another; the cheap rest in parallel.
+    const rows = allResults.slice(0, limit);
+    const fullN = Math.min(rows.length, Number(process.env.MAPS_FULL_ENRICH_TOP || 5));
+    const enrichedBusinesses = [];
+    for (let i = 0; i < fullN; i++) enrichedBusinesses.push(await enrichOne(rows[i], i));
+    enrichedBusinesses.push(...await Promise.all(rows.slice(fullN).map((pl, i) => enrichOne(pl, fullN + i))));
 
     // Sort by distance and rating
     enrichedBusinesses.sort((a, b) => {
