@@ -400,6 +400,11 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
       // ask returned YouTube videos for a Reddit search — and burned 100 quota
       // units of 10k/day to do it.
       .then((rows) => (rows.length || !YT_FALLBACK_OK.has(intent.platform) ? rows : youtube()))
+      // SAFETY NET (owner, 2026-10-27): no key, no SearXNG answer, no YouTube
+      // quota. Treat the typed words as a channel handle and show its recent
+      // uploads from the keyless RSS feed. Can itself be blocked from datacenter
+      // IPs; then it simply adds nothing.
+      .then((rows) => (rows.length || !YT_FALLBACK_OK.has(intent.platform) ? rows : channelRss()))
       .catch((e) => { if (e.name === 'AbortError') throw e; return []; });
 
     // Last resort: YouTube's own search. It answers "find me this video"
@@ -419,6 +424,26 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         } : null;
       }).filter(Boolean))
       .catch(() => []);
+
+    const channelRss = async () => {
+      const words = (intent.text || q).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+      const handles = [...new Set([words.slice(0, 3).join(''), words[0]])].filter((h) => h && h.length >= 3);
+      for (const h of handles) {
+        try {
+          const r = await fetch(`${BACKEND}/api/creators/resolve?handle=${encodeURIComponent(h)}`, { signal: controller.signal });
+          const id = r.ok ? (await r.json()).channelId : null;
+          if (!id) continue;
+          const f = await fetch(`${BACKEND}/api/creators/${id}/videos`, { signal: controller.signal });
+          const d = f.ok ? await f.json() : null;
+          const rows = (d?.videos || []).map((v) => {
+            const base = getPlayable(v.url);
+            return base ? { ...base, title: v.title || titleFromUrl(v.url), pageUrl: v.url, poster: v.thumbnail, channel: v.channel || h, published: v.published || null } : null;
+          }).filter(Boolean);
+          if (rows.length) return rows;
+        } catch (e) { if (e.name === 'AbortError') throw e; }
+      }
+      return [];
+    };
 
     // Community submissions. A failure here must never cost the user the web
     // results, so it resolves to nothing rather than rejecting.
