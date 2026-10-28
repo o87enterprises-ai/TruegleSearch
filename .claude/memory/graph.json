@@ -1960,6 +1960,14 @@
         "body": "Owner 2026-10-28: 'make the mainstream pill the landing page default again.' LandingPage pillMode and the lastSearchMode fallback are 'blue' (reverting the 2026-10-18 Tube default, commit 25ccf97). The pill CYCLE ORDER is unchanged (Tube, Feed, Green, Mainstream, Rabbit Hole, OSINT, Chat), so Mainstream is followed by Rabbit Hole. verify-pill-order.mjs pins it. Landing scripts must seed sessionStorage truegle_maint_seen_v1=1 or the notice blocks their clicks.",
         "ts": "2026-10-28",
         "created": "2026-10-28"
+      },
+      "d-pill-invite": {
+        "Id": "d-pill-invite",
+        "Type": "decision",
+        "Label": "Landing mode pill animates until first pressed ('Click me', sparkles, glow, ripple, dip)",
+        "body": "Owner 2026-10-28: first-time visitors did not know the pill does anything. PillModeRow prop invite (SmartPill passes pageMode===null, so landing only): 7s CSS-only cycle, 6 cycles per visit, stops on first press/hold and is remembered in localStorage truegle_pill_invite_done_v1; colour from the active mode (--pill-glow); not rendered under prefers-reduced-motion; every layer pointer-events none + aria-hidden. Uses the individual scale/translate properties so framer-motion's transform (hover/press) still composes. index.css .pill-invite-*. npm run pillinvite:test (22 checks; seeks animations to the peak instead of polling, and does NOT use openApp, whose STILL stylesheet zeroes animation durations).",
+        "ts": "2026-10-28",
+        "created": "2026-10-28"
       }
     },
     "thread": {

@@ -158,7 +158,7 @@ export default function SmartPill({ activeMode, onSelect, pageMode = null, query
 
   return (
     <div className="flex flex-col items-center">
-      <PillModeRow activeMode={activeMode} onSelect={onPill} onHold={() => { pickedByHand = true; setAsk(null); onSelect('black'); go('black'); }} />
+      <PillModeRow activeMode={activeMode} onSelect={onPill} invite={pageMode === null} onHold={() => { pickedByHand = true; setAsk(null); onSelect('black'); go('black'); }} />
       <AnimatePresence>
         {ask && !run && (
           <motion.div
