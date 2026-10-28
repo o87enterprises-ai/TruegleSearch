@@ -683,6 +683,10 @@ export default function TrueglePlayer({
   // a volume change the viewer makes is sent; otherwise the platform's own
   // "tap to unmute" (where it offers one) handles sound.
   const embedStarted = embed.started;
+  // Declared HERE (it is used by the volume hold below and by the loading
+  // override further down): set once the frame has said something and 6s pass
+  // with no confirmation that the clip started — see ALIVE_OVERRIDE_MS.
+  const [aliveOverrideFor, setAliveOverrideFor] = useState('');
   const isYouTube = current?.kind === 'youtube';
   // ── PHONES: SOUND IS THE VIEWER'S TAP, AND THE ICON SAYS SO ─────────────
   // The clip autoplays muted (the platform's rule), so until the viewer
@@ -723,7 +727,12 @@ export default function TrueglePlayer({
   }, [setVolume, embedCanSetVolume, embedSetVolume]);
   useEffect(() => {
     if (!current) return undefined;
-    const holdYouTube = (isYouTube && !embedStarted) || autoplaySilent;
+    // The hold exists so the unmute is not sent BEFORE the clip plays. When the
+    // frame is alive but its "started" message never lands (the case the alive
+    // override exists for — seen on Android), waiting for it forever left the
+    // clip on YouTube's own muted autoplay. Once the override fires the clip
+    // is, by every other sign, playing: send the volume.
+    const holdYouTube = (isYouTube && !embedStarted && aliveOverrideFor !== sourceKey) || autoplaySilent;
     const apply = () => {
       if (embedCanSetVolume && !holdYouTube) embedSetVolume(volume);
       // Native <audio>/<video> have a real property; no channel needed.
@@ -732,7 +741,7 @@ export default function TrueglePlayer({
     apply();
     const t = [250, 900, 2000].map((d) => setTimeout(apply, d));
     return () => t.forEach(clearTimeout);
-  }, [volume, current, embedCanSetVolume, embedSetVolume, embedStarted, isYouTube, autoplaySilent]);
+  }, [volume, current, embedCanSetVolume, embedSetVolume, embedStarted, isYouTube, autoplaySilent, aliveOverrideFor, sourceKey]);
 
 
   // 👍/👎. The thumb steers what plays next; a dislike also guarantees this
@@ -772,7 +781,6 @@ export default function TrueglePlayer({
   // not touch — a frame that has said NOTHING is still judged exactly as
   // it was.
   const ALIVE_OVERRIDE_MS = 6000;
-  const [aliveOverrideFor, setAliveOverrideFor] = useState('');
   const embedHeard = embed.heard;
   const hasCurrent = !!current;
   // Deps are `sourceKey` (already the stable identity for "this clip, this

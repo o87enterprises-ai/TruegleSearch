@@ -1944,6 +1944,14 @@
         "body": "Owner 2026-10-28: visitors read 'Site under maintenance' as the site being down and left. Title/button changed, known issues listed, button pinned at the bottom so it is visible on small phones. SHOW_MAINTENANCE_NOTICE in components/landing/MaintenanceNotice.jsx; keep the issue list honest and remove entries when fixed.",
         "ts": "2026-10-28",
         "created": "2026-10-28"
+      },
+      "d-volume-zero-reset": {
+        "Id": "d-volume-zero-reset",
+        "Type": "decision",
+        "Label": "Saved zero volume reset once (VOLUME_REV 2); unmute hold releases on alive override",
+        "body": "Owner 2026-10-28 (Android): clips started silent with the volume at 0. Two causes fixed: (1) PlayerContext persisted volume 0 from the earlier build that held phone clips muted; loadState now treats a saved 0 without volumeRev=2 as unintended and resets it to full once, after which a zero is a respected choice. (2) TrueglePlayer's unmute hold waited for embed.started forever; it now also releases once aliveOverrideFor===sourceKey (frame alive, 'started' never landed). iPhone silent-start (IS_IOS only) untouched. Pinned by npm run soundstart:test (28 checks).",
+        "ts": "2026-10-28",
+        "created": "2026-10-28"
       }
     },
     "thread": {
