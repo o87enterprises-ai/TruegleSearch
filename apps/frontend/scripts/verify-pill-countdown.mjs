@@ -35,7 +35,8 @@ const browser = await launchChromium();
 
 async function landing() {
   const ctx = await testContext(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-  await ctx.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));"
+  // The landing notice (components/landing/MaintenanceNotice) covers the page until a visitor presses Continue; this run is past it.
+  await ctx.addInitScript("sessionStorage.setItem('truegle_maint_seen_v1', '1'); localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));"
     + "localStorage.setItem('truegle_swipe_hint_seen', '1'); localStorage.setItem('truegle_pill_mode_pref', 'black');"
     // Declined, so the hover-hint popover does not open over the search box when the pill is tapped.
     + "localStorage.setItem('truegle_tutorials', JSON.stringify({ dismissed: {}, neverShowAgain: true, lastSeen: null, hintsOptIn: false }));");

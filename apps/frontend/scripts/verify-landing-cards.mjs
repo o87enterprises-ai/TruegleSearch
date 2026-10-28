@@ -59,7 +59,8 @@ const panel = (id) => `[data-panel="${id}"]`;
 
 async function open(viewport, mobile) {
   const ctx = await testContext(browser, { viewport, isMobile: mobile, hasTouch: mobile });
-  await ctx.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));");
+  // The landing notice (components/landing/MaintenanceNotice) covers the page until a visitor presses Continue; this run is past it.
+  await ctx.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));" + "sessionStorage.setItem('truegle_maint_seen_v1', '1');");
   const asked = [];
   // Generic first: Playwright tries the LAST-registered matching route first.
   await ctx.route('**/api/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true,"data":[],"results":[]}' }));

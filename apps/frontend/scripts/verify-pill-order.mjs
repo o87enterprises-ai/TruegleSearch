@@ -8,10 +8,14 @@
  *   Tube → Play · Feed → Socials · Green → AI Free · Mainstream → Search ·
  *   Rabbit Hole → Deep Dive · OSINT → Investigate · Chat → Chat / Search
  *
+ * Owner, 2026-10-28: "make the mainstream pill the landing page default
+ * again." Only where the landing OPENS moved back; the cycle's order did not.
+ *
  * Pinned here:
- *   - the landing page opens on Tube, whatever was saved from an earlier visit
+ *   - the landing page opens on Mainstream, whatever was saved from an earlier visit
  *   - one click at a time walks Tube, Feed, Green, Mainstream, Rabbit Hole,
- *     Privacy / OSINT, Chat — and then round to Tube again
+ *     Privacy / OSINT, Chat — and then round to Tube again (starting from
+ *     Mainstream: Rabbit Hole, OSINT, Chat, Tube, Feed, Green, Mainstream)
  *   - each stop's word above the pill is the one above
  *   - the cards follow: Tube, Feed, Search, Chat; the Search card's lenses run
  *     Green, Mainstream, Rabbit Hole (Wonderland, its fold), OSINT; the Chat
@@ -31,11 +35,11 @@ await server.listen();
 const BASE = `http://localhost:${PORT}`;
 const browser = await launchChromium();
 
-// A visitor who last used the OLD default (Mainstream) and Chat: the landing
-// page must still open on Tube.
+// A visitor who last used Tube (the previous default) and Chat: the landing
+// page must still open on Mainstream.
 const ctx = await testContext(browser, { viewport: { width: 1280, height: 900 } });
 await ctx.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));"
-  + "localStorage.setItem('truegle_pill_mode_pref', 'blue'); localStorage.setItem('truegle_last_search_pill', 'blue');"
+  + "localStorage.setItem('truegle_pill_mode_pref', 'tube'); localStorage.setItem('truegle_last_search_pill', 'tube');"
   + "localStorage.setItem('truegle_tutorials', JSON.stringify({ dismissed: {}, neverShowAgain: true, lastSeen: null, hintsOptIn: false }));");
 await ctx.route('**/api/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true,"data":[],"results":[],"videos":[]}' }));
 const page = await ctx.newPage();
@@ -60,10 +64,17 @@ const WANT = [
   ['Chat', 'Chat / Search'],
 ];
 
+// The landing opens on Mainstream; the cycle's order is unchanged, so it is
+// the same ring read from that stop.
+const START = WANT.findIndex((w) => w[0] === 'Mainstream');
+const RING = [...WANT.slice(START), ...WANT.slice(0, START)];
+const TOGGLE_WORDS = ['play', 'socials', 'ai free', 'search', 'deep dive', 'investigate', 'search'];
+const TOGGLE_RING = [...TOGGLE_WORDS.slice(START), ...TOGGLE_WORDS.slice(0, START)];
+
 const first = [await pillText(), await word()];
 const toggles = [await toggleWord()];
-check(norm(first[0]) === 'tube', 'the landing page opens on Tube, even for a visitor last on Mainstream', first[0]);
-check(norm(first[1]) === 'play', '…and the word above it says Play', first[1]);
+check(norm(first[0]) === 'mainstream', 'the landing page opens on Mainstream, even for a visitor last on Tube', first[0]);
+check(norm(first[1]) === 'search', '…and the word above it says Search', first[1]);
 
 // Walk the whole cycle with clicks only (each restarts the five-second countdown).
 const seen = [first];
@@ -74,18 +85,18 @@ for (let i = 0; i < WANT.length; i += 1) {
   toggles.push(await toggleWord());
 }
 const order = seen.slice(0, WANT.length);
-check(JSON.stringify(order.map((x) => norm(x[0]))) === JSON.stringify(WANT.map((x) => norm(x[0]))),
-  'one click at a time: Tube → Feed → Green → Mainstream → Rabbit Hole → Privacy / OSINT → Chat',
+check(JSON.stringify(order.map((x) => norm(x[0]))) === JSON.stringify(RING.map((x) => norm(x[0]))),
+  'one click at a time: Mainstream → Rabbit Hole → Privacy / OSINT → Chat → Tube → Feed → Green',
   order.map((x) => x[0]).join(' → '));
-check(JSON.stringify(order.map((x) => norm(x[1]))) === JSON.stringify(WANT.map((x) => norm(x[1]))),
+check(JSON.stringify(order.map((x) => norm(x[1]))) === JSON.stringify(RING.map((x) => norm(x[1]))),
   'each stop has its own word above the pill',
   order.map((x) => x[1]).join(' · '));
-check(norm(seen[WANT.length][0]) === 'tube', 'and after Chat it comes round to Tube again', seen[WANT.length][0]);
+check(norm(seen[WANT.length][0]) === 'mainstream', 'and after Green it comes round to Mainstream again', seen[WANT.length][0]);
 
 // The Search/Chat toggle beside the bar says the same words; in Chat its
 // left segment is plain Search (where it takes you back to).
-check(JSON.stringify(toggles.slice(0, 7).map(norm)) === JSON.stringify(['play', 'socials', 'ai free', 'search', 'deep dive', 'investigate', 'search']),
-  'the toggle beside the bar: Play · Socials · AI Free · Search · Deep Dive · Investigate · (Chat) Search', toggles.slice(0, 7).join(' · '));
+check(JSON.stringify(toggles.slice(0, 7).map(norm)) === JSON.stringify(TOGGLE_RING),
+  'the toggle beside the bar follows the pill: Search · Deep Dive · Investigate · (Chat) Search · Play · Socials · AI Free', toggles.slice(0, 7).join(' · '));
 
 // The cards follow the pill.
 const tileIds = await page.evaluate("[...document.querySelectorAll('[data-tile]')].map((e) => e.dataset.tile)");
