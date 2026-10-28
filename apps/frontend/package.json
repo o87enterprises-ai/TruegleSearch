@@ -56,6 +56,7 @@
     "maprail:test": "node scripts/verify-map-rail.mjs",
     "searchhistory:test": "node scripts/verify-search-history.mjs",
     "landing:test": "node scripts/verify-landing-cards.mjs",
+    "soundstart:test": "node scripts/verify-sound-start.mjs",
     "silentembed:test": "node scripts/verify-silent-embed.mjs",
     "playerreport:test": "node scripts/verify-player-report.mjs",
     "playerloading:test": "node scripts/verify-player-loading.mjs",
