@@ -10,7 +10,7 @@ import { scoreCandidates, draw, dedupeScored, poolFor, POOL } from '../utils/fee
 import { shouldExplore, exploreOffset, exploreSeed, EXPLORE_RATE } from '../utils/explore';
 import { authHeader, storedSafeSearch } from '../utils/authHeader';
 import { isBroken } from '../utils/broken';
-import { isRadioOn, artistOf, nameKey, setRadioStatus, getRadioAnchor, setRadioAnchor } from '../utils/radio';
+import { isRadioOn, artistOf, nameKey, setRadioStatus, getRadioAnchor, setRadioAnchor, getRadioSeedQuery } from '../utils/radio';
 
 // What plays next, and what fills an empty player.
 //
@@ -125,6 +125,24 @@ async function artistByTitle(title) {
   return titleCache.get(t);
 }
 
+// Who and what a SONG SEARCH was for, per the backend ({ artist, track }). Once
+// per query for the life of the tab. A clip that names nobody ("Tweedle Dee
+// (Performed live on The Ed Sullivan Show)") still came from a search that did.
+const queryCache = new Map();
+export function identifyQuery(query) {
+  const q = String(query || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!q) return Promise.resolve({ artist: null, track: null });
+  if (!queryCache.has(q)) {
+    queryCache.set(q, json(`${BACKEND}/api/music/identify?q=${encodeURIComponent(q)}`)
+      .then((d) => {
+        // No answer at all (backend down) is not "no idea" — ask again next time.
+        if (!d) queryCache.delete(q);
+        return { artist: d?.artist || null, track: d?.track || null };
+      }));
+  }
+  return queryCache.get(q);
+}
+
 /** The artist Radio should follow, or null: Radio off, or nothing to go on. */
 const radioArtist = (current) => (isRadioOn() ? (artistOf(current) || getRadioAnchor()) : null);
 
@@ -142,6 +160,12 @@ async function resolveRadioArtist(current) {
   }
   const own = artistOf(current);
   if (own) return { artist: own };
+  // The clip names nobody: the search it was picked from usually does.
+  const query = getRadioSeedQuery(current);
+  if (query) {
+    const said = await identifyQuery(query);
+    if (said.artist) return { artist: said.artist };
+  }
   const looked = await artistByTitle(current.title);
   if (looked) return { artist: looked };
   const kept = getRadioAnchor();

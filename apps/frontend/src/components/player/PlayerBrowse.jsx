@@ -60,6 +60,9 @@ export default function PlayerBrowse({
   // bottom to put a button at — you are always looking at exactly one card —
   // so the gesture that means "keep going" has to be the trigger.
   more = false, onMore = null, loadingMore = false,
+  // The search these rows answer — what Stream reads the artist from when a
+  // clip's own title names nobody.
+  browseQuery = '',
 }) {
   const { enqueue, playList } = usePlayer();
   const playResults = usePlayResults();
@@ -162,8 +165,8 @@ export default function PlayerBrowse({
       if (list?.items.length) playList(list.items, 'tube', list.id, 0);
       return;
     }
-    playResults([source, ...rest]);
-  }, [playResults, playAll, playList]);
+    playResults([source, ...rest], undefined, { query: browseQuery });
+  }, [playResults, playAll, playList, browseQuery]);
 
   // A tap that never became a hold is a "play this".
   const drop = useCallback((source, rest) => {

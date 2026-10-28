@@ -48,7 +48,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // What the current search turned up. With nothing playing, the viewport
   // becomes a swipeable deck of those results instead of a black rectangle.
   browse = null, browseLoading = false,
-  browseMore = false, onBrowseMore = null, browseLoadingMore = false,
+  browseMore = false, onBrowseMore = null, browseLoadingMore = false, browseQuery = '',
   // The loading animation's two inputs. `onFrameLoad` fires when an iframe has
   // finished loading (the only "started" signal SoundCloud and generic embeds
   // give); `onPlaying` when a native <video>/<audio> is actually producing
@@ -72,7 +72,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
       <div ref={ref} className={`w-full ${browsing ? '' : 'overflow-y-auto'} ${fill ? 'flex flex-col flex-1 min-h-0' : ''}`}>
         {browsing
           ? <PlayerBrowse rows={browse} loading={browseLoading} compact={compact} fill={fill}
-              more={browseMore} onMore={onBrowseMore} loadingMore={browseLoadingMore} />
+              more={browseMore} onMore={onBrowseMore} loadingMore={browseLoadingMore} browseQuery={browseQuery} />
           : <PlayerStarters compact={compact} />}
       </div>
     );

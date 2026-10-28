@@ -1920,6 +1920,30 @@
         "body": "A YouTube clip with no vertical flag (search row, imported playlist, old saved list) gets its real shape from the backend oEmbed (/api/media/titles with a /shorts/ URL; portrait = height>width) via utils/clipShape.js, once per clip at play time. Saved lists + history now keep the vertical flag. Drives the orientation lock and PlayerScreen box. Owner 2026-10-24.",
         "ts": "2026-10-25",
         "created": "2026-10-25"
+      },
+      "d-stream-from-query": {
+        "Id": "d-stream-from-query",
+        "Type": "decision",
+        "Label": "Stream follows the artist named in the SEARCH QUERY when the clip names nobody",
+        "body": "Root cause of 'Stream falls back to YouTube Up Next' (owner 2026-10-28): clips titled by the song alone (e.g. 'Tweedle Dee (Performed live on The Ed Sullivan Show)') gave artistOf()=null and a strict MusicBrainz title lookup found nothing. Fix: backend GET /api/music/identify?q= (MusicSimilarity.identifyQuery: Last.fm track.search then artist.search, MusicBrainz recording fallback; whole-phrase similarity >=0.85, filler words ignored, artist-only needs the rest to read as a song title). Frontend: usePlayResults passes the query, radio.startRadioFrom({query}) stores it per clip, useUpNext.resolveRadioArtist uses it after artistOf and before the MusicBrainz title lookup; non-title-identified picks are converted to a Stream in the background if the clip corroborates the identified artist/track. LASTFM_API_KEY IS set in prod (Vercel backend).",
+        "ts": "2026-10-28",
+        "created": "2026-10-28"
+      },
+      "d-result-coverage-rank": {
+        "Id": "d-result-coverage-rank",
+        "Type": "decision",
+        "Label": "Tube results rank by how much of the query each row says",
+        "body": "utils/playerQuery.js rankPlayable now bands rows by queryCoverage (title+channel full credit, description 0.75, one-letter typo and split/joined words tolerated, filler ignored) after platform/channel and before host rank. Owner 2026-10-28: 'larussel tweedlee dee' had the real artist+song halfway down the page.",
+        "ts": "2026-10-28",
+        "created": "2026-10-28"
+      },
+      "d-maint-notice-live": {
+        "Id": "d-maint-notice-live",
+        "Type": "decision",
+        "Label": "Landing notice reads 'Truegle is live during updates' / 'Continue to Truegle'",
+        "body": "Owner 2026-10-28: visitors read 'Site under maintenance' as the site being down and left. Title/button changed, known issues listed, button pinned at the bottom so it is visible on small phones. SHOW_MAINTENANCE_NOTICE in components/landing/MaintenanceNotice.jsx; keep the issue list honest and remove entries when fixed.",
+        "ts": "2026-10-28",
+        "created": "2026-10-28"
       }
     },
     "thread": {
@@ -3954,5 +3978,5 @@
       }
     }
   },
-  "updated": "2026-10-25"
+  "updated": "2026-10-28"
 }
