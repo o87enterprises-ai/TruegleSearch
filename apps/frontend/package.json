@@ -39,6 +39,7 @@
     "player:suite": "node scripts/verify-player-suite.mjs",
     "feedcontrols:test": "node scripts/verify-feed-controls.mjs",
     "pill:test": "node scripts/verify-pill-countdown.mjs",
+    "pillinvite:test": "node scripts/verify-pill-invite.mjs",
     "pillorder:test": "node scripts/verify-pill-order.mjs",
     "addtolist:test": "node scripts/verify-add-to-list.mjs",
     "searchbar:test": "node scripts/verify-search-bar.mjs",

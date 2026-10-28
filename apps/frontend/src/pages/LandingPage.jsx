@@ -75,8 +75,14 @@ export default function LandingPage() {
   // normally; it just isn't carried into the NEXT visit.
   //
   // 2026-10-18, owner: "make tube be default on landing page." Same rule, new
-  // default — every load opens on Tube (the pill cycle now starts there too).
-  const [pillMode, setPillMode] = useState('tube');
+  // default — every load opened on Tube.
+  //
+  // 2026-10-28, owner: "make the mainstream pill the landing page default
+  // again." Back to 'blue', every load, the same rule as above. Only WHERE THE
+  // LANDING OPENS moved: the order the pill cycles in (Tube, Feed, Green,
+  // Mainstream, Rabbit Hole, OSINT, Chat) is unchanged, so a click on Mainstream
+  // goes to Rabbit Hole and the cycle comes round to Tube after Chat.
+  const [pillMode, setPillMode] = useState('blue');
   // The Feed line rotates to the next network each time the Feed pill is
   // picked (effect on pillMode, so every route into Feed counts as a visit).
   const [feedLine, setFeedLine] = useState('');
@@ -92,7 +98,7 @@ export default function LandingPage() {
   // discard a Green/Rabbit-Hole/Wonderland/Privacy/Feed/Tube choice.
   const [lastSearchMode, setLastSearchMode] = useState(() => {
     const stored = localStorage.getItem('truegle_last_search_pill');
-    return stored && stored !== 'black' ? normalizePillMode(stored) : 'tube';
+    return stored && stored !== 'black' ? normalizePillMode(stored) : 'blue';
   });
   useEffect(() => {
     if (pillMode !== 'black') {

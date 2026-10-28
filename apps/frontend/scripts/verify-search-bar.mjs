@@ -36,7 +36,8 @@ async function open({ history = [], pill = 'blue', phone = true } = {}) {
   const ctx = await testContext(browser, phone
     ? { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }
     : { viewport: { width: 1280, height: 900 } });
-  await ctx.addInitScript(`localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));
+  // The landing notice (components/landing/MaintenanceNotice) covers the page until a visitor presses Continue; this run is past it.
+  await ctx.addInitScript(`sessionStorage.setItem('truegle_maint_seen_v1', '1'); localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));
     localStorage.setItem('truegle_swipe_hint_seen', '1'); localStorage.setItem('truegle_pill_mode_pref', '${pill}');
     localStorage.setItem('truegle_tutorials', JSON.stringify({ dismissed: {}, neverShowAgain: true, lastSeen: null, hintsOptIn: false }));
     if (!sessionStorage.getItem('__seeded')) { sessionStorage.setItem('__seeded', '1'); ${history.length ? `localStorage.setItem('truegle_recent_searches', ${JSON.stringify(JSON.stringify(history))});` : ''} }`);

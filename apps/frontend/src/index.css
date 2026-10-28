@@ -893,6 +893,54 @@ canvas { display: block !important; margin: 0 auto !important; image-rendering: 
 }
 .toggle-pulse-glow { animation: toggle-pulse-glow 2.4s ease-in-out infinite; }
 
+/* ── The landing mode pill's invitation (PillModeRow, `invite`) ──────────────
+   First-time visitors did not know the pill does anything. Until it is pressed
+   once (remembered in this browser), a 7s cycle runs on it: a press-style dip,
+   a ripple ring, a glow breath, sparkles twinkling around its edge, and a
+   translucent "Click me" that fades in and out beside it. Six cycles a visit,
+   then it rests.
+   Colour is the ACTIVE MODE's (--pill-glow, set inline from MODE_COLORS), never
+   a fixed one. CSS only, so nothing re-renders per frame; every layer ignores
+   the pointer so it can never swallow a tap. `scale` and `translate` are the
+   individual transform properties on purpose: framer-motion owns `transform`
+   on the pill (hover / press), and these compose with it instead of fighting it.
+   Reduced motion: PillModeRow does not render the invitation at all. */
+@keyframes pill-invite-tap {
+  0%, 10%  { scale: 1; }
+  13%      { scale: 0.93; }
+  17%      { scale: 1.06; }
+  21%, 100% { scale: 1; }
+}
+@keyframes pill-invite-glow {
+  0%, 6%   { box-shadow: 0 0 0 0 transparent; }
+  20%      { box-shadow: 0 0 14px 4px color-mix(in srgb, var(--pill-glow, #3b82f6) 70%, transparent), 0 0 30px 10px color-mix(in srgb, var(--pill-glow, #3b82f6) 35%, transparent); }
+  46%, 100% { box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes pill-invite-ripple {
+  0%, 12%  { opacity: 0; transform: scale(1); }
+  14%      { opacity: 0.75; transform: scale(1); }
+  42%, 100% { opacity: 0; transform: scale(1.7, 2.3); }
+}
+@keyframes pill-invite-spark {
+  0%, 12%  { opacity: 0; transform: scale(0) rotate(0deg); }
+  22%      { opacity: 1; transform: scale(1) rotate(45deg); }
+  34%      { opacity: 0.9; transform: scale(0.7) rotate(90deg); }
+  44%, 100% { opacity: 0; transform: scale(0) rotate(135deg); }
+}
+@keyframes pill-invite-label {
+  0%, 12%  { opacity: 0; translate: -6px 0; }
+  19%      { opacity: 0.9; translate: 0 0; }
+  38%      { opacity: 0.9; translate: 0 0; }
+  46%, 100% { opacity: 0; translate: 4px 0; }
+}
+.pill-invite-tap    { animation: pill-invite-tap 7s ease-in-out 2s 6; }
+.pill-invite-glow   { animation: pill-invite-glow 7s ease-out 2s 6; }
+.pill-invite-ripple { animation: pill-invite-ripple 7s ease-out 2s 6; opacity: 0;
+                      border: 2px solid color-mix(in srgb, var(--pill-glow, #3b82f6) 80%, white); }
+.pill-invite-spark  { animation: pill-invite-spark 7s ease-in-out 2s 6; opacity: 0;
+                      color: #fff; filter: drop-shadow(0 0 4px var(--pill-glow, #3b82f6)); }
+.pill-invite-label  { animation: pill-invite-label 7s ease-in-out 2s 6; opacity: 0; }
+
 /* ── Viewport-aware search header ──────────────────────────────────────────
    On a short screen — a phone in portrait, or any screen with the keyboard
    up — a 1.8×-scaled logo plus a 3rem margin is most of what you can see, and
