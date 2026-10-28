@@ -1,5 +1,5 @@
 const express = require('express');
-const { similarArtists, artistForTitle } = require('../services/MusicSimilarity');
+const { similarArtists, artistForTitle, identifyQuery } = require('../services/MusicSimilarity');
 
 const router = express.Router();
 
@@ -26,6 +26,21 @@ router.get('/artist', async (req, res) => {
   const title = String(req.query.title || '').trim();
   if (!title) return res.status(400).json({ error: 'title is required' });
   const result = await artistForTitle(title);
+  res.set('Cache-Control', 'public, max-age=86400');
+  return res.json(result);
+});
+
+/**
+ * GET /api/music/identify?q=larussel%20tweedlee%20dee
+ * PUBLIC. Who and what a song search was for — { artist, track }, each null when
+ * the query is not recognisably a song. Stream uses it to follow the artist the
+ * listener asked for when the clip they pressed names nobody. Only the query
+ * text leaves Truegle — nothing about the listener.
+ */
+router.get('/identify', async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'q is required' });
+  const result = await identifyQuery(q);
   res.set('Cache-Control', 'public, max-age=86400');
   return res.json(result);
 });

@@ -1173,6 +1173,7 @@ export default function TrueglePlayer({
       browseMore={search.more}
       onBrowseMore={search.loadMore}
       browseLoadingMore={search.loadingMore}
+      browseQuery={query}
     />
   );
 

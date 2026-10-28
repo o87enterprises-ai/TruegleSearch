@@ -124,3 +124,83 @@ describe('artistForTitle', () => {
     expect(await artistForTitle('Anything')).toEqual({ artist: null });
   });
 });
+
+describe('cleanTitle drops any bracketed aside', () => {
+  const { cleanTitle } = require('../services/MusicSimilarity');
+  it('"Tweedle Dee (Performed live on The Ed Sullivan Show 11/20/55)" → the song', () => {
+    expect(cleanTitle('Tweedle Dee (Performed live on The Ed Sullivan Show 11/20/55)')).toBe('Tweedle Dee');
+  });
+});
+
+describe('identifyQuery — who and what a song search was for', () => {
+  const { identifyQuery, similarity } = require('../services/MusicSimilarity');
+  const tracks = (rows) => ({ data: { results: { trackmatches: { track: rows } } } });
+  const artists = (rows) => ({ data: { results: { artistmatches: { artist: rows } } } });
+
+  it('similarity reads whole phrases: a typo or a split word is the same, a different song is not', () => {
+    expect(similarity('larussel tweedlee dee', 'LaRussell Tweedledee')).toBeGreaterThanOrEqual(0.85);
+    expect(similarity('sade smooth criminal', 'Sade Smooth Operator')).toBeLessThan(0.85);
+  });
+
+  describe('with a Last.fm key', () => {
+    beforeEach(() => { process.env.LASTFM_API_KEY = 'test-key'; });
+    afterEach(() => { delete process.env.LASTFM_API_KEY; });
+
+    it('names the track that accounts for every word of the query, a typo included', async () => {
+      axios.get.mockResolvedValueOnce(tracks([
+        { name: 'Tweedle Dee', artist: 'LaVern Baker', listeners: '90000' },
+        { name: 'Tweedledee', artist: 'LaRussell', listeners: '4000' },
+      ]));
+      expect(await identifyQuery('Larussel tweedlee dee')).toEqual({ artist: 'LaRussell', track: 'Tweedledee' });
+      expect(axios.get.mock.calls[0][1].params).toMatchObject({ method: 'track.search', track: 'larussel tweedlee dee', api_key: 'test-key' });
+    });
+
+    it('of several full matches, the one more people listen to', async () => {
+      axios.get.mockResolvedValueOnce(tracks([
+        { name: 'Smooth Operator', artist: 'Sade', listeners: '10' },
+        { name: 'Smooth Operator', artist: 'Sade', listeners: '5000000' },
+      ]));
+      expect((await identifyQuery('sade smooth operator')).artist).toBe('Sade');
+    });
+
+    it('falls back to just the artist when no track covers the query', async () => {
+      axios.get
+        .mockResolvedValueOnce(tracks([{ name: 'Smooth Criminal', artist: 'Michael Jackson', listeners: '1' }]))
+        .mockResolvedValueOnce(artists([{ name: 'Sade' }]));
+      expect(await identifyQuery('sade smooth criminal')).toEqual({ artist: 'Sade', track: null });
+    });
+
+    it('says nothing for a query that is not a song, and does not start a stream for it', async () => {
+      axios.get
+        .mockResolvedValueOnce(tracks([{ name: 'Chicago', artist: 'Sufjan Stevens', listeners: '1' }]))
+        .mockResolvedValue(artists([{ name: 'Best' }]));
+      expect(await identifyQuery('best pizza chicago')).toEqual({ artist: null, track: null });
+    });
+
+    it('asks once per query (cached), and never for a single word', async () => {
+      axios.get.mockResolvedValueOnce(tracks([{ name: 'Halo', artist: 'Beyoncé', listeners: '1' }]));
+      await identifyQuery('beyonce halo');
+      await identifyQuery('  Beyonce   HALO ');
+      expect(axios.get).toHaveBeenCalledTimes(1);
+      axios.get.mockClear();
+      expect(await identifyQuery('halo')).toEqual({ artist: null, track: null });
+      expect(axios.get).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('without a key', () => {
+    it('uses MusicBrainz, at the same bar', async () => {
+      axios.get.mockResolvedValueOnce({ data: { recordings: [
+        { score: 98, title: 'Smooth Operator', 'artist-credit': [{ name: 'Sade' }] },
+        { score: 60, title: 'Smooth Operator (cover)', 'artist-credit': [{ name: 'Someone' }] },
+      ] } });
+      expect(await identifyQuery('sade smooth operator')).toEqual({ artist: 'Sade', track: 'Smooth Operator' });
+    });
+
+    it('fails open on a busy MusicBrainz and does not cache the failure', async () => {
+      axios.get.mockRejectedValueOnce(new Error('503 busy'));
+      expect(await identifyQuery('sade smooth operator')).toEqual({ artist: null, track: null });
+      expect(_cache.size).toBe(0);
+    });
+  });
+});

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { mediaKey } from './videoEmbed';
 
 // RADIO: when what's playing is a song, "next" is more of the ARTIST and of
 // artists people listen to alongside them — not more of the same TITLE, which
@@ -25,7 +26,7 @@ export function setRadio(on) {
   try { localStorage.setItem(KEY, on ? '1' : '0'); } catch { /* private mode: session only */ }
   // Off ends the session: the next time it is switched on it starts from
   // whatever is playing then, not from an artist remembered from before.
-  if (!on) { anchor = null; session = false; lastSeed = null; }
+  if (!on) { anchor = null; session = false; lastSeed = null; seedQuery = null; }
   listeners.forEach((fn) => fn());
 }
 
@@ -45,10 +46,23 @@ export function setRadioAnchor(name) { anchor = name || null; }
 // queue is empty.
 let session = false;
 export const isRadioSession = () => session;
-export function startRadioFrom(source) {
+export function startRadioFrom(source, { query } = {}) {
   anchor = artistOf(source) || anchor;
+  // The search this song was picked from, so a clip that names no artist
+  // ("Tweedle Dee (Performed live on The Ed Sullivan Show)") can still be
+  // followed: the QUERY usually names them. Kept per clip, tab-only.
+  const q = String(query || '').trim().slice(0, 120);
+  if (q) seedQuery = { key: mediaKey(source) || source?.src || '', q };
   session = true;
   setRadio(true);
+}
+
+// ── THE SEARCH THAT PICKED THIS SONG ───────────────────────────────────────
+let seedQuery = null;
+/** The query this clip was picked from, or '' (none, or a different clip now). */
+export function getRadioSeedQuery(source) {
+  if (!seedQuery || !source) return '';
+  return seedQuery.key === (mediaKey(source) || source.src || '') ? seedQuery.q : '';
 }
 export function useRadioSession() {
   return useSyncExternalStore(subscribe, () => session && isRadioOn(), () => false);

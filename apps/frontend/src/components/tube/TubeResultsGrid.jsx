@@ -80,9 +80,9 @@ function TubeResultsGrid({ docked, query, scope = 'all' }) {
       if (docked) window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    playResults(visible.slice(i), 'tube');
+    playResults(visible.slice(i), 'tube', { query });
     if (docked) window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [playResults, visible, allRows, docked, playAll, playList]);
+  }, [playResults, visible, allRows, docked, playAll, playList, query]);
 
   const queue = useCallback((r) => {
     enqueue(r, { deck: 'tube' });

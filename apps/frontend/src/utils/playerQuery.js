@@ -329,13 +329,83 @@ export const sourceProviderLabel = (source) => {
   return id === 'all' ? 'Direct link' : providerMeta(id).label;
 };
 
-export function rankPlayable(rows, { channel, platform } = {}) {
+// ── HOW MUCH OF WHAT YOU TYPED DOES THIS ROW SAY? ──────────────────────────
+// Rows used to come back in whatever order the providers produced, so a search
+// for "larussel tweedlee dee" put a clip that only said "Tweedle Dee" above the
+// one that said LaRussell AND the song — the right result sat halfway down the
+// page (owner, 2026-10-28). A row that accounts for MORE of the query's words
+// now outranks one that accounts for fewer; the title and channel count in
+// full, the description for less (an artist in the title and the song in the
+// chapter list is a real match, just a weaker one).
+//
+// Typing is forgiving here, because people are: a word one letter off matches
+// ("larussel" / "LaRussell"), and a split word matches a joined one ("tweedlee
+// dee" / "Tweedledee"). Filler words (the, official, video…) are ignored.
+const QUERY_FILLER = new Set(['the', 'a', 'an', 'of', 'and', 'by', 'to', 'in', 'on', 'for', 'with', 'ft', 'feat', 'official', 'video', 'lyrics', 'lyric', 'audio', 'hd', '4k', 'mv']);
+const plainWords = (s) => String(s || '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase()
+  .replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(' ').filter(Boolean);
+
+const oneOff = (a, b) => {
+  if (a === b) return true;
+  if (a.length < 5 || b.length < 5 || Math.abs(a.length - b.length) > 1) return false;
+  let i = 0; let j = 0; let edits = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i += 1; j += 1; continue; }
+    edits += 1;
+    if (edits > 1) return false;
+    if (a.length === b.length) { i += 1; j += 1; } else if (a.length > b.length) i += 1; else j += 1;
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1;
+};
+
+/** Which of `qw` (query words) a text accounts for — a Set of indexes. */
+function wordsCovered(qw, text) {
+  const have = plainWords(text);
+  const joined = have.join('');
+  const hit = new Set();
+  qw.forEach((q, i) => {
+    if (have.some((h) => oneOff(q, h)) || (q.length >= 5 && joined.includes(q))) { hit.add(i); return; }
+    // "tweedlee" + "dee" typed apart, "Tweedledee" in the title.
+    if (i + 1 < qw.length) {
+      const pair = q + qw[i + 1];
+      if (have.some((h) => oneOff(pair, h)) || (pair.length >= 6 && joined.includes(pair))) { hit.add(i); hit.add(i + 1); }
+    }
+  });
+  return hit;
+}
+
+/**
+ * 0–1: the share of the query's words this row accounts for. Title and channel
+ * count fully, the description for three quarters. 0 when there is no usable
+ * query (nothing to rank by — the order is left alone).
+ */
+export function queryCoverage(row, text) {
+  const qw = plainWords(text).filter((w) => !QUERY_FILLER.has(w));
+  if (!qw.length || !row) return 0;
+  const strong = wordsCovered(qw, `${row.title || ''} ${row.channel || ''}`);
+  const weak = wordsCovered(qw, row.description || row.snippet || '');
+  let score = 0;
+  qw.forEach((_, i) => { score += strong.has(i) ? 1 : (weak.has(i) ? 0.75 : 0); });
+  return score / qw.length;
+}
+
+// Coarse bands, not a raw sort: two rows that account for the same words stay in
+// the order the providers (and the host rank below) gave them.
+const band = (c) => (c >= 0.999 ? 0 : c >= 0.7 ? 1 : c >= 0.4 ? 2 : 3);
+
+export function rankPlayable(rows, { channel, platform, text } = {}) {
   const wanted = channel ? channel.toLowerCase().replace(/[\s._-]/g, '') : null;
   const matchesChannel = (r) => {
     if (!wanted) return false;
     const hay = `${r.title || ''} ${r.channel || ''} ${r.pageUrl || ''}`
       .toLowerCase().replace(/[\s._-]/g, '');
     return hay.includes(wanted);
+  };
+  // Scored once per row, not once per comparison.
+  const covers = new Map();
+  const coverOf = (r) => {
+    if (!covers.has(r)) covers.set(r, text ? band(queryCoverage(r, text)) : 0);
+    return covers.get(r);
   };
   return [...rows].sort((a, b) => {
     // An explicitly requested platform outranks everything else.
@@ -347,6 +417,10 @@ export function rankPlayable(rows, { channel, platform } = {}) {
     const ac = matchesChannel(a) ? 0 : 1;
     const bc = matchesChannel(b) ? 0 : 1;
     if (ac !== bc) return ac - bc;
+    // Then whoever says more of what you typed.
+    const aq = coverOf(a);
+    const bq = coverOf(b);
+    if (aq !== bq) return aq - bq;
     const ah = HOST_RANK[a.kind] ?? 9;
     const bh = HOST_RANK[b.kind] ?? 9;
     return ah - bh;
