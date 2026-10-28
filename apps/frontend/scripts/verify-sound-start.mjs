@@ -16,6 +16,11 @@
  *   iphone   starts silent (volume control reads muted), shows the pill, sends
  *            NO unmute on its own — and one tap on the pill unmutes
  *   + a volume the listener set to zero is still respected on every device
+ *   + a zero saved by an EARLIER build (no revision stamp) is reset once, so the
+ *     clips are not silent for no reason; a zero saved by this one is kept
+ *   + a frame that is alive but never says "playing" (seen on Android) still
+ *     gets its unmute, once the player's alive override fires — and the iPhone
+ *     stays silent behind its pill either way
  *
  * The YouTube frame is stubbed: it reports "playing" and records every command
  * the player sends it. Run it:  npm run soundstart:test
@@ -60,13 +65,30 @@ const FRAME = `<!doctype html><html><body style="margin:0;background:#111"><scri
   });
 </script></body></html>`;
 
-async function run(device, { storedVolume = null } = {}) {
+// A frame that is alive and talking but never reports "playing" (playerState 1).
+const FRAME_ALIVE = `<!doctype html><html><body style="margin:0;background:#111"><script>
+  var send = function (o) { o.channel = 'widget'; o.id = 1; parent.postMessage(JSON.stringify(o), '*'); };
+  var talking = false;
+  addEventListener('message', function (e) {
+    var d; try { d = JSON.parse(e.data); } catch (x) { return; }
+    if (d && d.event === 'command') { parent.postMessage('PROBE:' + d.func + ':' + JSON.stringify(d.args || []), '*'); return; }
+    if (d && d.event === 'listening' && !talking) {
+      talking = true;
+      send({ event: 'onReady', info: null });
+      var t = 0;
+      setInterval(function () { t += 0.5; send({ event: 'infoDelivery', info: { currentTime: t, duration: 200 } }); }, 500);
+    }
+  });
+</script></body></html>`;
+
+async function run(device, { saved = null, frame = 'playing', settleMs = 3000 } = {}) {
   const ctx = await testContext(browser, DEVICES[device]);
   await ctx.addInitScript(`
     window.__cmds = [];
     addEventListener('message', function (e) { if (typeof e.data === 'string' && e.data.indexOf('PROBE:') === 0) window.__cmds.push(e.data.slice(6)); });
     localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));
     localStorage.setItem('truegle_swipe_hint_seen', '1');
+    ${saved ? `if (!sessionStorage.getItem('__seeded')) { sessionStorage.setItem('__seeded', '1'); localStorage.setItem('truegle_player_queue_v2', ${JSON.stringify(JSON.stringify(saved))}); }` : ''}
     localStorage.setItem('truegle_tutorials', JSON.stringify({ dismissed: {}, neverShowAgain: true, lastSeen: null, hintsOptIn: false }));`);
   await ctx.route('**/api/**', (r) => {
     let b = {}; try { b = JSON.parse(r.request().postData() || '{}'); } catch { /* GET */ }
@@ -77,19 +99,11 @@ async function run(device, { storedVolume = null } = {}) {
     }
     return json({ success: true, data: [], results: [] });
   });
-  await ctx.route('**/www.youtube-nocookie.com/embed/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: FRAME }));
+  await ctx.route('**/www.youtube-nocookie.com/embed/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: frame === 'alive' ? FRAME_ALIVE : FRAME }));
   await ctx.route('**/*.ytimg.com/**', (r) => r.fulfill({ status: 200, contentType: 'image/gif', body: Buffer.from('R0lGODlhAQABAAAAACw=', 'base64') }));
   const page = await ctx.newPage();
   const errs = []; page.on('pageerror', (e) => errs.push(e.message));
   await openApp(page, `${BASE}/tube`);
-  if (storedVolume !== null) {
-    // A volume the listener chose earlier, saved the way the player saves it.
-    await page.evaluate((v) => {
-      const k = Object.keys(localStorage).find((x) => /player/i.test(x) && /state|v\d/i.test(x) && (localStorage.getItem(x) || '').includes('"volume"'));
-      if (k) { const s = JSON.parse(localStorage.getItem(k)); s.volume = v; localStorage.setItem(k, JSON.stringify(s)); }
-    }, storedVolume);
-    await page.reload({ waitUntil: 'domcontentloaded' });
-  }
   const bar = page.locator('[aria-label="Search input"]:visible').first();
   await until(() => bar.count(), { what: 'the Tube bar' });
   await bar.click(); await bar.fill('warm up'); await bar.press('Enter');
@@ -98,8 +112,8 @@ async function run(device, { storedVolume = null } = {}) {
   await playNow.dispatchEvent('click');
   await until(() => page.locator('iframe[src*="youtube"]').count(), { what: 'the clip' });
   // The player re-sends its volume at 250ms, 900ms and 2s after a clip starts.
-  await until(async () => (await page.evaluate('window.__cmds.length')) > 0, { what: 'the player to talk to the frame', timeout: 8000 }).catch(() => {});
-  await page.waitForTimeout(3000);
+  await until(async () => (await page.evaluate('window.__cmds.length')) > 0, { what: 'the player to talk to the frame', timeout: frame === 'alive' ? 15000 : 8000 }).catch(() => {});
+  await page.waitForTimeout(settleMs);
   const cmds = await page.evaluate('window.__cmds');
   const volLabel = await page.locator('button[aria-label^="Volume"], button[aria-label="Unmute"]').first().getAttribute('aria-label').catch(() => null);
   const pill = await page.locator('[data-sound-tap]').count();
@@ -128,6 +142,31 @@ for (const device of ['desktop', 'android']) {
   await until(async () => (await r.page.evaluate('window.__cmds')).some((c) => c.startsWith('unMute')), { what: 'the unmute after the tap', timeout: 5000 }).catch(() => {});
   check((await r.page.evaluate('window.__cmds')).some((c) => c.startsWith('unMute')), 'iphone: one tap on the pill unmutes it');
   check(await r.page.locator('[data-sound-tap]').count() === 0, 'iphone: …and the pill goes away');
+  await r.ctx.close();
+}
+
+// ── a saved zero ────────────────────────────────────────────────────────────
+for (const device of ['android', 'desktop']) {
+  const old = await run(device, { saved: { volume: 0 } });
+  check(/100 percent/.test(old.volLabel || ''), `${device}: a zero saved by an earlier build is reset — the control reads full`, old.volLabel);
+  check(old.cmds.some((c) => c.startsWith('unMute')), `${device}: …and the clip is unmuted`, JSON.stringify(old.cmds));
+  await old.ctx.close();
+  const chosen = await run(device, { saved: { volume: 0, volumeRev: 2 } });
+  check(chosen.volLabel === 'Unmute', `${device}: a zero saved by this build is a choice and is kept`, chosen.volLabel);
+  check(!chosen.cmds.some((c) => c.startsWith('unMute')), `${device}: …and no unmute is sent over it`, JSON.stringify(chosen.cmds));
+  await chosen.ctx.close();
+}
+
+// ── a frame that is alive but never says "playing" ──────────────────────────
+for (const device of ['android', 'desktop']) {
+  const r = await run(device, { frame: 'alive', settleMs: 9000 });
+  check(r.cmds.some((c) => c.startsWith('unMute')), `${device}: a live frame that never reports "playing" still gets its unmute (after the alive override)`, JSON.stringify(r.cmds));
+  check(await r.page.locator('[data-player-alive-override="yes"]').count() === 1, `${device}: …and that is the alive override firing`);
+  await r.ctx.close();
+}
+{
+  const r = await run('iphone', { frame: 'alive', settleMs: 9000 });
+  check(!r.cmds.some((c) => c.startsWith('unMute')), 'iphone: an alive-but-silent frame is still NOT unmuted by the page', JSON.stringify(r.cmds));
   await r.ctx.close();
 }
 

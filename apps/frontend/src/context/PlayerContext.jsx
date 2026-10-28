@@ -489,6 +489,19 @@ export function reducer(s, a) {
 // URL is only valid for the document that created it, so persisting one would
 // restore a queue entry that can never play.
 export const QUEUE_KEY = 'truegle_player_queue_v2';
+// A SAVED VOLUME OF EXACTLY ZERO, FROM BEFORE THIS REVISION, IS NOT TRUSTED.
+// Earlier builds showed a phone's clips as muted behind a "tap for sound" state,
+// and anyone who tapped the volume control while it did came away with a zero
+// saved in this browser — which then silenced every later clip with nothing to
+// say why (owner, 2026-10-28, Android). Resetting it ONCE costs a deliberate
+// mute nothing but one more press; from this revision on a zero is a choice and
+// is respected like any other level.
+const VOLUME_REV = 2;
+const volumeFrom = (saved) => {
+  if (typeof saved.volume !== 'number') return 1;
+  const v = Math.max(0, Math.min(1, saved.volume));
+  return v === 0 && saved.volumeRev !== VOLUME_REV ? 1 : v;
+};
 const LEGACY_KEY = 'truegle_player_queue';
 const persistable = (s) => !!s && typeof s.src === 'string' && !s.src.startsWith('blob:');
 
@@ -536,7 +549,7 @@ export function loadState() {
       dock: saved.dock === 'footer' || saved.dock === 'float' ? saved.dock : null,
       footerView: saved.footerView === 'hidden' ? 'hidden' : 'watch',
       locked: !!saved.locked,
-      volume: typeof saved.volume === 'number' ? Math.max(0, Math.min(1, saved.volume)) : 1,
+      volume: volumeFrom(saved),
       // DELIBERATELY NOT PERSISTED. Arming the queue is a statement about this
       // sitting, not a setting. Restoring it would mean a list assembled days
       // ago quietly takes over autoplay again on the next visit, which is the
@@ -571,6 +584,7 @@ export const PlayerProvider = ({ children }) => {
         footerView: state.footerView,
         locked: state.locked,
         volume: state.volume,
+        volumeRev: VOLUME_REV,
         // A saved list being played survives a reload (phone browsers recycle
         // background tabs), so Next keeps walking the list afterwards.
         list: state.list ? { id: state.list.id, items: state.list.items.filter(persistable) } : null,
