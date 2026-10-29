@@ -743,6 +743,29 @@ export default function TrueglePlayer({
     return () => t.forEach(clearTimeout);
   }, [volume, current, embedCanSetVolume, embedSetVolume, embedStarted, isYouTube, autoplaySilent, aliveOverrideFor, sourceKey]);
 
+  // ── SOUND-ON AUTOPLAY THAT THE BROWSER BLOCKED ───────────────────────────
+  // Off iOS the clip now loads WITH sound (see PlayerScreen). If the browser
+  // refuses that — no tap on the page yet, a strict autoplay setting — the frame
+  // is alive but the clip never reaches "playing". After a few seconds, do what
+  // the iPhone's embed does from the start: mute it and press play (muted
+  // autoplay is always allowed). The volume effect then unmutes it as it
+  // always has, and the refused-unmute path below offers a tap if that fails
+  // too. Once per clip, and never on iOS (its URL already starts muted).
+  const soundFallbackFor = useRef('');
+  // (`embedHeard` is declared further down; read the same value here directly.)
+  const frameHeard = embed.heard;
+  useEffect(() => {
+    if (IS_IOS || !isYouTube || !frameHeard || embedStarted || paused || soundFallbackFor.current === sourceKey) return undefined;
+    const t = setTimeout(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      soundFallbackFor.current = sourceKey;
+      trace('sound', { fallback: 'muted-autoplay' });
+      if (embedCanSetVolume) embedSetVolume(0);
+      embedCommand('play');
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [isYouTube, frameHeard, embedStarted, paused, sourceKey, embedCanSetVolume, embedSetVolume, embedCommand]);
+
   // ── THE UNMUTE A BROWSER REFUSED ──────────────────────────────────────────
   // The volume effect above SENDS an unmute and used to assume it landed. A
   // browser can ignore it (Android: owner, 2026-10-29 — songs still starting

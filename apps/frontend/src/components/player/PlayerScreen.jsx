@@ -5,6 +5,7 @@ import PlayerStarters from './PlayerStarters';
 import PlayerBrowse from './PlayerBrowse';
 import { PLAYER_SANDBOX, sandboxFor } from './playerSandbox';
 import { upgradeTikTokSrc, tiktokCardSrc } from '../../utils/videoEmbed';
+import { IS_IOS } from '../../utils/isIOS';
 
 export { PLAYER_SANDBOX };
 
@@ -29,10 +30,16 @@ function withPlaybackChannel(kind, src, tiktokCard = false) {
     // into its native full-screen player the moment it starts, which reads as
     // the player "glitching" and strands our controls behind it. The reels and
     // browse decks already pass it; this was the one embed that did not.
-    // mute=1: iOS blocks audio autoplay in iframes, so the video never starts and
-    // the loading spinner never clears. Muted autoplay IS allowed, and the
-    // volume effect in TrueglePlayer unmutes the moment the embed reports playing.
-    return `${src}${sep}autoplay=1&mute=1&playsinline=1&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
+    // mute=1 ONLY ON iOS. iOS Safari refuses audio autoplay inside an iframe, so
+    // the clip never starts unless it starts muted (PR #54, 2026-10-20) — and the
+    // volume effect in TrueglePlayer unmutes it once it reports playing.
+    // That was added for the iPhone and applied to EVERY device, which made every
+    // Android and desktop clip start silent and depend on the page unmuting it
+    // afterwards (owner, 2026-10-29: "it didn't used to do that"). Elsewhere a
+    // tap on the page already allows sound, so the clip loads with sound as it
+    // did before. If a browser blocks that anyway, TrueglePlayer notices the clip
+    // never started and falls back to muted autoplay.
+    return `${src}${sep}autoplay=1&${IS_IOS ? 'mute=1&' : ''}playsinline=1&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
   }
   return `${src}${sep}autoplay=1`;
 }
