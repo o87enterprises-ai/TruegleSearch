@@ -158,6 +158,12 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // 2026-10-23 after a report that the spinner could outlast a clip that
   // was visibly playing underneath it.
   const [heardAny, setHeardAny] = useState(false);
+  // What the YouTube frame itself says about being muted (info.muted), or null
+  // until it has said. The page SENDS an unmute once a clip is playing, but a
+  // browser can refuse it silently (Android: owner, 2026-10-29, songs still
+  // starting with the volume off) — and nothing here ever asked, so nothing
+  // noticed. TrueglePlayer reads this to retry and, failing that, offer a tap.
+  const [ytMuted, setYtMuted] = useState(null);
   // The embed said it is PLAYING — the proof the loading animation waits for.
   // Stored as the key it was seen for rather than a boolean, so the render
   // after a track change cannot read the PREVIOUS clip's "true" for one frame
@@ -171,6 +177,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
     setTikTokNeedsTap(false);
     setSilent(false);
     setHeardAny(false);
+    setYtMuted(null);
     if (kind !== 'youtube' && kind !== 'vimeo' && kind !== 'tiktok') return undefined;
     const frame = frameRef?.current;
     if (!frame) return undefined;
@@ -244,6 +251,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
             }));
           }
           if (typeof info.playerState === 'number' && info.playerState !== lastYtState) { lastYtState = info.playerState; trace('embed', { yt: info.playerState }); }
+          if (typeof info.muted === 'boolean') setYtMuted(info.muted);
           if (info.playerState === 1) setStartedFor(startKey); // 1 = playing
           if (info.playerState === 0 && !done) { done = true; endedRef.current?.(); }
           if (DEAD_YT_CODES.includes(info.errorCode)) deadRef.current?.(info.errorCode);
@@ -449,7 +457,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
   // generic embeds do not, so for those the caller falls back to "frame loaded"
   // instead of showing a loader that can never clear.
   const tracksStart = (kind === 'youtube' || kind === 'vimeo' || (kind === 'tiktok' && !tiktokFallback));
-  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback, tiktokNeedsTap: tiktokNeedsTap && !tiktokFallback, silent, heard: heardAny, started: startedFor === startKey, tracksStart };
+  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback, tiktokNeedsTap: tiktokNeedsTap && !tiktokFallback, silent, heard: heardAny, muted: ytMuted, started: startedFor === startKey, tracksStart };
 }
 
 export default useEmbedPlayback;

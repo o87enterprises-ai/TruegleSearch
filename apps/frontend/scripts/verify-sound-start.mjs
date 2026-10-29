@@ -21,6 +21,10 @@
  *   + a frame that is alive but never says "playing" (seen on Android) still
  *     gets its unmute, once the player's alive override fires — and the iPhone
  *     stays silent behind its pill either way
+ *   + the frame REPORTS whether it is muted, and the page believes it: a browser
+ *     that refuses the unmute (Android, owner 2026-10-29: "songs are still
+ *     starting with the volume off") gets retries and then the one-tap
+ *     "Tap for sound", on any platform; a frame that accepts it never shows one
  *
  * The YouTube frame is stubbed: it reports "playing" and records every command
  * the player sends it. Run it:  npm run soundstart:test
@@ -81,6 +85,33 @@ const FRAME_ALIVE = `<!doctype html><html><body style="margin:0;background:#111"
   });
 </script></body></html>`;
 
+
+// Frames that REPORT their muted state, the way YouTube's infoDelivery does.
+// 'coop' accepts the unmute; 'refuse' ignores it until the test says a gesture
+// happened (window.__allow), which is what a browser that wants a tap does.
+const mutedFrame = (refuse) => `<!doctype html><html><body style="margin:0;background:#111"><script>
+  var send = function (o) { o.channel = 'widget'; o.id = 1; parent.postMessage(JSON.stringify(o), '*'); };
+  var talking = false; var muted = true; window.__allow = ${refuse ? 'false' : 'true'};
+  addEventListener('message', function (e) {
+    var d; try { d = JSON.parse(e.data); } catch (x) { return; }
+    if (d && d.event === 'command') {
+      parent.postMessage('PROBE:' + d.func + ':' + JSON.stringify(d.args || []), '*');
+      if (d.func === 'unMute' && window.__allow && muted) { muted = false; send({ event: 'infoDelivery', info: { muted: false, volume: 100 } }); }
+      if (d.func === 'mute') { muted = true; send({ event: 'infoDelivery', info: { muted: true } }); }
+      return;
+    }
+    if (d && d.event === 'listening' && !talking) {
+      talking = true;
+      send({ event: 'onReady', info: null });
+      send({ event: 'infoDelivery', info: { muted: true, volume: 100 } });
+      var t = 0;
+      setInterval(function () { t += 0.5; send({ event: 'infoDelivery', info: { playerState: 1, currentTime: t, duration: 200 } }); }, 500);
+    }
+  });
+</script></body></html>`;
+const FRAME_COOP = mutedFrame(false);
+const FRAME_REFUSE = mutedFrame(true);
+
 async function run(device, { saved = null, frame = 'playing', settleMs = 3000 } = {}) {
   const ctx = await testContext(browser, DEVICES[device]);
   await ctx.addInitScript(`
@@ -99,7 +130,7 @@ async function run(device, { saved = null, frame = 'playing', settleMs = 3000 } 
     }
     return json({ success: true, data: [], results: [] });
   });
-  await ctx.route('**/www.youtube-nocookie.com/embed/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: frame === 'alive' ? FRAME_ALIVE : FRAME }));
+  await ctx.route('**/www.youtube-nocookie.com/embed/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: ({ alive: FRAME_ALIVE, coop: FRAME_COOP, refuse: FRAME_REFUSE })[frame] || FRAME }));
   await ctx.route('**/*.ytimg.com/**', (r) => r.fulfill({ status: 200, contentType: 'image/gif', body: Buffer.from('R0lGODlhAQABAAAAACw=', 'base64') }));
   const page = await ctx.newPage();
   const errs = []; page.on('pageerror', (e) => errs.push(e.message));
@@ -167,6 +198,32 @@ for (const device of ['android', 'desktop']) {
 {
   const r = await run('iphone', { frame: 'alive', settleMs: 9000 });
   check(!r.cmds.some((c) => c.startsWith('unMute')), 'iphone: an alive-but-silent frame is still NOT unmuted by the page', JSON.stringify(r.cmds));
+  await r.ctx.close();
+}
+
+// ── the frame says it is still muted ────────────────────────────────────────
+for (const device of ['android', 'desktop']) {
+  const coop = await run(device, { frame: 'coop', settleMs: 6000 });
+  check(coop.cmds.some((c) => c.startsWith('unMute')), `${device}: a frame that accepts the unmute is unmuted`);
+  check(await coop.page.locator('[data-sound-tap]').count() === 0, `${device}: …and never shows a "Tap for sound"`);
+  await coop.ctx.close();
+
+  const ref = await run(device, { frame: 'refuse', settleMs: 6500 });
+  const unmutes = ref.cmds.filter((c) => c.startsWith('unMute')).length;
+  check(unmutes >= 5, `${device}: a refused unmute is retried`, `${unmutes} unmute commands`);
+  check(await ref.page.locator('[data-sound-tap]').count() === 1, `${device}: …and then the one-tap "Tap for sound" is offered`);
+  // The browser wants a gesture: the person's tap is one.
+  for (const f of ref.page.frames()) await f.evaluate('window.__allow = true').catch(() => {});
+  // (If no pill was offered the check above has already failed; don't also crash here.)
+  await ref.page.locator('[data-sound-tap]').dispatchEvent('click', undefined, { timeout: 2000 }).catch(() => {});
+  await until(async () => (await ref.page.locator('[data-sound-tap]').count()) === 0, { what: 'the pill to go once the frame is unmuted', timeout: 8000 }).catch(() => {});
+  check(await ref.page.locator('[data-sound-tap]').count() === 0, `${device}: …a tap unmutes it and the pill goes away`);
+  await ref.ctx.close();
+}
+{
+  const r = await run('iphone', { frame: 'refuse', settleMs: 6500 });
+  check(!r.cmds.some((c) => c.startsWith('unMute')), 'iphone: with a refusing frame the page still sends no unmute of its own', JSON.stringify(r.cmds));
+  check(await r.page.locator('[data-sound-tap]').count() === 1, 'iphone: its own "Tap for sound" is still the one showing');
   await r.ctx.close();
 }
 

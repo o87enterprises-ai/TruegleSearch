@@ -743,6 +743,32 @@ export default function TrueglePlayer({
     return () => t.forEach(clearTimeout);
   }, [volume, current, embedCanSetVolume, embedSetVolume, embedStarted, isYouTube, autoplaySilent, aliveOverrideFor, sourceKey]);
 
+  // ── THE UNMUTE A BROWSER REFUSED ──────────────────────────────────────────
+  // The volume effect above SENDS an unmute and used to assume it landed. A
+  // browser can ignore it (Android: owner, 2026-10-29 — songs still starting
+  // with the volume off), and the clip then sat silent with the control reading
+  // full. The frame reports its own muted state, so ask it: still muted a few
+  // seconds after the clip started playing → ask again a few times → then offer
+  // the same one-tap "Tap for sound" the iPhone gets. A tap is a real gesture,
+  // which is what a refused unmute needs. This is driven by what the frame SAYS,
+  // not by the platform, so a device that unmutes fine never sees any of it —
+  // and the iPhone's own silent start (autoplaySilent) is left to its own path.
+  const embedMuted = embed.muted;
+  const [refusedFor, setRefusedFor] = useState('');
+  useEffect(() => {
+    if (!isYouTube || !embedStarted || embedMuted !== true || volume <= 0 || autoplaySilent || paused) return undefined;
+    let tries = 0;
+    const again = setInterval(() => {
+      tries += 1;
+      if (embedCanSetVolume) embedSetVolume(volume);
+      if (tries >= 3) clearInterval(again);
+    }, 1200);
+    const offer = setTimeout(() => { setRefusedFor(sourceKey); trace('sound', { refused: true }); }, 3600);
+    return () => { clearInterval(again); clearTimeout(offer); };
+  }, [isYouTube, embedStarted, embedMuted, volume, autoplaySilent, paused, sourceKey, embedCanSetVolume, embedSetVolume]);
+  // Gone the moment the frame says it is no longer muted.
+  const soundRefused = refusedFor === sourceKey && embedMuted === true && volume > 0 && !paused;
+
 
   // 👍/👎. The thumb steers what plays next; a dislike also guarantees this
   // never comes back. It deliberately does NOT skip — you may be halfway
@@ -1439,7 +1465,7 @@ export default function TrueglePlayer({
             </span>
           </div>
         )}
-        {autoplaySilent && began && !paused && !locked && !clipScreen && (
+        {(autoplaySilent || soundRefused) && began && !paused && !locked && !clipScreen && (
           <button
             type="button"
             data-sound-tap=""

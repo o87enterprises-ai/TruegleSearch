@@ -1968,6 +1968,14 @@
         "body": "Owner 2026-10-28: first-time visitors did not know the pill does anything. PillModeRow prop invite (SmartPill passes pageMode===null, so landing only): 7s CSS-only cycle, 6 cycles per visit, stops on first press/hold and is remembered in localStorage truegle_pill_invite_done_v1; colour from the active mode (--pill-glow); not rendered under prefers-reduced-motion; every layer pointer-events none + aria-hidden. Uses the individual scale/translate properties so framer-motion's transform (hover/press) still composes. index.css .pill-invite-*. npm run pillinvite:test (22 checks; seeks animations to the peak instead of polling, and does NOT use openApp, whose STILL stylesheet zeroes animation durations).",
         "ts": "2026-10-28",
         "created": "2026-10-28"
+      },
+      "d-unmute-refused-pill": {
+        "Id": "d-unmute-refused-pill",
+        "Type": "decision",
+        "Label": "Muted-after-unmute is read back from the YouTube frame; refused unmute -> retries then 'Tap for sound' on ANY platform",
+        "body": "Owner 2026-10-29 (Android): songs still start with the volume off after the saved-zero fix. The YouTube embed always loads mute=1 (browser autoplay rule, all devices) and the page sends unMute once playing — but never checked it landed. useEmbedPlayback now exposes embed.muted (info.muted from infoDelivery); TrueglePlayer: still muted ~3.6s after start -> retry unMute 3x -> show the existing [data-sound-tap] pill (soundRefused), gone as soon as the frame reports muted:false. Driven by what the frame says, not the platform; iPhone's autoplaySilent path unchanged (guarded). Pinned by soundstart:test (40 checks, coop/refuse stub frames). Open: verify-volume-slider 'moving away closes it again' fails on unmodified main (pre-existing, desktop hover).",
+        "ts": "2026-10-29",
+        "created": "2026-10-29"
       }
     },
     "thread": {
@@ -4002,5 +4010,5 @@
       }
     }
   },
-  "updated": "2026-10-28"
+  "updated": "2026-10-29"
 }
