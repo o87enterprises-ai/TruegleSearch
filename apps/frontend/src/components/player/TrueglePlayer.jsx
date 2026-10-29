@@ -743,6 +743,55 @@ export default function TrueglePlayer({
     return () => t.forEach(clearTimeout);
   }, [volume, current, embedCanSetVolume, embedSetVolume, embedStarted, isYouTube, autoplaySilent, aliveOverrideFor, sourceKey]);
 
+  // ── SOUND-ON AUTOPLAY THAT THE BROWSER BLOCKED ───────────────────────────
+  // Off iOS the clip now loads WITH sound (see PlayerScreen). If the browser
+  // refuses that — no tap on the page yet, a strict autoplay setting — the frame
+  // is alive but the clip never reaches "playing". After a few seconds, do what
+  // the iPhone's embed does from the start: mute it and press play (muted
+  // autoplay is always allowed). The volume effect then unmutes it as it
+  // always has, and the refused-unmute path below offers a tap if that fails
+  // too. Once per clip, and never on iOS (its URL already starts muted).
+  const soundFallbackFor = useRef('');
+  // (`embedHeard` is declared further down; read the same value here directly.)
+  const frameHeard = embed.heard;
+  useEffect(() => {
+    if (IS_IOS || !isYouTube || !frameHeard || embedStarted || paused || soundFallbackFor.current === sourceKey) return undefined;
+    const t = setTimeout(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      soundFallbackFor.current = sourceKey;
+      trace('sound', { fallback: 'muted-autoplay' });
+      if (embedCanSetVolume) embedSetVolume(0);
+      embedCommand('play');
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [isYouTube, frameHeard, embedStarted, paused, sourceKey, embedCanSetVolume, embedSetVolume, embedCommand]);
+
+  // ── THE UNMUTE A BROWSER REFUSED ──────────────────────────────────────────
+  // The volume effect above SENDS an unmute and used to assume it landed. A
+  // browser can ignore it (Android: owner, 2026-10-29 — songs still starting
+  // with the volume off), and the clip then sat silent with the control reading
+  // full. The frame reports its own muted state, so ask it: still muted a few
+  // seconds after the clip started playing → ask again a few times → then offer
+  // the same one-tap "Tap for sound" the iPhone gets. A tap is a real gesture,
+  // which is what a refused unmute needs. This is driven by what the frame SAYS,
+  // not by the platform, so a device that unmutes fine never sees any of it —
+  // and the iPhone's own silent start (autoplaySilent) is left to its own path.
+  const embedMuted = embed.muted;
+  const [refusedFor, setRefusedFor] = useState('');
+  useEffect(() => {
+    if (!isYouTube || !embedStarted || embedMuted !== true || volume <= 0 || autoplaySilent || paused) return undefined;
+    let tries = 0;
+    const again = setInterval(() => {
+      tries += 1;
+      if (embedCanSetVolume) embedSetVolume(volume);
+      if (tries >= 3) clearInterval(again);
+    }, 1200);
+    const offer = setTimeout(() => { setRefusedFor(sourceKey); trace('sound', { refused: true }); }, 3600);
+    return () => { clearInterval(again); clearTimeout(offer); };
+  }, [isYouTube, embedStarted, embedMuted, volume, autoplaySilent, paused, sourceKey, embedCanSetVolume, embedSetVolume]);
+  // Gone the moment the frame says it is no longer muted.
+  const soundRefused = refusedFor === sourceKey && embedMuted === true && volume > 0 && !paused;
+
 
   // 👍/👎. The thumb steers what plays next; a dislike also guarantees this
   // never comes back. It deliberately does NOT skip — you may be halfway
@@ -1439,7 +1488,7 @@ export default function TrueglePlayer({
             </span>
           </div>
         )}
-        {autoplaySilent && began && !paused && !locked && !clipScreen && (
+        {(autoplaySilent || soundRefused) && began && !paused && !locked && !clipScreen && (
           <button
             type="button"
             data-sound-tap=""

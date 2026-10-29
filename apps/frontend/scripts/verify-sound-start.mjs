@@ -21,6 +21,16 @@
  *   + a frame that is alive but never says "playing" (seen on Android) still
  *     gets its unmute, once the player's alive override fires — and the iPhone
  *     stays silent behind its pill either way
+ *   + the embed URL carries mute=1 on the iPhone ONLY. It was added for the
+ *     iPhone (PR #54, 2026-10-20) but applied to every device, so Android and PC
+ *     started every clip silent and depended on the page unmuting it afterwards
+ *     (owner, 2026-10-29: "it didn't used to do that")
+ *   + a browser that BLOCKS sound-on autoplay (the clip never starts) is rescued
+ *     after a few seconds: muted autoplay, then the usual unmute — never on iOS
+ *   + the frame REPORTS whether it is muted, and the page believes it: a browser
+ *     that refuses the unmute (Android, owner 2026-10-29: "songs are still
+ *     starting with the volume off") gets retries and then the one-tap
+ *     "Tap for sound", on any platform; a frame that accepts it never shows one
  *
  * The YouTube frame is stubbed: it reports "playing" and records every command
  * the player sends it. Run it:  npm run soundstart:test
@@ -81,6 +91,56 @@ const FRAME_ALIVE = `<!doctype html><html><body style="margin:0;background:#111"
   });
 </script></body></html>`;
 
+
+// A browser that blocks SOUND-ON autoplay: the frame is alive (says so, and says
+// "unstarted") but the clip only starts once it has been muted and told to play.
+const FRAME_BLOCKED = `<!doctype html><html><body style="margin:0;background:#111"><script>
+  var send = function (o) { o.channel = 'widget'; o.id = 1; parent.postMessage(JSON.stringify(o), '*'); };
+  var talking = false; var muted = false; var started = false;
+  addEventListener('message', function (e) {
+    var d; try { d = JSON.parse(e.data); } catch (x) { return; }
+    if (d && d.event === 'command') {
+      parent.postMessage('PROBE:' + d.func + ':' + JSON.stringify(d.args || []), '*');
+      if (d.func === 'mute') { muted = true; send({ event: 'infoDelivery', info: { muted: true } }); }
+      if (d.func === 'unMute') { muted = false; send({ event: 'infoDelivery', info: { muted: false } }); }
+      if (d.func === 'playVideo' && muted) started = true;
+      return;
+    }
+    if (d && d.event === 'listening' && !talking) {
+      talking = true;
+      send({ event: 'onReady', info: null });
+      var t = 0;
+      setInterval(function () { t += 0.5; send({ event: 'infoDelivery', info: started ? { playerState: 1, currentTime: t, duration: 200 } : { playerState: -1 } }); }, 500);
+    }
+  });
+</script></body></html>`;
+
+// Frames that REPORT their muted state, the way YouTube's infoDelivery does.
+// 'coop' accepts the unmute; 'refuse' ignores it until the test says a gesture
+// happened (window.__allow), which is what a browser that wants a tap does.
+const mutedFrame = (refuse) => `<!doctype html><html><body style="margin:0;background:#111"><script>
+  var send = function (o) { o.channel = 'widget'; o.id = 1; parent.postMessage(JSON.stringify(o), '*'); };
+  var talking = false; var muted = true; window.__allow = ${refuse ? 'false' : 'true'};
+  addEventListener('message', function (e) {
+    var d; try { d = JSON.parse(e.data); } catch (x) { return; }
+    if (d && d.event === 'command') {
+      parent.postMessage('PROBE:' + d.func + ':' + JSON.stringify(d.args || []), '*');
+      if (d.func === 'unMute' && window.__allow && muted) { muted = false; send({ event: 'infoDelivery', info: { muted: false, volume: 100 } }); }
+      if (d.func === 'mute') { muted = true; send({ event: 'infoDelivery', info: { muted: true } }); }
+      return;
+    }
+    if (d && d.event === 'listening' && !talking) {
+      talking = true;
+      send({ event: 'onReady', info: null });
+      send({ event: 'infoDelivery', info: { muted: true, volume: 100 } });
+      var t = 0;
+      setInterval(function () { t += 0.5; send({ event: 'infoDelivery', info: { playerState: 1, currentTime: t, duration: 200 } }); }, 500);
+    }
+  });
+</script></body></html>`;
+const FRAME_COOP = mutedFrame(false);
+const FRAME_REFUSE = mutedFrame(true);
+
 async function run(device, { saved = null, frame = 'playing', settleMs = 3000 } = {}) {
   const ctx = await testContext(browser, DEVICES[device]);
   await ctx.addInitScript(`
@@ -99,7 +159,7 @@ async function run(device, { saved = null, frame = 'playing', settleMs = 3000 } 
     }
     return json({ success: true, data: [], results: [] });
   });
-  await ctx.route('**/www.youtube-nocookie.com/embed/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: frame === 'alive' ? FRAME_ALIVE : FRAME }));
+  await ctx.route('**/www.youtube-nocookie.com/embed/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: ({ alive: FRAME_ALIVE, coop: FRAME_COOP, refuse: FRAME_REFUSE, blocked: FRAME_BLOCKED })[frame] || FRAME }));
   await ctx.route('**/*.ytimg.com/**', (r) => r.fulfill({ status: 200, contentType: 'image/gif', body: Buffer.from('R0lGODlhAQABAAAAACw=', 'base64') }));
   const page = await ctx.newPage();
   const errs = []; page.on('pageerror', (e) => errs.push(e.message));
@@ -167,6 +227,63 @@ for (const device of ['android', 'desktop']) {
 {
   const r = await run('iphone', { frame: 'alive', settleMs: 9000 });
   check(!r.cmds.some((c) => c.startsWith('unMute')), 'iphone: an alive-but-silent frame is still NOT unmuted by the page', JSON.stringify(r.cmds));
+  await r.ctx.close();
+}
+
+// ── the frame says it is still muted ────────────────────────────────────────
+for (const device of ['android', 'desktop']) {
+  const coop = await run(device, { frame: 'coop', settleMs: 6000 });
+  check(coop.cmds.some((c) => c.startsWith('unMute')), `${device}: a frame that accepts the unmute is unmuted`);
+  check(await coop.page.locator('[data-sound-tap]').count() === 0, `${device}: …and never shows a "Tap for sound"`);
+  await coop.ctx.close();
+
+  const ref = await run(device, { frame: 'refuse', settleMs: 6500 });
+  const unmutes = ref.cmds.filter((c) => c.startsWith('unMute')).length;
+  check(unmutes >= 5, `${device}: a refused unmute is retried`, `${unmutes} unmute commands`);
+  check(await ref.page.locator('[data-sound-tap]').count() === 1, `${device}: …and then the one-tap "Tap for sound" is offered`);
+  // The browser wants a gesture: the person's tap is one.
+  for (const f of ref.page.frames()) await f.evaluate('window.__allow = true').catch(() => {});
+  // (If no pill was offered the check above has already failed; don't also crash here.)
+  await ref.page.locator('[data-sound-tap]').dispatchEvent('click', undefined, { timeout: 2000 }).catch(() => {});
+  await until(async () => (await ref.page.locator('[data-sound-tap]').count()) === 0, { what: 'the pill to go once the frame is unmuted', timeout: 8000 }).catch(() => {});
+  check(await ref.page.locator('[data-sound-tap]').count() === 0, `${device}: …a tap unmutes it and the pill goes away`);
+  await ref.ctx.close();
+}
+{
+  const r = await run('iphone', { frame: 'refuse', settleMs: 6500 });
+  check(!r.cmds.some((c) => c.startsWith('unMute')), 'iphone: with a refusing frame the page still sends no unmute of its own', JSON.stringify(r.cmds));
+  check(await r.page.locator('[data-sound-tap]').count() === 1, 'iphone: its own "Tap for sound" is still the one showing');
+  await r.ctx.close();
+}
+
+// ── mute=1 is for the iPhone only ───────────────────────────────────────────
+for (const device of ['desktop', 'android']) {
+  const r = await run(device);
+  check(!/[?&]mute=1/.test(r.frameSrc || ''), `${device}: the embed loads WITH sound — no mute=1 in its URL`, (r.frameSrc || '').slice(0, 110));
+  check(/autoplay=1/.test(r.frameSrc || '') && /enablejsapi=1/.test(r.frameSrc || ''), `${device}: …and is otherwise as before (autoplay, JS API)`);
+  await r.ctx.close();
+}
+{
+  const r = await run('iphone');
+  check(/[?&]mute=1/.test(r.frameSrc || ''), 'iphone: the embed still starts muted (iOS refuses sound-on autoplay in a frame)', (r.frameSrc || '').slice(0, 110));
+  await r.ctx.close();
+}
+
+// ── a browser that blocks sound-on autoplay ─────────────────────────────────
+for (const device of ['android', 'desktop']) {
+  const early = await run(device, { frame: 'blocked', settleMs: 2000 });
+  check(!early.cmds.some((c) => c.startsWith('mute')), `${device}: it does not jump in early — a slow start is given its few seconds`, JSON.stringify(early.cmds));
+  await early.ctx.close();
+  const r = await run(device, { frame: 'blocked', settleMs: 10000 });
+  const i = (name) => r.cmds.findIndex((c) => c.startsWith(name));
+  check(i('mute') >= 0 && i('playVideo') >= 0, `${device}: a clip the browser would not start is muted and played`, JSON.stringify(r.cmds.slice(0, 6)));
+  check(i('unMute') > i('mute'), `${device}: …and then unmuted again once it is playing`, JSON.stringify(r.cmds.slice(0, 10)));
+  check(await r.page.locator('[data-sound-tap]').count() === 0, `${device}: …with no "Tap for sound" needed`);
+  await r.ctx.close();
+}
+{
+  const r = await run('iphone', { frame: 'blocked', settleMs: 6000 });
+  check(!r.cmds.some((c) => c.startsWith('mute')), 'iphone: the fallback never runs there (its URL already starts muted)', JSON.stringify(r.cmds));
   await r.ctx.close();
 }
 
