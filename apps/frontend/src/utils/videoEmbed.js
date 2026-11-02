@@ -50,6 +50,12 @@ export function getVideoEmbed(url) {
         const id = u.pathname.split('/')[2];
         return id ? `https://www.youtube.com/embed/${id}` : null;
       }
+      // A LIVE STREAM URL — /live/<id> — which is what YouTube's share sheet
+      // gives you for a live broadcast.
+      if (u.pathname.startsWith('/live/')) {
+        const id = u.pathname.split('/')[2];
+        return id && /^[\w-]{6,20}$/.test(id) ? `https://www.youtube.com/embed/${id}` : null;
+      }
       if (u.pathname.startsWith('/embed/')) return url;
     }
     if (host === 'vimeo.com') {

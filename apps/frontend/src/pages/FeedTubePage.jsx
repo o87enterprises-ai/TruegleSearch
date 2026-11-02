@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import SearchPageShell from '../components/layout/SearchPageShell';
 import SearchBar from '../components/ui/SearchBar';
@@ -8,6 +8,7 @@ import { usePlayerSearch } from '../hooks/usePlayerSearch';
 import { usePlayer } from '../context/PlayerContext';
 import { SEARCH_SCOPES } from '../utils/playerQuery';
 import { mediaKey } from '../utils/videoEmbed';
+import { resolveShareInput } from '../utils/playerLink';
 import { MODE_COLORS } from '../config/modeTheme';
 
 // /feed/tube — Tube's content on the new feed layout.
@@ -57,6 +58,25 @@ export default function FeedTubePage() {
   const { current, playNow } = usePlayer();
   const search = usePlayerSearch(query, scope);
 
+  // Handle ?u= parameter for direct link playback (e.g. sharing a live stream)
+  useEffect(() => {
+    const uParam = params.get('u');
+    if (uParam) {
+      const pasted = resolveShareInput(uParam);
+      if (pasted.length > 0) {
+        playNow(pasted[0]);
+        setTyping(false);
+        
+        // Clean up the URL parameter so it doesn't re-trigger on reload
+        setParams((prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('u');
+          return next;
+        }, { replace: true });
+      }
+    }
+  }, [params, playNow, setParams]);
+
   // The player keeps the room unless somebody is actively searching. `current`
   // is not part of this on purpose: collapsing while a track plays is the
   // whole point, and the transport strip keeps it reachable.
@@ -65,12 +85,31 @@ export default function FeedTubePage() {
   const activeKey = useMemo(() => (current ? mediaKey(current) : null), [current]);
 
   const onChange = useCallback((v) => {
+    // Intercept pasted URLs immediately before the 300ms search debounce fires
+    const pasted = resolveShareInput(v);
+    if (pasted.length > 0) {
+      playNow(pasted[0]);
+      setTyping(false);
+      setQuery(''); // Clear the box so the player expands
+      return;
+    }
     setQuery(v);
     setTyping(true);
-  }, []);
+  }, [playNow]);
 
   const submit = useCallback(() => {
     const q = query.trim();
+
+    // If the user pasted a playable URL, launch it in the player immediately
+    // instead of showing it as a search result card.
+    const pasted = resolveShareInput(q);
+    if (pasted.length > 0) {
+      playNow(pasted[0]);
+      setTyping(false);
+      setQuery(''); // Clear the search bar so the player expands
+      return;
+    }
+
     // The pill cycles rather than navigating (the model every page uses); where
     // a submit LANDS is decided here, at submit time.
     if (pillMode === 'tube') {
@@ -86,7 +125,7 @@ export default function FeedTubePage() {
     if (pillMode === 'black') { navigate(q ? `/chat?q=${encodeURIComponent(q)}` : '/chat'); return; }
     if (pillMode === 'yellow') { navigate('/feed'); return; }
     navigate(`/search?mode=${pillMode}${q ? `&q=${encodeURIComponent(q)}` : ''}`);
-  }, [pillMode, query, scope, params, setParams, navigate]);
+  }, [pillMode, query, scope, params, setParams, navigate, playNow]);
 
   const onSelect = useCallback((row) => {
     playNow(row);
