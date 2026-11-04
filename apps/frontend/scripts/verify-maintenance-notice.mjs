@@ -1,8 +1,10 @@
 /* The landing-page notice says Truegle is LIVE, not down.
  *
  * Owner, 2026-10-28: visitors read "Site under maintenance" as "the site is
- * down" and left. The title now says it is live during updates, the button says
- * "Continue to Truegle", the known issues are listed, and it must fit a phone.
+ * down" and left. Owner, 2026-11-04, the wording: title "Truegle is live Under
+ * Maintenance", one message ("Some features may not work. Please report bugs.
+ * Thank you for your patience."), button "Continue to Truegle Surf" — and
+ * nothing else visible. It must fit a phone.
  *
  * Run it:  npm run maintenance:test
  */
@@ -27,12 +29,16 @@ for (const [name, opts] of [['phone', { viewport: { width: 360, height: 640 }, i
   await openApp(page, `${BASE}/`);
   const dialog = page.locator('[data-maintenance-notice] [role="dialog"]');
   await until(() => dialog.count(), { what: 'the notice' });
-  check((await dialog.locator('h2').innerText()).trim() === 'Truegle is live during updates', `${name}: the title says Truegle is live during updates`);
+  check((await dialog.locator('h2').innerText()).trim() === 'Truegle is live Under Maintenance', `${name}: the title says "Truegle is live Under Maintenance"`);
   const button = dialog.locator('button');
-  check((await button.innerText()).trim() === 'Continue to Truegle', `${name}: the button says "Continue to Truegle"`);
-  check(await dialog.locator('[data-maintenance-issues] li').count() === 2, `${name}: both known issues are listed`);
-  const text = await dialog.innerText();
-  check(/some features may be slow, missing or not\s+working/.test(text) && /search itself should still work/.test(text), `${name}: the original message is still there`);
+  check((await button.innerText()).trim() === 'Continue to Truegle Surf', `${name}: the button says "Continue to Truegle Surf"`);
+  const message = (await dialog.locator('p:not([data-for="bots"])').allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim());
+  check(message.length === 1 && message[0] === 'Some features may not work. Please report bugs. Thank you for your patience.', `${name}: the one message is exactly the owner's wording`, message.join(' | '));
+  check(await dialog.locator('[data-maintenance-issues], ul, li').count() === 0, `${name}: no list of known issues any more`);
+  const botNote = dialog.locator('[data-for="bots"]');
+  check(await botNote.count() === 1 && await botNote.getAttribute('aria-hidden') === 'true', `${name}: the note for bots stays in the page, hidden from people and screen readers`);
+  const botBox = await botNote.boundingBox();
+  check(botBox && botBox.width <= 2 && botBox.height <= 2, `${name}: …and is not visible`, botBox ? `${botBox.width}x${botBox.height}` : 'none');
   const box = await dialog.boundingBox();
   const vh = opts.viewport.height;
   check(box && box.y >= 0 && box.y + box.height <= vh + 1, `${name}: the whole card fits on screen`, `${Math.round(box?.y)}+${Math.round(box?.height)} of ${vh}`);

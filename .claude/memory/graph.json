@@ -1984,6 +1984,14 @@
         "body": "Owner 2026-10-29: 'it didn't used to do that' — Android/PC clips used to autoplay with sound. Cause: PR #54 (2026-10-20, an iPhone fix) added mute=1 to EVERY YouTube embed and relied on the page unmuting after start. Now PlayerScreen adds mute=1 only when IS_IOS; elsewhere the embed loads with sound as before. Safety net (TrueglePlayer, non-iOS): frame alive but clip not started after 4s -> mute + play (muted autoplay is always allowed), then the normal unmute; if the unmute is refused the muted read-back path offers [data-sound-tap]. Device/system volume CANNOT be read or followed from a web page (no API, no event for hardware volume buttons): loudness = phone volume x player volume, so keep the player at full and let the phone's buttons do the work. Pinned by soundstart:test (54 checks).",
         "ts": "2026-10-29",
         "created": "2026-10-29"
+      },
+      "d-maint-notice-wording-2": {
+        "Id": "d-maint-notice-wording-2",
+        "Type": "decision",
+        "Label": "Landing notice wording (2026-11-04): 'Truegle is live Under Maintenance' / one message / 'Continue to Truegle Surf'",
+        "body": "Owner 2026-11-04: just the title 'Truegle is live Under Maintenance', the message 'Some features may not work. Please report bugs. Thank you for your patience.', and the button 'Continue to Truegle Surf'. Known-issues list and the longer paragraph removed; the note for bots stays in the DOM as sr-only + aria-hidden. Supersedes d-maint-notice-live wording. components/landing/MaintenanceNotice.jsx; verify-maintenance-notice.mjs pins it.",
+        "ts": "2026-11-04",
+        "created": "2026-11-04"
       }
     },
     "thread": {
@@ -4018,5 +4026,5 @@
       }
     }
   },
-  "updated": "2026-10-29"
+  "updated": "2026-11-04"
 }
