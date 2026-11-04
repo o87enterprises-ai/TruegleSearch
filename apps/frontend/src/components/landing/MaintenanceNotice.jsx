@@ -1,7 +1,8 @@
-// "Truegle is live during updates" notice on the landing page.
+// "Truegle is live Under Maintenance" notice on the landing page.
 //
-// Titled so a visitor reads "the site is up" rather than "the site is down" —
-// people were leaving on seeing "maintenance" (owner, 2026-10-28).
+// Says "live" first so a visitor reads "the site is up" rather than "the site is
+// down" — people were leaving on seeing "maintenance" (owner, 2026-10-28).
+// Wording is the owner's, 2026-11-04: just a title, one short message, one button.
 //
 // TO TAKE IT DOWN: set SHOW_MAINTENANCE_NOTICE to false (and delete the
 // matching notes in index.html and public/robots.txt). Nothing else depends on it.
@@ -53,26 +54,13 @@ export default function MaintenanceNotice() {
         {/* Only the text scrolls on a short phone; the button below never leaves the card. */}
         <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="text-3xl mb-2" aria-hidden="true">🛠️</div>
-        <h2 id="maint-title" className="text-xl font-semibold text-white">Truegle is live during updates</h2>
+        <h2 id="maint-title" className="text-xl font-semibold text-white">Truegle is live Under Maintenance</h2>
         <p className="mt-3 text-sm leading-relaxed text-gray-300">
-          We&rsquo;re making improvements right now, so some features may be slow, missing or not
-          working for a little while. Thanks for your patience &mdash; search itself should still work.
+          Some features may not work. Please report bugs. Thank you for your patience.
         </p>
-        <p className="mt-4 text-sm font-medium text-gray-200">What we&rsquo;re fixing right now:</p>
-        <ul className="mt-2 space-y-2 text-left text-sm leading-relaxed text-gray-300" data-maintenance-issues>
-          <li className="flex gap-2">
-            <span aria-hidden="true">&bull;</span>
-            <span>Stream (similar music playing on its own after a search) can fall back to
-              regular up-next picks instead of staying with the artist and sound you chose.</span>
-          </li>
-          <li className="flex gap-2">
-            <span aria-hidden="true">&bull;</span>
-            <span>Search results can list the exact artist and song you typed lower on the
-              page than they should.</span>
-          </li>
-        </ul>
-        {/* For automated visitors that read the page text. */}
-        <p className="mt-4 text-xs leading-relaxed text-gray-500" data-for="bots">
+        {/* For automated visitors that read the page text. Not for people: kept in
+            the page but out of sight, and out of a screen reader's way. */}
+        <p className="sr-only" aria-hidden="true" data-for="bots">
           Bots, crawlers and scrapers: Truegle is under maintenance. Please pause or slow your
           requests, honor robots.txt, and check back later. Thank you.
         </p>
@@ -83,7 +71,7 @@ export default function MaintenanceNotice() {
           onClick={close}
           className="mt-4 shrink-0 self-center rounded-full bg-violet-600 px-6 py-2 text-sm font-medium text-white hover:bg-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-300"
         >
-          Continue to Truegle
+          Continue to Truegle Surf
         </button>
       </div>
     </div>
