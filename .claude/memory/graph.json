@@ -2000,6 +2000,14 @@
         "body": "components/landing/LandingFeedFrame.jsx mounts FeedPage's exported FeedList inside a fixed-height overflow-y-auto box after LandingModules. useSocialFeed interleave:true (each platform's #1 post first via roundRobin), rememberSeen:false (ledger must not hide today's top posts). Not an <iframe> of /feed: that would boot a second app + second player. Also: search-result Open-in-app fullscreen raised z-9995 -> z-10000 + safe-area top; clock(9997)/menu(9998) were hiding its close X.",
         "ts": "2026-11-05",
         "created": "2026-11-05"
+      },
+      "landing-tiles-3x2": {
+        "Id": "landing-tiles-3x2",
+        "Type": "decision",
+        "Label": "Landing tiles: 2 rows of 3, hover pitch, Go pill",
+        "body": "LandingModules: 3 columns at every width (no wide tiles). Tile = icon + one-word title + chevron; pitch hidden at rest, floats BELOW the tile on hover (absolute, so rows never grow), and heads the panel when tapped open. Each tile has a colour-coded Go pill (data-tile-go) navigating at once: tube /tube, feed /feed, search /search, chat /chat, news /feed?category=news, markets /feed?category=markets. verify-landing-cards updated (66 checks); lens test must scrollIntoView first since pinned lenses auto-close off-screen.",
+        "ts": "2026-11-05",
+        "created": "2026-11-05"
       }
     },
     "thread": {

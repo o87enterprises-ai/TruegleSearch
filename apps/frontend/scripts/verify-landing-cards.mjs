@@ -87,7 +87,7 @@ async function open(viewport, mobile) {
   return { ctx, page, errs, asked };
 }
 // Position of every tile, in document coordinates.
-const tiles = (page) => page.evaluate(`[...document.querySelectorAll('[data-tile]')].map((e) => { const r = e.getBoundingClientRect(); return { id: e.dataset.tile, name: e.querySelector('span span:nth-child(2)').innerText, open: e.dataset.open, x: Math.round(r.x), y: Math.round(r.y + scrollY), w: Math.round(r.width), h: Math.round(r.height) }; })`);
+const tiles = (page) => page.evaluate(`[...document.querySelectorAll('[data-tile]')].map((e) => { const r = e.getBoundingClientRect(); return { id: e.dataset.tile, name: e.querySelector('[data-tile-title]').innerText, open: e.dataset.open, x: Math.round(r.x), y: Math.round(r.y + scrollY), w: Math.round(r.width), h: Math.round(r.height) }; })`);
 const openOf = (page, id) => page.locator(tile(id)).getAttribute('data-open');
 const press = (page, id) => page.locator(tile(id)).dispatchEvent('click'); // the early-access banner floats over the page's foot; press the tile itself
 const shape = (t) => JSON.stringify(t.map((x) => [x.x, x.y, x.w, x.h]));
@@ -104,34 +104,40 @@ await guarded('desktop run', async () => {
   // the first tile directly under it, then four across, then News + Markets.
   const ys = [...new Set(t.map((x) => x.y))];
   const row2 = t.filter((x) => x.y === ys[1]);
-  check(ys.length === 3 && t.filter((x) => x.y === ys[0]).length === 1 && row2.length === 4 && new Set(row2.map((x) => x.x)).size === 4, 'desktop: Why Truegle alone on row one, then a grid of four columns', `${ys.length} rows, ${row2.length} in the second`);
+  // Two rows of three under it (owner, 2026-11-05), at every width.
+  check(ys.length === 3 && t.filter((x) => x.y === ys[0]).length === 1 && row2.length === 3 && t.filter((x) => x.y === ys[2]).length === 3 && new Set(row2.map((x) => x.x)).size === 3, 'desktop: Why Truegle alone on row one, then two rows of three', `${ys.length} rows, ${row2.length} in the second`);
   check(t.filter((x) => x.y === ys[1]).every((x) => x.h === row2[0].h) && t.filter((x) => x.y === ys[2]).every((x) => x.h === t.find((y) => y.y === ys[2]).h), 'tiles in a row are the same height');
-  check(t.find((x) => x.id === 'why').w > t.find((x) => x.id === 'search').w * 3.5, 'Why Truegle is a full-width card');
+  check(t.find((x) => x.id === 'why').w > t.find((x) => x.id === 'search').w * 2.5, 'Why Truegle is a full-width card');
   check(t.find((x) => x.id === 'tube').y === ys[1] && Math.abs(t.find((x) => x.id === 'tube').x - t.find((x) => x.id === 'why').x) <= 2, 'Tube is the first tile directly under Why Truegle');
-  check(t.find((x) => x.id === 'markets').w > t.find((x) => x.id === 'feed').w * 1.9 && t.find((x) => x.id === 'news').w > t.find((x) => x.id === 'feed').w * 1.9, 'News and Markets are two columns each, so the grid has no orphan');
+  check(['news', 'markets'].every((id) => Math.abs(t.find((x) => x.id === id).w - t.find((x) => x.id === 'feed').w) <= 2), 'every tile is one column: no wide tiles, no orphan');
   check(t.every((x) => x.open === 'closed'), 'none is open at load');
 
   for (const [id, hex] of Object.entries(ACCENT)) {
     // An expression string: this file is linted as node, but it runs in the page.
-    const got = await page.evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(`${tile(id)} span span:nth-child(2)`)})).color`);
+    const got = await page.evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(`${tile(id)} [data-tile-title]`)})).color`);
     check(got === rgbOf(hex), `${id}: title is its pill colour ${hex}`, got);
   }
   check(new Set([ACCENT.feed, ACCENT.news, ACCENT.markets]).size === 3, 'News and Markets are their own shades of the Feed yellow');
   // Minimal copy (owner, 2026-10-22): Why Truegle is a bare title; every
   // other tile keeps one short line (the owner's Tube copy is 11 words).
   check(await page.locator(`${tile('why')} [data-tile-pitch]`).count() === 0, 'why: a bare title, no line under it');
+  // The pitch is hidden at rest and drops down on hover (or tap).
+  check(await page.locator('[data-tile-pitch]').count() === 0, 'pitches are hidden at rest: one-word titles only');
   for (const id of IDS.filter((x) => x !== 'why')) {
+    await page.locator(tile(id)).hover();
+    await until(() => page.locator(`${tile(id)} [data-tile-pitch]`).count(), { what: `${id} pitch on hover` });
     const pitch = (await page.locator(`${tile(id)} [data-tile-pitch]`).innerText()).trim();
     const words = pitch.split(/\s+/).filter(Boolean).length;
-    check(words > 0 && words <= 12, `${id}: pitch is twelve words or fewer`, `${words} — "${pitch}"`);
+    check(words > 0 && words <= 12, `${id}: pitch drops down on hover, twelve words or fewer`, `${words} — "${pitch}"`);
   }
+  await page.mouse.move(0, 0);
 
   // scroll the whole page by hand: on a desktop nothing opens by itself
   for (let i = 0; i < 14; i++) { await page.mouse.wheel(0, 250); await page.waitForTimeout(100); }
   await page.locator(tile('why')).scrollIntoViewIfNeeded();
   await page.waitForTimeout(1200);
   check((await tiles(page)).every((x) => x.open === 'closed'), 'desktop: scrolling opens nothing, Why Truegle included');
-  check(!asked.some((p) => p.startsWith('/api/news') || p === '/api/social/feed'), 'nothing is fetched while every tile is closed', asked.join(' ') || 'no requests');
+  check(!asked.some((p) => p.startsWith('/api/news')), 'no tile fetches while closed (the Top posts frame below owns /api/social/feed)', asked.join(' ') || 'no requests');
 
   // Why Truegle's body opens INSIDE its own card, and Search stays directly under it
   await press(page, 'why');
@@ -156,7 +162,7 @@ await guarded('desktop run', async () => {
   const rowBottom = Math.max(...after.filter((x) => x.y === newsTile.y).map((x) => x.y + x.h));
   check(panelBox && Math.round(panelBox.y + await page.evaluate('scrollY')) >= rowBottom - 1, 'the panel opens directly under the tile\'s row', `panel top ${Math.round(panelBox?.y)}`);
   check(shape(after.filter((x) => x.y <= newsTile.y)) === shape(t.filter((x) => x.y <= newsTile.y)), 'no tile above or beside it moves');
-  check(await openOf(page, 'news') === 'open' && await page.locator(tile('news')).getAttribute('aria-expanded') === 'true', 'the tile reports itself open');
+  check(await openOf(page, 'news') === 'open' && await page.locator(`${tile('news')} [aria-expanded]`).getAttribute('aria-expanded') === 'true', 'the tile reports itself open');
   check(asked.includes('/api/news/videos'), 'opening News fetches its videos', asked.join(' '));
 
   await page.locator('[data-news-tab="world"]').click();
@@ -182,6 +188,10 @@ await guarded('desktop run', async () => {
   await press(page, 'search');
   await until(() => page.locator('[data-mode-card]').count().then((n) => n === 5), { what: 'the five lenses' });
   const lens = (id) => page.locator(`[data-mode-card="${id}"]`);
+  // In view first, as a person would see it: a pinned lens closes itself once
+  // scrolled out of view (CollapsibleCard's IntersectionObserver), so pinning
+  // one that sits below the fold closes it again at once.
+  await lens('blue').scrollIntoViewIfNeeded();
   await lens('blue').locator('[data-card-toggle]').dispatchEvent('click'); // dispatched, like press(): opening a lens reflows the grid under a moving pointer
   await until(() => lens('blue').getAttribute('data-open').then((s) => s === 'pinned'), { what: 'the Blue lens to open' });
   check(await openOf(page, 'search') === 'open' && await page.locator(panel('search')).count() === 1, 'opening a lens inside Search leaves Search open');
@@ -205,7 +215,7 @@ await guarded('phone run', async () => {
   await page.waitForTimeout(1200);
   const t = await tiles(page);
   const ys = [...new Set(t.map((x) => x.y))];
-  check(ys.length === 4 && t.filter((x) => x.y === ys[0]).length === 1 && t.filter((x) => x.y === ys[1]).length === 2, 'phone: Why Truegle full width, then a grid of two columns', `${ys.length} rows`);
+  check(ys.length === 3 && t.filter((x) => x.y === ys[0]).length === 1 && t.filter((x) => x.y === ys[1]).length === 3 && t.filter((x) => x.y === ys[2]).length === 3, 'phone: Why Truegle full width, then two rows of three', `${ys.length} rows`);
   check(t.find((x) => x.id === 'tube').y === ys[1], 'phone: Tube is directly under Why Truegle');
   check(t.every((x) => x.open === 'closed'), 'phone: every tile is retracted at load, Why Truegle included');
 
@@ -260,6 +270,24 @@ await guarded('phone: visitor-first run', async () => {
   await page.waitForTimeout(800);
   check(await openOf(page, 'why') === 'closed' && await openOf(page, 'tube') === 'open',
     'phone: Why Truegle does not descend over a tile the visitor opened');
+  await ctx.close();
+});
+
+// ── the coloured Go pill navigates straight to the page ─────────────────────
+await guarded('go pills', async () => {
+  const { ctx, page } = await open({ width: 390, height: 844 }, true);
+  const ROUTES = { tube: '/tube', feed: '/feed', search: '/search', chat: '/chat', news: '/feed?category=news', markets: '/feed?category=markets' };
+  for (const [id, want] of Object.entries(ROUTES)) {
+    const bg = await page.locator(`[data-tile-go="${id}"]`).evaluate((e) => getComputedStyle(e).backgroundImage);
+    check(bg.includes(rgbOf(ACCENT[id])), `${id}: Go pill wears its pill colour`, bg.slice(0, 60));
+  }
+  for (const [id, want] of Object.entries(ROUTES)) {
+    await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+    await page.locator(`[data-tile-go="${id}"]`).dispatchEvent('click');
+    await until(() => Promise.resolve(new URL(page.url()).pathname !== '/'), { what: `${id} to navigate` }).catch(() => {});
+    const u = new URL(page.url());
+    check(u.pathname + u.search === want, `${id}: Go opens ${want} at once, without opening the tile`, u.pathname + u.search);
+  }
   await ctx.close();
 });
 
