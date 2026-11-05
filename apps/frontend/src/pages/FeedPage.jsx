@@ -425,7 +425,7 @@ function ArrivalState({ onConnect, busy }) {
 
 // ── connected ───────────────────────────────────────────────────────────────
 
-function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
+export function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
   const { items, loading, error, done, sentinel, allSeen } = feed;
   // Which card is nearest the vertical center of the viewport, purely for the
   // enlarge/play-button treatment — nothing here ever autoplays. See

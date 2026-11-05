@@ -1992,6 +1992,14 @@
         "body": "Owner 2026-11-04: just the title 'Truegle is live Under Maintenance', the message 'Some features may not work. Please report bugs. Thank you for your patience.', and the button 'Continue to Truegle Surf'. Known-issues list and the longer paragraph removed; the note for bots stays in the DOM as sr-only + aria-hidden. Supersedes d-maint-notice-live wording. components/landing/MaintenanceNotice.jsx; verify-maintenance-notice.mjs pins it.",
         "ts": "2026-11-04",
         "created": "2026-11-04"
+      },
+      "landing-feed-frame": {
+        "Id": "landing-feed-frame",
+        "Type": "decision",
+        "Label": "Landing: Feed in a scrolling frame under tiles",
+        "body": "components/landing/LandingFeedFrame.jsx mounts FeedPage's exported FeedList inside a fixed-height overflow-y-auto box after LandingModules. useSocialFeed interleave:true (each platform's #1 post first via roundRobin), rememberSeen:false (ledger must not hide today's top posts). Not an <iframe> of /feed: that would boot a second app + second player. Also: search-result Open-in-app fullscreen raised z-9995 -> z-10000 + safe-area top; clock(9997)/menu(9998) were hiding its close X.",
+        "ts": "2026-11-05",
+        "created": "2026-11-05"
       }
     },
     "thread": {
@@ -4026,5 +4034,5 @@
       }
     }
   },
-  "updated": "2026-11-04"
+  "updated": "2026-11-05"
 }

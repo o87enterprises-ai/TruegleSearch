@@ -1820,9 +1820,11 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
               the SAME block, portalled to a fixed overlay over everything
               else — one iframe, one `key`, so going full screen never
               reloads the page underneath it. */}
+          {/* Full screen sits at z-[10000] with a safe-area top: at 9995 the page
+              clock (9997) and menu button (9998) covered its ✕ (owner, 2026-11-05). */}
           {showViewer && (viewerFullscreen ? createPortal(
-            <div className="fixed inset-0 z-[9995] bg-black flex flex-col" data-viewer-fullscreen-open="">
-              <div className="flex items-center justify-between px-3 py-2 bg-black/80 border-b border-white/10">
+            <div className="fixed inset-0 z-[10000] bg-black flex flex-col" data-viewer-fullscreen-open="" role="dialog" aria-modal="true" aria-label="Result preview">
+              <div className="flex items-center justify-between px-3 py-2 bg-black/80 border-b border-white/10" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
                 <span className="text-xs text-white/50 truncate flex-1 mr-2">{result.url}</span>
                 <div className="flex items-center gap-3 flex-shrink-0">
                   <a href={result.url} target="_blank" rel="noopener noreferrer"
@@ -1839,7 +1841,9 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
                   >
                     <Minimize2 size={14} />
                   </button>
-                  <button onClick={() => { setViewerOpen(false); setViewerFullscreen(false); }} className="text-sm text-white/40 hover:text-white">✕</button>
+                  <button type="button" data-viewer-close="" aria-label="Close preview" title="Close" onClick={() => { setViewerOpen(false); setViewerFullscreen(false); }} className="p-1.5 -m-1 text-white/70 hover:text-white">
+                    <X size={18} />
+                  </button>
                 </div>
               </div>
               <iframe

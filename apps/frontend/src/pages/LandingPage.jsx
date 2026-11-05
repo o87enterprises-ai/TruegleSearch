@@ -34,6 +34,7 @@ import AnonymousSearchLink from '../components/ui/AnonymousSearchLink';
 import SearchBar from '../components/ui/SearchBar';
 import TrailGameLink from '../components/ui/TrailGameLink';
 import LandingModules from '../components/landing/LandingModules';
+import LandingFeedFrame from '../components/landing/LandingFeedFrame';
 import LandingTagline from '../components/landing/LandingTagline';
 import PickerModeRow from '../components/landing/PickerModeRow';
 import { SEARCH_SCOPES } from '../utils/playerQuery';
@@ -621,6 +622,9 @@ export default function LandingPage() {
               toggleSafeMode={toggleSafeMode}
               onOpenTube={() => { setPillMode('tube'); navigate('/tube'); }}
             />
+            {/* The Feed page in a frame: each platform's top post first, then
+                endless scrolling INSIDE the frame. See LandingFeedFrame. */}
+            <LandingFeedFrame />
           </div>
         </div>
 
