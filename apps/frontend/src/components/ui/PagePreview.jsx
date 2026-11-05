@@ -54,7 +54,7 @@ export default function PagePreview({ url, title, linkClass = 'text-cyan-400', f
   const btn = 'p-1 text-white/60 hover:text-white transition-colors';
 
   const bar = (
-    <div className={`flex items-center justify-between gap-2 px-3 ${full ? 'py-2 bg-black/80' : 'py-1.5 bg-black/40'} border-b border-white/10`}>
+    <div className={`flex items-center justify-between gap-2 px-3 ${full ? 'py-2 bg-black/80' : 'py-1.5 bg-black/40'} border-b border-white/10`} style={full ? { paddingTop: 'max(0.5rem, env(safe-area-inset-top))' } : undefined}>
       <span className="text-xs text-white/50 truncate flex-1">{url}</span>
       <div className="flex items-center gap-1 flex-shrink-0">
         <a href={url} target="_blank" rel="noopener noreferrer" className={`text-xs ${linkClass} flex items-center gap-1 px-1`}>
