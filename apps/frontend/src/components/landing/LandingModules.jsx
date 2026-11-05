@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ChevronDown, Clapperboard, Compass, LineChart, MessageCircle, Newspaper, PlayCircle, ShieldCheck } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowRight, ChevronDown, Clapperboard, Compass, LineChart, MessageCircle, Newspaper, PlayCircle, ShieldCheck } from 'lucide-react';
 import { CARD_ACCENT, inkOn, shade } from './cardTheme';
 import useAutoOpenOnScroll from './useAutoOpenOnScroll';
 import WhyBody from './WhyBody';
@@ -41,34 +42,22 @@ const MODULES = [
   // dropdown and the Why Truegle tile were two components, and Search sat
   // between them). Search is the next tile, directly below.
   { id: 'why', title: 'Why Truegle?', icon: ShieldCheck, pitch: '', card: true },
-  { id: 'tube', title: 'Tube', icon: PlayCircle, pitch: 'One customizable player for all media.\nFree streaming, no ads, ever.' },
-  { id: 'feed', title: 'Feed', icon: Clapperboard, pitch: 'One feed for all social media.' },
-  { id: 'search', title: 'Search', icon: Compass, pitch: 'Multiple modes for discovering what other search methods suppress.' },
-  { id: 'chat', title: 'Chat', icon: MessageCircle, pitch: 'Unbiased, unopinionated, and indifferent deep research agent.' },
-  { id: 'news', title: 'News', icon: Newspaper, pitch: 'Today’s headlines, as video. Tap and watch.', wide: true },
-  // `wide`: two columns on desktop only. Below Why Truegle's full-width card
-  // sit six tiles: three rows of two on a phone, and on desktop four across
-  // then News and Markets two wide each — no orphan in either grid.
-  { id: 'markets', title: 'Markets', icon: LineChart, pitch: 'Prices, charts, and the takes moving them.', wide: true },
+  { id: 'tube', title: 'Tube', icon: PlayCircle, to: '/tube', pitch: 'One customizable player for all media.\nFree streaming, no ads, ever.' },
+  { id: 'feed', title: 'Feed', icon: Clapperboard, to: '/feed', pitch: 'One feed for all social media.' },
+  { id: 'search', title: 'Search', icon: Compass, to: '/search', pitch: 'Multiple modes for discovering what other search methods suppress.' },
+  { id: 'chat', title: 'Chat', icon: MessageCircle, to: '/chat', pitch: 'Unbiased, unopinionated, and indifferent deep research agent.' },
+  { id: 'news', title: 'News', icon: Newspaper, to: '/feed?category=news', pitch: 'Today’s headlines, as video. Tap and watch.' },
+  // TWO ROWS OF THREE at every width (owner, 2026-11-05): one-word titles,
+  // the pitch drops down on hover or tap, and the coloured Go pill navigates
+  // straight to the page.
+  { id: 'markets', title: 'Markets', icon: LineChart, to: '/feed?category=markets', pitch: 'Prices, charts, and the takes moving them.' },
 ];
 
-/** Two columns on a phone, four from 768px up. */
-function useColumns() {
-  const query = '(min-width: 768px)';
-  const [wide, setWide] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches);
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return undefined;
-    const mq = window.matchMedia(query);
-    const on = () => setWide(mq.matches);
-    mq.addEventListener?.('change', on);
-    on();
-    return () => mq.removeEventListener?.('change', on);
-  }, []);
-  return wide ? 4 : 2;
-}
+/** Three across at every width: six tiles = two rows of three. */
+const useColumns = () => 3;
 
 /** Columns a tile takes: a card is the full width, `wide` is two on desktop. */
-const spanOf = (m, cols) => (m.card ? cols : m.wide && cols === 4 ? 2 : 1);
+const spanOf = (m, cols) => (m.card ? cols : 1);
 
 /** Tile indices by row, given each tile's column span. */
 function packRows(mods, cols) {
@@ -86,6 +75,73 @@ function packRows(mods, cols) {
 }
 
 function Tile({ mod, open, onToggle, tileRef, cols, bare = false }) {
+  if (bare) return <CardHeader mod={mod} open={open} onToggle={onToggle} tileRef={tileRef} />;
+  const color = CARD_ACCENT[mod.id];
+  const Icon = mod.icon;
+  const reduce = useReducedMotion();
+  const navigate = useNavigate();
+  const [hover, setHover] = useState(false);
+  // Hover floats the pitch BELOW the tile (absolute, so the row never grows
+  // and no tile moves); tapped open, the pitch heads the panel instead.
+  const showPitch = hover && !open;
+  return (
+    <div
+      data-tile={mod.id}
+      data-open={open ? 'open' : 'closed'}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onClick={onToggle}
+      className="relative flex flex-col cursor-pointer rounded-2xl border p-2 sm:p-3 backdrop-blur-sm transition-colors duration-200 hover:bg-white/[0.07]"
+      style={{ gridColumn: `span ${spanOf(mod, cols)}`, borderColor: `${color}${open ? 'bb' : '55'}`, background: open ? `${color}18` : 'rgba(255,255,255,0.03)' }}
+    >
+      <button
+        ref={tileRef}
+        type="button"
+        aria-expanded={open}
+        aria-controls={`landing-panel-${mod.id}`}
+        className="flex flex-col items-center gap-1 text-center w-full"
+      >
+        <span
+          className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center shadow-lg"
+          style={{ background: `linear-gradient(135deg, ${color}, ${shade(color)})`, color: inkOn(color) }}
+        >
+          <Icon size={16} />
+        </span>
+        <span data-tile-title="" className="text-sm sm:text-base font-bold leading-tight" style={{ color }}>{mod.title}</span>
+        <ChevronDown size={12} aria-hidden="true" className={`text-white/40 transition-transform duration-300 ${open || showPitch ? 'rotate-180' : ''}`} />
+      </button>
+      <AnimatePresence initial={false}>
+        {showPitch && mod.pitch && (
+          <motion.span
+            data-tile-pitch=""
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={reduce ? { duration: 0 } : { duration: 0.18 }}
+            className="pointer-events-none absolute left-0 right-0 top-full mt-1 z-30 rounded-xl border px-2 py-1.5 text-center text-[11px] sm:text-[12px] leading-snug text-white/85 whitespace-pre-line bg-[#13131f]/95 backdrop-blur-md shadow-xl"
+            style={{ borderColor: `${color}66` }}
+          >
+            {mod.pitch}
+          </motion.span>
+        )}
+      </AnimatePresence>
+      {mod.to && (
+        <button
+          type="button"
+          data-tile-go={mod.id}
+          onClick={(e) => { e.stopPropagation(); navigate(mod.to); }}
+          aria-label={`Go to ${mod.title}`}
+          className="mt-2 mx-auto inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold shadow-md transition-transform active:scale-95 hover:brightness-110"
+          style={{ background: `linear-gradient(135deg, ${color}, ${shade(color)})`, color: inkOn(color) }}
+        >
+          Go <ArrowRight size={11} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CardHeader({ mod, open, onToggle, tileRef, cols, bare = true }) {
   const color = CARD_ACCENT[mod.id];
   const Icon = mod.icon;
   return (
@@ -118,7 +174,7 @@ function Tile({ mod, open, onToggle, tileRef, cols, bare = false }) {
         {/* Wraps rather than truncates: at 320, 360 and 768px the tiles are too
             narrow for "Why Truegle?" on one line, and a clipped title is worse
             than a two-line one (the row stretches to match). */}
-        <span className="min-w-0 text-sm sm:text-base font-bold leading-tight" style={{ color }}>{mod.title}</span>
+        <span data-tile-title="" className="min-w-0 text-sm sm:text-base font-bold leading-tight" style={{ color }}>{mod.title}</span>
       </span>
       {mod.pitch && <span data-tile-pitch="" className="block mt-2 pr-4 text-[12px] leading-snug text-white/70 whitespace-pre-line">{mod.pitch}</span>}
       {/* In the corner rather than in the title row: a title row with an icon
@@ -178,6 +234,7 @@ function Panel({ mod, children }) {
       className="col-span-full overflow-hidden"
     >
       <div className="rounded-2xl border p-4" style={{ borderColor: `${color}99`, background: `${color}0d` }}>
+        {mod.pitch && <p data-panel-pitch="" className="mb-3 text-[12px] leading-snug text-white/70 whitespace-pre-line">{mod.pitch}</p>}
         {children}
       </div>
     </motion.div>
@@ -211,7 +268,7 @@ export default function LandingModules({ safeModeOff, canDisableSafeSearch, togg
 
   return (
     <div className="max-w-3xl mx-auto px-4" data-landing-modules="">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {rows.map((row) => (
           <Fragment key={row.join('-')}>
             {row.map((i) => {
