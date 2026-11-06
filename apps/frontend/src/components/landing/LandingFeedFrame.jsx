@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Rss, ArrowUpRight } from 'lucide-react';
+import { Rss, ArrowUpRight, Shuffle } from 'lucide-react';
 import { FeedList } from '../../pages/FeedPage';
 import { useSocialFeed } from '../../hooks/useSocialFeed';
 import { PROVIDERS, platformsFor, isConnectable, BROWSE_ONLY } from '../../config/socialProviders';
@@ -15,6 +15,20 @@ import { categoryById } from '../../config/feedCategories';
 // The other three reuse the Browse categories' sources so they can't drift.
 const TOP_NETWORKS = ['instagram', 'facebook', 'tiktok', 'x', 'reddit', 'bluesky',
   'mastodon', 'lemmy', 'truthsocial', 'rumble', 'pinterest'];
+// Display names for the Top tab's server pills.
+const NETWORK_LABELS = {
+  instagram: 'Instagram', facebook: 'FB', tiktok: 'TikTok', x: 'X', reddit: 'Reddit',
+  bluesky: 'Bluesky', mastodon: 'Mastodon', lemmy: 'Lemmy', truthsocial: 'Truth',
+  rumble: 'Rumble', pinterest: 'Pinterest',
+};
+
+// BLANK NEVER MEANS BROKEN (owner, 2026-11-06). A blank query on the big
+// networks often comes back empty, which reads as "this doesn't work". When the
+// unseeded pull finishes empty, the frame re-asks with a top-posts word and
+// sorts what comes back newest first. Shuffle picks another word.
+const FALLBACK_SEEDS = ['viral', 'trending', 'breaking', 'funny', 'video', 'news', 'music', 'sports'];
+const byNewest = (a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0);
+
 const TABS = [
   { id: 'top', label: 'Top', platforms: TOP_NETWORKS },
   { id: 'creators', label: 'Creators', platforms: categoryById('creators').platforms },
@@ -42,13 +56,40 @@ const TABS = [
 // a frame" feel with one app and one player.
 export default function LandingFeedFrame() {
   const [tab, setTab] = useState('top');
+  const [server, setServer] = useState('all');
+  // -1 = the plain blank-query pull; 0+ = index into FALLBACK_SEEDS.
+  const [seedIdx, setSeedIdx] = useState(-1);
   const platforms = useMemo(() => {
     const available = new Set(platformsFor(PROVIDERS.filter((p) => isConnectable(p.id)).map((p) => p.id)));
     const wanted = TABS.find((t) => t.id === tab).platforms;
     // BROWSE_ONLY shelves are allowed here only when their tab asks for them.
-    return wanted.filter((p) => available.has(p) && (tab !== 'top' || !BROWSE_ONLY.has(p)));
-  }, [tab]);
-  const feed = useSocialFeed({ platforms, enabled: platforms.length > 0, interleave: true, rememberSeen: false });
+    const list = wanted.filter((p) => available.has(p) && (tab !== 'top' || !BROWSE_ONLY.has(p)));
+    return tab === 'top' && server !== 'all' ? list.filter((p) => p === server) : list;
+  }, [tab, server]);
+  const topNetworks = useMemo(() => TABS[0].platforms.filter((p) => NETWORK_LABELS[p]), []);
+  const query = seedIdx >= 0 ? FALLBACK_SEEDS[seedIdx % FALLBACK_SEEDS.length] : '';
+  const raw = useSocialFeed({ query, platforms, enabled: platforms.length > 0, interleave: true, rememberSeen: false });
+
+  // New tab or server → start over from the plain blank pull.
+  useEffect(() => { setSeedIdx(-1); }, [tab, server]);
+  // The blank pull finished with nothing → auto-pull top posts instead. Walks
+  // the seed list once, so a truly dead source ends rather than looping.
+  const empty = !raw.loading && !raw.items.length && (raw.done || raw.error);
+  useEffect(() => {
+    if (empty && tab === 'top' && platforms.length && seedIdx < FALLBACK_SEEDS.length - 1) {
+      setSeedIdx((i) => i + 1);
+    }
+  }, [empty]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const usingFallback = seedIdx >= 0;
+  const feed = useMemo(
+    () => (usingFallback ? { ...raw, items: [...raw.items].sort(byNewest) } : raw),
+    [raw, usingFallback],
+  );
+  const shuffle = () => setSeedIdx((i) => {
+    let n; do { n = Math.floor(Math.random() * FALLBACK_SEEDS.length); } while (n === i && FALLBACK_SEEDS.length > 1);
+    return n;
+  });
   const accent = MODE_COLORS.yellow;
 
   return (
@@ -80,9 +121,42 @@ export default function LandingFeedFrame() {
           );
         })}
       </div>
+      {tab === 'top' && (
+        <div aria-label="Server" className="flex gap-1 mb-2 px-1 overflow-x-auto items-center">
+          {['all', ...topNetworks].map((id) => {
+            const active = id === server;
+            return (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={active}
+                data-landing-feed-server={id}
+                onClick={() => setServer(id)}
+                className={`px-2.5 py-0.5 rounded-full text-[11px] whitespace-nowrap border transition-colors ${active ? 'text-white border-white/50 bg-white/10' : 'text-white/50 hover:text-white border-white/10'}`}
+              >
+                {id === 'all' ? 'All' : NETWORK_LABELS[id]}
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            data-landing-feed-shuffle=""
+            onClick={shuffle}
+            title="Pull a fresh set of top posts, newest first"
+            className="ml-auto px-2.5 py-0.5 rounded-full text-[11px] whitespace-nowrap border border-white/10 text-white/60 hover:text-white flex items-center gap-1"
+          >
+            <Shuffle size={11} /> Shuffle
+          </button>
+        </div>
+      )}
+      {usingFallback && (
+        <p data-landing-feed-fallback="" className="text-[11px] text-white/40 mb-1 px-1">
+          Showing top “{query}” posts, newest first.
+        </p>
+      )}
       <div
         role="tabpanel"
-        key={tab}
+        key={`${tab}:${server}`}
         data-landing-feed-frame=""
         className="h-[70vh] max-h-[640px] overflow-y-auto overscroll-contain rounded-2xl border bg-black/30 backdrop-blur-sm p-3"
         style={{ borderColor: `${accent}40` }}

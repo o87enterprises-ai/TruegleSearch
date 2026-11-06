@@ -2016,6 +2016,14 @@
         "body": "LandingFeedFrame has tabs Top/Creators/News/Markets. Top = social networks only (insta,fb,tiktok,x,reddit,bluesky,mastodon,lemmy,truthsocial,rumble,pinterest), interleaved so first cards are each network's #1 hot post. Others reuse feedCategories sources (creators, newsvideo, marketsvideo).",
         "ts": "2026-11-06",
         "created": "2026-11-06"
+      },
+      "landing-feed-servers": {
+        "Id": "landing-feed-servers",
+        "Type": "decision",
+        "Label": "Landing Top tab server pills + empty fallback",
+        "body": "Top tab has All/per-network server pills. If blank query returns empty, frame auto-retries with FALLBACK_SEEDS (viral, trending, ...) and sorts newest-first; Shuffle button picks a random seed. Top tab only.",
+        "ts": "2026-11-06",
+        "created": "2026-11-06"
       }
     },
     "thread": {
