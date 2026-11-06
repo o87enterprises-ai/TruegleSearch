@@ -2008,6 +2008,22 @@
         "body": "LandingModules: 3 columns at every width (no wide tiles). Tile = icon + one-word title + chevron; pitch hidden at rest, floats BELOW the tile on hover (absolute, so rows never grow), and heads the panel when tapped open. Each tile has a colour-coded Go pill (data-tile-go) navigating at once: tube /tube, feed /feed, search /search, chat /chat, news /feed?category=news, markets /feed?category=markets. verify-landing-cards updated (66 checks); lens test must scrollIntoView first since pinned lenses auto-close off-screen.",
         "ts": "2026-11-05",
         "created": "2026-11-05"
+      },
+      "landing-feed-tabs": {
+        "Id": "landing-feed-tabs",
+        "Type": "decision",
+        "Label": "Landing feed frame tabs",
+        "body": "LandingFeedFrame has tabs Top/Creators/News/Markets. Top = social networks only (insta,fb,tiktok,x,reddit,bluesky,mastodon,lemmy,truthsocial,rumble,pinterest), interleaved so first cards are each network's #1 hot post. Others reuse feedCategories sources (creators, newsvideo, marketsvideo).",
+        "ts": "2026-11-06",
+        "created": "2026-11-06"
+      },
+      "landing-feed-servers": {
+        "Id": "landing-feed-servers",
+        "Type": "decision",
+        "Label": "Landing Top tab server pills + empty fallback",
+        "body": "Top tab has All/per-network server pills. If blank query returns empty, frame auto-retries with FALLBACK_SEEDS (viral, trending, ...) and sorts newest-first; Shuffle button picks a random seed. Top tab only.",
+        "ts": "2026-11-06",
+        "created": "2026-11-06"
       }
     },
     "thread": {
@@ -4042,5 +4058,5 @@
       }
     }
   },
-  "updated": "2026-11-05"
+  "updated": "2026-11-06"
 }
