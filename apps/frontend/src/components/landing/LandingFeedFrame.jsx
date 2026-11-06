@@ -1,10 +1,26 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Rss, ArrowUpRight } from 'lucide-react';
 import { FeedList } from '../../pages/FeedPage';
 import { useSocialFeed } from '../../hooks/useSocialFeed';
 import { PROVIDERS, platformsFor, isConnectable, BROWSE_ONLY } from '../../config/socialProviders';
 import { MODE_COLORS } from '../../config/modeTheme';
+import { categoryById } from '../../config/feedCategories';
+
+// TABS (owner, 2026-11-06): Top · Creators · News · Markets.
+//
+// TOP is the social networks ONLY — no headlines, repos or link pools — so the
+// round-robin's first N cards are each network's #1 hot/top post (the backend
+// reads each platform's popular listing / top-posts seed for an empty query).
+// The other three reuse the Browse categories' sources so they can't drift.
+const TOP_NETWORKS = ['instagram', 'facebook', 'tiktok', 'x', 'reddit', 'bluesky',
+  'mastodon', 'lemmy', 'truthsocial', 'rumble', 'pinterest'];
+const TABS = [
+  { id: 'top', label: 'Top', platforms: TOP_NETWORKS },
+  { id: 'creators', label: 'Creators', platforms: categoryById('creators').platforms },
+  { id: 'news', label: 'News', platforms: categoryById('news').platforms },
+  { id: 'markets', label: 'Markets', platforms: categoryById('markets').platforms },
+];
 
 // THE FEED, IN A FRAME, ON LANDING (owner, 2026-11-05).
 //
@@ -25,11 +41,13 @@ import { MODE_COLORS } from '../../config/modeTheme';
 // a second player) inside the first. A scroll container gives the same "page in
 // a frame" feel with one app and one player.
 export default function LandingFeedFrame() {
-  const platforms = useMemo(
-    () => platformsFor(PROVIDERS.filter((p) => isConnectable(p.id)).map((p) => p.id))
-      .filter((p) => !BROWSE_ONLY.has(p)),
-    [],
-  );
+  const [tab, setTab] = useState('top');
+  const platforms = useMemo(() => {
+    const available = new Set(platformsFor(PROVIDERS.filter((p) => isConnectable(p.id)).map((p) => p.id)));
+    const wanted = TABS.find((t) => t.id === tab).platforms;
+    // BROWSE_ONLY shelves are allowed here only when their tab asks for them.
+    return wanted.filter((p) => available.has(p) && (tab !== 'top' || !BROWSE_ONLY.has(p)));
+  }, [tab]);
   const feed = useSocialFeed({ platforms, enabled: platforms.length > 0, interleave: true, rememberSeen: false });
   const accent = MODE_COLORS.yellow;
 
@@ -37,13 +55,34 @@ export default function LandingFeedFrame() {
     <section aria-label="Top posts" data-landing-feed="" className="mt-8 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-2 px-1">
         <h2 className="flex items-center gap-2 text-sm font-semibold" style={{ color: accent }}>
-          <Rss size={16} /> Top posts right now
+          <Rss size={16} /> {tab === 'top' ? 'Top posts right now' : TABS.find((t) => t.id === tab).label}
         </h2>
         <Link to="/feed" className="text-xs text-white/50 hover:text-white flex items-center gap-1">
           Open full feed <ArrowUpRight size={12} />
         </Link>
       </div>
+      <div role="tablist" aria-label="Feed category" className="flex gap-1 mb-2 px-1 overflow-x-auto">
+        {TABS.map((t) => {
+          const active = t.id === tab;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              data-landing-feed-tab={t.id}
+              onClick={() => setTab(t.id)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors border ${active ? 'text-black' : 'text-white/60 hover:text-white border-white/10'}`}
+              style={active ? { background: accent, borderColor: accent } : undefined}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
       <div
+        role="tabpanel"
+        key={tab}
         data-landing-feed-frame=""
         className="h-[70vh] max-h-[640px] overflow-y-auto overscroll-contain rounded-2xl border bg-black/30 backdrop-blur-sm p-3"
         style={{ borderColor: `${accent}40` }}
