@@ -8,6 +8,7 @@ import { MODE_COLORS } from '../../config/modeTheme';
 // and keeps the brand purple.
 export const CARD_ACCENT = {
   why: MODE_COLORS.purple,
+  features: '#22d3ee',  // the "Features" bar that holds the tiles; brand cyan
   chat: MODE_COLORS.black,
   tube: MODE_COLORS.tube,
   search: MODE_COLORS.blue,

@@ -4,8 +4,11 @@
  * vertical list), on desktop and phone alike; each is a one-word title in its
  * pill's colour and an elevator pitch of ten words or fewer; pressing one opens
  * its content directly under its row, pressing it again retracts it completely;
- * only one is open at a time; and only Why Truegle ever opens by itself, on a
- * phone, as you scroll down to it.
+ * only one is open at a time.
+ *
+ * Owner, 2026-11-07: "Why Truegle?" and a new "Features" bar (which holds the
+ * six tiles) both start RETRACTED and open only when pressed. Nothing opens by
+ * itself any more, phone included.
  *
  *   - Why Truegle is ONE full-width card (its dropdown opens inside it), with
  *     Tube directly below; the other six tiles: 4 columns on desktop, 2 on a
@@ -15,12 +18,13 @@
  *     Hole · OSINT · Chat — the four search lenses live inside the Search tile)
  *   - each wears its pill's colour; News and Markets are shades of Feed's
  *   - each pitch is ten words or fewer
- *   - none open at load; nothing fetched while closed
+ *   - none open at load (Features and Why Truegle are retracted bars);
+ *     nothing fetched while closed
  *   - press → a panel under that tile's row, and NO tile moves; press again →
  *     gone, layout exactly as before; another tile → the first closes
  *   - a press inside an open panel does not close it
  *   - opening a lens inside Search leaves Search open (it used to close it)
- *   - desktop: nothing opens by itself; phone: only Why Truegle does, on scroll
+ *   - nothing opens by itself, on desktop or phone (scrolling opens nothing)
  *   - a news thumbnail opens the Feed's News timeline with that clip playing
  *
  * The API is stubbed at the browser. Run it:  npm run landing:test
@@ -57,7 +61,13 @@ const rgbOf = (hex) => { const n = parseInt(hex.slice(1), 16); return `rgb(${(n 
 const tile = (id) => `[data-tile="${id}"]`;
 const panel = (id) => `[data-panel="${id}"]`;
 
-async function open(viewport, mobile) {
+// Press the "Features" bar and wait for the seven tiles to mount.
+async function expand(page) {
+  await page.locator('[data-features-toggle]').dispatchEvent('click');
+  await until(() => page.locator('[data-tile]').count().then((n) => n === 7), { what: 'the seven tiles' });
+}
+
+async function open(viewport, mobile, { expanded = true } = {}) {
   const ctx = await testContext(browser, { viewport, isMobile: mobile, hasTouch: mobile });
   // The landing notice (components/landing/MaintenanceNotice) covers the page until a visitor presses Continue; this run is past it.
   await ctx.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));" + "sessionStorage.setItem('truegle_maint_seen_v1', '1');");
@@ -83,7 +93,8 @@ async function open(viewport, mobile) {
   const errs = [];
   page.on('pageerror', (e) => { if (!/Access is denied|isExternalMethodAvailable/.test(e.message)) errs.push(e.message); });
   await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
-  await until(() => page.locator('[data-tile]').count().then((n) => n === 7), { what: 'the seven tiles' });
+  await until(() => page.locator('[data-features-toggle]').count(), { what: 'the Features bar' });
+  if (expanded) await expand(page);
   return { ctx, page, errs, asked };
 }
 // Position of every tile, in document coordinates.
@@ -108,7 +119,7 @@ await guarded('desktop run', async () => {
   check(ys.length === 3 && t.filter((x) => x.y === ys[0]).length === 1 && row2.length === 3 && t.filter((x) => x.y === ys[2]).length === 3 && new Set(row2.map((x) => x.x)).size === 3, 'desktop: Why Truegle alone on row one, then two rows of three', `${ys.length} rows, ${row2.length} in the second`);
   check(t.filter((x) => x.y === ys[1]).every((x) => x.h === row2[0].h) && t.filter((x) => x.y === ys[2]).every((x) => x.h === t.find((y) => y.y === ys[2]).h), 'tiles in a row are the same height');
   check(t.find((x) => x.id === 'why').w > t.find((x) => x.id === 'search').w * 2.5, 'Why Truegle is a full-width card');
-  check(t.find((x) => x.id === 'tube').y === ys[1] && Math.abs(t.find((x) => x.id === 'tube').x - t.find((x) => x.id === 'why').x) <= 2, 'Tube is the first tile directly under Why Truegle');
+  check(t.find((x) => x.id === 'tube').y === ys[1] && t.find((x) => x.id === 'tube').y > t.find((x) => x.id === 'why').y, 'Tube is the first tile, in the row under Why Truegle and the Features bar');
   check(['news', 'markets'].every((id) => Math.abs(t.find((x) => x.id === id).w - t.find((x) => x.id === 'feed').w) <= 2), 'every tile is one column: no wide tiles, no orphan');
   check(t.every((x) => x.open === 'closed'), 'none is open at load');
 
@@ -144,9 +155,9 @@ await guarded('desktop run', async () => {
   await until(() => page.locator('[data-card="why"] [data-panel="why"] [data-why-body]').count(), { what: 'the Why body inside its card' });
   await page.waitForTimeout(600);
   const whyBox = await page.locator('[data-card="why"]').boundingBox();
-  const tubeBox = await page.locator(tile('tube')).boundingBox();
-  const gap = Math.round(tubeBox.y - (whyBox.y + whyBox.height));
-  check(gap >= 0 && gap <= 16, 'Why Truegle and its dropdown are one card, with Tube directly below it', `gap ${gap}px`);
+  const featBox = await page.locator('[data-features-card]').boundingBox();
+  const gap = Math.round(featBox.y - (whyBox.y + whyBox.height));
+  check(gap >= 0 && gap <= 16, 'Why Truegle and its dropdown are one card, with the Features bar directly below it', `gap ${gap}px`);
   check(await page.locator(panel('why')).count() === 1 && await page.locator('[data-panel]').evaluateAll((els) => els.every((e) => e.closest('[data-card]'))), 'the Why body is not a separate panel');
   await press(page, 'why');
   await until(() => page.locator('[data-panel]').count().then((n) => n === 0), { what: 'the Why card to retract' });
@@ -219,15 +230,18 @@ await guarded('phone run', async () => {
   check(t.find((x) => x.id === 'tube').y === ys[1], 'phone: Tube is directly under Why Truegle');
   check(t.every((x) => x.open === 'closed'), 'phone: every tile is retracted at load, Why Truegle included');
 
-  // Scroll down to it by hand: it descends by itself, alone.
+  // Scroll down to it by hand: it stays put. It used to descend by itself;
+  // it opens by a press and only by a press (owner, 2026-11-07).
   for (let i = 0; i < 30; i++) {
     const top = await page.locator(tile('why')).evaluate((e) => e.getBoundingClientRect().top);
     if (top < 420) break;
     await page.mouse.wheel(0, 120); await page.waitForTimeout(150);
   }
-  await until(() => openOf(page, 'why').then((s) => s === 'open'), { what: 'Why Truegle to descend by itself', timeout: 6000 }).catch(() => {});
-  check(await openOf(page, 'why') === 'open', 'phone: Why Truegle descends by itself as you scroll down');
-  check((await tiles(page)).filter((x) => x.id !== 'why').every((x) => x.open === 'closed'), '…and it is the only one that does');
+  await page.waitForTimeout(1500);
+  check(await openOf(page, 'why') === 'closed', 'phone: Why Truegle does NOT descend by itself as you scroll down');
+  await press(page, 'why');
+  await until(() => openOf(page, 'why').then((s) => s === 'open'), { what: 'Why Truegle to open on a press' });
+  check((await tiles(page)).filter((x) => x.id !== 'why').every((x) => x.open === 'closed'), 'phone: pressing Why Truegle opens it alone');
   // "Surf Without..." heads each of the three promises (2026-10-02), where the
   // round minus icons used to be.
   const labels = await page.locator('[data-why-body] [data-surf-without]').allInnerTexts();
@@ -260,6 +274,40 @@ await guarded('phone run', async () => {
   await ctx.close();
 });
 
+// ── retracted by default, opened by a press (desktop and phone alike) ───────
+for (const [label, vp, mobile] of [['desktop', { width: 1280, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {
+  await guarded(`${label}: retracted default`, async () => {
+    const { ctx, page, asked } = await open(vp, mobile, { expanded: false });
+    await page.waitForTimeout(1000);
+    const bar = page.locator('[data-features-toggle]');
+    check((await bar.innerText()).trim() === 'Features', `${label}: a bar titled "Features"`, (await bar.innerText()).trim());
+    check(await bar.getAttribute('data-open') === 'closed' && await bar.getAttribute('aria-expanded') === 'false', `${label}: Features starts retracted`);
+    check(await openOf(page, 'why') === 'closed', `${label}: Why Truegle starts retracted`);
+    check(await page.locator('[data-tile]:not([data-tile="why"])').count() === 0, `${label}: no tile is on the page while Features is retracted`);
+    check(await page.locator('[data-why-body]').count() === 0 && await page.locator('[data-features-panel]').count() === 0, `${label}: neither bar has a body mounted`);
+    check(!asked.some((p) => p.startsWith('/api/news')), `${label}: nothing is fetched for a retracted bar`);
+    // A press drops the six tiles down; every one still retracted.
+    await bar.dispatchEvent('click');
+    await until(() => page.locator('[data-tile]').count().then((n) => n === 7), { what: 'the tiles to drop down' });
+    check(await bar.getAttribute('aria-expanded') === 'true' && (await tiles(page)).every((x) => x.open === 'closed'), `${label}: pressing Features drops the six tiles down, all retracted`);
+    // An open tile goes away with the bar, and is not still open on return.
+    await press(page, 'news');
+    await until(() => page.locator(panel('news')).count(), { what: 'the News panel' });
+    await bar.dispatchEvent('click');
+    await until(() => page.locator('[data-tile]:not([data-tile="why"])').count().then((n) => n === 0), { what: 'Features to retract' });
+    await bar.dispatchEvent('click');
+    await until(() => page.locator('[data-tile]').count().then((n) => n === 7), { what: 'the tiles again' });
+    check((await tiles(page)).every((x) => x.open === 'closed') && await page.locator('[data-panel="news"]').count() === 0, `${label}: retracting Features takes an open tile with it`);
+    // Why Truegle opens and retracts by its own press, independent of Features.
+    await press(page, 'why');
+    await until(() => page.locator('[data-why-body]').count(), { what: 'the Why body' });
+    await bar.dispatchEvent('click');
+    await page.waitForTimeout(500);
+    check(await openOf(page, 'why') === 'open', `${label}: retracting Features leaves Why Truegle as it was`);
+    await ctx.close();
+  });
+}
+
 // ── phone: it never descends over a tile the visitor already opened ─────────
 await guarded('phone: visitor-first run', async () => {
   const { ctx, page } = await open({ width: 390, height: 844 }, true);
@@ -283,6 +331,8 @@ await guarded('go pills', async () => {
   }
   for (const [id, want] of Object.entries(ROUTES)) {
     await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+    await until(() => page.locator('[data-features-toggle]').count(), { what: 'the Features bar' });
+    await expand(page);
     await page.locator(`[data-tile-go="${id}"]`).dispatchEvent('click');
     await until(() => Promise.resolve(new URL(page.url()).pathname !== '/'), { what: `${id} to navigate` }).catch(() => {});
     const u = new URL(page.url());

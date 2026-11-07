@@ -1,9 +1,8 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronDown, Clapperboard, Compass, LineChart, MessageCircle, Newspaper, PlayCircle, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ChevronDown, Clapperboard, Compass, LayoutGrid, LineChart, MessageCircle, Newspaper, PlayCircle, ShieldCheck } from 'lucide-react';
 import { CARD_ACCENT, inkOn, shade } from './cardTheme';
-import useAutoOpenOnScroll from './useAutoOpenOnScroll';
 import WhyBody from './WhyBody';
 import SearchBody from './SearchBody';
 import ChatBody from './ChatBody';
@@ -22,16 +21,19 @@ import { NewsBody, MarketsBody } from './NewsFeed';
 // grid from jumping under a thumb.
 //
 // ONE OPEN AT A TIME, and only by a hand — no hover previews here, because a
-// panel opening under a resting cursor pushes the tiles out from under it. The
-// single exception is Why Truegle on a PHONE, which descends by itself as you
-// scroll down to it (useAutoOpenOnScroll), and only into a quiet page.
+// panel opening under a resting cursor pushes the tiles out from under it.
+//
+// NOTHING IS OPEN AT LOAD (owner, 2026-11-07): "Why Truegle?" and "Features"
+// (the bar that holds the six tiles) are both retracted bars until pressed.
+// Why Truegle used to descend by itself on a phone as you scrolled to it; that
+// is gone — a bar opens by a press and only by a press.
 //
 // TILE ORDER FOLLOWS THE PILL (owner, 2026-10-18): Tube · Feed · Search (Green,
 // Mainstream, Rabbit Hole, OSINT) · Chat — the pill's own order, with the four
 // search lenses living together inside the Search tile.
 //
-// WHY TRUEGLE IS NOT A TILE BUT A CARD: full width, and its body opens inside
-// its own border instead of in a panel under a row shared with Search.
+// WHY TRUEGLE AND FEATURES ARE NOT TILES BUT CARDS: full width, and their
+// body opens inside their own border instead of in a panel under a row.
 //
 // NOTHING IS ASKED FOR WHILE A TILE IS CLOSED: only the open tile's body is
 // mounted, so its fetches and polling start on open and stop on close.
@@ -52,6 +54,12 @@ const MODULES = [
   // straight to the page.
   { id: 'markets', title: 'Markets', icon: LineChart, to: '/feed?category=markets', pitch: 'Prices, charts, and the takes moving them.' },
 ];
+
+// The bar that holds the six tiles. Not in MODULES: it has no body of its own
+// and is not one of the tiles that open one at a time.
+const FEATURES = { id: 'features', title: 'Features', icon: LayoutGrid, pitch: '', card: true };
+const WHY = MODULES[0];
+const TILES = MODULES.filter((m) => !m.card);
 
 /** Three across at every width: six tiles = two rows of three. */
 const useColumns = () => 3;
@@ -74,8 +82,8 @@ function packRows(mods, cols) {
   return rows;
 }
 
-function Tile({ mod, open, onToggle, tileRef, cols, bare = false }) {
-  if (bare) return <CardHeader mod={mod} open={open} onToggle={onToggle} tileRef={tileRef} />;
+function Tile({ mod, open, onToggle, tileRef, cols, bare = false, tileAttr }) {
+  if (bare) return <CardHeader mod={mod} open={open} onToggle={onToggle} tileRef={tileRef} tileAttr={tileAttr} />;
   const color = CARD_ACCENT[mod.id];
   const Icon = mod.icon;
   const reduce = useReducedMotion();
@@ -141,14 +149,14 @@ function Tile({ mod, open, onToggle, tileRef, cols, bare = false }) {
   );
 }
 
-function CardHeader({ mod, open, onToggle, tileRef, cols, bare = true }) {
+function CardHeader({ mod, open, onToggle, tileRef, cols, bare = true, tileAttr = 'data-tile' }) {
   const color = CARD_ACCENT[mod.id];
   const Icon = mod.icon;
   return (
     <button
       ref={tileRef}
       type="button"
-      data-tile={mod.id}
+      {...{ [tileAttr]: mod.id }}
       data-open={open ? 'open' : 'closed'}
       aria-expanded={open}
       aria-controls={`landing-panel-${mod.id}`}
@@ -185,21 +193,21 @@ function CardHeader({ mod, open, onToggle, tileRef, cols, bare = true }) {
 }
 
 /** A tile and its body as ONE bordered card: the body opens inside it. */
-function CardTile({ mod, open, onToggle, tileRef, cols, children }) {
+function CardTile({ mod, open, onToggle, tileRef, cols, children, cardAttr = 'data-card', panelAttr = 'data-panel', tileAttr }) {
   const reduce = useReducedMotion();
   const color = CARD_ACCENT[mod.id];
   return (
     <div
-      data-card={mod.id}
+      {...{ [cardAttr]: mod.id }}
       className="rounded-2xl border backdrop-blur-sm transition-colors duration-200"
       style={{ gridColumn: `span ${spanOf(mod, cols)}`, borderColor: `${color}${open ? 'bb' : '55'}`, background: open ? `${color}18` : 'rgba(255,255,255,0.03)' }}
     >
-      <Tile mod={mod} open={open} onToggle={onToggle} tileRef={tileRef} cols={cols} bare />
+      <Tile mod={mod} open={open} onToggle={onToggle} tileRef={tileRef} cols={cols} bare tileAttr={tileAttr} />
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
             id={`landing-panel-${mod.id}`}
-            data-panel={mod.id}
+            {...{ [panelAttr]: mod.id }}
             role="region"
             aria-label={mod.title}
             initial={{ height: 0, opacity: 0 }}
@@ -242,16 +250,20 @@ function Panel({ mod, children }) {
 }
 
 export default function LandingModules({ safeModeOff, canDisableSafeSearch, toggleSafeMode, onOpenTube }) {
+  // `openId` is the ONE open body: Why Truegle's, or one tile's panel.
+  // `featuresOpen` is the bar that holds the tiles. Both start retracted.
   const [openId, setOpenId] = useState(null);
+  const [featuresOpen, setFeaturesOpen] = useState(false);
   const cols = useColumns();
-  const rows = useMemo(() => packRows(MODULES, cols), [cols]);
-  const whyRef = useRef(null);
-
-  // Descends by itself on a phone, into a quiet page only: a tile the visitor
-  // opened wins.
-  useAutoOpenOnScroll(whyRef, useCallback(() => setOpenId((cur) => cur ?? 'why'), []));
+  const rows = useMemo(() => packRows(TILES, cols), [cols]);
 
   const toggle = (id) => setOpenId((cur) => (cur === id ? null : id));
+  // Retracting Features takes whatever tile was open with it; Why Truegle is
+  // its own card and stays as it is.
+  const toggleFeatures = () => {
+    if (featuresOpen) setOpenId((cur) => (cur === 'why' ? cur : null));
+    setFeaturesOpen((v) => !v);
+  };
 
   const body = (id) => {
     switch (id) {
@@ -267,36 +279,49 @@ export default function LandingModules({ safeModeOff, canDisableSafeSearch, togg
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4" data-landing-modules="">
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        {rows.map((row) => (
-          <Fragment key={row.join('-')}>
-            {row.map((i) => {
-              const mod = MODULES[i];
-              const common = {
-                mod,
-                cols,
-                open: openId === mod.id,
-                onToggle: () => toggle(mod.id),
-                tileRef: mod.id === 'why' ? whyRef : undefined,
-              };
-              return mod.card
-                ? <CardTile key={mod.id} {...common}>{body(mod.id)}</CardTile>
-                : <Tile key={mod.id} {...common} />;
-            })}
-            {/* The panel sits under the row of the tile that opened it. Each
-                row has its own slot so closing animates in place and moving to
-                another row animates out here and in there. */}
-            <AnimatePresence initial={false}>
-              {row.some((i) => !MODULES[i].card && MODULES[i].id === openId) && (
-                <Panel key={openId} mod={MODULES.find((m) => m.id === openId)}>
-                  {body(openId)}
-                </Panel>
-              )}
-            </AnimatePresence>
-          </Fragment>
-        ))}
-      </div>
+    <div className="max-w-3xl mx-auto px-4 flex flex-col gap-2 sm:gap-3" data-landing-modules="">
+      <CardTile mod={WHY} cols={1} open={openId === 'why'} onToggle={() => toggle('why')}>
+        {body('why')}
+      </CardTile>
+
+      <CardTile
+        mod={FEATURES}
+        cols={1}
+        open={featuresOpen}
+        onToggle={toggleFeatures}
+        cardAttr="data-features-card"
+        panelAttr="data-features-panel"
+        tileAttr="data-features-toggle"
+      >
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          {rows.map((row) => (
+            <Fragment key={row.join('-')}>
+              {row.map((i) => {
+                const mod = TILES[i];
+                return (
+                  <Tile
+                    key={mod.id}
+                    mod={mod}
+                    cols={cols}
+                    open={openId === mod.id}
+                    onToggle={() => toggle(mod.id)}
+                  />
+                );
+              })}
+              {/* The panel sits under the row of the tile that opened it. Each
+                  row has its own slot so closing animates in place and moving
+                  to another row animates out here and in there. */}
+              <AnimatePresence initial={false}>
+                {row.some((i) => TILES[i].id === openId) && (
+                  <Panel key={openId} mod={TILES.find((m) => m.id === openId)}>
+                    {body(openId)}
+                  </Panel>
+                )}
+              </AnimatePresence>
+            </Fragment>
+          ))}
+        </div>
+      </CardTile>
     </div>
   );
 }
