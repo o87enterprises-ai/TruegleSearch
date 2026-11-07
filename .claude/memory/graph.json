@@ -2032,6 +2032,14 @@
         "body": "2026-11-07: search engines return 0 individual IG posts from the live box (12 queries tried). Instagram lane now reads Bluesky public searchPosts q=instagram.com/reel (+query): page1 sort=top, page2 sort=latest, then ends (Bluesky 403s keyless cursor pagination). Normalised to www.instagram.com/reel/<id>/, author null (sharer != creator), adult labels filtered. Falls back to SearXNG only on page 1 failure.",
         "ts": "2026-11-07",
         "created": "2026-11-07"
+      },
+      "mains-via-bluesky": {
+        "Id": "mains-via-bluesky",
+        "Type": "decision",
+        "Label": "FB / X / Reddit also read from Bluesky shares",
+        "body": "2026-11-07: same trick as Instagram. SHARED map in routes/social.js (instagram, facebook=/reel/<digits>, x=/status/, reddit=/r/<sub>/comments/<id>). FB/X/IG: Bluesky first, SearXNG fallback on page 1. Reddit: own hot listing first (works off-datacenter), Bluesky when it 403s or returns no /comments/ threads. TikTok untouched (SearXNG video engines already return real videos). fb.watch skipped (needs redirect).",
+        "ts": "2026-11-07",
+        "created": "2026-11-07"
       }
     },
     "thread": {

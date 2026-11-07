@@ -63,3 +63,33 @@ test('Bluesky down on page 1 → falls back to search', async () => {
   const r = await request(app()).post('/api/social/feed').send({ query: 'cats', platforms: ['instagram'], limit: 10 });
   expect(r.body.results.map((x) => x.url)).toEqual(['https://www.instagram.com/reel/SEARX111111/']);
 });
+
+describe('the other mains, as shared on Bluesky', () => {
+  const share = (link, text = 'look') => ({ uri: 'at://x/p/1', record: { text: `${text} ${link}` } });
+
+  test('Facebook: real reels instead of facebook.com itself', async () => {
+    axios.get.mockImplementation((url) => (url.includes('searchPosts')
+      ? Promise.resolve({ data: { posts: [share('https://m.facebook.com/reel/123456789'), share('https://fb.watch/abc')] } })
+      : Promise.resolve({ data: { results: [{ url: 'https://www.facebook.com/', title: 'Facebook' }] } })));
+    const r = await request(app()).post('/api/social/feed').send({ query: '', platforms: ['facebook'], limit: 10 });
+    expect(r.body.results.map((x) => x.url)).toEqual(['https://www.facebook.com/reel/123456789']);
+  });
+
+  test('X: status links, twitter.com normalised to x.com', async () => {
+    axios.get.mockImplementation((url) => (url.includes('searchPosts')
+      ? Promise.resolve({ data: { posts: [share('https://twitter.com/NASA/status/42'), share('https://x.com/NASA')] } })
+      : Promise.reject(new Error('no'))));
+    const r = await request(app()).post('/api/social/feed').send({ query: '', platforms: ['x'], limit: 10 });
+    expect(r.body.results.map((x) => x.url)).toEqual(['https://x.com/NASA/status/42']);
+  });
+
+  test('Reddit: own listing refused (403) → shared threads, with the subreddit', async () => {
+    axios.get.mockImplementation((url) => {
+      if (url.includes('searchPosts')) return Promise.resolve({ data: { posts: [share('https://old.reddit.com/r/aww/comments/abc123/cute')] } });
+      if (url.includes('reddit.com')) return Promise.reject(Object.assign(new Error('403'), { response: { status: 403 } }));
+      return Promise.resolve({ data: { results: [{ url: 'https://www.reddit.com/r/all/', title: 'r/all' }] } });
+    });
+    const r = await request(app()).post('/api/social/feed').send({ query: '', platforms: ['reddit'], limit: 10 });
+    expect(r.body.results.map((x) => [x.url, x.subreddit])).toEqual([['https://www.reddit.com/r/aww/comments/abc123/', 'aww']]);
+  });
+});
