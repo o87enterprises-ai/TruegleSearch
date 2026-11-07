@@ -2040,6 +2040,14 @@
         "body": "2026-11-07: same trick as Instagram. SHARED map in routes/social.js (instagram, facebook=/reel/<digits>, x=/status/, reddit=/r/<sub>/comments/<id>). FB/X/IG: Bluesky first, SearXNG fallback on page 1. Reddit: own hot listing first (works off-datacenter), Bluesky when it 403s or returns no /comments/ threads. TikTok untouched (SearXNG video engines already return real videos). fb.watch skipped (needs redirect).",
         "ts": "2026-11-07",
         "created": "2026-11-07"
+      },
+      "d-ios-sharegate-cover": {
+        "Id": "d-ios-sharegate-cover",
+        "Type": "decision",
+        "Label": "iPhone ShareGate: verify the player COVERS the screen, repair until it does (iOS only)",
+        "body": "2026-11-07 tester recording (iMessage -> gate -> Play -> bare Tube page, collapsed strip at bottom, NO help card). Root of the silence: playerOnScreen() passed on any >=40px player box, so the strip passed. Fix in ShareGate.jsx, gated IS_IOS (Android/desktop keep the exact old path: real requestFullscreen + playerOnScreen): iosFullscreenUntilCovered() loops 100ms for 2.8s — un-minimise if wrapper is inert, re-ask pseudo full screen (nonce) if box absent, untrap() if box present but not covering (inline !important cancels transform/filter/contain/will-change/perspective + z on ancestors; restored by MutationObserver when data-pseudo-fullscreen goes). Safe only on iOS because the pseudo box needs no gesture. Safety net on iOS uses playerCoversScreen() (centre hit-test + size). Failure -> help card + trace 'gate' events + beacon reason gate_ios (added to PlayerHealthService REASONS/TRACE_CODES). Tests: npm run sharegate:test 20 checks; old code FAILS test 5 (trap simulated by out-ranking the :has override). Exact real-iOS trigger still unconfirmed — no device here; next report's trace will say which repair fired.",
+        "ts": "2026-11-07",
+        "created": "2026-11-07"
       }
     },
     "thread": {
@@ -2604,10 +2612,10 @@
       "ios-sharegate-tap-home": {
         "Id": "ios-sharegate-tap-home",
         "Type": "thread",
-        "Label": "iPhone Chrome: ShareGate Play tap lands on bare Tube page (unreproduced)",
-        "body": "Tester 2026-10-22 recording: iMessage -> Chrome iOS -> /tube?p=<25 ids> gate -> tap Play -> bare Tube page, no player. NOT reproduced in Playwright WebKit 26.5 (iPhone 15 descriptor) on live site with the same 25-id link, nor with every embed posting onError 150 (player skips and stays). WebKit CAN be installed per session: PLAYWRIGHT_BROWSERS_PATH=<scratch>/pw npx playwright install webkit && npx playwright install-deps webkit. YouTube embeds show 'Video unavailable' from the container IP, so real playback cannot be observed. Waiting on: Safari vs Chrome, every time or once.",
+        "Label": "iPhone ShareGate Play -> bare Tube page: fix shipped, awaiting real-device confirm",
+        "body": "Recordings 2026-10-22 and 2026-11-06. Fix = d-ios-sharegate-cover. Ask tester to retest; if it still fails they now get a help card (Report mailto includes trace) and a gate_ios beacon lands in player_health_events with the gate trace (s=tap/ask/untrap/covered/fail).",
         "status": "open",
-        "ts": "2026-10-23",
+        "ts": "2026-11-07",
         "created": "2026-10-23"
       }
     },

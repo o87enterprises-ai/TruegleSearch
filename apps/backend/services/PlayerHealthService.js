@@ -10,10 +10,12 @@ const REASONS = new Set([
   'silent', 'dead_error', 'alive_override',
   // Added with the flight recorder (migrations/026_player_trace.sql):
   'unmute_rejected', 'autonext_empty', 'autonext_repeat', 'mode_fail',
+  // iPhone shared-link door could not get the player to cover the screen.
+  'gate_ios',
 ]);
 const DEVICES = new Set(['touch', 'desktop']);
 const BROWSERS = new Set(['chrome', 'firefox', 'safari', 'samsung', 'other']);
-const TRACE_CODES = new Set(['mode', 'src', 'embed', 'sound', 'next', 'tap', 'upstream', 'boot']);
+const TRACE_CODES = new Set(['mode', 'src', 'embed', 'sound', 'next', 'tap', 'upstream', 'boot', 'gate']);
 const TRACE_MAX_EVENTS = 30;
 const TRACE_MAX_BYTES = 2048;
 const TOKEN = /^[a-z0-9_.:-]{1,24}$/i;
