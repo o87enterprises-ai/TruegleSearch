@@ -98,7 +98,10 @@ check(norm(seen[WANT.length][0]) === 'mainstream', 'and after Green it comes rou
 check(JSON.stringify(toggles.slice(0, 7).map(norm)) === JSON.stringify(TOGGLE_RING),
   'the toggle beside the bar follows the pill: Search · Deep Dive · Investigate · (Chat) Search · Play · Socials · AI Free', toggles.slice(0, 7).join(' · '));
 
-// The cards follow the pill.
+// The cards follow the pill. They sit inside the "Features" bar, retracted at
+// load (2026-11-07), so press it first.
+await page.locator('[data-features-toggle]').dispatchEvent('click');
+await until(() => page.locator('[data-tile]').count().then((n) => n === 7), { what: 'the landing tiles' });
 const tileIds = await page.evaluate("[...document.querySelectorAll('[data-tile]')].map((e) => e.dataset.tile)");
 check(JSON.stringify(tileIds) === JSON.stringify(['why', 'tube', 'feed', 'search', 'chat', 'news', 'markets']),
   'the landing cards run Tube, Feed, Search, Chat', tileIds.join(' · '));

@@ -2048,6 +2048,14 @@
         "body": "2026-11-07 tester recording (iMessage -> gate -> Play -> bare Tube page, collapsed strip at bottom, NO help card). Root of the silence: playerOnScreen() passed on any >=40px player box, so the strip passed. Fix in ShareGate.jsx, gated IS_IOS (Android/desktop keep the exact old path: real requestFullscreen + playerOnScreen): iosFullscreenUntilCovered() loops 100ms for 2.8s — un-minimise if wrapper is inert, re-ask pseudo full screen (nonce) if box absent, untrap() if box present but not covering (inline !important cancels transform/filter/contain/will-change/perspective + z on ancestors; restored by MutationObserver when data-pseudo-fullscreen goes). Safe only on iOS because the pseudo box needs no gesture. Safety net on iOS uses playerCoversScreen() (centre hit-test + size). Failure -> help card + trace 'gate' events + beacon reason gate_ios (added to PlayerHealthService REASONS/TRACE_CODES). Tests: npm run sharegate:test 20 checks; old code FAILS test 5 (trap simulated by out-ranking the :has override). Exact real-iOS trigger still unconfirmed — no device here; next report's trace will say which repair fired.",
         "ts": "2026-11-07",
         "created": "2026-11-07"
+      },
+      "d-landing-retracted-bars": {
+        "Id": "d-landing-retracted-bars",
+        "Type": "decision",
+        "Label": "Landing: Why Truegle + new Features bar both start retracted, open by press only",
+        "body": "2026-11-07 owner: the landing tiles sit inside a full-width 'Features' bar (cyan #22d3ee, LayoutGrid icon) that starts RETRACTED; 'Why Truegle?' also starts retracted and no longer auto-descends on phone scroll (useAutoOpenOnScroll deleted). LandingModules.jsx: Why CardTile above, Features CardTile wrapping the 3-col tile grid; tiles are unmounted while retracted (no fetch). Retracting Features closes any open tile but leaves Why alone. Test hooks: data-features-toggle / data-features-card / data-features-panel (so existing [data-tile]/[data-panel] counts are unchanged); tests must press [data-features-toggle] before touching tiles. npm run landing:test (84) + pillorder:test (10).",
+        "ts": "2026-11-07",
+        "created": "2026-11-07"
       }
     },
     "thread": {
