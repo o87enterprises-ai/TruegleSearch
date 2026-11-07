@@ -22,6 +22,16 @@ const NETWORK_LABELS = {
   rumble: 'Rumble', pinterest: 'Pinterest',
 };
 
+// The heading's platform name when ONE server pill is picked (owner,
+// 2026-11-07): "Trending Posts on Facebook", not "…on FB". Falls back to the
+// pill's own label.
+const HEADING_NAMES = { facebook: 'Facebook', truthsocial: 'Truth Social' };
+const headingFor = (tab, server) => {
+  if (tab !== 'top') return TABS.find((t) => t.id === tab).label;
+  if (server === 'all') return 'Trending posts across all platforms';
+  return `Trending Posts on ${HEADING_NAMES[server] || NETWORK_LABELS[server] || server}`;
+};
+
 // BLANK NEVER MEANS BROKEN (owner, 2026-11-06). A blank query on the big
 // networks often comes back empty, which reads as "this doesn't work". When the
 // unseeded pull finishes empty, the frame re-asks with a top-posts word and
@@ -93,10 +103,10 @@ export default function LandingFeedFrame() {
   const accent = MODE_COLORS.yellow;
 
   return (
-    <section aria-label="Top posts" data-landing-feed="" className="mt-8 max-w-4xl mx-auto">
+    <section aria-label="Trending posts" data-landing-feed="" className="mt-8 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-2 px-1">
-        <h2 className="flex items-center gap-2 text-sm font-semibold" style={{ color: accent }}>
-          <Rss size={16} /> {tab === 'top' ? 'Top posts right now' : TABS.find((t) => t.id === tab).label}
+        <h2 data-landing-feed-title="" className="flex items-center gap-2 text-sm font-semibold" style={{ color: accent }}>
+          <Rss size={16} /> {headingFor(tab, server)}
         </h2>
         <Link to="/feed" className="text-xs text-white/50 hover:text-white flex items-center gap-1">
           Open full feed <ArrowUpRight size={12} />

@@ -1,6 +1,3 @@
-# NOTICE TO BOTS, CRAWLERS AND SCRAPERS: Truegle is under maintenance.
-# Please pause or slow your requests, honor these rules, and check back later. Thank you.
-
 User-agent: *
 Allow: /
 

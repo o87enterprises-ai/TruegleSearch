@@ -69,8 +69,7 @@ async function expand(page) {
 
 async function open(viewport, mobile, { expanded = true } = {}) {
   const ctx = await testContext(browser, { viewport, isMobile: mobile, hasTouch: mobile });
-  // The landing notice (components/landing/MaintenanceNotice) covers the page until a visitor presses Continue; this run is past it.
-  await ctx.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));" + "sessionStorage.setItem('truegle_maint_seen_v1', '1');");
+  await ctx.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));");
   const asked = [];
   // Generic first: Playwright tries the LAST-registered matching route first.
   await ctx.route('**/api/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true,"data":[],"results":[]}' }));
@@ -271,6 +270,28 @@ await guarded('phone run', async () => {
   const src = await page.locator('[data-mini] iframe').first().getAttribute('src').catch(() => '');
   check(/youtube(-nocookie)?\.com\/embed\/vidAAAA0000/.test(src || ''), '…and it plays there', (src || '').slice(0, 70));
   check(errs.length === 0, 'phone: nothing threw', errs.join(' | ') || 'clean');
+  await ctx.close();
+});
+
+// ── the feed frame's heading follows the platform pill (owner, 2026-11-07) ─────
+// And a first-time visitor meets no maintenance modal: the page is simply there.
+await guarded('feed heading + no modal', async () => {
+  const { ctx, page } = await open({ width: 1280, height: 900 }, false, { expanded: false });
+  const title = () => page.locator('[data-landing-feed-title]').innerText().then((t) => t.trim());
+  check(await page.locator('[data-maintenance-notice], [role="dialog"]').count() === 0, 'no maintenance modal covers the landing page');
+  check(await title() === 'Trending posts across all platforms', 'heading: "Trending posts across all platforms" with All selected', await title());
+  const WANT = { instagram: 'Trending Posts on Instagram', facebook: 'Trending Posts on Facebook', x: 'Trending Posts on X', reddit: 'Trending Posts on Reddit', truthsocial: 'Trending Posts on Truth Social' };
+  for (const [id, want] of Object.entries(WANT)) {
+    await page.locator(`[data-landing-feed-server="${id}"]`).dispatchEvent('click');
+    await until(() => title().then((t) => t === want), { what: `the heading for ${id}`, timeout: 4000 }).catch(() => {});
+    check(await title() === want, `heading: picking ${id} reads "${want}"`, await title());
+  }
+  await page.locator('[data-landing-feed-server="all"]').dispatchEvent('click');
+  await until(() => title().then((t) => t === 'Trending posts across all platforms'), { what: 'the heading to return', timeout: 4000 }).catch(() => {});
+  check(await title() === 'Trending posts across all platforms', 'heading: back to All reads "Trending posts across all platforms"');
+  await page.locator('[data-landing-feed-tab="news"]').dispatchEvent('click');
+  await until(() => title().then((t) => t === 'News'), { what: 'the News tab heading', timeout: 4000 }).catch(() => {});
+  check(await title() === 'News', 'heading: the other tabs keep their own names', await title());
   await ctx.close();
 });
 

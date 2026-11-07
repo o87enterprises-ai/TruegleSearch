@@ -2056,6 +2056,14 @@
         "body": "2026-11-07 owner: the landing tiles sit inside a full-width 'Features' bar (cyan #22d3ee, LayoutGrid icon) that starts RETRACTED; 'Why Truegle?' also starts retracted and no longer auto-descends on phone scroll (useAutoOpenOnScroll deleted). LandingModules.jsx: Why CardTile above, Features CardTile wrapping the 3-col tile grid; tiles are unmounted while retracted (no fetch). Retracting Features closes any open tile but leaves Why alone. Test hooks: data-features-toggle / data-features-card / data-features-panel (so existing [data-tile]/[data-panel] counts are unchanged); tests must press [data-features-toggle] before touching tiles. npm run landing:test (84) + pillorder:test (10).",
         "ts": "2026-11-07",
         "created": "2026-11-07"
+      },
+      "d-no-maintenance-modal-feed-heading": {
+        "Id": "d-no-maintenance-modal-feed-heading",
+        "Type": "decision",
+        "Label": "Maintenance modal removed; landing feed heading follows the platform pill",
+        "body": "2026-11-07 owner: (1) MaintenanceNotice.jsx + verify-maintenance-notice.mjs + maintenance:test deleted, no landing modal; bot/maintenance notes removed from index.html (noscript now 'needs JavaScript') and public/robots.txt. (2) LandingFeedFrame heading (data-landing-feed-title): Top tab + All = 'Trending posts across all platforms'; one server pill = 'Trending Posts on <name>' (FB->Facebook, Truth->Truth Social via HEADING_NAMES); Creators/News/Markets tabs keep their own labels. landing:test 93.",
+        "ts": "2026-11-07",
+        "created": "2026-11-07"
       }
     },
     "thread": {
