@@ -93,6 +93,80 @@ const playerShown = (p) => p.evaluate(() => {
   await page.close();
 }
 
+// 5-7. iPHONE (2026-11-07): the fixed "full screen" box trapped by an
+// ancestor transform — what the tester's recording shows (bare Tube page,
+// player strip at the bottom, NO help card). The sabotage out-ranks the
+// index.css :has() override, i.e. simulates WebKit not applying it.
+const TRAP = 'div[data-mini][data-mini]{transform:translateX(0)!important}';
+const covers = (p) => p.evaluate(() => {
+  const el = document.querySelector('[data-mini] [data-player-root]');
+  if (!el) return false;
+  const hit = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
+  const r = el.getBoundingClientRect();
+  return el.contains(hit) && r.width >= innerWidth * 0.9 && r.height >= innerHeight * 0.6;
+});
+{
+  const page = await ctx.newPage();
+  await page.goto(LINK);
+  await page.waitForSelector('[data-share-gate]', { timeout: 20000 });
+  await page.addStyleTag({ content: TRAP });
+  await page.tap('[data-share-gate]');
+  await page.waitForTimeout(4500);
+  check(await covers(page), '5 iPhone: a trapped full-screen box is freed and covers the screen');
+  check(await failedCard(page).count() === 0, '5 iPhone: no help card once it is freed');
+  const tr = await page.evaluate(() => sessionStorage.getItem('truegle_ptrace_v1') || '');
+  check(tr.includes('"s":"untrap"') && tr.includes('"s":"covered"'), '5 iPhone: the debug trace records untrap + covered');
+  // Leaving full screen hands the frame its own transform back.
+  await page.evaluate(() => document.querySelector('[data-mini] [data-player-root]')?.removeAttribute('data-pseudo-fullscreen'));
+  await page.waitForTimeout(300);
+  const left = await page.evaluate(() => [...document.querySelectorAll('[style]')].some((n) => /2147483000/.test(n.getAttribute('style'))));
+  check(!left, '6 iPhone: inline untrap styles are removed when full screen ends');
+  await page.close();
+}
+{
+  // Returning visitor whose player is MINIMISED (inert) when the link opens.
+  const page = await ctx.newPage();
+  await page.goto(LINK);
+  await page.waitForSelector('[data-share-gate]', { timeout: 20000 });
+  await page.addStyleTag({ content: TRAP });
+  await page.tap('[data-share-gate]');
+  await page.waitForTimeout(3500);
+  await page.goto(LINK);
+  await page.waitForSelector('[data-share-gate]', { timeout: 20000 });
+  await page.tap('[data-share-gate]');
+  await page.waitForTimeout(4500);
+  check(await covers(page), '7 iPhone: second open (existing player) still covers the screen');
+  check(await failedCard(page).count() === 0, '7 iPhone: no help card on the second open');
+  await page.close();
+}
+
+// 8. ANDROID must not touch the iPhone path at all: real Fullscreen API,
+// the old >=40px check, no gate trace events.
+{
+  const actx = await testContext(browser, {
+    viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true,
+    userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36',
+  });
+  await actx.addInitScript(`
+    window.__fsCalls = 0; const orig = Element.prototype.requestFullscreen;
+    Element.prototype.requestFullscreen = function () { window.__fsCalls++; return orig ? orig.call(this).catch(() => {}) : Promise.resolve(); };
+    localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));
+    localStorage.setItem('truegle_tutorials', JSON.stringify({ dismissed: {}, neverShowAgain: true, lastSeen: null, hintsOptIn: false }));`);
+  await actx.route('**/api/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true,"data":[],"results":[]}' }));
+  for (const h of ['**/*youtube*.com/**', '**/*.ytimg.com/**']) await actx.route(h, (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<html></html>' }));
+  const page = await actx.newPage();
+  await page.goto(LINK);
+  await page.waitForSelector('[data-share-gate]', { timeout: 20000 });
+  await page.tap('[data-share-gate]');
+  await page.waitForTimeout(4500);
+  check(await page.evaluate(() => window.__fsCalls) >= 1, '8 Android: real requestFullscreen is used');
+  check(await playerShown(page) && await failedCard(page).count() === 0, '8 Android: player opens, no help card');
+  const tr = await page.evaluate(() => sessionStorage.getItem('truegle_ptrace_v1') || '');
+  check(!tr.includes('"e":"gate"'), '8 Android: iPhone path never runs (no gate events)');
+  check(await page.locator('[data-pseudo-fullscreen]').count() === 0, '8 Android: no pseudo full-screen box');
+  await actx.close();
+}
+
 await browser.close();
 await server.close();
 for (const l of [...ok, ...bad]) console.log(l);

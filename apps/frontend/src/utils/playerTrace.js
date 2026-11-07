@@ -13,7 +13,7 @@
 // boolean or a short [a-z0-9_.:-] token, so a careless call site cannot leak
 // text into a trace.
 //
-// Event codes: mode, src, embed, sound, next, tap, upstream, boot.
+// Event codes: mode, src, embed, sound, next, tap, upstream, boot, gate.
 
 const MAX = 80;
 const KEY = 'truegle_ptrace_v1';

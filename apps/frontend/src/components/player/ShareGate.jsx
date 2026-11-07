@@ -5,7 +5,9 @@ import { Play, RotateCcw, Mail } from 'lucide-react';
 import { usePlayAll } from '../../hooks/usePlayAll';
 import { usePlayer } from '../../context/PlayerContext';
 import { mediaKey } from '../../utils/videoEmbed';
-import { reportHref as buildReportHref, envContext } from '../../utils/playerDiagnostics';
+import { reportHref as buildReportHref, envContext, reportEvent } from '../../utils/playerDiagnostics';
+import { IS_IOS } from '../../utils/isIOS';
+import { trace } from '../../utils/playerTrace';
 
 // THE DOOR A SHARED LINK OPENS ONTO.
 //
@@ -63,6 +65,81 @@ export function playerOnScreen() {
   return cs.visibility !== 'hidden' && Number(cs.opacity) > 0.05;
 }
 
+// ── iPHONE ONLY (2026-11-07) ─────────────────────────────────────────────
+// Tester recording, again: tap Play, the door vanishes, bare Tube page, the
+// collapsed player strip at the bottom — and NO help card. The help card's
+// check (playerOnScreen) only asks "is there a >=40px player box", which the
+// strip passes. On iPhone "full screen" is our own fixed box (no Fullscreen
+// API there), and that box can fail in ways the real API cannot: the request
+// lands while the player is still minimised/inert, or the box is trapped by
+// an ancestor's transform when the index.css :has() override does not take.
+// None of this reproduces in Chromium or desktop WebKit, so instead of one
+// guess, every step is checked and repaired — which is safe ONLY on iOS,
+// because the fixed box needs no user gesture and can be re-applied at will.
+// Android/desktop use the real, gesture-gated API and never enter this path.
+const playerRoot = () => document.querySelector('[data-mini] [data-player-root]');
+
+// Not "a player exists" — the player is what is in the middle of the screen.
+export function playerCoversScreen() {
+  const el = playerRoot();
+  if (!el || !el.hasAttribute('data-pseudo-fullscreen') || el.closest('[inert]')) return false;
+  const r = el.getBoundingClientRect();
+  if (r.width < window.innerWidth * 0.9 || r.height < window.innerHeight * 0.6) return false;
+  const hit = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+  return !!hit && el.contains(hit);
+}
+
+// Free the fixed box from any ancestor that makes itself its containing
+// block (the same list index.css cancels via :has). Inline + !important, and
+// put back exactly as it was the moment the box closes, so the floating
+// window's drag/animation is untouched afterwards.
+const TRAPS = ['transform', 'filter', 'backdrop-filter', '-webkit-backdrop-filter', 'contain', 'will-change', 'perspective'];
+function untrap(el) {
+  if (el.dataset.iosUntrapped) return;
+  const saved = [];
+  for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+    saved.push([a, TRAPS.map((k) => [k, a.style.getPropertyValue(k), a.style.getPropertyPriority(k)]),
+      [a.style.getPropertyValue('z-index'), a.style.getPropertyPriority('z-index')]]);
+    TRAPS.forEach((k) => a.style.setProperty(k, k === 'contain' ? 'none' : (k === 'will-change' ? 'auto' : 'none'), 'important'));
+    a.style.setProperty('z-index', '2147483000', 'important');
+  }
+  el.dataset.iosUntrapped = '1';
+  trace('gate', { s: 'untrap', n: saved.length });
+  const restore = () => {
+    obs.disconnect();
+    delete el.dataset.iosUntrapped;
+    saved.forEach(([a, props, [z, zp]]) => {
+      props.forEach(([k, v, pr]) => (v ? a.style.setProperty(k, v, pr) : a.style.removeProperty(k)));
+      if (z) a.style.setProperty('z-index', z, zp); else a.style.removeProperty('z-index');
+    });
+  };
+  const obs = new MutationObserver(() => { if (!el.isConnected || !el.hasAttribute('data-pseudo-fullscreen')) restore(); });
+  obs.observe(el, { attributes: true, attributeFilter: ['data-pseudo-fullscreen'] });
+  // The root can be removed outright (collapsed strip renders none).
+  obs.observe(document.body, { childList: true, subtree: true });
+}
+
+// Drive the iPhone box until it really covers the screen, or the window
+// closes. Returns a cancel function.
+function iosFullscreenUntilCovered({ askPlayer, unminimize }, windowMs = 2800) {
+  const t0 = Date.now();
+  let lastAsk = -1e9;
+  let timer = 0;
+  const step = () => {
+    if (playerCoversScreen()) { trace('gate', { s: 'covered', ms: Date.now() - t0 }); return; }
+    const el = playerRoot();
+    if (el) {
+      if (el.closest('[inert]')) unminimize();
+      else if (!el.hasAttribute('data-pseudo-fullscreen')) {
+        if (Date.now() - lastAsk > 300) { lastAsk = Date.now(); trace('gate', { s: 'ask' }); askPlayer(); }
+      } else untrap(el);
+    }
+    if (Date.now() - t0 < windowMs) timer = setTimeout(step, 100);
+  };
+  step();
+  return () => clearTimeout(timer);
+}
+
 export function reportHref(errors) {
   return buildReportHref({
     subject: 'Truegle: shared link would not play',
@@ -91,6 +168,8 @@ export default function ShareGate({ sources, onStart, playlistUrl = null }) {
   // 'door' → the poster; 'starting' → hidden while we check; 'failed' → help.
   const [phase, setPhase] = useState('door');
   const errors = useRef([]);
+  const iosCancel = useRef(null);
+  useEffect(() => () => iosCancel.current?.(), []);
   useEffect(() => {
     if (phase !== 'starting') return undefined;
     const note = (msg) => { if (msg && errors.current.length < 5) errors.current.push(String(msg).slice(0, 200)); };
@@ -99,7 +178,16 @@ export default function ShareGate({ sources, onStart, playlistUrl = null }) {
     window.addEventListener('error', onErr);
     window.addEventListener('unhandledrejection', onRej);
     const t = setTimeout(() => {
-      if (playerOnScreen()) onStart?.(); else setPhase('failed');
+      // iPhone: pass only if the player really fills the screen — the old
+      // check passed on the collapsed strip, which is how the bug hid.
+      const okNow = IS_IOS ? playerCoversScreen() : playerOnScreen();
+      if (okNow) { onStart?.(); return; }
+      if (IS_IOS) {
+        const el = playerRoot();
+        trace('gate', { s: 'fail', root: !!el, box: !!el?.hasAttribute('data-pseudo-fullscreen'), inert: !!el?.closest('[inert]') });
+        reportEvent({ reason: 'gate_ios' });
+      }
+      setPhase('failed');
     }, CHECK_MS);
     return () => {
       clearTimeout(t);
@@ -114,7 +202,13 @@ export default function ShareGate({ sources, onStart, playlistUrl = null }) {
       setPlayMode('auto');
       if (playlistUrl) playAll(playlistUrl); else startFeed(sources);
       setMinimized(false);
-      fullscreenPlayerWhenReady(requestFullscreen);
+      if (IS_IOS) {
+        trace('gate', { s: 'tap' });
+        iosCancel.current?.();
+        iosCancel.current = iosFullscreenUntilCovered({ askPlayer: requestFullscreen, unminimize: () => setMinimized(false) });
+      } else {
+        fullscreenPlayerWhenReady(requestFullscreen);
+      }
     } catch (e) {
       errors.current.push(String(e?.message || e).slice(0, 200));
     }
