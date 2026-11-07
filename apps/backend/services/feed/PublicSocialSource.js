@@ -35,6 +35,12 @@ const { createTtlCache } = require('../../utils/ttlCache');
 //      platform, never a combined one, however tempting the saved round trip.
 
 const SEARX_TIMEOUT_MS = 8000;
+// The engines that actually returned platform posts on the live instance
+// (2026-11-07): main search's `site:tiktok.com viral` rows all came from
+// "duckduckgo videos" and "bing videos" — the web engines answer thinly from
+// this box (one engine per query in the logs). Video engines first, then the
+// web ones. Overridable without a deploy; empty = skip to the categories.
+const FEED_ENGINES = process.env.FEED_SEARX_ENGINES ?? 'duckduckgo videos,bing videos,duckduckgo,bing,mojeek';
 
 // Five minutes: long enough that a scroll does not re-ask for the same page,
 // short enough that a feed left open still moves.
@@ -101,11 +107,11 @@ const isConfigured = () => Boolean(config.searxng && config.searxng.url);
  * copied from performSearXNGCategorySearch so the two stay recognisably the
  * same request.
  */
-async function askSearx(query, category, page) {
+async function askSearx(query, category, page, engines) {
+  const params = { q: query, format: 'json', pageno: page };
+  if (engines) params.engines = engines; else params.categories = category;
   const res = await axios.get(`${config.searxng.url}/search`, {
-    params: {
-      q: query, format: 'json', categories: category, pageno: page,
-    },
+    params,
     headers: {
       // The instance sits behind ngrok in some deployments and serves an
       // interstitial page instead of JSON without this.
@@ -201,6 +207,19 @@ async function fetchPublicSocial({ platform, topic, limit = 20, cursor } = {}) {
     // off-domain. Result: X, Facebook, Instagram and TikTok returned nothing
     // for every query, silently, while `site:x.com NASA` in the general
     // category returned 54 real x.com posts.
+    // NAMED ENGINES FIRST (2026-11-07). On the live instance the category
+    // queries below came back EMPTY — no error — while main search, which
+    // names its engines (data/modeEngines.js), found real posts for the exact
+    // same `site:` query (`site:tiktok.com viral`: 10 TikTok videos vs 0).
+    // So ask the way main search does, and keep the category path as the
+    // fallback for instances where that is what works.
+    try {
+      const named = (await askSearx(query, null, page, FEED_ENGINES))
+        .filter((row) => row?.url && onDomain(row.url, meta.domain));
+      if (named.length) return named;
+    } catch {
+      // fall through to the category queries
+    }
     let social = [];
     try {
       social = (await askSearx(query, 'social media', page)).filter((row) => row?.url && onDomain(row.url, meta.domain));
@@ -212,6 +231,12 @@ async function fetchPublicSocial({ platform, topic, limit = 20, cursor } = {}) {
     // platform; the general index only when they have none. Not "fewer than
     // a page": that doubles the load on the 1 GB box for every feed page.
     if (social.some((row) => isPost(row.url, platform))) return social;
+    // The videos category — where the live instance's working engines are.
+    let videos = [];
+    try {
+      videos = (await askSearx(query, 'videos', page)).filter((row) => row?.url && onDomain(row.url, meta.domain));
+    } catch { /* fall through to general */ }
+    if (videos.some((row) => isPost(row.url, platform))) return videos;
     const general = await askSearx(query, 'general', page);
     const seen = new Set(social.map((row) => row.url));
     return [...social, ...general.filter((row) => row?.url && !seen.has(row.url))];
