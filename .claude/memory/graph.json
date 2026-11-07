@@ -4037,6 +4037,14 @@
         "body": "2026-11-07: live SearXNG returned 0 for category queries (categories=social media/general) while main search naming engines (modeEngines blue-pill) found real posts for the same site: query. PublicSocialSource now asks named engines first (FEED_SEARX_ENGINES env override), categories as fallback.",
         "ts": "2026-11-07",
         "created": "2026-11-07"
+      },
+      "feed-searx-video-engines": {
+        "Id": "feed-searx-video-engines",
+        "Type": "fact",
+        "Label": "Live SearXNG: only video engines return social posts",
+        "body": "2026-11-07: main search's site:tiktok.com rows all came from 'duckduckgo videos'/'bing videos'; web engines answer thinly (1 engine/query). Feed now asks those first (FEED_SEARX_ENGINES), then social media / videos / general categories. Vercel branch previews of backend crash (FUNCTION_INVOCATION_FAILED, no logs) — can't verify there.",
+        "ts": "2026-11-07",
+        "created": "2026-11-07"
       }
     }
   },

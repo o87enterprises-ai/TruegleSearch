@@ -35,10 +35,12 @@ const { createTtlCache } = require('../../utils/ttlCache');
 //      platform, never a combined one, however tempting the saved round trip.
 
 const SEARX_TIMEOUT_MS = 8000;
-// The engines main search's default mode names — the set proven to answer on
-// the live instance. Overridable without a deploy; empty = skip straight to
-// the category queries.
-const FEED_ENGINES = process.env.FEED_SEARX_ENGINES ?? require('../../data/modeEngines').enginesFor('blue-pill');
+// The engines that actually returned platform posts on the live instance
+// (2026-11-07): main search's `site:tiktok.com viral` rows all came from
+// "duckduckgo videos" and "bing videos" — the web engines answer thinly from
+// this box (one engine per query in the logs). Video engines first, then the
+// web ones. Overridable without a deploy; empty = skip to the categories.
+const FEED_ENGINES = process.env.FEED_SEARX_ENGINES ?? 'duckduckgo videos,bing videos,duckduckgo,bing,mojeek';
 
 // Five minutes: long enough that a scroll does not re-ask for the same page,
 // short enough that a feed left open still moves.
@@ -229,6 +231,12 @@ async function fetchPublicSocial({ platform, topic, limit = 20, cursor } = {}) {
     // platform; the general index only when they have none. Not "fewer than
     // a page": that doubles the load on the 1 GB box for every feed page.
     if (social.some((row) => isPost(row.url, platform))) return social;
+    // The videos category — where the live instance's working engines are.
+    let videos = [];
+    try {
+      videos = (await askSearx(query, 'videos', page)).filter((row) => row?.url && onDomain(row.url, meta.domain));
+    } catch { /* fall through to general */ }
+    if (videos.some((row) => isPost(row.url, platform))) return videos;
     const general = await askSearx(query, 'general', page);
     const seen = new Set(social.map((row) => row.url));
     return [...social, ...general.filter((row) => row?.url && !seen.has(row.url))];
