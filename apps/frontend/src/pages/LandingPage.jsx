@@ -43,7 +43,6 @@ import { CATEGORIES as FEED_CATEGORIES } from '../config/feedCategories';
 import { searchPath } from '../utils/modeRoute';
 import { modePlaceholder, feedPlaceholderNow, advanceFeedPlaceholder } from '../config/modePlaceholders';
 import { NuclearOptionButton } from '../components/ui/SessionWipe';
-import MaintenanceNotice from '../components/landing/MaintenanceNotice';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -290,7 +289,6 @@ export default function LandingPage() {
   return (
     // One open feature card at a time, page-wide — see CollapsibleCard.
     <>
-    <MaintenanceNotice />
     <div
       className={`min-h-screen relative ${isRedPillMode ? 'bg-[#1a0a0a]' : 'bg-blue-900/20'}`}
     >

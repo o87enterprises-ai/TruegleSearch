@@ -46,7 +46,6 @@ async function open(page, url) {
 async function visit(opts, { done = false, path = '/' } = {}) {
   const ctx = await testContext(browser, { reducedMotion: 'no-preference', ...opts });
   await ctx.addInitScript(`localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));
-    sessionStorage.setItem('truegle_maint_seen_v1', '1');
     ${done ? "localStorage.setItem('truegle_pill_invite_done_v1', '1');" : ''}
     localStorage.setItem('truegle_tutorials', JSON.stringify({ dismissed: {}, neverShowAgain: true, lastSeen: null, hintsOptIn: false }));`);
   await ctx.route('**/api/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true,"data":[],"results":[],"videos":[]}' }));
