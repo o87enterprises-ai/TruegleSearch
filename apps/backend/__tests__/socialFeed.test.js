@@ -184,7 +184,7 @@ describe('POST /api/social/feed — paging', () => {
     // gets. A reason that names the cause but not the remedy leaves the reader
     // with a fact they can do nothing with, so it has to name the fix too.
     expect(res.body.errors.reddit).toMatch(/datacenter/i);
-    expect(res.body.errors.reddit).toMatch(/OAuth/i);
+    expect(res.body.errors.reddit).toMatch(/search instead/i);
   });
 
   test('a Reddit host that answers stops the walk', async () => {

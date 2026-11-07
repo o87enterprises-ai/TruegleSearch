@@ -361,11 +361,14 @@ function upstreamReason(err) {
     // CONFIRMED IN PRODUCTION 2026-08-18, not a hypothesis: every host in
     // REDDIT_HOSTS returns 403 from the deployment. Reddit blocks datacenter
     // IP ranges for keyless reads, so no amount of host-walking or header
-    // tuning gets past it — the fix is an authenticated request, i.e. the free
-    // Reddit OAuth app the Feed page already names as the one that works.
+    // tuning gets past it. The authenticated fix is closed to us: Reddit no
+    // longer lets new apps register without Responsible Builder approval
+    // (owner tried reddit.com/prefs/apps, 2026-11-07 — create is blocked).
+    // So the message must not send people to a sign-in that cannot exist; the
+    // feed falls back to Reddit's public pages via our own search instead.
     if (status === 403) {
-      return 'HTTP 403 — Reddit blocks keyless reads from datacenter IPs like ours. '
-        + 'Connecting a Reddit account (free OAuth) is what lifts this.';
+      return 'HTTP 403 — Reddit blocks direct reads from datacenter IPs like ours. '
+        + 'Showing public Reddit posts found by search instead.';
     }
     if (status === 429) return 'HTTP 429 — rate limited by Reddit';
     return `HTTP ${status}`;

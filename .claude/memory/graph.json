@@ -4045,6 +4045,14 @@
         "body": "2026-11-07: main search's site:tiktok.com rows all came from 'duckduckgo videos'/'bing videos'; web engines answer thinly (1 engine/query). Feed now asks those first (FEED_SEARX_ENGINES), then social media / videos / general categories. Vercel branch previews of backend crash (FUNCTION_INVOCATION_FAILED, no logs) — can't verify there.",
         "ts": "2026-11-07",
         "created": "2026-11-07"
+      },
+      "reddit-app-registration-blocked": {
+        "Id": "reddit-app-registration-blocked",
+        "Type": "fact",
+        "Label": "Reddit app registration blocked (confirmed 2026-11-07)",
+        "body": "Owner tried reddit.com/prefs/apps: create app is blocked pending Responsible Builder Policy approval. No REDDIT_CLIENT_ID/SECRET possible; neither app-only token nor per-user OAuth can go live. Do not build a Reddit Connect button. Reddit stays on the SearXNG public-page fallback. 403 message no longer tells users to connect an account.",
+        "ts": "2026-11-07",
+        "created": "2026-11-07"
       }
     }
   },
