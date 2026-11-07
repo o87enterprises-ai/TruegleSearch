@@ -2024,6 +2024,14 @@
         "body": "Top tab has All/per-network server pills. If blank query returns empty, frame auto-retries with FALLBACK_SEEDS (viral, trending, ...) and sorts newest-first; Shuffle button picks a random seed. Top tab only.",
         "ts": "2026-11-06",
         "created": "2026-11-06"
+      },
+      "instagram-via-bluesky": {
+        "Id": "instagram-via-bluesky",
+        "Type": "decision",
+        "Label": "Instagram feed = reels shared on Bluesky",
+        "body": "2026-11-07: search engines return 0 individual IG posts from the live box (12 queries tried). Instagram lane now reads Bluesky public searchPosts q=instagram.com/reel (+query): page1 sort=top, page2 sort=latest, then ends (Bluesky 403s keyless cursor pagination). Normalised to www.instagram.com/reel/<id>/, author null (sharer != creator), adult labels filtered. Falls back to SearXNG only on page 1 failure.",
+        "ts": "2026-11-07",
+        "created": "2026-11-07"
       }
     },
     "thread": {

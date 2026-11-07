@@ -574,6 +574,92 @@ async function fetchMastodon(query, limit, cursor) {
 const BSKY_PUBLIC = 'https://public.api.bsky.app/xrpc';
 const BSKY_HOT = 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot';
 
+// ── INSTAGRAM, AS SHARED ON BLUESKY (2026-11-07) ────────────────────────────
+//
+// Search engines barely index individual Instagram posts: from the live box,
+// twelve different searches returned ZERO /reel/ or /p/ links, so the panel
+// fell back to Instagram's own /reels/ landing page. But people post reel
+// links on Bluesky constantly, and Bluesky's search is public and keyless —
+// `instagram.com/reel` sorted by top gave 48 distinct real reels from the last
+// few days. "Top" = what people liked and reposted, the nearest honest thing to
+// "viral" we can read for free. The card still embeds Instagram's own player.
+//
+// PAGING: Bluesky 403s a keyless search's `cursor` (page 2 refused, checked
+// 2026-11-07), so page 1 is sort=top and page 2 is sort=latest — two different
+// first pages — and then the lane ends. The string cursor ('bsky:latest') can't
+// be mistaken for the SearXNG page number the fallback uses.
+const BSKY_HOSTS = ['https://api.bsky.app/xrpc', 'https://public.api.bsky.app/xrpc'];
+const IG_REEL = /https?:\/\/(?:www\.)?instagram\.com\/(?:[^/"\s]+\/)?(reel|reels|p|tv)\/([A-Za-z0-9_-]+)/;
+
+async function fetchInstagramShared(query, limit, cursor) {
+  const params = new URLSearchParams({
+    q: query ? `instagram.com/reel ${query}` : 'instagram.com/reel',
+    sort: cursor === 'bsky:latest' ? 'latest' : 'top',
+    limit: String(Math.min(Math.max(limit * 2, 25), 100)),
+  });
+  let data = null;
+  let lastErr = null;
+  for (const host of BSKY_HOSTS) {
+    try {
+      const res = await axios.get(`${host}/app.bsky.feed.searchPosts?${params}`, {
+        timeout: FEED_TIMEOUT, headers: { 'User-Agent': UA },
+      });
+      data = res.data;
+      break;
+    } catch (e) { lastErr = e; }
+  }
+  if (!data) throw lastErr || new Error('Bluesky search unavailable');
+
+  const seen = new Set();
+  const items = [];
+  for (const p of data.posts || []) {
+    const m = IG_REEL.exec(JSON.stringify(p.record || {}) + JSON.stringify(p.embed || {}));
+    if (!m) continue;
+    const kind = m[1] === 'reels' ? 'reel' : m[1];
+    const url = `https://www.instagram.com/${kind}/${m[2]}/`;
+    if (seen.has(url)) continue;
+    seen.add(url);
+    const text = String(p.record?.text || '').replace(/https?:\/\/\S+/g, '').trim();
+    const labels = (p.labels || []).map((l) => l.val);
+    items.push({
+      id: url,
+      platform: 'Instagram',
+      title: text.slice(0, 140) || 'Instagram reel',
+      url,
+      permalink: url,
+      snippet: null,
+      // The Bluesky account that SHARED it is not the reel's author — so no
+      // author rather than a wrong one.
+      author: null,
+      subreddit: null,
+      date: p.record?.createdAt || p.indexedAt || null,
+      score: null,
+      comments: null,
+      thumbnail: p.embed?.external?.thumb || null,
+      flair: null,
+      nsfw: labels.some((l) => ADULT_LABELS.has(l)),
+    });
+    if (items.length >= limit) break;
+  }
+  return { items, next: items.length && cursor !== 'bsky:latest' ? 'bsky:latest' : null };
+}
+
+// Bluesky-shared reels first; the SearXNG path only when that finds nothing.
+async function fetchInstagram(query, limit, cursor, seeds) {
+  const searxCursor = typeof cursor === 'string' ? undefined : cursor;
+  if (cursor === undefined || typeof cursor === 'string') {
+    try {
+      const shared = await fetchInstagramShared(query, limit, cursor);
+      // Past page 1 the lane is Bluesky's: an empty 'latest' page ends it
+      // rather than dropping to search's landing-page fallback mid-scroll.
+      if (shared.items.length || typeof cursor === 'string') return shared;
+    } catch {
+      if (typeof cursor === 'string') return { items: [], next: null };
+    }
+  }
+  return fetchViaSearx('instagram', query, limit, searxCursor, seeds);
+}
+
 async function fetchBluesky(query, limit, cursor) {
   const isSearch = Boolean(query);
   const params = new URLSearchParams(
@@ -878,7 +964,7 @@ router.post('/feed', optionalAuth, async (req, res) => {
       // The SearXNG-backed platforms, in the fixed order of SEARX_IDS so the
       // results can be zipped back onto their ids below.
       ...SEARX_IDS.map((id) => (want(id)
-        ? fetchViaSearx(id, q, limit, cur[id], seeds)
+        ? (id === 'instagram' ? fetchInstagram(q, limit, cur[id], seeds) : fetchViaSearx(id, q, limit, cur[id], seeds))
         : Promise.resolve(NONE))),
     ]);
 
