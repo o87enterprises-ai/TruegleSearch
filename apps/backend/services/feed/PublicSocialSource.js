@@ -35,6 +35,10 @@ const { createTtlCache } = require('../../utils/ttlCache');
 //      platform, never a combined one, however tempting the saved round trip.
 
 const SEARX_TIMEOUT_MS = 8000;
+// The engines main search's default mode names — the set proven to answer on
+// the live instance. Overridable without a deploy; empty = skip straight to
+// the category queries.
+const FEED_ENGINES = process.env.FEED_SEARX_ENGINES ?? require('../../data/modeEngines').enginesFor('blue-pill');
 
 // Five minutes: long enough that a scroll does not re-ask for the same page,
 // short enough that a feed left open still moves.
@@ -101,11 +105,11 @@ const isConfigured = () => Boolean(config.searxng && config.searxng.url);
  * copied from performSearXNGCategorySearch so the two stay recognisably the
  * same request.
  */
-async function askSearx(query, category, page) {
+async function askSearx(query, category, page, engines) {
+  const params = { q: query, format: 'json', pageno: page };
+  if (engines) params.engines = engines; else params.categories = category;
   const res = await axios.get(`${config.searxng.url}/search`, {
-    params: {
-      q: query, format: 'json', categories: category, pageno: page,
-    },
+    params,
     headers: {
       // The instance sits behind ngrok in some deployments and serves an
       // interstitial page instead of JSON without this.
@@ -201,6 +205,19 @@ async function fetchPublicSocial({ platform, topic, limit = 20, cursor } = {}) {
     // off-domain. Result: X, Facebook, Instagram and TikTok returned nothing
     // for every query, silently, while `site:x.com NASA` in the general
     // category returned 54 real x.com posts.
+    // NAMED ENGINES FIRST (2026-11-07). On the live instance the category
+    // queries below came back EMPTY — no error — while main search, which
+    // names its engines (data/modeEngines.js), found real posts for the exact
+    // same `site:` query (`site:tiktok.com viral`: 10 TikTok videos vs 0).
+    // So ask the way main search does, and keep the category path as the
+    // fallback for instances where that is what works.
+    try {
+      const named = (await askSearx(query, null, page, FEED_ENGINES))
+        .filter((row) => row?.url && onDomain(row.url, meta.domain));
+      if (named.length) return named;
+    } catch {
+      // fall through to the category queries
+    }
     let social = [];
     try {
       social = (await askSearx(query, 'social media', page)).filter((row) => row?.url && onDomain(row.url, meta.domain));

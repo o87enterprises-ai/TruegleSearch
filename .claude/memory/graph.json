@@ -4029,6 +4029,14 @@
         "body": "CLOUDFLARE_GLOBAL_TOKEN is a GLOBAL API KEY, not a bearer token: send X-Auth-Key: $CLOUDFLARE_GLOBAL_TOKEN with X-Auth-Email: o87enterprises@gmail.com. Account id 1052be08b0c9382768667a9254936f9c, Pages project truegle-search (frontend env: only VITE_MAPBOX_ACCESS_TOKEN, production). Vercel backend env: LASTFM_API_KEY set (Production only, since 2026-10-17); ad-era VITE_ENABLE_POPUNDER/VITE_ENABLE_SOCIAL_BAR removed 2026-10-22.",
         "ts": "2026-10-22",
         "created": "2026-10-22"
+      },
+      "feed-searx-named-engines": {
+        "Id": "feed-searx-named-engines",
+        "Type": "fact",
+        "Label": "Feed SearXNG must name engines",
+        "body": "2026-11-07: live SearXNG returned 0 for category queries (categories=social media/general) while main search naming engines (modeEngines blue-pill) found real posts for the same site: query. PublicSocialSource now asks named engines first (FEED_SEARX_ENGINES env override), categories as fallback.",
+        "ts": "2026-11-07",
+        "created": "2026-11-07"
       }
     }
   },
@@ -4058,5 +4066,5 @@
       }
     }
   },
-  "updated": "2026-11-06"
+  "updated": "2026-11-07"
 }

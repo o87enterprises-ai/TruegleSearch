@@ -61,18 +61,32 @@ describe('PublicSocialSource — the outbound query', () => {
     expect(q).not.toMatch(/[()]/);
   });
 
-  test('asks the social category first, then falls back to the general index', async () => {
+  test('asks the named engines first — the way main search asks', async () => {
+    // Live, 2026-11-07: category queries came back empty while main search,
+    // naming engines, found real posts for the same site: query.
+    axios.get.mockResolvedValueOnce(results('https://www.tiktok.com/@a/video/1'));
+    const { fetchPublicSocial } = load();
+    const r = await fetchPublicSocial({ platform: 'tiktok', topic: 'named-first', limit: 5 });
+
+    expect(axios.get).toHaveBeenCalledTimes(1);
+    expect(axios.get.mock.calls[0][1].params.engines).toBeTruthy();
+    expect(axios.get.mock.calls[0][1].params.categories).toBeUndefined();
+    expect(r.items).toHaveLength(1);
+  });
+
+  test('named engines empty → social category, then the general index', async () => {
     // Public Instagram and Facebook post pages live in the general web index
     // rather than in any social engine, so the fallback is where most of the
     // real work happens — not an error path.
     axios.get
       .mockResolvedValueOnce({ data: { results: [] } })
+      .mockResolvedValueOnce({ data: { results: [] } })
       .mockResolvedValueOnce(results('https://instagram.com/p/abc'));
     const { fetchPublicSocial } = load();
     const r = await fetchPublicSocial({ platform: 'instagram', topic: 'street art', limit: 5 });
 
-    expect(axios.get.mock.calls[0][1].params.categories).toBe('social media');
-    expect(axios.get.mock.calls[1][1].params.categories).toBe('general');
+    expect(axios.get.mock.calls[1][1].params.categories).toBe('social media');
+    expect(axios.get.mock.calls[2][1].params.categories).toBe('general');
     expect(r.items).toHaveLength(1);
   });
 });
@@ -155,11 +169,12 @@ describe('PublicSocialSource — the social category answering off-platform', ()
     // engines ignore site: and answer with Mastodon posts, which used to stop
     // the fallback — then every row was dropped as off-domain.
     axios.get
+      .mockResolvedValueOnce({ data: { results: [] } })
       .mockResolvedValueOnce(results('https://mastodon.social/@a/1', 'https://reddit.com/r/x/comments/1'))
       .mockResolvedValueOnce(results('https://x.com/NASA', 'https://x.com/NASA/status/123'));
     const { fetchPublicSocial } = load();
     const out = await fetchPublicSocial({ platform: 'x', topic: 'offsite-case', limit: 5 });
-    expect(axios.get.mock.calls[1][1].params.categories).toBe('general');
+    expect(axios.get.mock.calls[2][1].params.categories).toBe('general');
     expect(out.items.map((i) => i.url)).toEqual(['https://x.com/NASA/status/123']);
   });
 
