@@ -574,7 +574,9 @@ async function fetchMastodon(query, limit, cursor) {
 const BSKY_PUBLIC = 'https://public.api.bsky.app/xrpc';
 const BSKY_HOT = 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot';
 
-// ── INSTAGRAM, AS SHARED ON BLUESKY (2026-11-07) ────────────────────────────
+// ── POSTS AS SHARED ON BLUESKY (2026-11-07) ─────────────────────────────────
+// (Instagram first; Facebook, X and Reddit added the same day. TikTok is NOT
+// here — its search path already returns real, recent videos.)
 //
 // Search engines barely index individual Instagram posts: from the live box,
 // twelve different searches returned ZERO /reel/ or /p/ links, so the panel
@@ -589,13 +591,43 @@ const BSKY_HOT = 'at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/
 // first pages — and then the lane ends. The string cursor ('bsky:latest') can't
 // be mistaken for the SearXNG page number the fallback uses.
 const BSKY_HOSTS = ['https://api.bsky.app/xrpc', 'https://public.api.bsky.app/xrpc'];
-const IG_REEL = /https?:\/\/(?:www\.)?instagram\.com\/(?:[^/"\s]+\/)?(reel|reels|p|tv)\/([A-Za-z0-9_-]+)/;
 
-async function fetchInstagramShared(query, limit, cursor) {
+// What to search Bluesky for, and how to turn a matched link into the URL the
+// player embeds (frontend utils/videoEmbed.js). Extended 2026-11-07 from
+// Instagram to the other "mains": from the live box Reddit 403s, and search
+// returned only Facebook's / Reddit's own landing pages and a single X post,
+// while Bluesky held 60-100 real shared links for each (top + latest).
+// fb.watch short links are skipped: they'd need a redirect lookup to embed.
+const SHARED = {
+  instagram: {
+    q: 'instagram.com/reel', label: 'Instagram', fallbackTitle: 'Instagram reel',
+    re: /https?:\/\/(?:www\.)?instagram\.com\/(?:[^/"\s]+\/)?(reel|reels|p|tv)\/([A-Za-z0-9_-]+)/,
+    url: (m) => `https://www.instagram.com/${m[1] === 'reels' ? 'reel' : m[1]}/${m[2]}/`,
+  },
+  facebook: {
+    q: 'facebook.com/reel', label: 'Facebook', fallbackTitle: 'Facebook video',
+    re: /https?:\/\/(?:www\.|m\.|web\.)?facebook\.com\/(?:[^"\s]+\/videos\/|reel\/|watch\/?\?v=)(\d+)/,
+    url: (m) => `https://www.facebook.com/reel/${m[1]}`,
+  },
+  x: {
+    q: 'x.com status', label: 'X', fallbackTitle: 'Post on X',
+    re: /https?:\/\/(?:www\.|mobile\.)?(?:x|twitter)\.com\/([A-Za-z0-9_]{1,15})\/status\/(\d+)/,
+    url: (m) => `https://x.com/${m[1]}/status/${m[2]}`,
+  },
+  reddit: {
+    q: 'reddit.com/r', label: 'Reddit', fallbackTitle: 'Reddit post',
+    re: /https?:\/\/(?:www\.|old\.|new\.|m\.)?reddit\.com\/r\/([A-Za-z0-9_]+)\/comments\/([a-z0-9]+)/,
+    url: (m) => `https://www.reddit.com/r/${m[1]}/comments/${m[2]}/`,
+    subreddit: (m) => m[1],
+  },
+};
+
+async function fetchSharedOnBluesky(platform, query, limit, cursor) {
+  const spec = SHARED[platform];
   const params = new URLSearchParams({
-    q: query ? `instagram.com/reel ${query}` : 'instagram.com/reel',
+    q: query ? `${spec.q} ${query}` : spec.q,
     sort: cursor === 'bsky:latest' ? 'latest' : 'top',
-    limit: String(Math.min(Math.max(limit * 2, 25), 100)),
+    limit: String(Math.min(Math.max(limit * 3, 25), 100)),
   });
   let data = null;
   let lastErr = null;
@@ -613,25 +645,24 @@ async function fetchInstagramShared(query, limit, cursor) {
   const seen = new Set();
   const items = [];
   for (const p of data.posts || []) {
-    const m = IG_REEL.exec(JSON.stringify(p.record || {}) + JSON.stringify(p.embed || {}));
+    const m = spec.re.exec(JSON.stringify(p.record || {}) + JSON.stringify(p.embed || {}));
     if (!m) continue;
-    const kind = m[1] === 'reels' ? 'reel' : m[1];
-    const url = `https://www.instagram.com/${kind}/${m[2]}/`;
+    const url = spec.url(m);
     if (seen.has(url)) continue;
     seen.add(url);
     const text = String(p.record?.text || '').replace(/https?:\/\/\S+/g, '').trim();
     const labels = (p.labels || []).map((l) => l.val);
     items.push({
       id: url,
-      platform: 'Instagram',
-      title: text.slice(0, 140) || 'Instagram reel',
+      platform: spec.label,
+      title: text.slice(0, 140) || p.embed?.external?.title || spec.fallbackTitle,
       url,
       permalink: url,
-      snippet: null,
-      // The Bluesky account that SHARED it is not the reel's author — so no
+      snippet: p.embed?.external?.description || null,
+      // The Bluesky account that SHARED it is not the post's author — so no
       // author rather than a wrong one.
       author: null,
-      subreddit: null,
+      subreddit: spec.subreddit ? spec.subreddit(m) : null,
       date: p.record?.createdAt || p.indexedAt || null,
       score: null,
       comments: null,
@@ -644,20 +675,43 @@ async function fetchInstagramShared(query, limit, cursor) {
   return { items, next: items.length && cursor !== 'bsky:latest' ? 'bsky:latest' : null };
 }
 
-// Bluesky-shared reels first; the SearXNG path only when that finds nothing.
-async function fetchInstagram(query, limit, cursor, seeds) {
-  const searxCursor = typeof cursor === 'string' ? undefined : cursor;
-  if (cursor === undefined || typeof cursor === 'string') {
+// REDDIT: its own hot listing first — where Reddit answers (a laptop, a
+// self-hosted box) that IS the top posts. From the deployment it 403s, and its
+// search fallback returns only reddit.com landing pages (r/all, "Reddit - Dive
+// into anything"), so when nothing real comes back, the Bluesky-shared threads
+// stand in. Real = a /comments/ permalink.
+const isRedditThread = (it) => /\/comments\//.test(it.permalink || it.url || '');
+async function fetchRedditBest(query, limit, cursor) {
+  if (typeof cursor === 'string' && cursor.startsWith('bsky:')) {
+    return fetchSharedOnBluesky('reddit', query, limit, cursor).catch(() => ({ items: [], next: null }));
+  }
+  let own = null;
+  let ownErr = null;
+  try { own = await fetchReddit(query, limit, cursor); } catch (e) { ownErr = e; }
+  if (own && own.items.some(isRedditThread)) return own;
+  if (cursor) { if (own) return own; throw ownErr; }
+  try {
+    const shared = await fetchSharedOnBluesky('reddit', query, limit, undefined);
+    if (shared.items.length) return shared;
+  } catch { /* fall through */ }
+  if (own) return own;
+  throw ownErr;
+}
+
+// Bluesky-shared links first; `fallback` (the platform's old path) only when
+// that finds nothing on page 1. Past page 1 the lane is Bluesky's: an empty
+// 'latest' page ends it rather than dropping to a landing-page fallback.
+async function withSharedFirst(platform, query, limit, cursor, fallback) {
+  const ownCursor = typeof cursor === 'string' && cursor.startsWith('bsky:') ? undefined : cursor;
+  if (cursor === undefined || (typeof cursor === 'string' && cursor.startsWith('bsky:'))) {
     try {
-      const shared = await fetchInstagramShared(query, limit, cursor);
-      // Past page 1 the lane is Bluesky's: an empty 'latest' page ends it
-      // rather than dropping to search's landing-page fallback mid-scroll.
-      if (shared.items.length || typeof cursor === 'string') return shared;
+      const shared = await fetchSharedOnBluesky(platform, query, limit, cursor);
+      if (shared.items.length || cursor !== undefined) return shared;
     } catch {
-      if (typeof cursor === 'string') return { items: [], next: null };
+      if (cursor !== undefined) return { items: [], next: null };
     }
   }
-  return fetchViaSearx('instagram', query, limit, searxCursor, seeds);
+  return fallback(ownCursor);
 }
 
 async function fetchBluesky(query, limit, cursor) {
@@ -946,7 +1000,7 @@ router.post('/feed', optionalAuth, async (req, res) => {
     const [redditResult, hnResult, ghResult, newsResult, communityResult,
            mastodonResult, blueskyResult, lemmyResult, creatorsResult,
            newsVideoResult, marketsVideoResult, ...searxResults] = await Promise.allSettled([
-      want('reddit') ? fetchReddit(q, limit, cur.reddit) : Promise.resolve(NONE),
+      want('reddit') ? fetchRedditBest(q, limit, cur.reddit) : Promise.resolve(NONE),
       want('hackernews') ? fetchHackerNews(q, limit, cur.hackernews) : Promise.resolve(NONE),
       want('github') ? fetchGitHub(q, limit, cur.github) : Promise.resolve(NONE),
       want('news') ? fetchNews(q, limit, cur.news) : Promise.resolve(NONE),
@@ -964,7 +1018,7 @@ router.post('/feed', optionalAuth, async (req, res) => {
       // The SearXNG-backed platforms, in the fixed order of SEARX_IDS so the
       // results can be zipped back onto their ids below.
       ...SEARX_IDS.map((id) => (want(id)
-        ? (id === 'instagram' ? fetchInstagram(q, limit, cur[id], seeds) : fetchViaSearx(id, q, limit, cur[id], seeds))
+        ? (SHARED[id] ? withSharedFirst(id, q, limit, cur[id], (c) => fetchViaSearx(id, q, limit, c, seeds)) : fetchViaSearx(id, q, limit, cur[id], seeds))
         : Promise.resolve(NONE))),
     ]);
 
