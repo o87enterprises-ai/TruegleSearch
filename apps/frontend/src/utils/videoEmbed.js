@@ -205,7 +205,7 @@ const AUDIO_EXT = /\.(mp3|m4a|aac|ogg|oga|wav|flac)(\?|#|$)/i;
 const VIDEO_EXT = /\.(mp4|webm|mov|m4v)(\?|#|$)/i;
 
 // Sources that are portrait by nature — Shorts, TikToks, Reels.
-function isVerticalSource(url) {
+export function isVerticalSource(url) {
   try {
     const u = new URL(url);
     const host = u.hostname.replace(/^www\./, '');

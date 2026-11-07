@@ -25,6 +25,7 @@
     "feedpage:test": "node scripts/verify-feed-page.mjs",
     "feedtube:test": "node scripts/verify-feed-tube.mjs",
     "feedplayable:test": "node scripts/verify-feed-playable.mjs",
+    "feedshapes:test": "node scripts/verify-feed-shapes.mjs",
     "reels:test": "node scripts/verify-reels.mjs",
     "seo:test": "node scripts/verify-seo-pages.mjs",
     "gsc:test": "node scripts/verify-gsc.mjs",

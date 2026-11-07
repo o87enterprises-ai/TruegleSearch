@@ -484,7 +484,7 @@ export function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
       <div className="space-y-3">
         {items.map((post, idx) => (
           <div key={post._key} ref={(el) => register(idx, el)}>
-            <FeedCard post={post} focused={idx === activeIndex} onPlay={() => beginFrom(post)} />
+            <FeedCard post={post} focused={idx === activeIndex} onPlay={() => beginFrom(post)} nativeShape />
           </div>
         ))}
       </div>
