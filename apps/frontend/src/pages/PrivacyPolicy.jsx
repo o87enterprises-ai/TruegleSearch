@@ -26,7 +26,7 @@ const PrivacyPolicy = () => (
       <p>
         What we <strong>do</strong> keep: the text of an ordinary search and the mode it was made
         in, as an <strong>anonymous line, for at most 7 days</strong>. It is used only to show
-        what is trending and to seed the Feed, and it is deleted automatically after a week.
+        what is trending, and it is deleted automatically after a week.
         We never keep a search that looks like personal data (an email address, phone number,
         card or ID number, street address, IP address, or a pasted link), and we never keep
         anything searched in <em>Ocean</em> (Privacy/OSINT) mode. Our server request logs record

@@ -4,9 +4,11 @@
  *
  * WHAT IS STORED, said plainly because the privacy policy now says it too:
  * the lower-cased text of a short search, its mode, and a timestamp — no
- * account, no IP address, no device or session identifier. It exists for two
- * things only: the landing page's "trending" pills (last 24 h) and seeding the
- * Feed (last 48 h). Nothing older than RETENTION_DAYS is kept.
+ * account, no IP address, no device or session identifier. It exists for one
+ * thing only: the landing page's "trending" pills (last 24 h). It no longer
+ * seeds the Feed — it counts searches, not people, so one person repeating a
+ * query took the home feed over (2026-11-08). Nothing older than
+ * RETENTION_DAYS is kept.
  *
  * WHAT IS NEVER STORED:
  *   - anything from Ocean (OSINT) mode — those searches are, by design, for

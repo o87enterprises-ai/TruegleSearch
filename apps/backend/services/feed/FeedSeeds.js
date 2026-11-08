@@ -9,17 +9,23 @@ const { createTtlCache } = require('../../utils/ttlCache');
 // nothing — has no topic. Every other design decision in the feed follows from
 // the timeline being seeded with something.
 //
-// ── THREE SOURCES, IN ORDER, EACH COVERING THE ONE BEFORE ───────────────────
+// ── TWO SOURCES, THE SECOND COVERING THE FIRST ──────────────────────────────
 //
-//   1. What people here are actually searching for (`search_queries`, the same
-//      table behind the landing page's trending pills). The best seed there is:
-//      it is real, current, free, and already collected.
-//   2. Today's headlines, when trending is thin. A brand-new install has no
-//      query history at all, and a feed that is empty until strangers have used
-//      it for a week is a feed nobody will use for a week.
-//   3. A small static rotation, when both are empty or unreachable. Dull, but a
+//   1. Today's headlines. Real, current, and about the world rather than about
+//      whoever happens to be using the site.
+//   2. A small static rotation, to top the list up to the size asked for and to
+//      stand alone when the headlines are empty or unreachable. Dull, but a
 //      dull feed beats a blank one — the same reasoning as serving repeats
 //      rather than nothing when the seen-ledger has suppressed everything.
+//
+// WHAT THIS DELIBERATELY DOES NOT DO (owner, 2026-11-08). It used to seed the
+// feed from what visitors had searched for most in the last 48 hours. The
+// search log stores no person, device or IP, so it counts SEARCHES, not people
+// — and at this site's traffic one person repeating a search took over the
+// whole home feed for everyone. The live top six were four variations of one
+// private individual's name, so three scroll pages in a row came back as posts
+// about that name, and it was being promoted onto every visitor's front page.
+// Search text now feeds the trending pills and nothing else.
 //
 // Nothing here is per-person. These are the SAME seeds for every visitor, which
 // is what keeps a personalised-looking feed from needing a profile to build it.
@@ -35,30 +41,6 @@ const STATIC_SEEDS = [
   'news', 'technology', 'science', 'music', 'sports',
   'film', 'photography', 'food', 'travel', 'art',
 ];
-
-/** Trending searches from our own visitors. Never throws — returns []. */
-async function fromTrending(limit) {
-  try {
-    const { query } = require('../../db/connection');
-    // Same table the landing page's trending pills read. Recent and popular,
-    // and nothing about who searched — the table stores query, mode and
-    // timestamp, never a person.
-    const { rows } = await query(
-      `SELECT query FROM search_queries
-        WHERE created_at > NOW() - INTERVAL '48 hours'
-          AND length(query) BETWEEN 3 AND 60
-        GROUP BY query
-        ORDER BY COUNT(*) DESC
-        LIMIT $1`,
-      [limit],
-    );
-    return rows.map((r) => r.query).filter(Boolean);
-  } catch {
-    // No database, no table yet, or a cold serverless start. A feed must not
-    // depend on analytics being up.
-    return [];
-  }
-}
 
 /** Today's headlines, as topics. Never throws — returns []. */
 async function fromHeadlines(limit) {
@@ -85,18 +67,14 @@ async function fromHeadlines(limit) {
  */
 async function seedTopics(limit = 6) {
   return cache.wrap(`seeds:${limit}`, async () => {
-    const trending = await fromTrending(limit);
-    // "Thin" rather than "empty": one lonely search from yesterday is not a
-    // feed's worth of topics, and topping up beats a timeline about one thing.
-    if (trending.length >= limit) return trending;
-
-    const headlines = await fromHeadlines(limit - trending.length);
-    const merged = [...new Set([...trending, ...headlines])];
-    if (merged.length) return merged;
-
-    // Rotated by the hour so the last-resort feed is not identical all day.
+    const headlines = await fromHeadlines(limit);
+    // Topped up rather than used alone: one lonely headline is not a feed's
+    // worth of topics, and a timeline about one story is the failure mode this
+    // file exists to avoid.
+    // Rotated by the hour so the topping-up is not identical all day.
     const offset = new Date().getHours() % STATIC_SEEDS.length;
-    return [...STATIC_SEEDS.slice(offset), ...STATIC_SEEDS.slice(0, offset)].slice(0, limit);
+    const rotation = [...STATIC_SEEDS.slice(offset), ...STATIC_SEEDS.slice(0, offset)];
+    return [...new Set([...headlines, ...rotation])].slice(0, limit);
   });
 }
 
