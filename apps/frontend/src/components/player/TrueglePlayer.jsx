@@ -1,4 +1,5 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Bookmark, SkipBack, SkipForward, Play, Pause, ChevronUp, ChevronDown, VolumeX } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { usePageMode } from '../../hooks/usePageMode';
@@ -575,6 +576,9 @@ export default function TrueglePlayer({
 
   const embed = useEmbedPlayback({
     frameRef,
+    // The iPhone stage renders the root (and so the frame) in <body>; a new
+    // frame needs a new listener — see useEmbedPlayback.
+    frameKey: IS_IOS && pseudoFullscreen ? 'stage' : 'inline',
     source: current,
     onEnded: handleEnded,
     // The embed said it cannot play this. Report it and move on rather than
@@ -1234,7 +1238,22 @@ export default function TrueglePlayer({
     />
   );
 
-  return (
+  // THE IPHONE STAGE (owner, 2026-11-08). On iPhone "full screen" is a fixed
+  // box (there is no Fullscreen API), and until now that box was built where
+  // the player lives: several layers deep inside the docked frame, which clips
+  // (overflow hidden, rounded corners) and scrolls (overflow auto). On a real
+  // iPhone, in the iMessage in-app browser, that nested box was never painted:
+  // the page showed a 2px sliver of the frame, a lone play button in the Tube
+  // bar, no picture and no controls, while the clip played unseen and muted —
+  // and iOS only unmutes from a tap the person could not make. Desktop WebKit
+  // here draws the nested box fine, which is why this never reproduced.
+  //
+  // So on iPhone the full-screen root is rendered straight into <body>: nothing
+  // above it can clip, scroll, round or composite it away. Only the DOM moves —
+  // this component, its state and the queue stay where they are — so the one
+  // cost is that the picture reloads once as it enters the stage, at the very
+  // tap that started it. Every other browser takes the `stage` line unchanged.
+  const stage = (
     <div
       ref={rootRef}
       // Which player this is. The feed deck and the Tube deck share this
@@ -1678,4 +1697,7 @@ export default function TrueglePlayer({
       )}
     </div>
   );
+  return IS_IOS && pseudoFullscreen && typeof document !== 'undefined'
+    ? createPortal(stage, document.body)
+    : stage;
 }
