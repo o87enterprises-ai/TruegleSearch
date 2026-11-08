@@ -11,6 +11,10 @@
 // the same duality already exists for PROVIDERS (frontend, socialProviders.js)
 // vs BACKEND_PLATFORMS (backend, social.js). Add or remove a creator in BOTH
 // files.
+//
+// `podcast: true` (backend-only flag) marks roster creators whose uploads are
+// podcast episodes: the Feed's Podcasts shelf (services/PodcastVideoService)
+// lists these FIRST, ahead of generic search results.
 module.exports = [
   { slug: 'dark-waters-9', name: 'Dark Waters 9', channelId: 'UCZw8SuiTYSvPKmnMe8LDtpA' },
   { slug: 'true-story', name: 'True Story', channelId: 'UCQT9VG5hpLKp8of41fvDdtw' },
@@ -27,6 +31,6 @@ module.exports = [
   { slug: 'dxmnitbobby', name: 'DxmnItBobby', channelId: 'UC59aErv1lJXCFZoruDmB4Og' },
   { slug: 'library-of-the-untold', name: 'Library of the Untold', channelId: 'UCur0Zbb7iwP95tVlxi5Q58A' },
   { slug: 'jake-abdo', name: 'Jake Abdo', channelId: 'UCF_N19axxdvbVBhtLgWot3Q' },
-  { slug: 'the-bema-podcast', name: 'The BEMA Podcast', channelId: 'UCT4XtjyX7j8ldZOb3XQdPeQ' },
-  { slug: 'roland-martin', name: 'Roland Martin', channelId: 'UCjXB7nX8bL2U2sje8d212Yw' },
+  { slug: 'the-bema-podcast', name: 'The BEMA Podcast', channelId: 'UCT4XtjyX7j8ldZOb3XQdPeQ', podcast: true },
+  { slug: 'roland-martin', name: 'Roland Martin', channelId: 'UCjXB7nX8bL2U2sje8d212Yw', podcast: true },
 ];

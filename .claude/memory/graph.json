@@ -2144,6 +2144,22 @@
         "body": "hooks/useFeedTabs.js + components/feed/FeedPills.jsx shared by LandingFeedFrame and /feed Home: Top|Creators|News|Markets pills, Top server pills + Shuffle, blank-never-broken fallback seeds + newest-first sort. /feed passes rememberSeen:true (never-repeat ledger), landing false. Home blank view = Top social networks only (GitHub/HN/news/community now via Browse/other pills); typed search and opened categories keep the old all-servers feed. Creators pill has CreatorChips (creator isolate). Test: verify-feed-page.mjs. Also fixed LetterGlitch null canvas flake; podcastvideo added to browse-only in tests.",
         "ts": "2026-11-08",
         "created": "2026-11-08"
+      },
+      "preview-env-leftovers": {
+        "Id": "preview-env-leftovers",
+        "Type": "decision",
+        "Label": "Leftover Vercel Preview vars (branch-scoped, harmless)",
+        "body": "backend project has JWT_SECRET, ENCRYPTION_KEY (throwaway randoms) and NODE_ENV=preview, Preview target only, bound to branch o87/admiring-einstein-asnduf, created 2026-11-08. Cannot affect production. Agent tools cannot delete env vars; owner may delete in Vercel dashboard. Previews still lack SEARXNG_*/DATABASE_URL so search lanes are empty there; test search-backed lanes on production after deploy.",
+        "ts": "2026-11-08",
+        "created": "2026-11-08"
+      },
+      "podcasts-roster-first": {
+        "Id": "podcasts-roster-first",
+        "Type": "decision",
+        "Label": "Podcasts shelf favors roster shows first (2026-11-08)",
+        "body": "PodcastVideoService.mergeRosterFirst: page 1 = roster entries flagged podcast:true in backend/config/creatorsRoster.js (BEMA, Roland Martin), one per show in turn (max 8), then YouTube search rows, deduped. Query filters roster by title/author. Roster failure falls back to generic.",
+        "ts": "2026-11-08",
+        "created": "2026-11-08"
       }
     },
     "thread": {
