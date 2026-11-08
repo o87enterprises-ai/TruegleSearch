@@ -2120,6 +2120,14 @@
         "body": "2026-11-08 owner (after the feed-seeds fix): 'whatever is best, most universal, not steered or catered; we want trending POSTS exclusively on landing.' FINDINGS: the landing search PILLS were already gone (api.getTrending has no callers; NewsFeed replaced them; sanitizeTrending.js is dead) — but GET /api/search/trending was still PUBLIC and returned the raw top searches (incl. a private individual's name) to anyone. FIX: route now authenticate + requireAdmin; removed from the public API index in server.js; marketing skill note updated (admin login needed; never copy a person's name from it). Test: __tests__/searchTrendingAccess.test.js (3; 2 fail on the old public route): anon 401, user 403, admin 200, and the log is not read for the refused. The search log now feeds NOTHING public. Landing = trending POSTS (headline-seeded feed frame) only.",
         "ts": "2026-11-08",
         "created": "2026-11-08"
+      },
+      "d-feed-creator-tip": {
+        "Id": "d-feed-creator-tip",
+        "Type": "decision",
+        "Label": "Feed page shows a dismissible note: 'Type the name of your favorite creator, see their posts across all platforms'",
+        "body": "2026-11-08 owner asked for a note or modal on the feed page so users know why Truegle is useful for social feeds. CHOSEN: an inline NOTE (role=note), not a modal (the maintenance modal was just removed). components/feed/FeedCreatorTip.jsx, placed in FeedPage under the search bar; shown only when view==='home' && !query.trim() && !submitted; dismiss remembered in localStorage truegle_feed_creator_tip_v1. TRUTH CHECK done against live API: typing a creator (mkbhd) returned 81 posts across 8 platforms — X/News/Lemmy/Reddit deep (~20), Instagram/Facebook/TikTok/Pinterest ~1 each, Bluesky 403 that call — so the sentence is true but depth varies; copy says 'their posts', not 'all of their posts'. Test: npm run feedtip:test (20). GOTCHA: while the search box has focus its suggestion dropdown opens OVER the note — expected; tests click away first. The search bar's 'trending' suggestions are a hardcoded list in SearchBar.jsx (~l.823), NOT the search log.",
+        "ts": "2026-11-08",
+        "created": "2026-11-08"
       }
     },
     "thread": {
