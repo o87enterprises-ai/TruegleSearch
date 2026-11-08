@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowUp, MessageCircle, ExternalLink, Code, Star, GitFork, Play, ListPlus } from 'lucide-react';
+import { ArrowUp, MessageCircle, ExternalLink, Code, Star, GitFork, Play, ListPlus, Radio } from 'lucide-react';
 import { PROVIDERS } from '../../config/socialProviders';
 import { feedSource } from '../../hooks/useFeedCursor';
 import { usePlayer } from '../../context/PlayerContext';
@@ -314,12 +314,16 @@ export const MediaPostCard = ({ post, shape, poster }) => {
  *  nearest the vertical center of the viewport. Purely a rendering signal;
  *  the caller owns registering the wrapper element with that hook.
  *
+ *  `onStream` — like onPlay, but the run keeps itself fed from this feed's next
+ *  pages (see useFeedCursor.beginStream). Omitted where a feed has no cursor of
+ *  its own (Browse's strips) — the Stream button is then not shown.
+ *
  *  `onPlay` — starts playback via the caller's feed-follow cursor (see
  *  useFeedCursor), so the fullscreen player has this feed's own rows to
  *  swipe through afterwards. Optional: a caller with no cursor of its own
  *  (Browse's horizontal strips) omits it and gets the plain playNow this
  *  always did. */
-export default function FeedCard({ post, focused = false, onPlay, nativeShape = false }) {
+export default function FeedCard({ post, focused = false, onPlay, onStream, nativeShape = false }) {
   const [leavingOpen, setLeavingOpen] = useState(false);
   const [warnOpen, setWarnOpen] = useState(false);
   const { current, startFeed, enqueue, requestFullscreen } = usePlayer();
@@ -399,6 +403,12 @@ export default function FeedCard({ post, focused = false, onPlay, nativeShape = 
     if (started) requestFullscreen();
   };
 
+  const streamIt = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onStream && onStream() !== false) requestFullscreen();
+  };
+
   const queueIt = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -467,6 +477,18 @@ export default function FeedCard({ post, focused = false, onPlay, nativeShape = 
           <Play size={12} />
           Play now
         </button>
+        {onStream && (
+          <button
+            type="button"
+            data-feed-action="stream"
+            onClick={streamIt}
+            title="Stream — keep playing this feed"
+            className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg font-medium text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+          >
+            <Radio size={12} />
+            Stream
+          </button>
+        )}
         <button
           type="button"
           data-feed-action="queue"

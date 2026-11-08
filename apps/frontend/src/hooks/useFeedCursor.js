@@ -1,9 +1,6 @@
 import { useCallback, useMemo, useRef, useEffect } from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import { getPlayable } from '../utils/videoEmbed';
-import { creatorOf, playOrder } from '../utils/creatorRun';
-
-const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
 // Turns the feed's own already-loaded rows into the player's feed-follow
 // cursor. PlayerContext already has one — `feed`/`feedActive`, built for
@@ -44,11 +41,19 @@ export function feedSource(post) {
   };
 }
 
-export function useFeedCursor(rows) {
-  const { feedActive, startFeed, appendFeed } = usePlayer();
+// STREAM ON THE FEED (owner, 2026-11-08). Tube's Stream keeps playing without
+// being asked. The Feed's version: start from this post and keep going through
+// THIS FEED — and as the run gets low, load the feed's next page rather than
+// stopping at the end of what was scrolled. The scope is simply the feed on
+// screen: the All-creators feed streams every creator; a feed isolated to one
+// creator (creator chip) contains only that creator, so it streams only them.
+const STREAM_LOW_WATER = 4; // load more when this few clips are left to play
+
+export function useFeedCursor(rows, ctl = {}) {
+  const { feedActive, feed: upcoming, startFeed, appendFeed } = usePlayer();
+  const { loadMore, done, loading } = ctl;
   const startedRef = useRef(false);
-  // Set while a CREATOR RUN is playing: { name, token }. See beginFrom.
-  const runRef = useRef(null);
+  const streamRef = useRef(false);
 
   // One playable entry per feed row that actually has one, in display
   // order. A row nothing in videoEmbed.js recognises is simply absent —
@@ -68,11 +73,7 @@ export function useFeedCursor(rows) {
     const grew = playable.length - prevLenRef.current;
     prevLenRef.current = playable.length;
     if (grew > 0 && startedRef.current && feedActive) {
-      const run = runRef.current;
-      // A creator run only ever follows that creator, so rows that scroll in
-      // from anyone else are not lined up behind it.
-      const added = playable.slice(-grew).filter((p) => !run || p.channel === run.name);
-      if (added.length) appendFeed(added);
+      appendFeed(playable.slice(-grew));
     }
   }, [playable, feedActive, appendFeed]);
 
@@ -80,40 +81,21 @@ export function useFeedCursor(rows) {
   // ended — stop, close, a fresh startFeed from elsewhere. A later beginFrom
   // is what re-arms it, never a passive effect.
   useEffect(() => {
-    if (!feedActive) { startedRef.current = false; runRef.current = null; }
+    if (!feedActive) { startedRef.current = false; streamRef.current = false; }
   }, [feedActive]);
+
+  // While streaming, keep the run fed: when only a few clips are left and the
+  // feed has more pages, ask for the next one. Rows that arrive are appended by
+  // the top-up effect above. Stops by itself when the feed runs out (`done`).
+  useEffect(() => {
+    if (!streamRef.current || !feedActive || done || loading || !loadMore) return;
+    if ((upcoming?.length ?? 0) <= STREAM_LOW_WATER) loadMore();
+  }, [feedActive, upcoming?.length, done, loading, loadMore]);
 
   // Start (or resume) the feed at a specific row — the centered card's play
   // button, or "Open in app" from the action sheet. Returns false when the
   // row itself is not playable, so the caller can fall back honestly.
   const beginFrom = useCallback((row) => {
-    // CREATOR RUN (owner, 2026-11-08): playing a roster creator's post continues
-    // with that creator's posts only — their own feed — instead of the rest of
-    // the mixed timeline.
-    const creator = creatorOf(row);
-    if (creator) {
-      const clicked = feedSource(row);
-      if (clicked) {
-        const mine = playable.filter((p) => p.channel === creator.name && p.pageUrl !== clicked.pageUrl);
-        const token = Symbol('creator-run');
-        runRef.current = { name: creator.name, token };
-        startedRef.current = true;
-        startFeed([clicked, ...playOrder(mine, clicked.pageUrl)]);
-        // Line up the rest of their feed behind it. appendFeed skips anything
-        // already queued, and a run that has since ended or been replaced is
-        // left alone.
-        fetch(`${BACKEND}/api/creators/feed?creator=${encodeURIComponent(creator.slug)}&limit=50`)
-          .then((r) => (r.ok ? r.json() : { items: [] }))
-          .then((d) => {
-            if (runRef.current?.token !== token) return;
-            const theirs = (d.items || []).map(feedSource).filter(Boolean);
-            if (theirs.length) appendFeed(playOrder(theirs, clicked.pageUrl));
-          })
-          .catch(() => { /* what is already lined up still plays */ });
-        return true;
-      }
-    }
-    runRef.current = null;
     const idx = playable.findIndex((p) => p._rowKey === row?._key);
     let from = idx >= 0 ? playable.slice(idx) : null;
     if (!from) {
@@ -129,9 +111,16 @@ export function useFeedCursor(rows) {
     // plays the rest of the timeline in order when each clip ends.
     startFeed(from);
     return true;
-  }, [playable, startFeed, appendFeed]);
+  }, [playable, startFeed]);
 
-  return { beginFrom };
+  // Stream from a row: the same start as Play, then the run keeps itself fed.
+  const beginStream = useCallback((row) => {
+    const started = beginFrom(row);
+    if (started) streamRef.current = true;
+    return started;
+  }, [beginFrom]);
+
+  return { beginFrom, beginStream };
 }
 
 export default useFeedCursor;

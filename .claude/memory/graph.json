@@ -2161,11 +2161,11 @@
         "ts": "2026-11-08",
         "created": "2026-11-08"
       },
-      "creator-run-playback": {
-        "Id": "creator-run-playback",
+      "feed-stream-2026-11-08": {
+        "Id": "feed-stream-2026-11-08",
         "Type": "decision",
-        "Label": "Playing a creator's feed post follows only that creator (2026-11-08)",
-        "body": "hooks/useFeedCursor.beginFrom: if utils/creatorRun.creatorOf(row) matches a roster creator (platform 'Truegle Creators' or roster 'Podcasts', author = roster name), startFeed lines up ONLY that creator's loaded posts, then fetches GET /api/creators/feed?creator=<slug>&limit=50 and appendFeed()s it (plays on from the clicked post, then wraps to newer). Newly scrolled rows are appended only if same creator. runRef cleared when the feed stops. Test: verify-creator-run.mjs (logic) + verify-feed-playable.mjs creator-run case.",
+        "Label": "Stream on the Feed (Tube's Stream, for feed cards)",
+        "body": "Owner: Stream is Tube's radio feature; Feed gets it too. FeedCard has a Stream button (data-feed-action=stream) when the list passes onStream; useFeedCursor.beginStream = beginFrom + streamRef; while streaming and upcoming clips <= STREAM_LOW_WATER(4) it calls feed.loadMore() so the run never stops at the end of what was scrolled. Scope = the on-screen feed: All-creators feed streams every creator; a creator chip (server creator=<slug>) isolates the feed so Stream plays only that creator. Plain Play unchanged. (Replaces the abandoned per-post creator-run idea.) Tests: verify-feed-playable.mjs Stream cases.",
         "ts": "2026-11-08",
         "created": "2026-11-08"
       }

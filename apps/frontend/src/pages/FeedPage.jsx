@@ -458,7 +458,7 @@ export function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
   // playback on a card also arms this, so a later fullscreen swipe has
   // this feed's own rows to walk rather than falling through to Tube's
   // unrelated discovery.
-  const { beginFrom } = useFeedCursor(items);
+  const { beginFrom, beginStream } = useFeedCursor(items, { loadMore: feed.loadMore, done, loading });
 
   // "Featured Feeds", on landing — a card there links straight into the full
   // feed with the post it showed already playing, rather than starting a
@@ -506,7 +506,7 @@ export function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
       <div className="space-y-3">
         {items.map((post, idx) => (
           <div key={post._key} ref={(el) => register(idx, el)}>
-            <FeedCard post={post} focused={idx === activeIndex} onPlay={() => beginFrom(post)} nativeShape />
+            <FeedCard post={post} focused={idx === activeIndex} onPlay={() => beginFrom(post)} onStream={() => beginStream(post)} nativeShape />
           </div>
         ))}
       </div>

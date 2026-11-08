@@ -315,9 +315,11 @@ await page.waitForTimeout(300);
   await c2.close();
 }
 
-// ── CREATOR RUN (owner, 2026-11-08) ─────────────────────────────────────────
-// Playing a roster creator's post continues with THAT creator's posts only —
-// their own feed — never the other creators mixed into the timeline.
+// ── STREAM ON THE FEED (owner, 2026-11-08) ──────────────────────────────────
+// Tube's Stream, on feed cards: start here and keep going through THIS feed,
+// loading its next page as the run gets low. The scope is the feed on screen:
+//   · All creators      → every creator
+//   · one creator's chip → only that creator (the feed is isolated to them)
 {
   const yt = (id) => `https://www.youtube.com/watch?v=${id}`;
   const row = (id, author, vid) => ({
@@ -325,49 +327,97 @@ await page.waitForTimeout(300);
     snippet: null, author, subreddit: null, date: '2026-01-01T00:00:00Z',
     score: null, comments: null, thumbnail: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`, flair: null,
   });
-  const A1 = row('a1', 'Roland Martin', 'RolandAAA01');
-  const B1 = row('b1', 'The BEMA Podcast', 'BemaBBBB001');
-  const A2 = row('a2', 'Roland Martin', 'RolandAAA02');
-  const A3 = row('a3', 'Roland Martin', 'RolandAAA03'); // only in his own feed
-  const rows = [...Array.from({ length: 3 }, (_, i) => filler(40 + i)), A1, B1, A2, ...Array.from({ length: 3 }, (_, i) => filler(50 + i))];
-  const c3 = await testContext(browser);
-  const asked = [];
-  await c3.route('**/api/**', (route) => {
-    const u = new URL(route.request().url());
-    if (u.pathname === '/api/social/feed') {
-      return route.fulfill({
-        status: 200, contentType: 'application/json',
-        body: JSON.stringify({
-          query: '', results: rows,
-          platforms: { creators: rows.filter((p) => p.platform === 'Truegle Creators'), github: rows.filter((p) => p.platform === 'GitHub') },
-          nextCursor: {}, errors: {},
-        }),
-      });
+  // Page 1 and page 2 of each feed. Video ids are 11 chars.
+  const ROLAND1 = [row('r1', 'Roland Martin', 'RolandRRR01'), row('r2', 'Roland Martin', 'RolandRRR02'), row('r3', 'Roland Martin', 'RolandRRR03')];
+  const ROLAND2 = [row('r4', 'Roland Martin', 'RolandRRR04'), row('r5', 'Roland Martin', 'RolandRRR05')];
+  const BEMA1 = [row('b1', 'The BEMA Podcast', 'BemaBBBB001'), row('b2', 'The BEMA Podcast', 'BemaBBBB002'), row('b3', 'The BEMA Podcast', 'BemaBBBB003')];
+  const BEMA2 = [row('b4', 'The BEMA Podcast', 'BemaBBBB004')];
+  const bodies = [];
+
+  const feedFor = (body) => {
+    const page2 = !!body?.cursor?.creators;
+    if (body?.creator === 'roland-martin') return { rows: page2 ? ROLAND2 : ROLAND1, next: page2 ? null : 'p2' };
+    return { rows: page2 ? [...ROLAND2, ...BEMA2] : [...ROLAND1, ...BEMA1], next: page2 ? null : 'p2' };
+  };
+  const newCtx = async () => {
+    const c = await testContext(browser);
+    await c.route('**/api/**', (route) => {
+      const u = new URL(route.request().url());
+      if (u.pathname === '/api/social/feed') {
+        const body = JSON.parse(route.request().postData() || '{}');
+        bodies.push(body);
+        const { rows, next } = feedFor(body);
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify({ query: '', results: rows, platforms: { creators: rows }, nextCursor: { creators: next }, errors: {} }),
+        });
+      }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    });
+    const pg = await c.newPage();
+    await pg.addInitScript(() => localStorage.setItem('truegle_feed_defaulted_pop_v1', '1'));
+    return { c, pg };
+  };
+  const playing = (pg, vid) => until(() => pg.locator(`[data-mini] iframe[src*="${vid}"]`).count().then((n) => n === 1),
+    { what: `${vid} to play`, timeout: 8000 }).then(() => true).catch(() => false);
+  const nextClip = (pg) => pg.click('[data-mini] [aria-label="Next"]');
+
+  // 1. ALL CREATORS: Stream goes through every creator and pulls page 2 in.
+  {
+    const { c, pg } = await newCtx();
+    const errsS = [];
+    pg.on('pageerror', (e) => { if (!/Access is denied|isExternalMethodAvailable/.test(e.message)) errsS.push(e.message); });
+    await openApp(pg, `${BASE}/feed?category=creators`);
+    await until(() => pg.locator('[data-feed-card-wrap]').count().then((n) => n >= 3), { what: 'the creator cards' });
+    check(await pg.locator('[data-feed-card-wrap] [data-feed-action="stream"]').count() > 0, 'a feed card offers Stream');
+    await pg.locator('[data-feed-card-wrap] [data-feed-action="stream"]').first().click();
+    // Walk the run; collect which creators it visits and whether page 2 loaded.
+    const seenAuthors = new Set();
+    const ids = ['RolandRRR01', 'RolandRRR02', 'RolandRRR03', 'BemaBBBB001', 'BemaBBBB002', 'BemaBBBB003', 'RolandRRR04', 'RolandRRR05', 'BemaBBBB004'];
+    for (let i = 0; i < 12; i += 1) {
+      const live = await pg.evaluate((all) => all.find((v) => document.querySelector(`[data-mini] iframe[src*="${v}"]`)) || null, ids);
+      if (live) seenAuthors.add(live.startsWith('Roland') ? 'Roland' : 'Bema');
+      if (live === 'BemaBBBB004' || live === 'RolandRRR05') break;
+      await nextClip(pg).catch(() => {});
+      await new Promise((r) => { setTimeout(r, 400); });
     }
-    if (u.pathname === '/api/creators/feed') {
-      asked.push(u.searchParams.get('creator'));
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [A1, A2, A3], next: null }) });
+    check(seenAuthors.has('Roland') && seenAuthors.has('Bema'), 'Stream on the All-creators feed continues through EVERY creator', [...seenAuthors].join());
+    check(bodies.some((b) => b.cursor?.creators === 'p2'), '…and loads the feed\'s next page as the run gets low, without scrolling');
+    check(errsS.length === 0, '…and nothing threw', errsS.join(' | ') || 'clean');
+    await c.close();
+  }
+
+  // 2. ONE CREATOR'S CHIP: Stream stays on that creator only.
+  {
+    bodies.length = 0;
+    const { c, pg } = await newCtx();
+    await openApp(pg, `${BASE}/feed?category=creators`);
+    await until(() => pg.locator('[data-creator-chip="roland-martin"]').count().then((n) => n === 1), { what: 'the creator chips' });
+    await pg.click('[data-creator-chip="roland-martin"]');
+    await until(() => bodies.some((b) => b.creator === 'roland-martin'), { what: 'the isolated feed request' });
+    await until(() => pg.locator('[data-feed-card-wrap]:has-text("Roland Martin r1")').count().then((n) => n >= 1), { what: 'Roland\'s cards' });
+    await pg.locator('[data-feed-card-wrap]:has-text("Roland Martin r1") [data-feed-action="stream"]').click();
+    const visited = [];
+    const ids = ['RolandRRR01', 'RolandRRR02', 'RolandRRR03', 'RolandRRR04', 'RolandRRR05', 'BemaBBBB001', 'BemaBBBB002', 'BemaBBBB003', 'BemaBBBB004'];
+    const liveNow = () => pg.evaluate((all) => all.find((v) => document.querySelector(`[data-mini] iframe[src*="${v}"]`)) || null, ids);
+    // Wait for the player to land on a clip that is not the previous one, so a
+    // slow swap is never mistaken for a skipped clip.
+    const settle = async (prev) => {
+      for (let t = 0; t < 40; t += 1) { const l = await liveNow(); if (l && l !== prev) return l; await new Promise((r) => { setTimeout(r, 150); }); }
+      return null;
+    };
+    let cur = await settle(null);
+    for (let i = 0; i < 8 && cur; i += 1) {
+      visited.push(cur);
+      if (cur === 'RolandRRR05') break;
+      await nextClip(pg).catch(() => {});
+      cur = await settle(cur);
     }
-    return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-  });
-  const p3 = await c3.newPage();
-  await p3.addInitScript(() => localStorage.setItem('truegle_feed_defaulted_pop_v1', '1'));
-  const errs3 = [];
-  p3.on('pageerror', (e) => { if (!/Access is denied|isExternalMethodAvailable/.test(e.message)) errs3.push(e.message); });
-  await openApp(p3, `${BASE}/feed`);
-  await until(() => p3.locator('[data-feed-card-wrap]').count().then((n) => n >= 3), { what: 'the creator cards to render' });
-  // Roland's FIRST post in the timeline.
-  await p3.locator('[data-feed-card-wrap]:has-text("Roland Martin a1") [data-feed-action="play"]').click();
-  const playing = async (vid) => until(() => p3.locator(`[data-mini] iframe[src*="${vid}"]`).count().then((n) => n === 1), { what: `${vid} to play`, timeout: 8000 }).then(() => true).catch(() => false);
-  check(await playing('RolandAAA01'), 'Play on a creator post plays it');
-  check(asked.includes('roland-martin'), '…and asks for that creator\'s own feed', asked.join());
-  await p3.click('[data-mini] [aria-label="Next"]');
-  check(await playing('RolandAAA02'), 'Next goes to the same creator\'s next post, skipping the other creator between them');
-  await p3.click('[data-mini] [aria-label="Next"]');
-  check(await playing('RolandAAA03'), '…then on to a post that only exists in that creator\'s own feed');
-  check(await p3.locator('[data-mini] iframe[src*="BemaBBBB001"]').count() === 0, '…and never lands on the other creator');
-  check(errs3.length === 0, '…and nothing threw', errs3.join(' | ') || 'clean');
-  await c3.close();
+    check(visited.join() === 'RolandRRR01,RolandRRR02,RolandRRR03,RolandRRR04,RolandRRR05', 'Stream on one creator\'s feed plays ONLY that creator, in order, page 2 included', visited.join());
+    check(visited.includes('RolandRRR04'), '…including their next page, loaded as the run got low', visited.join());
+    check(!bodies.some((b) => b.cursor?.creators && !b.creator), '…and never asks for the all-creators feed');
+    await c.close();
+  }
 }
 
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
