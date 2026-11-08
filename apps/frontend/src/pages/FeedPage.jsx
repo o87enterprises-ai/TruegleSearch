@@ -16,7 +16,9 @@ import FeedBrowse from '../components/feed/FeedBrowse';
 import { categoryById, platformsForCategory } from '../config/feedCategories';
 import { useSocialConnections, connect as connectSource } from '../hooks/useSocialConnections';
 import { useSocialFeed } from '../hooks/useSocialFeed';
-import { CREATORS } from '../content/creators';
+import CreatorChips from '../components/feed/CreatorChips';
+import FeedPills from '../components/feed/FeedPills';
+import { useFeedTabs } from '../hooks/useFeedTabs';
 import { useFeedFocus } from '../hooks/useFeedFocus';
 import { useFeedCursor } from '../hooks/useFeedCursor';
 import { usePlayer } from '../context/PlayerContext';
@@ -159,19 +161,27 @@ export default function FeedPage() {
     if (!openCategory) return all.filter((p) => !BROWSE_ONLY.has(p));
     return platformsForCategory(openCategory, all);
   }, [activeIds.join(','), openCategory?.id, person?.platform]);
+  // HOME RUNS THE LANDING PILL FLOW (owner, 2026-11-08): Top · Creators · News ·
+  // Markets, server pills, Shuffle, fallback + newest-first — the same hook the
+  // landing frame uses. A typed search or an opened category keeps its own feed.
+  const homeTabs = view === 'home' && !person && !submitted;
+  const tabsAvailable = useMemo(() => platformsFor(activeIds), [activeIds.join(',')]);
+  const tabs = useFeedTabs({ available: tabsAvailable, enabled: homeTabs, rememberSeen: true });
   const feed = useSocialFeed({
     // An opened category with a topic seeds the query, unless the visitor has
     // typed something — what they typed always wins over the category's seed.
     query: person?.subject || submitted || openCategory?.topic || '',
     platforms,
     creator: openCategory?.id === 'creators' ? creator : '',
-    enabled: platforms.length > 0,
+    enabled: platforms.length > 0 && !homeTabs,
     // The aggregated timeline: one post from every source in turn rather than
     // the server's date-sorted merge, and never the same post twice even
     // across a reload. See utils/roundRobin.js and utils/feedSeen.js.
     interleave: true,
     rememberSeen: true,
   });
+  // Whichever feed is on screen: Home's pill feed, or the search/category feed.
+  const activeFeed = homeTabs ? tabs.feed : feed;
 
   // A handshake that failed hands its reason over on the navigation rather than
   // in the URL — the exchange itself happens in FeedCallback, which owns
@@ -219,8 +229,8 @@ export default function FeedPage() {
   // FeedServers so those rows grey out and say "service coming soon" rather
   // than the page shouting an HTTP status at somebody who cannot act on it.
   const downProviders = useMemo(
-    () => (feed.platformErrors || []).map((e) => e.platform).filter(Boolean),
-    [feed.platformErrors],
+    () => (activeFeed.platformErrors || []).map((e) => e.platform).filter(Boolean),
+    [activeFeed.platformErrors],
   );
 
   const searchBar = (
@@ -348,22 +358,7 @@ export default function FeedPage() {
         </div>
       )}
 
-      {openCategory?.id === 'creators' && (
-        <div className="max-w-4xl mx-auto mb-3 flex gap-1.5 overflow-x-auto pb-1" data-creator-chips="" role="group" aria-label="Show one creator">
-          {[{ slug: '', name: 'All' }, ...CREATORS].map((c) => (
-            <button
-              key={c.slug || 'all'}
-              type="button"
-              data-creator-chip={c.slug || 'all'}
-              aria-pressed={creator === c.slug}
-              onClick={() => setCreator(c.slug)}
-              className={`shrink-0 px-2.5 py-1 text-xs rounded-full border transition-colors ${creator === c.slug ? 'border-white/60 text-white bg-white/10' : 'border-white/15 text-white/60 hover:text-white hover:border-white/30'}`}
-            >
-              {c.name}
-            </button>
-          ))}
-        </div>
-      )}
+      {openCategory?.id === 'creators' && <CreatorChips value={creator} onChange={setCreator} />}
 
       {/* NO LONGER A GATE.
           This page used to render a full-screen "connect an account first"
@@ -381,7 +376,8 @@ export default function FeedPage() {
         <ArrivalState onConnect={start} busy={busy} />
       ) : (
         <>
-          <FeedList feed={feed} searching={Boolean(person?.subject || submitted)} autoPlayUrl={searchParams.get('play') || ''} />
+          {homeTabs && <FeedPills t={tabs} />}
+          <FeedList feed={activeFeed} searching={Boolean(person?.subject || submitted)} autoPlayUrl={searchParams.get('play') || ''} />
         </>
       )}
     </SearchPageShell>

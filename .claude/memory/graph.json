@@ -2136,6 +2136,14 @@
         "body": "Added The BEMA Podcast + Roland Martin to roster (both frontend content/creators.js and backend config/creatorsRoster.js). Feed Creators category has per-creator chips (POST /api/social/feed accepts creator=<slug>). Podcasts: Tube scope 'podcast' (playerQuery.js) + Feed category 'podcasts' using platform 'podcastvideo' (services/PodcastVideoService.js, YouTube embed, no age cutoff).",
         "ts": "2026-11-08",
         "created": "2026-11-08"
+      },
+      "feed-home-landing-pills": {
+        "Id": "feed-home-landing-pills",
+        "Type": "decision",
+        "Label": "Feed Home runs the landing pill flow (2026-11-08)",
+        "body": "hooks/useFeedTabs.js + components/feed/FeedPills.jsx shared by LandingFeedFrame and /feed Home: Top|Creators|News|Markets pills, Top server pills + Shuffle, blank-never-broken fallback seeds + newest-first sort. /feed passes rememberSeen:true (never-repeat ledger), landing false. Home blank view = Top social networks only (GitHub/HN/news/community now via Browse/other pills); typed search and opened categories keep the old all-servers feed. Creators pill has CreatorChips (creator isolate). Test: verify-feed-page.mjs. Also fixed LetterGlitch null canvas flake; podcastvideo added to browse-only in tests.",
+        "ts": "2026-11-08",
+        "created": "2026-11-08"
       }
     },
     "thread": {
