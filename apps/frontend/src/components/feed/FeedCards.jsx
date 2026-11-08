@@ -6,6 +6,7 @@ import { usePlayer } from '../../context/PlayerContext';
 import LeavingPrivacyOverlay from './LeavingPrivacyOverlay';
 import ExternalSiteWarning from './ExternalSiteWarning';
 import { gatedSite } from '../../utils/externalSites';
+import { postShape, posterFor } from '../../utils/postShape';
 
 // One post, one card, per platform.
 //
@@ -217,6 +218,74 @@ export const GenericCard = ({ post }) => {
   );
 };
 
+/**
+ * A post that wears the SHAPE OF THE ORIGINAL (owner, 2026-11-07): a reel is a
+ * 9:16 card, a YouTube video 16:9 — see utils/postShape.js for which is which.
+ *
+ * The picture fills the card and the words sit on it, the way the source
+ * platform shows it. A tall card is capped in width so it stays a phone-shaped
+ * column on a desktop, and in height so it never outgrows the screen; a wide
+ * one takes the full row. No thumbnail, or one that fails to load, leaves the
+ * provider-coloured wash GenericCard uses — still the right shape, never a hole.
+ *
+ * Same <a>, same data-feed-card, same outbound behaviour as GenericCard: only
+ * the shape changes, so FeedCard's play / queue / gating all apply unchanged.
+ */
+export const MediaPostCard = ({ post, shape, poster }) => {
+  const colour = colourFor(post.platform);
+  const [imgOk, setImgOk] = useState(true);
+  const tall = shape === 'tall';
+  return (
+    <a
+      href={post.permalink || post.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      data-feed-card={post.platform}
+      data-feed-shape={shape}
+      className="relative block mx-auto overflow-hidden rounded-xl border"
+      style={{
+        aspectRatio: tall ? '9 / 16' : '16 / 9',
+        // Phone-shaped on a desktop, and never taller than the screen.
+        width: tall ? 'min(100%, 340px, calc(78svh * 9 / 16))' : '100%',
+        background: `linear-gradient(160deg, ${colour}33, ${colour}0d)`,
+        borderColor: `${colour}33`,
+      }}
+    >
+      {poster && imgOk && (
+        <img
+          src={poster}
+          alt=""
+          loading="lazy"
+          onError={() => setImgOk(false)}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/45" />
+      <div className="absolute top-2 left-2 right-10 flex items-center gap-1.5">
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: colour }} />
+        <span className="text-[11px] font-medium drop-shadow" style={{ color: colour }}>{post.platform}</span>
+        {post.community && (
+          <span
+            data-feed-watermark={post.anonymous ? 'anonymous' : 'attributed'}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/50 border border-yellow-500/30 text-[10px] font-semibold text-yellow-200 shrink-0"
+          >
+            Truegle{post.anonymous && <span className="font-normal opacity-70">· anon</span>}
+          </span>
+        )}
+        {post.subreddit && <span className="text-[11px] text-white/60 truncate">{post.subreddit}</span>}
+      </div>
+      <div className="absolute inset-x-0 bottom-0 p-3">
+        <p className="text-sm font-medium text-white leading-snug line-clamp-3 drop-shadow">{post.title}</p>
+        <div className="flex items-center gap-2 mt-1 text-[11px] text-white/60">
+          {post.author && <span className="truncate">{post.author}</span>}
+          {typeof post.score === 'number' && <span>▲ {fmt(post.score)}</span>}
+          {typeof post.comments === 'number' && <span>{fmt(post.comments)} comments</span>}
+        </div>
+      </div>
+    </a>
+  );
+};
+
 // ── playable media in the feed ───────────────────────────────────────────────
 //
 // "Resembles the vids tab": a playable post gets a small always-visible play
@@ -250,7 +319,7 @@ export const GenericCard = ({ post }) => {
  *  swipe through afterwards. Optional: a caller with no cursor of its own
  *  (Browse's horizontal strips) omits it and gets the plain playNow this
  *  always did. */
-export default function FeedCard({ post, focused = false, onPlay }) {
+export default function FeedCard({ post, focused = false, onPlay, nativeShape = false }) {
   const [leavingOpen, setLeavingOpen] = useState(false);
   const [warnOpen, setWarnOpen] = useState(false);
   const { current, startFeed, enqueue, requestFullscreen } = usePlayer();
@@ -264,7 +333,17 @@ export default function FeedCard({ post, focused = false, onPlay }) {
   const gated = gatedSite(post?.permalink || post?.url);
 
   if (!post?.platform) return null;
+  // `nativeShape` is opt-in (the feed list passes it; Browse's fixed-size
+  // strips do not). Hand-built cards — Reddit, Hacker News, GitHub — keep
+  // their own look: their native card IS a row.
+  //
+  // A shaped card is a picture with words on it, so it needs a picture: a reel
+  // with nothing to show would be a 600px empty box, which is worse than the
+  // compact row it was. YouTube posts derive theirs from the video id.
+  const poster = posterFor(post, source);
+  const shape = nativeShape && poster && !BY_PLATFORM[post.platform] ? postShape(post, source) : 'row';
   const Card = BY_PLATFORM[post.platform] || GenericCard;
+  const card = shape === 'row' ? <Card post={post} /> : <MediaPostCard post={post} shape={shape} poster={poster} />;
 
   if (!playable) {
     // Still enlarges on focus — that rhythm is a feed-wide thing, not a
@@ -278,7 +357,7 @@ export default function FeedCard({ post, focused = false, onPlay }) {
         className={`transition-transform duration-200 ${focused ? 'z-10 scale-[1.02]' : ''}`}
         onClick={gated ? (e) => { e.preventDefault(); setWarnOpen(true); } : undefined}
       >
-        <Card post={post} />
+        {card}
         {gated && (
           <ExternalSiteWarning
             open={warnOpen}
@@ -342,7 +421,7 @@ export default function FeedCard({ post, focused = false, onPlay }) {
       onClick={playCenter}
       className={`relative transition-transform duration-200 ${focused ? 'z-10 scale-[1.02] shadow-2xl shadow-black/40' : ''}`}
     >
-      <Card post={post} />
+      {card}
 
       {/* The always-visible badge — playability has to read while scrolling
           past, not only once a card happens to be centered. */}
