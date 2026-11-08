@@ -77,12 +77,18 @@ export function playerOnScreen() {
 // guess, every step is checked and repaired — which is safe ONLY on iOS,
 // because the fixed box needs no user gesture and can be re-applied at will.
 // Android/desktop use the real, gesture-gated API and never enter this path.
-const playerRoot = () => document.querySelector('[data-mini] [data-player-root]');
+// The root lives in <body> while it is the iPhone stage (TrueglePlayer renders
+// it there), and inside the docked frame otherwise — look in both.
+const playerRoot = () => document.querySelector('[data-pseudo-fullscreen][data-player-root]')
+  || document.querySelector('[data-mini] [data-player-root]');
 
 // Not "a player exists" — the player is what is in the middle of the screen.
 export function playerCoversScreen() {
   const el = playerRoot();
-  if (!el || !el.hasAttribute('data-pseudo-fullscreen') || el.closest('[inert]')) return false;
+  // Full screen is our fixed box on iPhone, but iPad has the real API, where
+  // the root IS the document's full-screen element and carries no such marker.
+  const native = document.fullscreenElement === el || document.webkitFullscreenElement === el;
+  if (!el || !(el.hasAttribute('data-pseudo-fullscreen') || native) || el.closest('[inert]')) return false;
   const r = el.getBoundingClientRect();
   if (r.width < window.innerWidth * 0.9 || r.height < window.innerHeight * 0.6) return false;
   const hit = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);

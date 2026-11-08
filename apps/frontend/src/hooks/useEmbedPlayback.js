@@ -107,7 +107,13 @@ export function volumeCommands(kind, level) {
   return [];
 }
 
-export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
+// `frameKey` names WHICH frame element `frameRef` currently holds. The listener
+// below binds to the element it finds when the effect runs and ignores messages
+// from any other window, so when the same track is re-mounted in a new frame —
+// the iPhone stage moves the player into <body> — the caller changes this key
+// and the listener, the handshake and the silence watchdog all start over
+// against the new frame instead of waiting forever on the old one.
+export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplayable }) {
   const [progress, setProgress] = useState({ time: 0, duration: 0 });
   // Kept in a ref so a changing callback identity doesn't tear down the
   // listener mid-track.
@@ -333,7 +339,7 @@ export function useEmbedPlayback({ frameRef, source, onEnded, onUnplayable }) {
     };
     // playToken changes when the SAME track is replayed, which remounts the
     // iframe — the handshake has to be redone against the new window.
-  }, [kind, src, source?.playToken, frameRef]);
+  }, [kind, src, source?.playToken, frameRef, frameKey]);
 
   // ── REAL pause, instead of unmounting ──────────────────────────────────
   // Pausing used to mean setting the source to null, which unmounts the
