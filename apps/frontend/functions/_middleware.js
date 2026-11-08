@@ -393,8 +393,18 @@ function injectSeoPage(html, page) {
     ['og:description', page.description],
     ['og:type', 'website'],
     ['og:url', page.canonical],
+    // THE PICTURE. The strip below deletes the shell's og:image, twitter:image
+    // and twitter:card (they are in OVERRIDDEN_META so a page's own can replace
+    // them) — and this used to add back only the text, so /feed, /green, /red,
+    // /chat, /creators and every /creator/<slug> pasted into iMessage, Slack,
+    // Discord, WhatsApp or X as a title with NO picture and no card (found
+    // 2026-11-08). Every page gets the site card unless it brings its own.
+    ['og:image', page.image || DEFAULT_IMAGE],
+    ['og:image:alt', page.title],
+    ['twitter:card', 'summary_large_image'],
     ['twitter:title', page.title],
     ['twitter:description', page.description],
+    ['twitter:image', page.image || DEFAULT_IMAGE],
   ];
   let out = html.replace(
     /<meta\s+(?:property|name)="([^"]+)"[^>]*>\s*/gi,

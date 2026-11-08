@@ -2080,6 +2080,14 @@
         "body": "2026-11-08. (1) feedpage:test expected the pill on Feed to count down to Chat; the owner's 2026-10-18 cycle is Tube,Feed,Green,Mainstream,Rabbit Hole,OSINT,Chat (pinned by pillorder:test), so Feed->Green. Test now expects Green and /green. (2) feedtube:test expected a community row to lead the Tube grid, but 76518b9 (2026-10-28) made rankPlayable sort by query coverage (ties keep order, community first). Stub title matched nothing so it sank; stub now answers the query ('...: test query') and leads. A community row unrelated to the query SHOULD yield to a relevant web result. No product code changed.",
         "ts": "2026-11-08",
         "created": "2026-11-08"
+      },
+      "d-seo-pages-og-image": {
+        "Id": "d-seo-pages-og-image",
+        "Type": "decision",
+        "Label": "Link previews: SEO pages (/feed /green /red /chat /creators /creator/*) had no og:image/twitter:card — fixed",
+        "body": "2026-11-08 owner: 'rich preview links don't seem to be working'. DIAGNOSIS (live curl as facebookexternalhit/Twitterbot/Applebot): homepage, /tube, /tube?u|p (YouTube), /l and /v/<id> previews were fine. BROKEN: functions/_middleware.js injectSeoPage strips og:image/twitter:image/twitter:card (they are in OVERRIDDEN_META) and only re-added title/description/type/url, so /feed /green /red /chat /creators /creator/<slug> pasted as text with NO picture. Fix: re-add og:image + og:image:alt + twitter:card + twitter:image (page.image || DEFAULT_IMAGE = og-image-v3.png). seo:test 169 (60 of them fail on old code). KNOWN GAPS NOT FIXED (owner decision needed): (a) TikTok/Vimeo /tube?u= links get the raw URL as title + generic card — only YouTube resolves title/thumbnail (titleForSource/previewImage); oEmbed for them = new edge fetches to third parties. (b) og-image-v3.png is 337KB; WhatsApp reportedly drops images over ~300KB (unverified) so every link using the generic card may lack its picture there. (c) /feed?play=… shares preview as the generic Feed page. (d) Cloudflare bot/WAF rules could challenge real crawler IPs — untestable from here.",
+        "ts": "2026-11-08",
+        "created": "2026-11-08"
       }
     },
     "thread": {
