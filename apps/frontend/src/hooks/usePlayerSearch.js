@@ -412,7 +412,7 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
     // when everything else came back with nothing playable — and the backend
     // caches each query for an hour on top of that.
     const youtube = () => fetch(
-      `${BACKEND}/api/creators/search?q=${encodeURIComponent(intent.text || q)}`,
+      `${BACKEND}/api/creators/search?q=${encodeURIComponent(`${intent.text || q}${intent.scope === 'podcast' ? ' podcast full episode' : ''}`)}`,
       { signal: controller.signal },
     )
       .then((r) => (r.ok ? r.json() : { videos: [] }))

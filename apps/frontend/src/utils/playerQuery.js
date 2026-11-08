@@ -128,6 +128,7 @@ export const SEARCH_SCOPES = [
   { id: 'artist', label: 'Artist' },
   { id: 'title', label: 'Title' },
   { id: 'topic', label: 'Topic' },
+  { id: 'podcast', label: 'Podcast' },
 ];
 
 // Shorts is the folded-in /shorts page. It is a scope rather than a route
@@ -236,6 +237,8 @@ export function parsePlayerQuery(raw, scope = 'all', provider = 'all') {
     artist: text ? `${text} music` : '',
     title: text ? `"${text}"` : '',
     topic: text,
+    // Full episodes: the words that separate an episode from a clip.
+    podcast: text ? `${text} podcast full episode` : 'podcast full episode',
   }[activeScope];
 
   const siteQuery = [site, channelTerms, shaped].filter(Boolean).join(' ').trim();

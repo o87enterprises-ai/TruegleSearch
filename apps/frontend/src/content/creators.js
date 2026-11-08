@@ -117,6 +117,20 @@ export const CREATORS = [
     avatar: null, refCode: 'jake-abdo', featured: false,
     socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@thejakeabdo' }],
   },
+  {
+    slug: 'the-bema-podcast', name: 'The BEMA Podcast', tagline: '',
+    channelId: 'UCT4XtjyX7j8ldZOb3XQdPeQ',
+    channelUrl: 'https://www.youtube.com/@thebemapodcast',
+    avatar: null, refCode: 'the-bema-podcast', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@thebemapodcast' }],
+  },
+  {
+    slug: 'roland-martin', name: 'Roland Martin', tagline: '',
+    channelId: 'UCjXB7nX8bL2U2sje8d212Yw',
+    channelUrl: 'https://www.youtube.com/@rolandsmartin',
+    avatar: null, refCode: 'roland-martin', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@rolandsmartin' }],
+  },
 ];
 
 export const getCreator = (slug) => CREATORS.find((c) => c.slug === slug) || null;
