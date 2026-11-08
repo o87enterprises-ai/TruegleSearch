@@ -16,6 +16,7 @@ import PlayerMiniBar from '../player/PlayerMiniBar';
 import { useNarrowViewport } from '../../hooks/useNarrowViewport';
 import { useKeyboardInset } from '../../hooks/useKeyboardInset';
 import { usePageInputFocus } from '../../hooks/usePageInputFocus';
+import { useMediaSessionBridge } from '../../hooks/useMediaSessionBridge';
 
 // The floating FRAME for the one player. Rendered ABOVE <Routes> (in
 // AppContent) so the media node it hosts is never unmounted on navigation —
@@ -60,8 +61,8 @@ const loadGeom = () => {
 
 export default function MiniPlayer() {
   const {
-    current, queue, history, minimized, poppedOut, dock,
-    requestNext, prev, close, toggleMinimize, setMinimized, setPoppedOut, setDock,
+    current, queue, history, minimized, poppedOut, dock, paused,
+    requestNext, prev, close, toggleMinimize, setMinimized, setPoppedOut, setDock, setPaused,
   } = usePlayer();
   // 'footer' = pinned across the bottom of the page, above the feedback bar.
   // The frame stops being a window in that state: no dragging, no resizing,
@@ -516,25 +517,11 @@ export default function MiniPlayer() {
     };
   }, [docked, footerDock, current]);
 
-  // ── Media Session: lock-screen controls + background audio (native only) ──
-  useEffect(() => {
-    if (!('mediaSession' in navigator)) return;
-    const isNative = current && (current.kind === 'audio' || current.kind === 'video');
-    if (!isNative) { try { navigator.mediaSession.metadata = null; } catch { /* noop */ } return; }
-    try {
-      navigator.mediaSession.metadata = new window.MediaMetadata({
-        title: current.title || 'Truegle',
-        artist: 'Truegle',
-        artwork: current.poster ? [{ src: current.poster }] : [],
-      });
-    } catch { /* MediaMetadata unsupported */ }
-    const set = (act, fn) => { try { navigator.mediaSession.setActionHandler(act, fn); } catch { /* unsupported action */ } };
-    set('play', () => mediaRef.current?.play());
-    set('pause', () => mediaRef.current?.pause());
-    set('previoustrack', history.length ? prev : null);
-    set('nexttrack', current ? requestNext : null);
-    return () => ['play', 'pause', 'previoustrack', 'nexttrack'].forEach((act) => set(act, null));
-  }, [current, history.length, requestNext, prev]);
+  // ── Media Session: Bluetooth, headset, car and lock-screen controls ───────
+  // For every kind of clip, not just native files — see useMediaSessionBridge.
+  useMediaSessionBridge({
+    current, paused, canPrev: history.length > 0, onPrev: prev, onNext: requestNext, setPaused, nativeRef: mediaRef,
+  });
 
   // Nothing playing, not popped out, and no page slot asking for it → nothing
   // to show. Once popped out the frame stays even with an empty screen: the
