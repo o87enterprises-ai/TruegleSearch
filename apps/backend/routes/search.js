@@ -2,7 +2,7 @@ const express = require('express');
 const upstream = require('../utils/upstreamStats');
 const axios = require('axios');
 const router = express.Router();
-const { authenticate, optionalAuth } = require('../middleware/auth');
+const { authenticate, optionalAuth, requireAdmin } = require('../middleware/auth');
 const { rateLimitSearch } = require('../middleware/rateLimit');
 const SearchService = require('../services/SearchService');
 const { recordSearch } = require('../services/SearchLog');
@@ -163,11 +163,16 @@ router.post('/', rateLimitSearch, optionalAuth, async (req, res) => {
 /**
  * @route   GET /api/search/trending
  * @desc    Top queries from the last 24 h, grouped by normalised text.
- *          Returns up to 12 entries with their most-used mode so the
- *          landing page can show real trending pills.
- * @access  Public (read-only, no PII)
+ *          Returns up to 12 entries with their most-used mode.
+ * @access  ADMIN ONLY (since 2026-11-08). This was public, and it handed anyone
+ *          the raw top searches. The log stores no person, so it counts
+ *          SEARCHES, not people — at this site's traffic one person repeating a
+ *          query topped the list, and it was a private individual's name. The
+ *          landing page no longer shows search pills (the news and posts feed
+ *          replaced them) and nothing public reads this, so it is kept only for
+ *          the owner's own analysis (see the marketing skill), behind a login.
  */
-router.get('/trending', async (req, res) => {
+router.get('/trending', authenticate, requireAdmin, async (req, res) => {
   try {
     const { rows } = await dbQuery(`
       SELECT

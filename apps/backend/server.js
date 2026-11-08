@@ -253,11 +253,6 @@ app.get(['/', '/api'], (req, res) => {
       },
       {
         method: 'GET',
-        path: '/api/search/trending',
-        summary: 'Recent popular queries, aggregated and anonymous.',
-      },
-      {
-        method: 'GET',
         path: '/api/health',
         summary: 'Service status.',
       },
