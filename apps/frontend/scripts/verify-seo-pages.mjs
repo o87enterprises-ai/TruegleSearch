@@ -73,6 +73,25 @@ const canon = (html) => [...html.matchAll(/<link\s+rel="canonical"\s+href="([^"]
 const title = (html) => /<title>([^<]*)<\/title>/.exec(html)?.[1];
 const descs = (html) => [...html.matchAll(/<meta\s+name="description"\s+content="([^"]*)"/g)].map((m) => m[1]);
 
+// ── the PICTURE in a pasted link ────────────────────────────────────────────
+// 2026-11-08: these pages were served with their own title and description but
+// NO og:image, twitter:image or twitter:card — the middleware stripped the
+// shell's and never put them back — so a link pasted into iMessage, Slack,
+// Discord, WhatsApp or X showed text with no picture. Each tag must be present
+// exactly once (a crawler that sees two takes the first, or neither).
+const SITE_CARD = 'https://truegle.info/og-image-v3.png';
+function previewPicture(html, label) {
+  const tag = (re) => [...html.matchAll(re)].map((m) => m[1]);
+  const ogImg = tag(/<meta\s+property="og:image"\s+content="([^"]*)"/g);
+  const twImg = tag(/<meta\s+name="twitter:image"\s+content="([^"]*)"/g);
+  const card = tag(/<meta\s+name="twitter:card"\s+content="([^"]*)"/g);
+  const twTitle = tag(/<meta\s+name="twitter:title"\s+content="([^"]*)"/g);
+  ok(ogImg.length === 1 && ogImg[0] === SITE_CARD, `${label}: one og:image, the site card`, ogImg.join(' ') || 'MISSING');
+  ok(twImg.length === 1 && twImg[0] === SITE_CARD, `${label}: one twitter:image`, twImg.join(' ') || 'MISSING');
+  ok(card.length === 1 && card[0] === 'summary_large_image', `${label}: one twitter:card (summary_large_image)`, card.join(' ') || 'MISSING');
+  ok(twTitle.length === 1, `${label}: one twitter:title — no duplicate from the shell`, `${twTitle.length} found`);
+}
+
 // ── each surface: own title, own canonical, real text ──────────────────────
 const SURFACES = {
   '/green': /Green Mode/, '/red': /Rabbit Hole/, '/feed': /Feed/, '/chat': /Chat/, '/creators': /Creators/,
@@ -86,6 +105,7 @@ for (const [path, re] of Object.entries(SURFACES)) {
   ok(!html.includes('HOME BODY') && !html.includes('id="seo-home"'), `${path}: the homepage's static body is gone, not left underneath`);
   ok(one(html, /<a href="/g) >= 3, `${path}: real links a crawler can follow`, `${one(html, /<a href="/g)} links`);
   ok(new RegExp(`property="og:url" content="https://truegle.info${path}"`).test(html), `${path}: og:url matches`);
+  previewPicture(html, path);
 }
 
 // ── /creators lists every creator ──────────────────────────────────────────
@@ -99,6 +119,7 @@ for (const c of CREATORS) {
   const html = await fetchAs(`/creator/${c.slug}`);
   const good = title(html)?.startsWith(c.name) && canon(html).length === 1 && canon(html)[0] === `https://truegle.info/creator/${c.slug}`;
   ok(good, `/creator/${c.slug}: own title + self canonical`, title(html));
+  previewPicture(html, `/creator/${c.slug}`);
 }
 {
   const html = await fetchAs('/creator/true-story/');
