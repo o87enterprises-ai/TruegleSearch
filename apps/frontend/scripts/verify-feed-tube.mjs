@@ -40,7 +40,12 @@ const COMMUNITY_ROW = {
   id: 901,
   kind: 'youtube',
   src: 'https://www.youtube-nocookie.com/embed/communityvid?rel=0',
-  title: 'Somebody posted this to Truegle',
+  // Says what the search below types ("test query"). Results rank by how much of
+  // the query they cover (76518b9, 2026-10-28), and rows that tie keep their
+  // order — community first — so a submission that ANSWERS the search leads,
+  // while one that has nothing to do with it rightly yields to a relevant web
+  // result. A title matching nothing here is what made this check fail.
+  title: 'Somebody posted this to Truegle: test query',
   pageUrl: 'https://www.youtube.com/watch?v=communityvid',
   poster: 'https://i.ytimg.com/vi/communityvid/hqdefault.jpg',
   platform: 'YouTube',

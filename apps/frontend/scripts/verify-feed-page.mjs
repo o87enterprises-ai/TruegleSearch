@@ -432,12 +432,15 @@ await openApp(page, `${BASE}/feed`);
 await page.click('button[title^="Click to switch mode"]');
 await until(async () => (await page.locator('[role="status"]', { hasText: 'Going to' }).count()) > 0,
   { what: 'the pill click to start its countdown' });
-check((await page.locator('[role="status"]', { hasText: 'Going to' }).innerText()).includes('Chat'),
-  'clicking the pill from Feed starts a countdown to Chat, the next mode in the cycle');
+// The cycle is Tube · Feed · Green · Mainstream · Rabbit Hole · OSINT · Chat
+// (owner, 2026-10-18; pinned by pillorder:test), so Feed's next stop is Green.
+// This asserted Chat — the order from before that change — until 2026-11-08.
+check((await page.locator('[role="status"]', { hasText: 'Going to' }).innerText()).includes('Green'),
+  'clicking the pill from Feed starts a countdown to Green, the next mode in the cycle');
 await page.getByRole('button', { name: 'Go now' }).click({ force: true });
 await until(() => new URL(page.url()).pathname !== '/feed',
   { what: '"Go now" to navigate' });
-check(new URL(page.url()).pathname === '/chat',
+check(new URL(page.url()).pathname === '/green',
   '…and "Go now" goes straight there', page.url());
 check(await page.evaluate(() => JSON.parse(localStorage.getItem('truegle_player_queue_v2') || '{}').queue?.length) === 1,
   '…and the queued track is still there — the pill navigates, it does not touch the player');
