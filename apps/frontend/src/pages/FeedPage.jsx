@@ -5,6 +5,7 @@ import { ExternalLink, Loader2, Plus, X } from 'lucide-react';
 import SearchPageShell from '../components/layout/SearchPageShell';
 import SearchBar from '../components/ui/SearchBar';
 import FeedLinkSubmit from '../components/feed/FeedLinkSubmit';
+import FeedCreatorTip from '../components/feed/FeedCreatorTip';
 import { usePastedLink } from '../hooks/usePastedLink';
 import { usePlayInPlayer } from '../hooks/usePlayInPlayer';
 import FeedCard from '../components/feed/FeedCards';
@@ -239,6 +240,9 @@ export default function FeedPage() {
           host, so the search box stays a search box the rest of the time. */}
       <div className="max-w-4xl mx-auto mb-4">
         <FeedLinkSubmit url={query} onPosted={() => { setQuery(''); feed.reload?.(); }} />
+        {/* Why this page is worth using — only on Home, only while nothing is
+            typed or searched; see FeedCreatorTip. */}
+        <FeedCreatorTip show={view === 'home' && !query.trim() && !submitted} />
         {person && (
           <p className="mt-2 text-sm text-white/60 flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>Public {person.label} posts for “{person.subject}”.</span>
