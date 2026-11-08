@@ -16,6 +16,7 @@ import FeedBrowse from '../components/feed/FeedBrowse';
 import { categoryById, platformsForCategory } from '../config/feedCategories';
 import { useSocialConnections, connect as connectSource } from '../hooks/useSocialConnections';
 import { useSocialFeed } from '../hooks/useSocialFeed';
+import { CREATORS } from '../content/creators';
 import { useFeedFocus } from '../hooks/useFeedFocus';
 import { useFeedCursor } from '../hooks/useFeedCursor';
 import { usePlayer } from '../context/PlayerContext';
@@ -133,6 +134,9 @@ export default function FeedPage() {
     return c && categoryById(c) ? c : 'home';
   });
   const openCategory = view !== 'home' && view !== 'browse' ? categoryById(view) : null;
+  // One creator isolated within the Creators category ('' = everyone).
+  const [creator, setCreator] = useState('');
+  useEffect(() => { if (openCategory?.id !== 'creators') setCreator(''); }, [openCategory?.id]);
 
   // What actually gets asked for: the servers switched on here, plus anything
   // connected through an account. A connected source the visitor has since
@@ -160,6 +164,7 @@ export default function FeedPage() {
     // typed something — what they typed always wins over the category's seed.
     query: person?.subject || submitted || openCategory?.topic || '',
     platforms,
+    creator: openCategory?.id === 'creators' ? creator : '',
     enabled: platforms.length > 0,
     // The aggregated timeline: one post from every source in turn rather than
     // the server's date-sorted merge, and never the same post twice even
@@ -340,6 +345,23 @@ export default function FeedPage() {
           </button>
           <span className="text-white/80 text-sm font-semibold">{openCategory.label}</span>
           <span className="text-white/35 text-xs">{openCategory.blurb}</span>
+        </div>
+      )}
+
+      {openCategory?.id === 'creators' && (
+        <div className="max-w-4xl mx-auto mb-3 flex gap-1.5 overflow-x-auto pb-1" data-creator-chips="" role="group" aria-label="Show one creator">
+          {[{ slug: '', name: 'All' }, ...CREATORS].map((c) => (
+            <button
+              key={c.slug || 'all'}
+              type="button"
+              data-creator-chip={c.slug || 'all'}
+              aria-pressed={creator === c.slug}
+              onClick={() => setCreator(c.slug)}
+              className={`shrink-0 px-2.5 py-1 text-xs rounded-full border transition-colors ${creator === c.slug ? 'border-white/60 text-white bg-white/10' : 'border-white/15 text-white/60 hover:text-white hover:border-white/30'}`}
+            >
+              {c.name}
+            </button>
+          ))}
         </div>
       )}
 

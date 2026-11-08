@@ -34,6 +34,8 @@ const emptyCursor = () => ({});
 
 export function useSocialFeed({
   query = '', platforms = [], enabled = true,
+  // Isolate one roster creator (slug) within the 'creators' platform.
+  creator = '',
   // OPT-IN, so the behaviour every existing caller and its browser suite
   // depends on is untouched. /feed/tube and the aggregated feed want the
   // round-robin ordering and the persistent ledger; the plain social feed
@@ -73,7 +75,7 @@ export function useSocialFeed({
   // (adult posts in or out — see SAFE SEARCH IN THE FEED in routes/social.js).
   const { settings } = useSettings();
   const safeSearch = settings?.safeSearch || 'safe';
-  const key = `${query}\0${[...platforms].sort().join(',')}\0${safeSearch}`;
+  const key = `${query}\0${[...platforms].sort().join(',')}\0${safeSearch}\0${creator}`;
   const activeKey = useRef(key);
 
   const fetchPage = useCallback(async (first) => {
@@ -105,6 +107,7 @@ export function useSocialFeed({
           // it to each platform's popular listing instead of its search.
           query,
           platforms,
+          ...(creator ? { creator } : {}),
           limit: PAGE,
           cursor: first ? {} : cursor.current,
         }),
@@ -226,7 +229,7 @@ export function useSocialFeed({
       clearTimeout(timer);
       if (forKey === activeKey.current) { setLoading(false); inFlight.current = false; }
     }
-  }, [enabled, query, platforms.join(','), done, interleave, rememberSeen, safeSearch]);
+  }, [enabled, query, platforms.join(','), done, interleave, rememberSeen, safeSearch, creator]);
 
   // A new query or a changed provider set is a NEW feed, not more of the old
   // one: reset the cursors and the dedupe ledger before asking.

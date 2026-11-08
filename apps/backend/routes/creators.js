@@ -242,9 +242,14 @@ function spreadByChannel(items, seed = Math.floor(Date.now() / 3600000)) {
   return out;
 }
 
-async function fetchCreatorsFeed(query, limit = 20, cursor) {
+// `creatorSlug`, when it names a roster member, isolates that one creator:
+// only their channel is fetched, so the feed is entirely theirs and pages
+// properly. An unknown slug falls back to the whole roster rather than an
+// empty feed.
+async function fetchCreatorsFeed(query, limit = 20, cursor, creatorSlug) {
+  const only = creatorSlug ? roster.filter((c) => c.slug === String(creatorSlug)) : [];
   const settled = await Promise.allSettled(
-    roster.map((c) => getChannelVideos(c.channelId).then((r) => ({ creator: c, videos: r.videos }))),
+    (only.length ? only : roster).map((c) => getChannelVideos(c.channelId).then((r) => ({ creator: c, videos: r.videos }))),
   );
 
   let items = [];
@@ -292,7 +297,7 @@ router.get('/feed', async (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
   const rawCursor = parseInt(req.query.cursor, 10);
   const cursor = Number.isInteger(rawCursor) ? rawCursor : undefined;
-  const result = await fetchCreatorsFeed(req.query.query || '', limit, cursor);
+  const result = await fetchCreatorsFeed(req.query.query || '', limit, cursor, req.query.creator);
   res.json(result);
 });
 
