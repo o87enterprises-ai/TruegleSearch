@@ -2072,6 +2072,14 @@
         "body": "2026-11-07 owner: feed cards adopt the original post ratio. utils/postShape.js: tall (9:16) = Shorts/TikTok/IG+FB reels via isVerticalSource (now exported) or post.vertical; wide (16:9) = playable youtube/vimeo/rumble/dailymotion/odysee/video; row = everything else. FeedCards.jsx MediaPostCard (picture fills card, words on it; tall capped min(100%,340px,78svh*9/16)). Opt-in via FeedCard nativeShape (FeedList passes it => /feed AND the landing frame; Browse strips unchanged). A shaped card REQUIRES a picture (post.thumbnail, else YouTube poster derived from id) — a reel with none stays the compact row, not a 600px blank box. Reddit/HN/GitHub hand-built cards untouched. Posts carry no real width/height; shape comes from the LINK. Test: npm run feedshapes:test (64). PRE-EXISTING failures on clean main, not ours: feedpage:test (2: pill countdown to Chat) and feedtube:test (1: community lead ordering).",
         "ts": "2026-11-07",
         "created": "2026-11-07"
+      },
+      "d-stale-feed-tests-fixed": {
+        "Id": "d-stale-feed-tests-fixed",
+        "Type": "decision",
+        "Label": "feedpage:test + feedtube:test were stale, not product bugs — fixed in the tests only",
+        "body": "2026-11-08. (1) feedpage:test expected the pill on Feed to count down to Chat; the owner's 2026-10-18 cycle is Tube,Feed,Green,Mainstream,Rabbit Hole,OSINT,Chat (pinned by pillorder:test), so Feed->Green. Test now expects Green and /green. (2) feedtube:test expected a community row to lead the Tube grid, but 76518b9 (2026-10-28) made rankPlayable sort by query coverage (ties keep order, community first). Stub title matched nothing so it sank; stub now answers the query ('...: test query') and leads. A community row unrelated to the query SHOULD yield to a relevant web result. No product code changed.",
+        "ts": "2026-11-08",
+        "created": "2026-11-08"
       }
     },
     "thread": {
@@ -4130,5 +4138,5 @@
       }
     }
   },
-  "updated": "2026-11-07"
+  "updated": "2026-11-08"
 }
