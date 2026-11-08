@@ -2160,6 +2160,14 @@
         "body": "PodcastVideoService.mergeRosterFirst: page 1 = roster entries flagged podcast:true in backend/config/creatorsRoster.js (BEMA, Roland Martin), one per show in turn (max 8), then YouTube search rows, deduped. Query filters roster by title/author. Roster failure falls back to generic.",
         "ts": "2026-11-08",
         "created": "2026-11-08"
+      },
+      "creator-run-playback": {
+        "Id": "creator-run-playback",
+        "Type": "decision",
+        "Label": "Playing a creator's feed post follows only that creator (2026-11-08)",
+        "body": "hooks/useFeedCursor.beginFrom: if utils/creatorRun.creatorOf(row) matches a roster creator (platform 'Truegle Creators' or roster 'Podcasts', author = roster name), startFeed lines up ONLY that creator's loaded posts, then fetches GET /api/creators/feed?creator=<slug>&limit=50 and appendFeed()s it (plays on from the clicked post, then wraps to newer). Newly scrolled rows are appended only if same creator. runRef cleared when the feed stops. Test: verify-creator-run.mjs (logic) + verify-feed-playable.mjs creator-run case.",
+        "ts": "2026-11-08",
+        "created": "2026-11-08"
       }
     },
     "thread": {

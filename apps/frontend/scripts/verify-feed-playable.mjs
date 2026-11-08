@@ -315,6 +315,61 @@ await page.waitForTimeout(300);
   await c2.close();
 }
 
+// ── CREATOR RUN (owner, 2026-11-08) ─────────────────────────────────────────
+// Playing a roster creator's post continues with THAT creator's posts only —
+// their own feed — never the other creators mixed into the timeline.
+{
+  const yt = (id) => `https://www.youtube.com/watch?v=${id}`;
+  const row = (id, author, vid) => ({
+    id, platform: 'Truegle Creators', title: `${author} ${id}`, url: yt(vid), permalink: yt(vid),
+    snippet: null, author, subreddit: null, date: '2026-01-01T00:00:00Z',
+    score: null, comments: null, thumbnail: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`, flair: null,
+  });
+  const A1 = row('a1', 'Roland Martin', 'RolandAAA01');
+  const B1 = row('b1', 'The BEMA Podcast', 'BemaBBBB001');
+  const A2 = row('a2', 'Roland Martin', 'RolandAAA02');
+  const A3 = row('a3', 'Roland Martin', 'RolandAAA03'); // only in his own feed
+  const rows = [...Array.from({ length: 3 }, (_, i) => filler(40 + i)), A1, B1, A2, ...Array.from({ length: 3 }, (_, i) => filler(50 + i))];
+  const c3 = await testContext(browser);
+  const asked = [];
+  await c3.route('**/api/**', (route) => {
+    const u = new URL(route.request().url());
+    if (u.pathname === '/api/social/feed') {
+      return route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({
+          query: '', results: rows,
+          platforms: { creators: rows.filter((p) => p.platform === 'Truegle Creators'), github: rows.filter((p) => p.platform === 'GitHub') },
+          nextCursor: {}, errors: {},
+        }),
+      });
+    }
+    if (u.pathname === '/api/creators/feed') {
+      asked.push(u.searchParams.get('creator'));
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [A1, A2, A3], next: null }) });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+  });
+  const p3 = await c3.newPage();
+  await p3.addInitScript(() => localStorage.setItem('truegle_feed_defaulted_pop_v1', '1'));
+  const errs3 = [];
+  p3.on('pageerror', (e) => { if (!/Access is denied|isExternalMethodAvailable/.test(e.message)) errs3.push(e.message); });
+  await openApp(p3, `${BASE}/feed`);
+  await until(() => p3.locator('[data-feed-card-wrap]').count().then((n) => n >= 3), { what: 'the creator cards to render' });
+  // Roland's FIRST post in the timeline.
+  await p3.locator('[data-feed-card-wrap]:has-text("Roland Martin a1") [data-feed-action="play"]').click();
+  const playing = async (vid) => until(() => p3.locator(`[data-mini] iframe[src*="${vid}"]`).count().then((n) => n === 1), { what: `${vid} to play`, timeout: 8000 }).then(() => true).catch(() => false);
+  check(await playing('RolandAAA01'), 'Play on a creator post plays it');
+  check(asked.includes('roland-martin'), '…and asks for that creator\'s own feed', asked.join());
+  await p3.click('[data-mini] [aria-label="Next"]');
+  check(await playing('RolandAAA02'), 'Next goes to the same creator\'s next post, skipping the other creator between them');
+  await p3.click('[data-mini] [aria-label="Next"]');
+  check(await playing('RolandAAA03'), '…then on to a post that only exists in that creator\'s own feed');
+  check(await p3.locator('[data-mini] iframe[src*="BemaBBBB001"]').count() === 0, '…and never lands on the other creator');
+  check(errs3.length === 0, '…and nothing threw', errs3.join(' | ') || 'clean');
+  await c3.close();
+}
+
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 
 console.log([...ok, ...bad].join('\n'));
