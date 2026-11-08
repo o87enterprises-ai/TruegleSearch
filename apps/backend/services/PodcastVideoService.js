@@ -9,6 +9,7 @@
  */
 const OembedService = require('./OembedService');
 const { youtubeId, cleanTitle, isLivestream } = require('./NewsVideos');
+const roster = require('../config/creatorsRoster');
 
 let searchService = null;
 function search() {
@@ -51,6 +52,41 @@ function shapePodcasts(rows, limit = 20) {
   return [...full, ...clips].slice(0, limit);
 }
 
+const ROSTER_PER_SHOW = 4; // episodes pulled per roster podcast
+const ROSTER_MAX = 8;       // roster rows allowed to lead the first page
+
+/**
+ * Roster podcasts first, then the search rows, de-duplicated by URL. Pure.
+ * Roster rows are taken one per show in turn so no single show owns the lead.
+ */
+function mergeRosterFirst(rosterLanes, searchRows, limit) {
+  const lead = [];
+  for (let round = 0; lead.length < ROSTER_MAX && rosterLanes.some((l) => l.length > round); round += 1) {
+    for (const lane of rosterLanes) if (lane[round] && lead.length < ROSTER_MAX) lead.push(lane[round]);
+  }
+  const seen = new Set();
+  const out = [];
+  for (const row of [...lead, ...searchRows]) {
+    if (!row || seen.has(row.url)) continue;
+    seen.add(row.url);
+    out.push(row);
+  }
+  return out.slice(0, limit);
+}
+
+/** The roster podcasts' own episodes (filtered by `query` when given), per show. */
+async function rosterLanes(query) {
+  // Lazy: routes/creators pulls in the DB layer, and a cached answer never needs it.
+  const { fetchCreatorsFeed } = require('../routes/creators');
+  const shows = roster.filter((c) => c.podcast);
+  const settled = await Promise.allSettled(
+    shows.map((c) => fetchCreatorsFeed(query || '', ROSTER_PER_SHOW, undefined, c.slug)),
+  );
+  return settled
+    .filter((r) => r.status === 'fulfilled')
+    .map((r) => r.value.items.slice(0, ROSTER_PER_SHOW).map((it) => ({ ...it, platform: 'Podcasts' })));
+}
+
 /** One page of podcast episodes for `query` (empty = general podcast episodes). */
 async function fetchPodcastLane(query, limit = 20, cursor) {
   const page = Number.isInteger(cursor) && cursor > 0 ? cursor : 1;
@@ -84,7 +120,12 @@ async function fetchPodcastLane(query, limit = 20, cursor) {
     date: v.at ? new Date(v.at).toISOString() : null,
     score: null, comments: null, thumbnail: v.thumbnail, flair: null,
   }));
-  return { items: posts, next: posts.length && page < 5 ? page + 1 : null };
+  // Page 1 only: the roster's own podcasts lead. A roster failure costs nothing.
+  let merged = posts;
+  if (page === 1) {
+    try { merged = mergeRosterFirst(await rosterLanes(topic), posts, limit); } catch { /* generic results still stand */ }
+  }
+  return { items: merged, next: posts.length && page < 5 ? page + 1 : null };
 }
 
-module.exports = { fetchPodcastLane, shapePodcasts, __cache: cache };
+module.exports = { fetchPodcastLane, shapePodcasts, mergeRosterFirst, __cache: cache };

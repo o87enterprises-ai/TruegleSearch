@@ -3,6 +3,23 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-08 — creators, podcasts, Feed pills (PRs #121, #122 + roster-first shelf)
+
+- **New creators:** The BEMA Podcast, Roland Martin (roster in BOTH `frontend/src/content/creators.js` and `backend/config/creatorsRoster.js`; backend-only `podcast: true` flag marks shows the Podcasts shelf lists first).
+- **Creator isolate:** `POST /api/social/feed` / `GET /api/creators/feed` take `creator=<slug>`; chips = `components/feed/CreatorChips.jsx`.
+- **Podcast search:** Tube scope `Podcast` (`utils/playerQuery.js`); Feed category `Podcasts` + `podcastvideo` lane (`services/PodcastVideoService.js`). Roster podcasts lead page 1, then YouTube search results.
+- **Feed Home = landing pill flow:** `hooks/useFeedTabs.js` + `components/feed/FeedPills.jsx`, shared by `LandingFeedFrame` and `/feed` Home. Home's blank view is the Top tab (social networks only); typed search / opened categories still ask every server. `/feed` keeps the never-repeat ledger (`rememberSeen`).
+- **Suite note:** `npm run feedpage:test` needs Playwright linked into `apps/frontend/node_modules` (global install is not visible to ESM). Backend and frontend `npm ci` in one sandbox clobber each other's `node_modules`; reinstall the one you need.
+
+### ⚠️ Leftover Vercel Preview variables (harmless — left on purpose)
+Project `backend` (`prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI`): `JWT_SECRET`, `ENCRYPTION_KEY`, `NODE_ENV=preview`.
+- Created 2026-11-08 to make a branch preview boot. **Target = Preview only, bound to git branch `o87/admiring-einstein-asnduf`** — they cannot reach production (verified via `filter_project_envs`).
+- JWT/ENCRYPTION values are throwaway randoms (write-only, never recorded). `NODE_ENV=preview` stops winston's file transport crashing on Vercel's read-only FS.
+- The agent tools cannot delete env vars. To remove: Vercel → backend → Settings → Environment Variables → filter by that branch → delete the three. Optional.
+- Effect: previews from that branch name now boot, but still lack `SEARXNG_*`, `DATABASE_URL`, `YOUTUBE_API_KEY` (production-only, write-only), so search-backed lanes return empty on those previews.
+
+---
+
 ## 🗓️ 2026-09-25 — maps popup, people-lookup routing, Feed social sources
 
 - **Mapbox token (live traffic) lives in Cloudflare Pages, never in git.**
