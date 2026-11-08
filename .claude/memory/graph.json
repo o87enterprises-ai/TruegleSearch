@@ -2104,6 +2104,14 @@
         "body": "2026-11-08 owner: 'make sure Bluetooth controls make it to the player'. Before: MiniPlayer registered Media Session handlers ONLY for native audio/video; YouTube/Vimeo/etc. (nearly everything) set metadata=null, so a headset/car next-previous never reached the queue. Now hooks/useMediaSessionBridge.js (called from MiniPlayer): handlers play/pause/previoustrack/nexttrack for ALL kinds; embeds are driven through player STATE (setPaused / requestNext / prev) so a headset press == an on-screen tap; metadata = Truegle title + channel + poster (YouTube poster derived); playbackState follows paused. KEEP-ALIVE: for embeds only, a looping silent inline WAV <audio data-media-keepalive> plays while the embed plays, pauses with it, removed on unmount, so this document owns the media session (the real audio lives in a cross-origin iframe); retried on the next user gesture if autoplay blocks it. Native files unchanged and get no keep-alive. NOT PROVABLE from here: which of page vs iframe a given phone/headset routes the buttons to is the platform's call — needs a real handset + headset. Tests: npm run mediakeys:test (24; 2 fail on old code). Applies to ALL platforms (additive), not iOS-only.",
         "ts": "2026-11-08",
         "created": "2026-11-08"
+      },
+      "d-feed-seeds-no-search-log": {
+        "Id": "d-feed-seeds-no-search-log",
+        "Type": "decision",
+        "Label": "Home-feed seeds no longer come from the search log (one person's repeated searches took over everyone's feed)",
+        "body": "2026-11-08 owner asked 'what's up with all of the victor posts?'. CAUSE (verified against live /api/search/trending): FeedSeeds.seedTopics seeded the query-less home feed from the top search_queries of the last 48h; the log stores no person so it counts SEARCHES not people, and the live top 6 were mostly variations of ONE private individual's name, so three scroll pages in a row returned posts about it, and the name also showed in the trending pills. FIX (owner chose option 1): seedTopics = today's headlines topped up from the hourly-rotated STATIC_SEEDS rotation; fromTrending deleted; search text now feeds the trending pills ONLY. SearchLog.js header + PrivacyPolicy.jsx ('used only to show what is trending') updated to match. Test: backend __tests__/feedSeeds.test.js (6; 5 fail on old code) asserts the log is never queried. NOT DONE / OPEN: the trending PILLS (routes/search.js /trending) still surface raw top queries incl. names — owner has not chosen; options were cap one-per-subject / min-days / manual delete. Do NOT write real people's names into code, comments, memory or PRs.",
+        "ts": "2026-11-08",
+        "created": "2026-11-08"
       }
     },
     "thread": {

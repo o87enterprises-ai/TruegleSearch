@@ -457,8 +457,10 @@ async function fetchNews(query, limit, cursor) {
 // searches, not API calls: no key, no developer account, no approval queue.
 //
 // A query-less home feed has nothing to search for, which is the one real
-// problem here. services/feed/FeedSeeds.js solves it — trending searches from
-// our own visitors, then today's headlines, then a static rotation.
+// problem here. services/feed/FeedSeeds.js solves it — today's headlines,
+// topped up from a static rotation. NOT what visitors searched for: that log
+// counts searches rather than people, and one person repeating a query took
+// the whole home feed over (2026-11-08).
 const {
   fetchPublicSocial, PLATFORM_DOMAINS, isConfigured: publicSocialConfigured,
 } = require('../services/feed/PublicSocialSource');
@@ -986,7 +988,7 @@ router.post('/feed', optionalAuth, async (req, res) => {
 
     // ONE seed lookup per request, not one per source. Six platforms searching
     // the same topic is the point — it is a timeline about what is happening,
-    // not six unrelated searches — and it also means one trending query rather
+    // not six unrelated searches — and it also means one headline lookup rather
     // than six. Cached for ten minutes inside FeedSeeds.
     // Reddit is excluded: it has its own source, which tries the keyless JSON
     // endpoints first and only then falls back to this same SearXNG path.
