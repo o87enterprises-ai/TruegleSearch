@@ -1,50 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Rss, ArrowUpRight, Shuffle } from 'lucide-react';
+import { Rss, ArrowUpRight } from 'lucide-react';
 import { FeedList } from '../../pages/FeedPage';
-import { useSocialFeed } from '../../hooks/useSocialFeed';
-import { PROVIDERS, platformsFor, isConnectable, BROWSE_ONLY } from '../../config/socialProviders';
+import { PROVIDERS, platformsFor, isConnectable } from '../../config/socialProviders';
 import { MODE_COLORS } from '../../config/modeTheme';
-import { categoryById } from '../../config/feedCategories';
+import { useFeedTabs, TABS, NETWORK_LABELS } from '../../hooks/useFeedTabs';
+import FeedPills from '../feed/FeedPills';
 
-// TABS (owner, 2026-11-06): Top · Creators · News · Markets.
-//
-// TOP is the social networks ONLY — no headlines, repos or link pools — so the
-// round-robin's first N cards are each network's #1 hot/top post (the backend
-// reads each platform's popular listing / top-posts seed for an empty query).
-// The other three reuse the Browse categories' sources so they can't drift.
-const TOP_NETWORKS = ['instagram', 'facebook', 'tiktok', 'x', 'reddit', 'bluesky',
-  'mastodon', 'lemmy', 'truthsocial', 'rumble', 'pinterest'];
-// Display names for the Top tab's server pills.
-const NETWORK_LABELS = {
-  instagram: 'Instagram', facebook: 'FB', tiktok: 'TikTok', x: 'X', reddit: 'Reddit',
-  bluesky: 'Bluesky', mastodon: 'Mastodon', lemmy: 'Lemmy', truthsocial: 'Truth',
-  rumble: 'Rumble', pinterest: 'Pinterest',
-};
+// The pill flow (tabs, server pills, fallback, sort) lives in hooks/useFeedTabs
+// so /feed Home runs the same code. See there for the owner's notes.
 
 // The heading's platform name when ONE server pill is picked (owner,
-// 2026-11-07): "Trending Posts on Facebook", not "…on FB". Falls back to the
-// pill's own label.
+// 2026-11-07): "Trending Posts on Facebook", not "…on FB".
 const HEADING_NAMES = { facebook: 'Facebook', truthsocial: 'Truth Social' };
 const headingFor = (tab, server) => {
   if (tab !== 'top') return TABS.find((t) => t.id === tab).label;
   if (server === 'all') return 'Trending posts across all platforms';
   return `Trending Posts on ${HEADING_NAMES[server] || NETWORK_LABELS[server] || server}`;
 };
-
-// BLANK NEVER MEANS BROKEN (owner, 2026-11-06). A blank query on the big
-// networks often comes back empty, which reads as "this doesn't work". When the
-// unseeded pull finishes empty, the frame re-asks with a top-posts word and
-// sorts what comes back newest first. Shuffle picks another word.
-const FALLBACK_SEEDS = ['viral', 'trending', 'breaking', 'funny', 'video', 'news', 'music', 'sports'];
-const byNewest = (a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0);
-
-const TABS = [
-  { id: 'top', label: 'Top', platforms: TOP_NETWORKS },
-  { id: 'creators', label: 'Creators', platforms: categoryById('creators').platforms },
-  { id: 'news', label: 'News', platforms: categoryById('news').platforms },
-  { id: 'markets', label: 'Markets', platforms: categoryById('markets').platforms },
-];
 
 // THE FEED, IN A FRAME, ON LANDING (owner, 2026-11-05).
 //
@@ -65,41 +38,9 @@ const TABS = [
 // a second player) inside the first. A scroll container gives the same "page in
 // a frame" feel with one app and one player.
 export default function LandingFeedFrame() {
-  const [tab, setTab] = useState('top');
-  const [server, setServer] = useState('all');
-  // -1 = the plain blank-query pull; 0+ = index into FALLBACK_SEEDS.
-  const [seedIdx, setSeedIdx] = useState(-1);
-  const platforms = useMemo(() => {
-    const available = new Set(platformsFor(PROVIDERS.filter((p) => isConnectable(p.id)).map((p) => p.id)));
-    const wanted = TABS.find((t) => t.id === tab).platforms;
-    // BROWSE_ONLY shelves are allowed here only when their tab asks for them.
-    const list = wanted.filter((p) => available.has(p) && (tab !== 'top' || !BROWSE_ONLY.has(p)));
-    return tab === 'top' && server !== 'all' ? list.filter((p) => p === server) : list;
-  }, [tab, server]);
-  const topNetworks = useMemo(() => TABS[0].platforms.filter((p) => NETWORK_LABELS[p]), []);
-  const query = seedIdx >= 0 ? FALLBACK_SEEDS[seedIdx % FALLBACK_SEEDS.length] : '';
-  const raw = useSocialFeed({ query, platforms, enabled: platforms.length > 0, interleave: true, rememberSeen: false });
-
-  // New tab or server → start over from the plain blank pull.
-  useEffect(() => { setSeedIdx(-1); }, [tab, server]);
-  // The blank pull finished with nothing → auto-pull top posts instead. Walks
-  // the seed list once, so a truly dead source ends rather than looping.
-  const empty = !raw.loading && !raw.items.length && (raw.done || raw.error);
-  useEffect(() => {
-    if (empty && tab === 'top' && platforms.length && seedIdx < FALLBACK_SEEDS.length - 1) {
-      setSeedIdx((i) => i + 1);
-    }
-  }, [empty]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const usingFallback = seedIdx >= 0;
-  const feed = useMemo(
-    () => (usingFallback ? { ...raw, items: [...raw.items].sort(byNewest) } : raw),
-    [raw, usingFallback],
-  );
-  const shuffle = () => setSeedIdx((i) => {
-    let n; do { n = Math.floor(Math.random() * FALLBACK_SEEDS.length); } while (n === i && FALLBACK_SEEDS.length > 1);
-    return n;
-  });
+  const available = useMemo(() => platformsFor(PROVIDERS.filter((p) => isConnectable(p.id)).map((p) => p.id)), []);
+  const t = useFeedTabs({ available });
+  const { tab, server, feed } = t;
   const accent = MODE_COLORS.yellow;
 
   return (
@@ -112,58 +53,7 @@ export default function LandingFeedFrame() {
           Open full feed <ArrowUpRight size={12} />
         </Link>
       </div>
-      <div role="tablist" aria-label="Feed category" className="flex gap-1 mb-2 px-1 overflow-x-auto">
-        {TABS.map((t) => {
-          const active = t.id === tab;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              data-landing-feed-tab={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors border ${active ? 'text-black' : 'text-white/60 hover:text-white border-white/10'}`}
-              style={active ? { background: accent, borderColor: accent } : undefined}
-            >
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
-      {tab === 'top' && (
-        <div aria-label="Server" className="flex gap-1 mb-2 px-1 overflow-x-auto items-center">
-          {['all', ...topNetworks].map((id) => {
-            const active = id === server;
-            return (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={active}
-                data-landing-feed-server={id}
-                onClick={() => setServer(id)}
-                className={`px-2.5 py-0.5 rounded-full text-[11px] whitespace-nowrap border transition-colors ${active ? 'text-white border-white/50 bg-white/10' : 'text-white/50 hover:text-white border-white/10'}`}
-              >
-                {id === 'all' ? 'All' : NETWORK_LABELS[id]}
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            data-landing-feed-shuffle=""
-            onClick={shuffle}
-            title="Pull a fresh set of top posts, newest first"
-            className="ml-auto px-2.5 py-0.5 rounded-full text-[11px] whitespace-nowrap border border-white/10 text-white/60 hover:text-white flex items-center gap-1"
-          >
-            <Shuffle size={11} /> Shuffle
-          </button>
-        </div>
-      )}
-      {usingFallback && (
-        <p data-landing-feed-fallback="" className="text-[11px] text-white/40 mb-1 px-1">
-          Showing top “{query}” posts, newest first.
-        </p>
-      )}
+      <FeedPills t={t} />
       <div
         role="tabpanel"
         key={`${tab}:${server}`}
