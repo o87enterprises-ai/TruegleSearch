@@ -31,7 +31,7 @@ the unique combo). Record deltas since last cycle only.
 
 ### 3. Usage statistics & demographics / market analysis
 
-- Pull what's available: Cloudflare Analytics (traffic), `search_queries` table via `/api/search/trending` (top queries + modes, no PII), Search Console (queries/CTR/indexed pages). NO ad-network stats — advertising was removed in full 2026-08-24 (`docs/AD-POLICY.md`).
+- Pull what's available: Cloudflare Analytics (traffic), `search_queries` table via `/api/search/trending` (top queries + modes; ADMIN-ONLY since 2026-11-08 — sign in as an admin, it is no longer public, and never copy a person's name from it into code, docs or posts), Search Console (queries/CTR/indexed pages). NO ad-network stats — advertising was removed in full 2026-08-24 (`docs/AD-POLICY.md`).
 - Industry data: search-market share, privacy-search growth rates, creator-economy stats.
 - Output a short market-analysis section: TAM/SAM for privacy search, our niche share, demographic sketch per mode (blue/red/purple/ocean audiences map to distinct demos — see ad campaign keyword table in `HANDOFF.md`).
 

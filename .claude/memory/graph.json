@@ -2112,6 +2112,14 @@
         "body": "2026-11-08 owner asked 'what's up with all of the victor posts?'. CAUSE (verified against live /api/search/trending): FeedSeeds.seedTopics seeded the query-less home feed from the top search_queries of the last 48h; the log stores no person so it counts SEARCHES not people, and the live top 6 were mostly variations of ONE private individual's name, so three scroll pages in a row returned posts about it, and the name also showed in the trending pills. FIX (owner chose option 1): seedTopics = today's headlines topped up from the hourly-rotated STATIC_SEEDS rotation; fromTrending deleted; search text now feeds the trending pills ONLY. SearchLog.js header + PrivacyPolicy.jsx ('used only to show what is trending') updated to match. Test: backend __tests__/feedSeeds.test.js (6; 5 fail on old code) asserts the log is never queried. NOT DONE / OPEN: the trending PILLS (routes/search.js /trending) still surface raw top queries incl. names — owner has not chosen; options were cap one-per-subject / min-days / manual delete. Do NOT write real people's names into code, comments, memory or PRs.",
         "ts": "2026-11-08",
         "created": "2026-11-08"
+      },
+      "d-trending-endpoint-admin-only": {
+        "Id": "d-trending-endpoint-admin-only",
+        "Type": "decision",
+        "Label": "/api/search/trending is ADMIN-ONLY; no public surface shows visitors' raw searches",
+        "body": "2026-11-08 owner (after the feed-seeds fix): 'whatever is best, most universal, not steered or catered; we want trending POSTS exclusively on landing.' FINDINGS: the landing search PILLS were already gone (api.getTrending has no callers; NewsFeed replaced them; sanitizeTrending.js is dead) — but GET /api/search/trending was still PUBLIC and returned the raw top searches (incl. a private individual's name) to anyone. FIX: route now authenticate + requireAdmin; removed from the public API index in server.js; marketing skill note updated (admin login needed; never copy a person's name from it). Test: __tests__/searchTrendingAccess.test.js (3; 2 fail on the old public route): anon 401, user 403, admin 200, and the log is not read for the refused. The search log now feeds NOTHING public. Landing = trending POSTS (headline-seeded feed frame) only.",
+        "ts": "2026-11-08",
+        "created": "2026-11-08"
       }
     },
     "thread": {
