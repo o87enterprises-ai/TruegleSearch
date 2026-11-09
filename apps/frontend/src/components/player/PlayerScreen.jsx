@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import { Music } from 'lucide-react';
 import TruegleWatermark from '../ui/TruegleWatermark';
 import PlayerStarters from './PlayerStarters';
@@ -42,6 +42,30 @@ function withPlaybackChannel(kind, src, tiktokCard = false) {
     return `${src}${sep}autoplay=1&${IS_IOS ? 'mute=1&' : ''}playsinline=1&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
   }
   return `${src}${sep}autoplay=1`;
+}
+
+// TIKTOK HAS A MINIMUM WIDTH (owner, 2026-11-09: "the video frame seems too
+// narrow, as if the rest of the video falls to the left and right of the visible
+// area"). TikTok lays its embeds out at no less than 325 CSS px wide. In a small
+// box — the popped-out window caps the height, and the card fallback is 9:21, so
+// it came out 168px wide — TikTok still drew 325px and we showed only the middle
+// slice: both sides and the bottom were cut off. Below that width the frame is now
+// laid out at 325px and SCALED DOWN to the box, so the whole thing is visible.
+const TIKTOK_MIN_WIDTH = 325;
+
+/** Width of an element, kept current. 0 until measured. */
+function useWidth(ref, active) {
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!active || !el) return undefined;
+    setW(el.getBoundingClientRect().width);
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(([e]) => setW(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref, active]);
+  return w;
 }
 
 const PlayerScreen = forwardRef(function PlayerScreen({
@@ -219,6 +243,14 @@ const PlayerScreen = forwardRef(function PlayerScreen({
       margin: '0 auto',
     };
 
+  // See TIKTOK_MIN_WIDTH above.
+  const boxRef = useRef(null);
+  const boxWidth = useWidth(boxRef, kind === 'tiktok');
+  const ttScale = kind === 'tiktok' && boxWidth > 0 && boxWidth < TIKTOK_MIN_WIDTH ? boxWidth / TIKTOK_MIN_WIDTH : 1;
+  const frameStyle = ttScale < 1 ? {
+    width: TIKTOK_MIN_WIDTH, height: `${100 / ttScale}%`, transform: `scale(${ttScale})`, transformOrigin: '0 0',
+  } : undefined;
+
   return (
     <div
       ref={ref}
@@ -247,7 +279,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
           allow="autoplay"
         />
       ) : isVideoIframe ? (
-        <div className="relative" style={boxStyle}>
+        <div ref={boxRef} className="relative overflow-hidden" style={boxStyle} data-player-box="">
           <iframe
             ref={frameRef}
             key={source.playToken ? `${src}#${source.playToken}` : src}
@@ -256,7 +288,9 @@ const PlayerScreen = forwardRef(function PlayerScreen({
             // clock starts here, not at mount, so a slow network is not
             // mistaken for a dead clip.
             onLoad={(e) => { e.currentTarget.dataset.loaded = '1'; onFrameLoad?.(); }}
-            className="absolute inset-0 w-full h-full"
+            className={ttScale < 1 ? 'absolute left-0 top-0' : 'absolute inset-0 w-full h-full'}
+            style={frameStyle}
+            data-tiktok-scale={kind === 'tiktok' ? ttScale.toFixed(3) : undefined}
             title={title || 'Video player'}
             sandbox={sandboxFor(kind)}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

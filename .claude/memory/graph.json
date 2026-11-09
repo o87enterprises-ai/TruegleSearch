@@ -2216,6 +2216,14 @@
         "body": "services/TopFeedCache.js (memory + Postgres feed_cache, migration 028) in front of POST /api/social/feed via routes/social.js buildFeedPayload. Cacheable = social-network platforms (config/topFeed.js TOP_NETWORKS) with empty query or a FALLBACK_SEEDS word; everything else bypasses. Epoch = 9AM America/Los_Angeles to 9AM (utils/cacheEpoch.js, DST-safe). routes/cron.js GET /api/cron/refresh-top-feed, scheduled 16:00 and 17:00 UTC in vercel.json, acts only in the 9 o'clock Pacific hour and only if not already fresh; CRON_SECRET optional (enables ?force=1). Only >=8-post results stored; partial (a network errored) = 2h life; thin/failed live build serves the older copy (stale). Header X-Truegle-Cache. Frontend/back copies of the network list must match (landing:test checks). Phones keep Feed card open.",
         "ts": "2026-11-09",
         "created": "2026-11-09"
+      },
+      "tiktok-min-width-2026-11-09": {
+        "Id": "tiktok-min-width-2026-11-09",
+        "Type": "decision",
+        "Label": "TikTok frames scale down below TikTok's 325px minimum width",
+        "body": "Owner saw a TikTok cut off left/right in the popped-out player. Root cause: TikTok lays out embeds at >=325 CSS px; the card fallback (9:21 box, used when player/v1 does not confirm play within ~10s) came out ~150-170px wide in the capped window, so only the middle slice showed. PlayerScreen now measures the box (data-player-box) and, for kind tiktok below 325px, renders the iframe 325px wide and transform-scales it to the box (data-tiktok-scale). Test: tiktok:test fit check (fails on old code). Note: TikTok oEmbed from datacenter IPs returns a fixed 325x578 and no thumbnail dims, so it cannot tell a clip's real shape.",
+        "ts": "2026-11-09",
+        "created": "2026-11-09"
       }
     },
     "thread": {
