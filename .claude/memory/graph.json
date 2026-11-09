@@ -2176,6 +2176,14 @@
         "body": "services/ShortsProbe.js annotates channel videos with short:true|false by HEAD https://www.youtube.com/shorts/<id> (200=Short, 3xx=not; keyless, no API quota; answers cached forever; unknown on error/timeout = treated as video, retried next time; 6s batch budget). fetchCreatorsFeed(...,kind) filters BEFORE paging; POST /api/social/feed and GET /api/creators/feed accept kind=short|video (anything else = all). Rows carry isShort. UI: CreatorChips has the pill row (aria data-kind-pill) in the opened Creators category and the Creators pill tab (useFeedTabs.kind); resets when leaving creators. Stream inherits the filter since the feed is filtered.",
         "ts": "2026-11-09",
         "created": "2026-11-09"
+      },
+      "short-badge-2026-11-09": {
+        "Id": "short-badge-2026-11-09",
+        "Type": "decision",
+        "Label": "Short badge on feed cards",
+        "body": "FeedCards.jsx ShortBadge renders a 'Short' pill (data-feed-short) in both GenericCard and MediaPostCard headers when post.isShort (stamped by backend ShortsProbe). Test: verify-feed-playable.mjs.",
+        "ts": "2026-11-09",
+        "created": "2026-11-09"
       }
     },
     "thread": {
