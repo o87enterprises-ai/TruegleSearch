@@ -328,7 +328,7 @@ await page.waitForTimeout(300);
     score: null, comments: null, thumbnail: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`, flair: null,
   });
   // Page 1 and page 2 of each feed. Video ids are 11 chars.
-  const ROLAND1 = [row('r1', 'Roland Martin', 'RolandRRR01'), row('r2', 'Roland Martin', 'RolandRRR02'), row('r3', 'Roland Martin', 'RolandRRR03')];
+  const ROLAND1 = [{ ...row('r1', 'Roland Martin', 'RolandRRR01'), isShort: true }, row('r2', 'Roland Martin', 'RolandRRR02'), row('r3', 'Roland Martin', 'RolandRRR03')];
   const ROLAND2 = [row('r4', 'Roland Martin', 'RolandRRR04'), row('r5', 'Roland Martin', 'RolandRRR05')];
   const BEMA1 = [row('b1', 'The BEMA Podcast', 'BemaBBBB001'), row('b2', 'The BEMA Podcast', 'BemaBBBB002'), row('b3', 'The BEMA Podcast', 'BemaBBBB003')];
   const BEMA2 = [row('b4', 'The BEMA Podcast', 'BemaBBBB004')];
@@ -370,6 +370,9 @@ await page.waitForTimeout(300);
     await openApp(pg, `${BASE}/feed?category=creators`);
     await until(() => pg.locator('[data-feed-card-wrap]').count().then((n) => n >= 3), { what: 'the creator cards' });
     check(await pg.locator('[data-feed-card-wrap] [data-feed-action="stream"]').count() > 0, 'a feed card offers Stream');
+    // The Short badge: on the Short, and only on the Short.
+    check(await pg.locator('[data-feed-short]').count() === 1, 'a Short carries a "Short" badge, and no other card does');
+    check(await pg.locator('[data-feed-card-wrap]:has-text("Roland Martin r1") [data-feed-short]').count() === 1, '…on the right card');
     await pg.locator('[data-feed-card-wrap] [data-feed-action="stream"]').first().click();
     // Walk the run; collect which creators it visits and whether page 2 loaded.
     const seenAuthors = new Set();
