@@ -2232,6 +2232,14 @@
         "body": "Local (default) = only your language, Global = yours first; toggle on /feed, landing Feed card, Tube chip row; per-browser (truegle_lang_mode). Your language = truegle_settings.language (engine language, defaults to browser). Backend: langDetect (no dep), AudioLang (YouTube spoken language via Data API defaultAudioLanguage then auto-generated caption track via Invidious), ContentLang annotate-before-cache + per-request filter; POST /api/social/feed lang/langMode; POST /api/lang/classify for Tube. Spoken language wins; undetermined text kept if script fits. TikTok/IG/FB/Rumble have no audio-language signal (text only). One cached build serves all languages.",
         "ts": "2026-11-09",
         "created": "2026-11-09"
+      },
+      "mastodon-trends-2026-11-09": {
+        "Id": "mastodon-trends-2026-11-09",
+        "Type": "decision",
+        "Label": "Mastodon feed uses /api/v1/trends/statuses (public timeline needs login)",
+        "body": "mastodon.social answers /api/v1/timelines/public with 422 'requires an authenticated user', so Mastodon was empty and errored on every feed build. fetchMastodon now uses keyless /api/v1/trends/statuses, paged by offset (cursor = next offset), keeping each post's language label. TopFeedCache.isPartial now counts only TRANSIENT errors (timeout, 429, 5xx) — a permanent 4xx no longer cuts the daily top-posts cache to 2h (it had been, on every build, because of the Mastodon 422).",
+        "ts": "2026-11-09",
+        "created": "2026-11-09"
       }
     },
     "thread": {

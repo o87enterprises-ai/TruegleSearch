@@ -185,3 +185,24 @@ describe('refreshTop (the 9 AM job)', () => {
     expect(mockRows.size).toBe(0);
   });
 });
+
+describe('partial = a TRANSIENT failure only', () => {
+  const key = () => TopFeedCache.keyFor(req());
+  test.each([
+    ['Request failed with status code 422', false], // permanent: endpoint wants a login (Mastodon, 2026-11-09)
+    ['Request failed with status code 403', false],
+    ['Request failed with status code 404', false],
+    ['Request failed with status code 429', true],  // rate limit: will recover
+    ['Request failed with status code 503', true],
+    ['timeout of 8000ms exceeded', true],
+    ['unavailable', true],
+  ])('%s -> partial=%s', (err, partial) => {
+    expect(TopFeedCache.isPartial(payload(12, { reddit: err }), TOP_NETWORKS)).toBe(partial);
+  });
+  test('a permanently refused network no longer cuts the day\'s cache to two hours', async () => {
+    const build = jest.fn(async () => payload(12, { mastodon: 'Request failed with status code 422' }));
+    await TopFeedCache.serve(key(), build, { platforms: TOP_NETWORKS, now: MORNING });
+    expect((await TopFeedCache.serve(key(), build, { platforms: TOP_NETWORKS, now: MORNING + 6 * 60 * 60 * 1000 })).cache).toBe('hit');
+    expect(build).toHaveBeenCalledTimes(1);
+  });
+});
