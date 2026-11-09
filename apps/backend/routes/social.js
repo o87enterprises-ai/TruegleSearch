@@ -545,9 +545,13 @@ async function fetchMastodon(query, limit, cursor) {
   // query returns nothing rather than pretending, and the round-robin simply
   // gives its slot to a source that can answer.
   if (query) return { items: [], next: null };
-  const params = new URLSearchParams({ limit: String(Math.min(limit, 40)) });
-  if (cursor) params.set('max_id', cursor);
-  const res = await axios.get(`${MASTODON_HOST}/api/v1/timelines/public?${params}`, {
+  // TRENDING, not the public timeline (2026-11-09): mastodon.social now answers
+  // the public timeline with 422 "This method requires an authenticated user",
+  // so Mastodon was empty on every feed. /api/v1/trends/statuses is keyless,
+  // is what "top posts" means anyway, and pages by offset.
+  const offset = Number.parseInt(cursor, 10) > 0 ? Number.parseInt(cursor, 10) : 0;
+  const params = new URLSearchParams({ limit: String(Math.min(limit, 40)), offset: String(offset) });
+  const res = await axios.get(`${MASTODON_HOST}/api/v1/trends/statuses?${params}`, {
     timeout: FEED_TIMEOUT, headers: { 'User-Agent': UA },
   });
   const rows = Array.isArray(res.data) ? res.data : [];
@@ -569,8 +573,8 @@ async function fetchMastodon(query, limit, cursor) {
       flair: null,
       nsfw: !!t.sensitive,
     })),
-    // Mastodon pages by "older than this id", so the cursor is the last id seen.
-    next: rows.length ? String(rows[rows.length - 1].id) : null,
+    // Trends page by offset: the next page starts after what this one returned.
+    next: rows.length ? String(offset + rows.length) : null,
   };
 }
 

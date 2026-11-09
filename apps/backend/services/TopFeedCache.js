@@ -46,7 +46,14 @@ function keyFor({ platforms, query, cursor, limit, adult }) {
 }
 
 const isGood = (payload) => !!payload && Array.isArray(payload.results) && payload.results.length >= MIN_GOOD;
-const isPartial = (payload, platforms) => (platforms || []).some((p) => payload?.errors?.[p]);
+// A network that failed for a TRANSIENT reason (timeout, rate limit, 5xx) makes a
+// build partial: it lives two hours so the network gets another chance soon. A
+// PERMANENT refusal (any other 4xx — e.g. an endpoint that now wants a login) will
+// not recover in two hours, so it must not cut the whole day's cache short: it did,
+// for every build, while Mastodon answered 422 (2026-11-09).
+const PERMANENT = /status code (4(?!29)\d\d)\b/;
+const isTransient = (err) => !!err && !PERMANENT.test(String(err));
+const isPartial = (payload, platforms) => (platforms || []).some((p) => isTransient(payload?.errors?.[p]));
 const isFresh = (e, now) => e.epoch === epochId(now) && (!e.partial || now - e.builtAt < PARTIAL_TTL_MS);
 
 const withTimeout = (p) => Promise.race([p, new Promise((_, rej) => { setTimeout(() => rej(new Error('db timeout')), DB_TIMEOUT_MS); })]);
