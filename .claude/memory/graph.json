@@ -2208,6 +2208,14 @@
         "body": "REVERSES the retracted default (owner 2026-11-09). LandingModules: feedOpen starts false, useEffect opens it when !isLikelyBot() (utils/visitor.js: webdriver, bot/crawler/headless/lighthouse UAs, no navigator = bot). Opening mounts LandingFeedFrame which starts the top-posts load, so people land on a loading feed; bots/prerender get the retracted card and no scrape. Top tab shows TopLoadingNote (Truegle logo above 'Surfing top posts may take +10 seconds to load... Thank you for your patience.') via FeedList loadingNote while no items. Tests: verify-landing-cards (human ctx = normal UA + webdriver hidden; Playwright default counts as bot), verify-visitor.mjs. Why/Features stay retracted.",
         "ts": "2026-11-09",
         "created": "2026-11-09"
+      },
+      "top-feed-cache-2026-11-09": {
+        "Id": "top-feed-cache-2026-11-09",
+        "Type": "decision",
+        "Label": "Top-posts server cache, rebuilt once daily at 9 AM Pacific",
+        "body": "services/TopFeedCache.js (memory + Postgres feed_cache, migration 028) in front of POST /api/social/feed via routes/social.js buildFeedPayload. Cacheable = social-network platforms (config/topFeed.js TOP_NETWORKS) with empty query or a FALLBACK_SEEDS word; everything else bypasses. Epoch = 9AM America/Los_Angeles to 9AM (utils/cacheEpoch.js, DST-safe). routes/cron.js GET /api/cron/refresh-top-feed, scheduled 16:00 and 17:00 UTC in vercel.json, acts only in the 9 o'clock Pacific hour and only if not already fresh; CRON_SECRET optional (enables ?force=1). Only >=8-post results stored; partial (a network errored) = 2h life; thin/failed live build serves the older copy (stale). Header X-Truegle-Cache. Frontend/back copies of the network list must match (landing:test checks). Phones keep Feed card open.",
+        "ts": "2026-11-09",
+        "created": "2026-11-09"
       }
     },
     "thread": {
