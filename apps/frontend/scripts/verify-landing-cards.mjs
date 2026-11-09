@@ -331,6 +331,61 @@ for (const [label, vp, mobile] of [['desktop', { width: 1280, height: 900 }, fal
   });
 }
 
+// ── scroll chaining out of the feed frame (owner, 2026-11-09) ───────────────
+// The feed frame scrolls INSIDE itself, but at its top or bottom the PAGE must
+// carry on scrolling: reach the end of the frame and the whole screen continues.
+// Mid-frame, a wheel still scrolls the frame and leaves the page where it is.
+await guarded('feed frame scroll chaining', async () => {
+  const { ctx, page } = await open({ width: 1280, height: 900 }, false, { expanded: false });
+  // Plenty of posts, so the frame genuinely scrolls (registered after open()'s
+  // generic stub, so it wins).
+  const MANY = Array.from({ length: 40 }, (_, i) => ({
+    id: `m${i}`, platform: 'Creators', title: `Long list post ${i}`, url: `https://example.com/long-${i}`,
+    permalink: `https://example.com/long-${i}`, author: 'A Creator', date: '2026-09-28T00:00:00Z', thumbnail: null,
+  }));
+  await ctx.route('**/api/social/feed', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: MANY, platforms: { creators: MANY }, errors: {}, nextCursor: {} }) }));
+  await page.locator('[data-feed-frame-toggle]').dispatchEvent('click');
+  const frame = page.locator('[data-landing-feed-frame]');
+  await frame.waitFor({ timeout: 20000 });
+  await until(() => frame.evaluate((el) => el.scrollHeight > el.clientHeight + 200), { what: 'the frame to have more than it shows' });
+  // Put the whole frame on screen, then wheel with the pointer over it.
+  await frame.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(300);
+  const box = await frame.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  const state = () => page.evaluate(() => ({ page: Math.round(scrollY), frame: Math.round(document.querySelector('[data-landing-feed-frame]').scrollTop) }));
+
+  // 1. MID-FRAME: the wheel scrolls the frame, not the page.
+  const a0 = await state();
+  await page.mouse.wheel(0, 300);
+  await page.waitForTimeout(500);
+  const a1 = await state();
+  check(a1.frame > a0.frame && a1.page === a0.page, 'mid-frame, the wheel scrolls the frame and not the page', `${JSON.stringify(a0)} -> ${JSON.stringify(a1)}`);
+
+  // 2. BOTTOM OF THE FRAME: the page carries on scrolling.
+  await frame.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+  await page.waitForTimeout(700);
+  const b0 = await state();
+  await page.mouse.wheel(0, 400);
+  await page.waitForTimeout(700);
+  const b1 = await state();
+  check(b1.page > b0.page, 'at the bottom of the frame, the whole page keeps scrolling', `${JSON.stringify(b0)} -> ${JSON.stringify(b1)}`);
+
+  // 3. TOP OF THE FRAME: scrolling up carries the page up.
+  await frame.evaluate((el) => { el.scrollTop = 0; el.scrollIntoView({ block: 'center' }); });
+  await page.waitForTimeout(700);
+  const box2 = await frame.boundingBox();
+  await page.mouse.move(box2.x + box2.width / 2, box2.y + box2.height / 2);
+  await page.evaluate(() => scrollBy(0, 200));
+  await page.waitForTimeout(500);
+  const c0 = await state();
+  await page.mouse.wheel(0, -400);
+  await page.waitForTimeout(700);
+  const c1 = await state();
+  check(c1.page < c0.page, 'at the top of the frame, scrolling up carries the whole page up', `${JSON.stringify(c0)} -> ${JSON.stringify(c1)}`);
+  await ctx.close();
+});
+
 // ── retracted by default, opened by a press (desktop and phone alike) ───────
 for (const [label, vp, mobile] of [['desktop', { width: 1280, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {
   await guarded(`${label}: retracted default`, async () => {

@@ -58,11 +58,15 @@ export default function LandingFeedFrame({ embedded = false }) {
         </Link>
       </div>
       <FeedPills t={t} />
+      {/* SCROLL CHAINING (owner, 2026-11-09): inside the frame the wheel / finger
+          scrolls the frame; once it reaches its top or bottom the PAGE carries on.
+          `overscroll-y-auto` is the browser default made explicit — this was
+          `overscroll-contain`, which trapped the scroll in the frame at its ends. */}
       <div
         role="tabpanel"
         key={`${tab}:${server}`}
         data-landing-feed-frame=""
-        className="h-[70vh] max-h-[640px] overflow-y-auto overscroll-contain rounded-2xl border bg-black/30 backdrop-blur-sm p-3"
+        className="h-[70vh] max-h-[640px] overflow-y-auto overscroll-y-auto rounded-2xl border bg-black/30 backdrop-blur-sm p-3"
         style={{ borderColor: `${accent}40` }}
       >
         <FeedList feed={feed} />
