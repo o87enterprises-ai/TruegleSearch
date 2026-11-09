@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Rss, ArrowUpRight } from 'lucide-react';
+import { Rss, ArrowUpRight, Loader2 } from 'lucide-react';
 import { FeedList } from '../../pages/FeedPage';
 import { PROVIDERS, platformsFor, isConnectable } from '../../config/socialProviders';
 import { MODE_COLORS } from '../../config/modeTheme';
@@ -18,10 +18,12 @@ import LangModeToggle from '../ui/LangModeToggle';
 // networks and can take ten-plus seconds, which reads as "broken" and sends
 // people away. So the wait says what it is doing, under the logo. Top tab only
 // — the other tabs answer fast. The logo's click would navigate home; here it
-// is just a picture.
+// is just a picture. A spinning wheel sits between them (owner, 2026-11-09)
+// so the wait visibly moves.
 const TopLoadingNote = () => (
   <div data-feed-loading-note="" role="status" className="flex flex-col items-center gap-3 py-8 text-center">
     <TruegleLogo size="medium" animated onClick={() => {}} />
+    <Loader2 data-feed-loading-spinner="" aria-hidden="true" className="w-6 h-6 text-white/70 animate-spin motion-reduce:animate-none" />
     <p className="text-sm text-white/70 max-w-xs leading-snug">
       Surfing top posts may take +10 seconds to load... Thank you for your patience.
     </p>
