@@ -138,7 +138,8 @@ export default function FeedPage() {
   const openCategory = view !== 'home' && view !== 'browse' ? categoryById(view) : null;
   // One creator isolated within the Creators category ('' = everyone).
   const [creator, setCreator] = useState('');
-  useEffect(() => { if (openCategory?.id !== 'creators') setCreator(''); }, [openCategory?.id]);
+  const [kind, setKind] = useState('all');
+  useEffect(() => { if (openCategory?.id !== 'creators') { setCreator(''); setKind('all'); } }, [openCategory?.id]);
 
   // What actually gets asked for: the servers switched on here, plus anything
   // connected through an account. A connected source the visitor has since
@@ -173,6 +174,7 @@ export default function FeedPage() {
     query: person?.subject || submitted || openCategory?.topic || '',
     platforms,
     creator: openCategory?.id === 'creators' ? creator : '',
+    kind: openCategory?.id === 'creators' ? kind : 'all',
     enabled: platforms.length > 0 && !homeTabs,
     // The aggregated timeline: one post from every source in turn rather than
     // the server's date-sorted merge, and never the same post twice even
@@ -358,7 +360,7 @@ export default function FeedPage() {
         </div>
       )}
 
-      {openCategory?.id === 'creators' && <CreatorChips value={creator} onChange={setCreator} />}
+      {openCategory?.id === 'creators' && <CreatorChips value={creator} onChange={setCreator} kind={kind} onKind={setKind} />}
 
       {/* NO LONGER A GATE.
           This page used to render a full-screen "connect an account first"

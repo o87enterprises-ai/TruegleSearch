@@ -1011,7 +1011,7 @@ router.post('/feed', optionalAuth, async (req, res) => {
       want('mastodon') ? fetchMastodon(q, limit, cur.mastodon) : Promise.resolve(NONE),
       want('bluesky') ? fetchBluesky(q, limit, cur.bluesky) : Promise.resolve(NONE),
       want('lemmy') ? fetchLemmy(q, limit, cur.lemmy) : Promise.resolve(NONE),
-      want('creators') ? fetchCreatorsFeed(q, limit, cur.creators, typeof req.body?.creator === 'string' ? req.body.creator.slice(0, 64) : undefined) : Promise.resolve(NONE),
+      want('creators') ? fetchCreatorsFeed(q, limit, cur.creators, typeof req.body?.creator === 'string' ? req.body.creator.slice(0, 64) : undefined, ['short', 'video'].includes(req.body?.kind) ? req.body.kind : 'all') : Promise.resolve(NONE),
       // YouTube coverage of today's news and markets. Asked for BY NAME only:
       // 'all' does not include them (a merged timeline of everything is not
       // improved by two more video lanes it never asked for, and each costs a
