@@ -109,6 +109,9 @@ async function run(label, viewport, mobile, path, prep) {
 }
 
 const landing = async (page) => {
+  // The Feed frame sits in a card that is retracted at load: open it first.
+  await page.locator('[data-feed-frame-toggle]').waitFor({ timeout: 20000 });
+  await page.locator('[data-feed-frame-toggle]').dispatchEvent('click');
   await page.locator('[data-landing-feed-frame]').waitFor({ timeout: 20000 });
 };
 await run('desktop /feed', { width: 1280, height: 900 }, false, '/feed');

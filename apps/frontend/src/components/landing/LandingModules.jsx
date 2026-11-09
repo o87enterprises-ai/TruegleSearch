@@ -8,6 +8,7 @@ import SearchBody from './SearchBody';
 import ChatBody from './ChatBody';
 import TubeBody from './TubeBody';
 import FeedBody from './FeedBody';
+import LandingFeedFrame from './LandingFeedFrame';
 import { NewsBody, MarketsBody } from './NewsFeed';
 
 // THE LANDING PAGE'S MODULES: one unified block of tiles in a grid, not a
@@ -58,6 +59,11 @@ const MODULES = [
 // The bar that holds the six tiles. Not in MODULES: it has no body of its own
 // and is not one of the tiles that open one at a time.
 const FEATURES = { id: 'features', title: 'Features', icon: LayoutGrid, pitch: '', card: true };
+// The live feed frame, as a third card of the same kind (owner, 2026-11-09):
+// same size and configuration as Why Truegle and Features, RETRACTED at load,
+// and a press on its bar opens or retracts it. Its body is only mounted while
+// open, so the feed asks for nothing until somebody opens it.
+const FEED_CARD = { id: 'livefeed', title: 'Feed', icon: Clapperboard, pitch: '', card: true };
 const WHY = MODULES[0];
 const TILES = MODULES.filter((m) => !m.card);
 
@@ -254,6 +260,7 @@ export default function LandingModules({ safeModeOff, canDisableSafeSearch, togg
   // `featuresOpen` is the bar that holds the tiles. Both start retracted.
   const [openId, setOpenId] = useState(null);
   const [featuresOpen, setFeaturesOpen] = useState(false);
+  const [feedOpen, setFeedOpen] = useState(false);
   const cols = useColumns();
   const rows = useMemo(() => packRows(TILES, cols), [cols]);
 
@@ -321,6 +328,20 @@ export default function LandingModules({ safeModeOff, canDisableSafeSearch, togg
             </Fragment>
           ))}
         </div>
+      </CardTile>
+
+      <CardTile
+        mod={FEED_CARD}
+        cols={1}
+        open={feedOpen}
+        onToggle={() => setFeedOpen((v) => !v)}
+        cardAttr="data-feed-frame-card"
+        panelAttr="data-feed-frame-panel"
+        tileAttr="data-feed-frame-toggle"
+      >
+        {/* The Feed page in a frame: each platform's top post first, then
+            endless scrolling INSIDE the frame. See LandingFeedFrame. */}
+        <LandingFeedFrame embedded />
       </CardTile>
     </div>
   );

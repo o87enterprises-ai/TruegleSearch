@@ -37,14 +37,18 @@ const headingFor = (tab, server) => {
 // Not an <iframe> of /feed: that would boot a second copy of the whole app (and
 // a second player) inside the first. A scroll container gives the same "page in
 // a frame" feel with one app and one player.
-export default function LandingFeedFrame() {
+//
+// `embedded`: rendered inside the landing's Feed CARD (LandingModules), which
+// owns the width and spacing — and only mounts this while the card is open, so
+// nothing is fetched while it is retracted.
+export default function LandingFeedFrame({ embedded = false }) {
   const available = useMemo(() => platformsFor(PROVIDERS.filter((p) => isConnectable(p.id)).map((p) => p.id)), []);
   const t = useFeedTabs({ available });
   const { tab, server, feed } = t;
   const accent = MODE_COLORS.yellow;
 
   return (
-    <section aria-label="Trending posts" data-landing-feed="" className="mt-8 max-w-4xl mx-auto">
+    <section aria-label="Trending posts" data-landing-feed="" className={embedded ? '' : 'mt-8 max-w-4xl mx-auto'}>
       <div className="flex items-center justify-between mb-2 px-1">
         <h2 data-landing-feed-title="" className="flex items-center gap-2 text-sm font-semibold" style={{ color: accent }}>
           <Rss size={16} /> {headingFor(tab, server)}
@@ -54,11 +58,15 @@ export default function LandingFeedFrame() {
         </Link>
       </div>
       <FeedPills t={t} />
+      {/* SCROLL CHAINING (owner, 2026-11-09): inside the frame the wheel / finger
+          scrolls the frame; once it reaches its top or bottom the PAGE carries on.
+          `overscroll-y-auto` is the browser default made explicit — this was
+          `overscroll-contain`, which trapped the scroll in the frame at its ends. */}
       <div
         role="tabpanel"
         key={`${tab}:${server}`}
         data-landing-feed-frame=""
-        className="h-[70vh] max-h-[640px] overflow-y-auto overscroll-contain rounded-2xl border bg-black/30 backdrop-blur-sm p-3"
+        className="h-[70vh] max-h-[640px] overflow-y-auto overscroll-y-auto rounded-2xl border bg-black/30 backdrop-blur-sm p-3"
         style={{ borderColor: `${accent}40` }}
       >
         <FeedList feed={feed} />

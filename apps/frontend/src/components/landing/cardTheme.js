@@ -13,6 +13,7 @@ export const CARD_ACCENT = {
   tube: MODE_COLORS.tube,
   search: MODE_COLORS.blue,
   feed: MODE_COLORS.yellow,
+  livefeed: MODE_COLORS.yellow, // the Feed card that holds the live feed frame (same yellow)
   news: '#facc15',      // Feed yellow, lighter
   markets: '#ca8a04',   // Feed yellow, deeper
 };

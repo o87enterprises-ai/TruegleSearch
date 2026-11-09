@@ -2184,6 +2184,22 @@
         "body": "FeedCards.jsx ShortBadge renders a 'Short' pill (data-feed-short) in both GenericCard and MediaPostCard headers when post.isShort (stamped by backend ShortsProbe). Test: verify-feed-playable.mjs.",
         "ts": "2026-11-09",
         "created": "2026-11-09"
+      },
+      "landing-feed-card-2026-11-09": {
+        "Id": "landing-feed-card-2026-11-09",
+        "Type": "decision",
+        "Label": "Landing Feed frame is a third collapsible card (retracted by default)",
+        "body": "LandingModules.jsx: FEED_CARD (id 'livefeed', title Feed, Clapperboard, accent = Feed yellow via cardTheme.livefeed) rendered as a CardTile after Features, same size/config as Why Truegle + Features. Retracted at load; a press toggles open/retracts; body (LandingFeedFrame embedded) only mounted while open so nothing is fetched while retracted. Selectors: data-feed-frame-toggle/-card/-panel. LandingPage no longer renders LandingFeedFrame itself. Tests: verify-landing-cards.mjs (Feed card block) + feed-shapes landing helper opens the card first.",
+        "ts": "2026-11-09",
+        "created": "2026-11-09"
+      },
+      "landing-feed-scroll-chain-2026-11-09": {
+        "Id": "landing-feed-scroll-chain-2026-11-09",
+        "Type": "decision",
+        "Label": "Landing feed frame chains scroll to the page at its ends",
+        "body": "LandingFeedFrame scroll box uses overscroll-y-auto (was overscroll-contain, which trapped scrolling at the frame's top/bottom). Mid-frame wheel still scrolls only the frame. Test: verify-landing-cards.mjs 'feed frame scroll chaining' (wheel mid/bottom/top). Touch uses the same CSS property; browsers chain on a fresh swipe after the edge is reached.",
+        "ts": "2026-11-09",
+        "created": "2026-11-09"
       }
     },
     "thread": {
