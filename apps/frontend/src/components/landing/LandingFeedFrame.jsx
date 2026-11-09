@@ -6,12 +6,27 @@ import { PROVIDERS, platformsFor, isConnectable } from '../../config/socialProvi
 import { MODE_COLORS } from '../../config/modeTheme';
 import { useFeedTabs, TABS, NETWORK_LABELS } from '../../hooks/useFeedTabs';
 import FeedPills from '../feed/FeedPills';
+import TruegleLogo from '../ui/TruegleLogo';
 
 // The pill flow (tabs, server pills, fallback, sort) lives in hooks/useFeedTabs
 // so /feed Home runs the same code. See there for the owner's notes.
 
 // The heading's platform name when ONE server pill is picked (owner,
 // 2026-11-07): "Trending Posts on Facebook", not "…on FB".
+// WHILE THE TOP POSTS LOAD (owner, 2026-11-09): the pull fans out across the big
+// networks and can take ten-plus seconds, which reads as "broken" and sends
+// people away. So the wait says what it is doing, under the logo. Top tab only
+// — the other tabs answer fast. The logo's click would navigate home; here it
+// is just a picture.
+const TopLoadingNote = () => (
+  <div data-feed-loading-note="" role="status" className="flex flex-col items-center gap-3 py-8 text-center">
+    <TruegleLogo size="medium" animated onClick={() => {}} />
+    <p className="text-sm text-white/70 max-w-xs leading-snug">
+      Surfing top posts may take +10 seconds to load... Thank you for your patience.
+    </p>
+  </div>
+);
+
 const HEADING_NAMES = { facebook: 'Facebook', truthsocial: 'Truth Social' };
 const headingFor = (tab, server) => {
   if (tab !== 'top') return TABS.find((t) => t.id === tab).label;
@@ -69,7 +84,7 @@ export default function LandingFeedFrame({ embedded = false }) {
         className="h-[70vh] max-h-[640px] overflow-y-auto overscroll-y-auto rounded-2xl border bg-black/30 backdrop-blur-sm p-3"
         style={{ borderColor: `${accent}40` }}
       >
-        <FeedList feed={feed} />
+        <FeedList feed={feed} loadingNote={tab === 'top' ? <TopLoadingNote /> : null} />
       </div>
     </section>
   );
