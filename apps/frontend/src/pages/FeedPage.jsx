@@ -449,7 +449,7 @@ function ArrivalState({ onConnect, busy }) {
 
 // ── connected ───────────────────────────────────────────────────────────────
 
-export function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
+export function FeedList({ feed, searching = false, autoPlayUrl = '', loadingNote = null }) {
   const { items, loading, error, done, sentinel, allSeen } = feed;
   // Which card is nearest the vertical center of the viewport, purely for the
   // enlarge/play-button treatment — nothing here ever autoplays. See
@@ -533,11 +533,11 @@ export function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
         <p className="text-white/40 text-sm py-10 text-center">Nothing to show yet.</p>
       )}
 
-      {loading && (
+      {loading && (loadingNote && !items.length ? loadingNote : (
         <div className="flex justify-center py-8">
           <Loader2 size={20} className="animate-spin text-white/40" />
         </div>
-      )}
+      ))}
 
       {/* The load-more trigger. Rendered only while there is more to get, so a
           finished feed cannot sit here re-triggering against exhausted

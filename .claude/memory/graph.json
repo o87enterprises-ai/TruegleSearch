@@ -2200,6 +2200,14 @@
         "body": "LandingFeedFrame scroll box uses overscroll-y-auto (was overscroll-contain, which trapped scrolling at the frame's top/bottom). Mid-frame wheel still scrolls only the frame. Test: verify-landing-cards.mjs 'feed frame scroll chaining' (wheel mid/bottom/top). Touch uses the same CSS property; browsers chain on a fresh swipe after the edge is reached.",
         "ts": "2026-11-09",
         "created": "2026-11-09"
+      },
+      "landing-feed-open-for-humans-2026-11-09": {
+        "Id": "landing-feed-open-for-humans-2026-11-09",
+        "Type": "decision",
+        "Label": "Landing Feed card OPENS at load for people; bots stay retracted",
+        "body": "REVERSES the retracted default (owner 2026-11-09). LandingModules: feedOpen starts false, useEffect opens it when !isLikelyBot() (utils/visitor.js: webdriver, bot/crawler/headless/lighthouse UAs, no navigator = bot). Opening mounts LandingFeedFrame which starts the top-posts load, so people land on a loading feed; bots/prerender get the retracted card and no scrape. Top tab shows TopLoadingNote (Truegle logo above 'Surfing top posts may take +10 seconds to load... Thank you for your patience.') via FeedList loadingNote while no items. Tests: verify-landing-cards (human ctx = normal UA + webdriver hidden; Playwright default counts as bot), verify-visitor.mjs. Why/Features stay retracted.",
+        "ts": "2026-11-09",
+        "created": "2026-11-09"
       }
     },
     "thread": {

@@ -67,8 +67,13 @@ async function expand(page) {
   await until(() => page.locator('[data-tile]').count().then((n) => n === 7), { what: 'the seven tiles' });
 }
 
-async function open(viewport, mobile, { expanded = true } = {}) {
-  const ctx = await testContext(browser, { viewport, isMobile: mobile, hasTouch: mobile });
+// A "human" browser: an ordinary user agent and no automation flag. Playwright's
+// own default is (correctly) read as a bot, so the existing tests keep seeing the
+// retracted, nothing-started page and these opt in to the person's.
+const HUMAN_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+async function open(viewport, mobile, { expanded = true, human = false } = {}) {
+  const ctx = await testContext(browser, { viewport, isMobile: mobile, hasTouch: mobile, ...(human ? { userAgent: HUMAN_UA } : {}) });
+  if (human) await ctx.addInitScript("Object.defineProperty(navigator, 'webdriver', { get: () => false });");
   await ctx.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));");
   const asked = [];
   // Generic first: Playwright tries the LAST-registered matching route first.
@@ -295,6 +300,48 @@ await guarded('feed heading + no modal', async () => {
   await page.locator('[data-landing-feed-tab="news"]').dispatchEvent('click');
   await until(() => title().then((t) => t === 'News'), { what: 'the News tab heading', timeout: 4000 }).catch(() => {});
   check(await title() === 'News', 'heading: the other tabs keep their own names', await title());
+  await ctx.close();
+});
+
+// ── the Feed card OPENS ITSELF for people, and says what the wait is ─────────
+// (owner, 2026-11-09). A person lands on a feed that is already loading; a bot
+// (Playwright's default counts as one) still gets the retracted card and no load.
+const NOTE = 'Surfing top posts may take +10 seconds to load... Thank you for your patience.';
+for (const [label, vp, mobile] of [['desktop', { width: 1280, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {
+  await guarded(`${label}: the Feed card opens itself for a person`, async () => {
+    const { ctx, page, asked } = await open(vp, mobile, { expanded: false, human: true });
+    // A slow feed, so the wait is on screen long enough to read (registered
+    // after open()'s stub, so it wins).
+    let release; const gate = new Promise((r) => { release = r; });
+    await ctx.route('**/api/social/feed', async (r) => { asked.push('/api/social/feed'); await gate; return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: CREATOR_POSTS, platforms: { creators: CREATOR_POSTS }, errors: {}, nextCursor: {} }) }); });
+    const bar = page.locator('[data-feed-frame-toggle]');
+    await until(() => bar.getAttribute('aria-expanded').then((v) => v === 'true'), { what: 'the Feed card to open by itself', timeout: 8000 }).catch(() => {});
+    check(await bar.getAttribute('aria-expanded') === 'true', `${label}: the Feed card starts OPEN for a person, with no press`);
+    check(await page.locator('[data-features-toggle]').getAttribute('aria-expanded') === 'false' && await openOf(page, 'why') === 'closed', `${label}: Why Truegle and Features still start retracted`);
+    await until(() => asked.includes('/api/social/feed'), { what: 'the top posts to be requested without a click', timeout: 8000 }).catch(() => {});
+    check(asked.includes('/api/social/feed'), `${label}: the top-posts load starts by itself`, asked.join());
+    // While it is slow: the logo, above the patience message.
+    const note = page.locator('[data-feed-loading-note]');
+    await until(() => note.count(), { what: 'the loading message', timeout: 8000 }).catch(() => {});
+    check(await note.count() === 1, `${label}: a loading message is on screen while the top posts load`);
+    check(((await note.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').trim() === NOTE, `${label}: it says exactly the patience message`, ((await note.innerText().catch(() => '')) || '').trim());
+    const order = await note.evaluate((el) => { const img = el.querySelector('img'); const p = el.querySelector('p'); if (!img || !p) return null; const a = img.getBoundingClientRect(); const b = p.getBoundingClientRect(); return { logoAbove: a.bottom <= b.top + 1, centred: Math.abs((a.x + a.width / 2) - (b.x + b.width / 2)) < 8 }; });
+    check(!!order && order.logoAbove && order.centred, `${label}: the Truegle logo is above the text, centred`, JSON.stringify(order));
+    // Once the posts arrive the message goes.
+    release();
+    await until(() => page.locator('[data-feed-loading-note]').count().then((n) => n === 0), { what: 'the message to clear', timeout: 8000 }).catch(() => {});
+    check(await page.locator('[data-feed-loading-note]').count() === 0 && await page.locator('[data-landing-feed-frame] a').count() > 0, `${label}: the message clears when the posts arrive`);
+    // And it is still a card: a press retracts it.
+    await bar.dispatchEvent('click');
+    await until(() => page.locator('[data-landing-feed]').count().then((n) => n === 0), { what: 'the feed to retract' });
+    check(await bar.getAttribute('aria-expanded') === 'false', `${label}: pressing the open card still retracts it`);
+    await ctx.close();
+  });
+}
+await guarded('a bot does not start the feed', async () => {
+  const { ctx, page, asked } = await open({ width: 1280, height: 900 }, false, { expanded: false }); // Playwright default = bot
+  await page.waitForTimeout(1500);
+  check(await page.locator('[data-feed-frame-toggle]').getAttribute('aria-expanded') === 'false' && !asked.includes('/api/social/feed'), 'a bot gets the retracted Feed card and no top-posts load');
   await ctx.close();
 });
 
