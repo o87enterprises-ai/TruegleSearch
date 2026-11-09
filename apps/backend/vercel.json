@@ -11,5 +11,15 @@
       "src": "/(.*)",
       "dest": "server.js"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/refresh-top-feed",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-top-feed",
+      "schedule": "0 17 * * *"
+    }
   ]
 }

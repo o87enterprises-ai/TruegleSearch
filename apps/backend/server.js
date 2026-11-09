@@ -316,6 +316,7 @@ app.use('/api/rewards', require('./routes/rewards'));
 app.use('/api/admin', [authLimiter, require('./routes/admin')]);
 // Geo-targeted ad configuration (IP country-of-origin -> highest-CPM zones)
 app.use('/api/creators', require('./routes/creators'));
+app.use('/api/cron', require('./routes/cron'));
 app.use('/api/session', require('./routes/session'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/prompts', require('./routes/prompts'));

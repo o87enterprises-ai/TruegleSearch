@@ -30,6 +30,8 @@
  * The API is stubbed at the browser. Run it:  npm run landing:test
  */
 import { createServer } from 'vite';
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { launchChromium, until, testContext } from './lib/browser.mjs';
 
 const ok = []; const bad = [];
@@ -306,6 +308,14 @@ await guarded('feed heading + no modal', async () => {
 // ── the Feed card OPENS ITSELF for people, and says what the wait is ─────────
 // (owner, 2026-11-09). A person lands on a feed that is already loading; a bot
 // (Playwright's default counts as one) still gets the retracted card and no load.
+// The server pre-builds ONE entry each morning (backend/config/topFeed.js). It only
+// helps if that entry is exactly what the landing asks for, so the real request and
+// the two lists are held against the backend's copy here.
+const TOPFEED = createRequire(import.meta.url)('../../backend/config/topFeed.js');
+const listIn = (file, name) => { const m = new RegExp(`${name} = \\[([^\\]]*)\\]`).exec(readFileSync(new URL(file, import.meta.url), 'utf8')); return m ? [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : null; };
+const sameSet = (a, b) => JSON.stringify([...(a || [])].sort()) === JSON.stringify([...(b || [])].sort());
+check(sameSet(listIn('../src/hooks/useFeedTabs.js', 'TOP_NETWORKS'), TOPFEED.TOP_NETWORKS), 'the frontend Top tab and the server cache cover the same networks');
+check(sameSet(listIn('../src/hooks/useFeedTabs.js', 'FALLBACK_SEEDS'), TOPFEED.FALLBACK_SEEDS), 'the frontend fallback seed words and the server cache match');
 const NOTE = 'Surfing top posts may take +10 seconds to load... Thank you for your patience.';
 for (const [label, vp, mobile] of [['desktop', { width: 1280, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {
   await guarded(`${label}: the Feed card opens itself for a person`, async () => {
@@ -313,13 +323,19 @@ for (const [label, vp, mobile] of [['desktop', { width: 1280, height: 900 }, fal
     // A slow feed, so the wait is on screen long enough to read (registered
     // after open()'s stub, so it wins).
     let release; const gate = new Promise((r) => { release = r; });
-    await ctx.route('**/api/social/feed', async (r) => { asked.push('/api/social/feed'); await gate; return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: CREATOR_POSTS, platforms: { creators: CREATOR_POSTS }, errors: {}, nextCursor: {} }) }); });
+    let firstBody = null;
+    await ctx.route('**/api/social/feed', async (r) => { asked.push('/api/social/feed'); if (!firstBody) { try { firstBody = JSON.parse(r.request().postData() || '{}'); } catch { firstBody = {}; } } await gate; return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: CREATOR_POSTS, platforms: { creators: CREATOR_POSTS }, errors: {}, nextCursor: {} }) }); });
     const bar = page.locator('[data-feed-frame-toggle]');
     await until(() => bar.getAttribute('aria-expanded').then((v) => v === 'true'), { what: 'the Feed card to open by itself', timeout: 8000 }).catch(() => {});
     check(await bar.getAttribute('aria-expanded') === 'true', `${label}: the Feed card starts OPEN for a person, with no press`);
     check(await page.locator('[data-features-toggle]').getAttribute('aria-expanded') === 'false' && await openOf(page, 'why') === 'closed', `${label}: Why Truegle and Features still start retracted`);
     await until(() => asked.includes('/api/social/feed'), { what: 'the top posts to be requested without a click', timeout: 8000 }).catch(() => {});
     check(asked.includes('/api/social/feed'), `${label}: the top-posts load starts by itself`, asked.join());
+    // The request is exactly the one the server pre-builds each morning.
+    await until(() => !!firstBody, { what: 'the first feed request', timeout: 8000 }).catch(() => {});
+    const P = TOPFEED.PREWARM_REQUEST;
+    check(!!firstBody && sameSet(firstBody.platforms, P.platforms) && (firstBody.query || '') === P.query && firstBody.limit === P.limit && JSON.stringify(firstBody.cursor || {}) === JSON.stringify(P.cursor) && firstBody.safeSearch === 'safe',
+      `${label}: the landing's first request is exactly the one the server pre-builds each morning`, JSON.stringify(firstBody));
     // While it is slow: the logo, above the patience message.
     const note = page.locator('[data-feed-loading-note]');
     await until(() => note.count(), { what: 'the loading message', timeout: 8000 }).catch(() => {});
