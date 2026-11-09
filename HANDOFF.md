@@ -3,6 +3,18 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-09 — Feed/Tube language filter (Local / Global)
+
+- **Switch:** `components/ui/LangModeToggle.jsx` on `/feed` (beside Safe Search), the landing Feed card, and Tube's chip row. **Local** (default) = only your language; **Global** = everything, yours first. Remembered per browser (`truegle_lang_mode`).
+- **"Your language"** = the site's existing engine-language setting (`truegle_settings.language`, the globe dropdown), which defaults to the browser language. One answer everywhere (`utils/contentLang.js`). Nothing is located: no IP/GPS, only the 2-letter code is sent.
+- **Backend:** `services/langDetect.js` (script + function-word detector, no dependency, says `und` rather than guess), `services/AudioLang.js` (YouTube SPOKEN language: Data API `defaultAudioLanguage`, then the auto-generated caption track via the Invidious pool; remembered per video), `services/ContentLang.js` (annotate each post once before caching; per-visitor filter after). Mastodon/Bluesky keep their own language labels. `POST /api/social/feed` takes `lang` + `langMode`; `POST /api/lang/classify` serves Tube.
+- **Rules:** spoken language wins (English title over Spanish audio = Spanish). Undetermined text is kept in Local if its script fits your language. **TikTok/Instagram/Facebook/Rumble publish no audio language**, so for them it is text only — a foreign-audio TikTok with an English title can still get through. Detecting that would need audio transcription (not possible at $0).
+- **Cache:** language is annotated into the cached top-posts payload, so ONE daily build serves every language (no per-language cache).
+- Tests: backend `contentLang`, `langClassify`, `socialFeedCache` (language block); frontend `langmode:test`.
+- Known pre-existing failures (same on `main`): backend `new-endpoints` (process.exit), frontend `tubegrid` Safe-Search-in-player-list (4 checks); `embedkinds:test` needs `vite-node` (not installed here).
+
+---
+
 ## 🗓️ 2026-11-09 — top-posts server cache, rebuilt daily at 9 AM Pacific
 
 - **What:** `POST /api/social/feed` for the landing/`/feed` Home "Top" requests (social networks only, empty query or a fixed fallback seed word; config in `backend/config/topFeed.js`) is answered from a cache. Response header `X-Truegle-Cache`: `hit` | `miss` | `stale` | `thin` | `bypass`. Typed searches, news/markets/creators/podcast lanes and non-social sources are never cached (`bypass`).

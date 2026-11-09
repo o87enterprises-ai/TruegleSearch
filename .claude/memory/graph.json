@@ -2224,6 +2224,14 @@
         "body": "Owner saw a TikTok cut off left/right in the popped-out player. Root cause: TikTok lays out embeds at >=325 CSS px; the card fallback (9:21 box, used when player/v1 does not confirm play within ~10s) came out ~150-170px wide in the capped window, so only the middle slice showed. PlayerScreen now measures the box (data-player-box) and, for kind tiktok below 325px, renders the iframe 325px wide and transform-scales it to the box (data-tiktok-scale). Test: tiktok:test fit check (fails on old code). Note: TikTok oEmbed from datacenter IPs returns a fixed 325x578 and no thumbnail dims, so it cannot tell a clip's real shape.",
         "ts": "2026-11-09",
         "created": "2026-11-09"
+      },
+      "lang-filter-2026-11-09": {
+        "Id": "lang-filter-2026-11-09",
+        "Type": "decision",
+        "Label": "Feed/Tube Local/Global language filter",
+        "body": "Local (default) = only your language, Global = yours first; toggle on /feed, landing Feed card, Tube chip row; per-browser (truegle_lang_mode). Your language = truegle_settings.language (engine language, defaults to browser). Backend: langDetect (no dep), AudioLang (YouTube spoken language via Data API defaultAudioLanguage then auto-generated caption track via Invidious), ContentLang annotate-before-cache + per-request filter; POST /api/social/feed lang/langMode; POST /api/lang/classify for Tube. Spoken language wins; undetermined text kept if script fits. TikTok/IG/FB/Rumble have no audio-language signal (text only). One cached build serves all languages.",
+        "ts": "2026-11-09",
+        "created": "2026-11-09"
       }
     },
     "thread": {

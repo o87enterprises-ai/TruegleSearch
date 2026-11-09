@@ -88,3 +88,37 @@ test('a thin answer is served as-is and is not cached', async () => {
   expect(a.headers['x-truegle-cache']).toBe('thin');
   expect(mockRows.size).toBe(0);
 });
+
+describe('language: one cached build, filtered per visitor', () => {
+  const mixed = () => ({
+    data: { data: { after: null, children: [
+      ...Array.from({ length: 6 }, (_, i) => ({ data: { id: `en${i}`, title: `The best clip of the week you have to watch ${i}`, permalink: `/r/x/comments/en${i}/`, created_utc: 1700000000 + i } })),
+      ...Array.from({ length: 6 }, (_, i) => ({ data: { id: `es${i}`, title: `Los mejores momentos de la semana que no te puedes perder ${i}`, permalink: `/r/x/comments/es${i}/`, created_utc: 1700000100 + i } })),
+    ] } },
+  });
+  beforeEach(() => { axios.get.mockImplementation((url) => (String(url).includes('reddit.com') ? Promise.resolve(mixed()) : Promise.reject(new Error('x')))); });
+  const ids = (body) => body.results.map((r) => r.id);
+
+  test('Local shows only the visitor\'s language; Global shows all, theirs first; both from ONE scrape', async () => {
+    const en = await request(app()).post('/api/social/feed').send({ ...top, lang: 'en-US', langMode: 'local' });
+    expect(en.headers['x-truegle-cache']).toBe('miss');
+    expect(ids(en.body).every((id) => id.startsWith('en'))).toBe(true);
+    expect(ids(en.body)).toHaveLength(6);
+    const calls = redditCalls();
+
+    const es = await request(app()).post('/api/social/feed').send({ ...top, lang: 'es', langMode: 'local' });
+    expect(es.headers['x-truegle-cache']).toBe('hit'); // same cached build
+    expect(ids(es.body).every((id) => id.startsWith('es'))).toBe(true);
+    expect(es.body.platforms.reddit.every((r) => r.id.startsWith('es'))).toBe(true);
+
+    const g = await request(app()).post('/api/social/feed').send({ ...top, lang: 'es', langMode: 'global' });
+    expect(ids(g.body)).toHaveLength(12);
+    expect(ids(g.body).slice(0, 6).every((id) => id.startsWith('es'))).toBe(true);
+    expect(redditCalls()).toBe(calls); // no extra scraping for any of them
+  });
+
+  test('no language sent = the old behaviour, unfiltered', async () => {
+    const r = await request(app()).post('/api/social/feed').send(top);
+    expect(ids(r.body)).toHaveLength(12);
+  });
+});

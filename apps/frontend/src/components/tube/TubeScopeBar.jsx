@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Radio } from 'lucide-react';
 import { SEARCH_SCOPES } from '../../utils/playerQuery';
 import StationsPanel from './StationsPanel';
+import LangModeToggle from '../ui/LangModeToggle';
 
 // The chip row on /tube. It replaces the full-search CategoryBar (Local, Maps,
 // Finance, Shopping…) there: Tube only searches playable media, so the only
@@ -55,6 +56,8 @@ export default function TubeScopeBar({ activeScope = 'all', onSelectScope }) {
             <Radio size={12} />
             Stations
           </motion.button>
+          {/* Local (this device's language) / Global, shared with the Feed. */}
+          <LangModeToggle className="ml-1" />
         </div>
       </div>
       {stations && <StationsPanel />}
