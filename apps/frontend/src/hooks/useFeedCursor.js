@@ -41,9 +41,19 @@ export function feedSource(post) {
   };
 }
 
-export function useFeedCursor(rows) {
-  const { feedActive, startFeed, appendFeed } = usePlayer();
+// STREAM ON THE FEED (owner, 2026-11-08). Tube's Stream keeps playing without
+// being asked. The Feed's version: start from this post and keep going through
+// THIS FEED — and as the run gets low, load the feed's next page rather than
+// stopping at the end of what was scrolled. The scope is simply the feed on
+// screen: the All-creators feed streams every creator; a feed isolated to one
+// creator (creator chip) contains only that creator, so it streams only them.
+const STREAM_LOW_WATER = 4; // load more when this few clips are left to play
+
+export function useFeedCursor(rows, ctl = {}) {
+  const { feedActive, feed: upcoming, startFeed, appendFeed } = usePlayer();
+  const { loadMore, done, loading } = ctl;
   const startedRef = useRef(false);
+  const streamRef = useRef(false);
 
   // One playable entry per feed row that actually has one, in display
   // order. A row nothing in videoEmbed.js recognises is simply absent —
@@ -71,8 +81,16 @@ export function useFeedCursor(rows) {
   // ended — stop, close, a fresh startFeed from elsewhere. A later beginFrom
   // is what re-arms it, never a passive effect.
   useEffect(() => {
-    if (!feedActive) startedRef.current = false;
+    if (!feedActive) { startedRef.current = false; streamRef.current = false; }
   }, [feedActive]);
+
+  // While streaming, keep the run fed: when only a few clips are left and the
+  // feed has more pages, ask for the next one. Rows that arrive are appended by
+  // the top-up effect above. Stops by itself when the feed runs out (`done`).
+  useEffect(() => {
+    if (!streamRef.current || !feedActive || done || loading || !loadMore) return;
+    if ((upcoming?.length ?? 0) <= STREAM_LOW_WATER) loadMore();
+  }, [feedActive, upcoming?.length, done, loading, loadMore]);
 
   // Start (or resume) the feed at a specific row — the centered card's play
   // button, or "Open in app" from the action sheet. Returns false when the
@@ -95,7 +113,14 @@ export function useFeedCursor(rows) {
     return true;
   }, [playable, startFeed]);
 
-  return { beginFrom };
+  // Stream from a row: the same start as Play, then the run keeps itself fed.
+  const beginStream = useCallback((row) => {
+    const started = beginFrom(row);
+    if (started) streamRef.current = true;
+    return started;
+  }, [beginFrom]);
+
+  return { beginFrom, beginStream };
 }
 
 export default useFeedCursor;

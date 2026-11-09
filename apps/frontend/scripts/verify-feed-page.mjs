@@ -691,12 +691,33 @@ await page.click('[data-creator-chip="roland-martin"]');
 await until(() => calls.some((c) => c.path === '/api/social/feed' && c.body?.creator === 'roland-martin'),
   { what: 'a creator chip to isolate that creator' });
 check(true, 'tapping a creator chip sends that creator, isolating their posts');
+// Shorts / Videos / All, on the Creators pill: sent to the server (it filters
+// before paging), and dropped again when the pill changes.
+check(await page.locator('[data-kind-pill]').count() === 3, 'the Creators pill offers All · Videos · Shorts');
+check(await page.locator('[data-kind-pill="all"][aria-pressed="true"]').count() === 1, '…with All selected by default');
+calls.length = 0;
+await page.click('[data-kind-pill="short"]');
+await until(() => calls.some((c) => c.path === '/api/social/feed' && c.body?.kind === 'short'),
+  { what: 'the Shorts pill to ask the server for Shorts' });
+check(calls.filter((c) => c.path === '/api/social/feed').some((c) => c.body?.kind === 'short' && c.body?.creator === 'roland-martin'),
+  'the Shorts pill asks the server for Shorts only, keeping the chosen creator');
+calls.length = 0;
+await page.click('[data-kind-pill="video"]');
+await until(() => calls.some((c) => c.path === '/api/social/feed' && c.body?.kind === 'video'),
+  { what: 'the Videos pill to ask the server for long videos' });
+check(true, 'the Videos pill asks the server for videos (no Shorts)');
+calls.length = 0;
+await page.click('[data-kind-pill="all"]');
+await until(() => calls.some((c) => c.path === '/api/social/feed'), { what: 'the All pill to reload' });
+check(calls.filter((c) => c.path === '/api/social/feed').some((c) => !c.body?.kind && c.body?.creator === 'roland-martin'), 'All sends no filter at all', JSON.stringify(calls.filter((c) => c.path === '/api/social/feed').map((c) => ({ k: c.body?.kind, cr: c.body?.creator, cur: c.body?.cursor }))));
+await page.click('[data-kind-pill="short"]');
+await until(() => calls.some((c) => c.path === '/api/social/feed' && c.body?.kind === 'short'), { what: 'Shorts again' });
 calls.length = 0;
 await page.click('[data-feed-tab="news"]');
 await until(() => calls.some((c) => c.path === '/api/social/feed' && (c.body?.platforms || []).join() === 'newsvideo'),
   { what: 'the News pill to ask for the news video lane' });
 // (A page-2 fetch of the Creators feed can already be in flight at the click; the NEW feed's request is what matters.)
-check(calls.filter((c) => c.path === '/api/social/feed' && (c.body?.platforms || []).join() === 'newsvideo').every((c) => !c.body?.creator), 'switching pill drops the creator isolate');
+check(calls.filter((c) => c.path === '/api/social/feed' && (c.body?.platforms || []).join() === 'newsvideo').every((c) => !c.body?.creator && !c.body?.kind), 'switching pill drops the creator isolate and the Shorts filter');
 await page.click('[data-feed-tab="top"]');
 
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');

@@ -138,7 +138,8 @@ export default function FeedPage() {
   const openCategory = view !== 'home' && view !== 'browse' ? categoryById(view) : null;
   // One creator isolated within the Creators category ('' = everyone).
   const [creator, setCreator] = useState('');
-  useEffect(() => { if (openCategory?.id !== 'creators') setCreator(''); }, [openCategory?.id]);
+  const [kind, setKind] = useState('all');
+  useEffect(() => { if (openCategory?.id !== 'creators') { setCreator(''); setKind('all'); } }, [openCategory?.id]);
 
   // What actually gets asked for: the servers switched on here, plus anything
   // connected through an account. A connected source the visitor has since
@@ -173,6 +174,7 @@ export default function FeedPage() {
     query: person?.subject || submitted || openCategory?.topic || '',
     platforms,
     creator: openCategory?.id === 'creators' ? creator : '',
+    kind: openCategory?.id === 'creators' ? kind : 'all',
     enabled: platforms.length > 0 && !homeTabs,
     // The aggregated timeline: one post from every source in turn rather than
     // the server's date-sorted merge, and never the same post twice even
@@ -358,7 +360,7 @@ export default function FeedPage() {
         </div>
       )}
 
-      {openCategory?.id === 'creators' && <CreatorChips value={creator} onChange={setCreator} />}
+      {openCategory?.id === 'creators' && <CreatorChips value={creator} onChange={setCreator} kind={kind} onKind={setKind} />}
 
       {/* NO LONGER A GATE.
           This page used to render a full-screen "connect an account first"
@@ -458,7 +460,7 @@ export function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
   // playback on a card also arms this, so a later fullscreen swipe has
   // this feed's own rows to walk rather than falling through to Tube's
   // unrelated discovery.
-  const { beginFrom } = useFeedCursor(items);
+  const { beginFrom, beginStream } = useFeedCursor(items, { loadMore: feed.loadMore, done, loading });
 
   // "Featured Feeds", on landing — a card there links straight into the full
   // feed with the post it showed already playing, rather than starting a
@@ -506,7 +508,7 @@ export function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
       <div className="space-y-3">
         {items.map((post, idx) => (
           <div key={post._key} ref={(el) => register(idx, el)}>
-            <FeedCard post={post} focused={idx === activeIndex} onPlay={() => beginFrom(post)} nativeShape />
+            <FeedCard post={post} focused={idx === activeIndex} onPlay={() => beginFrom(post)} onStream={() => beginStream(post)} nativeShape />
           </div>
         ))}
       </div>

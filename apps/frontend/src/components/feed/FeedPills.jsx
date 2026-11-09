@@ -58,7 +58,7 @@ export default function FeedPills({ t, dataPrefix = 'feed' }) {
           </button>
         </div>
       )}
-      {t.tab === 'creators' && <CreatorChips value={t.creator} onChange={t.setCreator} />}
+      {t.tab === 'creators' && <CreatorChips value={t.creator} onChange={t.setCreator} kind={t.kind} onKind={t.setKind} />}
       {t.usingFallback && (
         <p data-landing-feed-fallback="" className="text-[11px] text-white/40 mb-1 px-1">
           Showing top “{t.query}” posts, newest first.
