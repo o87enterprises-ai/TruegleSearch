@@ -25,6 +25,7 @@ import { usePlayer } from '../context/PlayerContext';
 import { parseSocialQuery } from '../utils/queryIntent';
 import { feedPlaceholderNow, advanceFeedPlaceholder } from '../config/modePlaceholders';
 import SafeSearchToggle from '../components/ui/SafeSearchToggle';
+import LangModeToggle from '../components/ui/LangModeToggle';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -305,6 +306,8 @@ export default function FeedPage() {
         <FeedModeSelector active="feed" />
         <div className="flex flex-wrap items-center gap-2">
           <SafeSearchToggle />
+          {/* Local (this device's language) / Global — every view on this page. */}
+          <LangModeToggle />
           {/* HOME / BROWSE. Home is the randomized timeline; Browse is the
               category rows. An opened category counts as Browse, because that
               is where its Back button returns to. */}

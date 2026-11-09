@@ -7,6 +7,7 @@ import { MODE_COLORS } from '../../config/modeTheme';
 import { useFeedTabs, TABS, NETWORK_LABELS } from '../../hooks/useFeedTabs';
 import FeedPills from '../feed/FeedPills';
 import TruegleLogo from '../ui/TruegleLogo';
+import LangModeToggle from '../ui/LangModeToggle';
 
 // The pill flow (tabs, server pills, fallback, sort) lives in hooks/useFeedTabs
 // so /feed Home runs the same code. See there for the owner's notes.
@@ -73,6 +74,8 @@ export default function LandingFeedFrame({ embedded = false }) {
         </Link>
       </div>
       <FeedPills t={t} />
+      {/* Local (this device's language) / Global. */}
+      <LangModeToggle className="mb-2 px-1" />
       {/* SCROLL CHAINING (owner, 2026-11-09): inside the frame the wheel / finger
           scrolls the frame; once it reaches its top or bottom the PAGE carries on.
           `overscroll-y-auto` is the browser default made explicit — this was

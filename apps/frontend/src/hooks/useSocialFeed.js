@@ -3,6 +3,7 @@ import { useSettings } from '../context/SettingsContext';
 import { authHeader } from '../utils/authHeader';
 import { roundRobin } from '../utils/roundRobin';
 import { hasSeenPost, markPostsSeen, forgetPostsSeen } from '../utils/feedSeen';
+import { deviceLang, useLangMode } from '../utils/contentLang';
 
 // The backend fans out to up to 16 sources with 8s upstream timeouts; 25s is
 // well past a slow-but-working answer.
@@ -77,7 +78,10 @@ export function useSocialFeed({
   // (adult posts in or out — see SAFE SEARCH IN THE FEED in routes/social.js).
   const { settings } = useSettings();
   const safeSearch = settings?.safeSearch || 'safe';
-  const key = `${query}\0${[...platforms].sort().join(',')}\0${safeSearch}\0${creator}\0${kind}`;
+  // Local/Global language (utils/contentLang.js): part of WHICH feed this is.
+  const [langMode] = useLangMode();
+  const lang = deviceLang(settings?.language);
+  const key = `${query}\0${[...platforms].sort().join(',')}\0${safeSearch}\0${creator}\0${kind}\0${lang}\0${langMode}`;
   const activeKey = useRef(key);
 
   const fetchPage = useCallback(async (first) => {
@@ -111,6 +115,8 @@ export function useSocialFeed({
           platforms,
           ...(creator ? { creator } : {}),
           ...(kind && kind !== 'all' ? { kind } : {}),
+          lang,
+          langMode,
           limit: PAGE,
           cursor: first ? {} : cursor.current,
         }),
@@ -232,7 +238,7 @@ export function useSocialFeed({
       clearTimeout(timer);
       if (forKey === activeKey.current) { setLoading(false); inFlight.current = false; }
     }
-  }, [enabled, query, platforms.join(','), done, interleave, rememberSeen, safeSearch, creator, kind]);
+  }, [enabled, query, platforms.join(','), done, interleave, rememberSeen, safeSearch, creator, kind, lang, langMode]);
 
   // A new query or a changed provider set is a NEW feed, not more of the old
   // one: reset the cursors and the dedupe ledger before asking.

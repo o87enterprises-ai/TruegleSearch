@@ -19,6 +19,7 @@ const crypto = require('crypto');
 const express = require('express');
 const logger = require('../utils/logger');
 const TopFeedCache = require('../services/TopFeedCache');
+const ContentLang = require('../services/ContentLang');
 const { PREWARM_REQUEST } = require('../config/topFeed');
 const { isRefreshHour, epochId } = require('../utils/cacheEpoch');
 
@@ -46,10 +47,11 @@ router.get('/refresh-top-feed', async (req, res) => {
   try {
     const { buildFeedPayload } = require('./social');
     const result = await TopFeedCache.refreshTop(
-      () => buildFeedPayload({
+      // Annotated with each post's language exactly as a visitor's build is.
+      async () => ContentLang.annotate(await buildFeedPayload({
         q: PREWARM_REQUEST.query, requestedPlatforms: PREWARM_REQUEST.platforms,
         cur: PREWARM_REQUEST.cursor, limit: PREWARM_REQUEST.limit, allowAdult: PREWARM_REQUEST.adult,
-      }),
+      })),
       { force, now },
     );
     await TopFeedCache.prune();

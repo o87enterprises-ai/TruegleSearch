@@ -10,6 +10,7 @@ const { fetchCreatorsFeed } = require('./creators');
 const { fetchVideoLane } = require('../services/NewsVideoService');
 const { fetchPodcastLane } = require('../services/PodcastVideoService');
 const TopFeedCache = require('../services/TopFeedCache');
+const ContentLang = require('../services/ContentLang');
 
 // Social media search using Apify API
 router.post('/search', async (req, res) => {
@@ -554,6 +555,7 @@ async function fetchMastodon(query, limit, cursor) {
     items: rows.filter((t) => t && t.id).map((t) => ({
       id: String(t.id),
       platform: 'Mastodon',
+      lang: t.language || null, // the network's own label (Feed/Tube language filter)
       title: stripHtml(t.content).slice(0, 200) || '(no text)',
       url: t.url || t.uri,
       permalink: t.url || t.uri,
@@ -745,6 +747,7 @@ async function fetchBluesky(query, limit, cursor) {
         nsfw: (p.labels || []).some((l) => ADULT_LABELS.has(String(l?.val || '').toLowerCase())),
         id: String(p.uri),
         platform: 'Bluesky',
+        lang: Array.isArray(p.record?.langs) ? p.record.langs[0] || null : null, // the network's own label
         title: (p.record?.text || '').slice(0, 200) || '(no text)',
         url: web,
         permalink: web,
@@ -1137,18 +1140,24 @@ router.post('/feed', optionalAuth, async (req, res) => {
     const key = TopFeedCache.keyFor({ platforms: requestedPlatforms, query: q, cursor: cur, limit, adult: allowAdult });
     const { payload, cache } = await TopFeedCache.serve(
       key,
-      () => buildFeedPayload({
+      // Each post's language is worked out ONCE, here, before anything is cached;
+      // the per-visitor Local/Global filter below is then just a filter.
+      async () => ContentLang.annotate(await buildFeedPayload({
         q, requestedPlatforms, cur, limit, allowAdult,
         // The creators lane's isolate-one-creator and Shorts/Videos filter. A request
         // that includes that lane is never cacheable (keyFor), so these never need to
         // be part of a cache key.
         creator: typeof req.body?.creator === 'string' ? req.body.creator.slice(0, 64) : undefined,
         kind: ['short', 'video'].includes(req.body?.kind) ? req.body.kind : 'all',
-      }),
+      })),
       { platforms: requestedPlatforms || [] },
     );
     res.set('X-Truegle-Cache', cache);
-    return res.json(payload);
+    // LANGUAGE (owner, 2026-11-09): Local = only the visitor's language; Global =
+    // the visitor's language first. `lang` is the device's language, sent by the page.
+    const lang = typeof req.body?.lang === 'string' ? req.body.lang.slice(0, 12) : '';
+    const langMode = req.body?.langMode === 'global' ? 'global' : 'local';
+    return res.json(lang ? ContentLang.filterByLang(payload, { lang, mode: langMode }) : payload);
   } catch (error) {
     logger.error('Social feed error:', error);
     return res.status(500).json({ error: 'Social feed unavailable', details: 'Service error' });
