@@ -279,6 +279,9 @@ await guarded('feed heading + no modal', async () => {
   const { ctx, page } = await open({ width: 1280, height: 900 }, false, { expanded: false });
   const title = () => page.locator('[data-landing-feed-title]').innerText().then((t) => t.trim());
   check(await page.locator('[data-maintenance-notice], [role="dialog"]').count() === 0, 'no maintenance modal covers the landing page');
+  // The Feed frame lives in a card that is retracted at load: press it open.
+  await page.locator('[data-feed-frame-toggle]').dispatchEvent('click');
+  await until(() => page.locator('[data-landing-feed-title]').count(), { what: 'the Feed card to open' });
   check(await title() === 'Trending posts across all platforms', 'heading: "Trending posts across all platforms" with All selected', await title());
   const WANT = { instagram: 'Trending Posts on Instagram', facebook: 'Trending Posts on Facebook', x: 'Trending Posts on X', reddit: 'Trending Posts on Reddit', truthsocial: 'Trending Posts on Truth Social' };
   for (const [id, want] of Object.entries(WANT)) {
@@ -294,6 +297,39 @@ await guarded('feed heading + no modal', async () => {
   check(await title() === 'News', 'heading: the other tabs keep their own names', await title());
   await ctx.close();
 });
+
+// ── the Feed card: same kind of card as Why Truegle and Features, retracted ───
+// at load, opened and retracted by a press (owner, 2026-11-09).
+for (const [label, vp, mobile] of [['desktop', { width: 1280, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {
+  await guarded(`${label}: the Feed card`, async () => {
+    const { ctx, page, asked } = await open(vp, mobile, { expanded: false });
+    await page.waitForTimeout(1000);
+    const bar = page.locator('[data-feed-frame-toggle]');
+    check((await bar.innerText()).trim() === 'Feed', `${label}: a card titled "Feed"`, (await bar.innerText()).trim());
+    check(await bar.getAttribute('data-open') === 'closed' && await bar.getAttribute('aria-expanded') === 'false', `${label}: the Feed card starts retracted`);
+    check(await page.locator('[data-landing-feed]').count() === 0 && await page.locator('[data-feed-frame-panel]').count() === 0, `${label}: no feed is mounted while it is retracted`);
+    check(!asked.includes('/api/social/feed'), `${label}: nothing is fetched for a retracted Feed card`, asked.join());
+    // Same size and configuration as the Why Truegle and Features cards.
+    const feedBox = await page.locator('[data-feed-frame-card]').boundingBox();
+    const whyBox = await page.locator('[data-card="why"]').boundingBox();
+    const featBox = await page.locator('[data-features-card]').boundingBox();
+    check(Math.abs(feedBox.width - whyBox.width) <= 1 && Math.abs(feedBox.width - featBox.width) <= 1 && Math.abs(feedBox.x - whyBox.x) <= 1,
+      `${label}: same width and left edge as Why Truegle and Features`, `${Math.round(feedBox.width)} vs ${Math.round(whyBox.width)}/${Math.round(featBox.width)}`);
+    check(Math.abs(feedBox.height - featBox.height) <= 2, `${label}: a retracted bar the same height as Features`, `${Math.round(feedBox.height)} vs ${Math.round(featBox.height)}`);
+    // A press opens it; the feed mounts and asks for its first page.
+    await bar.dispatchEvent('click');
+    await until(() => page.locator('[data-landing-feed-frame]').count(), { what: 'the feed frame inside the card' });
+    check(await bar.getAttribute('aria-expanded') === 'true' && await page.locator('[data-feed-frame-card] [data-landing-feed-frame]').count() === 1, `${label}: pressing it opens the feed inside the card`);
+    await until(() => asked.includes('/api/social/feed'), { what: 'the feed to load' });
+    // The next press retracts it completely.
+    await bar.dispatchEvent('click');
+    await until(() => page.locator('[data-landing-feed]').count().then((n) => n === 0), { what: 'the feed to retract' });
+    check(await bar.getAttribute('data-open') === 'closed' && await page.locator('[data-feed-frame-panel]').count() === 0, `${label}: pressing it again retracts it completely`);
+    // Independent of the other two cards.
+    check(await openOf(page, 'why') === 'closed' && await page.locator('[data-features-toggle]').getAttribute('aria-expanded') === 'false', `${label}: the other cards are untouched`);
+    await ctx.close();
+  });
+}
 
 // ── retracted by default, opened by a press (desktop and phone alike) ───────
 for (const [label, vp, mobile] of [['desktop', { width: 1280, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {

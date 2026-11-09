@@ -37,14 +37,18 @@ const headingFor = (tab, server) => {
 // Not an <iframe> of /feed: that would boot a second copy of the whole app (and
 // a second player) inside the first. A scroll container gives the same "page in
 // a frame" feel with one app and one player.
-export default function LandingFeedFrame() {
+//
+// `embedded`: rendered inside the landing's Feed CARD (LandingModules), which
+// owns the width and spacing — and only mounts this while the card is open, so
+// nothing is fetched while it is retracted.
+export default function LandingFeedFrame({ embedded = false }) {
   const available = useMemo(() => platformsFor(PROVIDERS.filter((p) => isConnectable(p.id)).map((p) => p.id)), []);
   const t = useFeedTabs({ available });
   const { tab, server, feed } = t;
   const accent = MODE_COLORS.yellow;
 
   return (
-    <section aria-label="Trending posts" data-landing-feed="" className="mt-8 max-w-4xl mx-auto">
+    <section aria-label="Trending posts" data-landing-feed="" className={embedded ? '' : 'mt-8 max-w-4xl mx-auto'}>
       <div className="flex items-center justify-between mb-2 px-1">
         <h2 data-landing-feed-title="" className="flex items-center gap-2 text-sm font-semibold" style={{ color: accent }}>
           <Rss size={16} /> {headingFor(tab, server)}
