@@ -2240,6 +2240,14 @@
         "body": "mastodon.social answers /api/v1/timelines/public with 422 'requires an authenticated user', so Mastodon was empty and errored on every feed build. fetchMastodon now uses keyless /api/v1/trends/statuses, paged by offset (cursor = next offset), keeping each post's language label. TopFeedCache.isPartial now counts only TRANSIENT errors (timeout, 429, 5xx) — a permanent 4xx no longer cuts the daily top-posts cache to 2h (it had been, on every build, because of the Mastodon 422).",
         "ts": "2026-11-09",
         "created": "2026-11-09"
+      },
+      "csp-no-ad-hosts": {
+        "Id": "csp-no-ad-hosts",
+        "Type": "decision",
+        "Label": "API CSP has no ad hosts",
+        "body": "2026-11-10: removed pagead2.googlesyndication.com + googletagservices.com from apps/backend/server.js CSP (PR #133). Do not re-add.",
+        "ts": "2026-11-10",
+        "created": "2026-11-10"
       }
     },
     "thread": {
@@ -4269,6 +4277,14 @@
         "body": "Owner tried reddit.com/prefs/apps: create app is blocked pending Responsible Builder Policy approval. No REDDIT_CLIENT_ID/SECRET possible; neither app-only token nor per-user OAuth can go live. Do not build a Reddit Connect button. Reddit stays on the SearXNG public-page fallback. 403 message no longer tells users to connect an account.",
         "ts": "2026-11-07",
         "created": "2026-11-07"
+      },
+      "dmarc-reports": {
+        "Id": "dmarc-reports",
+        "Type": "fact",
+        "Label": "DMARC daily reports are routine",
+        "body": "Google DMARC aggregate reports for truegle.info arrive daily; 2026-11-08 report: 1 msg via Resend (Amazon SES), SPF+DKIM pass, policy p=none. Only act if failures or unknown senders appear. Optional later: move to p=quarantine.",
+        "ts": "2026-11-10",
+        "created": "2026-11-10"
       }
     }
   },
@@ -4298,5 +4314,5 @@
       }
     }
   },
-  "updated": "2026-11-09"
+  "updated": "2026-11-10"
 }
