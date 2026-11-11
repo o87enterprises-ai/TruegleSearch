@@ -29,15 +29,30 @@ raw browser error.
 
 ## Plan (all free; in order of value)
 
-1. **Treat "loaded but silent" as blocked, fast.** If the TikTok frame has loaded
-   and said nothing 4 s later (not 10 s from mount), call it blocked.
-2. **Remember it.** Keep a short cool-down (10 min, `sessionStorage`) after a
-   blocked TikTok: no new player/card requests during it. A manual "Try again"
-   still works, at most once per 30 s.
-3. **Show a clear panel, not TikTok's error page:** the clip's poster, "TikTok is
-   limiting playback on this connection right now", **Open on TikTok**, **Try again**.
-4. **Streams keep moving:** a blocked TikTok is skipped to the next playable item
-   instead of stalling the queue.
+**Built 2026-11-11 (steps 1-3):**
+
+1. **Treat "loaded but silent" as blocked, fast.** Once the full player's frame has
+   loaded, it has 4 s (`TIKTOK_SILENT_AFTER_LOAD_MS`) to say it is ready, not 10 s
+   from mount. A player error counts the same. (`hooks/useEmbedPlayback.js`)
+2. **Remember it, per tab, for 10 minutes.** The next TikToks start in the card
+   with NO request for the full player (one request per clip, not two). A full
+   player that says "ready" clears it. (`utils/tiktokBlock.js`, sessionStorage only)
+3. **A quiet strip, not TikTok's error page.** In the card, after 3 s: "Not playing?
+   TikTok may be limiting playback right now." with **Open on TikTok**, **Try the
+   full player** (at most once per 30 s) and **Next** (moves on without calling the
+   clip broken). (`components/player/TikTokHelp.jsx`)
+
+   *A limit on what is possible:* TikTok's card cannot report back, so we cannot
+   tell a playing card from TikTok's error page inside it. Silence is also what a
+   private window looks like (the full player needs third-party storage), where
+   the card works. So the answer to silence is the card plus a way out — not an
+   error message, and not skipping the clip. The strip says "may".
+
+**Still to do:**
+
+4. **Streams keep moving:** a TikTok that is probably blocked is skipped to the next
+   playable item instead of stalling the queue (needs a rule for when to skip,
+   since the card cannot say).
 5. **Count it, anonymously.** A `tiktok-blocked` event through the existing
    player-diagnostics beacon (`utils/playerDiagnostics.js` → `/api/player/diagnostics`,
    no user, session or IP), so `/api/admin/player-health` shows whether this is
@@ -45,8 +60,9 @@ raw browser error.
 6. **If it stays constant:** make "Open on TikTok" the default for TikTok items and
    say so in the UI. There is no keyless alternative player.
 
-Steps 1-4 are front-end only (`useEmbedPlayback.js`, `PlayerScreen.jsx`,
-`TrueglePlayer.jsx`); step 5 adds one event name. None adds a dependency or cost.
+Tests: `npm run tiktokblock:test` (33 checks: the 4 s rule, the 10-minute memory,
+the strip and its three buttons, retry waits 30 s, recovery clears the memory,
+blocked storage) and the existing `npm run tiktok:test` (35, unchanged).
 
 ## Related, done 2026-11-11: stricter caching for the individual feed servers
 

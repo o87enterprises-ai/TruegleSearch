@@ -3,6 +3,15 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-11 — TikTok player 429: fast detection, 10-minute memory, helper strip (plan steps 1-3)
+
+- **Cause:** TikTok throttles its own `player/v1` and `embed/v2` for the browser; the error page loads inside our frame and never says "ready". Not the feed servers. See `docs/TIKTOK-429-PLAN.md`.
+- **Built:** `useEmbedPlayback.js` gives the full player 4 s after its frame loads (was 10 s from mount) and, if silent or errored, marks the tab blocked for 10 min (`utils/tiktokBlock.js`, sessionStorage); while blocked a TikTok starts in the CARD with no full-player request. `components/player/TikTokHelp.jsx`: a quiet strip in the card (after 3 s) with Open on TikTok / Try the full player (30 s gap) / Next. A "ready" clears the block.
+- **Limit:** the card cannot report back, so a playing card and TikTok's error page look the same to us; hence "may", and no auto-skip yet (plan steps 4-6 open).
+- Tests: `npm run tiktokblock:test` (33), `tiktok:test` (35).
+
+---
+
 ## 🗓️ 2026-11-11 — Rumble embeds; per-server feed caching; TikTok 429 plan
 
 - **Rumble "Video not found" (PR #135, merged):** a Rumble page id is not its embed id. `GET /api/embed/rumble?url=` (`routes/embed.js`) asks Rumble's oEmbed for the real one; the player swaps it in (`utils/rumbleEmbed.js` `useRumbleSrc`), keeping the old guess if the lookup fails. `npm run rumble:test`.

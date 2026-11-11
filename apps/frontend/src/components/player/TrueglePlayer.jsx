@@ -8,6 +8,7 @@ import { useTouchDevice } from '../../hooks/useTouchDevice';
 import { buildPlayerLink } from '../../utils/playerLink';
 import PlayerScreen from './PlayerScreen';
 import { PlayerLoading, PlayerEnded } from './PlayerLoading';
+import TikTokHelp from './TikTokHelp';
 import PlayerTransport, { PLAY_MODES, PLAY_MODE_LABEL } from './PlayerTransport';
 import PlayerOverlay from './PlayerOverlay';
 import PlayerListSlot from './PlayerListSlot';
@@ -1516,6 +1517,9 @@ export default function TrueglePlayer({
           >
             <VolumeX size={16} /> Tap for sound
           </button>
+        )}
+        {current?.kind === 'tiktok' && embed.tiktokFallback && !clipScreen && !locked && (
+          <TikTokHelp key={sourceKey} pageUrl={current.pageUrl} onRetry={embed.retryFullPlayer} onNext={goNext} />
         )}
         {embed.tiktokNeedsTap && current && !clipScreen && (
           <div data-tiktok-tap-hint="" className="absolute inset-x-0 bottom-14 z-30 flex justify-center pointer-events-none">

@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  TIKTOK_SILENT_AFTER_LOAD_MS, markTikTokBlocked, tiktokBlocked, clearTikTokBlocked, noteTikTokRetry,
+} from '../utils/tiktokBlock';
 import { trace } from '../utils/playerTrace';
 
 // Knowing when a PLATFORM EMBED finishes, without loading a vendor SDK.
@@ -142,7 +145,11 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
   // black frame does not (owner, 2026-10-06, on a phone in a private window:
   // v1 needs third-party storage, which private windows block). Reset for
   // every new clip.
-  const [tiktokFallback, setTikTokFallback] = useState(false);
+  const [tiktokFallbackState, setTikTokFallback] = useState(false);
+  // "Try the full player" was pressed for THIS clip (keyed to the clip, so it
+  // never leaks to the next one), and a nonce that re-arms the watchers.
+  const [tiktokForcedFor, setTikTokForcedFor] = useState('');
+  const [tiktokRetryNonce, setTikTokRetryNonce] = useState(0);
   // TikTok booted, was told to play, and did not. Owner, 2026-10-06, on a
   // phone: the frame stayed black with Truegle's controls on top. Browsers
   // only start a video WITH SOUND after a tap inside that video's own frame,
@@ -176,6 +183,13 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
   // (which flashed the new clip's loader off and straight back on).
   const startKey = `${src}#${source?.playToken || 0}`;
   const [startedFor, setStartedFor] = useState('');
+  // While the full player is being skipped (it was silent in the last ten
+  // minutes) a TikTok starts in the card from the FIRST render — computed here,
+  // not in the effect, so the full player is never requested just to be dropped.
+  const skipFullPlayer = kind === 'tiktok' && tiktokForcedFor !== startKey && tiktokBlocked();
+  const tiktokFallback = tiktokFallbackState || skipFullPlayer;
+  const fallbackRef = useRef(false);
+  fallbackRef.current = tiktokFallback;
 
   useEffect(() => {
     setProgress({ time: 0, duration: 0 });
@@ -196,6 +210,7 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
     let tiktokPlaying = false;
     let tiktokStartTimer = null;
     let tiktokGiveUpTimer = null;
+    let tiktokSilentTimer = null;
     // No "ready" from TikTok in this long = a frame that rendered blank.
     const tiktokTimer = kind === 'tiktok' ? setTimeout(() => { if (!tiktokReady) setTikTokFallback(true); }, TIKTOK_READY_MS) : null;
 
@@ -217,6 +232,8 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
         const { type, value } = data;
         if (type === 'onPlayerReady') {
           tiktokReady = true;
+          clearTimeout(tiktokSilentTimer);
+          clearTikTokBlocked(); // the full player works again: stop skipping it
           // Sound on (or whatever the player's level is) and play. Autoplay in
           // a frame is muted by browser policy until told otherwise; the frame
           // has allow="autoplay" and the person already tapped to start this,
@@ -242,7 +259,7 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
         }
         // An error is NOT "unplayable" for TikTok: the same clip usually plays
         // in the card player, so show that rather than skipping the clip.
-        if (type === 'onPlayerError') setTikTokFallback(true);
+        if (type === 'onPlayerError') { markTikTokBlocked(); setTikTokFallback(true); }
         return;
       }
 
@@ -302,7 +319,21 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
     };
     // Not for TikTok: its silence is not yet measured the way YouTube's was,
     // and a wrong guess here skips good clips. It reports real errors itself.
-    const onLoad = () => { if (kind !== 'tiktok') arm(SILENT_EMBED_MS); };
+    // TikTok: the FULL player gets TIKTOK_SILENT_AFTER_LOAD_MS after its frame has
+    // loaded to say it is ready. A refused player (429) loads TikTok's error page,
+    // which never speaks; waiting the old ten seconds from mount only delayed the
+    // card. Not armed while the card is showing (it is silent by design).
+    const onLoad = () => {
+      if (kind !== 'tiktok') { arm(SILENT_EMBED_MS); return; }
+      clearTimeout(tiktokSilentTimer);
+      if (fallbackRef.current) return;
+      tiktokSilentTimer = setTimeout(() => {
+        if (tiktokReady || fallbackRef.current) return;
+        if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return; // a hidden tab proves nothing
+        markTikTokBlocked();
+        setTikTokFallback(true);
+      }, TIKTOK_SILENT_AFTER_LOAD_MS);
+    };
     if (frame.dataset?.loaded) onLoad();
     frame.addEventListener('load', onLoad);
 
@@ -336,10 +367,11 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
       clearTimeout(tiktokTimer);
       clearTimeout(tiktokStartTimer);
       clearTimeout(tiktokGiveUpTimer);
+      clearTimeout(tiktokSilentTimer);
     };
     // playToken changes when the SAME track is replayed, which remounts the
     // iframe — the handshake has to be redone against the new window.
-  }, [kind, src, source?.playToken, frameRef, frameKey]);
+  }, [kind, src, source?.playToken, frameRef, frameKey, tiktokRetryNonce]);
 
   // ── REAL pause, instead of unmounting ──────────────────────────────────
   // Pausing used to mean setting the source to null, which unmounts the
@@ -463,7 +495,17 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
   // generic embeds do not, so for those the caller falls back to "frame loaded"
   // instead of showing a loader that can never clear.
   const tracksStart = (kind === 'youtube' || kind === 'vimeo' || (kind === 'tiktok' && !tiktokFallback));
-  return { ...progress, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback, tiktokNeedsTap: tiktokNeedsTap && !tiktokFallback, silent, heard: heardAny, muted: ytMuted, started: startedFor === startKey, tracksStart };
+  // "Try the full player", pressed in the card: forget the block, and ask for the
+  // full player again for THIS clip. The retry gap is enforced by the button
+  // (tiktokRetryWaitMs); this only does the work.
+  const retryFullPlayer = useCallback(() => {
+    clearTikTokBlocked();
+    noteTikTokRetry();
+    setTikTokForcedFor(startKey);
+    setTikTokFallback(false);
+    setTikTokRetryNonce((n) => n + 1);
+  }, [startKey]);
+  return { ...progress, retryFullPlayer, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback, tiktokNeedsTap: tiktokNeedsTap && !tiktokFallback, silent, heard: heardAny, muted: ytMuted, started: startedFor === startKey, tracksStart };
 }
 
 export default useEmbedPlayback;
