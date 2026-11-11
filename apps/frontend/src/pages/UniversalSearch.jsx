@@ -2217,7 +2217,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
           </AnimatePresence>
 
 
-          {/* Games Panel — the touch-only emulator library (see PR notes:
+          {/* Games Panel — the emulator library, touch or keyboard (see PR notes:
               "games scrollable search categories"). Same shell/lifecycle as
               the shopping panel above. */}
           <AnimatePresence>

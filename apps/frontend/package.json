@@ -117,7 +117,9 @@
     "searchmemory:test": "node scripts/verify-player-search-memory.mjs",
     "rumble:test": "node scripts/verify-rumble-embed.mjs",
     "tiktokblock:test": "node scripts/verify-tiktok-block.mjs",
-    "viewerframe:test": "node scripts/verify-viewer-frame.mjs"
+    "viewerframe:test": "node scripts/verify-viewer-frame.mjs",
+    "gameboykeys:test": "node scripts/verify-gameboy-keys.mjs",
+    "gameboygames:test": "node scripts/verify-gameboy-games.mjs"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.16.2",
