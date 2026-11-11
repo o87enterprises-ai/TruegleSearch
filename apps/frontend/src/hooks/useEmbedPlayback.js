@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   TIKTOK_SILENT_AFTER_LOAD_MS, markTikTokBlocked, tiktokBlocked, clearTikTokBlocked, noteTikTokRetry,
+  tiktokWorked, tiktokSilentCount, tiktokLinkOut,
 } from '../utils/tiktokBlock';
+import { reportEvent } from '../utils/playerDiagnostics';
 import { trace } from '../utils/playerTrace';
 
 // Knowing when a PLATFORM EMBED finishes, without loading a vendor SDK.
@@ -145,7 +147,9 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
   // black frame does not (owner, 2026-10-06, on a phone in a private window:
   // v1 needs third-party storage, which private windows block). Reset for
   // every new clip.
-  const [tiktokFallbackState, setTikTokFallback] = useState(false);
+  // Keyed to the clip, not a plain boolean: a boolean is only reset in the effect,
+  // so for one render a NEW clip still looked like the old one had fallen back.
+  const [tiktokFallbackFor, setTikTokFallbackFor] = useState('');
   // "Try the full player" was pressed for THIS clip (keyed to the clip, so it
   // never leaks to the next one), and a nonce that re-arms the watchers.
   const [tiktokForcedFor, setTikTokForcedFor] = useState('');
@@ -187,7 +191,14 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
   // minutes) a TikTok starts in the card from the FIRST render — computed here,
   // not in the effect, so the full player is never requested just to be dropped.
   const skipFullPlayer = kind === 'tiktok' && tiktokForcedFor !== startKey && tiktokBlocked();
-  const tiktokFallback = tiktokFallbackState || skipFullPlayer;
+  // TikTok refused three separate times in the last half hour (and nobody has said
+  // it plays here): stop loading it in the player at all. The screen shows an Open
+  // on TikTok panel — no frame, no requests to TikTok, no raw error page. A press of
+  // "Try anyway" forces the full player for THIS clip only (tiktokForcedFor).
+  const tiktokFallbackState = tiktokFallbackFor === startKey;
+  const setTikTokFallback = (on) => setTikTokFallbackFor(on ? startKey : '');
+  const tiktokLinkOutNow = kind === 'tiktok' && tiktokForcedFor !== startKey && tiktokLinkOut();
+  const tiktokFallback = tiktokFallbackState || skipFullPlayer || tiktokLinkOutNow;
   const fallbackRef = useRef(false);
   fallbackRef.current = tiktokFallback;
 
@@ -199,6 +210,8 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
     setHeardAny(false);
     setYtMuted(null);
     if (kind !== 'youtube' && kind !== 'vimeo' && kind !== 'tiktok') return undefined;
+    // Link-out mode: no frame will mount for this clip. Said once per clip.
+    if (kind === 'tiktok' && tiktokLinkOutNow) reportEvent({ reason: 'tiktok_linkout', kind: 'tiktok' });
     const frame = frameRef?.current;
     if (!frame) return undefined;
 
@@ -233,7 +246,10 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
         if (type === 'onPlayerReady') {
           tiktokReady = true;
           clearTimeout(tiktokSilentTimer);
-          clearTikTokBlocked(); // the full player works again: stop skipping it
+          // The full player works again: stop skipping it, and forget the failures.
+          // Said once, and only when there WAS something to recover from.
+          if (tiktokBlocked() || tiktokSilentCount() > 0) reportEvent({ reason: 'tiktok_recovered', kind: 'tiktok' });
+          tiktokWorked();
           // Sound on (or whatever the player's level is) and play. Autoplay in
           // a frame is muted by browser policy until told otherwise; the frame
           // has allow="autoplay" and the person already tapped to start this,
@@ -259,7 +275,7 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
         }
         // An error is NOT "unplayable" for TikTok: the same clip usually plays
         // in the card player, so show that rather than skipping the clip.
-        if (type === 'onPlayerError') { markTikTokBlocked(); setTikTokFallback(true); }
+        if (type === 'onPlayerError') { markTikTokBlocked(); reportEvent({ reason: 'tiktok_silent', kind: 'tiktok', errorCode: 'player_error' }); setTikTokFallback(true); }
         return;
       }
 
@@ -331,6 +347,7 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
         if (tiktokReady || fallbackRef.current) return;
         if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return; // a hidden tab proves nothing
         markTikTokBlocked();
+        reportEvent({ reason: 'tiktok_silent', kind: 'tiktok', errorCode: 'silent' });
         setTikTokFallback(true);
       }, TIKTOK_SILENT_AFTER_LOAD_MS);
     };
@@ -505,7 +522,7 @@ export function useEmbedPlayback({ frameRef, frameKey, source, onEnded, onUnplay
     setTikTokFallback(false);
     setTikTokRetryNonce((n) => n + 1);
   }, [startKey]);
-  return { ...progress, retryFullPlayer, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback, tiktokNeedsTap: tiktokNeedsTap && !tiktokFallback, silent, heard: heardAny, muted: ytMuted, started: startedFor === startKey, tracksStart };
+  return { ...progress, retryFullPlayer, tiktokLinkOut: tiktokLinkOutNow && !tiktokFallbackState, command, canCommand, seek, canSeek, setVolume, canSetVolume, tiktokFallback, tiktokNeedsTap: tiktokNeedsTap && !tiktokFallback, silent, heard: heardAny, muted: ytMuted, started: startedFor === startKey, tracksStart };
 }
 
 export default useEmbedPlayback;
