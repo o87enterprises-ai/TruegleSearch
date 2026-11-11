@@ -115,7 +115,9 @@
     "intent:test": "node scripts/verify-query-intent.mjs",
     "swipenav:test": "esbuild scripts/verify-swipe-nav.mjs --bundle --format=esm --platform=node --alias:react=./scripts/stubs/react.mjs --outfile=dev/.build/swipe-nav-test.mjs --log-level=error && node dev/.build/swipe-nav-test.mjs",
     "searchmemory:test": "node scripts/verify-player-search-memory.mjs",
-    "rumble:test": "node scripts/verify-rumble-embed.mjs"
+    "rumble:test": "node scripts/verify-rumble-embed.mjs",
+    "tiktokblock:test": "node scripts/verify-tiktok-block.mjs",
+    "viewerframe:test": "node scripts/verify-viewer-frame.mjs"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.16.2",

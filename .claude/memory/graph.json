@@ -2829,8 +2829,8 @@
       "tiktok-429-client-plan": {
         "Id": "tiktok-429-client-plan",
         "Type": "thread",
-        "Label": "Build TikTok 429 client plan",
-        "body": "docs/TIKTOK-429-PLAN.md steps 1-6 (fast 'blocked' detection, 10-min cool-down, clear panel + Open on TikTok, skip in Streams, anonymous beacon). Awaiting owner go-ahead; owner also asked to retry a TikTok and wait 20s.",
+        "Label": "TikTok 429 plan: steps 4-6 open",
+        "body": "Steps 1-3 built 2026-11-11 (4s silent-after-load, 10-min per-tab block -> card first, TikTokHelp strip; npm run tiktokblock:test). Open: 4 skip blocked TikToks in Streams, 5 anonymous tiktok-blocked beacon, 6 default to Open on TikTok if constant. Card cannot report back, so no certain detection.",
         "status": "open",
         "ts": "2026-11-11",
         "created": "2026-11-11"
@@ -4316,6 +4316,14 @@
         "Type": "fact",
         "Label": "TikTok player 429 is TikTok-side",
         "body": "2026-11-11: 'sent back an error: 429 Too Many Requests' in the player = TikTok throttling player/v1 + embed/v2 for the browser (sandbox: 25/28 requests 429, pacing no help; oEmbed still 200). Not our feed servers; caching cannot fix it. Plan in docs/TIKTOK-429-PLAN.md.",
+        "ts": "2026-11-11",
+        "created": "2026-11-11"
+      },
+      "open-in-app-blank-causes": {
+        "Id": "open-in-app-blank-causes",
+        "Type": "fact",
+        "Label": "Blank 'Open in app' = http frame or framing refusal",
+        "body": "2026-11-11: a blank white in-app preview is (1) an http:// result inside the https app (mixed content; fixed by viewerSrc in utils/embeddable.js) or (2) a site that forbids framing (X-Frame-Options/frame-ancestors) and is missing from REFUSES_FRAMING. Add a host only after checking its live headers (curl -sI). genius/pitchfork/passionweiss added 2026-11-11.",
         "ts": "2026-11-11",
         "created": "2026-11-11"
       }
