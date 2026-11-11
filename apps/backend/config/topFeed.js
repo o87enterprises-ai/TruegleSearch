@@ -21,4 +21,9 @@ const PREWARM_REQUEST = Object.freeze({
   adult: false,
 });
 
-module.exports = { TOP_NETWORKS, FALLBACK_SEEDS, PREWARM_REQUEST };
+// The request a visitor makes when they pick ONE network pill under Top (Instagram,
+// TikTok, ...): the same shape as PREWARM_REQUEST narrowed to that network. Pre-built
+// each morning too, so a pill click is a cache hit rather than a live scrape.
+const pillRequest = (network) => Object.freeze({ ...PREWARM_REQUEST, platforms: [network] });
+
+module.exports = { TOP_NETWORKS, FALLBACK_SEEDS, PREWARM_REQUEST, pillRequest };

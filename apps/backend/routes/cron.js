@@ -20,10 +20,33 @@ const express = require('express');
 const logger = require('../utils/logger');
 const TopFeedCache = require('../services/TopFeedCache');
 const ContentLang = require('../services/ContentLang');
-const { PREWARM_REQUEST } = require('../config/topFeed');
+const { PREWARM_REQUEST, TOP_NETWORKS, pillRequest } = require('../config/topFeed');
 const { isRefreshHour, epochId } = require('../utils/cacheEpoch');
 
 const router = express.Router();
+
+// After the landing page, each network's own pill is pre-built too, so picking
+// Instagram or TikTok under Top is a cache hit instead of a live scrape (owner,
+// 2026-11-10). They are cheap: the landing build has just filled the per-server
+// guard (services/feed/ServerGuard.js), so these builds mostly read from it. They
+// run one at a time and stop at a time budget, because the landing entry — the one
+// that matters — is already stored by then.
+const PILL_BUDGET_MS = 20 * 1000;
+async function prewarmPills(build, { force, now }) {
+  const started = Date.now();
+  const out = {};
+  for (const network of TOP_NETWORKS) {
+    if (Date.now() - started > PILL_BUDGET_MS) { out[network] = 'skipped'; continue; }
+    const req = pillRequest(network);
+    try {
+      out[network] = (await TopFeedCache.refreshOne(req, () => build(req), { force, now })).status;
+    } catch (err) {
+      out[network] = 'failed';
+      logger.warn(`Pill refresh failed for ${network}:`, err.message);
+    }
+  }
+  return out;
+}
 
 function checkAuth(req) {
   const secret = process.env.CRON_SECRET;
@@ -46,14 +69,12 @@ router.get('/refresh-top-feed', async (req, res) => {
   }
   try {
     const { buildFeedPayload } = require('./social');
-    const result = await TopFeedCache.refreshTop(
-      // Annotated with each post's language exactly as a visitor's build is.
-      async () => ContentLang.annotate(await buildFeedPayload({
-        q: PREWARM_REQUEST.query, requestedPlatforms: PREWARM_REQUEST.platforms,
-        cur: PREWARM_REQUEST.cursor, limit: PREWARM_REQUEST.limit, allowAdult: PREWARM_REQUEST.adult,
-      })),
-      { force, now },
-    );
+    // Annotated with each post's language exactly as a visitor's build is.
+    const build = async (r) => ContentLang.annotate(await buildFeedPayload({
+      q: r.query, requestedPlatforms: r.platforms, cur: r.cursor, limit: r.limit, allowAdult: r.adult,
+    }));
+    const result = await TopFeedCache.refreshTop(() => build(PREWARM_REQUEST), { force, now });
+    result.pills = await prewarmPills(build, { force, now });
     await TopFeedCache.prune();
     logger.info('Top feed refresh', result);
     return res.json(result);

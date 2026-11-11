@@ -206,3 +206,21 @@ describe('partial = a TRANSIENT failure only', () => {
     expect(build).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('refreshOne (the 9 AM job, one request at a time)', () => {
+  const { pillRequest } = require('../config/topFeed');
+  const good = (n = 12) => ({ results: Array.from({ length: n }, (_, i) => ({ id: `p${i}` })), errors: {} });
+
+  test('builds a network pill once; a second call the same day is a no-op', async () => {
+    const build = jest.fn(async () => good());
+    expect(await TopFeedCache.refreshOne(pillRequest('tiktok'), build)).toMatchObject({ status: 'refreshed' });
+    expect(await TopFeedCache.refreshOne(pillRequest('tiktok'), build)).toMatchObject({ status: 'fresh' });
+    expect(build).toHaveBeenCalledTimes(1);
+  });
+
+  test('a request that is never cacheable (a typed search) is refused without building', async () => {
+    const build = jest.fn(async () => good());
+    expect(await TopFeedCache.refreshOne({ platforms: ['tiktok'], query: 'my private search', cursor: {}, limit: 20, adult: false }, build)).toEqual({ status: 'uncacheable' });
+    expect(build).not.toHaveBeenCalled();
+  });
+});

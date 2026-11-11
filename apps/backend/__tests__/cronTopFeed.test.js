@@ -15,7 +15,7 @@ jest.mock('../routes/social', () => ({ buildFeedPayload: (...a) => mockBuild(...
 const express = require('express');
 const request = require('supertest');
 const TopFeedCache = require('../services/TopFeedCache');
-const { PREWARM_REQUEST } = require('../config/topFeed');
+const { PREWARM_REQUEST, TOP_NETWORKS, pillRequest } = require('../config/topFeed');
 
 const app = () => { const a = express(); a.use('/api/cron', require('../routes/cron')); return a; };
 const good = (n = 12) => ({ query: '', results: Array.from({ length: n }, (_, i) => ({ id: `p${i}` })), platforms: {}, nextCursor: {}, errors: {} });
@@ -42,18 +42,46 @@ describe('timing', () => {
     expect(mockBuild).not.toHaveBeenCalled();
   });
 
-  test('in the 9 AM hour it builds exactly the landing request and stores it', async () => {
+  test('in the 9 AM hour it builds the landing request first and stores it', async () => {
     setNow(NINE_AM_WINTER);
     const r = await request(app()).get('/api/cron/refresh-top-feed');
     expect(r.body).toMatchObject({ status: 'refreshed', epoch: '2026-11-09', results: 12 });
-    expect(mockBuild).toHaveBeenCalledTimes(1);
-    expect(mockBuild).toHaveBeenCalledWith({
+    expect(mockBuild).toHaveBeenNthCalledWith(1, {
       q: PREWARM_REQUEST.query, requestedPlatforms: PREWARM_REQUEST.platforms,
       cur: PREWARM_REQUEST.cursor, limit: PREWARM_REQUEST.limit, allowAdult: PREWARM_REQUEST.adult,
     });
     // A visitor asking the same thing is then served from the cache.
     const hit = await TopFeedCache.serve(TopFeedCache.keyFor({ platforms: PREWARM_REQUEST.platforms, query: '', cursor: {}, limit: 20, adult: false }), async () => good(1), { now: NINE_AM_WINTER + 1000 });
     expect(hit.cache).toBe('hit');
+  });
+
+  test('then each network\'s own pill is pre-built, so picking one is a cache hit (owner, 2026-11-10)', async () => {
+    setNow(NINE_AM_WINTER);
+    const r = await request(app()).get('/api/cron/refresh-top-feed');
+    expect(Object.keys(r.body.pills)).toEqual(TOP_NETWORKS);
+    expect(Object.values(r.body.pills).every((v) => v === 'refreshed')).toBe(true);
+    expect(mockBuild).toHaveBeenCalledTimes(1 + TOP_NETWORKS.length);
+    // Exactly the request the Feed sends for a pill: one network, empty query, 20, Safe Search on.
+    expect(mockBuild).toHaveBeenCalledWith({ q: '', requestedPlatforms: ['tiktok'], cur: {}, limit: 20, allowAdult: false });
+    for (const network of TOP_NETWORKS) {
+      const key = TopFeedCache.keyFor({ platforms: [network], query: '', cursor: {}, limit: 20, adult: false });
+      const hit = await TopFeedCache.serve(key, async () => good(1), { now: NINE_AM_WINTER + 1000 });
+      expect(hit.cache).toBe('hit');
+    }
+  });
+
+  test('one pill failing or coming back thin costs only that pill, never the landing entry', async () => {
+    setNow(NINE_AM_WINTER);
+    mockBuild.mockImplementation(async ({ requestedPlatforms }) => {
+      if (requestedPlatforms.length === 1 && requestedPlatforms[0] === 'x') throw new Error('x exploded');
+      if (requestedPlatforms.length === 1 && requestedPlatforms[0] === 'rumble') return good(2);
+      return good();
+    });
+    const r = await request(app()).get('/api/cron/refresh-top-feed');
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ status: 'refreshed' });
+    expect(r.body.pills).toMatchObject({ x: 'failed', rumble: 'thin', tiktok: 'refreshed' });
+    expect(JSON.stringify(r.body)).not.toMatch(/exploded/);
   });
 
   test('works in summer time too', async () => {
@@ -66,14 +94,16 @@ describe('timing', () => {
     await request(app()).get('/api/cron/refresh-top-feed');
     const again = await request(app()).get('/api/cron/refresh-top-feed');
     expect(again.body).toMatchObject({ status: 'fresh' });
-    expect(mockBuild).toHaveBeenCalledTimes(1);
+    expect(Object.values(again.body.pills).every((v) => v === 'fresh')).toBe(true);
+    expect(mockBuild).toHaveBeenCalledTimes(1 + TOP_NETWORKS.length); // all from the first call
   });
 
   test('a thin build is reported and stores nothing; a failing build is a 502, not a crash', async () => {
     setNow(NINE_AM_WINTER);
     mockBuild.mockResolvedValueOnce(good(2));
     expect((await request(app()).get('/api/cron/refresh-top-feed')).body).toMatchObject({ status: 'thin' });
-    expect(mockRows.size).toBe(0);
+    const landingKey = TopFeedCache.keyFor(PREWARM_REQUEST);
+    expect(mockRows.has(landingKey)).toBe(false); // the thin landing page is stored nowhere
     mockBuild.mockRejectedValueOnce(new Error('upstream exploded'));
     const r = await request(app()).get('/api/cron/refresh-top-feed');
     expect(r.status).toBe(502);
