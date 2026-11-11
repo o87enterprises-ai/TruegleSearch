@@ -11,6 +11,23 @@ const { fetchVideoLane } = require('../services/NewsVideoService');
 const { fetchPodcastLane } = require('../services/PodcastVideoService');
 const TopFeedCache = require('../services/TopFeedCache');
 const ContentLang = require('../services/ContentLang');
+const { shared: serverGuard } = require('../services/feed/ServerGuard');
+
+// EVERY INDIVIDUAL FEED SERVER GOES THROUGH THE GUARD (owner, 2026-11-10:
+// "stricter caching for the individual feed servers"). See
+// services/feed/ServerGuard.js: a fresh answer is reused, readers share one
+// call, the last good page covers a failure for up to six hours, and a server
+// that rate-limits or times out is left alone for 1-15 minutes. The SearXNG
+// networks (Instagram, Facebook, TikTok, X, Truth, Rumble, Pinterest) are
+// guarded inside services/feed/PublicSocialSource.js. Lifetimes are per server:
+// how fast its posts move, and how tight its rate limit is (GitHub's keyless
+// search allows ten calls a minute for the WHOLE server).
+const MIN = 60 * 1000;
+const SERVER_TTL = { reddit: 10 * MIN, hackernews: 10 * MIN, github: 15 * MIN, news: 15 * MIN, mastodon: 15 * MIN, bluesky: 10 * MIN, lemmy: 10 * MIN };
+const guarded = (server, query, limit, cursor, produce) => serverGuard.run(
+  server, JSON.stringify([query || '', limit, cursor === undefined ? null : cursor]), produce,
+  { ttlMs: SERVER_TTL[server], isEmpty: (v) => !v?.items?.length },
+);
 
 // Social media search using Apify API
 router.post('/search', async (req, res) => {
@@ -632,7 +649,10 @@ const SHARED = {
   },
 };
 
-async function fetchSharedOnBluesky(platform, query, limit, cursor) {
+const fetchSharedOnBluesky = (platform, query, limit, cursor) => guarded(
+  'bluesky', `shared:${platform}:${query || ''}`, limit, cursor, () => fetchSharedOnBlueskyLive(platform, query, limit, cursor),
+);
+async function fetchSharedOnBlueskyLive(platform, query, limit, cursor) {
   const spec = SHARED[platform];
   const params = new URLSearchParams({
     q: query ? `${spec.q} ${query}` : spec.q,
@@ -1004,14 +1024,14 @@ async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult,
   const [redditResult, hnResult, ghResult, newsResult, communityResult,
          mastodonResult, blueskyResult, lemmyResult, creatorsResult,
          newsVideoResult, marketsVideoResult, podcastResult, ...searxResults] = await Promise.allSettled([
-    want('reddit') ? fetchRedditBest(q, limit, cur.reddit) : Promise.resolve(NONE),
-    want('hackernews') ? fetchHackerNews(q, limit, cur.hackernews) : Promise.resolve(NONE),
-    want('github') ? fetchGitHub(q, limit, cur.github) : Promise.resolve(NONE),
-    want('news') ? fetchNews(q, limit, cur.news) : Promise.resolve(NONE),
+    want('reddit') ? guarded('reddit', q, limit, cur.reddit, () => fetchRedditBest(q, limit, cur.reddit)) : Promise.resolve(NONE),
+    want('hackernews') ? guarded('hackernews', q, limit, cur.hackernews, () => fetchHackerNews(q, limit, cur.hackernews)) : Promise.resolve(NONE),
+    want('github') ? guarded('github', q, limit, cur.github, () => fetchGitHub(q, limit, cur.github)) : Promise.resolve(NONE),
+    want('news') ? guarded('news', q, limit, cur.news, () => fetchNews(q, limit, cur.news)) : Promise.resolve(NONE),
     want('community') ? fetchCommunity(q, limit, cur.community) : Promise.resolve(NONE),
-    want('mastodon') ? fetchMastodon(q, limit, cur.mastodon) : Promise.resolve(NONE),
-    want('bluesky') ? fetchBluesky(q, limit, cur.bluesky) : Promise.resolve(NONE),
-    want('lemmy') ? fetchLemmy(q, limit, cur.lemmy) : Promise.resolve(NONE),
+    want('mastodon') ? guarded('mastodon', q, limit, cur.mastodon, () => fetchMastodon(q, limit, cur.mastodon)) : Promise.resolve(NONE),
+    want('bluesky') ? guarded('bluesky', q, limit, cur.bluesky, () => fetchBluesky(q, limit, cur.bluesky)) : Promise.resolve(NONE),
+    want('lemmy') ? guarded('lemmy', q, limit, cur.lemmy, () => fetchLemmy(q, limit, cur.lemmy)) : Promise.resolve(NONE),
     want('creators') ? fetchCreatorsFeed(q, limit, cur.creators, creator, kind) : Promise.resolve(NONE),
     // YouTube coverage of today's news and markets. Asked for BY NAME only:
     // 'all' does not include them (a merged timeline of everything is not
@@ -1169,4 +1189,5 @@ router.post('/feed', optionalAuth, async (req, res) => {
 });
 
 router.buildFeedPayload = buildFeedPayload;
+router.__serverGuard = serverGuard;
 module.exports = router;

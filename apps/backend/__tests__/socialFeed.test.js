@@ -62,7 +62,9 @@ function stub({ redditAfter = null, hnPage = 0, hnPages = 5, ghItems = 20 } = {}
   return seen;
 }
 
-afterEach(() => jest.resetAllMocks());
+// Each case starts with an empty server guard: its cached answers would otherwise
+// carry from one case to the next (services/feed/ServerGuard.js).
+afterEach(() => { jest.resetAllMocks(); require('../services/feed/ServerGuard').shared.reset(); });
 
 describe('POST /api/social/feed — paging', () => {
   test('an empty query is the HOME feed and goes to the popular listings', async () => {

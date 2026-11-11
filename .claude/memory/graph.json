@@ -2248,6 +2248,14 @@
         "body": "2026-11-10: removed pagead2.googlesyndication.com + googletagservices.com from apps/backend/server.js CSP (PR #133). Do not re-add.",
         "ts": "2026-11-10",
         "created": "2026-11-10"
+      },
+      "feed-server-guard": {
+        "Id": "feed-server-guard",
+        "Type": "decision",
+        "Label": "Per-server feed caching (ServerGuard)",
+        "body": "2026-11-11: services/feed/ServerGuard.js fronts every feed server (fresh 10-20min, single-flight, stale-if-error 6h, 1-15min cool-down on 429/5xx/timeout, 5min negative cache for 403/422). Memory only (typed searches pass through, never persisted). Reset between tests. Daily cron also pre-builds each network pill (refreshOne).",
+        "ts": "2026-11-11",
+        "created": "2026-11-11"
       }
     },
     "thread": {
@@ -2817,6 +2825,15 @@
         "status": "open",
         "ts": "2026-11-07",
         "created": "2026-10-23"
+      },
+      "tiktok-429-client-plan": {
+        "Id": "tiktok-429-client-plan",
+        "Type": "thread",
+        "Label": "Build TikTok 429 client plan",
+        "body": "docs/TIKTOK-429-PLAN.md steps 1-6 (fast 'blocked' detection, 10-min cool-down, clear panel + Open on TikTok, skip in Streams, anonymous beacon). Awaiting owner go-ahead; owner also asked to retry a TikTok and wait 20s.",
+        "status": "open",
+        "ts": "2026-11-11",
+        "created": "2026-11-11"
       }
     },
     "entity": {
@@ -4291,6 +4308,14 @@
         "Type": "fact",
         "Label": "Rumble page id != embed id",
         "body": "2026-11-11: rumble.com/v<pageid>-slug embeds as a DIFFERENT rumble.com/embed/<id>/. Resolve via GET /api/embed/rumble (Rumble oEmbed, routes/embed.js); player uses utils/rumbleEmbed.js useRumbleSrc (PR #135). TikTok endless-spinner report unreproduced here (TikTok 429s the sandbox); awaiting owner's 20s retry.",
+        "ts": "2026-11-11",
+        "created": "2026-11-11"
+      },
+      "tiktok-429-is-tiktoks": {
+        "Id": "tiktok-429-is-tiktoks",
+        "Type": "fact",
+        "Label": "TikTok player 429 is TikTok-side",
+        "body": "2026-11-11: 'sent back an error: 429 Too Many Requests' in the player = TikTok throttling player/v1 + embed/v2 for the browser (sandbox: 25/28 requests 429, pacing no help; oEmbed still 200). Not our feed servers; caching cannot fix it. Plan in docs/TIKTOK-429-PLAN.md.",
         "ts": "2026-11-11",
         "created": "2026-11-11"
       }

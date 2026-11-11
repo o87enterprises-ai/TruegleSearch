@@ -3,6 +3,16 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-11 — Rumble embeds; per-server feed caching; TikTok 429 plan
+
+- **Rumble "Video not found" (PR #135, merged):** a Rumble page id is not its embed id. `GET /api/embed/rumble?url=` (`routes/embed.js`) asks Rumble's oEmbed for the real one; the player swaps it in (`utils/rumbleEmbed.js` `useRumbleSrc`), keeping the old guess if the lookup fails. `npm run rumble:test`.
+- **Stricter caching for the individual feed servers:** `services/feed/ServerGuard.js` wraps Mastodon, Bluesky, Lemmy, Reddit, HN, GitHub, news (in `routes/social.js`) and every SearXNG network (in `PublicSocialSource.js`, 5 → 20 min). Fresh reuse (10-20 min per server), single-flight, last good page for up to 6 h on failure, 1-15 min cool-down (doubling) after 429/5xx/timeout, 5 min per-request memory of permanent refusals (403/422). Process-local, memory only: typed searches go through it, so nothing is persisted. `ServerGuard.shared.reset()` between test cases.
+- **Daily job now also pre-builds each network's pill** (`cron.js` `prewarmPills`, `TopFeedCache.refreshOne`, `config/topFeed.js` `pillRequest`), so a pill click is a cache hit. The response gains a `pills` map.
+- **TikTok "429 Too Many Requests" in the player is TikTok's own limit on `player/v1` (and `embed/v2`)**, not our feed servers: see `docs/TIKTOK-429-PLAN.md` (measurements + a 6-step client plan, not yet built).
+- Tests: backend `serverGuard` (17), `feedServerGuard` (6), `cronTopFeed` (pills), `topFeedCache` (refreshOne), `rumbleEmbed`. Full backend suite: only the known `new-endpoints` failure.
+
+---
+
 ## 🗓️ 2026-11-09 — Feed/Tube language filter (Local / Global)
 
 - **Switch:** `components/ui/LangModeToggle.jsx` on `/feed` (beside Safe Search), the landing Feed card, and Tube's chip row. **Local** (default) = only your language; **Global** = everything, yours first. Remembered per browser (`truegle_lang_mode`).

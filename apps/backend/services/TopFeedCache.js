@@ -140,18 +140,22 @@ async function serve(key, build, { platforms = [], now = Date.now() } = {}) {
   return { payload, cache: 'thin' };
 }
 
-/** Rebuild the main landing entry for the current epoch unless it is already fresh. */
-async function refreshTop(build, { force = false, now = Date.now() } = {}) {
-  const key = keyFor(PREWARM_REQUEST);
+/** Rebuild the cache entry for ONE cacheable request unless it is already fresh. */
+async function refreshOne(request, build, { force = false, now = Date.now() } = {}) {
+  const key = keyFor(request);
+  if (!key) return { status: 'uncacheable' };
   if (!force) {
     const hit = await read(key, now);
     if (hit && hit.fresh) return { status: 'fresh', epoch: hit.epoch };
   }
   const payload = await build();
   if (!isGood(payload)) return { status: 'thin', results: payload?.results?.length || 0 };
-  await write(key, payload, { partial: isPartial(payload, PREWARM_REQUEST.platforms), now });
+  await write(key, payload, { partial: isPartial(payload, request.platforms), now });
   return { status: 'refreshed', epoch: epochId(now), results: payload.results.length };
 }
+
+/** Rebuild the main landing entry for the current epoch unless it is already fresh. */
+const refreshTop = (build, opts) => refreshOne(PREWARM_REQUEST, build, opts);
 
 /** Drop old rows: anything older than three days, and anything past the row cap. */
 async function prune() {
@@ -164,6 +168,6 @@ async function prune() {
 }
 
 module.exports = {
-  keyFor, serve, read, write, refreshTop, prune, isGood, isPartial, MIN_GOOD, PARTIAL_TTL_MS,
+  keyFor, serve, read, write, refreshOne, refreshTop, prune, isGood, isPartial, MIN_GOOD, PARTIAL_TTL_MS,
   __memory: memory, __inflight: inflight, __resetTable: () => { tableReady = null; },
 };

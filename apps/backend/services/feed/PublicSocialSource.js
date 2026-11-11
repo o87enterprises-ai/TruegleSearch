@@ -1,6 +1,6 @@
 const axios = require('axios');
 const config = require('../../config/env');
-const { createTtlCache } = require('../../utils/ttlCache');
+const { shared: serverGuard } = require('./ServerGuard');
 
 // Public social posts, via our own SearXNG — no API key, no developer account.
 //
@@ -42,14 +42,18 @@ const SEARX_TIMEOUT_MS = 8000;
 // web ones. Overridable without a deploy; empty = skip to the categories.
 const FEED_ENGINES = process.env.FEED_SEARX_ENGINES ?? 'duckduckgo videos,bing videos,duckduckgo,bing,mojeek';
 
-// Five minutes: long enough that a scroll does not re-ask for the same page,
-// short enough that a feed left open still moves.
+// TWENTY MINUTES (was five; owner, 2026-11-10: "stricter caching for the
+// individual feed servers"), through services/feed/ServerGuard.js, which also
+// single-flights concurrent readers, serves the last good page for up to six
+// hours when SearXNG fails, and leaves a network alone for 1-15 minutes after a
+// rate-limit or timeout instead of asking it again on every request. An EMPTY
+// page is believed for two minutes only, so a bad moment is not remembered.
 //
 // THIS IS LOAD PROTECTION, NOT AN OPTIMISATION. The SearXNG box is a 1 GB
 // t3.micro. Six platforms switched on means six queries per feed page, per
 // reader, on the same box that serves the main search. Without this cache a
 // handful of people scrolling is a self-inflicted denial of service.
-const cache = createTtlCache({ ttlMs: 5 * 60 * 1000, max: 400 });
+const SEARX_TTL_MS = 20 * 60 * 1000;
 
 /** The domains behind each feed source id. Domain only — see rule 1. */
 const PLATFORM_DOMAINS = {
@@ -190,10 +194,10 @@ async function fetchPublicSocial({ platform, topic, limit = 20, cursor } = {}) {
   const query = `site:${meta.domain} ${topic}`;
   const key = `${meta.domain} ${topic} ${page}`;
 
-  // wrap() is single-flight: several readers hitting the same page at once
+  // The guard is single-flight: several readers hitting the same page at once
   // produce ONE upstream request, which on a 1 GB box is the difference between
   // a cache and a stampede.
-  const rows = await cache.wrap(key, async () => {
+  const rows = await serverGuard.run(platform, key, async () => {
     // 'social media' first: where the instance has platform-specific engines
     // enabled, they answer better than the general index. The web category is
     // the fallback and does most of the real work, because public Instagram and
@@ -240,7 +244,7 @@ async function fetchPublicSocial({ platform, topic, limit = 20, cursor } = {}) {
     const general = await askSearx(query, 'general', page);
     const seen = new Set(social.map((row) => row.url));
     return [...social, ...general.filter((row) => row?.url && !seen.has(row.url))];
-  });
+  }, { ttlMs: SEARX_TTL_MS, isEmpty: (r) => !r.length });
 
   const onPlatform = normalise(rows, meta.label, meta.domain);
   // Posts only, when there are any: a profile or hashtag page has no embed and

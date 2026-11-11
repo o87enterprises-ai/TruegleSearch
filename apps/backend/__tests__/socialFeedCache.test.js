@@ -31,7 +31,10 @@ const redditPage = (n = 12) => ({
 });
 const redditCalls = () => axios.get.mock.calls.filter(([u]) => String(u).includes('reddit.com')).length;
 
+// Each case starts with an empty server guard: its cached answers would otherwise
+// carry from one case to the next (services/feed/ServerGuard.js).
 beforeEach(() => {
+  require('../services/feed/ServerGuard').shared.reset();
   TopFeedCache.__memory.clear(); TopFeedCache.__inflight.clear(); TopFeedCache.__resetTable(); mockRows.clear();
   axios.get.mockReset();
   axios.get.mockImplementation((url) => (String(url).includes('reddit.com') ? Promise.resolve(redditPage()) : Promise.reject(new Error(`unexpected upstream: ${url}`))));
