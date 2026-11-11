@@ -30,12 +30,15 @@ function decodeHtmlEntities(str) {
 // ── Relevance helpers ────────────────────────────────────────────────────────
 // Words that carry no topic. Kept short on purpose: every word removed here is
 // one a query can no longer be matched on.
+// A page with fewer ordinary web results than this asks the free ring for more.
+const RING_MIN_WEB = Number(process.env.RING_MIN_WEB) || 8;
 const RELEVANCE_STOPWORDS = new Set([
   'the', 'and', 'for', 'with', 'from', 'that', 'this', 'what', 'how', 'why', 'who',
   'are', 'was', 'were', 'you', 'your', 'can', 'does', 'did', 'about', 'into', 'near',
 ]);
 const { orderByExactMatch, balanceSources, compoundVariant, promoteBrandDomain, fold } = require('./exactMatch');
 const { braveGate } = require('./braveGate');
+const { ring: freeRing } = require('./FreeSearchRing');
 const { breakers, msUntilPacificMidnight } = require('../utils/breaker');
 const upstream = require('../utils/upstreamStats');
 const { withStatus } = upstream;
@@ -489,6 +492,26 @@ class SearchService {
         } catch (err) {
           console.error('SerpAPI fallback error:', err.message);
         }
+        }
+      }
+
+      // ── THE FREE SEARCH RING (services/FreeSearchRing.js) ───────────────
+      // When the first sources leave the page thin on ordinary web pages — which is what
+      // out-of-quota Brave/Google and a rate-limited SearXNG look like — ask the free
+      // tiers we hold keys for (rotating, each with a daily budget) plus the key-free
+      // public APIs. Only fires when the page is short of web pages, so a normal search
+      // costs none of that quota; the answers are cached 30 minutes in memory.
+      if (searchWeb && freeRing.enabled()
+          && combinedResults.filter((r) => r.category === 'web').length < RING_MIN_WEB) {
+        try {
+          const ringed = await freeRing.search(query, filters);
+          const seen = new Set(combinedResults.map((r) => r.url));
+          const fresh = ringed.results.filter((r) => !seen.has(r.url));
+          if (fresh.length) combinedResults = [...combinedResults, ...fresh];
+          console.log(`🔄 Free ring [${ringed.used.join(',') || 'none'}] added ${fresh.length}`
+            + (Object.keys(ringed.skipped).length ? ` · skipped ${JSON.stringify(ringed.skipped)}` : ''));
+        } catch (err) {
+          console.error('Free ring error:', err.message);   // the page stands without it
         }
       }
 

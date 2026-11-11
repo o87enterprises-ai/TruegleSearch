@@ -2264,6 +2264,14 @@
         "body": "2026-11-11: steps 1-6 built. Stream countdown 15s + Stay flag (truegle_tiktok_stay), link-out after 3 full-player failures in 30min (panel, no frame/requests), anonymous events tiktok_silent/tiktok_linkout/tiktok_recovered (read via /api/admin/player-health?reason=). Thresholds in utils/tiktokBlock.js are judgement calls: tune from beacon counts. Card cannot report back, so the person (Stay) is the signal.",
         "ts": "2026-11-11",
         "created": "2026-11-11"
+      },
+      "free-search-ring": {
+        "Id": "free-search-ring",
+        "Type": "decision",
+        "Label": "Free search ring (2026-11-11)",
+        "body": "services/FreeSearchRing.js: rotating free tiers (Tavily/Firecrawl/Linkup/Exa/Serper keyed; Wikipedia REST + Marginalia key-free) with daily budgets + breakers, fires when <8 web results. Owner chose keys + no-key public APIs only; NO anonymous keyless vendor endpoints. Keys are the owner's to sign up for (no-card tiers only). Docs: docs/FREE-SEARCH-RING.md. Only Wikipedia verified live; others mock-tested.",
+        "ts": "2026-11-11",
+        "created": "2026-11-11"
       }
     },
     "thread": {

@@ -69,6 +69,8 @@ do not use), `OPENROUTER_API_KEY`, `OPENROUTER_API_KEY_2` … `_6`,
 
 **Search:** `GOOGLE_API_KEY`, `GOOGLE_SEARCH_ENGINE_ID`, `BING_API_KEY`,
 `BRAVE_API_KEY`, `SERP_API_KEY`, `SERP_DAILY_LIMIT`, `NEWS_API_KEY`,
+`TAVILY_API_KEY`, `FIRECRAWL_API_KEY`, `LINKUP_API_KEY`, `EXA_API_KEY`, `SERPER_API_KEY`,
+`MARGINALIA_API_KEY` (all optional free-ring keys — docs/FREE-SEARCH-RING.md), `RING_<NAME>_DAILY`, `RING_MIN_WEB`,
 `YOUTUBE_API_KEY`, `SEARXNG_URL`, `SEARXNG_PRIMARY`, `SEARXNG_PRIMARY_MIN`,
 `LASTFM_API_KEY` (optional — player Radio's similar artists; ListenBrainz is the keyless fallback; the Last.fm "shared secret" is NOT used and should not be stored).
 (`SEARXNG_RESULT_PROXY_URL`/`_KEY` retired 2026-10-05 — no longer read; safe to delete from Vercel.)
