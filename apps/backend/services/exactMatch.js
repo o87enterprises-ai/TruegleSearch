@@ -64,6 +64,26 @@ function compoundVariant(query) {
   return { brand: a + b, query: [a + b, ...w.slice(2)].join(' ') };
 }
 
+const MAX_BRAND_PROMOTED = 4;
+const hostLabels = (r) => {
+  try { return new URL(r.url).hostname.toLowerCase().replace(/^www\./, '').split('.').slice(0, -1); } catch { return []; }
+};
+
+/**
+ * "rapid api sign up" names RapidAPI. When the first two words, joined, are a site's own
+ * domain label (rapidapi.com, docs.rapidapi.com), that site's pages lead — ahead of clips
+ * and of pages that only share a word. At most MAX_BRAND_PROMOTED, in their existing order;
+ * nothing is removed. A domain that merely contains the brand in a longer name does not count.
+ */
+function promoteBrandDomain(query, results) {
+  const cv = compoundVariant(query);
+  if (!cv || !Array.isArray(results)) return results;
+  const own = results.filter((r) => !isClip(r) && hostLabels(r).includes(cv.brand)).slice(0, MAX_BRAND_PROMOTED);
+  if (!own.length) return results;
+  const lead = new Set(own);
+  return [...own, ...results.filter((r) => !lead.has(r))];
+}
+
 /** The URL's path read as words: /album/quack says "album quack". */
 function urlWords(url) {
   try {
@@ -168,4 +188,4 @@ function orderByExactMatch(query, results, fallback = (r) => r.finalScore || 0) 
     .map(({ r, m }) => ({ ...r, keywordMatch: { matched: m.matched, of: m.total, inTitle: m.inTitle } }));
 }
 
-module.exports = { compoundVariant, fold, balanceSources, queryKeywords, exactMatch, orderByExactMatch };
+module.exports = { promoteBrandDomain, compoundVariant, fold, balanceSources, queryKeywords, exactMatch, orderByExactMatch };
