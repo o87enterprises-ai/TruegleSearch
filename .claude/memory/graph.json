@@ -4285,6 +4285,14 @@
         "body": "Google DMARC aggregate reports for truegle.info arrive daily; 2026-11-08 report: 1 msg via Resend (Amazon SES), SPF+DKIM pass, policy p=none. Only act if failures or unknown senders appear. Optional later: move to p=quarantine.",
         "ts": "2026-11-10",
         "created": "2026-11-10"
+      },
+      "rumble-embed-id": {
+        "Id": "rumble-embed-id",
+        "Type": "fact",
+        "Label": "Rumble page id != embed id",
+        "body": "2026-11-11: rumble.com/v<pageid>-slug embeds as a DIFFERENT rumble.com/embed/<id>/. Resolve via GET /api/embed/rumble (Rumble oEmbed, routes/embed.js); player uses utils/rumbleEmbed.js useRumbleSrc (PR #135). TikTok endless-spinner report unreproduced here (TikTok 429s the sandbox); awaiting owner's 20s retry.",
+        "ts": "2026-11-11",
+        "created": "2026-11-11"
       }
     }
   },
@@ -4314,5 +4322,5 @@
       }
     }
   },
-  "updated": "2026-11-10"
+  "updated": "2026-11-11"
 }
