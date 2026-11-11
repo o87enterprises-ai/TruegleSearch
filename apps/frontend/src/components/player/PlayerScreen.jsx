@@ -75,6 +75,9 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // TikTok's controllable player could not run (blank, errored) — show the
   // older card player, which draws the video but cannot be commanded.
   tiktokCard = false,
+  // TikTok is being refused steadily: no frame at all (see TikTokBlockedPanel) — the
+  // box stays, so the layout does not jump, but nothing is requested from TikTok.
+  tiktokLinkOut = false,
   // Lock the picture to 9:16 in every state and letterbox anything wider —
   // the feed player is portrait-native. See the note above `ratio`.
   portrait = false,
@@ -286,6 +289,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
         />
       ) : isVideoIframe ? (
         <div ref={boxRef} className="relative overflow-hidden" style={boxStyle} data-player-box="">
+          {!(tiktokLinkOut && kind === 'tiktok') && (
           <iframe
             ref={frameRef}
             key={source.playToken ? `${src}#${source.playToken}` : src}
@@ -302,6 +306,7 @@ const PlayerScreen = forwardRef(function PlayerScreen({
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
+          )}
         </div>
       ) : kind === 'video' ? (
         // object-contain IS the letterbox for a native file: the black bands

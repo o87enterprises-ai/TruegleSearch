@@ -62,6 +62,13 @@ describe('PlayerHealthService.record', () => {
     for (const r of ['unmute_rejected', 'autonext_empty', 'autonext_repeat', 'mode_fail']) expect(REASONS.has(r)).toBe(true);
   });
 
+  it('the TikTok refusal events are accepted and stored like any other (kind and platform only)', async () => {
+    for (const r of ['tiktok_silent', 'tiktok_linkout', 'tiktok_recovered']) expect(REASONS.has(r)).toBe(true);
+    await PlayerHealthService.record({ reason: 'tiktok_silent', kind: 'tiktok', errorCode: 'silent', platform: 'android', connection: '4g' });
+    expect(insertArgs().slice(0, 3)).toEqual(['tiktok', 'tiktok_silent', 'silent']);
+    expect(insertArgs()[5]).toBe('android');
+  });
+
   it('a missing reason is also rejected — it is the one required field', async () => {
     expect((await PlayerHealthService.record({ kind: 'youtube' })).ok).toBe(false);
     expect((await PlayerHealthService.record()).ok).toBe(false);

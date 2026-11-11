@@ -3,6 +3,16 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-11 — TikTok 429 plan steps 4-6: streams move on, anonymous counts, Open on TikTok by default
+
+- **Step 4:** in a run that continues (feed run / saved list / queue) the card strip counts down 15 s and the run moves on (`components/player/TikTokHelp.jsx`, `advance`). **"It's playing — stay"** stops it and sets `truegle_tiktok_stay` for the tab (the card works here; nothing is auto-skipped again, link-out is off). Only while the tab is visible and unpaused; a lone clip never auto-advances. NB: **Play now** on a feed card starts a run that continues, so it counts down too.
+- **Step 5:** `tiktok_silent` / `tiktok_linkout` / `tiktok_recovered` through the anonymous player-diagnostics beacon (`PlayerHealthService.REASONS`; no migration, the column is free text). Read: `GET /api/admin/player-health?reason=tiktok_silent`.
+- **Step 6:** three full-player failures in 30 min (and no Stay) => `tiktokLinkOut()`: no frame, no request to TikTok, `TikTokBlockedPanel` (Open on TikTok main, Try anyway once per 30 s for that clip, 5 s countdown in a run). Failures age out (self-healing probe); a "ready" clears them (`tiktokWorked`). `useEmbedPlayback` keys the fallback flag to the clip so a new clip never renders a frame for one render.
+- Thresholds are judgement calls — tune them from the beacon counts. Constants in `utils/tiktokBlock.js`.
+- Tests: `tiktokblock:test` (78), backend `playerHealth` (22). Also pass: `tiktok:test`, `playerinteract:test`, `feedplayable:test`, `silentembed:test`, `viewerframe:test`, `rumble:test`, `langmode:test`.
+
+---
+
 ## 🗓️ 2026-11-11 — "Open in app" opened a blank white page (Rabbit Hole search "ebk jaaybo")
 
 - **Two causes, both checked against the live sites:** (1) the result address was `http://last.fm/...`; Truegle is https and a browser will not show an http frame inside an https page (mixed content), so the frame stayed blank — Last.fm itself allows framing. (2) `genius.com` (X-Frame-Options SAMEORIGIN), `pitchfork.com` (DENY) and `passionweiss.com` (frame-ancestors substack only) forbid framing and were not on the known-refusals list.
