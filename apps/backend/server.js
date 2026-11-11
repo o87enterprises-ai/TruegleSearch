@@ -316,6 +316,7 @@ app.use('/api/admin', [authLimiter, require('./routes/admin')]);
 app.use('/api/creators', require('./routes/creators'));
 app.use('/api/cron', require('./routes/cron'));
 app.use('/api/lang', require('./routes/lang'));
+app.use('/api/embed', require('./routes/embed'));
 app.use('/api/session', require('./routes/session'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/prompts', require('./routes/prompts'));
