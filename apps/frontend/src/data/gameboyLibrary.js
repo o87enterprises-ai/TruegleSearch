@@ -1,4 +1,17 @@
-// Touch-playable Game Boy library for the Games search category.
+// Game Boy library for the Games search category (touch on a phone, keyboard on a
+// desktop — see utils/gameboyKeys.js).
+//
+// TWO OPTIONAL FIELDS, both from the 2026-11-11 "test every game" pass (every game was
+// booted, played and checked in a real browser: scripts/verify-gameboy-games.mjs):
+//
+//   compat       { note, patches: [{ at, expect, set, context }] }  a load-time tweak,
+//                applied in memory by utils/gameboyCore.js. The ROM FILE in public/roms is
+//                the unmodified upstream binary. A patch applies only if every byte it
+//                expects is present, and it is credited under the game in the player.
+//   unavailable  a reason string. The game is kept here (so nothing is lost and it can be
+//                switched back on) but is NOT offered: it does not work in the emulator
+//                (WasmBoy) and a card that opens a dead game is worse than no card.
+//
 //
 // Every ROM here was independently verified before being bundled: cloned
 // from the real source repo, license confirmed, and — where no prebuilt
@@ -101,6 +114,11 @@ export const GAMEBOY_LIBRARY = [
     sourceUrl: 'https://github.com/bbbbbr/plutoscorner',
     license: 'CC BY-NC-SA 4.0',
     licenseUrl: 'https://creativecommons.org/licenses/by-nc-sa/4.0/',
+    // Plays its title screen, then the screen goes blank after a few key presses. Cartridge
+    // type MBC1 (it switches between pages of the game). Same behaviour with every emulator
+    // setting tried; the page it is running in is the right one, so it is not a mapping
+    // slip we can patch. Needs a more accurate emulator core.
+    unavailable: 'Goes blank after a few key presses in WasmBoy (MBC1 timing); needs a more accurate emulator.',
   },
   {
     id: 'breakout-lava-lamp',
@@ -173,6 +191,11 @@ export const GAMEBOY_LIBRARY = [
     sourceUrl: 'https://github.com/cppchriscpp/SquishyTheTurtle',
     license: 'MIT',
     licenseUrl: 'https://github.com/cppchriscpp/SquishyTheTurtle/blob/master/LICENSE',
+    // Plays its title screen, then goes blank and hangs when Start is pressed — and leaves the
+    // emulator in a state that makes the NEXT game open blank too. Cartridge type MBC1 (128 KB).
+    // Not a wrong-page mapping and not fixed by any emulator setting tried. Needs a more
+    // accurate emulator core.
+    unavailable: 'Hangs on Start in WasmBoy (MBC1 timing) and leaves the emulator broken for the next game; needs a more accurate emulator.',
   },
   {
     id: 'guns-riders',
@@ -203,8 +226,25 @@ export const GAMEBOY_LIBRARY = [
     sourceUrl: 'https://github.com/Fisch03/Astro-Attack',
     license: 'MIT',
     licenseUrl: 'https://github.com/Fisch03/Astro-Attack/blob/main/LICENSE',
+    // WasmBoy runs a game's sprite-copy interrupt about TWICE as long as a real Game Boy
+    // (it pauses the CPU for the copy AND the game runs its own delay loop for it). Astro Attack
+    // then waits for screen line 145 EXACTLY, at 0x2455, and the long interrupt always carries it
+    // past 145, so the game sat on its splash screen forever. On hardware that interrupt returns
+    // inside line 145. The fix loosens that one wait to "line 145 OR LATER" (jr nz -> jr c).
+    compat: {
+      short: 'Runs with a one-instruction load-time compatibility tweak (the ROM file itself is unmodified).',
+      note: 'The emulator times a sprite-copy interrupt about twice as long as a real Game Boy, so this game\'s wait for exactly screen line 145 never saw it. The wait now accepts line 145 or later.',
+      patches: [{
+        at: 0x2459, expect: 0x20, set: 0x38,
+        // ldh a,[$ff44] ; cp $91 ; jr nz,-6   ->   ... ; jr c,-6
+        context: [[0x2455, 0xf0], [0x2456, 0x44], [0x2457, 0xfe], [0x2458, 0x91], [0x245a, 0xfa]],
+      }],
+    },
   },
 ];
+
+/** The games the panel offers: everything not marked `unavailable`. */
+export const PLAYABLE_GAMES = GAMEBOY_LIBRARY.filter((g) => !g.unavailable);
 
 // Titles considered and rejected during verification — kept here so the
 // next person doesn't re-walk the same dead ends:

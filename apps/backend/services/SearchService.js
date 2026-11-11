@@ -34,14 +34,14 @@ const RELEVANCE_STOPWORDS = new Set([
   'the', 'and', 'for', 'with', 'from', 'that', 'this', 'what', 'how', 'why', 'who',
   'are', 'was', 'were', 'you', 'your', 'can', 'does', 'did', 'about', 'into', 'near',
 ]);
-const { orderByExactMatch } = require('./exactMatch');
+const { orderByExactMatch, balanceSources, fold } = require('./exactMatch');
 const { braveGate } = require('./braveGate');
 const { breakers, msUntilPacificMidnight } = require('../utils/breaker');
 const upstream = require('../utils/upstreamStats');
 const { withStatus } = upstream;
 const { createTtlCache } = require('../utils/ttlCache');
 const YouTubeGateway = require('./YouTubeGateway');
-const tokenize = (text) => String(text || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+const tokenize = (text) => fold(text).replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
 // Light stemming: enough that "lawyers"/"lawyer" and "companies"/"company"
 // meet, not so much that unrelated words collapse together.
 function inflect(word) {
@@ -59,7 +59,7 @@ const SYNONYMS = new Map(
 );
 const stem = (word) => { const base = inflect(word); return SYNONYMS.get(base) || base; };
 const relevanceTerms = (query) => [...new Set(
-  tokenize(query).filter((t) => t.length > 2 && !RELEVANCE_STOPWORDS.has(t)).map(stem),
+  tokenize(query).filter((t) => (t.length > 2 || (t.length > 1 && /\d/.test(t))) && !RELEVANCE_STOPWORDS.has(t)).map(stem),
 )];
 
 class SearchService {
@@ -589,6 +589,8 @@ class SearchService {
       if (filters.sortBy !== 'date' && (mode === 'blue-pill' || isGreen)
           && !boostDomain && !this.isNavigationalQuery(query, finalResults)) {
         finalResults = orderByExactMatch(query, finalResults);
+        // A plain "all" search is not ten videos (live data: 10/10 for niche queries).
+        if (searchWeb) finalResults = balanceSources(query, finalResults);
       }
 
       // Green mode: strip results from known AI-generated-content domains.
