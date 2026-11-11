@@ -48,21 +48,41 @@ raw browser error.
    the card works. So the answer to silence is the card plus a way out — not an
    error message, and not skipping the clip. The strip says "may".
 
-**Still to do:**
+**Built 2026-11-11 (steps 4-6):**
 
-4. **Streams keep moving:** a TikTok that is probably blocked is skipped to the next
-   playable item instead of stalling the queue (needs a rule for when to skip,
-   since the card cannot say).
-5. **Count it, anonymously.** A `tiktok-blocked` event through the existing
-   player-diagnostics beacon (`utils/playerDiagnostics.js` → `/api/player/diagnostics`,
-   no user, session or IP), so `/api/admin/player-health` shows whether this is
-   rare or constant.
-6. **If it stays constant:** make "Open on TikTok" the default for TikTok items and
-   say so in the UI. There is no keyless alternative player.
+4. **Streams keep moving.** In a run that continues (a feed run, a saved list or a
+   queue) the strip counts down — "Moving on in 12s" — and the run moves on by
+   itself after 15 s. The card cannot say whether it is playing, so the PERSON is the
+   signal: **"It's playing — stay"** stops the countdown and remembers, for the tab,
+   that the card works here (a private window, say); after that nothing is ever
+   auto-skipped. The countdown only runs while the tab is visible and the player is
+   not paused, and a lone clip with nothing after it never moves on.
+5. **Counted, anonymously.** Three events through the existing player-diagnostics
+   beacon (`utils/playerDiagnostics.js` -> `/api/player/diagnostics`; no user, session
+   or IP; accepted by `PlayerHealthService.REASONS`), one per clip:
+   `tiktok_silent` (the full player loaded and never said ready, or errored),
+   `tiktok_linkout` (the clip showed the Open on TikTok panel) and `tiktok_recovered`
+   (the full player said ready after failing). Read them with
+   `GET /api/admin/player-health?reason=tiktok_silent` (or `scripts/player-health.mjs`):
+   many `tiktok_silent` and no `tiktok_recovered` means it is constant.
+6. **Open on TikTok by default when it is constant.** After the full player has failed
+   on three clips in 30 minutes (and nobody pressed Stay) TikToks stop loading in the
+   player: no frame, no request to TikTok, no raw error page — an Open on TikTok panel
+   (`components/player/TikTokBlockedPanel.jsx`) stands in, with **Try anyway** (this clip
+   only, once per 30 s). In a run the panel moves on after 5 s. The failures age out after
+   30 minutes, so the player tries again by itself; a "ready" forgets them at once.
 
-Tests: `npm run tiktokblock:test` (33 checks: the 4 s rule, the 10-minute memory,
-the strip and its three buttons, retry waits 30 s, recovery clears the memory,
-blocked storage) and the existing `npm run tiktok:test` (35, unchanged).
+   Where the numbers live: `utils/tiktokBlock.js` (`TIKTOK_LINKOUT_AFTER`,
+   `TIKTOK_LINKOUT_WINDOW_MS`, `TIKTOK_AUTO_ADVANCE_MS`, `TIKTOK_LINKOUT_ADVANCE_MS`).
+
+**Not done / worth watching:** the thresholds are judgement calls with no data behind
+them yet; the `tiktok_silent` / `tiktok_recovered` counts are what should tune them.
+If TikTok's limit lifts permanently, nothing needs removing: a working player clears
+all of it by itself.
+
+Tests: `npm run tiktokblock:test` (78 checks: the 4 s rule, the 10-minute memory,
+the strip and its buttons, retry waits 30 s, recovery, blocked storage; stream countdown
+and Stay; link-out and Try anyway; the three anonymous events; single clips) and the existing `npm run tiktok:test` (35, unchanged).
 
 ## Related, done 2026-11-11: stricter caching for the individual feed servers
 
