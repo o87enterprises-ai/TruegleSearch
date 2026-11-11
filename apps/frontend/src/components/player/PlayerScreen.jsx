@@ -6,6 +6,7 @@ import PlayerBrowse from './PlayerBrowse';
 import { PLAYER_SANDBOX, sandboxFor } from './playerSandbox';
 import { upgradeTikTokSrc, tiktokCardSrc } from '../../utils/videoEmbed';
 import { IS_IOS } from '../../utils/isIOS';
+import { useRumbleSrc } from '../../utils/rumbleEmbed';
 
 export { PLAYER_SANDBOX };
 
@@ -23,6 +24,7 @@ function withPlaybackChannel(kind, src, tiktokCard = false) {
   // TikTok's player/v1 carries its own autoplay; older saved sources are
   // upgraded from the /embed/v2 card, which could not be controlled.
   if (kind === 'tiktok') return tiktokCard ? tiktokCardSrc(src) : upgradeTikTokSrc(src);
+  if (src === 'about:blank') return src; // a Rumble clip still waiting for its real embed
   const sep = src.includes('?') ? '&' : '?';
   if (kind === 'youtube') {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -109,7 +111,11 @@ const PlayerScreen = forwardRef(function PlayerScreen({
     );
   }
 
-  const { kind, src, title } = source;
+  const { kind, title } = source;
+  // Rumble: swap the guessed embed for the real one (utils/rumbleEmbed.js).
+  // Below the idle return on purpose: the idle render calls no hooks at all,
+  // which is what lets the hooks further down start once a source arrives.
+  const src = useRumbleSrc(source);
   // EVERY KIND THAT IS AN IFRAME HAS TO BE LISTED HERE. This list is the only
   // thing standing between an embed and the <audio> fallback at the bottom of
   // this component, and that fallback fails SILENTLY-ish: it hands an HTML
