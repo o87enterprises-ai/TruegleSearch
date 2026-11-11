@@ -48,6 +48,22 @@ function queryKeywords(query) {
   return [...new Set(words(plain).filter((w) => !FILLER.has(w) && (w.length > 1 || /\d/.test(w))))];
 }
 
+/**
+ * "rapid api sign up" -> { brand: "rapidapi", query: "rapidapi sign up" }. Brands are
+ * often two words typed apart; an engine that reads "rapid" as the dictionary word never
+ * returns the site. Only for plain 3-7 word queries (no operators or quotes). The caller
+ * searches this variant only when no result's domain already holds the brand.
+ */
+function compoundVariant(query) {
+  const q = String(query || '').trim();
+  if (/["'():!\-]/.test(q) || /\b(OR|AND)\b/.test(q)) return null;
+  const w = q.split(/\s+/);
+  if (w.length < 3 || w.length > 7) return null;
+  const [a, b] = w.map((x) => fold(x));
+  if (!/^[a-z0-9]{2,}$/.test(a) || !/^[a-z0-9]{2,}$/.test(b) || FILLER.has(a) || FILLER.has(b)) return null;
+  return { brand: a + b, query: [a + b, ...w.slice(2)].join(' ') };
+}
+
 /** The URL's path read as words: /album/quack says "album quack". */
 function urlWords(url) {
   try {
@@ -73,6 +89,12 @@ function exactMatch(query, result, keywords = queryKeywords(query)) {
   const text = [...titleWords, ...words(result?.snippet), ...urlWords(result?.url)];
   const have = new Set(text);
   const titleHave = new Set(titleWords);
+  // "rapid api" typed, "RapidAPI" written: a joined pair counts as both words.
+  for (let i = 0; i + 1 < keywords.length; i += 1) {
+    const joined = keywords[i] + keywords[i + 1];
+    if (have.has(joined)) { have.add(keywords[i]); have.add(keywords[i + 1]); }
+    if (titleHave.has(joined)) { titleHave.add(keywords[i]); titleHave.add(keywords[i + 1]); }
+  }
   const matched = keywords.filter((k) => have.has(k)).length;
   const inTitle = keywords.filter((k) => titleHave.has(k)).length;
 
@@ -97,19 +119,24 @@ const MAX_CLIPS_IN_TOP = 3;
  */
 function balanceSources(query, results) {
   if (VIDEO_INTENT.test(String(query || '')) || !Array.isArray(results)) return results;
+  const keywords = queryKeywords(query);
+  // A page is worth lifting over a clip only if it holds at least half the words typed
+  // ("rapid" alone, from a dictionary, is not an answer to "rapid api sign up").
+  const qualifies = (r) => !isClip(r) && keywords.length > 0
+    && exactMatch(query, r, keywords).matched / keywords.length >= 0.5;
   const out = [];
-  const deferred = [];
   const rest = results.slice();
   let clips = 0;
   while (out.length < TOP && rest.length) {
     const r = rest.shift();
-    if (isClip(r)) {
-      if (clips < MAX_CLIPS_IN_TOP) { clips += 1; out.push(r); } else deferred.push(r);
-    } else out.push(r);
+    if (isClip(r) && clips >= MAX_CLIPS_IN_TOP) {
+      const i = rest.findIndex(qualifies);
+      if (i >= 0) { out.push(rest.splice(i, 1)[0]); rest.unshift(r); continue; }
+    }
+    if (isClip(r)) clips += 1;
+    out.push(r);
   }
-  // Short of pages: put the deferred clips back in their place rather than leave a hole.
-  while (out.length < TOP && deferred.length) out.push(deferred.shift());
-  return [...out, ...deferred, ...rest];
+  return [...out, ...rest];
 }
 
 /**
@@ -141,4 +168,4 @@ function orderByExactMatch(query, results, fallback = (r) => r.finalScore || 0) 
     .map(({ r, m }) => ({ ...r, keywordMatch: { matched: m.matched, of: m.total, inTitle: m.inTitle } }));
 }
 
-module.exports = { fold, balanceSources, queryKeywords, exactMatch, orderByExactMatch };
+module.exports = { compoundVariant, fold, balanceSources, queryKeywords, exactMatch, orderByExactMatch };
