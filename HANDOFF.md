@@ -3,6 +3,97 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-11 — Games: keyboard controls, joypad fix, every game tested (2 held back, 1 patched)
+
+- **Keyboard (desktop):** arrows or WASD = d-pad, **Space = B, Enter = A**, plus **E = Start, Q = Select** (not requested; most games cannot start without Start; change in `utils/gameboyKeys.js`). Matched on `event.code` (physical key). Rules there: Ctrl/Cmd/Alt combos and typing in fields are never game presses; Enter/Space on a focused button still presses that button (Close works from the keyboard); a release is always honoured; blur/hidden/close lets go of everything. A key lights the matching on-screen button (`data-pressed`); legend shown on desktop only; focus moves into the player so Enter/Space don't re-press the card.
+- **WasmBoy's built-in joypad was fighting us (root cause of "Astro Attack doesn't work on desktop" and a dead on-screen pad):** WasmBoy turns its own keyboard+gamepad joypad on at every `loadROM` and its render loop calls `updateController()` EVERY FRAME, overwriting what we last sent with its own (all-released) state. `gameboyCore._takeOverJoypad()` calls `WasmBoy.disableDefaultJoypad()` after every loadROM/reset/play. Also `setInput` is guarded until the core is running (before: uncaught `postMessageIgnoreResponse` of undefined if a key was pressed while loading, and the press was lost).
+- **Astro Attack:** WasmBoy times the OAM-DMA interrupt ~2x too long (644-cycle stall on the `ldh [$46],a` AND the game's own delay loop), so the game's wait for LY==145 exactly (0x2455) never sees 145 and it sat on its splash forever. Load-time tweak `jr nz` -> `jr c` (0x2459: 0x20 -> 0x38), in `compat` in `data/gameboyLibrary.js`, applied by `applyCompatPatches` only if the surrounding bytes match; the ROM FILE is untouched; credited under the game in the player.
+- **Held back (`unavailable`, kept in the data with the reason): Pluto's Corner and Squishy the Turtle.** Both MBC1; both go blank after key presses in WasmBoy (Squishy hangs on Start and leaves the emulator broken so the NEXT game opens blank). Not a page-mapping bug (checked), not fixed by any WasmBoy setting tried (colourisation, batching, isGbcEnabled, tile rendering, scanline rendering, ROM mirroring, double load). Needs a more accurate core. mGBA (`@thenick775/mgba-wasm`, MPL-2.0) exists but needs cross-origin isolation (COOP/COEP), which would break embeds site-wide unless confined to a dedicated page.
+- **Tests:** `gameboykeys:test` (57), `gameboygames:test` (277; boots and plays EVERY offered game in a real browser: valid ROM, boots, draws, fps, a held key reaches the emulator and STAYS held, still drawing after the keys, closes; also the data and the patch function). `GAMES="Petris,Astro Attack"` runs a subset; `FRESH=1` gives each game its own page (isolates one game from the next).
+- WasmBoy facts worth knowing: it reuses ONE worker/wasm instance for the page's life (no public reset), so a game that corrupts state can break the next one.
+
+---
+
+## 🗓️ 2026-11-11 — TikTok 429 plan steps 4-6: streams move on, anonymous counts, Open on TikTok by default
+
+- **Step 4:** in a run that continues (feed run / saved list / queue) the card strip counts down 15 s and the run moves on (`components/player/TikTokHelp.jsx`, `advance`). **"It's playing — stay"** stops it and sets `truegle_tiktok_stay` for the tab (the card works here; nothing is auto-skipped again, link-out is off). Only while the tab is visible and unpaused; a lone clip never auto-advances. NB: **Play now** on a feed card starts a run that continues, so it counts down too.
+- **Step 5:** `tiktok_silent` / `tiktok_linkout` / `tiktok_recovered` through the anonymous player-diagnostics beacon (`PlayerHealthService.REASONS`; no migration, the column is free text). Read: `GET /api/admin/player-health?reason=tiktok_silent`.
+- **Step 6:** three full-player failures in 30 min (and no Stay) => `tiktokLinkOut()`: no frame, no request to TikTok, `TikTokBlockedPanel` (Open on TikTok main, Try anyway once per 30 s for that clip, 5 s countdown in a run). Failures age out (self-healing probe); a "ready" clears them (`tiktokWorked`). `useEmbedPlayback` keys the fallback flag to the clip so a new clip never renders a frame for one render.
+- Thresholds are judgement calls — tune them from the beacon counts. Constants in `utils/tiktokBlock.js`.
+- Tests: `tiktokblock:test` (78), backend `playerHealth` (22). Also pass: `tiktok:test`, `playerinteract:test`, `feedplayable:test`, `silentembed:test`, `viewerframe:test`, `rumble:test`, `langmode:test`.
+
+---
+
+## 🗓️ 2026-11-11 — "Open in app" opened a blank white page (Rabbit Hole search "ebk jaaybo")
+
+- **Two causes, both checked against the live sites:** (1) the result address was `http://last.fm/...`; Truegle is https and a browser will not show an http frame inside an https page (mixed content), so the frame stayed blank — Last.fm itself allows framing. (2) `genius.com` (X-Frame-Options SAMEORIGIN), `pitchfork.com` (DENY) and `passionweiss.com` (frame-ancestors substack only) forbid framing and were not on the known-refusals list.
+- **Fix:** `utils/embeddable.js` `viewerSrc()` upgrades a leading `http://` to `https://` for the preview frame (UniversalSearch inline + full screen, `PagePreview`); the three sites are added to `REFUSES_FRAMING` (they now say "Opens on genius.com" instead of offering a blank frame); a one-line hint under the inline frame ("Blank? Some sites do not allow being shown here — use Open link above"). Rule kept: a host is added only when its headers were checked, not suspected.
+- Not changed: `OSINTToolsPanel.jsx` still frames its own URLs as given.
+- Tests: `npm run viewerframe:test` (18, phone + desktop, /red), `embeddable:test` (35). Also pass: `chatpreview:test`, `feedplayable:test`, `playerinteract:test`.
+
+---
+
+## 🗓️ 2026-11-11 — TikTok player 429: fast detection, 10-minute memory, helper strip (plan steps 1-3)
+
+- **Cause:** TikTok throttles its own `player/v1` and `embed/v2` for the browser; the error page loads inside our frame and never says "ready". Not the feed servers. See `docs/TIKTOK-429-PLAN.md`.
+- **Built:** `useEmbedPlayback.js` gives the full player 4 s after its frame loads (was 10 s from mount) and, if silent or errored, marks the tab blocked for 10 min (`utils/tiktokBlock.js`, sessionStorage); while blocked a TikTok starts in the CARD with no full-player request. `components/player/TikTokHelp.jsx`: a quiet strip in the card (after 3 s) with Open on TikTok / Try the full player (30 s gap) / Next. A "ready" clears the block.
+- **Limit:** the card cannot report back, so a playing card and TikTok's error page look the same to us; hence "may", and no auto-skip yet (plan steps 4-6 open).
+- Tests: `npm run tiktokblock:test` (33), `tiktok:test` (35).
+
+---
+
+## 🗓️ 2026-11-11 — Rumble embeds; per-server feed caching; TikTok 429 plan
+
+- **Rumble "Video not found" (PR #135, merged):** a Rumble page id is not its embed id. `GET /api/embed/rumble?url=` (`routes/embed.js`) asks Rumble's oEmbed for the real one; the player swaps it in (`utils/rumbleEmbed.js` `useRumbleSrc`), keeping the old guess if the lookup fails. `npm run rumble:test`.
+- **Stricter caching for the individual feed servers:** `services/feed/ServerGuard.js` wraps Mastodon, Bluesky, Lemmy, Reddit, HN, GitHub, news (in `routes/social.js`) and every SearXNG network (in `PublicSocialSource.js`, 5 → 20 min). Fresh reuse (10-20 min per server), single-flight, last good page for up to 6 h on failure, 1-15 min cool-down (doubling) after 429/5xx/timeout, 5 min per-request memory of permanent refusals (403/422). Process-local, memory only: typed searches go through it, so nothing is persisted. `ServerGuard.shared.reset()` between test cases.
+- **Daily job now also pre-builds each network's pill** (`cron.js` `prewarmPills`, `TopFeedCache.refreshOne`, `config/topFeed.js` `pillRequest`), so a pill click is a cache hit. The response gains a `pills` map.
+- **TikTok "429 Too Many Requests" in the player is TikTok's own limit on `player/v1` (and `embed/v2`)**, not our feed servers: see `docs/TIKTOK-429-PLAN.md` (measurements + a 6-step client plan, not yet built).
+- Tests: backend `serverGuard` (17), `feedServerGuard` (6), `cronTopFeed` (pills), `topFeedCache` (refreshOne), `rumbleEmbed`. Full backend suite: only the known `new-endpoints` failure.
+
+---
+
+## 🗓️ 2026-11-09 — Feed/Tube language filter (Local / Global)
+
+- **Switch:** `components/ui/LangModeToggle.jsx` on `/feed` (beside Safe Search), the landing Feed card, and Tube's chip row. **Local** (default) = only your language; **Global** = everything, yours first. Remembered per browser (`truegle_lang_mode`).
+- **"Your language"** = the site's existing engine-language setting (`truegle_settings.language`, the globe dropdown), which defaults to the browser language. One answer everywhere (`utils/contentLang.js`). Nothing is located: no IP/GPS, only the 2-letter code is sent.
+- **Backend:** `services/langDetect.js` (script + function-word detector, no dependency, says `und` rather than guess), `services/AudioLang.js` (YouTube SPOKEN language: Data API `defaultAudioLanguage`, then the auto-generated caption track via the Invidious pool; remembered per video), `services/ContentLang.js` (annotate each post once before caching; per-visitor filter after). Mastodon/Bluesky keep their own language labels. `POST /api/social/feed` takes `lang` + `langMode`; `POST /api/lang/classify` serves Tube.
+- **Rules:** spoken language wins (English title over Spanish audio = Spanish). Undetermined text is kept in Local if its script fits your language. **TikTok/Instagram/Facebook/Rumble publish no audio language**, so for them it is text only — a foreign-audio TikTok with an English title can still get through. Detecting that would need audio transcription (not possible at $0).
+- **Cache:** language is annotated into the cached top-posts payload, so ONE daily build serves every language (no per-language cache).
+- Tests: backend `contentLang`, `langClassify`, `socialFeedCache` (language block); frontend `langmode:test`.
+- Known pre-existing failures (same on `main`): backend `new-endpoints` (process.exit), frontend `tubegrid` Safe-Search-in-player-list (4 checks); `embedkinds:test` needs `vite-node` (not installed here).
+
+---
+
+## 🗓️ 2026-11-09 — top-posts server cache, rebuilt daily at 9 AM Pacific
+
+- **What:** `POST /api/social/feed` for the landing/`/feed` Home "Top" requests (social networks only, empty query or a fixed fallback seed word; config in `backend/config/topFeed.js`) is answered from a cache. Response header `X-Truegle-Cache`: `hit` | `miss` | `stale` | `thin` | `bypass`. Typed searches, news/markets/creators/podcast lanes and non-social sources are never cached (`bypass`).
+- **Where:** `services/TopFeedCache.js` — this instance's memory, then Postgres table `feed_cache` (migration `028`, auto-applied at boot; also created lazily, fail-soft). A database that is down or slow is just a miss.
+- **Daily turnover:** the cache day runs 9:00 AM → 9:00 AM **America/Los_Angeles** (`utils/cacheEpoch.js`, DST-correct). `vercel.json` has two crons for `/api/cron/refresh-top-feed` (16:00 and 17:00 UTC); the handler acts only in the real 9 o'clock Pacific hour and only if today's entry is not already built, so exactly one of them does the work. It pre-builds the landing's first page (`PREWARM_REQUEST`); every other entry (pages 2+, single-network pills, fallback seeds) is cached on first request after 9 AM.
+- **Safety:** only results with ≥ 8 posts are stored; if a network failed the entry lives 2 h not a day; if a live build comes back thin or throws and an older copy exists, the older copy is served (`stale`) — yesterday's posts beat an empty feed.
+- **Optional hardening:** set `CRON_SECRET` in Vercel (Production) — then the cron endpoint requires `Authorization: Bearer …` and `?force=1` (rebuild now, any hour) becomes available to whoever holds it. Not set at time of writing.
+- **Vercel plan note:** on the Hobby plan a cron fires somewhere within its hour, so "9 AM" is the 9 o'clock hour. The first human visitor after 9 AM rebuilds the entry anyway if the cron has not.
+- **Drift guard:** `landing:test` fails if the landing's real first request, or the Top-network / seed lists, differ from `backend/config/topFeed.js`. Change both together.
+- Phones keep the Feed card open by default (unchanged).
+
+---
+
+## 🗓️ 2026-11-08 — creators, podcasts, Feed pills (PRs #121, #122 + roster-first shelf)
+
+- **New creators:** The BEMA Podcast, Roland Martin (roster in BOTH `frontend/src/content/creators.js` and `backend/config/creatorsRoster.js`; backend-only `podcast: true` flag marks shows the Podcasts shelf lists first).
+- **Creator isolate:** `POST /api/social/feed` / `GET /api/creators/feed` take `creator=<slug>`; chips = `components/feed/CreatorChips.jsx`.
+- **Podcast search:** Tube scope `Podcast` (`utils/playerQuery.js`); Feed category `Podcasts` + `podcastvideo` lane (`services/PodcastVideoService.js`). Roster podcasts lead page 1, then YouTube search results.
+- **Feed Home = landing pill flow:** `hooks/useFeedTabs.js` + `components/feed/FeedPills.jsx`, shared by `LandingFeedFrame` and `/feed` Home. Home's blank view is the Top tab (social networks only); typed search / opened categories still ask every server. `/feed` keeps the never-repeat ledger (`rememberSeen`).
+- **Suite note:** `npm run feedpage:test` needs Playwright linked into `apps/frontend/node_modules` (global install is not visible to ESM). Backend and frontend `npm ci` in one sandbox clobber each other's `node_modules`; reinstall the one you need.
+
+### ⚠️ Leftover Vercel Preview variables (harmless — left on purpose)
+Project `backend` (`prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI`): `JWT_SECRET`, `ENCRYPTION_KEY`, `NODE_ENV=preview`.
+- Created 2026-11-08 to make a branch preview boot. **Target = Preview only, bound to git branch `o87/admiring-einstein-asnduf`** — they cannot reach production (verified via `filter_project_envs`).
+- JWT/ENCRYPTION values are throwaway randoms (write-only, never recorded). `NODE_ENV=preview` stops winston's file transport crashing on Vercel's read-only FS.
+- The agent tools cannot delete env vars. To remove: Vercel → backend → Settings → Environment Variables → filter by that branch → delete the three. Optional.
+- Effect: previews from that branch name now boot, but still lack `SEARXNG_*`, `DATABASE_URL`, `YOUTUBE_API_KEY` (production-only, write-only), so search-backed lanes return empty on those previews.
+
+---
+
 ## 🗓️ 2026-09-25 — maps popup, people-lookup routing, Feed social sources
 
 - **Mapbox token (live traffic) lives in Cloudflare Pages, never in git.**

@@ -160,7 +160,7 @@ const errs = [];
 // The check that stops this becoming the sixth dead fork of the search page.
 const ctx1 = await makeContext();
 const page = await ctx1.newPage();
-page.on('pageerror', (e) => errs.push(e.message));
+page.on('pageerror', (e) => errs.push(`${e.message} @ ${(e.stack || '').split('\n').slice(1, 4).join(' <- ')}`));
 
 const geometry = async (p) => p.evaluate(() => {
   const box = (sel) => {
@@ -287,7 +287,10 @@ check(!calls.some((c) => c.path.includes('/social-auth/')),
 
 const firstFeed = calls.find((c) => c.path === '/api/social/feed');
 check(!!firstFeed, 'the feed is requested');
-check(firstFeed?.body?.platforms?.includes('github'), 'for the default-on servers',
+// HOME RUNS THE LANDING PILL FLOW (owner, 2026-11-08): the default tab is Top,
+// the social networks only; GitHub, HN, news and the link pools are reached
+// through the other tabs and Browse.
+check(firstFeed?.body?.platforms?.includes('reddit') && !firstFeed?.body?.platforms?.includes('github'), 'for the default-on servers (the Top tab: social networks)',
   JSON.stringify(firstFeed?.body?.platforms));
 check(await page.locator('text=Popular post 1-0').count() > 0, 'and the posts are on screen');
 check(new URL(page.url()).pathname === '/feed', 'and you stay on /feed', page.url());
@@ -374,7 +377,7 @@ check(usable.length >= 5, 'the feed has more than a couple of keyless sources to
 // can be switched off — but they are BROWSE-ONLY: opened on purpose through
 // their category, never mixed into Home, where each would cost a search and
 // flood the timeline with news clips.
-const BROWSE_ONLY = ['newsvideo', 'marketsvideo'];
+const BROWSE_ONLY = ['newsvideo', 'marketsvideo', 'podcastvideo'];
 const usableHome = usable.filter((id) => !BROWSE_ONLY.includes(id));
 check(usable.includes('newsvideo') && usable.includes('marketsvideo'), 'News Video and Market Analysis are listed as servers', usable.join(','));
 check(arrived.every((c) => JSON.stringify([...c.body.platforms].sort()) === JSON.stringify(usableHome)),
@@ -669,6 +672,53 @@ await page.click('[data-feed-view="home"]');
 await until(() => page.locator('[data-feed-browse]').count().then((n) => n === 0),
   { what: 'Home to replace Browse' });
 check(true, 'Home switches back to the timeline');
+
+// ── HOME RUNS THE LANDING PILL FLOW (owner, 2026-11-08) ────────────────────
+// Top · Creators · News · Markets, on /feed Home, from the same hook the
+// landing frame uses. Creators carries the one-creator chips.
+check(await page.locator('[data-feed-tab]').count() === 4, 'Home shows the four landing pills (Top, Creators, News, Markets)');
+check(await page.locator('[data-feed-tab="top"][aria-selected="true"]').count() === 1, '…with Top selected by default');
+calls.length = 0;
+await page.click('[data-feed-tab="creators"]');
+await until(() => calls.some((c) => c.path === '/api/social/feed' && (c.body?.platforms || []).join() === 'creators'),
+  { what: 'the Creators pill to ask for the creators lane alone' });
+check(true, 'the Creators pill asks for the creators lane and nothing else');
+check(await page.locator('[data-creator-chip]').count() > 15, '…and offers the creator chips (roster incl. BEMA and Roland Martin)');
+check(await page.locator('[data-creator-chip="the-bema-podcast"]').count() === 1
+  && await page.locator('[data-creator-chip="roland-martin"]').count() === 1, '…the two new creators among them');
+calls.length = 0;
+await page.click('[data-creator-chip="roland-martin"]');
+await until(() => calls.some((c) => c.path === '/api/social/feed' && c.body?.creator === 'roland-martin'),
+  { what: 'a creator chip to isolate that creator' });
+check(true, 'tapping a creator chip sends that creator, isolating their posts');
+// Shorts / Videos / All, on the Creators pill: sent to the server (it filters
+// before paging), and dropped again when the pill changes.
+check(await page.locator('[data-kind-pill]').count() === 3, 'the Creators pill offers All · Videos · Shorts');
+check(await page.locator('[data-kind-pill="all"][aria-pressed="true"]').count() === 1, '…with All selected by default');
+calls.length = 0;
+await page.click('[data-kind-pill="short"]');
+await until(() => calls.some((c) => c.path === '/api/social/feed' && c.body?.kind === 'short'),
+  { what: 'the Shorts pill to ask the server for Shorts' });
+check(calls.filter((c) => c.path === '/api/social/feed').some((c) => c.body?.kind === 'short' && c.body?.creator === 'roland-martin'),
+  'the Shorts pill asks the server for Shorts only, keeping the chosen creator');
+calls.length = 0;
+await page.click('[data-kind-pill="video"]');
+await until(() => calls.some((c) => c.path === '/api/social/feed' && c.body?.kind === 'video'),
+  { what: 'the Videos pill to ask the server for long videos' });
+check(true, 'the Videos pill asks the server for videos (no Shorts)');
+calls.length = 0;
+await page.click('[data-kind-pill="all"]');
+await until(() => calls.some((c) => c.path === '/api/social/feed'), { what: 'the All pill to reload' });
+check(calls.filter((c) => c.path === '/api/social/feed').some((c) => !c.body?.kind && c.body?.creator === 'roland-martin'), 'All sends no filter at all', JSON.stringify(calls.filter((c) => c.path === '/api/social/feed').map((c) => ({ k: c.body?.kind, cr: c.body?.creator, cur: c.body?.cursor }))));
+await page.click('[data-kind-pill="short"]');
+await until(() => calls.some((c) => c.path === '/api/social/feed' && c.body?.kind === 'short'), { what: 'Shorts again' });
+calls.length = 0;
+await page.click('[data-feed-tab="news"]');
+await until(() => calls.some((c) => c.path === '/api/social/feed' && (c.body?.platforms || []).join() === 'newsvideo'),
+  { what: 'the News pill to ask for the news video lane' });
+// (A page-2 fetch of the Creators feed can already be in flight at the click; the NEW feed's request is what matters.)
+check(calls.filter((c) => c.path === '/api/social/feed' && (c.body?.platforms || []).join() === 'newsvideo').every((c) => !c.body?.creator && !c.body?.kind), 'switching pill drops the creator isolate and the Shorts filter');
+await page.click('[data-feed-tab="top"]');
 
 check(errs.length === 0, 'nothing threw', errs.join(' | ') || 'clean');
 

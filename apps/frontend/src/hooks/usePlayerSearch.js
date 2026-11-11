@@ -9,6 +9,7 @@ import { isPlaylistUrl } from '../utils/playlistImport';
 import { isShortForm, asReel } from '../utils/shortForm';
 import { authHeader, storedSafeSearch } from '../utils/authHeader';
 import { useSettings } from '../context/SettingsContext';
+import { deviceLang, getLangMode, useLangMode } from '../utils/contentLang';
 
 // A video result whose URL we can't classify is sometimes still a YouTube
 // video — the search backend hands back a watch page on a host we don't
@@ -105,6 +106,36 @@ const REQUEST_TIMEOUT_MS = 20000;
 // The providers YouTube's own search can stand in for. Anything else asked for
 // explicitly must come back empty rather than come back wrong.
 const YT_FALLBACK_OK = new Set([null, undefined, 'youtube', 'any']);
+
+
+// LANGUAGE (owner, 2026-11-09): Local keeps only results in this device's
+// language, Global puts them first. The backend decides each result's language
+// (spoken language for YouTube, text otherwise; POST /api/lang/classify). If it
+// does not answer quickly the results are shown as they are, never withheld.
+const LANG_TIMEOUT_MS = 3500;
+const RANK = { match: 0, unknown: 1, other: 2 };
+async function applyLanguage(rows, signal) {
+  if (!Array.isArray(rows) || !rows.length) return rows;
+  const lang = deviceLang();
+  const mode = getLangMode();
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), LANG_TIMEOUT_MS);
+    signal?.addEventListener?.('abort', () => ctl.abort());
+    const r = await fetch(`${BACKEND}/api/lang/classify`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctl.signal,
+      body: JSON.stringify({ lang, items: rows.map((x) => ({ url: x.pageUrl || x.src || '', title: x.title || '' })) }),
+    }).finally(() => clearTimeout(t));
+    const d = r.ok ? await r.json() : null;
+    const v = (d?.items || []).map((x) => x?.verdict || 'unknown');
+    if (v.length !== rows.length) return rows;
+    if (mode === 'global') return rows.map((row, i) => ({ row, i, r: RANK[v[i]] ?? 1 })).sort((a, b) => a.r - b.r || a.i - b.i).map((x) => x.row);
+    return rows.filter((_, i) => v[i] !== 'other');
+  } catch (e) {
+    if (signal?.aborted) throw e;
+    return rows;
+  }
+}
 
 export function usePlayerSearch(query, scope = 'all', provider = 'all') {
   const [results, setResults] = useState(null);
@@ -292,7 +323,7 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
     const once = (category, query, page = 1) => fetch(`${BACKEND}/api/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify({ query, filters: { category, bias: 'all', dateRange: 'any', perPage: 20, page, safeSearch: storedSafeSearch(), purpose: 'player' } }),
+      body: JSON.stringify({ query, filters: { category, bias: 'all', dateRange: 'any', perPage: 20, page, safeSearch: storedSafeSearch(), purpose: 'player', ...(getLangMode() === 'local' ? { language: deviceLang() } : {}) } }),
       signal: controller.signal,
     })
       .then((r) => r.json())
@@ -412,7 +443,7 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
     // when everything else came back with nothing playable — and the backend
     // caches each query for an hour on top of that.
     const youtube = () => fetch(
-      `${BACKEND}/api/creators/search?q=${encodeURIComponent(intent.text || q)}`,
+      `${BACKEND}/api/creators/search?q=${encodeURIComponent(`${intent.text || q}${intent.scope === 'podcast' ? ' podcast full episode' : ''}`)}`,
       { signal: controller.signal },
     )
       .then((r) => (r.ok ? r.json() : { videos: [] }))
@@ -475,7 +506,7 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
       : Promise.resolve([]);
 
     Promise.all([web, community, reels])
-      .then(([webRows, communityRows, reelRows]) => {
+      .then(async ([webRows, communityRows, reelRows]) => {
         // De-duplicate by MEDIA, not by URL: a search for a song comes back
         // with the same upload four times over — youtu.be, /watch?v=,
         // /embed/…?si=, a mirror — and every one of those is a different
@@ -539,7 +570,11 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         // the moment a page comes back empty or entirely duplicated, so the
         // worst case is one wasted request at the true end of the results.
         setMore(!!wonRef.current && scoped.length > 0);
-        setResults(rankPlayable(scoped, intent));
+        // Local/Global language (see applyLanguage). A newer search may have
+        // started while this waited; then this answer is stale and dropped.
+        const langed = await applyLanguage(scoped, controller.signal);
+        if (controller.signal.aborted) return;
+        setResults(rankPlayable(langed, intent));
         setTrace({
           steps,
           community: communityRows.length,
@@ -575,12 +610,12 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
       headers: { 'Content-Type': 'application/json', ...authHeader() },
       body: JSON.stringify({
         query: won.query,
-        filters: { category: won.category, bias: 'all', dateRange: 'any', perPage: 20, page: nextPage, safeSearch: storedSafeSearch(), purpose: 'player' },
+        filters: { category: won.category, bias: 'all', dateRange: 'any', perPage: 20, page: nextPage, safeSearch: storedSafeSearch(), purpose: 'player', ...(getLangMode() === 'local' ? { language: deviceLang() } : {}) },
       }),
       signal: controller.signal,
     })
       .then((r) => r.json())
-      .then((d) => {
+      .then(async (d) => {
         const raw = d.results || [];
         const rows = raw.map((r) => toSource(r, won.category === 'social')).filter(Boolean);
         const fresh = withoutBroken(rows).filter((row) => {
@@ -599,7 +634,8 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         // it can be half full and still yield plenty. What decides whether
         // there is more to see is whether this page showed you anything.
         setMore(fresh.length > 0);
-        if (fresh.length) setResults((prev) => [...(prev || []), ...fresh]);
+        const langed = await applyLanguage(fresh, controller.signal);
+        if (langed.length) setResults((prev) => [...(prev || []), ...langed]);
       })
       .catch(() => { setMore(false); })
       .finally(() => setLoadingMore(false));
@@ -613,10 +649,11 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
   // the same question, or the toggle would only apply to the NEXT search.
   const { settings } = useSettings();
   const safeSearch = settings?.safeSearch;
+  const [langMode] = useLangMode(); // switching Local/Global re-asks, like Safe Search
   useEffect(() => {
     const id = setTimeout(() => run(query || '', scope, provider), DEBOUNCE_MS);
     return () => clearTimeout(id);
-  }, [query, scope, provider, run, safeSearch]);
+  }, [query, scope, provider, run, safeSearch, langMode, settings?.language]);
 
   useEffect(() => () => abortRef.current?.abort(), []);
 

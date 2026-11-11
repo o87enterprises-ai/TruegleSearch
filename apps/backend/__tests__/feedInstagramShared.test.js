@@ -29,7 +29,9 @@ const post = (id, text = 'look', labels = []) => ({
   labels: labels.map((val) => ({ val })),
 });
 
-beforeEach(() => axios.get.mockReset());
+// Each case starts with an empty server guard: its cached answers would otherwise
+// carry from one case to the next (services/feed/ServerGuard.js).
+beforeEach(() => { axios.get.mockReset(); require('../services/feed/ServerGuard').shared.reset(); });
 
 test('blank feed: real reels from Bluesky, top then latest, then the end', async () => {
   axios.get.mockImplementation((url) => {

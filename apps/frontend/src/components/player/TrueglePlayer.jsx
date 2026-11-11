@@ -8,6 +8,9 @@ import { useTouchDevice } from '../../hooks/useTouchDevice';
 import { buildPlayerLink } from '../../utils/playerLink';
 import PlayerScreen from './PlayerScreen';
 import { PlayerLoading, PlayerEnded } from './PlayerLoading';
+import TikTokHelp from './TikTokHelp';
+import TikTokBlockedPanel from './TikTokBlockedPanel';
+import { TIKTOK_AUTO_ADVANCE_MS, TIKTOK_LINKOUT_ADVANCE_MS } from '../../utils/tiktokBlock';
 import PlayerTransport, { PLAY_MODES, PLAY_MODE_LABEL } from './PlayerTransport';
 import PlayerOverlay from './PlayerOverlay';
 import PlayerListSlot from './PlayerListSlot';
@@ -887,7 +890,7 @@ export default function TrueglePlayer({
   );
   // TikTok waiting for the viewer's own tap must stay uncovered — see
   // useEmbedPlayback; a loader over it would hide the one thing to press.
-  const loading = !!current && !paused && !began && !embed.tiktokNeedsTap;
+  const loading = !!current && !paused && !began && !embed.tiktokNeedsTap && !embed.tiktokLinkOut;
   const ended = !!current && endedKey === sourceKey;
 
   // THE REPORT, for the two stuck states below (the slow/dead loader and the
@@ -1219,6 +1222,7 @@ export default function TrueglePlayer({
       mediaRef={mediaRef}
       frameRef={frameRef}
       tiktokCard={embed.tiktokFallback}
+      tiktokLinkOut={embed.tiktokLinkOut}
       onEnded={handleEnded}
       onError={skipBroken}
       onFrameLoad={() => setLoadedKey(sourceKey)}
@@ -1516,6 +1520,32 @@ export default function TrueglePlayer({
           >
             <VolumeX size={16} /> Tap for sound
           </button>
+        )}
+        {/* A TikTok in the card: a quiet strip, which in a stream also counts down and
+            moves on (plan step 4). A TikTok being refused steadily: no frame at all, an
+            Open on TikTok panel instead (plan step 6). docs/TIKTOK-429-PLAN.md */}
+        {current?.kind === 'tiktok' && embed.tiktokFallback && !embed.tiktokLinkOut && !clipScreen && !locked && (
+          <TikTokHelp
+            key={sourceKey}
+            pageUrl={current.pageUrl}
+            onRetry={embed.retryFullPlayer}
+            onNext={goNext}
+            autoAdvanceMs={playingList || followFeed || followQueue ? TIKTOK_AUTO_ADVANCE_MS : 0}
+            onAdvance={advance}
+            active={!paused}
+          />
+        )}
+        {current?.kind === 'tiktok' && embed.tiktokLinkOut && !clipScreen && !locked && (
+          <TikTokBlockedPanel
+            key={sourceKey}
+            pageUrl={current.pageUrl}
+            poster={current.poster}
+            title={current.title}
+            onTryAnyway={embed.retryFullPlayer}
+            autoAdvanceMs={playingList || followFeed || followQueue ? TIKTOK_LINKOUT_ADVANCE_MS : 0}
+            onAdvance={advance}
+            active={!paused}
+          />
         )}
         {embed.tiktokNeedsTap && current && !clipScreen && (
           <div data-tiktok-tap-hint="" className="absolute inset-x-0 bottom-14 z-30 flex justify-center pointer-events-none">

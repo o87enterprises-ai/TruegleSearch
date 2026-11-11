@@ -8,6 +8,26 @@ const logger = require('../utils/logger');
 // comment above module.exports in routes/creators.js.
 const { fetchCreatorsFeed } = require('./creators');
 const { fetchVideoLane } = require('../services/NewsVideoService');
+const { fetchPodcastLane } = require('../services/PodcastVideoService');
+const TopFeedCache = require('../services/TopFeedCache');
+const ContentLang = require('../services/ContentLang');
+const { shared: serverGuard } = require('../services/feed/ServerGuard');
+
+// EVERY INDIVIDUAL FEED SERVER GOES THROUGH THE GUARD (owner, 2026-11-10:
+// "stricter caching for the individual feed servers"). See
+// services/feed/ServerGuard.js: a fresh answer is reused, readers share one
+// call, the last good page covers a failure for up to six hours, and a server
+// that rate-limits or times out is left alone for 1-15 minutes. The SearXNG
+// networks (Instagram, Facebook, TikTok, X, Truth, Rumble, Pinterest) are
+// guarded inside services/feed/PublicSocialSource.js. Lifetimes are per server:
+// how fast its posts move, and how tight its rate limit is (GitHub's keyless
+// search allows ten calls a minute for the WHOLE server).
+const MIN = 60 * 1000;
+const SERVER_TTL = { reddit: 10 * MIN, hackernews: 10 * MIN, github: 15 * MIN, news: 15 * MIN, mastodon: 15 * MIN, bluesky: 10 * MIN, lemmy: 10 * MIN };
+const guarded = (server, query, limit, cursor, produce) => serverGuard.run(
+  server, JSON.stringify([query || '', limit, cursor === undefined ? null : cursor]), produce,
+  { ttlMs: SERVER_TTL[server], isEmpty: (v) => !v?.items?.length },
+);
 
 // Social media search using Apify API
 router.post('/search', async (req, res) => {
@@ -542,9 +562,13 @@ async function fetchMastodon(query, limit, cursor) {
   // query returns nothing rather than pretending, and the round-robin simply
   // gives its slot to a source that can answer.
   if (query) return { items: [], next: null };
-  const params = new URLSearchParams({ limit: String(Math.min(limit, 40)) });
-  if (cursor) params.set('max_id', cursor);
-  const res = await axios.get(`${MASTODON_HOST}/api/v1/timelines/public?${params}`, {
+  // TRENDING, not the public timeline (2026-11-09): mastodon.social now answers
+  // the public timeline with 422 "This method requires an authenticated user",
+  // so Mastodon was empty on every feed. /api/v1/trends/statuses is keyless,
+  // is what "top posts" means anyway, and pages by offset.
+  const offset = Number.parseInt(cursor, 10) > 0 ? Number.parseInt(cursor, 10) : 0;
+  const params = new URLSearchParams({ limit: String(Math.min(limit, 40)), offset: String(offset) });
+  const res = await axios.get(`${MASTODON_HOST}/api/v1/trends/statuses?${params}`, {
     timeout: FEED_TIMEOUT, headers: { 'User-Agent': UA },
   });
   const rows = Array.isArray(res.data) ? res.data : [];
@@ -552,6 +576,7 @@ async function fetchMastodon(query, limit, cursor) {
     items: rows.filter((t) => t && t.id).map((t) => ({
       id: String(t.id),
       platform: 'Mastodon',
+      lang: t.language || null, // the network's own label (Feed/Tube language filter)
       title: stripHtml(t.content).slice(0, 200) || '(no text)',
       url: t.url || t.uri,
       permalink: t.url || t.uri,
@@ -565,8 +590,8 @@ async function fetchMastodon(query, limit, cursor) {
       flair: null,
       nsfw: !!t.sensitive,
     })),
-    // Mastodon pages by "older than this id", so the cursor is the last id seen.
-    next: rows.length ? String(rows[rows.length - 1].id) : null,
+    // Trends page by offset: the next page starts after what this one returned.
+    next: rows.length ? String(offset + rows.length) : null,
   };
 }
 
@@ -624,7 +649,10 @@ const SHARED = {
   },
 };
 
-async function fetchSharedOnBluesky(platform, query, limit, cursor) {
+const fetchSharedOnBluesky = (platform, query, limit, cursor) => guarded(
+  'bluesky', `shared:${platform}:${query || ''}`, limit, cursor, () => fetchSharedOnBlueskyLive(platform, query, limit, cursor),
+);
+async function fetchSharedOnBlueskyLive(platform, query, limit, cursor) {
   const spec = SHARED[platform];
   const params = new URLSearchParams({
     q: query ? `${spec.q} ${query}` : spec.q,
@@ -743,6 +771,7 @@ async function fetchBluesky(query, limit, cursor) {
         nsfw: (p.labels || []).some((l) => ADULT_LABELS.has(String(l?.val || '').toLowerCase())),
         id: String(p.uri),
         platform: 'Bluesky',
+        lang: Array.isArray(p.record?.langs) ? p.record.langs[0] || null : null, // the network's own label
         title: (p.record?.text || '').slice(0, 200) || '(no text)',
         url: web,
         permalink: web,
@@ -969,6 +998,156 @@ async function fetchGitHub(query, limit, page = 1) {
  *
  * Returns: { query, results, platforms: {…}, nextCursor: {…}, errors: {…} }
  */
+/**
+ * The scrape-and-merge behind POST /feed: fans out to the requested sources and
+ * returns the response body. Its own function so the daily top-posts rebuild
+ * (routes/cron.js) can run exactly what a visitor's request runs.
+ */
+async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult, creator, kind = 'all' }) {
+  const all = !requestedPlatforms || requestedPlatforms.includes('all');
+  const want = (p) => all || requestedPlatforms.includes(p);
+  const NONE = { items: [], next: null };
+
+  // ONE seed lookup per request, not one per source. Six platforms searching
+  // the same topic is the point — it is a timeline about what is happening,
+  // not six unrelated searches — and it also means one headline lookup rather
+  // than six. Cached for ten minutes inside FeedSeeds.
+  // Reddit is excluded: it has its own source, which tries the keyless JSON
+  // endpoints first and only then falls back to this same SearXNG path.
+  // Listing it here too would fetch it twice.
+  const SEARX_IDS = Object.keys(PLATFORM_DOMAINS).filter((id) => id !== 'reddit');
+  const needSeeds = !q && SEARX_IDS.some((id) => want(id));
+  const seeds = needSeeds ? await seedTopics(6) : [];
+
+  // Kick off all requested platform fetches in parallel; each is
+  // independently fault-tolerant — a single failure doesn't kill the rest.
+  const [redditResult, hnResult, ghResult, newsResult, communityResult,
+         mastodonResult, blueskyResult, lemmyResult, creatorsResult,
+         newsVideoResult, marketsVideoResult, podcastResult, ...searxResults] = await Promise.allSettled([
+    want('reddit') ? guarded('reddit', q, limit, cur.reddit, () => fetchRedditBest(q, limit, cur.reddit)) : Promise.resolve(NONE),
+    want('hackernews') ? guarded('hackernews', q, limit, cur.hackernews, () => fetchHackerNews(q, limit, cur.hackernews)) : Promise.resolve(NONE),
+    want('github') ? guarded('github', q, limit, cur.github, () => fetchGitHub(q, limit, cur.github)) : Promise.resolve(NONE),
+    want('news') ? guarded('news', q, limit, cur.news, () => fetchNews(q, limit, cur.news)) : Promise.resolve(NONE),
+    want('community') ? fetchCommunity(q, limit, cur.community) : Promise.resolve(NONE),
+    want('mastodon') ? guarded('mastodon', q, limit, cur.mastodon, () => fetchMastodon(q, limit, cur.mastodon)) : Promise.resolve(NONE),
+    want('bluesky') ? guarded('bluesky', q, limit, cur.bluesky, () => fetchBluesky(q, limit, cur.bluesky)) : Promise.resolve(NONE),
+    want('lemmy') ? guarded('lemmy', q, limit, cur.lemmy, () => fetchLemmy(q, limit, cur.lemmy)) : Promise.resolve(NONE),
+    want('creators') ? fetchCreatorsFeed(q, limit, cur.creators, creator, kind) : Promise.resolve(NONE),
+    // YouTube coverage of today's news and markets. Asked for BY NAME only:
+    // 'all' does not include them (a merged timeline of everything is not
+    // improved by two more video lanes it never asked for, and each costs a
+    // search), so the Browse categories that want them list them.
+    requestedPlatforms?.includes('newsvideo') ? fetchVideoLane('newsvideo', q, limit, cur.newsvideo) : Promise.resolve(NONE),
+    requestedPlatforms?.includes('marketsvideo') ? fetchVideoLane('marketsvideo', q, limit, cur.marketsvideo) : Promise.resolve(NONE),
+    requestedPlatforms?.includes('podcastvideo') ? fetchPodcastLane(q, limit, cur.podcastvideo) : Promise.resolve(NONE),
+    // The SearXNG-backed platforms, in the fixed order of SEARX_IDS so the
+    // results can be zipped back onto their ids below.
+    ...SEARX_IDS.map((id) => (want(id)
+      ? (SHARED[id] ? withSharedFirst(id, q, limit, cur[id], (c) => fetchViaSearx(id, q, limit, c, seeds)) : fetchViaSearx(id, q, limit, cur[id], seeds))
+      : Promise.resolve(NONE))),
+  ]);
+
+  const settle = (r) => (r.status === 'fulfilled' ? r.value : NONE);
+  const reddit = safeFeed(settle(redditResult).items, allowAdult);
+  const hackernews = safeFeed(settle(hnResult).items, allowAdult);
+  const github = safeFeed(settle(ghResult).items, allowAdult);
+  const news = safeFeed(settle(newsResult).items, allowAdult);
+  const community = safeFeed(settle(communityResult).items, allowAdult);
+  const mastodon = safeFeed(settle(mastodonResult).items, allowAdult);
+  const bluesky = safeFeed(settle(blueskyResult).items, allowAdult);
+  const lemmy = safeFeed(settle(lemmyResult).items, allowAdult);
+  const creators = safeFeed(settle(creatorsResult).items, allowAdult);
+  const newsvideo = safeFeed(settle(newsVideoResult).items, allowAdult);
+  const marketsvideo = safeFeed(settle(marketsVideoResult).items, allowAdult);
+  const podcastvideo = safeFeed(settle(podcastResult).items, allowAdult);
+
+  // Zip the SearXNG results back onto their ids. Built as objects rather than
+  // named consts because there are six of them and they are all identical —
+  // spreading these into the response keeps `platforms`, `nextCursor` and
+  // `errors` the same shape they have always been, one key per source.
+  const searxItems = {};
+  const searxCursors = {};
+  const searxErrors = {};
+  SEARX_IDS.forEach((id, i) => {
+    const r = searxResults[i];
+    searxItems[id] = safeFeed(settle(r).items, allowAdult);
+    searxCursors[id] = settle(r).next;
+    searxErrors[id] = r.status === 'rejected' ? (r.reason?.message || 'unavailable') : null;
+    if (r.status === 'rejected') logger.warn(`${id} feed failed:`, r.reason?.message);
+  });
+  const searxAll = SEARX_IDS.flatMap((id) => searxItems[id]);
+
+  if (redditResult.status === 'rejected') logger.warn('Reddit feed failed:', redditResult.reason?.message);
+  if (hnResult.status === 'rejected') logger.warn('HN feed failed:', hnResult.reason?.message);
+  if (ghResult.status === 'rejected') logger.warn('GitHub feed failed:', ghResult.reason?.message);
+  if (newsResult.status === 'rejected') logger.warn('News feed failed:', newsResult.reason?.message);
+  if (communityResult.status === 'rejected') logger.warn('Community feed failed:', communityResult.reason?.message);
+  if (mastodonResult.status === 'rejected') logger.warn('Mastodon feed failed:', mastodonResult.reason?.message);
+  if (blueskyResult.status === 'rejected') logger.warn('Bluesky feed failed:', blueskyResult.reason?.message);
+  if (lemmyResult.status === 'rejected') logger.warn('Lemmy feed failed:', lemmyResult.reason?.message);
+  if (creatorsResult.status === 'rejected') logger.warn('Creators feed failed:', creatorsResult.reason?.message);
+  if (newsVideoResult.status === 'rejected') logger.warn('News video lane failed:', newsVideoResult.reason?.message);
+  if (marketsVideoResult.status === 'rejected') logger.warn('Market video lane failed:', marketsVideoResult.reason?.message);
+
+  // Merged chronological feed across all platforms
+  const all_results = [...reddit, ...hackernews, ...github, ...news, ...community,
+    ...mastodon, ...bluesky, ...lemmy, ...creators, ...newsvideo, ...marketsvideo, ...podcastvideo, ...searxAll].sort((a, b) => {
+    if (!a.date && !b.date) return 0;
+    if (!a.date) return 1;
+    if (!b.date) return -1;
+    return new Date(b.date) - new Date(a.date);
+  });
+
+  return {
+    query: q,
+    results: all_results,
+    platforms: {
+      reddit, hackernews, github, news, community, mastodon, bluesky, lemmy, creators, newsvideo, marketsvideo, podcastvideo, ...searxItems,
+    },
+    // What to send back to continue. A platform that has run out reports
+    // null, which is how the client knows to stop asking rather than
+    // spinning on an endpoint that will keep returning the same page.
+    nextCursor: {
+      reddit: settle(redditResult).next,
+      hackernews: settle(hnResult).next,
+      github: settle(ghResult).next,
+      news: settle(newsResult).next,
+      community: settle(communityResult).next,
+      mastodon: settle(mastodonResult).next,
+      bluesky: settle(blueskyResult).next,
+      lemmy: settle(lemmyResult).next,
+      creators: settle(creatorsResult).next,
+      newsvideo: settle(newsVideoResult).next,
+      marketsvideo: settle(marketsVideoResult).next,
+      podcastvideo: settle(podcastResult).next,
+      ...searxCursors,
+    },
+    // WHY, not just THAT.
+    //
+    // This used to say 'unavailable' for every kind of failure, and the
+    // client threw the field away entirely — so a platform being blocked, a
+    // platform timing out and a platform genuinely having no posts all
+    // looked identical from the outside: an empty feed and no explanation.
+    // That is what "the feed won't load" was, and it is unfixable from a
+    // screenshot when the only symptom is nothing.
+    errors: {
+      reddit: redditResult.status === 'rejected' ? (redditResult.reason?.message || 'unavailable') : null,
+      hackernews: hnResult.status === 'rejected' ? (hnResult.reason?.message || 'unavailable') : null,
+      github: ghResult.status === 'rejected' ? (ghResult.reason?.message || 'unavailable') : null,
+      news: newsResult.status === 'rejected' ? (newsResult.reason?.message || 'unavailable') : null,
+      community: communityResult.status === 'rejected' ? (communityResult.reason?.message || 'unavailable') : null,
+      mastodon: mastodonResult.status === 'rejected' ? (mastodonResult.reason?.message || 'unavailable') : null,
+      bluesky: blueskyResult.status === 'rejected' ? (blueskyResult.reason?.message || 'unavailable') : null,
+      lemmy: lemmyResult.status === 'rejected' ? (lemmyResult.reason?.message || 'unavailable') : null,
+      creators: creatorsResult.status === 'rejected' ? (creatorsResult.reason?.message || 'unavailable') : null,
+      newsvideo: newsVideoResult.status === 'rejected' ? (newsVideoResult.reason?.message || 'unavailable') : null,
+      marketsvideo: marketsVideoResult.status === 'rejected' ? (marketsVideoResult.reason?.message || 'unavailable') : null,
+      podcastvideo: podcastResult.status === 'rejected' ? (podcastResult.reason?.message || 'unavailable') : null,
+      ...searxErrors,
+    },
+  };
+}
+
 router.post('/feed', optionalAuth, async (req, res) => {
   try {
     const { query, platforms: requestedPlatforms, cursor, limit: rawLimit } = req.body || {};
@@ -982,148 +1161,33 @@ router.post('/feed', optionalAuth, async (req, res) => {
 
     const limit = Math.min(Math.max(parseInt(rawLimit, 10) || 20, 1), 50);
     const cur = cursor && typeof cursor === 'object' ? cursor : {};
-    const all = !requestedPlatforms || requestedPlatforms.includes('all');
-    const want = (p) => all || requestedPlatforms.includes(p);
-    const NONE = { items: [], next: null };
-
-    // ONE seed lookup per request, not one per source. Six platforms searching
-    // the same topic is the point — it is a timeline about what is happening,
-    // not six unrelated searches — and it also means one headline lookup rather
-    // than six. Cached for ten minutes inside FeedSeeds.
-    // Reddit is excluded: it has its own source, which tries the keyless JSON
-    // endpoints first and only then falls back to this same SearXNG path.
-    // Listing it here too would fetch it twice.
-    const SEARX_IDS = Object.keys(PLATFORM_DOMAINS).filter((id) => id !== 'reddit');
-    const needSeeds = !q && SEARX_IDS.some((id) => want(id));
-    const seeds = needSeeds ? await seedTopics(6) : [];
-
-    // Kick off all requested platform fetches in parallel; each is
-    // independently fault-tolerant — a single failure doesn't kill the rest.
-    const [redditResult, hnResult, ghResult, newsResult, communityResult,
-           mastodonResult, blueskyResult, lemmyResult, creatorsResult,
-           newsVideoResult, marketsVideoResult, ...searxResults] = await Promise.allSettled([
-      want('reddit') ? fetchRedditBest(q, limit, cur.reddit) : Promise.resolve(NONE),
-      want('hackernews') ? fetchHackerNews(q, limit, cur.hackernews) : Promise.resolve(NONE),
-      want('github') ? fetchGitHub(q, limit, cur.github) : Promise.resolve(NONE),
-      want('news') ? fetchNews(q, limit, cur.news) : Promise.resolve(NONE),
-      want('community') ? fetchCommunity(q, limit, cur.community) : Promise.resolve(NONE),
-      want('mastodon') ? fetchMastodon(q, limit, cur.mastodon) : Promise.resolve(NONE),
-      want('bluesky') ? fetchBluesky(q, limit, cur.bluesky) : Promise.resolve(NONE),
-      want('lemmy') ? fetchLemmy(q, limit, cur.lemmy) : Promise.resolve(NONE),
-      want('creators') ? fetchCreatorsFeed(q, limit, cur.creators) : Promise.resolve(NONE),
-      // YouTube coverage of today's news and markets. Asked for BY NAME only:
-      // 'all' does not include them (a merged timeline of everything is not
-      // improved by two more video lanes it never asked for, and each costs a
-      // search), so the Browse categories that want them list them.
-      requestedPlatforms?.includes('newsvideo') ? fetchVideoLane('newsvideo', q, limit, cur.newsvideo) : Promise.resolve(NONE),
-      requestedPlatforms?.includes('marketsvideo') ? fetchVideoLane('marketsvideo', q, limit, cur.marketsvideo) : Promise.resolve(NONE),
-      // The SearXNG-backed platforms, in the fixed order of SEARX_IDS so the
-      // results can be zipped back onto their ids below.
-      ...SEARX_IDS.map((id) => (want(id)
-        ? (SHARED[id] ? withSharedFirst(id, q, limit, cur[id], (c) => fetchViaSearx(id, q, limit, c, seeds)) : fetchViaSearx(id, q, limit, cur[id], seeds))
-        : Promise.resolve(NONE))),
-    ]);
-
-    const settle = (r) => (r.status === 'fulfilled' ? r.value : NONE);
-    const reddit = safeFeed(settle(redditResult).items, allowAdult);
-    const hackernews = safeFeed(settle(hnResult).items, allowAdult);
-    const github = safeFeed(settle(ghResult).items, allowAdult);
-    const news = safeFeed(settle(newsResult).items, allowAdult);
-    const community = safeFeed(settle(communityResult).items, allowAdult);
-    const mastodon = safeFeed(settle(mastodonResult).items, allowAdult);
-    const bluesky = safeFeed(settle(blueskyResult).items, allowAdult);
-    const lemmy = safeFeed(settle(lemmyResult).items, allowAdult);
-    const creators = safeFeed(settle(creatorsResult).items, allowAdult);
-    const newsvideo = safeFeed(settle(newsVideoResult).items, allowAdult);
-    const marketsvideo = safeFeed(settle(marketsVideoResult).items, allowAdult);
-
-    // Zip the SearXNG results back onto their ids. Built as objects rather than
-    // named consts because there are six of them and they are all identical —
-    // spreading these into the response keeps `platforms`, `nextCursor` and
-    // `errors` the same shape they have always been, one key per source.
-    const searxItems = {};
-    const searxCursors = {};
-    const searxErrors = {};
-    SEARX_IDS.forEach((id, i) => {
-      const r = searxResults[i];
-      searxItems[id] = safeFeed(settle(r).items, allowAdult);
-      searxCursors[id] = settle(r).next;
-      searxErrors[id] = r.status === 'rejected' ? (r.reason?.message || 'unavailable') : null;
-      if (r.status === 'rejected') logger.warn(`${id} feed failed:`, r.reason?.message);
-    });
-    const searxAll = SEARX_IDS.flatMap((id) => searxItems[id]);
-
-    if (redditResult.status === 'rejected') logger.warn('Reddit feed failed:', redditResult.reason?.message);
-    if (hnResult.status === 'rejected') logger.warn('HN feed failed:', hnResult.reason?.message);
-    if (ghResult.status === 'rejected') logger.warn('GitHub feed failed:', ghResult.reason?.message);
-    if (newsResult.status === 'rejected') logger.warn('News feed failed:', newsResult.reason?.message);
-    if (communityResult.status === 'rejected') logger.warn('Community feed failed:', communityResult.reason?.message);
-    if (mastodonResult.status === 'rejected') logger.warn('Mastodon feed failed:', mastodonResult.reason?.message);
-    if (blueskyResult.status === 'rejected') logger.warn('Bluesky feed failed:', blueskyResult.reason?.message);
-    if (lemmyResult.status === 'rejected') logger.warn('Lemmy feed failed:', lemmyResult.reason?.message);
-    if (creatorsResult.status === 'rejected') logger.warn('Creators feed failed:', creatorsResult.reason?.message);
-    if (newsVideoResult.status === 'rejected') logger.warn('News video lane failed:', newsVideoResult.reason?.message);
-    if (marketsVideoResult.status === 'rejected') logger.warn('Market video lane failed:', marketsVideoResult.reason?.message);
-
-    // Merged chronological feed across all platforms
-    const all_results = [...reddit, ...hackernews, ...github, ...news, ...community,
-      ...mastodon, ...bluesky, ...lemmy, ...creators, ...newsvideo, ...marketsvideo, ...searxAll].sort((a, b) => {
-      if (!a.date && !b.date) return 0;
-      if (!a.date) return 1;
-      if (!b.date) return -1;
-      return new Date(b.date) - new Date(a.date);
-    });
-
-    return res.json({
-      query: q,
-      results: all_results,
-      platforms: {
-        reddit, hackernews, github, news, community, mastodon, bluesky, lemmy, creators, newsvideo, marketsvideo, ...searxItems,
-      },
-      // What to send back to continue. A platform that has run out reports
-      // null, which is how the client knows to stop asking rather than
-      // spinning on an endpoint that will keep returning the same page.
-      nextCursor: {
-        reddit: settle(redditResult).next,
-        hackernews: settle(hnResult).next,
-        github: settle(ghResult).next,
-        news: settle(newsResult).next,
-        community: settle(communityResult).next,
-        mastodon: settle(mastodonResult).next,
-        bluesky: settle(blueskyResult).next,
-        lemmy: settle(lemmyResult).next,
-        creators: settle(creatorsResult).next,
-        newsvideo: settle(newsVideoResult).next,
-        marketsvideo: settle(marketsVideoResult).next,
-        ...searxCursors,
-      },
-      // WHY, not just THAT.
-      //
-      // This used to say 'unavailable' for every kind of failure, and the
-      // client threw the field away entirely — so a platform being blocked, a
-      // platform timing out and a platform genuinely having no posts all
-      // looked identical from the outside: an empty feed and no explanation.
-      // That is what "the feed won't load" was, and it is unfixable from a
-      // screenshot when the only symptom is nothing.
-      errors: {
-        reddit: redditResult.status === 'rejected' ? (redditResult.reason?.message || 'unavailable') : null,
-        hackernews: hnResult.status === 'rejected' ? (hnResult.reason?.message || 'unavailable') : null,
-        github: ghResult.status === 'rejected' ? (ghResult.reason?.message || 'unavailable') : null,
-        news: newsResult.status === 'rejected' ? (newsResult.reason?.message || 'unavailable') : null,
-        community: communityResult.status === 'rejected' ? (communityResult.reason?.message || 'unavailable') : null,
-        mastodon: mastodonResult.status === 'rejected' ? (mastodonResult.reason?.message || 'unavailable') : null,
-        bluesky: blueskyResult.status === 'rejected' ? (blueskyResult.reason?.message || 'unavailable') : null,
-        lemmy: lemmyResult.status === 'rejected' ? (lemmyResult.reason?.message || 'unavailable') : null,
-        creators: creatorsResult.status === 'rejected' ? (creatorsResult.reason?.message || 'unavailable') : null,
-        newsvideo: newsVideoResult.status === 'rejected' ? (newsVideoResult.reason?.message || 'unavailable') : null,
-        marketsvideo: marketsVideoResult.status === 'rejected' ? (marketsVideoResult.reason?.message || 'unavailable') : null,
-        ...searxErrors,
-      },
-    });
+    const key = TopFeedCache.keyFor({ platforms: requestedPlatforms, query: q, cursor: cur, limit, adult: allowAdult });
+    const { payload, cache } = await TopFeedCache.serve(
+      key,
+      // Each post's language is worked out ONCE, here, before anything is cached;
+      // the per-visitor Local/Global filter below is then just a filter.
+      async () => ContentLang.annotate(await buildFeedPayload({
+        q, requestedPlatforms, cur, limit, allowAdult,
+        // The creators lane's isolate-one-creator and Shorts/Videos filter. A request
+        // that includes that lane is never cacheable (keyFor), so these never need to
+        // be part of a cache key.
+        creator: typeof req.body?.creator === 'string' ? req.body.creator.slice(0, 64) : undefined,
+        kind: ['short', 'video'].includes(req.body?.kind) ? req.body.kind : 'all',
+      })),
+      { platforms: requestedPlatforms || [] },
+    );
+    res.set('X-Truegle-Cache', cache);
+    // LANGUAGE (owner, 2026-11-09): Local = only the visitor's language; Global =
+    // the visitor's language first. `lang` is the device's language, sent by the page.
+    const lang = typeof req.body?.lang === 'string' ? req.body.lang.slice(0, 12) : '';
+    const langMode = req.body?.langMode === 'global' ? 'global' : 'local';
+    return res.json(lang ? ContentLang.filterByLang(payload, { lang, mode: langMode }) : payload);
   } catch (error) {
     logger.error('Social feed error:', error);
     return res.status(500).json({ error: 'Social feed unavailable', details: 'Service error' });
   }
 });
 
+router.buildFeedPayload = buildFeedPayload;
+router.__serverGuard = serverGuard;
 module.exports = router;

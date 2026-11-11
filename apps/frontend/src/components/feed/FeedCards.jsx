@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowUp, MessageCircle, ExternalLink, Code, Star, GitFork, Play, ListPlus } from 'lucide-react';
+import { ArrowUp, MessageCircle, ExternalLink, Code, Star, GitFork, Play, ListPlus, Radio } from 'lucide-react';
 import { PROVIDERS } from '../../config/socialProviders';
 import { feedSource } from '../../hooks/useFeedCursor';
 import { usePlayer } from '../../context/PlayerContext';
@@ -147,6 +147,19 @@ const colourFor = (platform) => COLOUR_BY_PLATFORM[String(platform || '').toLowe
  * provider colour, which is also what the spec asks for — a container two-toned
  * to the provider it came from, saying where it is from without a logo.
  */
+// "Short" tag on a creator's YouTube Short (the backend stamps `isShort`; see
+// services/ShortsProbe.js). Plain rows never carry the flag, so nothing else
+// changes. Used by both card shapes.
+const ShortBadge = ({ post }) => (post?.isShort ? (
+  <span
+    data-feed-short=""
+    title="A YouTube Short"
+    className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-black/50 border border-white/25 text-[10px] font-semibold text-white/90 shrink-0"
+  >
+    Short
+  </span>
+) : null);
+
 export const GenericCard = ({ post }) => {
   const colour = colourFor(post.platform);
   return (
@@ -178,6 +191,7 @@ export const GenericCard = ({ post }) => {
           <div className="flex items-center gap-1.5 mb-1">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: colour }} />
             <span className="text-[11px] font-medium" style={{ color: colour }}>{post.platform}</span>
+            <ShortBadge post={post} />
             {/* THE WATERMARK. A community row was posted HERE, not read from
                 somebody else's timeline, and a reader deserves to know which
                 they are looking at — every other row in this feed is a window
@@ -264,6 +278,7 @@ export const MediaPostCard = ({ post, shape, poster }) => {
       <div className="absolute top-2 left-2 right-10 flex items-center gap-1.5">
         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: colour }} />
         <span className="text-[11px] font-medium drop-shadow" style={{ color: colour }}>{post.platform}</span>
+        <ShortBadge post={post} />
         {post.community && (
           <span
             data-feed-watermark={post.anonymous ? 'anonymous' : 'attributed'}
@@ -314,12 +329,16 @@ export const MediaPostCard = ({ post, shape, poster }) => {
  *  nearest the vertical center of the viewport. Purely a rendering signal;
  *  the caller owns registering the wrapper element with that hook.
  *
+ *  `onStream` — like onPlay, but the run keeps itself fed from this feed's next
+ *  pages (see useFeedCursor.beginStream). Omitted where a feed has no cursor of
+ *  its own (Browse's strips) — the Stream button is then not shown.
+ *
  *  `onPlay` — starts playback via the caller's feed-follow cursor (see
  *  useFeedCursor), so the fullscreen player has this feed's own rows to
  *  swipe through afterwards. Optional: a caller with no cursor of its own
  *  (Browse's horizontal strips) omits it and gets the plain playNow this
  *  always did. */
-export default function FeedCard({ post, focused = false, onPlay, nativeShape = false }) {
+export default function FeedCard({ post, focused = false, onPlay, onStream, nativeShape = false }) {
   const [leavingOpen, setLeavingOpen] = useState(false);
   const [warnOpen, setWarnOpen] = useState(false);
   const { current, startFeed, enqueue, requestFullscreen } = usePlayer();
@@ -399,6 +418,12 @@ export default function FeedCard({ post, focused = false, onPlay, nativeShape = 
     if (started) requestFullscreen();
   };
 
+  const streamIt = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onStream && onStream() !== false) requestFullscreen();
+  };
+
   const queueIt = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -467,6 +492,18 @@ export default function FeedCard({ post, focused = false, onPlay, nativeShape = 
           <Play size={12} />
           Play now
         </button>
+        {onStream && (
+          <button
+            type="button"
+            data-feed-action="stream"
+            onClick={streamIt}
+            title="Stream — keep playing this feed"
+            className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg font-medium text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+          >
+            <Radio size={12} />
+            Stream
+          </button>
+        )}
         <button
           type="button"
           data-feed-action="queue"

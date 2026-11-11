@@ -170,6 +170,20 @@ for (const mode of ['error', 'silent', 'stuck']) {
   check(after && after.includes(first.match(/\/(\d{10,})/)[1]), `[${mode}] …for the SAME clip (it is not skipped)`);
   const box = await p2.locator('iframe[src*="tiktok.com"]').first().boundingBox();
   check(box && box.height > box.width * 1.9, `[${mode}] …in the taller box the card needs`, box ? `${Math.round(box.width)}x${Math.round(box.height)}` : 'none');
+  // TikTok lays out at >= 325px wide. In a narrower box it used to draw 325px
+  // anyway and we showed the middle slice (owner, 2026-11-09: "the rest of the
+  // video falls to the left and right of the visible area"). Now: full layout
+  // width, scaled down to exactly the box.
+  const fit = await p2.evaluate(() => {
+    const f = document.querySelector('iframe[src*="tiktok.com"]'); const b = f?.closest('[data-player-box]');
+    if (!f || !b) return null;
+    const fr = f.getBoundingClientRect(); const br = b.getBoundingClientRect();
+    return { layoutW: f.offsetWidth, visW: Math.round(fr.width), visH: Math.round(fr.height), boxW: Math.round(br.width), boxH: Math.round(br.height), scale: f.dataset.tiktokScale };
+  });
+  check(!!fit && (fit.boxW >= 325
+    ? fit.scale === '1.000' && Math.abs(fit.layoutW - fit.boxW) <= 1
+    : fit.layoutW === 325 && Math.abs(fit.visW - fit.boxW) <= 1 && Math.abs(fit.visH - fit.boxH) <= 1),
+  `[${mode}] …and TikTok gets its full 325px layout, scaled to fit the box — nothing cropped`, JSON.stringify(fit));
   await c2.close();
 }
 

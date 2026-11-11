@@ -23,6 +23,8 @@
     "trail:browser": "node scripts/verify-trail-browser.mjs",
     "vault:browser": "node scripts/verify-vault-browser.mjs",
     "feedpage:test": "node scripts/verify-feed-page.mjs",
+    "visitor:test": "node scripts/verify-visitor.mjs",
+    "langmode:test": "node scripts/verify-lang-mode.mjs",
     "feedtip:test": "node scripts/verify-feed-tip.mjs",
     "feedtube:test": "node scripts/verify-feed-tube.mjs",
     "feedplayable:test": "node scripts/verify-feed-playable.mjs",
@@ -112,7 +114,13 @@
     "osiris:test": "node scripts/verify-osiris-layers.mjs",
     "intent:test": "node scripts/verify-query-intent.mjs",
     "swipenav:test": "esbuild scripts/verify-swipe-nav.mjs --bundle --format=esm --platform=node --alias:react=./scripts/stubs/react.mjs --outfile=dev/.build/swipe-nav-test.mjs --log-level=error && node dev/.build/swipe-nav-test.mjs",
-    "searchmemory:test": "node scripts/verify-player-search-memory.mjs"
+    "searchmemory:test": "node scripts/verify-player-search-memory.mjs",
+    "rumble:test": "node scripts/verify-rumble-embed.mjs",
+    "tiktokblock:test": "node scripts/verify-tiktok-block.mjs",
+    "viewerframe:test": "node scripts/verify-viewer-frame.mjs",
+    "gameboykeys:test": "node scripts/verify-gameboy-keys.mjs",
+    "gameboygames:test": "node scripts/verify-gameboy-games.mjs",
+    "guideoffer:test": "node scripts/verify-guide-offer.mjs"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.16.2",

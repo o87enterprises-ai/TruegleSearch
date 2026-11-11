@@ -12,6 +12,13 @@ const REASONS = new Set([
   'unmute_rejected', 'autonext_empty', 'autonext_repeat', 'mode_fail',
   // iPhone shared-link door could not get the player to cover the screen.
   'gate_ios',
+  // TikTok's player refusing us (docs/TIKTOK-429-PLAN.md, step 5). One per clip:
+  //   tiktok_silent    the full player loaded and never said ready, or errored
+  //   tiktok_linkout   TikTok has been refused steadily, so the clip showed the
+  //                    Open-on-TikTok panel instead of loading
+  //   tiktok_recovered the full player said ready after it had been failing
+  // Read with GET /api/admin/player-health?reason=tiktok_silent — "rare or constant?"
+  'tiktok_silent', 'tiktok_linkout', 'tiktok_recovered',
 ]);
 const DEVICES = new Set(['touch', 'desktop']);
 const BROWSERS = new Set(['chrome', 'firefox', 'safari', 'samsung', 'other']);

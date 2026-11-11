@@ -88,12 +88,11 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
+        // No ad networks (docs/AD-POLICY.md): the old AdSense hosts were removed 2026-11-10.
         scriptSrc: [
           "'self'",
           "'unsafe-inline'",
           "'unsafe-eval'",
-          'https://pagead2.googlesyndication.com',
-          'https://www.googletagservices.com',
           'https://apis.google.com',
           'https://js.stripe.com',
           'https://api.mapbox.com',
@@ -107,13 +106,12 @@ app.use(
           'https://*.tiles.mapbox.com',
           'https://api.tomtom.com',
           'https://api.radar.io',
-          'https://pagead2.googlesyndication.com',
           'https://js.stripe.com',
           'wss:',
           'ws:',
         ],
         fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
-        frameSrc: ["'self'", 'https://js.stripe.com', 'https://www.paypal.com', 'https://pagead2.googlesyndication.com'],
+        frameSrc: ["'self'", 'https://js.stripe.com', 'https://www.paypal.com'],
         workerSrc: ["'self'", 'blob:'],
         childSrc: ["'self'", 'blob:'],
         mediaSrc: ["'self'", 'blob:', 'data:'],
@@ -316,6 +314,9 @@ app.use('/api/rewards', require('./routes/rewards'));
 app.use('/api/admin', [authLimiter, require('./routes/admin')]);
 // Geo-targeted ad configuration (IP country-of-origin -> highest-CPM zones)
 app.use('/api/creators', require('./routes/creators'));
+app.use('/api/cron', require('./routes/cron'));
+app.use('/api/lang', require('./routes/lang'));
+app.use('/api/embed', require('./routes/embed'));
 app.use('/api/session', require('./routes/session'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/prompts', require('./routes/prompts'));

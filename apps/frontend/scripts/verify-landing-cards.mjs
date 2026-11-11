@@ -30,6 +30,8 @@
  * The API is stubbed at the browser. Run it:  npm run landing:test
  */
 import { createServer } from 'vite';
+import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
 import { launchChromium, until, testContext } from './lib/browser.mjs';
 
 const ok = []; const bad = [];
@@ -67,8 +69,13 @@ async function expand(page) {
   await until(() => page.locator('[data-tile]').count().then((n) => n === 7), { what: 'the seven tiles' });
 }
 
-async function open(viewport, mobile, { expanded = true } = {}) {
-  const ctx = await testContext(browser, { viewport, isMobile: mobile, hasTouch: mobile });
+// A "human" browser: an ordinary user agent and no automation flag. Playwright's
+// own default is (correctly) read as a bot, so the existing tests keep seeing the
+// retracted, nothing-started page and these opt in to the person's.
+const HUMAN_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+async function open(viewport, mobile, { expanded = true, human = false } = {}) {
+  const ctx = await testContext(browser, { viewport, isMobile: mobile, hasTouch: mobile, ...(human ? { userAgent: HUMAN_UA } : {}) });
+  if (human) await ctx.addInitScript("Object.defineProperty(navigator, 'webdriver', { get: () => false });");
   await ctx.addInitScript("localStorage.setItem('truegle_install_dismissed_at', String(Date.now()));");
   const asked = [];
   // Generic first: Playwright tries the LAST-registered matching route first.
@@ -279,6 +286,9 @@ await guarded('feed heading + no modal', async () => {
   const { ctx, page } = await open({ width: 1280, height: 900 }, false, { expanded: false });
   const title = () => page.locator('[data-landing-feed-title]').innerText().then((t) => t.trim());
   check(await page.locator('[data-maintenance-notice], [role="dialog"]').count() === 0, 'no maintenance modal covers the landing page');
+  // The Feed frame lives in a card that is retracted at load: press it open.
+  await page.locator('[data-feed-frame-toggle]').dispatchEvent('click');
+  await until(() => page.locator('[data-landing-feed-title]').count(), { what: 'the Feed card to open' });
   check(await title() === 'Trending posts across all platforms', 'heading: "Trending posts across all platforms" with All selected', await title());
   const WANT = { instagram: 'Trending Posts on Instagram', facebook: 'Trending Posts on Facebook', x: 'Trending Posts on X', reddit: 'Trending Posts on Reddit', truthsocial: 'Trending Posts on Truth Social' };
   for (const [id, want] of Object.entries(WANT)) {
@@ -292,6 +302,150 @@ await guarded('feed heading + no modal', async () => {
   await page.locator('[data-landing-feed-tab="news"]').dispatchEvent('click');
   await until(() => title().then((t) => t === 'News'), { what: 'the News tab heading', timeout: 4000 }).catch(() => {});
   check(await title() === 'News', 'heading: the other tabs keep their own names', await title());
+  await ctx.close();
+});
+
+// ── the Feed card OPENS ITSELF for people, and says what the wait is ─────────
+// (owner, 2026-11-09). A person lands on a feed that is already loading; a bot
+// (Playwright's default counts as one) still gets the retracted card and no load.
+// The server pre-builds ONE entry each morning (backend/config/topFeed.js). It only
+// helps if that entry is exactly what the landing asks for, so the real request and
+// the two lists are held against the backend's copy here.
+const TOPFEED = createRequire(import.meta.url)('../../backend/config/topFeed.js');
+const listIn = (file, name) => { const m = new RegExp(`${name} = \\[([^\\]]*)\\]`).exec(readFileSync(new URL(file, import.meta.url), 'utf8')); return m ? [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : null; };
+const sameSet = (a, b) => JSON.stringify([...(a || [])].sort()) === JSON.stringify([...(b || [])].sort());
+check(sameSet(listIn('../src/hooks/useFeedTabs.js', 'TOP_NETWORKS'), TOPFEED.TOP_NETWORKS), 'the frontend Top tab and the server cache cover the same networks');
+check(sameSet(listIn('../src/hooks/useFeedTabs.js', 'FALLBACK_SEEDS'), TOPFEED.FALLBACK_SEEDS), 'the frontend fallback seed words and the server cache match');
+const NOTE = 'Surfing top posts may take +10 seconds to load... Thank you for your patience.';
+for (const [label, vp, mobile] of [['desktop', { width: 1280, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {
+  await guarded(`${label}: the Feed card opens itself for a person`, async () => {
+    const { ctx, page, asked } = await open(vp, mobile, { expanded: false, human: true });
+    // A slow feed, so the wait is on screen long enough to read (registered
+    // after open()'s stub, so it wins).
+    let release; const gate = new Promise((r) => { release = r; });
+    let firstBody = null;
+    await ctx.route('**/api/social/feed', async (r) => { asked.push('/api/social/feed'); if (!firstBody) { try { firstBody = JSON.parse(r.request().postData() || '{}'); } catch { firstBody = {}; } } await gate; return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: CREATOR_POSTS, platforms: { creators: CREATOR_POSTS }, errors: {}, nextCursor: {} }) }); });
+    const bar = page.locator('[data-feed-frame-toggle]');
+    await until(() => bar.getAttribute('aria-expanded').then((v) => v === 'true'), { what: 'the Feed card to open by itself', timeout: 8000 }).catch(() => {});
+    check(await bar.getAttribute('aria-expanded') === 'true', `${label}: the Feed card starts OPEN for a person, with no press`);
+    check(await page.locator('[data-features-toggle]').getAttribute('aria-expanded') === 'false' && await openOf(page, 'why') === 'closed', `${label}: Why Truegle and Features still start retracted`);
+    await until(() => asked.includes('/api/social/feed'), { what: 'the top posts to be requested without a click', timeout: 8000 }).catch(() => {});
+    check(asked.includes('/api/social/feed'), `${label}: the top-posts load starts by itself`, asked.join());
+    // The request is exactly the one the server pre-builds each morning.
+    await until(() => !!firstBody, { what: 'the first feed request', timeout: 8000 }).catch(() => {});
+    const P = TOPFEED.PREWARM_REQUEST;
+    check(!!firstBody && sameSet(firstBody.platforms, P.platforms) && (firstBody.query || '') === P.query && firstBody.limit === P.limit && JSON.stringify(firstBody.cursor || {}) === JSON.stringify(P.cursor) && firstBody.safeSearch === 'safe',
+      `${label}: the landing's first request is exactly the one the server pre-builds each morning`, JSON.stringify(firstBody));
+    // While it is slow: the logo, above the patience message.
+    const note = page.locator('[data-feed-loading-note]');
+    await until(() => note.count(), { what: 'the loading message', timeout: 8000 }).catch(() => {});
+    check(await note.count() === 1, `${label}: a loading message is on screen while the top posts load`);
+    check(((await note.innerText().catch(() => '')) || '').replace(/\s+/g, ' ').trim() === NOTE, `${label}: it says exactly the patience message`, ((await note.innerText().catch(() => '')) || '').trim());
+    const order = await note.evaluate((el) => { const img = el.querySelector('img'); const p = el.querySelector('p'); if (!img || !p) return null; const a = img.getBoundingClientRect(); const b = p.getBoundingClientRect(); return { logoAbove: a.bottom <= b.top + 1, centred: Math.abs((a.x + a.width / 2) - (b.x + b.width / 2)) < 8 }; });
+    check(!!order && order.logoAbove && order.centred, `${label}: the Truegle logo is above the text, centred`, JSON.stringify(order));
+    // Once the posts arrive the message goes.
+    release();
+    await until(() => page.locator('[data-feed-loading-note]').count().then((n) => n === 0), { what: 'the message to clear', timeout: 8000 }).catch(() => {});
+    check(await page.locator('[data-feed-loading-note]').count() === 0 && await page.locator('[data-landing-feed-frame] a').count() > 0, `${label}: the message clears when the posts arrive`);
+    // And it is still a card: a press retracts it.
+    await bar.dispatchEvent('click');
+    await until(() => page.locator('[data-landing-feed]').count().then((n) => n === 0), { what: 'the feed to retract' });
+    check(await bar.getAttribute('aria-expanded') === 'false', `${label}: pressing the open card still retracts it`);
+    await ctx.close();
+  });
+}
+await guarded('a bot does not start the feed', async () => {
+  const { ctx, page, asked } = await open({ width: 1280, height: 900 }, false, { expanded: false }); // Playwright default = bot
+  await page.waitForTimeout(1500);
+  check(await page.locator('[data-feed-frame-toggle]').getAttribute('aria-expanded') === 'false' && !asked.includes('/api/social/feed'), 'a bot gets the retracted Feed card and no top-posts load');
+  await ctx.close();
+});
+
+// ── the Feed card: same kind of card as Why Truegle and Features, retracted ───
+// at load, opened and retracted by a press (owner, 2026-11-09).
+for (const [label, vp, mobile] of [['desktop', { width: 1280, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {
+  await guarded(`${label}: the Feed card`, async () => {
+    const { ctx, page, asked } = await open(vp, mobile, { expanded: false });
+    await page.waitForTimeout(1000);
+    const bar = page.locator('[data-feed-frame-toggle]');
+    check((await bar.innerText()).trim() === 'Feed', `${label}: a card titled "Feed"`, (await bar.innerText()).trim());
+    check(await bar.getAttribute('data-open') === 'closed' && await bar.getAttribute('aria-expanded') === 'false', `${label}: the Feed card starts retracted`);
+    check(await page.locator('[data-landing-feed]').count() === 0 && await page.locator('[data-feed-frame-panel]').count() === 0, `${label}: no feed is mounted while it is retracted`);
+    check(!asked.includes('/api/social/feed'), `${label}: nothing is fetched for a retracted Feed card`, asked.join());
+    // Same size and configuration as the Why Truegle and Features cards.
+    const feedBox = await page.locator('[data-feed-frame-card]').boundingBox();
+    const whyBox = await page.locator('[data-card="why"]').boundingBox();
+    const featBox = await page.locator('[data-features-card]').boundingBox();
+    check(Math.abs(feedBox.width - whyBox.width) <= 1 && Math.abs(feedBox.width - featBox.width) <= 1 && Math.abs(feedBox.x - whyBox.x) <= 1,
+      `${label}: same width and left edge as Why Truegle and Features`, `${Math.round(feedBox.width)} vs ${Math.round(whyBox.width)}/${Math.round(featBox.width)}`);
+    check(Math.abs(feedBox.height - featBox.height) <= 2, `${label}: a retracted bar the same height as Features`, `${Math.round(feedBox.height)} vs ${Math.round(featBox.height)}`);
+    // A press opens it; the feed mounts and asks for its first page.
+    await bar.dispatchEvent('click');
+    await until(() => page.locator('[data-landing-feed-frame]').count(), { what: 'the feed frame inside the card' });
+    check(await bar.getAttribute('aria-expanded') === 'true' && await page.locator('[data-feed-frame-card] [data-landing-feed-frame]').count() === 1, `${label}: pressing it opens the feed inside the card`);
+    await until(() => asked.includes('/api/social/feed'), { what: 'the feed to load' });
+    // The next press retracts it completely.
+    await bar.dispatchEvent('click');
+    await until(() => page.locator('[data-landing-feed]').count().then((n) => n === 0), { what: 'the feed to retract' });
+    check(await bar.getAttribute('data-open') === 'closed' && await page.locator('[data-feed-frame-panel]').count() === 0, `${label}: pressing it again retracts it completely`);
+    // Independent of the other two cards.
+    check(await openOf(page, 'why') === 'closed' && await page.locator('[data-features-toggle]').getAttribute('aria-expanded') === 'false', `${label}: the other cards are untouched`);
+    await ctx.close();
+  });
+}
+
+// ── scroll chaining out of the feed frame (owner, 2026-11-09) ───────────────
+// The feed frame scrolls INSIDE itself, but at its top or bottom the PAGE must
+// carry on scrolling: reach the end of the frame and the whole screen continues.
+// Mid-frame, a wheel still scrolls the frame and leaves the page where it is.
+await guarded('feed frame scroll chaining', async () => {
+  const { ctx, page } = await open({ width: 1280, height: 900 }, false, { expanded: false });
+  // Plenty of posts, so the frame genuinely scrolls (registered after open()'s
+  // generic stub, so it wins).
+  const MANY = Array.from({ length: 40 }, (_, i) => ({
+    id: `m${i}`, platform: 'Creators', title: `Long list post ${i}`, url: `https://example.com/long-${i}`,
+    permalink: `https://example.com/long-${i}`, author: 'A Creator', date: '2026-09-28T00:00:00Z', thumbnail: null,
+  }));
+  await ctx.route('**/api/social/feed', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: MANY, platforms: { creators: MANY }, errors: {}, nextCursor: {} }) }));
+  await page.locator('[data-feed-frame-toggle]').dispatchEvent('click');
+  const frame = page.locator('[data-landing-feed-frame]');
+  await frame.waitFor({ timeout: 20000 });
+  await until(() => frame.evaluate((el) => el.scrollHeight > el.clientHeight + 200), { what: 'the frame to have more than it shows' });
+  // Put the whole frame on screen, then wheel with the pointer over it.
+  await frame.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(300);
+  const box = await frame.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  const state = () => page.evaluate(() => ({ page: Math.round(scrollY), frame: Math.round(document.querySelector('[data-landing-feed-frame]').scrollTop) }));
+
+  // 1. MID-FRAME: the wheel scrolls the frame, not the page.
+  const a0 = await state();
+  await page.mouse.wheel(0, 300);
+  await page.waitForTimeout(500);
+  const a1 = await state();
+  check(a1.frame > a0.frame && a1.page === a0.page, 'mid-frame, the wheel scrolls the frame and not the page', `${JSON.stringify(a0)} -> ${JSON.stringify(a1)}`);
+
+  // 2. BOTTOM OF THE FRAME: the page carries on scrolling.
+  await frame.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+  await page.waitForTimeout(700);
+  const b0 = await state();
+  await page.mouse.wheel(0, 400);
+  await page.waitForTimeout(700);
+  const b1 = await state();
+  check(b1.page > b0.page, 'at the bottom of the frame, the whole page keeps scrolling', `${JSON.stringify(b0)} -> ${JSON.stringify(b1)}`);
+
+  // 3. TOP OF THE FRAME: scrolling up carries the page up.
+  await frame.evaluate((el) => { el.scrollTop = 0; el.scrollIntoView({ block: 'center' }); });
+  await page.waitForTimeout(700);
+  const box2 = await frame.boundingBox();
+  await page.mouse.move(box2.x + box2.width / 2, box2.y + box2.height / 2);
+  await page.evaluate(() => scrollBy(0, 200));
+  await page.waitForTimeout(500);
+  const c0 = await state();
+  await page.mouse.wheel(0, -400);
+  await page.waitForTimeout(700);
+  const c1 = await state();
+  check(c1.page < c0.page, 'at the top of the frame, scrolling up carries the whole page up', `${JSON.stringify(c0)} -> ${JSON.stringify(c1)}`);
   await ctx.close();
 });
 

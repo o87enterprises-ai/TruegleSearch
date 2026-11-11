@@ -113,7 +113,7 @@ const MODE_TO_BACKEND = { blue: 'blue-pill', green: 'green', red: 'red-pill', pu
 const FOLDED_MODES = { purple: 'red' };
 const foldMode = (m) => FOLDED_MODES[m] || m;
 import { getVideoEmbed, getPlayable, mediaKey } from '../utils/videoEmbed';
-import { canPreview, opensOnLabel } from '../utils/embeddable';
+import { canPreview, opensOnLabel, viewerSrc } from '../utils/embeddable';
 import api from '../services/api';
 import { fallbackVideos } from '../content/creatorVideosFallback';
 import QueueButton from '../components/ui/QueueButton';
@@ -1848,7 +1848,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
               </div>
               <iframe
                 key={result.url}
-                src={result.url}
+                src={viewerSrc(result.url)}
                 className="flex-1 w-full"
                 title="Result preview"
                 sandbox="allow-scripts allow-same-origin"
@@ -1891,12 +1891,15 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
                    any other reason still has a way out. */
                 <iframe
                   key={result.url}
-                  src={result.url}
+                  src={viewerSrc(result.url)}
                   className="w-full h-[60vh]"
                   title="Result preview"
                   sandbox="allow-scripts allow-same-origin"
                 />
               )}
+              <p data-viewer-hint="" className="px-3 py-1 text-[11px] text-white/40 border-t border-white/5">
+                Blank? Some sites do not allow being shown here — use Open link above.
+              </p>
             </div>
           ))}
         </div>
@@ -2214,7 +2217,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
           </AnimatePresence>
 
 
-          {/* Games Panel — the touch-only emulator library (see PR notes:
+          {/* Games Panel — the emulator library, touch or keyboard (see PR notes:
               "games scrollable search categories"). Same shell/lifecycle as
               the shopping panel above. */}
           <AnimatePresence>

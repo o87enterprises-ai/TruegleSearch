@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Joystick } from 'lucide-react';
-import { GAMEBOY_LIBRARY } from '../../data/gameboyLibrary';
+import { PLAYABLE_GAMES } from '../../data/gameboyLibrary';
 import GameBoyPlayer from './GameBoyPlayer';
 
 // The Games search category: a horizontally scrollable strip of
-// touch-only emulator games (no keyboard/controller required — see
-// GameBoyPlayer). Mirrors the shopping ("As Seen On") panel's shell so
-// it lands in the same place in the results flow.
+// emulator games, playable by touch on a phone or with the keyboard on a
+// desktop (no gamepad — see GameBoyPlayer). Mirrors the shopping ("As Seen On")
+// panel's shell so it lands in the same place in the results flow.
 export default function GamesPanel({ onClose }) {
   const [activeGame, setActiveGame] = useState(null);
 
@@ -20,7 +20,7 @@ export default function GamesPanel({ onClose }) {
           </div>
           <div>
             <h3 className="text-lg font-bold text-white">Games</h3>
-            <p className="text-sm text-violet-300/70">Free homebrew Game Boy games — playable with touch only</p>
+            <p className="text-sm text-violet-300/70">Free homebrew Game Boy games — play with touch or your keyboard</p>
           </div>
         </div>
         <button
@@ -32,7 +32,7 @@ export default function GamesPanel({ onClose }) {
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-        {GAMEBOY_LIBRARY.map((game) => (
+        {PLAYABLE_GAMES.map((game) => (
           <motion.button
             key={game.id}
             type="button"

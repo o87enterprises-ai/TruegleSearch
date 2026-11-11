@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ExternalLink, Maximize2, Minimize2, X } from 'lucide-react';
+import { viewerSrc } from '../../utils/embeddable';
 
 // A page opened "In app": a frame with a header bar, and a way to take it full
 // screen and back — the same flow the search results' "Open in app" has had
@@ -45,7 +46,7 @@ export default function PagePreview({ url, title, linkClass = 'text-cyan-400', f
   const frame = (cls) => (
     <iframe
       key={url}
-      src={url}
+      src={viewerSrc(url)}
       className={cls}
       title={title || 'Preview'}
       sandbox="allow-scripts allow-same-origin"

@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import { Music } from 'lucide-react';
 import TruegleWatermark from '../ui/TruegleWatermark';
 import PlayerStarters from './PlayerStarters';
@@ -6,6 +6,7 @@ import PlayerBrowse from './PlayerBrowse';
 import { PLAYER_SANDBOX, sandboxFor } from './playerSandbox';
 import { upgradeTikTokSrc, tiktokCardSrc } from '../../utils/videoEmbed';
 import { IS_IOS } from '../../utils/isIOS';
+import { useRumbleSrc } from '../../utils/rumbleEmbed';
 
 export { PLAYER_SANDBOX };
 
@@ -23,6 +24,7 @@ function withPlaybackChannel(kind, src, tiktokCard = false) {
   // TikTok's player/v1 carries its own autoplay; older saved sources are
   // upgraded from the /embed/v2 card, which could not be controlled.
   if (kind === 'tiktok') return tiktokCard ? tiktokCardSrc(src) : upgradeTikTokSrc(src);
+  if (src === 'about:blank') return src; // a Rumble clip still waiting for its real embed
   const sep = src.includes('?') ? '&' : '?';
   if (kind === 'youtube') {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -44,11 +46,38 @@ function withPlaybackChannel(kind, src, tiktokCard = false) {
   return `${src}${sep}autoplay=1`;
 }
 
+// TIKTOK HAS A MINIMUM WIDTH (owner, 2026-11-09: "the video frame seems too
+// narrow, as if the rest of the video falls to the left and right of the visible
+// area"). TikTok lays its embeds out at no less than 325 CSS px wide. In a small
+// box — the popped-out window caps the height, and the card fallback is 9:21, so
+// it came out 168px wide — TikTok still drew 325px and we showed only the middle
+// slice: both sides and the bottom were cut off. Below that width the frame is now
+// laid out at 325px and SCALED DOWN to the box, so the whole thing is visible.
+const TIKTOK_MIN_WIDTH = 325;
+
+/** Width of an element, kept current. 0 until measured. */
+function useWidth(ref, active) {
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!active || !el) return undefined;
+    setW(el.getBoundingClientRect().width);
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(([e]) => setW(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref, active]);
+  return w;
+}
+
 const PlayerScreen = forwardRef(function PlayerScreen({
   source, mediaRef, frameRef, onEnded, onError, maxHeight, fill = false, compact = false,
   // TikTok's controllable player could not run (blank, errored) — show the
   // older card player, which draws the video but cannot be commanded.
   tiktokCard = false,
+  // TikTok is being refused steadily: no frame at all (see TikTokBlockedPanel) — the
+  // box stays, so the layout does not jump, but nothing is requested from TikTok.
+  tiktokLinkOut = false,
   // Lock the picture to 9:16 in every state and letterbox anything wider —
   // the feed player is portrait-native. See the note above `ratio`.
   portrait = false,
@@ -85,7 +114,11 @@ const PlayerScreen = forwardRef(function PlayerScreen({
     );
   }
 
-  const { kind, src, title } = source;
+  const { kind, title } = source;
+  // Rumble: swap the guessed embed for the real one (utils/rumbleEmbed.js).
+  // Below the idle return on purpose: the idle render calls no hooks at all,
+  // which is what lets the hooks further down start once a source arrives.
+  const src = useRumbleSrc(source);
   // EVERY KIND THAT IS AN IFRAME HAS TO BE LISTED HERE. This list is the only
   // thing standing between an embed and the <audio> fallback at the bottom of
   // this component, and that fallback fails SILENTLY-ish: it hands an HTML
@@ -219,6 +252,14 @@ const PlayerScreen = forwardRef(function PlayerScreen({
       margin: '0 auto',
     };
 
+  // See TIKTOK_MIN_WIDTH above.
+  const boxRef = useRef(null);
+  const boxWidth = useWidth(boxRef, kind === 'tiktok');
+  const ttScale = kind === 'tiktok' && boxWidth > 0 && boxWidth < TIKTOK_MIN_WIDTH ? boxWidth / TIKTOK_MIN_WIDTH : 1;
+  const frameStyle = ttScale < 1 ? {
+    width: TIKTOK_MIN_WIDTH, height: `${100 / ttScale}%`, transform: `scale(${ttScale})`, transformOrigin: '0 0',
+  } : undefined;
+
   return (
     <div
       ref={ref}
@@ -247,7 +288,8 @@ const PlayerScreen = forwardRef(function PlayerScreen({
           allow="autoplay"
         />
       ) : isVideoIframe ? (
-        <div className="relative" style={boxStyle}>
+        <div ref={boxRef} className="relative overflow-hidden" style={boxStyle} data-player-box="">
+          {!(tiktokLinkOut && kind === 'tiktok') && (
           <iframe
             ref={frameRef}
             key={source.playToken ? `${src}#${source.playToken}` : src}
@@ -256,12 +298,15 @@ const PlayerScreen = forwardRef(function PlayerScreen({
             // clock starts here, not at mount, so a slow network is not
             // mistaken for a dead clip.
             onLoad={(e) => { e.currentTarget.dataset.loaded = '1'; onFrameLoad?.(); }}
-            className="absolute inset-0 w-full h-full"
+            className={ttScale < 1 ? 'absolute left-0 top-0' : 'absolute inset-0 w-full h-full'}
+            style={frameStyle}
+            data-tiktok-scale={kind === 'tiktok' ? ttScale.toFixed(3) : undefined}
             title={title || 'Video player'}
             sandbox={sandboxFor(kind)}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
+          )}
         </div>
       ) : kind === 'video' ? (
         // object-contain IS the letterbox for a native file: the black bands

@@ -4,6 +4,7 @@ const logger = require('../utils/logger');
 const { query } = require('../db/connection');
 const gateway = require('../services/YouTubeGateway');
 const roster = require('../config/creatorsRoster');
+const { annotateShorts, matchesKind } = require('../services/ShortsProbe');
 const { MediaService } = require('../services/MediaService');
 
 /*
@@ -158,6 +159,9 @@ async function aboutViaChannelPage(channelId) {
 async function getChannelVideos(channelId) {
   const hit = cache.get(channelId);
   if (hit && Date.now() - hit.at < TTL_MS) {
+    // Videos the Shorts probe could not answer last time get asked again; the
+    // answered ones are already known and cost nothing.
+    await annotateShorts(hit.videos);
     return { videos: hit.videos, cached: true, stale: false };
   }
   try {
@@ -169,6 +173,7 @@ async function getChannelVideos(channelId) {
       logger.warn('Creator Data API failed, trying RSS:', { channelId, error: e.message });
     }
     if (!videos || videos.length === 0) videos = await fetchViaRss(channelId);
+    await annotateShorts(videos);
     cache.set(channelId, { at: Date.now(), videos });
     return { videos, cached: false, stale: false };
   } catch (err) {
@@ -242,9 +247,14 @@ function spreadByChannel(items, seed = Math.floor(Date.now() / 3600000)) {
   return out;
 }
 
-async function fetchCreatorsFeed(query, limit = 20, cursor) {
+// `creatorSlug`, when it names a roster member, isolates that one creator:
+// only their channel is fetched, so the feed is entirely theirs and pages
+// properly. An unknown slug falls back to the whole roster rather than an
+// empty feed.
+async function fetchCreatorsFeed(query, limit = 20, cursor, creatorSlug, kind = 'all') {
+  const only = creatorSlug ? roster.filter((c) => c.slug === String(creatorSlug)) : [];
   const settled = await Promise.allSettled(
-    roster.map((c) => getChannelVideos(c.channelId).then((r) => ({ creator: c, videos: r.videos }))),
+    (only.length ? only : roster).map((c) => getChannelVideos(c.channelId).then((r) => ({ creator: c, videos: r.videos }))),
   );
 
   let items = [];
@@ -252,6 +262,7 @@ async function fetchCreatorsFeed(query, limit = 20, cursor) {
     if (r.status !== 'fulfilled') continue;
     const { creator, videos } = r.value;
     for (const v of videos) {
+      if (!matchesKind(v, kind)) continue;
       items.push({
         id: v.url,
         platform: 'Truegle Creators',
@@ -268,6 +279,7 @@ async function fetchCreatorsFeed(query, limit = 20, cursor) {
         comments: null,
         thumbnail: v.thumbnail || null,
         flair: null,
+        isShort: v.short === true,
       });
     }
   }
@@ -292,7 +304,7 @@ router.get('/feed', async (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
   const rawCursor = parseInt(req.query.cursor, 10);
   const cursor = Number.isInteger(rawCursor) ? rawCursor : undefined;
-  const result = await fetchCreatorsFeed(req.query.query || '', limit, cursor);
+  const result = await fetchCreatorsFeed(req.query.query || '', limit, cursor, req.query.creator, req.query.kind);
   res.json(result);
 });
 

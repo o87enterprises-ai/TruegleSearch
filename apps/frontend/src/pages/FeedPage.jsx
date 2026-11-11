@@ -16,12 +16,16 @@ import FeedBrowse from '../components/feed/FeedBrowse';
 import { categoryById, platformsForCategory } from '../config/feedCategories';
 import { useSocialConnections, connect as connectSource } from '../hooks/useSocialConnections';
 import { useSocialFeed } from '../hooks/useSocialFeed';
+import CreatorChips from '../components/feed/CreatorChips';
+import FeedPills from '../components/feed/FeedPills';
+import { useFeedTabs } from '../hooks/useFeedTabs';
 import { useFeedFocus } from '../hooks/useFeedFocus';
 import { useFeedCursor } from '../hooks/useFeedCursor';
 import { usePlayer } from '../context/PlayerContext';
 import { parseSocialQuery } from '../utils/queryIntent';
 import { feedPlaceholderNow, advanceFeedPlaceholder } from '../config/modePlaceholders';
 import SafeSearchToggle from '../components/ui/SafeSearchToggle';
+import LangModeToggle from '../components/ui/LangModeToggle';
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
@@ -133,6 +137,10 @@ export default function FeedPage() {
     return c && categoryById(c) ? c : 'home';
   });
   const openCategory = view !== 'home' && view !== 'browse' ? categoryById(view) : null;
+  // One creator isolated within the Creators category ('' = everyone).
+  const [creator, setCreator] = useState('');
+  const [kind, setKind] = useState('all');
+  useEffect(() => { if (openCategory?.id !== 'creators') { setCreator(''); setKind('all'); } }, [openCategory?.id]);
 
   // What actually gets asked for: the servers switched on here, plus anything
   // connected through an account. A connected source the visitor has since
@@ -155,18 +163,28 @@ export default function FeedPage() {
     if (!openCategory) return all.filter((p) => !BROWSE_ONLY.has(p));
     return platformsForCategory(openCategory, all);
   }, [activeIds.join(','), openCategory?.id, person?.platform]);
+  // HOME RUNS THE LANDING PILL FLOW (owner, 2026-11-08): Top · Creators · News ·
+  // Markets, server pills, Shuffle, fallback + newest-first — the same hook the
+  // landing frame uses. A typed search or an opened category keeps its own feed.
+  const homeTabs = view === 'home' && !person && !submitted;
+  const tabsAvailable = useMemo(() => platformsFor(activeIds), [activeIds.join(',')]);
+  const tabs = useFeedTabs({ available: tabsAvailable, enabled: homeTabs, rememberSeen: true });
   const feed = useSocialFeed({
     // An opened category with a topic seeds the query, unless the visitor has
     // typed something — what they typed always wins over the category's seed.
     query: person?.subject || submitted || openCategory?.topic || '',
     platforms,
-    enabled: platforms.length > 0,
+    creator: openCategory?.id === 'creators' ? creator : '',
+    kind: openCategory?.id === 'creators' ? kind : 'all',
+    enabled: platforms.length > 0 && !homeTabs,
     // The aggregated timeline: one post from every source in turn rather than
     // the server's date-sorted merge, and never the same post twice even
     // across a reload. See utils/roundRobin.js and utils/feedSeen.js.
     interleave: true,
     rememberSeen: true,
   });
+  // Whichever feed is on screen: Home's pill feed, or the search/category feed.
+  const activeFeed = homeTabs ? tabs.feed : feed;
 
   // A handshake that failed hands its reason over on the navigation rather than
   // in the URL — the exchange itself happens in FeedCallback, which owns
@@ -214,8 +232,8 @@ export default function FeedPage() {
   // FeedServers so those rows grey out and say "service coming soon" rather
   // than the page shouting an HTTP status at somebody who cannot act on it.
   const downProviders = useMemo(
-    () => (feed.platformErrors || []).map((e) => e.platform).filter(Boolean),
-    [feed.platformErrors],
+    () => (activeFeed.platformErrors || []).map((e) => e.platform).filter(Boolean),
+    [activeFeed.platformErrors],
   );
 
   const searchBar = (
@@ -288,6 +306,8 @@ export default function FeedPage() {
         <FeedModeSelector active="feed" />
         <div className="flex flex-wrap items-center gap-2">
           <SafeSearchToggle />
+          {/* Local (this device's language) / Global — every view on this page. */}
+          <LangModeToggle />
           {/* HOME / BROWSE. Home is the randomized timeline; Browse is the
               category rows. An opened category counts as Browse, because that
               is where its Back button returns to. */}
@@ -343,6 +363,8 @@ export default function FeedPage() {
         </div>
       )}
 
+      {openCategory?.id === 'creators' && <CreatorChips value={creator} onChange={setCreator} kind={kind} onKind={setKind} />}
+
       {/* NO LONGER A GATE.
           This page used to render a full-screen "connect an account first"
           arrival state and ask for no feed at all until somebody did. That
@@ -359,7 +381,8 @@ export default function FeedPage() {
         <ArrivalState onConnect={start} busy={busy} />
       ) : (
         <>
-          <FeedList feed={feed} searching={Boolean(person?.subject || submitted)} autoPlayUrl={searchParams.get('play') || ''} />
+          {homeTabs && <FeedPills t={tabs} />}
+          <FeedList feed={activeFeed} searching={Boolean(person?.subject || submitted)} autoPlayUrl={searchParams.get('play') || ''} />
         </>
       )}
     </SearchPageShell>
@@ -429,7 +452,7 @@ function ArrivalState({ onConnect, busy }) {
 
 // ── connected ───────────────────────────────────────────────────────────────
 
-export function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
+export function FeedList({ feed, searching = false, autoPlayUrl = '', loadingNote = null }) {
   const { items, loading, error, done, sentinel, allSeen } = feed;
   // Which card is nearest the vertical center of the viewport, purely for the
   // enlarge/play-button treatment — nothing here ever autoplays. See
@@ -440,7 +463,7 @@ export function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
   // playback on a card also arms this, so a later fullscreen swipe has
   // this feed's own rows to walk rather than falling through to Tube's
   // unrelated discovery.
-  const { beginFrom } = useFeedCursor(items);
+  const { beginFrom, beginStream } = useFeedCursor(items, { loadMore: feed.loadMore, done, loading });
 
   // "Featured Feeds", on landing — a card there links straight into the full
   // feed with the post it showed already playing, rather than starting a
@@ -488,7 +511,7 @@ export function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
       <div className="space-y-3">
         {items.map((post, idx) => (
           <div key={post._key} ref={(el) => register(idx, el)}>
-            <FeedCard post={post} focused={idx === activeIndex} onPlay={() => beginFrom(post)} nativeShape />
+            <FeedCard post={post} focused={idx === activeIndex} onPlay={() => beginFrom(post)} onStream={() => beginStream(post)} nativeShape />
           </div>
         ))}
       </div>
@@ -513,11 +536,11 @@ export function FeedList({ feed, searching = false, autoPlayUrl = '' }) {
         <p className="text-white/40 text-sm py-10 text-center">Nothing to show yet.</p>
       )}
 
-      {loading && (
+      {loading && (loadingNote && !items.length ? loadingNote : (
         <div className="flex justify-center py-8">
           <Loader2 size={20} className="animate-spin text-white/40" />
         </div>
-      )}
+      ))}
 
       {/* The load-more trigger. Rendered only while there is more to get, so a
           finished feed cannot sit here re-triggering against exhausted

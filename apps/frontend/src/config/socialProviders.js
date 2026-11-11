@@ -221,10 +221,17 @@ export const PROVIDERS = [
     status: 'open',
     note: 'Market analysis on YouTube, found by our search — no account',
   },
+  {
+    id: 'podcastvideo',
+    label: 'Podcasts',
+    colour: '#a16207',
+    status: 'open',
+    note: 'Playable podcast episodes on YouTube, found by our search — no account',
+  },
 ];
 
 /** Sources that only ever appear when their Browse category is opened. */
-export const BROWSE_ONLY = new Set(['newsvideo', 'marketsvideo']);
+export const BROWSE_ONLY = new Set(['newsvideo', 'marketsvideo', 'podcastvideo']);
 
 export const PROVIDER_IDS = PROVIDERS.map((p) => p.id);
 export const byId = (id) => PROVIDERS.find((p) => p.id === id) || null;
@@ -275,6 +282,7 @@ export const BACKEND_PLATFORMS = {
   truthsocial: ['truthsocial'],
   newsvideo: ['newsvideo'],
   marketsvideo: ['marketsvideo'],
+  podcastvideo: ['podcastvideo'],
   creators: ['creators'],
 };
 

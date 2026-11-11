@@ -64,6 +64,14 @@ export const CATEGORIES = [
     platforms: ['marketsvideo'],
   },
   {
+    // PODCASTS — playable full episodes (YouTube embed), found by our search.
+    // Type in the Feed's search box to find a show or topic within it.
+    id: 'podcasts',
+    label: 'Podcasts',
+    blurb: 'Full episodes you can play right here',
+    platforms: ['podcastvideo'],
+  },
+  {
     id: 'music',
     label: 'Music',
     blurb: 'What people are listening to and arguing about',
