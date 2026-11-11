@@ -1,9 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import SearchPageShell from '../components/layout/SearchPageShell';
 import { vaultFound } from '../utils/vault';
+import { trailIntent } from '../utils/guideAccess';
 
 // Lazy, and that is the whole point: someone who mistypes a URL, reads "404"
 // and leaves downloads none of the game — and none of the encyclopedia, which
@@ -12,8 +13,13 @@ const TrailGame = lazy(() => import('../components/TrailGame'));
 const Encyclopedia = lazy(() => import('../components/Encyclopedia'));
 
 const NotFound = () => {
-  const [playing, setPlaying] = useState(false);
-  const [reading, setReading] = useState(false);
+  // The landing-page offer sends people here already pointed at the door they chose:
+  // ?play=1 starts Trail, ?guide=1 opens the guide — but only if they hold it (a
+  // signed-in account or a finished run), so the address cannot be used to skip the game.
+  const { search } = useLocation();
+  const [intent] = useState(() => trailIntent(search));
+  const [playing, setPlaying] = useState(intent.play);
+  const [reading, setReading] = useState(intent.guide && !intent.play && vaultFound());
   // Read ONCE at mount rather than every render: the game writes this flag on
   // the arrival screen, and re-reading it mid-render would pop the link into
   // existence behind a full-screen game for no reason.
