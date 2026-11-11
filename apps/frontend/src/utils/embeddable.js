@@ -90,6 +90,14 @@ const REFUSES_FRAMING = [
 
   // ── AI products, which are single-page apps that refuse to be nested.
   'openai.com', 'chatgpt.com', 'claude.ai', 'anthropic.com',
+
+  // ── Music and culture sites that turn up under artist searches. Each of these
+  //    was CHECKED against its live response headers on 2026-11-11 (owner: a
+  //    Rabbit Hole result opened "in app" as a blank white page), not suspected:
+  //      genius.com        X-Frame-Options: SAMEORIGIN
+  //      pitchfork.com     X-Frame-Options: DENY, frame-ancestors 'none'
+  //      passionweiss.com  frame-ancestors 'self' + substack.com only
+  'genius.com', 'pitchfork.com', 'passionweiss.com',
 ];
 
 const refused = new Set(REFUSES_FRAMING);
@@ -130,6 +138,21 @@ export function refusesFraming(url) {
  * one plays it regardless of what this says about the watch page.
  */
 export const canPreview = (url) => !!url && !refusesFraming(url);
+
+/**
+ * The address to put in a preview FRAME for a result.
+ *
+ * Truegle is served over https, and a browser will not show an http page inside
+ * an https one (mixed content): the frame stays blank, with no error to catch.
+ * Search results do carry http addresses (owner, 2026-11-11: a Last.fm result,
+ * http://last.fm/..., opened as a white page — Last.fm itself allows framing).
+ * So a frame asks for https. Sites that still list an http address almost all
+ * redirect it to https anyway, and one that cannot be reached over https was
+ * going to be blank over http too.
+ *
+ * Only the leading scheme is changed; an http:// inside a query string is data.
+ */
+export const viewerSrc = (url) => (typeof url === 'string' ? url.replace(/^http:\/\//i, 'https://') : url);
 
 /** "Opens on nytimes.com" — the label a card shows instead of a dead button. */
 export const opensOnLabel = (url) => {

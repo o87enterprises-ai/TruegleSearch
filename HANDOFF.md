@@ -3,6 +3,15 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-11 — "Open in app" opened a blank white page (Rabbit Hole search "ebk jaaybo")
+
+- **Two causes, both checked against the live sites:** (1) the result address was `http://last.fm/...`; Truegle is https and a browser will not show an http frame inside an https page (mixed content), so the frame stayed blank — Last.fm itself allows framing. (2) `genius.com` (X-Frame-Options SAMEORIGIN), `pitchfork.com` (DENY) and `passionweiss.com` (frame-ancestors substack only) forbid framing and were not on the known-refusals list.
+- **Fix:** `utils/embeddable.js` `viewerSrc()` upgrades a leading `http://` to `https://` for the preview frame (UniversalSearch inline + full screen, `PagePreview`); the three sites are added to `REFUSES_FRAMING` (they now say "Opens on genius.com" instead of offering a blank frame); a one-line hint under the inline frame ("Blank? Some sites do not allow being shown here — use Open link above"). Rule kept: a host is added only when its headers were checked, not suspected.
+- Not changed: `OSINTToolsPanel.jsx` still frames its own URLs as given.
+- Tests: `npm run viewerframe:test` (18, phone + desktop, /red), `embeddable:test` (35). Also pass: `chatpreview:test`, `feedplayable:test`, `playerinteract:test`.
+
+---
+
 ## 🗓️ 2026-11-11 — TikTok player 429: fast detection, 10-minute memory, helper strip (plan steps 1-3)
 
 - **Cause:** TikTok throttles its own `player/v1` and `embed/v2` for the browser; the error page loads inside our frame and never says "ready". Not the feed servers. See `docs/TIKTOK-429-PLAN.md`.

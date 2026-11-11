@@ -34,7 +34,7 @@ await build({
   entryPoints: [resolve(process.cwd(), 'src/utils/embeddable.js')],
   bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error',
 });
-const { canPreview, refusesFraming, opensOnLabel, REFUSED_HOSTS } = await import(out);
+const { canPreview, refusesFraming, opensOnLabel, viewerSrc, REFUSED_HOSTS } = await import(out);
 
 // ── 1. the known refusals are refused ───────────────────────────────────────
 for (const url of [
@@ -48,6 +48,28 @@ for (const url of [
 ]) {
   check(!canPreview(url), `not offered in-app: ${new URL(url).hostname}`);
 }
+
+// Music and culture sites that explicitly forbid framing (checked against their
+// live headers, 2026-11-11), which turned up under an artist search and opened as
+// a blank white page.
+for (const url of [
+  'https://genius.com/artists/Ebk-jaaybo',
+  'https://pitchfork.com/artists/ebk-jaaybo/',
+  'https://www.passionweiss.com/tag/ebk-jaaybo/',
+]) {
+  check(!canPreview(url), `not offered in-app: ${new URL(url).hostname} (forbids framing)`);
+}
+// ...while a site that allows it still is.
+check(canPreview('http://last.fm/music/EBK+Jaaybo/_/Out+On+Bail') && canPreview('https://www.last.fm/music/EBK+Jaaybo'), 'Last.fm, which allows framing, is still offered in-app');
+
+// ── 1b. an http result goes into the frame as https ─────────────────────────
+// Truegle is https; an http frame inside it is blocked (mixed content) and stays
+// blank. Owner, 2026-11-11: http://last.fm/... opened as a white page.
+check(viewerSrc('http://last.fm/music/EBK+Jaaybo/_/Out+On+Bail') === 'https://last.fm/music/EBK+Jaaybo/_/Out+On+Bail', 'an http address is framed over https');
+check(viewerSrc('HTTP://Example.org/a') === 'https://Example.org/a', '…whatever the case of the scheme');
+check(viewerSrc('https://example.org/a') === 'https://example.org/a', 'an https address is left alone');
+check(viewerSrc('https://example.org/?u=http://other.example/') === 'https://example.org/?u=http://other.example/', 'an http:// inside the query string is data, not a scheme');
+check(viewerSrc(null) === null && viewerSrc(undefined) === undefined, 'nothing in, nothing out');
 
 // ── 2. subdomains count ─────────────────────────────────────────────────────
 // A refusal is a property of the site, not of one hostname.
