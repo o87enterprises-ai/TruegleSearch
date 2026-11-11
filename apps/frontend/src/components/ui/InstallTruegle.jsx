@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Smartphone, Search, MessageCircle, Copy, Check, ChevronDown } from 'lucide-react';
-import { useInstallState, promptInstall, isStandalone } from '../../utils/installPrompt';
+import { useInstallState, promptInstall } from '../../utils/installPrompt';
 import { copyText } from '../../utils/clipboard';
 
 // "Get Truegle one tap away" — install, default search, default assistant.
@@ -11,8 +10,10 @@ import { copyText } from '../../utils/clipboard';
 // WHY OUR OWN: the only install prompt anybody saw was the BROWSER's, which
 // each browser shows on its own schedule (Chrome once, then silent for about
 // three months after a dismissal) and which Safari, Firefox and iOS never show
-// at all. This one appears on the landing page for everybody, and is always
-// reachable from the menu.
+// at all. This one is reachable from the menu (BrandBar).
+//
+// NO LONGER POPS UP BY ITSELF (owner, 2026-11-11): the landing-page slot now offers the
+// free Post-Apocalyptic / Pioneer guide instead (components/ui/TrailGuideOffer.jsx).
 //
 // HONEST ABOUT LIMITS. Only Chromium browsers let a page open the real
 // installer. No browser lets a site make itself the default search engine,
@@ -20,8 +21,6 @@ import { copyText } from '../../utils/clipboard';
 // the quickest real routes for the browser in hand, with the exact web
 // address to paste one tap away. Nothing is sent anywhere.
 
-const DISMISS_KEY = 'truegle_install_dismissed_at';
-const REMIND_AFTER_MS = 21 * 24 * 60 * 60 * 1000;
 const SEARCH_URL = 'https://truegle.info/search?q=%s';
 const CHAT_URL = 'https://truegle.info/chat?q=%s';
 export const OPEN_INSTALL_EVENT = 'truegle:open-install';
@@ -117,7 +116,6 @@ const Steps = ({ items }) => (
 );
 
 export default function InstallTruegle() {
-  const { pathname } = useLocation();
   const { canPrompt, installed } = useInstallState();
   const [open, setOpen] = useState(false);
   const [section, setSection] = useState('home');
@@ -131,29 +129,8 @@ export default function InstallTruegle() {
     return () => window.removeEventListener(OPEN_INSTALL_EVENT, show);
   }, []);
 
-  // Offered by itself once on the landing page, then not again for three
-  // weeks after a dismissal. Never inside the installed app. Waits for any
-  // other dialog (the tutorial, a sign-in prompt) to be out of the way.
-  useEffect(() => {
-    if (pathname !== '/' || installed || isStandalone()) return undefined;
-    try {
-      const at = Number(localStorage.getItem(DISMISS_KEY) || 0);
-      if (at && Date.now() - at < REMIND_AFTER_MS) return undefined;
-    } catch { /* private mode: just offer it */ }
-    let tries = 0;
-    let t = setTimeout(function attempt() {
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]') && tries++ < 12) {
-        t = setTimeout(attempt, 5000);
-        return;
-      }
-      setOpen(true);
-    }, 6000);
-    return () => clearTimeout(t);
-  }, [pathname, installed]);
-
   const close = useCallback(() => {
     setOpen(false);
-    try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch { /* private mode */ }
   }, []);
 
   useEffect(() => {

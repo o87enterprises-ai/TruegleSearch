@@ -119,7 +119,8 @@
     "tiktokblock:test": "node scripts/verify-tiktok-block.mjs",
     "viewerframe:test": "node scripts/verify-viewer-frame.mjs",
     "gameboykeys:test": "node scripts/verify-gameboy-keys.mjs",
-    "gameboygames:test": "node scripts/verify-gameboy-games.mjs"
+    "gameboygames:test": "node scripts/verify-gameboy-games.mjs",
+    "guideoffer:test": "node scripts/verify-guide-offer.mjs"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.16.2",
