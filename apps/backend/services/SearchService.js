@@ -34,7 +34,7 @@ const RELEVANCE_STOPWORDS = new Set([
   'the', 'and', 'for', 'with', 'from', 'that', 'this', 'what', 'how', 'why', 'who',
   'are', 'was', 'were', 'you', 'your', 'can', 'does', 'did', 'about', 'into', 'near',
 ]);
-const { orderByExactMatch, balanceSources, fold } = require('./exactMatch');
+const { orderByExactMatch, balanceSources, compoundVariant, fold } = require('./exactMatch');
 const { braveGate } = require('./braveGate');
 const { breakers, msUntilPacificMidnight } = require('../utils/breaker');
 const upstream = require('../utils/upstreamStats');
@@ -291,6 +291,19 @@ class SearchService {
             // SearXNG managed five hits returned a five-result page and nothing
             // topped it up. That is the "results are too thin" report.
             if (sxResults.length > 0) preformattedResults.push(...sxResults);
+
+            // BRAND TYPED AS TWO WORDS ("rapid api sign up" -> rapidapi.com): when no
+            // result's domain holds the joined brand, also search the joined form and
+            // keep what is new. One more request, only when the site is missing.
+            const cv = compoundVariant(query);
+            if (cv && !sxResults.some((r) => String(r.url || r.domain || '').toLowerCase().includes(cv.brand))) {
+              try {
+                const extra = this.formatSearXNGResults(await this.performSearXNGSearch(cv.query, filters, { engines }));
+                const seen = new Set(preformattedResults.map((r) => r.url));
+                const fresh = extra.filter((r) => r.url && !seen.has(r.url));
+                if (fresh.length) { preformattedResults.push(...fresh); console.log(`🔗 Joined-brand search "${cv.query}" added ${fresh.length}`); }
+              } catch { /* the main results stand */ }
+            }
 
             // The API providers are skipped only when SearXNG returned a FULL
             // page. Below that we top up and merge — the point of the primary
