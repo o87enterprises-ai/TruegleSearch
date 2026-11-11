@@ -34,7 +34,7 @@ const RELEVANCE_STOPWORDS = new Set([
   'the', 'and', 'for', 'with', 'from', 'that', 'this', 'what', 'how', 'why', 'who',
   'are', 'was', 'were', 'you', 'your', 'can', 'does', 'did', 'about', 'into', 'near',
 ]);
-const { orderByExactMatch, balanceSources, compoundVariant, fold } = require('./exactMatch');
+const { orderByExactMatch, balanceSources, compoundVariant, promoteBrandDomain, fold } = require('./exactMatch');
 const { braveGate } = require('./braveGate');
 const { breakers, msUntilPacificMidnight } = require('../utils/breaker');
 const upstream = require('../utils/upstreamStats');
@@ -603,7 +603,7 @@ class SearchService {
           && !boostDomain && !this.isNavigationalQuery(query, finalResults)) {
         finalResults = orderByExactMatch(query, finalResults);
         // A plain "all" search is not ten videos (live data: 10/10 for niche queries).
-        if (searchWeb) finalResults = balanceSources(query, finalResults);
+        if (searchWeb) finalResults = promoteBrandDomain(query, balanceSources(query, finalResults));
       }
 
       // Green mode: strip results from known AI-generated-content domains.

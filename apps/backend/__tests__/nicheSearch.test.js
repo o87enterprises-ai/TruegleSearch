@@ -69,3 +69,25 @@ describe('brand typed as two words', () => {
     expect(exactMatch('rapid api sign up', r).matched).toBe(4);
   });
 });
+
+describe('promoteBrandDomain', () => {
+  const { promoteBrandDomain } = require('../services/exactMatch');
+  const at = (url, t = 'x') => ({ title: t, url, snippet: '', category: 'web', bias: 'unknown' });
+  const q = 'rapid api sign up';
+  it('puts the brand site ahead of clips and weak pages, keeping everything', () => {
+    const list = [vid('a'), vid('b'), at('https://dictionary.com/rapid'), at('https://docs.rapidapi.com/'), at('https://rapidapi.com/')];
+    const out = promoteBrandDomain(q, list);
+    expect(out.slice(0, 2).map((r) => r.url)).toEqual(['https://docs.rapidapi.com/', 'https://rapidapi.com/']);
+    expect(out).toHaveLength(5);
+  });
+  it('ignores a longer domain that only contains the brand, and clips on the brand', () => {
+    const list = [at('https://notrapidapi.com/'), { ...vid('c'), url: 'https://youtube.com/rapidapi' }];
+    expect(promoteBrandDomain(q, list)).toEqual(list);
+  });
+  it('caps at four and leaves other queries alone', () => {
+    const many = Array.from({ length: 6 }, (_, i) => at(`https://rapidapi.com/p${i}`));
+    expect(promoteBrandDomain(q, [at('https://x.org/'), ...many]).slice(0, 4).every((r) => r.url.includes('rapidapi'))).toBe(true);
+    const l = [at('https://rapidapi.com/')];
+    expect(promoteBrandDomain('rapid api', l)).toBe(l);
+  });
+});
