@@ -21,9 +21,9 @@ jest.mock('../db/connection', () => ({
 const TopFeedCache = require('../services/TopFeedCache');
 const { TOP_NETWORKS, PREWARM_REQUEST } = require('../config/topFeed');
 
-const MORNING = Date.parse('2026-11-09T17:30:00Z');       // 9:30 AM PST, epoch 2026-11-09
-const NEXT_8_59 = Date.parse('2026-11-10T16:59:00Z');     // 8:59 AM next day: same epoch
-const NEXT_9_00 = Date.parse('2026-11-10T17:00:00Z');     // 9:00 AM next day: new epoch
+const MORNING = Date.parse('2026-11-09T14:30:00Z');       // 6:30 AM PST, epoch 2026-11-09
+const NEXT_5_59 = Date.parse('2026-11-10T13:59:00Z');     // 5:59 AM next day: same epoch
+const NEXT_6_00 = Date.parse('2026-11-10T14:00:00Z');     // 6:00 AM next day: new epoch
 
 const posts = (n, tag = 'a') => Array.from({ length: n }, (_, i) => ({ id: `${tag}${i}`, title: `Post ${tag}${i}` }));
 const payload = (n = 12, errors = {}, tag = 'a') => ({ query: '', results: posts(n, tag), platforms: {}, nextCursor: {}, errors });
@@ -97,15 +97,15 @@ describe('serve', () => {
     expect(build).not.toHaveBeenCalled();
   });
 
-  test('it lasts until 9 AM Pacific, then rebuilds exactly once at 9 AM', async () => {
+  test('it lasts until 6 AM Pacific, then rebuilds exactly once at 6 AM', async () => {
     const key = TopFeedCache.keyFor(req());
     const build = jest.fn(async () => payload());
     await TopFeedCache.serve(key, build, { now: MORNING });
-    expect((await TopFeedCache.serve(key, build, { now: NEXT_8_59 })).cache).toBe('hit');
+    expect((await TopFeedCache.serve(key, build, { now: NEXT_5_59 })).cache).toBe('hit');
     expect(build).toHaveBeenCalledTimes(1);
-    expect((await TopFeedCache.serve(key, build, { now: NEXT_9_00 })).cache).toBe('miss');
+    expect((await TopFeedCache.serve(key, build, { now: NEXT_6_00 })).cache).toBe('miss');
     expect(build).toHaveBeenCalledTimes(2);
-    expect((await TopFeedCache.serve(key, build, { now: NEXT_9_00 + 60000 })).cache).toBe('hit');
+    expect((await TopFeedCache.serve(key, build, { now: NEXT_6_00 + 60000 })).cache).toBe('hit');
     expect(build).toHaveBeenCalledTimes(2);
   });
 
@@ -122,10 +122,10 @@ describe('serve', () => {
   test('yesterday\'s posts beat an empty feed: thin or failing live build serves the older copy', async () => {
     const key = TopFeedCache.keyFor(req());
     await TopFeedCache.serve(key, async () => payload(12, {}, 'old'), { now: MORNING });
-    const thin = await TopFeedCache.serve(key, async () => payload(2), { now: NEXT_9_00 });
+    const thin = await TopFeedCache.serve(key, async () => payload(2), { now: NEXT_6_00 });
     expect(thin.cache).toBe('stale');
     expect(thin.payload.results[0].id).toBe('old0');
-    const failed = await TopFeedCache.serve(key, async () => { throw new Error('upstream down'); }, { now: NEXT_9_00 });
+    const failed = await TopFeedCache.serve(key, async () => { throw new Error('upstream down'); }, { now: NEXT_6_00 });
     expect(failed.cache).toBe('stale');
   });
 
@@ -165,7 +165,7 @@ describe('serve', () => {
   });
 });
 
-describe('refreshTop (the 9 AM job)', () => {
+describe('refreshTop (the 6 AM job)', () => {
   test('builds the main landing entry once; a second call the same day is a no-op', async () => {
     const build = jest.fn(async () => payload());
     expect(await TopFeedCache.refreshTop(build, { now: MORNING })).toMatchObject({ status: 'refreshed', results: 12 });
@@ -207,7 +207,7 @@ describe('partial = a TRANSIENT failure only', () => {
   });
 });
 
-describe('refreshOne (the 9 AM job, one request at a time)', () => {
+describe('refreshOne (the 6 AM job, one request at a time)', () => {
   const { pillRequest } = require('../config/topFeed');
   const good = (n = 12) => ({ results: Array.from({ length: n }, (_, i) => ({ id: `p${i}` })), errors: {} });
 

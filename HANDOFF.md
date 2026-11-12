@@ -64,14 +64,14 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
-## 🗓️ 2026-11-09 — top-posts server cache, rebuilt daily at 9 AM Pacific
+## 🗓️ 2026-11-09 — top-posts server cache, rebuilt daily at 6 AM Pacific (moved from 9 AM on 2026-11-12)
 
 - **What:** `POST /api/social/feed` for the landing/`/feed` Home "Top" requests (social networks only, empty query or a fixed fallback seed word; config in `backend/config/topFeed.js`) is answered from a cache. Response header `X-Truegle-Cache`: `hit` | `miss` | `stale` | `thin` | `bypass`. Typed searches, news/markets/creators/podcast lanes and non-social sources are never cached (`bypass`).
 - **Where:** `services/TopFeedCache.js` — this instance's memory, then Postgres table `feed_cache` (migration `028`, auto-applied at boot; also created lazily, fail-soft). A database that is down or slow is just a miss.
-- **Daily turnover:** the cache day runs 9:00 AM → 9:00 AM **America/Los_Angeles** (`utils/cacheEpoch.js`, DST-correct). `vercel.json` has two crons for `/api/cron/refresh-top-feed` (16:00 and 17:00 UTC); the handler acts only in the real 9 o'clock Pacific hour and only if today's entry is not already built, so exactly one of them does the work. It pre-builds the landing's first page (`PREWARM_REQUEST`); every other entry (pages 2+, single-network pills, fallback seeds) is cached on first request after 9 AM.
+- **Daily turnover:** the cache day runs 6:00 AM → 6:00 AM **America/Los_Angeles** (`utils/cacheEpoch.js`, DST-correct). `vercel.json` has two crons for `/api/cron/refresh-top-feed` (13:00 and 14:00 UTC); the handler acts only in the real 6 o'clock Pacific hour and only if today's entry is not already built, so exactly one of them does the work. It pre-builds the landing's first page (`PREWARM_REQUEST`); every other entry (pages 2+, single-network pills, fallback seeds) is cached on first request after 6 AM.
 - **Safety:** only results with ≥ 8 posts are stored; if a network failed the entry lives 2 h not a day; if a live build comes back thin or throws and an older copy exists, the older copy is served (`stale`) — yesterday's posts beat an empty feed.
 - **Optional hardening:** set `CRON_SECRET` in Vercel (Production) — then the cron endpoint requires `Authorization: Bearer …` and `?force=1` (rebuild now, any hour) becomes available to whoever holds it. Not set at time of writing.
-- **Vercel plan note:** on the Hobby plan a cron fires somewhere within its hour, so "9 AM" is the 9 o'clock hour. The first human visitor after 9 AM rebuilds the entry anyway if the cron has not.
+- **Vercel plan note:** on the Hobby plan a cron fires somewhere within its hour, so "6 AM" is the 6 o'clock hour. The first human visitor after 6 AM rebuilds the entry anyway if the cron has not.
 - **Drift guard:** `landing:test` fails if the landing's real first request, or the Top-network / seed lists, differ from `backend/config/topFeed.js`. Change both together.
 - Phones keep the Feed card open by default (unchanged).
 

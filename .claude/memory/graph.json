@@ -2272,6 +2272,14 @@
         "body": "TruegleSearch/1.0 UA = own backend -> search.truegle.info/search (SearXNG, EC2 proxied). NEVER block it; NEVER enable Bot Fight Mode (free plan cannot exempt it, would break search). Live on zone af7726b91a5aa5f1fde4b03481cfcd2f: custom WAF rule d6a60cc2 (block wp/.env/.php probes on truegle.info) + cache rule 417acb0a (edge-cache GET search.truegle.info/search 10m, 200s only). 499s on search host = backend SearXNG timeout 4500ms (SearchService.js:1505), ~11%, deliberate. Pages /assets already immutable 1y; HTML 'dynamic' by design (don't edge-cache HTML: stale hashed assets risk). Pending: Search Console (browser login).",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "feed-cache-6am-2026-11-12": {
+        "Id": "feed-cache-6am-2026-11-12",
+        "Type": "decision",
+        "Label": "Top-feed cache now turns over 6 AM Pacific (was 9 AM); CF search edge TTL 1h",
+        "body": "Owner 2026-11-12: daily feed scrape at 6 AM, cache all day, only hit upstream when a user types a NEW feed search (that is already how TopFeedCache works: typed queries bypass, only empty/fallback-seed social requests cached). CHANGED: utils/cacheEpoch.js REFRESH_HOUR 9->6; apps/backend/vercel.json crons 16/17 UTC -> 13/14 UTC (6AM PDT=13:00, PST=14:00; handler acts only in the real Pacific 6 o'clock hour); comments + HANDOFF + 3 test files shifted; 44 tests pass (cacheEpoch, cronTopFeed, topFeedCache). Pacific time ASSUMED (matches prior 9AM decision + Oregon). Cloudflare rule 417acb0a edge TTL raised 600->3600 (200s only, 4xx/5xx still 0) via API same day; was approved by owner after 499/expired-repeat analysis.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
       }
     },
     "thread": {
@@ -4390,6 +4398,14 @@
         "Type": "fact",
         "Label": "WAF d6a60cc2 + cache 417acb0a verified live 2026-11-12 (before/after numbers)",
         "body": "Rules went live 2026-11-12 ~11:43 UTC. Verified ~2h later via GraphQL httpRequestsAdaptiveGroups (free plan: NO firewallEventsAdaptiveGroups, NO clientRequestQuery; use securityAction/edgeResponseStatus/cacheStatus dims instead). WAF live test: /.env /wp-login.php /xmlrpc.php /.github -> 403; / /about/ /search /sitemap.xml /robots.txt -> 200. No false positives found; only harmless over-match is /.git also catching /.github. Scanner 404s on truegle.info were BURSTY (77 in one hour 11-11T17, 72 at 11-12T06), so the after window (no burst yet, 2 of 451 req were 404) is not proof by traffic - the live 403 test is the proof. CACHE: search.truegle.info before = 0% hits (1833 dynamic of 2069/22h); after = 13 hit / 141 miss / 45 expired of 220 (5.9% hit). 'expired'=20% means repeat queries arriving after the 10-min TTL: raising edge TTL to ~1h is the data-backed next step (not done, owner-visible freshness tradeoff). 504 on truegle.info (origin status 0, Pages): 122 in 24h (2.6%), one burst 52 at 11-11T19, otherwise ~1-8/hr; since 11-12T08 ~1/hr (<0.5%) - effectively cleared, no action. Tool: scratchpad gql.sh pattern = POST api.cloudflare.com/client/v4/graphql with X-Auth-Email/X-Auth-Key.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "free-keyless-api-probe-2026-11-12": {
+        "Id": "free-keyless-api-probe-2026-11-12",
+        "Type": "fact",
+        "Label": "Keyless API probe from cloud sandbox 2026-11-12 (which free sources actually answer)",
+        "body": "200 OK keyless: Sepia Search (PeerTube federated video, sepiasearch.org/api/v1/search/videos), Dailymotion API (api.dailymotion.com/videos?search=), Odysee (lighthouse.odysee.tv/search), Internet Archive advancedsearch (works but ~3s), Openverse audio/images (api.openverse.org/v1), Audius tracks, iTunes podcast search, Hacker News Algolia (already used), Lemmy (lemmy.world/api/v3/search), Mastodon TAG timeline (mastodon.social/api/v1/timelines/tag/<t>), DDG Instant Answer (answers only, NOT web results), StackExchange. FAILED from sandbox: Bluesky public.api searchPosts 403 (now needs auth), Reddit www /search.json 403 (datacenter IP; repo already has RedditAppToken OAuth), Mojeek 403 (needs key), Stract /beta/api/search 404, Marginalia timed out, Wikipedia+Commons 429 (needs descriptive User-Agent w/ contact + shared egress IP; retry from Vercel). Caveat: sandbox egress is a shared datacenter IP, so 403/429 here may not repeat from Vercel - retest in prod before ruling a source out. Repo already calls: brave, serpapi, google CSE, apify (CHECK: Apify is metered/paid), invidious instances (flaky), bsky, mastodon, HN, reddit, tiktok, dailymotion (embed only). NOT yet used: sepiasearch, odysee, openverse, audius, itunes, internet-archive, lemmy-search. TikTok/Instagram reels have NO free search API; scrapers (yt-dlp/instaloader) are datacenter-blocked + ToS risk - not recommended.",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       }
