@@ -2264,6 +2264,14 @@
         "body": "2026-11-11: steps 1-6 built. Stream countdown 15s + Stay flag (truegle_tiktok_stay), link-out after 3 full-player failures in 30min (panel, no frame/requests), anonymous events tiktok_silent/tiktok_linkout/tiktok_recovered (read via /api/admin/player-health?reason=). Thresholds in utils/tiktokBlock.js are judgement calls: tune from beacon counts. Card cannot report back, so the person (Stay) is the signal.",
         "ts": "2026-11-11",
         "created": "2026-11-11"
+      },
+      "cf-traffic-2026-11": {
+        "Id": "cf-traffic-2026-11",
+        "Type": "decision",
+        "Label": "CF traffic fixes 2026-11-12: bot fight mode stays OFF; WAF scanner block + search cache live",
+        "body": "TruegleSearch/1.0 UA = own backend -> search.truegle.info/search (SearXNG, EC2 proxied). NEVER block it; NEVER enable Bot Fight Mode (free plan cannot exempt it, would break search). Live on zone af7726b91a5aa5f1fde4b03481cfcd2f: custom WAF rule d6a60cc2 (block wp/.env/.php probes on truegle.info) + cache rule 417acb0a (edge-cache GET search.truegle.info/search 10m, 200s only). 499s on search host = backend SearXNG timeout 4500ms (SearchService.js:1505), ~11%, deliberate. Pages /assets already immutable 1y; HTML 'dynamic' by design (don't edge-cache HTML: stale hashed assets risk). Pending: Search Console (browser login).",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
       }
     },
     "thread": {
@@ -2842,6 +2850,15 @@
         "status": "done",
         "ts": "2026-11-11",
         "created": "2026-11-11"
+      },
+      "search-console": {
+        "Id": "search-console",
+        "Type": "thread",
+        "Label": "Set up Google Search Console + submit sitemap (45 URLs)",
+        "body": "Needs user browser login; sitemap/robots already fine.",
+        "status": "open",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
       }
     },
     "entity": {
@@ -4342,6 +4359,22 @@
         "body": "2026-11-11: WasmBoy re-enables its OWN keyboard/gamepad joypad on every loadROM and polls it every frame (overwrites setJoypadState) -> gameboyCore._takeOverJoypad() disables it. OAM DMA timed ~2x too long -> Astro Attack waits LY==145 forever (fixed by load-time compat patch 0x2459 20->38). Pluto's Corner + Squishy the Turtle (MBC1) die after key presses; held back via unavailable flag in gameboyLibrary.js. One wasm instance per page: a hung game can break the next. Keys: arrows/WASD, Space=B, Enter=A, E=Start, Q=Select.",
         "ts": "2026-11-11",
         "created": "2026-11-11"
+      },
+      "cloudflare-creds-in-env": {
+        "Id": "cloudflare-creds-in-env",
+        "Type": "fact",
+        "Label": "Cloudflare global API key + email are ALREADY in the Default and Truegle cloud environments",
+        "body": "Cloudflare global token + email are already set as env vars in both the Default and Truegle cloud environments. USE THEM directly via the Cloudflare API (curl). NEVER ask the user for tokens/permissions/connectors, never lecture about global tokens, never suggest adding a connector. User has granted all permissions (all Vercel + Cloudflare connector tools set to Always). Asking again wastes tokens.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "cloudflare-auth-email": {
+        "Id": "cloudflare-auth-email",
+        "Type": "fact",
+        "Label": "Cloudflare auth: X-Auth-Email is o87enterprises@gmail.com (env ACCOUNT_ID holds the email), X-Auth-Key=$CLOUDFLARE_GLOBAL_TOKEN",
+        "body": "Use curl with headers X-Auth-Email: o87enterprises@gmail.com and X-Auth-Key: $CLOUDFLARE_GLOBAL_TOKEN against api.cloudflare.com/client/v4. The ACCOUNT_ID env var is the email, not a CF account id.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
       }
     }
   },
@@ -4371,5 +4404,5 @@
       }
     }
   },
-  "updated": "2026-11-11"
+  "updated": "2026-11-12"
 }
