@@ -210,6 +210,10 @@ const TokenGate = ({
                       Not enough tokens (need {accessState.required}, have {accessState.current})
                     </span>
                   </div>
+
+                  <p className="text-sm text-white/60 text-center">
+                    Tokens reset, so check back later. Truegle has no paid tier.
+                  </p>
                 </div>
               )}
 
