@@ -182,19 +182,6 @@ const FeelingBiasedPage = () => {
                   </p>
                 </div>
               </div>
-
-              <div className="bg-gradient-to-r from-yellow-500/10 to-orange-500/10 backdrop-blur-sm rounded-lg p-4 border border-yellow-500/20">
-                <h4 className="font-bold text-yellow-400 mb-2">Go Ad-Free</h4>
-                <p className="text-sm text-white/80 mb-3">Upgrade to Premium</p>
-                <button
-                  onClick={() => navigate('/pricing')}
-                  className="w-full px-4 py-2 rounded-lg font-semibold text-white
-                           bg-gradient-to-r from-yellow-500 to-orange-500
-                           hover:scale-105 transition-all"
-                >
-                  Upgrade Now
-                </button>
-              </div>
             </div>
           </div>
         </div>

@@ -488,15 +488,8 @@ export default function BiasedResults() {
               <h3 className="text-white font-bold text-2xl mb-2">Out of Tokens</h3>
               <p className="text-white/60 text-sm mb-6">
                 You've used all <strong className="text-purple-300">10 free tokens</strong> for this session.
-                Subscribe to Premium for unlimited access.
               </p>
               <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => window.location.href = '/pricing'}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold hover:from-purple-500 hover:to-pink-500 transition-all"
-                >
-                  Subscribe to Premium
-                </button>
                 <button
                   onClick={() => setShowPaywall(false)}
                   className="text-sm text-white/30 hover:text-white/50 transition-colors py-1"

@@ -97,6 +97,17 @@ self-hosted Whisper — on Groq it uses the pool above), `DEEPGRAM_API_KEY`,
 `STRIPE_WEBHOOK_SECRET`, `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET`,
 `ADSENSE_PUBLISHER_ID`, `ADMOB_API_KEY`, `ADMOB_APP_ID`.
 
+## Search gateway (Hugging Face Space, added 2026-11-12)
+
+Keyless open-search providers run from a free HF Space as a FALLBACK egress (`services/search-gateway/`,
+`docs`: its README has the exact deploy commands). Inert until BOTH Vercel variables are set.
+
+| Name | Store | Purpose |
+|---|---|---|
+| `SEARCH_GATEWAY_TOKEN` | **Vercel** (backend, Production) **and** the Space's secrets (`hf spaces secrets add`) | Shared bearer token. Generate with `openssl rand -hex 32`; same value in both places. SECRET. |
+| `SEARCH_GATEWAY_URL` | Vercel (backend, Production) | `https://<user>-truegle-search-gateway.hf.space`, https only. Not a secret. |
+| `OPEN_SEARCH_DISABLE` | Vercel and/or the Space variables (`hf spaces variables add`) | Comma list of providers to switch off (e.g. `sepia,lemmy`). Not a secret. |
+
 ## Frontend build vars (Cloudflare Pages)
 
 These ship to the browser — **nothing genuinely secret belongs here**:

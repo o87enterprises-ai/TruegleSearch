@@ -1177,7 +1177,7 @@ export default function OSINTMode() {
                   onClick={async () => {
                     const result = await startPremiumCheckout();
                     if (result.reason === 'auth_required') {
-                      navigate('/signin', { state: { returnTo: '/osint' } });
+                      navigate('/auth/login', { state: { returnTo: '/osint' } });
                     } else if (!result.success) {
                       alert(result.message || 'Payment service unavailable. Please try again later.');
                     } else {

@@ -92,4 +92,4 @@ sits in front of every feed server: fresh answers reused (10-20 min per server),
 concurrent readers share one call, the last good page covers a failure for up to
 6 h, and a server that answers 429/5xx/timeout is left alone for 1-15 min
 (doubling). Permanent refusals (403/422) are remembered for 5 min per request. The
-9 AM job now also pre-builds each network's pill, so a pill click is a cache hit.
+6 AM job now also pre-builds each network's pill, so a pill click is a cache hit.
