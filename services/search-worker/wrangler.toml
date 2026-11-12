@@ -1,0 +1,16 @@
+name = "truegle-search-gateway"
+main = "worker.js"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Swap the backend's Node-only deps for tiny Worker-safe stand-ins when bundling.
+[alias]
+"axios" = "./shims/axios.js"
+"../../utils/logger" = "./shims/logger.js"
+
+[observability]
+enabled = false
+
+# Secret (never in this file):  wrangler secret put SEARCH_GATEWAY_TOKEN
+# Optional kill switch:         [vars] OPEN_SEARCH_DISABLE = "sepia,lemmy"
