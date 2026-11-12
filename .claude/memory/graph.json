@@ -2859,6 +2859,15 @@
         "status": "open",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "searxng-499-bursts": {
+        "Id": "searxng-499-bursts",
+        "Type": "thread",
+        "Label": "~11% 499s on search.truegle.info = our backend's 4500ms SearXNG timeout, bursty stalls",
+        "body": "ALL 499s are UA TruegleSearch/1.0 (255 vs 2032 200s in 24h), origin status 0 = backend hung up at timeout=4500 (SearchService.js ~1505). NOT uniform: 62% of requests in the 11-12T08 hour, ~16% at 01:00/22:00, ~0 most hours => episodic SearXNG stalls on t3.micro, not steady slowness. 200s origin latency p50 1151ms p95 3820 p99 4445 (survivor-biased at the 4500 cutoff). Primary mode makes up to 3 SERIAL SearXNG calls per search (main, unscoped thin-retry, compound-brand variant) = 13.5s worst case. OPTIONS (none applied, do NOT just raise the timeout): (1) edge TTL 600->3600 on rule 417acb0a: cuts load, ~20% of requests are expired repeats. (2) backend circuit breaker: after N timeouts skip SearXNG ~60s, and skip the retry/compound calls when the first took >2.5s. (3) check the BOX not the code: CloudWatch CPUCreditBalance on i-0709a9d47e503384f (t3.micro standard-mode credit exhaustion throttles CPU in episodes; switching to unlimited can cost money - flag per financial skill), 'free -m'/'vmstat 1' during a burst, docker logs for engine CAPTCHA/suspensions. (4) settings.yml: fewer engines, outgoing.request_timeout ~2.5, max_request_timeout ~4. Needs EC2 Instance Connect (browser) for 3-4.",
+        "status": "open",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
       }
     },
     "entity": {
@@ -4373,6 +4382,14 @@
         "Type": "fact",
         "Label": "Cloudflare auth: X-Auth-Email is o87enterprises@gmail.com (env ACCOUNT_ID holds the email), X-Auth-Key=$CLOUDFLARE_GLOBAL_TOKEN",
         "body": "Use curl with headers X-Auth-Email: o87enterprises@gmail.com and X-Auth-Key: $CLOUDFLARE_GLOBAL_TOKEN against api.cloudflare.com/client/v4. The ACCOUNT_ID env var is the email, not a CF account id.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "cf-rules-verified-2026-11-12": {
+        "Id": "cf-rules-verified-2026-11-12",
+        "Type": "fact",
+        "Label": "WAF d6a60cc2 + cache 417acb0a verified live 2026-11-12 (before/after numbers)",
+        "body": "Rules went live 2026-11-12 ~11:43 UTC. Verified ~2h later via GraphQL httpRequestsAdaptiveGroups (free plan: NO firewallEventsAdaptiveGroups, NO clientRequestQuery; use securityAction/edgeResponseStatus/cacheStatus dims instead). WAF live test: /.env /wp-login.php /xmlrpc.php /.github -> 403; / /about/ /search /sitemap.xml /robots.txt -> 200. No false positives found; only harmless over-match is /.git also catching /.github. Scanner 404s on truegle.info were BURSTY (77 in one hour 11-11T17, 72 at 11-12T06), so the after window (no burst yet, 2 of 451 req were 404) is not proof by traffic - the live 403 test is the proof. CACHE: search.truegle.info before = 0% hits (1833 dynamic of 2069/22h); after = 13 hit / 141 miss / 45 expired of 220 (5.9% hit). 'expired'=20% means repeat queries arriving after the 10-min TTL: raising edge TTL to ~1h is the data-backed next step (not done, owner-visible freshness tradeoff). 504 on truegle.info (origin status 0, Pages): 122 in 24h (2.6%), one burst 52 at 11-11T19, otherwise ~1-8/hr; since 11-12T08 ~1/hr (<0.5%) - effectively cleared, no action. Tool: scratchpad gql.sh pattern = POST api.cloudflare.com/client/v4/graphql with X-Auth-Email/X-Auth-Key.",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       }
