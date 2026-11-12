@@ -163,20 +163,3 @@ export const mockPerspectiveResults = {
     ],
   },
 };
-
-export const mockAds = [
-  {
-    id: 'ad-1',
-    type: 'display',
-    size: '728x90',
-    position: 'top',
-    content: '[Mock Ad: Relevant to Perspective]',
-  },
-  {
-    id: 'ad-2',
-    type: 'display',
-    size: '300x250',
-    position: 'sidebar',
-    content: '[Mock Ad: News Subscription]',
-  },
-];
