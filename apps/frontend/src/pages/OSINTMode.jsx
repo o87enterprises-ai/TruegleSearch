@@ -29,7 +29,6 @@ import {
   Circle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { startPremiumCheckout } from '../services/paymentService';
 import DeepSeaEnhanced from '../components/backgrounds/DeepSeaEnhanced';
 import LightRays from '../components/backgrounds/LightRays';
 import TruegleLogo from '../components/ui/TruegleLogo';
@@ -40,11 +39,6 @@ export default function OSINTMode() {
   const [searchValue, setSearchValue] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState(null);
-  const [usageCount, setUsageCount] = useState(() => {
-    const saved = localStorage.getItem('osint_usage_global');
-    return saved ? parseInt(saved) : 0;
-  });
-  const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   // AI Assistant State
   const [aiQuery, setAiQuery] = useState('');
@@ -455,15 +449,7 @@ export default function OSINTMode() {
   const handleSearch = async (e) => {
     e.preventDefault();
 
-    if (usageCount >= 3) {
-      setShowPremiumModal(true);
-      return;
-    }
-
     setIsSearching(true);
-    const newCount = usageCount + 1;
-    setUsageCount(newCount);
-    localStorage.setItem('osint_usage_global', newCount.toString());
 
     const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
     const token = localStorage.getItem('truegle_token');
@@ -659,25 +645,6 @@ export default function OSINTMode() {
                 <h2 className="text-xl font-display font-bold text-white">
                   {activeTool?.name}
                 </h2>
-              </div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-sm text-white/60">
-                  Free uses remaining:{' '}
-                  <span
-                    className={`font-bold ${usageCount >= 3 ? 'text-red-400' : 'text-cyan-400'}`}
-                  >
-                    {Math.max(0, 3 - usageCount)}/3
-                  </span>
-                </div>
-                {usageCount >= 3 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPremiumModal(true)}
-                    className="text-sm px-3 py-1 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-400 hover:to-red-400 transition-all"
-                  >
-                    Upgrade for Unlimited
-                  </button>
-                )}
               </div>
 
               <div className="relative group mb-4">
@@ -1109,92 +1076,6 @@ export default function OSINTMode() {
         </AnimatePresence>
       </div>
 
-      {/* Premium Modal */}
-      <AnimatePresence>
-        {showPremiumModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowPremiumModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="max-w-md w-full p-6 rounded-2xl bg-gradient-to-br from-[#FFEB3B]/[0.3125] to-[#FFC107]/[0.3125] backdrop-blur-xl border-2 border-yellow-400/60 shadow-lg shadow-yellow-400/40"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="text-center mb-6">
-                <div className="text-yellow-200 text-sm mb-2">Upgrade Now</div>
-                <h3 className="text-2xl font-bold text-white mb-2">
-                  Truegle Premium
-                </h3>
-                <p className="text-white/90 mb-4">
-                  Unlimited OSINT tool access
-                </p>
-                <div className="text-4xl font-bold text-white">
-                  $9.99<span className="text-lg text-white/70">/month</span>
-                </div>
-              </div>
-
-              <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-3 text-white">
-                  <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-sm">
-                    ✓
-                  </div>
-                  <span>Unlimited tool uses</span>
-                </div>
-                <div className="flex items-center gap-3 text-white">
-                  <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-sm">
-                    ✓
-                  </div>
-                  <span>Ad-free experience</span>
-                </div>
-                <div className="flex items-center gap-3 text-white">
-                  <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-sm">
-                    ✓
-                  </div>
-                  <span>Priority support</span>
-                </div>
-                <div className="flex items-center gap-3 text-white">
-                  <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-sm">
-                    ✓
-                  </div>
-                  <span>Advanced filters</span>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowPremiumModal(false)}
-                  className="flex-1 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold transition-all"
-                >
-                  Maybe Later
-                </button>
-                <button
-                  onClick={async () => {
-                    const result = await startPremiumCheckout();
-                    if (result.reason === 'auth_required') {
-                      navigate('/auth/login', { state: { returnTo: '/osint' } });
-                    } else if (!result.success) {
-                      alert(result.message || 'Payment service unavailable. Please try again later.');
-                    } else {
-                      // Stripe checkout will be handled here once Stripe.js is loaded
-                      // For now, store the intent and show confirmation
-                      alert('Payment intent created! Stripe checkout UI coming soon.');
-                    }
-                  }}
-                  className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold hover:from-orange-400 hover:to-red-400 transition-all"
-                >
-                  Upgrade Now
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
