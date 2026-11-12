@@ -4492,6 +4492,14 @@
         "body": "Merged to main 2026-11-12 (Cloudflare Pages production d1652e7). api.truegle.info/api/open-search/health -> 200, all providers ready. Live from Vercel egress: video q='open source news' answered 3/3 in 1.8s; audio answered 4/4 (itunes OK from Vercel => the 403 was the cloud-sandbox shared IP only; openverse cold ~6s on a novel query: 'jazz piano' took 6.4s on the dedicated route, within its 8s budget); social answered 2/2 in 1.0s. https://truegle.info/pricing -> 301 /about/ (took ~1 min after the merge). /api/news/markets still 200. 6AM cron change shipped in vercel.json (first 6AM-Pacific run = 2026-11-13 ~13:00-14:00 UTC; check feed_cache epoch rolled). NOT YET DONE: HF gateway Space is NOT deployed (owner running README steps); gateway tier is inert until SEARCH_GATEWAY_URL+TOKEN set on Vercel. Branch o87/zealous-archimedes-dbzhwa = empty vs main (no duplicate pricing work).",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "owner-machine-windows-powershell": {
+        "Id": "owner-machine-windows-powershell",
+        "Type": "fact",
+        "Label": "Owner's local machine is WINDOWS (PowerShell, C:\\Users\\there\\o87DevMobile\\Builds\\TruegleSearch): give PowerShell commands, not bash",
+        "body": "2026-11-12: owner ran 'bash scripts/stage-search-gateway.sh' in PowerShell and got '/bin/bash: scripts/stage-search-gateway.sh: No such file or directory' even though the file exists (most likely PowerShell's 'bash' is WSL, which does not see the Windows path the same way). Repo clone lives at C:\\Users\\there\\o87DevMobile\\Builds\\TruegleSearch; hf CLI is installed there (login had expired: needed 'hf auth login --force'). RULE: any command meant for the owner's machine must be PowerShell-native: no bash/openssl/printf/export, set env with $env:NAME, make tokens with [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes, build paths with Join-Path $env:TEMP. Piping a string into a CLI from PowerShell adds a trailing newline (the backend .trim()s SEARCH_GATEWAY_TOKEN/URL so that is tolerated, but prefer the Vercel dashboard for pasting values). The stage script has no .ps1 twin yet: add scripts/stage-search-gateway.ps1 once the inline PowerShell version is confirmed working on the owner machine.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
       }
     }
   },
