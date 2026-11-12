@@ -2924,7 +2924,7 @@
         "Type": "thread",
         "Label": "AFTER MERGE: smoke /api/open-search/health + video/audio/social on api.truegle.info",
         "body": "Preview cannot serve (see vercel-preview-backend-500-no-secrets), so the open-search pool has only been proven by 23 jest tests on real payloads + a live node smoke test from the cloud sandbox. After PR #145 merges and the prod deploy is READY: curl https://api.truegle.info/api/open-search/health, then /video?q=open+source, /audio?q=rain, /social?q=climate; check each provider status ok, and whether iTunes still 403s from Vercel egress (it did from the sandbox). Also confirm the 6AM cron: vercel.json crons 13:00/14:00 UTC call /api/cron/refresh-top-feed; tomorrow ~06:00 Pacific check feed_cache epoch rolled.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       },
@@ -4482,6 +4482,14 @@
         "Type": "fact",
         "Label": "Backend PREVIEW deployments always 500 (JWT_SECRET missing in Preview env) - not a code bug",
         "body": "2026-11-12: every backend preview on Vercel (project backend prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI, team team_OyHR5YLtUy6gIs8HmvhXKSsj) returns FUNCTION_INVOCATION_FAILED on ALL routes incl. unrelated /api/news/markets. Runtime log: Error: Config validation error: \"JWT_SECRET\" is required at config/env.js:249 -> process exits at load. Cause: secrets are scoped to Production only; Preview env has none. The build is 'Ready' so the PR check is green even though the preview cannot serve. So: do NOT treat a green Vercel preview as proof the backend runs, and do not chase a preview 500 as a regression. Verify backend changes by jest + local node smoke, then after merge on prod (api.truegle.info). Previews are behind Vercel auth; use mcp__Vercel__web_fetch_vercel_url (creates a 23h share link) and get_runtime_logs (Hobby keeps ~1h, use since:30m and deploymentId dpl_<id>). Adding secrets to Preview is an owner decision (new copies of production secrets).",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "prod-verified-2026-11-12": {
+        "Id": "prod-verified-2026-11-12",
+        "Type": "fact",
+        "Label": "PR #145 merged + verified on production 2026-11-12 (open-search, /pricing 301, feed 6AM shipped)",
+        "body": "Merged to main 2026-11-12 (Cloudflare Pages production d1652e7). api.truegle.info/api/open-search/health -> 200, all providers ready. Live from Vercel egress: video q='open source news' answered 3/3 in 1.8s; audio answered 4/4 (itunes OK from Vercel => the 403 was the cloud-sandbox shared IP only; openverse cold ~6s on a novel query: 'jazz piano' took 6.4s on the dedicated route, within its 8s budget); social answered 2/2 in 1.0s. https://truegle.info/pricing -> 301 /about/ (took ~1 min after the merge). /api/news/markets still 200. 6AM cron change shipped in vercel.json (first 6AM-Pacific run = 2026-11-13 ~13:00-14:00 UTC; check feed_cache epoch rolled). NOT YET DONE: HF gateway Space is NOT deployed (owner running README steps); gateway tier is inert until SEARCH_GATEWAY_URL+TOKEN set on Vercel. Branch o87/zealous-archimedes-dbzhwa = empty vs main (no duplicate pricing work).",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       }
