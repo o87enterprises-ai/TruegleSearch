@@ -41,6 +41,7 @@ const upstream = require('../utils/upstreamStats');
 const { withStatus } = upstream;
 const { createTtlCache } = require('../utils/ttlCache');
 const YouTubeGateway = require('./YouTubeGateway');
+const OpenSearch = require('./openSearch');
 const tokenize = (text) => fold(text).replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
 // Light stemming: enough that "lawyers"/"lawyer" and "companies"/"company"
 // meet, not so much that unrelated words collapse together.
@@ -230,6 +231,8 @@ class SearchService {
         if (this.searxngUrl) {
           searchPromises.push(deferSettle(this.performSearXNGCategorySearch(query, 'social media', filters)));
         }
+        // Keyless open providers (Lemmy search, Mastodon hashtags); independent of the SearXNG box.
+        searchPromises.push(deferSettle(OpenSearch.asSourcePayload('social', query, filters)));
         if (this.googleApiKey && this.googleSearchEngineId) {
           searchPromises.push(this.performGoogleSearch(
             `${query} site:reddit.com OR site:twitter.com OR site:facebook.com`,
@@ -241,6 +244,13 @@ class SearchService {
       // SearXNG videos: free alternative/supplement to the YouTube Data API
       if (searchVideos && this.searxngUrl) {
         searchPromises.push(deferSettle(this.performSearXNGCategorySearch(query, 'videos', filters)));
+      }
+
+      // Keyless open providers (Sepia/PeerTube, Dailymotion, Internet Archive): no key, no quota
+      // shared with other features, and NOT on the SearXNG box, so the Videos tab still has
+      // results when that box is down. Dedicated tab only: the mixed "all" search stays as it was.
+      if (filters.category === 'videos') {
+        searchPromises.push(deferSettle(OpenSearch.asSourcePayload('video', query, filters)));
       }
 
       if (searchWeb) {
@@ -1987,6 +1997,8 @@ class SearchService {
         return this.formatSearXNGCategoryResults(data, 'videos');
       case 'searxng-social-media':
         return this.formatSearXNGCategoryResults(data, 'social media');
+      case 'open-media':
+        return Array.isArray(data.results) ? data.results : []; // adapters already emit the final shape
       case 'google-images':
         return this.formatGoogleImageResults(data);
       case 'brave-images':
@@ -2053,6 +2065,7 @@ class SearchService {
     if (data._source === 'unsplash') return 'unsplash';
     if (data._source === 'brave') return 'brave';
     if (data._source === 'searxng') return 'searxng';
+    if (data._source === 'open-media') return 'open-media';
     if (data._source === 'google-images') return 'google-images';
     if (data._source === 'brave-images') return 'brave-images';
     if (data._source && data._source.startsWith('searxng-')) return data._source;

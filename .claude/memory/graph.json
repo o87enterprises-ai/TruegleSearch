@@ -2273,11 +2273,43 @@
         "ts": "2026-11-12",
         "created": "2026-11-12"
       },
+      "feed-cache-6am-2026-11-12": {
+        "Id": "feed-cache-6am-2026-11-12",
+        "Type": "decision",
+        "Label": "Top-feed cache now turns over 6 AM Pacific (was 9 AM); CF search edge TTL 1h",
+        "body": "Owner 2026-11-12: daily feed scrape at 6 AM, cache all day, only hit upstream when a user types a NEW feed search (that is already how TopFeedCache works: typed queries bypass, only empty/fallback-seed social requests cached). CHANGED: utils/cacheEpoch.js REFRESH_HOUR 9->6; apps/backend/vercel.json crons 16/17 UTC -> 13/14 UTC (6AM PDT=13:00, PST=14:00; handler acts only in the real Pacific 6 o'clock hour); comments + HANDOFF + 3 test files shifted; 44 tests pass (cacheEpoch, cronTopFeed, topFeedCache). Pacific time ASSUMED (matches prior 9AM decision + Oregon). Cloudflare rule 417acb0a edge TTL raised 600->3600 (200s only, 4xx/5xx still 0) via API same day; was approved by owner after 499/expired-repeat analysis.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "open-search-pool-2026-11-12": {
+        "Id": "open-search-pool-2026-11-12",
+        "Type": "decision",
+        "Label": "Keyless open-search pool: features own their providers; video+social wired, audio via /api/open-search",
+        "body": "services/openSearch/{adapters,index}.js + routes/openSearch.js (registered /api/open-search with searchLimiter). FEATURES video=sepia,dailymotion,archive; audio=audius,openverse,itunes,archive; social=lemmy(lemmy.ml),mastodon(hashtag-only). SearchService source 'open-media' added ONLY for category videos/social (not 'all'). Pool: cooldown 30s doubling to 15min per provider, per-process; deadline 4.5s on search path, 8s on dedicated route (Openverse is ~6s cold). OPEN_SEARCH_DISABLE kill switch. 23 tests with real payload fixtures. Odysee omitted (lighthouse gives only claim ids). iTunes 403 seen from sandbox shared IP: retest from Vercel. Route cache-control is private (queries stay out of shared caches). $0 spend, no keys.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "pricing-removed-2026-11-12": {
+        "Id": "pricing-removed-2026-11-12",
+        "Type": "decision",
+        "Label": "/pricing + dead premium CTAs removed; /pricing 301 -> /about/",
+        "body": "Owner approved 2026-11-12. Removed CTAs in TokenGate, BiasedResults, FeelingBiasedPage (Go Ad-Free), ExtractPage; deleted unrouted PricingPage.jsx; TutorialModal reworded to '10 free tokens (searches + chat)'; OSINTMode /signin -> /auth/login; _redirects /pricing and /pricing/ 301 -> /about/. NOT removed (open owner decision): OSINTMode 'Upgrade Now' premium modal (setShowPremiumModal) and paymentService/backend payment+paypal routes, which still imply a paid tier although there is no revenue model. GSC: do not click Validate on the 404 list (adframe URLs are intentionally gone).",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "hf-gateway-built-2026-11-12": {
+        "Id": "hf-gateway-built-2026-11-12",
+        "Type": "decision",
+        "Label": "HF search-gateway Space kit built + tested; DEPLOY PENDING (owner runs hf commands)",
+        "body": "services/search-gateway/{Dockerfile,server.js,package.json,README.md} + scripts/stage-search-gateway.sh; app = apps/backend/services/openSearch/gatewayServer.js, client gateway.js, fallback tier in index.js (retry failed/cooling providers once through the gateway within the remaining deadline, >=1s). Auth Bearer SEARCH_GATEWAY_TOKEN (503 if unset, timingSafeEqual). POST body not URL. hf CLI 2.4 syntax verified: hf auth login; hf repos create USER/NAME --type space --sdk docker --public; hf upload USER/NAME DIR . --repo-type space; hf spaces secrets add USER/NAME -s NAME (reads env); hf spaces variables add -e K=V. Names added to docs/SECRETS-MAP.md. OWNER STEPS: run README commands, set SEARCH_GATEWAY_TOKEN on Space + Vercel, SEARCH_GATEWAY_URL on Vercel, redeploy. Then verify via api.truegle.info/api/open-search/health and a forced-failure check.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
       "no-paid-tier-ctas-removed-2026-11-12": {
         "Id": "no-paid-tier-ctas-removed-2026-11-12",
         "Type": "decision",
         "Label": "Dead /pricing + /signin CTAs removed; no paid tier",
-        "body": "Memory osint-only-gate already said 'there is no paid tier', so no owner question needed. Removed every Subscribe/Upgrade/Go-Premium CTA (TokenGate, BiasedResults, FeelingBiasedPage 'Go Ad-Free' box, ExtractPage, OSINTMode fake $9.99 modal + startPremiumCheckout import). Out-of-tokens states now just say tokens reset. Deleted unrouted PricingPage.jsx. Added /pricing -> /about/ 301 in public/_redirects (GSC 404). /signin refs gone (real route is /auth/login). services/paymentService.js now has no callers (left in place). Pre-existing unrelated failure: seo:test 'sitemap lists every creator, /creators and /chat'.",
+        "body": "Memory osint-only-gate already said 'no paid tier'. Removed every Subscribe/Upgrade/Go-Premium CTA (TokenGate, BiasedResults, FeelingBiasedPage, ExtractPage, OSINTMode fake $9.99 modal + startPremiumCheckout import); out-of-tokens states say tokens reset. PricingPage.jsx deleted; /pricing -> /about/ 301 in _redirects (GSC 404). Another session landed a partial version of the same fix on main (4aceb36, PR #145) that kept the OSINT $9.99 modal; this PR (#146) completes it. services/paymentService.js has no callers. Pre-existing unrelated failure: seo:test 'sitemap lists every creator, /creators and /chat'.",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       }
@@ -2622,7 +2654,7 @@
         "Label": "Search Console + Bing still not set up — owner browser task",
         "body": "HANDOFF contradicted itself (SEO section claimed Bing was imported from GSC; service table said both Not started). Nothing in the repo proves a property exists. GSC is the ONLY authoritative organic source (impressions/clicks/queries/position + Coverage = Google's own technical audit) and the only thing that settles the ~100x Cloudflare-vs-Adsterra measurement gap. Needs a browser login: add truegle.info property, verify via Cloudflare DNS TXT, submit sitemap.xml, request indexing for / and /search. Bing Webmaster imports from GSC in one click.",
         "status": "done",
-        "ts": "2026-09-28",
+        "ts": "2026-11-12",
         "created": "2026-08-24"
       },
       "groq-legacy-vars-cleanup": {
@@ -2864,6 +2896,51 @@
         "Type": "thread",
         "Label": "Set up Google Search Console + submit sitemap (45 URLs)",
         "body": "Needs user browser login; sitemap/robots already fine.",
+        "status": "open",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "searxng-499-bursts": {
+        "Id": "searxng-499-bursts",
+        "Type": "thread",
+        "Label": "~11% 499s on search.truegle.info = our backend's 4500ms SearXNG timeout, bursty stalls",
+        "body": "ALL 499s are UA TruegleSearch/1.0 (255 vs 2032 200s in 24h), origin status 0 = backend hung up at timeout=4500 (SearchService.js ~1505). NOT uniform: 62% of requests in the 11-12T08 hour, ~16% at 01:00/22:00, ~0 most hours => episodic SearXNG stalls on t3.micro, not steady slowness. 200s origin latency p50 1151ms p95 3820 p99 4445 (survivor-biased at the 4500 cutoff). Primary mode makes up to 3 SERIAL SearXNG calls per search (main, unscoped thin-retry, compound-brand variant) = 13.5s worst case. OPTIONS (none applied, do NOT just raise the timeout): (1) edge TTL 600->3600 on rule 417acb0a: cuts load, ~20% of requests are expired repeats. (2) backend circuit breaker: after N timeouts skip SearXNG ~60s, and skip the retry/compound calls when the first took >2.5s. (3) check the BOX not the code: CloudWatch CPUCreditBalance on i-0709a9d47e503384f (t3.micro standard-mode credit exhaustion throttles CPU in episodes; switching to unlimited can cost money - flag per financial skill), 'free -m'/'vmstat 1' during a burst, docker logs for engine CAPTCHA/suspensions. (4) settings.yml: fewer engines, outgoing.request_timeout ~2.5, max_request_timeout ~4. Needs EC2 Instance Connect (browser) for 3-4.",
+        "status": "open",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "hf-search-gateway-space": {
+        "Id": "hf-search-gateway-space",
+        "Type": "thread",
+        "Label": "NEXT: run open-search adapters from a free Hugging Face Space as fallback egress (owner has hf CLI)",
+        "body": "Owner 2026-11-12 chose a Hugging Face Space (has hf CLI locally; cloud sandbox may not). Plan: staged kit (Dockerfile node:20, tiny Express server requiring the SAME adapters copied from apps/backend/services/openSearch by a stage script, Bearer SEARCH_GATEWAY_TOKEN, refuses to start without it like services/osint-python), plus a backend SearchGatewayClient inert until SEARCH_GATEWAY_URL set, used as a fallback tier in the pool when direct calls fail/cool (different egress IP helps shared-IP throttling like iTunes 403). Owner steps: create Space (Docker SDK), set SEARCH_GATEWAY_TOKEN secret, 'hf upload'. NOT doing scraper engines (4get/Whoogle): datacenter IPs get blocked. Existing osint-python Space plan (docs/OSINT-SERVICE-PLAN.md) is the same host family.",
+        "status": "done",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "dead-pricing-links": {
+        "Id": "dead-pricing-links",
+        "Type": "thread",
+        "Label": "OWNER DECISION: /pricing + /signin + premium CTAs are dead leftovers (no route, GSC 404)",
+        "body": "No /pricing or /signin route exists; PricingPage.jsx is unrouted (Stripe 'integration pending'). Linked from TokenGate.jsx (href), BiasedResults.jsx (window.location), FeelingBiasedPage.jsx ('Go Ad-Free'), ExtractPage.jsx; PricingPage navigates to /signin; OSINTMode navigates to /signin. Hard navigation = Cloudflare 404 (seen in GSC 2026-10-17). Conflicts with no-ads/no-revenue decision. Options: remove the CTAs, or 301 /pricing -> /about/ like /advertise. Not changed: product call.",
+        "status": "done",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "verify-open-search-on-prod": {
+        "Id": "verify-open-search-on-prod",
+        "Type": "thread",
+        "Label": "AFTER MERGE: smoke /api/open-search/health + video/audio/social on api.truegle.info",
+        "body": "Preview cannot serve (see vercel-preview-backend-500-no-secrets), so the open-search pool has only been proven by 23 jest tests on real payloads + a live node smoke test from the cloud sandbox. After PR #145 merges and the prod deploy is READY: curl https://api.truegle.info/api/open-search/health, then /video?q=open+source, /audio?q=rain, /social?q=climate; check each provider status ok, and whether iTunes still 403s from Vercel egress (it did from the sandbox). Also confirm the 6AM cron: vercel.json crons 13:00/14:00 UTC call /api/cron/refresh-top-feed; tomorrow ~06:00 Pacific check feed_cache epoch rolled.",
+        "status": "open",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "deploy-hf-gateway": {
+        "Id": "deploy-hf-gateway",
+        "Type": "thread",
+        "Label": "OWNER: deploy the HF Space (README in services/search-gateway) then set 2 Vercel vars",
+        "body": "Kit is built and tested but nothing is live. After owner deploys: curl https://<user>-truegle-search-gateway.hf.space/health => configured:true; set SEARCH_GATEWAY_TOKEN + SEARCH_GATEWAY_URL on Vercel Production and redeploy; verify with a forced failure (OPEN_SEARCH_DISABLE does NOT force the gateway - it skips both) e.g. watch report.<provider>.viaGateway in /api/open-search/<feature> when a provider is throttling.",
         "status": "open",
         "ts": "2026-11-12",
         "created": "2026-11-12"
@@ -4381,6 +4458,38 @@
         "Type": "fact",
         "Label": "Cloudflare auth: X-Auth-Email is o87enterprises@gmail.com (env ACCOUNT_ID holds the email), X-Auth-Key=$CLOUDFLARE_GLOBAL_TOKEN",
         "body": "Use curl with headers X-Auth-Email: o87enterprises@gmail.com and X-Auth-Key: $CLOUDFLARE_GLOBAL_TOKEN against api.cloudflare.com/client/v4. The ACCOUNT_ID env var is the email, not a CF account id.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "cf-rules-verified-2026-11-12": {
+        "Id": "cf-rules-verified-2026-11-12",
+        "Type": "fact",
+        "Label": "WAF d6a60cc2 + cache 417acb0a verified live 2026-11-12 (before/after numbers)",
+        "body": "Rules went live 2026-11-12 ~11:43 UTC. Verified ~2h later via GraphQL httpRequestsAdaptiveGroups (free plan: NO firewallEventsAdaptiveGroups, NO clientRequestQuery; use securityAction/edgeResponseStatus/cacheStatus dims instead). WAF live test: /.env /wp-login.php /xmlrpc.php /.github -> 403; / /about/ /search /sitemap.xml /robots.txt -> 200. No false positives found; only harmless over-match is /.git also catching /.github. Scanner 404s on truegle.info were BURSTY (77 in one hour 11-11T17, 72 at 11-12T06), so the after window (no burst yet, 2 of 451 req were 404) is not proof by traffic - the live 403 test is the proof. CACHE: search.truegle.info before = 0% hits (1833 dynamic of 2069/22h); after = 13 hit / 141 miss / 45 expired of 220 (5.9% hit). 'expired'=20% means repeat queries arriving after the 10-min TTL: raising edge TTL to ~1h is the data-backed next step (not done, owner-visible freshness tradeoff). 504 on truegle.info (origin status 0, Pages): 122 in 24h (2.6%), one burst 52 at 11-11T19, otherwise ~1-8/hr; since 11-12T08 ~1/hr (<0.5%) - effectively cleared, no action. Tool: scratchpad gql.sh pattern = POST api.cloudflare.com/client/v4/graphql with X-Auth-Email/X-Auth-Key.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "free-keyless-api-probe-2026-11-12": {
+        "Id": "free-keyless-api-probe-2026-11-12",
+        "Type": "fact",
+        "Label": "Keyless API probe from cloud sandbox 2026-11-12 (which free sources actually answer)",
+        "body": "200 OK keyless: Sepia Search (PeerTube federated video, sepiasearch.org/api/v1/search/videos), Dailymotion API (api.dailymotion.com/videos?search=), Odysee (lighthouse.odysee.tv/search), Internet Archive advancedsearch (works but ~3s), Openverse audio/images (api.openverse.org/v1), Audius tracks, iTunes podcast search, Hacker News Algolia (already used), Lemmy (lemmy.world/api/v3/search), Mastodon TAG timeline (mastodon.social/api/v1/timelines/tag/<t>), DDG Instant Answer (answers only, NOT web results), StackExchange. FAILED from sandbox: Bluesky public.api searchPosts 403 (now needs auth), Reddit www /search.json 403 (datacenter IP; repo already has RedditAppToken OAuth), Mojeek 403 (needs key), Stract /beta/api/search 404, Marginalia timed out, Wikipedia+Commons 429 (needs descriptive User-Agent w/ contact + shared egress IP; retry from Vercel). Caveat: sandbox egress is a shared datacenter IP, so 403/429 here may not repeat from Vercel - retest in prod before ruling a source out. Repo already calls: brave, serpapi, google CSE, apify (CHECK: Apify is metered/paid), invidious instances (flaky), bsky, mastodon, HN, reddit, tiktok, dailymotion (embed only). NOT yet used: sepiasearch, odysee, openverse, audius, itunes, internet-archive, lemmy-search. TikTok/Instagram reels have NO free search API; scrapers (yt-dlp/instaloader) are datacenter-blocked + ToS risk - not recommended.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "gsc-live-2026-11-12": {
+        "Id": "gsc-live-2026-11-12",
+        "Type": "fact",
+        "Label": "Search Console property EXISTS (messages since 2026-06-19); sitemap submitted 2026-11-12",
+        "body": "Owner screenshots 2026-11-12: GSC property truegle.info has been live since at least 2026-06-19 (messages: Jun 19 'Improve Google presence', Jun 21 monitor traffic, Jul 3/Jul 18/Sep 6/Oct 25 'New reasons prevent pages from being indexed', Sep 9 validating fixes, Sep 16 'Some fixes failed', Jul 29 5 clicks/28d, Aug 19 10 clicks/28d). So the earlier gsc-setup-pending thread was stale. 2026-11-12 owner submitted https://truegle.info/sitemap.xml; GSC first showed 'Sitemap could not be read', discovered 0 - checked our side same day: 200, application/xml, valid XML, 45 unique https URLs all return 200 with no redirects, identical for a Googlebot UA, robots.txt lists it plus sitemap-videos.xml (3.1MB, 200). No fault found; first-read 'could not be read' right after submit is commonly transient - recheck after 24-48h. OPEN: Oct 25 + Sep 16 indexing-issue messages need the Indexing > Pages 'why not indexed' table (owner browser). Also +114% impressions on /blog/search-without-tracking-alternative-to-google/.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "vercel-preview-backend-500-no-secrets": {
+        "Id": "vercel-preview-backend-500-no-secrets",
+        "Type": "fact",
+        "Label": "Backend PREVIEW deployments always 500 (JWT_SECRET missing in Preview env) - not a code bug",
+        "body": "2026-11-12: every backend preview on Vercel (project backend prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI, team team_OyHR5YLtUy6gIs8HmvhXKSsj) returns FUNCTION_INVOCATION_FAILED on ALL routes incl. unrelated /api/news/markets. Runtime log: Error: Config validation error: \"JWT_SECRET\" is required at config/env.js:249 -> process exits at load. Cause: secrets are scoped to Production only; Preview env has none. The build is 'Ready' so the PR check is green even though the preview cannot serve. So: do NOT treat a green Vercel preview as proof the backend runs, and do not chase a preview 500 as a regression. Verify backend changes by jest + local node smoke, then after merge on prod (api.truegle.info). Previews are behind Vercel auth; use mcp__Vercel__web_fetch_vercel_url (creates a 23h share link) and get_runtime_logs (Hobby keeps ~1h, use since:30m and deploymentId dpl_<id>). Adding secrets to Preview is an owner decision (new copies of production secrets).",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       }

@@ -57,7 +57,8 @@
 /advertise    /about/  301
 /advertise/   /about/  301
 
-# /pricing never existed as a route and Truegle has no paid tier. Permanent,
-# so the Search Console "Not found (404)" entry resolves.
-/pricing    /about/  301
-/pricing/   /about/  301
+# Retired 2026-11-12: there is no paid tier and PricingPage was never routed, so
+# /pricing was a hard 404 (Search Console flagged it) reached from dead upgrade
+# buttons, all removed. Permanent so Google drops it.
+/pricing      /about/  301
+/pricing/     /about/  301
