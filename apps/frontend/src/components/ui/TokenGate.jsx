@@ -211,15 +211,9 @@ const TokenGate = ({
                     </span>
                   </div>
 
-                  <div className="space-y-3">
-                    <a
-                      href="/pricing"
-                      className="w-full py-3 px-4 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-semibold rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-yellow-500/30 transition-shadow"
-                    >
-                      <Crown className="w-5 h-5" />
-                      Subscribe for Unlimited Access
-                    </a>
-                  </div>
+                  <p className="text-sm text-white/60 text-center">
+                    Tokens reset, so check back later. Truegle has no paid tier.
+                  </p>
                 </div>
               )}
 

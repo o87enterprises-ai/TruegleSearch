@@ -386,11 +386,7 @@ export default function ExtractPage() {
           {spinState.remaining === 0 && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="mt-2 p-5 rounded-2xl bg-amber-950/40 border border-amber-500/30 text-center mb-6">
-              <p className="text-amber-300 text-sm font-medium mb-3">You've used all your free extractions for today.</p>
-              <a href="/pricing"
-                className="inline-block px-4 py-2 rounded-xl bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-400/30 text-yellow-300 text-sm font-medium transition-all">
-                Go Premium · unlimited
-              </a>
+              <p className="text-amber-300 text-sm font-medium">You've used all your free extractions for today. They reset tomorrow.</p>
             </motion.div>
           )}
 

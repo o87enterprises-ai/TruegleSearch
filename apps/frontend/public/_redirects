@@ -56,3 +56,8 @@
 # page is gone. Permanent, so Google drops it and passes on any links.
 /advertise    /about/  301
 /advertise/   /about/  301
+
+# /pricing never existed as a route and Truegle has no paid tier. Permanent,
+# so the Search Console "Not found (404)" entry resolves.
+/pricing    /about/  301
+/pricing/   /about/  301

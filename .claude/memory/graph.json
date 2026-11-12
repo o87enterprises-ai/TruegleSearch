@@ -2272,6 +2272,14 @@
         "body": "TruegleSearch/1.0 UA = own backend -> search.truegle.info/search (SearXNG, EC2 proxied). NEVER block it; NEVER enable Bot Fight Mode (free plan cannot exempt it, would break search). Live on zone af7726b91a5aa5f1fde4b03481cfcd2f: custom WAF rule d6a60cc2 (block wp/.env/.php probes on truegle.info) + cache rule 417acb0a (edge-cache GET search.truegle.info/search 10m, 200s only). 499s on search host = backend SearXNG timeout 4500ms (SearchService.js:1505), ~11%, deliberate. Pages /assets already immutable 1y; HTML 'dynamic' by design (don't edge-cache HTML: stale hashed assets risk). Pending: Search Console (browser login).",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "no-paid-tier-ctas-removed-2026-11-12": {
+        "Id": "no-paid-tier-ctas-removed-2026-11-12",
+        "Type": "decision",
+        "Label": "Dead /pricing + /signin CTAs removed; no paid tier",
+        "body": "Memory osint-only-gate already said 'there is no paid tier', so no owner question needed. Removed every Subscribe/Upgrade/Go-Premium CTA (TokenGate, BiasedResults, FeelingBiasedPage 'Go Ad-Free' box, ExtractPage, OSINTMode fake $9.99 modal + startPremiumCheckout import). Out-of-tokens states now just say tokens reset. Deleted unrouted PricingPage.jsx. Added /pricing -> /about/ 301 in public/_redirects (GSC 404). /signin refs gone (real route is /auth/login). services/paymentService.js now has no callers (left in place). Pre-existing unrelated failure: seo:test 'sitemap lists every creator, /creators and /chat'.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
       }
     },
     "thread": {
