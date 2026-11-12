@@ -29,7 +29,6 @@ import {
   Circle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { startPremiumCheckout } from '../services/paymentService';
 import DeepSeaEnhanced from '../components/backgrounds/DeepSeaEnhanced';
 import LightRays from '../components/backgrounds/LightRays';
 import TruegleLogo from '../components/ui/TruegleLogo';
@@ -669,15 +668,6 @@ export default function OSINTMode() {
                     {Math.max(0, 3 - usageCount)}/3
                   </span>
                 </div>
-                {usageCount >= 3 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPremiumModal(true)}
-                    className="text-sm px-3 py-1 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-400 hover:to-red-400 transition-all"
-                  >
-                    Upgrade for Unlimited
-                  </button>
-                )}
               </div>
 
               <div className="relative group mb-4">
@@ -1127,70 +1117,19 @@ export default function OSINTMode() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-center mb-6">
-                <div className="text-yellow-200 text-sm mb-2">Upgrade Now</div>
                 <h3 className="text-2xl font-bold text-white mb-2">
-                  Truegle Premium
+                  Free uses used up
                 </h3>
-                <p className="text-white/90 mb-4">
-                  Unlimited OSINT tool access
+                <p className="text-white/90">
+                  You've used your 3 free OSINT lookups. Check back later. Truegle has no paid tier.
                 </p>
-                <div className="text-4xl font-bold text-white">
-                  $9.99<span className="text-lg text-white/70">/month</span>
-                </div>
               </div>
-
-              <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-3 text-white">
-                  <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-sm">
-                    ✓
-                  </div>
-                  <span>Unlimited tool uses</span>
-                </div>
-                <div className="flex items-center gap-3 text-white">
-                  <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-sm">
-                    ✓
-                  </div>
-                  <span>Ad-free experience</span>
-                </div>
-                <div className="flex items-center gap-3 text-white">
-                  <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-sm">
-                    ✓
-                  </div>
-                  <span>Priority support</span>
-                </div>
-                <div className="flex items-center gap-3 text-white">
-                  <div className="w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center text-sm">
-                    ✓
-                  </div>
-                  <span>Advanced filters</span>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowPremiumModal(false)}
-                  className="flex-1 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold transition-all"
-                >
-                  Maybe Later
-                </button>
-                <button
-                  onClick={async () => {
-                    const result = await startPremiumCheckout();
-                    if (result.reason === 'auth_required') {
-                      navigate('/auth/login', { state: { returnTo: '/osint' } });
-                    } else if (!result.success) {
-                      alert(result.message || 'Payment service unavailable. Please try again later.');
-                    } else {
-                      // Stripe checkout will be handled here once Stripe.js is loaded
-                      // For now, store the intent and show confirmation
-                      alert('Payment intent created! Stripe checkout UI coming soon.');
-                    }
-                  }}
-                  className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold hover:from-orange-400 hover:to-red-400 transition-all"
-                >
-                  Upgrade Now
-                </button>
-              </div>
+              <button
+                onClick={() => setShowPremiumModal(false)}
+                className="w-full px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold transition-all"
+              >
+                Close
+              </button>
             </motion.div>
           </motion.div>
         )}

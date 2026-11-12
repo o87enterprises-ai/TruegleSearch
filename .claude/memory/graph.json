@@ -2304,6 +2304,14 @@
         "body": "services/search-gateway/{Dockerfile,server.js,package.json,README.md} + scripts/stage-search-gateway.sh; app = apps/backend/services/openSearch/gatewayServer.js, client gateway.js, fallback tier in index.js (retry failed/cooling providers once through the gateway within the remaining deadline, >=1s). Auth Bearer SEARCH_GATEWAY_TOKEN (503 if unset, timingSafeEqual). POST body not URL. hf CLI 2.4 syntax verified: hf auth login; hf repos create USER/NAME --type space --sdk docker --public; hf upload USER/NAME DIR . --repo-type space; hf spaces secrets add USER/NAME -s NAME (reads env); hf spaces variables add -e K=V. Names added to docs/SECRETS-MAP.md. OWNER STEPS: run README commands, set SEARCH_GATEWAY_TOKEN on Space + Vercel, SEARCH_GATEWAY_URL on Vercel, redeploy. Then verify via api.truegle.info/api/open-search/health and a forced-failure check.",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "no-paid-tier-ctas-removed-2026-11-12": {
+        "Id": "no-paid-tier-ctas-removed-2026-11-12",
+        "Type": "decision",
+        "Label": "Dead /pricing + /signin CTAs removed; no paid tier",
+        "body": "Memory osint-only-gate already said 'no paid tier'. Removed every Subscribe/Upgrade/Go-Premium CTA (TokenGate, BiasedResults, FeelingBiasedPage, ExtractPage, OSINTMode fake $9.99 modal + startPremiumCheckout import); out-of-tokens states say tokens reset. PricingPage.jsx deleted; /pricing -> /about/ 301 in _redirects (GSC 404). Another session landed a partial version of the same fix on main (4aceb36, PR #145) that kept the OSINT $9.99 modal; this PR (#146) completes it. services/paymentService.js has no callers. Pre-existing unrelated failure: seo:test 'sitemap lists every creator, /creators and /chat'.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
       }
     },
     "thread": {
