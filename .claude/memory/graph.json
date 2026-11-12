@@ -2280,6 +2280,14 @@
         "body": "Owner 2026-11-12: daily feed scrape at 6 AM, cache all day, only hit upstream when a user types a NEW feed search (that is already how TopFeedCache works: typed queries bypass, only empty/fallback-seed social requests cached). CHANGED: utils/cacheEpoch.js REFRESH_HOUR 9->6; apps/backend/vercel.json crons 16/17 UTC -> 13/14 UTC (6AM PDT=13:00, PST=14:00; handler acts only in the real Pacific 6 o'clock hour); comments + HANDOFF + 3 test files shifted; 44 tests pass (cacheEpoch, cronTopFeed, topFeedCache). Pacific time ASSUMED (matches prior 9AM decision + Oregon). Cloudflare rule 417acb0a edge TTL raised 600->3600 (200s only, 4xx/5xx still 0) via API same day; was approved by owner after 499/expired-repeat analysis.",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "open-search-pool-2026-11-12": {
+        "Id": "open-search-pool-2026-11-12",
+        "Type": "decision",
+        "Label": "Keyless open-search pool: features own their providers; video+social wired, audio via /api/open-search",
+        "body": "services/openSearch/{adapters,index}.js + routes/openSearch.js (registered /api/open-search with searchLimiter). FEATURES video=sepia,dailymotion,archive; audio=audius,openverse,itunes,archive; social=lemmy(lemmy.ml),mastodon(hashtag-only). SearchService source 'open-media' added ONLY for category videos/social (not 'all'). Pool: cooldown 30s doubling to 15min per provider, per-process; deadline 4.5s on search path, 8s on dedicated route (Openverse is ~6s cold). OPEN_SEARCH_DISABLE kill switch. 23 tests with real payload fixtures. Odysee omitted (lighthouse gives only claim ids). iTunes 403 seen from sandbox shared IP: retest from Vercel. Route cache-control is private (queries stay out of shared caches). $0 spend, no keys.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
       }
     },
     "thread": {
@@ -2873,6 +2881,24 @@
         "Type": "thread",
         "Label": "~11% 499s on search.truegle.info = our backend's 4500ms SearXNG timeout, bursty stalls",
         "body": "ALL 499s are UA TruegleSearch/1.0 (255 vs 2032 200s in 24h), origin status 0 = backend hung up at timeout=4500 (SearchService.js ~1505). NOT uniform: 62% of requests in the 11-12T08 hour, ~16% at 01:00/22:00, ~0 most hours => episodic SearXNG stalls on t3.micro, not steady slowness. 200s origin latency p50 1151ms p95 3820 p99 4445 (survivor-biased at the 4500 cutoff). Primary mode makes up to 3 SERIAL SearXNG calls per search (main, unscoped thin-retry, compound-brand variant) = 13.5s worst case. OPTIONS (none applied, do NOT just raise the timeout): (1) edge TTL 600->3600 on rule 417acb0a: cuts load, ~20% of requests are expired repeats. (2) backend circuit breaker: after N timeouts skip SearXNG ~60s, and skip the retry/compound calls when the first took >2.5s. (3) check the BOX not the code: CloudWatch CPUCreditBalance on i-0709a9d47e503384f (t3.micro standard-mode credit exhaustion throttles CPU in episodes; switching to unlimited can cost money - flag per financial skill), 'free -m'/'vmstat 1' during a burst, docker logs for engine CAPTCHA/suspensions. (4) settings.yml: fewer engines, outgoing.request_timeout ~2.5, max_request_timeout ~4. Needs EC2 Instance Connect (browser) for 3-4.",
+        "status": "open",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "hf-search-gateway-space": {
+        "Id": "hf-search-gateway-space",
+        "Type": "thread",
+        "Label": "NEXT: run open-search adapters from a free Hugging Face Space as fallback egress (owner has hf CLI)",
+        "body": "Owner 2026-11-12 chose a Hugging Face Space (has hf CLI locally; cloud sandbox may not). Plan: staged kit (Dockerfile node:20, tiny Express server requiring the SAME adapters copied from apps/backend/services/openSearch by a stage script, Bearer SEARCH_GATEWAY_TOKEN, refuses to start without it like services/osint-python), plus a backend SearchGatewayClient inert until SEARCH_GATEWAY_URL set, used as a fallback tier in the pool when direct calls fail/cool (different egress IP helps shared-IP throttling like iTunes 403). Owner steps: create Space (Docker SDK), set SEARCH_GATEWAY_TOKEN secret, 'hf upload'. NOT doing scraper engines (4get/Whoogle): datacenter IPs get blocked. Existing osint-python Space plan (docs/OSINT-SERVICE-PLAN.md) is the same host family.",
+        "status": "open",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "dead-pricing-links": {
+        "Id": "dead-pricing-links",
+        "Type": "thread",
+        "Label": "OWNER DECISION: /pricing + /signin + premium CTAs are dead leftovers (no route, GSC 404)",
+        "body": "No /pricing or /signin route exists; PricingPage.jsx is unrouted (Stripe 'integration pending'). Linked from TokenGate.jsx (href), BiasedResults.jsx (window.location), FeelingBiasedPage.jsx ('Go Ad-Free'), ExtractPage.jsx; PricingPage navigates to /signin; OSINTMode navigates to /signin. Hard navigation = Cloudflare 404 (seen in GSC 2026-10-17). Conflicts with no-ads/no-revenue decision. Options: remove the CTAs, or 301 /pricing -> /about/ like /advertise. Not changed: product call.",
         "status": "open",
         "ts": "2026-11-12",
         "created": "2026-11-12"

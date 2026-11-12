@@ -64,6 +64,19 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-12 — keyless open-search pool (no SearXNG, no keys, nothing on the EC2 box)
+- **What:** `apps/backend/services/openSearch/` — adapters (`adapters.js`) + feature→provider registry and health pool (`index.js`). Features: **video** = Sepia (PeerTube federation), Dailymotion, Internet Archive; **audio** = Audius, Openverse, iTunes podcasts, Internet Archive; **social** = Lemmy (lemmy.ml), Mastodon hashtag timelines. Each feature spends ONLY its own providers, so one feature cannot exhaust another's quota ("keys to features").
+- **Wired:** `SearchService` adds it as source `open-media` for the **Videos** and **Social** tabs only (NOT the mixed "all" search). Audio is exposed only at `GET /api/open-search/audio?q=` (no UI yet). `GET /api/open-search/health` shows provider status.
+- **Health:** a provider that times out/429s/5xxs cools down 30s, doubling to 15 min, recovers on first success; every call is bounded (4.5s on the search path, 8s on the dedicated route). One provider down never fails a feature; all down => the source is recorded as failed and the other sources carry the search.
+- **Kill switch:** env `OPEN_SEARCH_DISABLE=sepia,lemmy` (non-secret) + redeploy.
+- **Measured 2026-11-12 from the cloud sandbox:** lemmy.ml 1.4s vs lemmy.world 5.7-7s (so lemmy.ml); Openverse ~6s cold / 0.15s warm (hence the longer budget on the dedicated route); iTunes returned 403 from the shared sandbox IP (rate-limit; retest from Vercel). Odysee (lighthouse) was left out: its search returns only claim ids, no verified URL/thumbnail mapping. Bluesky search, Reddit JSON, Mojeek, Stract, Marginalia and Wikipedia failed or were unverifiable from here.
+- **Tests:** `__tests__/openSearch.test.js` (23, real captured payloads in `__tests__/fixtures/openSearch`). `new-endpoints.test.js` fails to start in a container with no Postgres (identical on a clean base) — not related.
+- **NEXT (agreed with owner):** run the same adapters from a free Hugging Face Space as a second egress/failure domain (owner has the `hf` CLI locally), called by the backend as a fallback tier when `SEARCH_GATEWAY_URL` is set. Web-search backup engines (4get/Whoogle-style scrapers) are NOT planned: they get blocked from datacenter IPs.
+
+## 🗓️ 2026-11-12 — feed cache turnover now 6 AM Pacific; search edge TTL 1h
+- `utils/cacheEpoch.js` REFRESH_HOUR 6; `vercel.json` crons 13:00/14:00 UTC. Cloudflare rule 417acb0a edge TTL 3600s (set via API, not in git).
+- **Search Console:** property live since June; 2026-11-12 indexed 34 / not indexed 37 (20 redirects, 6 robots-blocked, 6 404, 2 soft 404, 2 alternate-canonical, 1 crawled-not-indexed). 404s: 4 are removed `/adframe*` ad URLs (correct, ignore), `/tube` + `/feed` were a transient Oct 24 blip (200 now), and **`/pricing` is a real dead link** (no route; linked from TokenGate, BiasedResults, FeelingBiasedPage, ExtractPage; PricingPage.jsx is unrouted) — premium-era leftovers, product decision pending.
+
 ## 🗓️ 2026-11-09 — top-posts server cache, rebuilt daily at 6 AM Pacific (moved from 9 AM on 2026-11-12)
 
 - **What:** `POST /api/social/feed` for the landing/`/feed` Home "Top" requests (social networks only, empty query or a fixed fallback seed word; config in `backend/config/topFeed.js`) is answered from a cache. Response header `X-Truegle-Cache`: `hit` | `miss` | `stale` | `thin` | `bypass`. Typed searches, news/markets/creators/podcast lanes and non-social sources are never cached (`bypass`).

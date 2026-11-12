@@ -335,6 +335,7 @@ app.use('/api/shopping', require('./routes/shopping'));
 // and enforces nothing) keys on user-or-IP at 30/min.
 app.use('/api/social', [searchLimiter, require('./routes/social')]);
 app.use('/api/social-auth', require('./routes/socialAuth'));
+app.use('/api/open-search', [searchLimiter, require('./routes/openSearch')]);
 app.use('/api/osint', require('./routes/osint'));
 app.use('/api/contact', require('./routes/contact'));
 app.use('/api/shodan', require('./routes/shodan'));
