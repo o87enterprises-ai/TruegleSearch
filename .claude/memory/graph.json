@@ -2902,6 +2902,15 @@
         "status": "open",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "verify-open-search-on-prod": {
+        "Id": "verify-open-search-on-prod",
+        "Type": "thread",
+        "Label": "AFTER MERGE: smoke /api/open-search/health + video/audio/social on api.truegle.info",
+        "body": "Preview cannot serve (see vercel-preview-backend-500-no-secrets), so the open-search pool has only been proven by 23 jest tests on real payloads + a live node smoke test from the cloud sandbox. After PR #145 merges and the prod deploy is READY: curl https://api.truegle.info/api/open-search/health, then /video?q=open+source, /audio?q=rain, /social?q=climate; check each provider status ok, and whether iTunes still 403s from Vercel egress (it did from the sandbox). Also confirm the 6AM cron: vercel.json crons 13:00/14:00 UTC call /api/cron/refresh-top-feed; tomorrow ~06:00 Pacific check feed_cache epoch rolled.",
+        "status": "open",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
       }
     },
     "entity": {
@@ -4440,6 +4449,14 @@
         "Type": "fact",
         "Label": "Search Console property EXISTS (messages since 2026-06-19); sitemap submitted 2026-11-12",
         "body": "Owner screenshots 2026-11-12: GSC property truegle.info has been live since at least 2026-06-19 (messages: Jun 19 'Improve Google presence', Jun 21 monitor traffic, Jul 3/Jul 18/Sep 6/Oct 25 'New reasons prevent pages from being indexed', Sep 9 validating fixes, Sep 16 'Some fixes failed', Jul 29 5 clicks/28d, Aug 19 10 clicks/28d). So the earlier gsc-setup-pending thread was stale. 2026-11-12 owner submitted https://truegle.info/sitemap.xml; GSC first showed 'Sitemap could not be read', discovered 0 - checked our side same day: 200, application/xml, valid XML, 45 unique https URLs all return 200 with no redirects, identical for a Googlebot UA, robots.txt lists it plus sitemap-videos.xml (3.1MB, 200). No fault found; first-read 'could not be read' right after submit is commonly transient - recheck after 24-48h. OPEN: Oct 25 + Sep 16 indexing-issue messages need the Indexing > Pages 'why not indexed' table (owner browser). Also +114% impressions on /blog/search-without-tracking-alternative-to-google/.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "vercel-preview-backend-500-no-secrets": {
+        "Id": "vercel-preview-backend-500-no-secrets",
+        "Type": "fact",
+        "Label": "Backend PREVIEW deployments always 500 (JWT_SECRET missing in Preview env) - not a code bug",
+        "body": "2026-11-12: every backend preview on Vercel (project backend prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI, team team_OyHR5YLtUy6gIs8HmvhXKSsj) returns FUNCTION_INVOCATION_FAILED on ALL routes incl. unrelated /api/news/markets. Runtime log: Error: Config validation error: \"JWT_SECRET\" is required at config/env.js:249 -> process exits at load. Cause: secrets are scoped to Production only; Preview env has none. The build is 'Ready' so the PR check is green even though the preview cannot serve. So: do NOT treat a green Vercel preview as proof the backend runs, and do not chase a preview 500 as a regression. Verify backend changes by jest + local node smoke, then after merge on prod (api.truegle.info). Previews are behind Vercel auth; use mcp__Vercel__web_fetch_vercel_url (creates a 23h share link) and get_runtime_logs (Hobby keeps ~1h, use since:30m and deploymentId dpl_<id>). Adding secrets to Preview is an owner decision (new copies of production secrets).",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       }
