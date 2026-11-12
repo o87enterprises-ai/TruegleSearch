@@ -2288,6 +2288,22 @@
         "body": "services/openSearch/{adapters,index}.js + routes/openSearch.js (registered /api/open-search with searchLimiter). FEATURES video=sepia,dailymotion,archive; audio=audius,openverse,itunes,archive; social=lemmy(lemmy.ml),mastodon(hashtag-only). SearchService source 'open-media' added ONLY for category videos/social (not 'all'). Pool: cooldown 30s doubling to 15min per provider, per-process; deadline 4.5s on search path, 8s on dedicated route (Openverse is ~6s cold). OPEN_SEARCH_DISABLE kill switch. 23 tests with real payload fixtures. Odysee omitted (lighthouse gives only claim ids). iTunes 403 seen from sandbox shared IP: retest from Vercel. Route cache-control is private (queries stay out of shared caches). $0 spend, no keys.",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "pricing-removed-2026-11-12": {
+        "Id": "pricing-removed-2026-11-12",
+        "Type": "decision",
+        "Label": "/pricing + dead premium CTAs removed; /pricing 301 -> /about/",
+        "body": "Owner approved 2026-11-12. Removed CTAs in TokenGate, BiasedResults, FeelingBiasedPage (Go Ad-Free), ExtractPage; deleted unrouted PricingPage.jsx; TutorialModal reworded to '10 free tokens (searches + chat)'; OSINTMode /signin -> /auth/login; _redirects /pricing and /pricing/ 301 -> /about/. NOT removed (open owner decision): OSINTMode 'Upgrade Now' premium modal (setShowPremiumModal) and paymentService/backend payment+paypal routes, which still imply a paid tier although there is no revenue model. GSC: do not click Validate on the 404 list (adframe URLs are intentionally gone).",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "hf-gateway-built-2026-11-12": {
+        "Id": "hf-gateway-built-2026-11-12",
+        "Type": "decision",
+        "Label": "HF search-gateway Space kit built + tested; DEPLOY PENDING (owner runs hf commands)",
+        "body": "services/search-gateway/{Dockerfile,server.js,package.json,README.md} + scripts/stage-search-gateway.sh; app = apps/backend/services/openSearch/gatewayServer.js, client gateway.js, fallback tier in index.js (retry failed/cooling providers once through the gateway within the remaining deadline, >=1s). Auth Bearer SEARCH_GATEWAY_TOKEN (503 if unset, timingSafeEqual). POST body not URL. hf CLI 2.4 syntax verified: hf auth login; hf repos create USER/NAME --type space --sdk docker --public; hf upload USER/NAME DIR . --repo-type space; hf spaces secrets add USER/NAME -s NAME (reads env); hf spaces variables add -e K=V. Names added to docs/SECRETS-MAP.md. OWNER STEPS: run README commands, set SEARCH_GATEWAY_TOKEN on Space + Vercel, SEARCH_GATEWAY_URL on Vercel, redeploy. Then verify via api.truegle.info/api/open-search/health and a forced-failure check.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
       }
     },
     "thread": {
@@ -2890,7 +2906,7 @@
         "Type": "thread",
         "Label": "NEXT: run open-search adapters from a free Hugging Face Space as fallback egress (owner has hf CLI)",
         "body": "Owner 2026-11-12 chose a Hugging Face Space (has hf CLI locally; cloud sandbox may not). Plan: staged kit (Dockerfile node:20, tiny Express server requiring the SAME adapters copied from apps/backend/services/openSearch by a stage script, Bearer SEARCH_GATEWAY_TOKEN, refuses to start without it like services/osint-python), plus a backend SearchGatewayClient inert until SEARCH_GATEWAY_URL set, used as a fallback tier in the pool when direct calls fail/cool (different egress IP helps shared-IP throttling like iTunes 403). Owner steps: create Space (Docker SDK), set SEARCH_GATEWAY_TOKEN secret, 'hf upload'. NOT doing scraper engines (4get/Whoogle): datacenter IPs get blocked. Existing osint-python Space plan (docs/OSINT-SERVICE-PLAN.md) is the same host family.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       },
@@ -2899,7 +2915,7 @@
         "Type": "thread",
         "Label": "OWNER DECISION: /pricing + /signin + premium CTAs are dead leftovers (no route, GSC 404)",
         "body": "No /pricing or /signin route exists; PricingPage.jsx is unrouted (Stripe 'integration pending'). Linked from TokenGate.jsx (href), BiasedResults.jsx (window.location), FeelingBiasedPage.jsx ('Go Ad-Free'), ExtractPage.jsx; PricingPage navigates to /signin; OSINTMode navigates to /signin. Hard navigation = Cloudflare 404 (seen in GSC 2026-10-17). Conflicts with no-ads/no-revenue decision. Options: remove the CTAs, or 301 /pricing -> /about/ like /advertise. Not changed: product call.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       },
@@ -2908,6 +2924,15 @@
         "Type": "thread",
         "Label": "AFTER MERGE: smoke /api/open-search/health + video/audio/social on api.truegle.info",
         "body": "Preview cannot serve (see vercel-preview-backend-500-no-secrets), so the open-search pool has only been proven by 23 jest tests on real payloads + a live node smoke test from the cloud sandbox. After PR #145 merges and the prod deploy is READY: curl https://api.truegle.info/api/open-search/health, then /video?q=open+source, /audio?q=rain, /social?q=climate; check each provider status ok, and whether iTunes still 403s from Vercel egress (it did from the sandbox). Also confirm the 6AM cron: vercel.json crons 13:00/14:00 UTC call /api/cron/refresh-top-feed; tomorrow ~06:00 Pacific check feed_cache epoch rolled.",
+        "status": "open",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "deploy-hf-gateway": {
+        "Id": "deploy-hf-gateway",
+        "Type": "thread",
+        "Label": "OWNER: deploy the HF Space (README in services/search-gateway) then set 2 Vercel vars",
+        "body": "Kit is built and tested but nothing is live. After owner deploys: curl https://<user>-truegle-search-gateway.hf.space/health => configured:true; set SEARCH_GATEWAY_TOKEN + SEARCH_GATEWAY_URL on Vercel Production and redeploy; verify with a forced failure (OPEN_SEARCH_DISABLE does NOT force the gateway - it skips both) e.g. watch report.<provider>.viaGateway in /api/open-search/<feature> when a provider is throttling.",
         "status": "open",
         "ts": "2026-11-12",
         "created": "2026-11-12"

@@ -60,6 +60,9 @@ function checkAuth(req) {
 router.get('/refresh-top-feed', async (req, res) => {
   const auth = checkAuth(req);
   if (!auth.ok) return res.status(401).json({ error: 'unauthorised' });
+  // Keep the free Hugging Face search-gateway Space awake (it sleeps after ~48h idle). Best-effort, <=3s,
+  // instant no-op while SEARCH_GATEWAY_URL is unset.
+  await require('../services/openSearch/gateway').ping();
   const force = req.query.force === '1';
   if (force && !auth.strong) return res.status(403).json({ error: 'force needs CRON_SECRET' });
 

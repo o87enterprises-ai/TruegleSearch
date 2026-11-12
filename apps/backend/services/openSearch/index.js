@@ -13,10 +13,15 @@
  * State is per process (Vercel instances are short-lived), which is fine: worst case
  * an instance re-learns a bad provider with one 5s-bounded request.
  *
+ * GATEWAY TIER (optional): when SEARCH_GATEWAY_URL/TOKEN are set, providers that failed or are
+ * cooling are retried ONCE through the Hugging Face gateway Space (different IP + failure domain),
+ * inside whatever is left of the deadline. A gateway error is swallowed; it can only ever add results.
+ *
  * KILL SWITCH: OPEN_SEARCH_DISABLE=sepia,lemmy turns providers off without a deploy
  * of code (env change + redeploy).
  */
 const adapters = require('./adapters');
+const gateway = require('./gateway');
 const logger = require('../../utils/logger');
 
 // feature -> { category: what an item must be tagged to count, providers: ordered }
@@ -75,7 +80,7 @@ function interleave(lists) {
  * @returns {{items: object[], report: object, answered: number}}
  *   answered = providers that returned without error (0 results still counts).
  */
-async function search(feature, query, { limit = 10, safe = true, now = Date.now(), deadlineMs = DEADLINE_MS } = {}) {
+async function search(feature, query, { limit = 10, safe = true, now = Date.now(), deadlineMs = DEADLINE_MS, only = null, allowGateway = true } = {}) {
   const spec = FEATURES[feature];
   if (!spec) throw new Error(`unknown feature ${feature}`);
   const q = String(query || '').trim();
@@ -83,7 +88,9 @@ async function search(feature, query, { limit = 10, safe = true, now = Date.now(
   const report = {};
   if (!q) return { items: [], report, answered: 0 };
 
-  const runs = spec.providers.map(async (name) => {
+  const names = only ? spec.providers.filter((p) => only.includes(p)) : spec.providers;
+  const t0 = Date.now();
+  const runs = names.map(async (name) => {
     if (off.has(name)) { report[name] = { status: 'disabled' }; return []; }
     if (isCooling(name, now)) { report[name] = { status: 'cooling' }; return []; }
     const started = Date.now();
@@ -101,7 +108,28 @@ async function search(feature, query, { limit = 10, safe = true, now = Date.now(
   });
 
   const lists = await Promise.all(runs);
-  const answered = Object.values(report).filter((r) => r.status === 'ok').length;
+
+  // Fallback tier. Disabled providers are an owner decision and are never forwarded.
+  if (allowGateway && gateway.enabled()) {
+    const need = names.filter((n) => report[n]?.status === 'error' || report[n]?.status === 'cooling');
+    const left = deadlineMs - (Date.now() - t0);
+    if (need.length && left >= 1000) {
+      try {
+        const g = await gateway.search(feature, q, { limit, safe, providers: need, timeoutMs: left });
+        // Trust nothing the gateway sends beyond what we asked for: right providers, right category.
+        const extra = (Array.isArray(g?.results) ? g.results : []).filter((i) => i && need.includes(i.source) && i.category === spec.category);
+        for (const n of need) {
+          if (g?.providers?.[n]?.status === 'ok') report[n] = { ...report[n], viaGateway: true, gatewayCount: g.providers[n].count };
+        }
+        if (extra.length) lists.push(extra);
+      } catch (err) {
+        report.gateway = { status: 'error', error: err.response?.status ? `HTTP ${err.response.status}` : (err.code || err.message) };
+        logger.warn(`open-search ${feature} gateway fallback failed: ${report.gateway.error}`);
+      }
+    }
+  }
+
+  const answered = Object.values(report).filter((r) => r.status === 'ok' || r.viaGateway).length;
   return { items: interleave(lists).slice(0, limit * 2), report, answered };
 }
 
