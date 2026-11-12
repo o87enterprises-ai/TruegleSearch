@@ -2622,7 +2622,7 @@
         "Label": "Search Console + Bing still not set up — owner browser task",
         "body": "HANDOFF contradicted itself (SEO section claimed Bing was imported from GSC; service table said both Not started). Nothing in the repo proves a property exists. GSC is the ONLY authoritative organic source (impressions/clicks/queries/position + Coverage = Google's own technical audit) and the only thing that settles the ~100x Cloudflare-vs-Adsterra measurement gap. Needs a browser login: add truegle.info property, verify via Cloudflare DNS TXT, submit sitemap.xml, request indexing for / and /search. Bing Webmaster imports from GSC in one click.",
         "status": "done",
-        "ts": "2026-09-28",
+        "ts": "2026-11-12",
         "created": "2026-08-24"
       },
       "groq-legacy-vars-cleanup": {
@@ -4406,6 +4406,14 @@
         "Type": "fact",
         "Label": "Keyless API probe from cloud sandbox 2026-11-12 (which free sources actually answer)",
         "body": "200 OK keyless: Sepia Search (PeerTube federated video, sepiasearch.org/api/v1/search/videos), Dailymotion API (api.dailymotion.com/videos?search=), Odysee (lighthouse.odysee.tv/search), Internet Archive advancedsearch (works but ~3s), Openverse audio/images (api.openverse.org/v1), Audius tracks, iTunes podcast search, Hacker News Algolia (already used), Lemmy (lemmy.world/api/v3/search), Mastodon TAG timeline (mastodon.social/api/v1/timelines/tag/<t>), DDG Instant Answer (answers only, NOT web results), StackExchange. FAILED from sandbox: Bluesky public.api searchPosts 403 (now needs auth), Reddit www /search.json 403 (datacenter IP; repo already has RedditAppToken OAuth), Mojeek 403 (needs key), Stract /beta/api/search 404, Marginalia timed out, Wikipedia+Commons 429 (needs descriptive User-Agent w/ contact + shared egress IP; retry from Vercel). Caveat: sandbox egress is a shared datacenter IP, so 403/429 here may not repeat from Vercel - retest in prod before ruling a source out. Repo already calls: brave, serpapi, google CSE, apify (CHECK: Apify is metered/paid), invidious instances (flaky), bsky, mastodon, HN, reddit, tiktok, dailymotion (embed only). NOT yet used: sepiasearch, odysee, openverse, audius, itunes, internet-archive, lemmy-search. TikTok/Instagram reels have NO free search API; scrapers (yt-dlp/instaloader) are datacenter-blocked + ToS risk - not recommended.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "gsc-live-2026-11-12": {
+        "Id": "gsc-live-2026-11-12",
+        "Type": "fact",
+        "Label": "Search Console property EXISTS (messages since 2026-06-19); sitemap submitted 2026-11-12",
+        "body": "Owner screenshots 2026-11-12: GSC property truegle.info has been live since at least 2026-06-19 (messages: Jun 19 'Improve Google presence', Jun 21 monitor traffic, Jul 3/Jul 18/Sep 6/Oct 25 'New reasons prevent pages from being indexed', Sep 9 validating fixes, Sep 16 'Some fixes failed', Jul 29 5 clicks/28d, Aug 19 10 clicks/28d). So the earlier gsc-setup-pending thread was stale. 2026-11-12 owner submitted https://truegle.info/sitemap.xml; GSC first showed 'Sitemap could not be read', discovered 0 - checked our side same day: 200, application/xml, valid XML, 45 unique https URLs all return 200 with no redirects, identical for a Googlebot UA, robots.txt lists it plus sitemap-videos.xml (3.1MB, 200). No fault found; first-read 'could not be read' right after submit is commonly transient - recheck after 24-48h. OPEN: Oct 25 + Sep 16 indexing-issue messages need the Indexing > Pages 'why not indexed' table (owner browser). Also +114% impressions on /blog/search-without-tracking-alternative-to-google/.",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       }
