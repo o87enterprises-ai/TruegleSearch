@@ -2932,7 +2932,7 @@
         "Type": "thread",
         "Label": "AFTER MERGE: smoke /api/open-search/health + video/audio/social on api.truegle.info",
         "body": "Preview cannot serve (see vercel-preview-backend-500-no-secrets), so the open-search pool has only been proven by 23 jest tests on real payloads + a live node smoke test from the cloud sandbox. After PR #145 merges and the prod deploy is READY: curl https://api.truegle.info/api/open-search/health, then /video?q=open+source, /audio?q=rain, /social?q=climate; check each provider status ok, and whether iTunes still 403s from Vercel egress (it did from the sandbox). Also confirm the 6AM cron: vercel.json crons 13:00/14:00 UTC call /api/cron/refresh-top-feed; tomorrow ~06:00 Pacific check feed_cache epoch rolled.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       },
@@ -2941,6 +2941,15 @@
         "Type": "thread",
         "Label": "OWNER: deploy the HF Space (README in services/search-gateway) then set 2 Vercel vars",
         "body": "Kit is built and tested but nothing is live. After owner deploys: curl https://<user>-truegle-search-gateway.hf.space/health => configured:true; set SEARCH_GATEWAY_TOKEN + SEARCH_GATEWAY_URL on Vercel Production and redeploy; verify with a forced failure (OPEN_SEARCH_DISABLE does NOT force the gateway - it skips both) e.g. watch report.<provider>.viaGateway in /api/open-search/<feature> when a provider is throttling.",
+        "status": "done",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "gateway-host-cloudflare-worker": {
+        "Id": "gateway-host-cloudflare-worker",
+        "Type": "thread",
+        "Label": "PROPOSED (needs owner go): host the search gateway as a Cloudflare Worker instead of an HF Space",
+        "body": "Cloudflare account already has Workers enabled (workers.dev subdomain 'o87enterprises', 20 existing scripts incl. o87-ollama-proxy, trumpafi-proxy), account id 1052be08b0c9382768667a9254936f9c, creds in env (cloudflare-creds-in-env). Why a Worker: $0 free tier, no card, no sleep/cold start (unlike free Render-style hosts), second egress IP + failure domain separate from Vercel and EC2. Needs: a framework-agnostic core extracted from gatewayServer.js (express wrapper + Worker fetch handler share it), esbuild bundle with axios fetch adapter, deploy via API with the token as a secret_text binding, matching SEARCH_GATEWAY_TOKEN + SEARCH_GATEWAY_URL set on Vercel prod (Vercel connector available) and a redeploy. Limits to respect: 10ms CPU/invocation, 50 subrequests, 100k req/day (fallback traffic is tiny). Risk: some providers may block Cloudflare Worker IPs - test each provider from the deployed Worker before wiring. DO NOT deploy or touch Vercel prod env until the owner says go.",
         "status": "open",
         "ts": "2026-11-12",
         "created": "2026-11-12"
@@ -4490,6 +4499,30 @@
         "Type": "fact",
         "Label": "Backend PREVIEW deployments always 500 (JWT_SECRET missing in Preview env) - not a code bug",
         "body": "2026-11-12: every backend preview on Vercel (project backend prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI, team team_OyHR5YLtUy6gIs8HmvhXKSsj) returns FUNCTION_INVOCATION_FAILED on ALL routes incl. unrelated /api/news/markets. Runtime log: Error: Config validation error: \"JWT_SECRET\" is required at config/env.js:249 -> process exits at load. Cause: secrets are scoped to Production only; Preview env has none. The build is 'Ready' so the PR check is green even though the preview cannot serve. So: do NOT treat a green Vercel preview as proof the backend runs, and do not chase a preview 500 as a regression. Verify backend changes by jest + local node smoke, then after merge on prod (api.truegle.info). Previews are behind Vercel auth; use mcp__Vercel__web_fetch_vercel_url (creates a 23h share link) and get_runtime_logs (Hobby keeps ~1h, use since:30m and deploymentId dpl_<id>). Adding secrets to Preview is an owner decision (new copies of production secrets).",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "prod-verified-2026-11-12": {
+        "Id": "prod-verified-2026-11-12",
+        "Type": "fact",
+        "Label": "PR #145 merged + verified on production 2026-11-12 (open-search, /pricing 301, feed 6AM shipped)",
+        "body": "Merged to main 2026-11-12 (Cloudflare Pages production d1652e7). api.truegle.info/api/open-search/health -> 200, all providers ready. Live from Vercel egress: video q='open source news' answered 3/3 in 1.8s; audio answered 4/4 (itunes OK from Vercel => the 403 was the cloud-sandbox shared IP only; openverse cold ~6s on a novel query: 'jazz piano' took 6.4s on the dedicated route, within its 8s budget); social answered 2/2 in 1.0s. https://truegle.info/pricing -> 301 /about/ (took ~1 min after the merge). /api/news/markets still 200. 6AM cron change shipped in vercel.json (first 6AM-Pacific run = 2026-11-13 ~13:00-14:00 UTC; check feed_cache epoch rolled). NOT YET DONE: HF gateway Space is NOT deployed (owner running README steps); gateway tier is inert until SEARCH_GATEWAY_URL+TOKEN set on Vercel. Branch o87/zealous-archimedes-dbzhwa = empty vs main (no duplicate pricing work).",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "owner-machine-windows-powershell": {
+        "Id": "owner-machine-windows-powershell",
+        "Type": "fact",
+        "Label": "Owner's local machine is WINDOWS (PowerShell, C:\\Users\\there\\o87DevMobile\\Builds\\TruegleSearch): give PowerShell commands, not bash",
+        "body": "2026-11-12: owner ran 'bash scripts/stage-search-gateway.sh' in PowerShell and got '/bin/bash: scripts/stage-search-gateway.sh: No such file or directory' even though the file exists (most likely PowerShell's 'bash' is WSL, which does not see the Windows path the same way). Repo clone lives at C:\\Users\\there\\o87DevMobile\\Builds\\TruegleSearch; hf CLI is installed there (login had expired: needed 'hf auth login --force'). RULE: any command meant for the owner's machine must be PowerShell-native: no bash/openssl/printf/export, set env with $env:NAME, make tokens with [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes, build paths with Join-Path $env:TEMP. Piping a string into a CLI from PowerShell adds a trailing newline (the backend .trim()s SEARCH_GATEWAY_TOKEN/URL so that is tolerated, but prefer the Vercel dashboard for pasting values). The stage script has no .ps1 twin yet: add scripts/stage-search-gateway.ps1 once the inline PowerShell version is confirmed working on the owner machine.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "hf-docker-spaces-need-pro": {
+        "Id": "hf-docker-spaces-need-pro",
+        "Type": "fact",
+        "Label": "HF Docker Spaces now REQUIRE PRO (402 Payment Required): free HF host plan is INVALID",
+        "body": "2026-11-12: 'hf repos create truegleai/truegle-search-gateway --type space --sdk docker --public' -> 402 'Static Spaces are free for everyone, but hosting Gradio and Docker Spaces on free cpu-basic requires a PRO subscription' (huggingface.co/pro). HF username = truegleai. Earlier memory/plan claims that a free HF CPU Docker Space (2vCPU/16GB, no card) is available are OUT OF DATE. Violates the $0 budget: do NOT subscribe to PRO. AFFECTED: docs/OSINT-SERVICE-PLAN.md + services/osint-python (thread osint-python-service assumes an HF Docker Space) and services/search-gateway/README.md (Space deploy steps). Static Spaces are free but cannot run server code. The host-agnostic parts survive: openSearch/gatewayServer.js, gateway.js client, pool fallback tier, secrets map names.",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       }
