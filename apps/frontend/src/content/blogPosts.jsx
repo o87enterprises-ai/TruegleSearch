@@ -407,8 +407,8 @@ export const BLOG_POSTS = [
           <p>
             If your goals are privacy <em>and</em> breadth <em>and</em> seeing more
             than one perspective, that's the gap Truegle is built for. Like
-            DuckDuckGo, Truegle doesn't track, profile, or sell your queries and uses
-            contextual (not behavioral) ads. Unlike a single-source engine, it
+            DuckDuckGo, Truegle doesn't track, profile, or sell your queries, and it
+            carries no ads at all. Unlike a single-source engine, it
             aggregates results from multiple providers through a self-hosted
             metasearch layer, labels sources, and offers perspective modes so you can
             compare framings on a contested topic — plus an anonymous "view" proxy so
@@ -781,7 +781,7 @@ export const BLOG_POSTS = [
                 </tr>
                 <tr className="border-b border-gray-800">
                   <td className="py-2 pr-4">"If it's free, you're being tracked."</td>
-                  <td className="py-2">Tracking is a business-model choice, not a requirement. Truegle uses contextual, clearly labeled ads instead of behavioral profiling.</td>
+                  <td className="py-2">Tracking is a business-model choice, not a requirement. Truegle carries no ads at all and doesn't profile you.</td>
                 </tr>
                 <tr>
                   <td className="py-2 pr-4">"You need an account to get good results."</td>
