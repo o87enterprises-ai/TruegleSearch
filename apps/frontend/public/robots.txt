@@ -54,5 +54,6 @@ Allow: /
 
 # LLMs.txt: https://truegle.info/llms.txt
 # AI Licensing Policy: https://truegle.info/ai-licensing
-# Free tier: 10 requests/day per IP. Commercial use requires a license.
+# Answer engines (search + user-initiated fetch) are unrestricted. Training/bulk
+# crawlers: free tier 10 requests/day per IP; commercial use requires a license.
 # Contact: truegleai@proton.me
