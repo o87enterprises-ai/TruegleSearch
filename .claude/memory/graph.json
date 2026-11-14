@@ -2312,6 +2312,14 @@
         "body": "Memory osint-only-gate already said 'no paid tier'. Removed every Subscribe/Upgrade/Go-Premium CTA (TokenGate, BiasedResults, FeelingBiasedPage, ExtractPage, OSINTMode fake $9.99 modal + startPremiumCheckout import); out-of-tokens states say tokens reset. PricingPage.jsx deleted; /pricing -> /about/ 301 in _redirects (GSC 404). Another session landed a partial version of the same fix on main (4aceb36, PR #145) that kept the OSINT $9.99 modal; this PR (#146) completes it. services/paymentService.js has no callers. Pre-existing unrelated failure: seo:test 'sitemap lists every creator, /creators and /chat'.",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "backend-render-2026-11-14": {
+        "Id": "backend-render-2026-11-14",
+        "Type": "decision",
+        "Label": "Backend moved off Vercel to Render free",
+        "body": "2026-11-14: Vercel Hobby paused api.truegle.info for 30d (Fluid Active CPU 4h8m/4h → 402 DEPLOYMENT_DISABLED, shows in app as 'no answer from the server'). HF Spaces no longer free Docker. Backend now Render free web service via render.yaml + apps/backend/Dockerfile (PR #158). Daily top-feed cron moved to .github/workflows/cron-top-feed.yml. Pending: Render Blueprint setup + env vars, then point api.truegle.info DNS at Render.",
+        "ts": "2026-11-14",
+        "created": "2026-11-14"
       }
     },
     "thread": {
@@ -4521,5 +4529,5 @@
       }
     }
   },
-  "updated": "2026-11-12"
+  "updated": "2026-11-14"
 }
