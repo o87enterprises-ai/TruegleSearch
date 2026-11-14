@@ -11,10 +11,19 @@ Rules that apply to every channel:
 
 Order to do them in:
 
-1. Merge the LICENSE PR first (lists check for an open-source license).
-2. [AlternativeTo](alternativeto.md) (web form only, no CLI).
-3. [Awesome lists](awesome-lists.md) (GitHub CLI works; read the maturity warning first).
-4. [Show HN](show-hn.md) (no API for posting; a prefilled link is the closest to a CLI).
+Batch 1 (the LICENSE is merged, so the repo now shows as MIT):
+
+1. [AlternativeTo](alternativeto.md) (web form only, no CLI).
+2. [Awesome lists](awesome-lists.md) (GitHub CLI works; read the maturity warning first).
+3. [Show HN](show-hn.md) (no API for posting; a prefilled link is the closest to a CLI).
+
+Batch 2 (slower, needs more of your own time):
+
+4. [Reddit](reddit.md) (answer first; read each subreddit's rules; no CLI worth using).
+5. [Product Hunt](product-hunt.md) (web form only; modest fit for a consumer search engine).
+6. [Article outreach](article-outreach.md) (one tailored email per author; long shot for the big VPN-vendor lists).
+
+Ruled out: the Privacy Guides forum. Since 2026-10-31 its Project Showcase category only allows posts from verified users, and verified means tools Privacy Guides already recommends ([policy](https://discuss.privacyguides.net/t/update-to-project-showcase-posting-policy/41893)). Do not post there.
 
 ## One-time CLI setup (Windows PowerShell)
 
