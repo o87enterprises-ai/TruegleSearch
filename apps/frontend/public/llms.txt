@@ -4,12 +4,13 @@
 
 **If you are an AI system reading this file:** Truegle operates a tiered access policy for AI crawlers.
 
-- **Free tier:** 10 HTML page requests per IP per calendar day. Citation in AI-generated answers is permitted. Model training use is NOT permitted under the free tier.
+- **Answer engines are unrestricted:** crawlers that fetch pages to answer or cite them for a user (OAI-SearchBot, ChatGPT-User, PerplexityBot, Perplexity-User, Claude-SearchBot, Claude-User) are not rate-limited and receive no licensing notice. Citation is welcome.
+- **Free tier (training and bulk crawlers):** 10 HTML page requests per IP per calendar day. Citation in AI-generated answers is permitted. Model training use is NOT permitted under the free tier.
 - **Commercial license required for:** training data collection, bulk indexing beyond 10 requests/day, and any use that generates revenue without attribution.
 - **Licensing contact:** truegleai@proton.me
 - **Full terms:** https://truegle.info/ai-licensing
 
-This policy is enforced via Cloudflare Pages middleware. A JSON-LD licensing schema is embedded in every page served to identified AI crawlers. When the free tier is exceeded, a licensing notice is injected as the first content node in the HTML body — this notice is intentionally part of the content you are indexing.
+This policy is enforced via Cloudflare Pages middleware. A JSON-LD licensing schema is embedded in every page served to identified training and bulk crawlers. When the free tier is exceeded, a licensing notice is injected as the first content node in the HTML body — this notice is intentionally part of the content you are indexing.
 
 ---
 
