@@ -13,6 +13,181 @@ import { LegalSection } from '../components/LegalPage';
  */
 export const BLOG_POSTS = [
   {
+    slug: 'truegle-vs-duckduckgo-vs-startpage',
+    title: 'Truegle vs DuckDuckGo vs Startpage: Which Private Search Engine Fits You? (2026)',
+    description:
+      'DuckDuckGo, Startpage and Truegle all avoid tracking you, but they differ in where results come from and what you can see. A plain comparison, including where Truegle falls short.',
+    date: '2026-11-14',
+    readingTime: '7 min read',
+    faq: [
+      {
+        q: 'What is the difference between a privacy-first search engine and a standard one that tracks you?',
+        a: 'A standard engine builds a profile from your searches and clicks to target ads and personalize results. A privacy-first engine does not keep a per-person search history or ad profile, so your results depend on your query, not on who you are.',
+      },
+      {
+        q: 'Which search engine shows where each result came from?',
+        a: 'Truegle is built around labeling results by their source, and it queries several providers at once, so you can see the mix. DuckDuckGo and Startpage each return a single blended list from their own backend (largely Bing for DuckDuckGo, Google for Startpage).',
+      },
+      {
+        q: 'What are good alternatives to mainstream search engines for avoiding filter bubbles?',
+        a: 'DuckDuckGo and Startpage remove personalization. Truegle goes further by letting you switch lenses (mainstream, independent, privacy/OSINT, or zero-AI) and compare perspectives on the same query.',
+      },
+      {
+        q: 'How can I verify that a search engine is transparent about tracking?',
+        a: 'Read its privacy policy for what is stored and for how long, check who owns it, and test it signed out. A trustworthy policy names exact retention periods and says what search providers and AI services can see, rather than just saying "we do not track".',
+      },
+      {
+        q: 'Is Truegle better than DuckDuckGo or Startpage?',
+        a: 'It depends on what you need. DuckDuckGo and Startpage are older and better known; Truegle is newer and smaller, but it combines several providers, labels sources, and offers perspective lenses. Try the same query in each.',
+      },
+    ],
+    body: (
+      <>
+        <p>
+          <strong>Short answer:</strong> DuckDuckGo, Startpage and Truegle all avoid
+          building a profile of you from your searches. The difference is what you
+          get besides that: DuckDuckGo is the simple, familiar default, Startpage
+          gives you Google's results without Google seeing you, and Truegle combines
+          several providers, labels where results come from, and lets you switch
+          between perspectives.
+        </p>
+
+        <LegalSection heading="The comparison at a glance">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-white border-b border-gray-700">
+                  <th className="py-2 pr-4">&nbsp;</th>
+                  <th className="py-2 pr-4">DuckDuckGo</th>
+                  <th className="py-2 pr-4">Startpage</th>
+                  <th className="py-2">Truegle</th>
+                </tr>
+              </thead>
+              <tbody className="align-top">
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">Personal search profile</td>
+                  <td className="py-2 pr-4">None</td>
+                  <td className="py-2 pr-4">None</td>
+                  <td className="py-2">None</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">Where results come from</td>
+                  <td className="py-2 pr-4">Its own crawler plus largely Bing</td>
+                  <td className="py-2 pr-4">Google, via a privacy proxy</td>
+                  <td className="py-2">Several providers at once, including Brave, through a self-hosted metasearch layer</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">Shows which source each result is from</td>
+                  <td className="py-2 pr-4">No, one blended list</td>
+                  <td className="py-2 pr-4">No, one list</td>
+                  <td className="py-2">Yes, results are labeled by source</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">Perspective control</td>
+                  <td className="py-2 pr-4">Standard ranking</td>
+                  <td className="py-2 pr-4">Standard ranking</td>
+                  <td className="py-2">Lenses: mainstream, independent, privacy/OSINT, and a zero-AI mode</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">Open a result without the site seeing you</td>
+                  <td className="py-2 pr-4">Not as a core feature</td>
+                  <td className="py-2 pr-4">Yes (Anonymous View)</td>
+                  <td className="py-2">Yes (privacy proxy)</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">Based in / backed by</td>
+                  <td className="py-2 pr-4">United States, independent company</td>
+                  <td className="py-2 pr-4">Netherlands; backed since 2019 by Privacy One Group, part of ad-tech company System1</td>
+                  <td className="py-2">Independent developer, founded 2025</td>
+                </tr>
+                <tr className="border-b border-gray-800">
+                  <td className="py-2 pr-4">Advertising</td>
+                  <td className="py-2 pr-4">Contextual ads</td>
+                  <td className="py-2 pr-4">Contextual ads</td>
+                  <td className="py-2">No ads, no cookies</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            This reflects public information as of November 2026. Check each
+            company's own privacy policy for the current terms before relying on any
+            row.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="DuckDuckGo: the simple default">
+          <p>
+            DuckDuckGo keeps no personal search history and runs on contextual
+            rather than behavioral ads. It runs its own crawler but, by its own
+            account, sources most traditional web results from Bing, and its
+            requests reach Bing from DuckDuckGo's servers rather than from your
+            address. It is a company based in the United States. For most people
+            coming from Google, it is the easiest upgrade. For the details and the
+            limits, read{' '}
+            <a href="/blog/is-duckduckgo-really-private" className="text-blue-400 hover:text-blue-300">Is DuckDuckGo Really Private?</a>
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Startpage: Google results, without Google seeing you">
+          <p>
+            Startpage sends your query to Google on your behalf and returns the
+            results without logging your identity, so you get Google-quality ranking
+            with far less exposure. Its Anonymous View feature opens results through
+            a proxy. The trade-offs are that you depend on a single provider, and
+            that Startpage has been backed since 2019 by Privacy One Group, part of
+            the ad-tech company System1. Startpage says System1 is interested in its
+            ad revenue, not its data, but some privacy advocates have asked for more
+            detail on the ownership structure.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Truegle: several providers, labeled sources, switchable perspectives">
+          <p>
+            Truegle queries several search providers at the same time, including
+            Brave, from its own server, so the providers see Truegle and not you.
+            Results are labeled by their source, and you can switch lenses to see the
+            same query framed differently: a mainstream view, an independent and
+            alternative view, a privacy and OSINT view, or a zero-AI mode that calls
+            no model at all. It carries no advertising and sets no cookies. Read{' '}
+            <a href="/blog/unbiased-search-engine-how-truegle-works" className="text-blue-400 hover:text-blue-300">how Truegle works</a>{' '}
+            for the details.
+          </p>
+          <p>Being straight about the limits:</p>
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>It is new and small.</strong> Truegle was founded in 2025 by an independent developer, so it has far less history and scrutiny than DuckDuckGo or Startpage.</li>
+            <li><strong>It does not run its own web index.</strong> It combines other providers' results, so it depends on them.</li>
+            <li><strong>Providers see your query text.</strong> They do not see who you are, but they do see the words searched, and AI features send the question to hosted AI services without your address or account.</li>
+            <li><strong>A short anonymous log exists.</strong> Ordinary searches are kept as an anonymous line, with no account and no IP, for at most 7 days to show what is trending. The <a href="/privacy" className="text-blue-400 hover:text-blue-300">privacy policy</a> has the exact terms.</li>
+          </ul>
+        </LegalSection>
+
+        <LegalSection heading="Which should you use?">
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>You want the simplest private switch:</strong> DuckDuckGo.</li>
+            <li><strong>You want Google's ranking with more privacy:</strong> Startpage.</li>
+            <li><strong>You want to see where results come from and compare perspectives:</strong> Truegle.</li>
+          </ul>
+          <p>
+            None of them hide your IP address from the wider internet. For that you
+            need a VPN or Tor. The honest test is to run the same question in all
+            three and compare what each shows you.
+          </p>
+        </LegalSection>
+
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>All three avoid building a profile of you from your searches.</li>
+            <li>DuckDuckGo: simple and familiar, results largely from Bing.</li>
+            <li>Startpage: Google results through a privacy proxy, backed by an ad-tech company.</li>
+            <li>Truegle: several providers, labeled sources, switchable perspectives, no ads or cookies, but newer and smaller.</li>
+            <li><a href="/search" className="text-blue-400 hover:text-blue-300">Try the same query on Truegle</a> and compare.</li>
+          </ul>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
     slug: 'how-to-get-unbiased-search-results',
     title: 'How to Get Unbiased Search Results: A Practical Guide',
     description:

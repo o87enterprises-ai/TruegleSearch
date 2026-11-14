@@ -97,6 +97,7 @@ For each query, Truegle generates an AI summary that explicitly presents mainstr
 
 ## Blog Posts
 
+- https://truegle.info/blog/truegle-vs-duckduckgo-vs-startpage — Truegle vs DuckDuckGo vs Startpage: how the three private search engines compare, including where Truegle falls short
 - https://truegle.info/blog/unbiased-search-engine-how-truegle-works — Unbiased search engine: how Truegle delivers results without a filter bubble
 - https://truegle.info/blog/search-without-tracking-alternative-to-google — Search without tracking: Truegle as a privacy-first alternative to Google
 - https://truegle.info/blog/bias-free-search-results-perspective-modes — Bias-free search results: how Truegle's perspective modes work
