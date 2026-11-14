@@ -59,8 +59,10 @@ const transports = [
   }),
 ];
 
-// Add file transports in production
-if (process.env.NODE_ENV === 'production') {
+// Add file transports in production — but not on hosts that capture stdout
+// (Render, Vercel). There the container runs as a non-root user and the app
+// directory is not writable, so creating logs/ would crash the process at boot.
+if (process.env.NODE_ENV === 'production' && !process.env.RENDER && !process.env.VERCEL) {
   transports.push(
     // Error log file
     new winston.transports.File({
