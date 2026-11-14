@@ -1,0 +1,15 @@
+# Replaces the Vercel cron (vercel.json) now that the backend is not on Vercel.
+# The route only acts in the 6 AM Pacific hour, so firing at both UTC times is safe.
+name: Refresh top feed
+on:
+  schedule:
+    - cron: '0 13 * * *'
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -m 120 -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://api.truegle.info/api/cron/refresh-top-feed

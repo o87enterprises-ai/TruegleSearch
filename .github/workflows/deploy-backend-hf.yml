@@ -1,0 +1,25 @@
+# Mirrors apps/backend to the Hugging Face Space that serves api.truegle.info.
+# Needs repo secret HF_TOKEN (write token) and repo variable HF_SPACE (e.g. name/truegle-backend).
+name: Deploy backend to HF Space
+on:
+  push:
+    branches: [main]
+    paths: ['apps/backend/**', '.github/workflows/deploy-backend-hf.yml']
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Push backend to Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          set -e
+          cp -r apps/backend /tmp/space && cd /tmp/space
+          rm -rf node_modules __tests__ .env
+          printf -- '---\ntitle: Truegle Backend\nsdk: docker\napp_port: 7860\npinned: true\n---\nTruegle API.\n' > README.md
+          git init -q -b main && git add -A
+          git -c user.name=deploy -c user.email=deploy@localhost commit -qm "deploy ${GITHUB_SHA::7}"
+          git push -f "https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" main
