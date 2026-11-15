@@ -3,7 +3,15 @@
 FROM node:20-slim
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --omit=dev
+# better-sqlite3 and bcrypt are native modules. When no prebuilt binary is
+# fetched they compile with node-gyp, which needs python3/make/g++ — absent from
+# node:20-slim (this was the "npm ci" exit 1 on Render). Install the toolchain,
+# build, then remove it so the image stays small.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 make g++ \
+ && npm ci --omit=dev \
+ && apt-get purge -y --auto-remove python3 make g++ \
+ && rm -rf /var/lib/apt/lists/* /root/.npm /root/.cache
 COPY . .
 ENV NODE_ENV=production PORT=10000
 EXPOSE 10000
