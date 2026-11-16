@@ -2,10 +2,11 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-// Live backend (Vercel). Used as the default so a production build made
+// Live backend (Render). Used as the default so a production build made
 // without an explicit VITE_BACKEND_URL still points at the live API instead
 // of http://localhost:3001 (which silently breaks search on the deployed site).
-const PROD_BACKEND_URL = 'https://backend-seven-khaki-60.vercel.app'
+// Vercel backend was disabled (402); live API is Render behind api.truegle.info.
+const PROD_BACKEND_URL = 'https://api.truegle.info'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
