@@ -42,7 +42,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CACHE = join(__dirname, '../src/content/creatorVideos.txt');
 const ROSTER = join(__dirname, '../src/content/creators.js');
 
-const DEFAULT_BACKEND = 'https://backend-seven-khaki-60.vercel.app';
+const DEFAULT_BACKEND = 'https://api.truegle.info';
 
 const argv = process.argv.slice(2);
 const backendFlag = argv.indexOf('--backend');

@@ -22,7 +22,7 @@
  * every /api/admin/* route) — never printed, only sent as the x-admin-key
  * header.
  */
-const DEFAULT_BACKEND = 'https://backend-seven-khaki-60.vercel.app';
+const DEFAULT_BACKEND = 'https://api.truegle.info';
 
 const argv = process.argv.slice(2);
 const flag = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : undefined; };
