@@ -546,8 +546,10 @@ function FilterDropdown({ label, value, options, onChange, compact = false, isRe
 /**
  * SearchFiltersBar Component - Integrated filter bar for SearchBar
  */
-function SearchFiltersBar({ filters, onFiltersChange, compact = false, showToggle = true, isRedPillMode = false, themeColor = 'blue' }) {
+function SearchFiltersBar({ filters, onFiltersChange, compact = false, showToggle = true, isRedPillMode = false, themeColor = 'blue', options, hideOrderOnRelevance = false }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  // `options` overrides the lists above (the Feed offers Popularity, not Views).
+  const opts = { ...filterOptions, ...(options || {}) };
 
   // Theme color mappings
   const getFilterColors = () => {
@@ -571,6 +573,11 @@ function SearchFiltersBar({ filters, onFiltersChange, compact = false, showToggl
         return {
           expanded: 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/25',
           badge: 'bg-cyan-500/25 text-cyan-300'
+        };
+      case 'yellow':
+        return {
+          expanded: 'bg-yellow-500/15 text-yellow-300 border border-yellow-500/30',
+          badge: 'bg-yellow-500/25 text-yellow-200'
         };
       default: // 'blue'
         return {
@@ -637,25 +644,27 @@ function SearchFiltersBar({ filters, onFiltersChange, compact = false, showToggl
               <FilterDropdown
                 label="Sort By"
                 value={filters?.sortBy || 'relevance'}
-                options={filterOptions.sortBy}
+                options={opts.sortBy}
                 onChange={(val) => handleFilterChange('sortBy', val)}
                 compact={compact}
                 isRedPillMode={isRedPillMode}
                 themeColor={themeColor}
               />
-              <FilterDropdown
-                label="Order"
-                value={filters?.order || 'desc'}
-                options={filterOptions.order}
-                onChange={(val) => handleFilterChange('order', val)}
-                compact={compact}
-                isRedPillMode={isRedPillMode}
-                themeColor={themeColor}
-              />
+              {!(hideOrderOnRelevance && (filters?.sortBy || 'relevance') === 'relevance') && (
+                <FilterDropdown
+                  label="Order"
+                  value={filters?.order || 'desc'}
+                  options={opts.order}
+                  onChange={(val) => handleFilterChange('order', val)}
+                  compact={compact}
+                  isRedPillMode={isRedPillMode}
+                  themeColor={themeColor}
+                />
+              )}
               <FilterDropdown
                 label="Date"
                 value={filters?.dateRange || 'any'}
-                options={filterOptions.dateRange}
+                options={opts.dateRange}
                 onChange={(val) => handleFilterChange('dateRange', val)}
                 compact={compact}
                 isRedPillMode={isRedPillMode}

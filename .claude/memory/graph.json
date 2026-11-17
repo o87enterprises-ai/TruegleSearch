@@ -2352,6 +2352,14 @@
         "body": "Mixed/Newest/Oldest pills (CreatorChips ORDERS) next to Shorts/Videos + date pills; order flows useSocialFeed -> POST /api/social/feed {order} -> fetchCreatorsFeed(...,since,order). newest/oldest sort by date (undated last); a date range with no order stays newest-first; default 'mix' = creator spread.",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "feed-filters-2026-11-17": {
+        "Id": "feed-filters-2026-11-17",
+        "Type": "decision",
+        "Label": "Feed Filters = mainstream Sort By/Order/Date, all platforms",
+        "body": "Replaced the Creators-only Mixed/Newest/Oldest + date pill rows with the mainstream SearchFiltersBar (extended with options + hideOrderOnRelevance + yellow theme) via components/feed/FeedFilters.jsx. Sort By: Default|Date|Popularity (score = likes/votes/points; NO view counts exist in the feed, so no Views sort). Order labels follow the sort. Date: Any/Hour/24h/Week/Month/Year. Placement: Creators = under All/Videos/Shorts; other tabs/categories/search = under their pills (FeedPills + FeedPage). State: one filters object (utils/feedFilters.js) sent as POST /api/social/feed {filters}. Server: services/FeedFilters.js applies per response AFTER the cache (like ContentLang.filterByLang) to results + every platforms[k]; Creators lane gets exact since/order before paging via creatorsParams(). Sorting is per fetched page (lanes page on their own cursors) except Creators. Date can empty a page: useSocialFeed keeps fetching up to 6 empty pages. Old body since/order removed; GET /api/creators/feed still takes since/order.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
       }
     },
     "thread": {
