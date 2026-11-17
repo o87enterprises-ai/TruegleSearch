@@ -252,7 +252,7 @@ function spreadByChannel(items, seed = Math.floor(Date.now() / 3600000)) {
 // properly. An unknown slug falls back to the whole roster rather than an
 // empty feed.
 // Date presets for the Creators "when" filter. Anything else means "any time".
-const SINCE_MS = { day: 864e5, week: 7 * 864e5, month: 30 * 864e5, year: 365 * 864e5 };
+const SINCE_MS = { hour: 36e5, day: 864e5, week: 7 * 864e5, month: 30 * 864e5, year: 365 * 864e5 };
 
 async function fetchCreatorsFeed(query, limit = 20, cursor, creatorSlug, kind = 'all', since = 'any', order = 'mix') {
   const window = SINCE_MS[since] || 0;

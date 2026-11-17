@@ -4,6 +4,7 @@ import { authHeader } from '../utils/authHeader';
 import { roundRobin } from '../utils/roundRobin';
 import { hasSeenPost, markPostsSeen, forgetPostsSeen } from '../utils/feedSeen';
 import { deviceLang, useLangMode } from '../utils/contentLang';
+import { DEFAULT_FEED_FILTERS, filtersActive, filtersKey } from '../utils/feedFilters';
 
 // The backend fans out to up to 16 sources with 8s upstream timeouts; 25s is
 // well past a slow-but-working answer.
@@ -31,6 +32,9 @@ const BACKEND = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 // can arrive twice. Keying on `platform:id` is what stops it rendering twice.
 
 const PAGE = 20;
+// A date range can empty a whole page while the platforms still have more behind
+// it. Keep asking (this many pages in a row) before calling the feed finished.
+const MAX_EMPTY_PAGES = 6;
 const emptyCursor = () => ({});
 
 export function useSocialFeed({
@@ -39,10 +43,9 @@ export function useSocialFeed({
   creator = '',
   // 'all' | 'video' | 'short' — the creators feed's Shorts / Videos filter.
   kind = 'all',
-  // 'any' | 'day' | 'week' | 'month' | 'year' — the Creators date range.
-  since = 'any',
-  // 'mix' | 'newest' | 'oldest' — the Creators ordering.
-  order = 'mix',
+  // Sort By / Order / Date (the mainstream Filters control), applied by the
+  // server to every platform in the response. See utils/feedFilters.js.
+  filters = DEFAULT_FEED_FILTERS,
   // OPT-IN, so the behaviour every existing caller and its browser suite
   // depends on is untouched. /feed/tube and the aggregated feed want the
   // round-robin ordering and the persistent ledger; the plain social feed
@@ -72,6 +75,10 @@ export function useSocialFeed({
   // fire several times before the first page lands, and without this a single
   // fast scroll fetches page two four times.
   const inFlight = useRef(false);
+  // Pages in a row that the Date filter emptied, and whether to ask for the next.
+  const emptyRun = useRef(0);
+  const chase = useRef(false);
+  const fetchRef = useRef(null);
 
   // A separator that cannot appear in either half. `\0` written as an
   // ESCAPE, not as a raw byte: it was a literal NUL in the source, which
@@ -85,7 +92,9 @@ export function useSocialFeed({
   // Local/Global language (utils/contentLang.js): part of WHICH feed this is.
   const [langMode] = useLangMode();
   const lang = deviceLang(settings?.language);
-  const key = `${query}\0${[...platforms].sort().join(',')}\0${safeSearch}\0${creator}\0${kind}\0${since}\0${order}\0${lang}\0${langMode}`;
+  const filterOn = filtersActive(filters);
+  const sortOn = filters.sortBy !== 'relevance';
+  const key = `${query}\0${[...platforms].sort().join(',')}\0${safeSearch}\0${creator}\0${kind}\0${filtersKey(filters)}\0${lang}\0${langMode}`;
   const activeKey = useRef(key);
 
   const fetchPage = useCallback(async (first) => {
@@ -94,6 +103,7 @@ export function useSocialFeed({
     if (!first && done) return;
 
     inFlight.current = true;
+    chase.current = false;
     setLoading(true);
     setError('');
     const controller = new AbortController();
@@ -119,8 +129,7 @@ export function useSocialFeed({
           platforms,
           ...(creator ? { creator } : {}),
           ...(kind && kind !== 'all' ? { kind } : {}),
-          ...(since && since !== 'any' ? { since } : {}),
-          ...(order && order !== 'mix' ? { order } : {}),
+          ...(filterOn ? { filters } : {}),
           lang,
           langMode,
           limit: PAGE,
@@ -169,7 +178,8 @@ export function useSocialFeed({
       // Caught by feedpage:test the first time this ran. Any response shape
       // that has posts must produce posts.
       const merged = data.results || [];
-      const interleaved = interleave ? roundRobin(data.platforms || {}) : [];
+      // A chosen Sort By wants the server's sorted merge, not one-from-each-source.
+      const interleaved = interleave && !sortOn ? roundRobin(data.platforms || {}) : [];
       const ordered = interleaved.length ? interleaved : merged;
 
       const fresh = [];
@@ -209,6 +219,11 @@ export function useSocialFeed({
 
       setItems((prev) => (first ? pageRows : [...prev, ...pageRows]));
 
+      // The Date filter can empty a page that still has more behind it: ask again.
+      const chasing = filterOn && pageRows.length === 0 && Object.keys(live).length > 0 && emptyRun.current < MAX_EMPTY_PAGES;
+      emptyRun.current = pageRows.length === 0 ? emptyRun.current + 1 : 0;
+      chase.current = chasing;
+
       // A FAILURE IS NOT AN ENDING.
       //
       // A platform that errored reports a null cursor, exactly like a platform
@@ -226,7 +241,7 @@ export function useSocialFeed({
       // came back with nothing new at all — that is the same situation from
       // the reader's side, and it prevents an infinite scroll that loads
       // forever and shows nothing.
-      setDone(!allFailed && (!Object.keys(live).length || (!first && pageRows.length === 0)));
+      setDone(!allFailed && (!Object.keys(live).length || (!first && pageRows.length === 0 && !chasing)));
     } catch (e) {
       if (e.name === 'AbortError' && !timedOut) return;
       // WHY, in a few words, so a screenshot names the cause: a status code
@@ -242,9 +257,14 @@ export function useSocialFeed({
       setDone(true);
     } finally {
       clearTimeout(timer);
-      if (forKey === activeKey.current) { setLoading(false); inFlight.current = false; }
+      if (forKey === activeKey.current) {
+        setLoading(false);
+        inFlight.current = false;
+        if (chase.current) { chase.current = false; setTimeout(() => fetchRef.current?.(false), 0); }
+      }
     }
-  }, [enabled, query, platforms.join(','), done, interleave, rememberSeen, safeSearch, creator, kind, since, order, lang, langMode]);
+  }, [enabled, query, platforms.join(','), done, interleave, rememberSeen, safeSearch, creator, kind, filtersKey(filters), lang, langMode]);
+  fetchRef.current = fetchPage;
 
   // A new query or a changed provider set is a NEW feed, not more of the old
   // one: reset the cursors and the dedupe ledger before asking.
@@ -253,6 +273,8 @@ export function useSocialFeed({
     cursor.current = emptyCursor();
     seen.current = new Set();
     inFlight.current = false;
+    emptyRun.current = 0;
+    chase.current = false;
     setItems([]);
     setDone(false);
     setPlatformErrors([]);

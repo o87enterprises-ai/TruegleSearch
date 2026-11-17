@@ -6,14 +6,9 @@ import { CREATORS } from '../../content/creators';
 // Stream (stream only the long videos, or only the Shorts).
 export const KINDS = [{ id: 'all', label: 'All' }, { id: 'video', label: 'Videos' }, { id: 'short', label: 'Shorts' }];
 
-// Past day · week · month · year. Applied server-side before paging; with a
-// range on, results are newest first.
-export const SINCES = [{ id: 'any', label: 'Any time' }, { id: 'day', label: 'Past day' }, { id: 'week', label: 'Past week' }, { id: 'month', label: 'Past month' }, { id: 'year', label: 'Past year' }];
-
-// Mixed (creators spread out) · Newest · Oldest. Applied server-side before paging.
-export const ORDERS = [{ id: 'mix', label: 'Mixed' }, { id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }];
-
-export default function CreatorChips({ value, onChange, kind = 'all', onKind, since = 'any', onSince, order = 'mix', onOrder }) {
+// `filtersSlot` is the Feed's Sort By / Order / Date control (FeedFilters), shown
+// directly under the All · Videos · Shorts pills.
+export default function CreatorChips({ value, onChange, kind = 'all', onKind, filtersSlot = null }) {
   return (
     <>
       {onKind && (
@@ -32,38 +27,7 @@ export default function CreatorChips({ value, onChange, kind = 'all', onKind, si
           ))}
         </div>
       )}
-      {onOrder && (
-        <div className="max-w-4xl mx-auto mb-2 flex gap-1.5" data-order-pills="" role="group" aria-label="Order by date">
-          {ORDERS.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              data-order-pill={o.id}
-              aria-pressed={order === o.id}
-              onClick={() => onOrder(o.id)}
-              className={`px-3 py-1 text-xs rounded-full border transition-colors ${order === o.id ? 'border-yellow-300/70 text-yellow-200 bg-yellow-300/10' : 'border-white/15 text-white/60 hover:text-white hover:border-white/30'}`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      )}
-      {onSince && (
-        <div className="max-w-4xl mx-auto mb-2 flex gap-1.5 overflow-x-auto pb-1" data-since-pills="" role="group" aria-label="Posted within">
-          {SINCES.map((d) => (
-            <button
-              key={d.id}
-              type="button"
-              data-since-pill={d.id}
-              aria-pressed={since === d.id}
-              onClick={() => onSince(d.id)}
-              className={`shrink-0 px-3 py-1 text-xs rounded-full border transition-colors ${since === d.id ? 'border-yellow-300/70 text-yellow-200 bg-yellow-300/10' : 'border-white/15 text-white/60 hover:text-white hover:border-white/30'}`}
-            >
-              {d.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {filtersSlot}
     <div className="max-w-4xl mx-auto mb-3 flex gap-1.5 overflow-x-auto pb-1" data-creator-chips="" role="group" aria-label="Show one creator">
       {[{ slug: '', name: 'All' }, ...CREATORS].map((c) => (
         <button
