@@ -2312,6 +2312,14 @@
         "body": "Memory osint-only-gate already said 'no paid tier'. Removed every Subscribe/Upgrade/Go-Premium CTA (TokenGate, BiasedResults, FeelingBiasedPage, ExtractPage, OSINTMode fake $9.99 modal + startPremiumCheckout import); out-of-tokens states say tokens reset. PricingPage.jsx deleted; /pricing -> /about/ 301 in _redirects (GSC 404). Another session landed a partial version of the same fix on main (4aceb36, PR #145) that kept the OSINT $9.99 modal; this PR (#146) completes it. services/paymentService.js has no callers. Pre-existing unrelated failure: seo:test 'sitemap lists every creator, /creators and /chat'.",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "lang-filter-accents-2026-11-17": {
+        "Id": "lang-filter-accents-2026-11-17",
+        "Type": "decision",
+        "Label": "Local filter dropped French X post",
+        "body": "Undetermined Latin text was kept in Local, so French 'Quelques mois après l'annexion…' leaked into EN feed. langDetect now has elision (l'/d'/qu') + accent counts + bigger fr/es/de wordlists; ContentLang.verdict drops und-Latin text for en visitors with >=2 non-English accents (or 1 + foreign weak vote). Plain/short English still kept.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
       }
     },
     "thread": {
@@ -4521,5 +4529,5 @@
       }
     }
   },
-  "updated": "2026-11-12"
+  "updated": "2026-11-17"
 }

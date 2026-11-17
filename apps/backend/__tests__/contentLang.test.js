@@ -32,6 +32,7 @@ describe('detectLang', () => {
     ['这是中文标题', 'zh'],
     ['मेरा नाम राम है', 'hi'],
     ['Video lucu banget yang tidak bisa kamu lewatkan', 'id'],
+    ["Quelques mois après l'annexion de la Crimée...", 'fr'],
   ])('%s -> %s', (t, lang) => expect(detectLang(t).lang).toBe(lang));
   test('too little to tell is "und", never a guess', () => {
     for (const t of ['PART 2 viral clip highlights', '#fyp #foryou', 'Mind Unveiled', 'ok', '', null]) expect(detectLang(t).lang).toBe('und');
@@ -103,5 +104,15 @@ describe('Local / Global', () => {
     expect(JSON.stringify(p)).toBe(snapshot);
     expect(ContentLang.filterByLang(p, { lang: '' })).toBe(p);
     expect(ContentLang.filterByLang(p, { lang: '<script>' })).toBe(p);
+  });
+});
+
+describe('Local filter: accented undetermined Latin text', () => {
+  const { verdict } = require('../services/ContentLang');
+  test('drops foreign text an English visitor would see, keeps plain/short English', () => {
+    expect(verdict({ title: "Quelques mois après l'annexion de la Crimée..." }, 'en')).toBe('other');
+    expect(verdict({ title: 'Les Républicains veulent voter la loi' }, 'en')).toBe('other');
+    expect(verdict({ title: 'Jeju Launches Cedar Tree Removal Project' }, 'en')).toBe('unknown');
+    expect(verdict({ title: 'Café opens downtown today' }, 'en')).toBe('unknown');
   });
 });
