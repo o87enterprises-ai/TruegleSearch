@@ -2320,6 +2320,22 @@
         "body": "Undetermined Latin text was kept in Local, so French 'Quelques mois après l'annexion…' leaked into EN feed. langDetect now has elision (l'/d'/qu') + accent counts + bigger fr/es/de wordlists; ContentLang.verdict drops und-Latin text for en visitors with >=2 non-English accents (or 1 + foreign weak vote). Plain/short English still kept.",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "creators-date-filter-2026-11-17": {
+        "Id": "creators-date-filter-2026-11-17",
+        "Type": "decision",
+        "Label": "Creators date filter",
+        "body": "Past day/week/month/year pills (CreatorChips SINCES) on /feed Creators + landing Creators tab. since flows useSocialFeed -> POST /api/social/feed -> fetchCreatorsFeed(...,since); filters before paging, newest-first when active; undated videos excluded when a range is on. RSS only exposes ~12 latest per channel so 'year' ~ everything.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
+      },
+      "creators-added-2026-11-17": {
+        "Id": "creators-added-2026-11-17",
+        "Type": "decision",
+        "Label": "Added The Why Files + Terror Ted's Tales",
+        "body": "Roster += the-why-files (UCIFk2uvCNcEmZ77g0ESKLcQ), terror-teds-tales (UCQ0zBeV90nTR0ZZq03iT1kw), ids verified via RSS. Edit BOTH backend/config/creatorsRoster.js and frontend/src/content/creators.js (+ public/sitemap.xml). seed-creator-videos.mjs map is stale (skipped BEMA/Roland too); pages fall back to live RSS.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
       }
     },
     "thread": {

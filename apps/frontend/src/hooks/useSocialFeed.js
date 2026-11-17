@@ -39,6 +39,8 @@ export function useSocialFeed({
   creator = '',
   // 'all' | 'video' | 'short' — the creators feed's Shorts / Videos filter.
   kind = 'all',
+  // 'any' | 'day' | 'week' | 'month' | 'year' — the Creators date range.
+  since = 'any',
   // OPT-IN, so the behaviour every existing caller and its browser suite
   // depends on is untouched. /feed/tube and the aggregated feed want the
   // round-robin ordering and the persistent ledger; the plain social feed
@@ -81,7 +83,7 @@ export function useSocialFeed({
   // Local/Global language (utils/contentLang.js): part of WHICH feed this is.
   const [langMode] = useLangMode();
   const lang = deviceLang(settings?.language);
-  const key = `${query}\0${[...platforms].sort().join(',')}\0${safeSearch}\0${creator}\0${kind}\0${lang}\0${langMode}`;
+  const key = `${query}\0${[...platforms].sort().join(',')}\0${safeSearch}\0${creator}\0${kind}\0${since}\0${lang}\0${langMode}`;
   const activeKey = useRef(key);
 
   const fetchPage = useCallback(async (first) => {
@@ -115,6 +117,7 @@ export function useSocialFeed({
           platforms,
           ...(creator ? { creator } : {}),
           ...(kind && kind !== 'all' ? { kind } : {}),
+          ...(since && since !== 'any' ? { since } : {}),
           lang,
           langMode,
           limit: PAGE,
@@ -238,7 +241,7 @@ export function useSocialFeed({
       clearTimeout(timer);
       if (forKey === activeKey.current) { setLoading(false); inFlight.current = false; }
     }
-  }, [enabled, query, platforms.join(','), done, interleave, rememberSeen, safeSearch, creator, kind, lang, langMode]);
+  }, [enabled, query, platforms.join(','), done, interleave, rememberSeen, safeSearch, creator, kind, since, lang, langMode]);
 
   // A new query or a changed provider set is a NEW feed, not more of the old
   // one: reset the cursors and the dedupe ledger before asking.

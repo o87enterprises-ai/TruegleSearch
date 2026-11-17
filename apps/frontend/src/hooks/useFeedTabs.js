@@ -45,6 +45,7 @@ export function useFeedTabs({ available, enabled = true, rememberSeen = false })
   const [server, setServer] = useState('all');
   const [creator, setCreator] = useState('');
   const [kind, setKind] = useState('all'); // Creators tab: all | video | short
+  const [since, setSince] = useState('any'); // Creators tab: any | day | week | month | year
   // -1 = the plain blank-query pull; 0+ = index into FALLBACK_SEEDS.
   const [seedIdx, setSeedIdx] = useState(-1);
 
@@ -59,13 +60,13 @@ export function useFeedTabs({ available, enabled = true, rememberSeen = false })
 
   const query = seedIdx >= 0 ? FALLBACK_SEEDS[seedIdx % FALLBACK_SEEDS.length] : '';
   const raw = useSocialFeed({
-    query, platforms, creator: tab === 'creators' ? creator : '', kind: tab === 'creators' ? kind : 'all',
+    query, platforms, creator: tab === 'creators' ? creator : '', kind: tab === 'creators' ? kind : 'all', since: tab === 'creators' ? since : 'any',
     enabled: enabled && platforms.length > 0, interleave: true, rememberSeen,
   });
 
   // New tab, server or creator → start over from the plain blank pull.
-  useEffect(() => { setSeedIdx(-1); }, [tab, server, creator, kind]);
-  useEffect(() => { if (tab !== 'creators') { setCreator(''); setKind('all'); } }, [tab]);
+  useEffect(() => { setSeedIdx(-1); }, [tab, server, creator, kind, since]);
+  useEffect(() => { if (tab !== 'creators') { setCreator(''); setKind('all'); setSince('any'); } }, [tab]);
 
   // The blank pull finished with nothing → auto-pull top posts instead. Walks
   // the seed list once, so a truly dead source ends rather than looping.
@@ -86,5 +87,5 @@ export function useFeedTabs({ available, enabled = true, rememberSeen = false })
     return n;
   });
 
-  return { tab, setTab, server, setServer, creator, setCreator, kind, setKind, platforms, query, usingFallback, shuffle, feed };
+  return { tab, setTab, server, setServer, creator, setCreator, kind, setKind, since, setSince, platforms, query, usingFallback, shuffle, feed };
 }
