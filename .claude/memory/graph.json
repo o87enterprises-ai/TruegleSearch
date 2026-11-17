@@ -2344,6 +2344,14 @@
         "body": "Roster += melodysheep (UCR9sFzaG9Ia_kXJhfxtFMBA), astral-legends (UCIqi0z9b5UR-28hDDFEaKVQ), ids verified via RSS. Same 3 files: backend creatorsRoster.js, frontend creators.js, public/sitemap.xml.",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "creators-order-2026-11-17": {
+        "Id": "creators-order-2026-11-17",
+        "Type": "decision",
+        "Label": "Creators Newest/Oldest order",
+        "body": "Mixed/Newest/Oldest pills (CreatorChips ORDERS) next to Shorts/Videos + date pills; order flows useSocialFeed -> POST /api/social/feed {order} -> fetchCreatorsFeed(...,since,order). newest/oldest sort by date (undated last); a date range with no order stays newest-first; default 'mix' = creator spread.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
       }
     },
     "thread": {
