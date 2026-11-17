@@ -2360,6 +2360,14 @@
         "body": "Replaced the Creators-only Mixed/Newest/Oldest + date pill rows with the mainstream SearchFiltersBar (extended with options + hideOrderOnRelevance + yellow theme) via components/feed/FeedFilters.jsx. Sort By: Default|Date|Popularity (score = likes/votes/points; NO view counts exist in the feed, so no Views sort). Order labels follow the sort. Date: Any/Hour/24h/Week/Month/Year. Placement: Creators = under All/Videos/Shorts; other tabs/categories/search = under their pills (FeedPills + FeedPage). State: one filters object (utils/feedFilters.js) sent as POST /api/social/feed {filters}. Server: services/FeedFilters.js applies per response AFTER the cache (like ContentLang.filterByLang) to results + every platforms[k]; Creators lane gets exact since/order before paging via creatorsParams(). Sorting is per fetched page (lanes page on their own cursors) except Creators. Date can empty a page: useSocialFeed keeps fetching up to 6 empty pages. Old body since/order removed; GET /api/creators/feed still takes since/order.",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "list-tracks-dialog-2026-11-17": {
+        "Id": "list-tracks-dialog-2026-11-17",
+        "Type": "decision",
+        "Label": "Tube Lists: List button opens a track picker",
+        "body": "Saved-list actions (ListRowActions, used by grid cards, player list, viewport deck) gained a List button -> components/player/ListTracksDialog.jsx (portal dialog, z-[10000], bottom sheet on phone). Rows = saved order with poster/title/channel; playing track marked aria-current; pressing a row = playList(items,'tube',list.id,i) so Next stays in the list (same as PlayerLibrary). Live via usePlaylists; deleted list closes it; Esc/Close/backdrop close. Saved lists only: public playlists have no fetch-without-saving path (importPlaylist saves), so they get List after Save list. Test: apps/frontend/scripts/verify-list-tracks.mjs (npm run listtracks:test). In the cloud box run browser tests by symlinking the global playwright into apps/frontend/node_modules (untracked): ln -sfn /opt/node22/lib/node_modules/playwright apps/frontend/node_modules/playwright.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
       }
     },
     "thread": {
