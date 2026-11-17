@@ -3,6 +3,15 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-16 — Backend live on Render (api.truegle.info): env vars set, sign-in + chat + search verified
+
+- **State:** `truegle-backend` (Render free, Docker, Oregon, `srv-dbsf2hs9v7es73chgmg0`) serves `https://api.truegle.info`; the live frontend bundle already points at it (#162). `/api/health` 200; Vercel backend is dead (402).
+- **Render env now set (names only):** `NODE_ENV, DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, FRONTEND_URL, CRON_SECRET, GROQ_ORG_1..4_KEYS, SEARCH_GATEWAY_URL, SEARXNG_URL, SEARXNG_PRIMARY, RESEND_API_KEY, RESEND_FROM_EMAIL, YOUTUBE_API_KEY, GEMINI_API_KEY, LASTFM_API_KEY, NEWS_API_KEY, NVIDIA_API_KEY`. NOT set on purpose: Anthropic (no paid key), Nephesh (deprecated), Reddit (no key obtainable), Brave/Bing/SERP/Google search keys (SearXNG needs none).
+- **Verified live 2026-11-16:** sign-in `POST /api/auth/request-code` 200 (it 500'd until `RESEND_API_KEY` was added; Resend logs showed no send attempt, that is how to spot it); chat `POST /api/ai/chat` OK; search 8/8 queries, 50-134 results, mostly 1-2 s (two 5+ s = free-tier warm-up).
+- **Neon:** prod DB is project `neon-coquelicot-harbor` (id `polished-sea-42903880`, branch `main`, db `neondb`), 28 tables, `login_codes` exists, 5 users.
+- **Open (non-blocking):** (1) `schema_migrations` has columns `filename, applied_at` (from `scripts/run-migrations.js`) but `server.js` autoMigrate wants `id`, so auto-migration is skipped every boot ("column id does not exist"); `prompts` table missing, chat falls back to defaults. (2) Free instance sleeps ~15 min idle: add a free uptime ping on `/api/health` (10 min). (3) `/api/auth/verify-access-code` end-to-end not exercised (needs the emailed code). (4) `render.yaml` lists only 4 env vars; the rest live in the dashboard. (5) Uncommitted: `.env*.local` in `apps/backend/.gitignore`.
+
+---
 ## 🗓️ 2026-11-11 — Games: keyboard controls, joypad fix, every game tested (2 held back, 1 patched)
 
 - **Keyboard (desktop):** arrows or WASD = d-pad, **Space = B, Enter = A**, plus **E = Start, Q = Select** (not requested; most games cannot start without Start; change in `utils/gameboyKeys.js`). Matched on `event.code` (physical key). Rules there: Ctrl/Cmd/Alt combos and typing in fields are never game presses; Enter/Space on a focused button still presses that button (Close works from the keyboard); a release is always honoured; blur/hidden/close lets go of everything. A key lights the matching on-screen button (`data-pressed`); legend shown on desktop only; focus moves into the player so Enter/Space don't re-press the card.

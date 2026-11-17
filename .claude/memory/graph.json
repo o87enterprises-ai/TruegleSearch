@@ -2952,6 +2952,15 @@
         "status": "open",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "render-migrations-mismatch": {
+        "Id": "render-migrations-mismatch",
+        "Type": "thread",
+        "Label": "schema_migrations column mismatch",
+        "body": "server.js autoMigrate expects schema_migrations(id) but prod table has (filename, applied_at) from scripts/run-migrations.js, so auto-migration is skipped every boot; prompts table missing. Non-blocking. Also: add free uptime ping on /api/health (Render free sleeps ~15 min).",
+        "status": "open",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
       }
     },
     "entity": {
@@ -4500,6 +4509,14 @@
         "body": "2026-11-12: every backend preview on Vercel (project backend prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI, team team_OyHR5YLtUy6gIs8HmvhXKSsj) returns FUNCTION_INVOCATION_FAILED on ALL routes incl. unrelated /api/news/markets. Runtime log: Error: Config validation error: \"JWT_SECRET\" is required at config/env.js:249 -> process exits at load. Cause: secrets are scoped to Production only; Preview env has none. The build is 'Ready' so the PR check is green even though the preview cannot serve. So: do NOT treat a green Vercel preview as proof the backend runs, and do not chase a preview 500 as a regression. Verify backend changes by jest + local node smoke, then after merge on prod (api.truegle.info). Previews are behind Vercel auth; use mcp__Vercel__web_fetch_vercel_url (creates a 23h share link) and get_runtime_logs (Hobby keeps ~1h, use since:30m and deploymentId dpl_<id>). Adding secrets to Preview is an owner decision (new copies of production secrets).",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "render-backend-live": {
+        "Id": "render-backend-live",
+        "Type": "fact",
+        "Label": "Backend live on Render (api.truegle.info)",
+        "body": "truegle-backend on Render free (srv-dbsf2hs9v7es73chgmg0, Oregon, Docker) serves api.truegle.info; Vercel backend dead (402). Prod DB = Neon project neon-coquelicot-harbor (polished-sea-42903880). Env set via Render dashboard (render.yaml lists only 4). Sign-in/chat/search verified 2026-11-16. Intentionally unset: ANTHROPIC, NEPHESH, REDDIT, BRAVE/BING/SERP/GOOGLE search keys (SearXNG needs none). If sign-in 500s, check RESEND_API_KEY exists and Resend Logs show a send attempt.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
       }
     }
   },
