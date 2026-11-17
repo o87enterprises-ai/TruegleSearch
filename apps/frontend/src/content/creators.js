@@ -145,6 +145,20 @@ export const CREATORS = [
     avatar: null, refCode: 'terror-teds-tales', featured: false,
     socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@Terrortedstales' }],
   },
+  {
+    slug: 'melodysheep', name: 'melodysheep', tagline: '',
+    channelId: 'UCR9sFzaG9Ia_kXJhfxtFMBA',
+    channelUrl: 'https://www.youtube.com/@melodysheep',
+    avatar: null, refCode: 'melodysheep', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@melodysheep' }],
+  },
+  {
+    slug: 'astral-legends', name: 'Astral Legends', tagline: '',
+    channelId: 'UCIqi0z9b5UR-28hDDFEaKVQ',
+    channelUrl: 'https://www.youtube.com/@astrallegends',
+    avatar: null, refCode: 'astral-legends', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@astrallegends' }],
+  },
 ];
 
 export const getCreator = (slug) => CREATORS.find((c) => c.slug === slug) || null;

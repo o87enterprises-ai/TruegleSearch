@@ -2336,6 +2336,14 @@
         "body": "Roster += the-why-files (UCIFk2uvCNcEmZ77g0ESKLcQ), terror-teds-tales (UCQ0zBeV90nTR0ZZq03iT1kw), ids verified via RSS. Edit BOTH backend/config/creatorsRoster.js and frontend/src/content/creators.js (+ public/sitemap.xml). seed-creator-videos.mjs map is stale (skipped BEMA/Roland too); pages fall back to live RSS.",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "creators-added-2-2026-11-17": {
+        "Id": "creators-added-2-2026-11-17",
+        "Type": "decision",
+        "Label": "Added melodysheep + Astral Legends",
+        "body": "Roster += melodysheep (UCR9sFzaG9Ia_kXJhfxtFMBA), astral-legends (UCIqi0z9b5UR-28hDDFEaKVQ), ids verified via RSS. Same 3 files: backend creatorsRoster.js, frontend creators.js, public/sitemap.xml.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
       }
     },
     "thread": {
