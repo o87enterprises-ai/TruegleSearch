@@ -59,8 +59,12 @@ function verdict(item, lang) {
   if (t === lang) return 'match';
   if (t !== 'und') return 'other';
   // Undetermined: keep it unless it is written in another language's script.
-  const { script } = detectLang(textOf(item));
-  return script === 'none' || script === scriptOf(lang) ? 'unknown' : 'other';
+  const { script, accents = 0, weak } = detectLang(textOf(item));
+  if (script !== 'none' && script !== scriptOf(lang)) return 'other';
+  // For English visitors, Latin text with accents English doesn't use (or a
+  // faint foreign vote plus one accent) is almost always another language.
+  if (lang === 'en' && (accents >= 2 || (accents >= 1 && weak && weak !== 'en'))) return 'other';
+  return 'unknown';
 }
 
 const RANK = { match: 0, unknown: 1, other: 2 };
