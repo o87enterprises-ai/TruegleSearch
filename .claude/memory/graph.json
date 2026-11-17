@@ -4541,6 +4541,14 @@
         "body": "truegle-backend on Render free (srv-dbsf2hs9v7es73chgmg0, Oregon, Docker) serves api.truegle.info; Vercel backend dead (402). Prod DB = Neon project neon-coquelicot-harbor (polished-sea-42903880). Env set via Render dashboard (render.yaml lists only 4). Sign-in/chat/search verified 2026-11-16. Intentionally unset: ANTHROPIC, NEPHESH, REDDIT, BRAVE/BING/SERP/GOOGLE search keys (SearXNG needs none). If sign-in 500s, check RESEND_API_KEY exists and Resend Logs show a send attempt.",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "two-backends-one-codebase": {
+        "Id": "two-backends-one-codebase",
+        "Type": "fact",
+        "Label": "Render + Vercel backends must stay in sync",
+        "body": "Both deploy from main (Render live behind api.truegle.info; Vercel project backend prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI standby, currently blocked, behind main since #158). Merge to main IS the sync; keep code host-agnostic (VERCEL/RENDER guards only); env vars + DB do NOT sync via git; switch = repoint api.truegle.info. Checklist in HANDOFF.md 2026-11-17.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
       }
     }
   },
