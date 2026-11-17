@@ -67,3 +67,14 @@ test('since keeps only posts inside the range, newest first; junk means any time
   const month = await f('month');
   expect(month.items.map((i) => i.url.split('v=')[1])).toEqual(['short0000001', 'video0000001', 'short0000002', 'video0000002']);
 });
+
+test('order=newest / oldest sorts by date; a range alone stays newest first; junk is the mix', async () => {
+  const f = (since, order) => fetchCreatorsFeed('', 50, undefined, 'roland-martin', 'all', since, order);
+  const seq = (r) => r.items.map((i) => i.url.split('v=')[1]);
+  const asc = ['video0000003', 'video0000002', 'short0000002', 'video0000001', 'short0000001'];
+  expect(seq(await f('any', 'newest'))).toEqual([...asc].reverse());
+  expect(seq(await f('any', 'oldest'))).toEqual(asc);
+  expect(seq(await f('month', 'oldest'))).toEqual(asc.slice(1));
+  expect(seq(await f('month'))).toEqual([...asc].reverse().slice(0, 4));
+  expect(ids(await f('any', 'banana'))).toHaveLength(5);
+});

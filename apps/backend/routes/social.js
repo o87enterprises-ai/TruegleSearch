@@ -1003,7 +1003,7 @@ async function fetchGitHub(query, limit, page = 1) {
  * returns the response body. Its own function so the daily top-posts rebuild
  * (routes/cron.js) can run exactly what a visitor's request runs.
  */
-async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult, creator, kind = 'all', since = 'any' }) {
+async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult, creator, kind = 'all', since = 'any', order = 'mix' }) {
   const all = !requestedPlatforms || requestedPlatforms.includes('all');
   const want = (p) => all || requestedPlatforms.includes(p);
   const NONE = { items: [], next: null };
@@ -1032,7 +1032,7 @@ async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult,
     want('mastodon') ? guarded('mastodon', q, limit, cur.mastodon, () => fetchMastodon(q, limit, cur.mastodon)) : Promise.resolve(NONE),
     want('bluesky') ? guarded('bluesky', q, limit, cur.bluesky, () => fetchBluesky(q, limit, cur.bluesky)) : Promise.resolve(NONE),
     want('lemmy') ? guarded('lemmy', q, limit, cur.lemmy, () => fetchLemmy(q, limit, cur.lemmy)) : Promise.resolve(NONE),
-    want('creators') ? fetchCreatorsFeed(q, limit, cur.creators, creator, kind, since) : Promise.resolve(NONE),
+    want('creators') ? fetchCreatorsFeed(q, limit, cur.creators, creator, kind, since, order) : Promise.resolve(NONE),
     // YouTube coverage of today's news and markets. Asked for BY NAME only:
     // 'all' does not include them (a merged timeline of everything is not
     // improved by two more video lanes it never asked for, and each costs a
@@ -1175,6 +1175,8 @@ router.post('/feed', optionalAuth, async (req, res) => {
         kind: ['short', 'video'].includes(req.body?.kind) ? req.body.kind : 'all',
         // The Creators date range: 'day' | 'week' | 'month' | 'year' (else any time).
         since: ['day', 'week', 'month', 'year'].includes(req.body?.since) ? req.body.since : 'any',
+        // The Creators ordering: 'newest' | 'oldest' (else the creator mix).
+        order: ['newest', 'oldest'].includes(req.body?.order) ? req.body.order : 'mix',
       })),
       { platforms: requestedPlatforms || [] },
     );

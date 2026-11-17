@@ -254,7 +254,7 @@ function spreadByChannel(items, seed = Math.floor(Date.now() / 3600000)) {
 // Date presets for the Creators "when" filter. Anything else means "any time".
 const SINCE_MS = { day: 864e5, week: 7 * 864e5, month: 30 * 864e5, year: 365 * 864e5 };
 
-async function fetchCreatorsFeed(query, limit = 20, cursor, creatorSlug, kind = 'all', since = 'any') {
+async function fetchCreatorsFeed(query, limit = 20, cursor, creatorSlug, kind = 'all', since = 'any', order = 'mix') {
   const window = SINCE_MS[since] || 0;
   const cutoff = window ? Date.now() - window : 0;
   const only = creatorSlug ? roster.filter((c) => c.slug === String(creatorSlug)) : [];
@@ -295,9 +295,16 @@ async function fetchCreatorsFeed(query, limit = 20, cursor, creatorSlug, kind = 
     const q = String(query).toLowerCase();
     items = items.filter((it) => it.title.toLowerCase().includes(q) || it.author.toLowerCase().includes(q));
   }
-  // A date range reads as a timeline: newest first. Otherwise keep the mix
-  // that spreads creators out so no one channel fills the page.
-  items = cutoff ? items.sort((a, b) => Date.parse(b.date) - Date.parse(a.date)) : spreadByChannel(items);
+  // 'newest' / 'oldest' sort by date (undated videos last). A date range with no
+  // order chosen reads as a timeline, newest first. Otherwise keep the mix that
+  // spreads creators out so no one channel fills the page.
+  const dir = order === 'oldest' ? 'oldest' : (order === 'newest' || cutoff ? 'newest' : null);
+  const byDate = (a, b) => {
+    const x = Date.parse(a.date); const y = Date.parse(b.date);
+    if (Number.isNaN(x) || Number.isNaN(y)) return Number.isNaN(x) - Number.isNaN(y);
+    return dir === 'oldest' ? x - y : y - x;
+  };
+  items = dir ? items.sort(byDate) : spreadByChannel(items);
 
   const offset = Number.isInteger(cursor) ? cursor : 0;
   const page = items.slice(offset, offset + limit);
@@ -313,7 +320,7 @@ router.get('/feed', async (req, res) => {
   const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
   const rawCursor = parseInt(req.query.cursor, 10);
   const cursor = Number.isInteger(rawCursor) ? rawCursor : undefined;
-  const result = await fetchCreatorsFeed(req.query.query || '', limit, cursor, req.query.creator, req.query.kind, req.query.since);
+  const result = await fetchCreatorsFeed(req.query.query || '', limit, cursor, req.query.creator, req.query.kind, req.query.since, req.query.order);
   res.json(result);
 });
 

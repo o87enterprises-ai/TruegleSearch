@@ -141,7 +141,8 @@ export default function FeedPage() {
   const [creator, setCreator] = useState('');
   const [kind, setKind] = useState('all');
   const [since, setSince] = useState('any');
-  useEffect(() => { if (openCategory?.id !== 'creators') { setCreator(''); setKind('all'); setSince('any'); } }, [openCategory?.id]);
+  const [order, setOrder] = useState('mix');
+  useEffect(() => { if (openCategory?.id !== 'creators') { setCreator(''); setKind('all'); setSince('any'); setOrder('mix'); } }, [openCategory?.id]);
 
   // What actually gets asked for: the servers switched on here, plus anything
   // connected through an account. A connected source the visitor has since
@@ -178,6 +179,7 @@ export default function FeedPage() {
     creator: openCategory?.id === 'creators' ? creator : '',
     kind: openCategory?.id === 'creators' ? kind : 'all',
     since: openCategory?.id === 'creators' ? since : 'any',
+    order: openCategory?.id === 'creators' ? order : 'mix',
     enabled: platforms.length > 0 && !homeTabs,
     // The aggregated timeline: one post from every source in turn rather than
     // the server's date-sorted merge, and never the same post twice even
@@ -365,7 +367,7 @@ export default function FeedPage() {
         </div>
       )}
 
-      {openCategory?.id === 'creators' && <CreatorChips value={creator} onChange={setCreator} kind={kind} onKind={setKind} since={since} onSince={setSince} />}
+      {openCategory?.id === 'creators' && <CreatorChips value={creator} onChange={setCreator} kind={kind} onKind={setKind} since={since} onSince={setSince} order={order} onOrder={setOrder} />}
 
       {/* NO LONGER A GATE.
           This page used to render a full-screen "connect an account first"
