@@ -6,7 +6,9 @@ import { CREATORS } from '../../content/creators';
 // Stream (stream only the long videos, or only the Shorts).
 export const KINDS = [{ id: 'all', label: 'All' }, { id: 'video', label: 'Videos' }, { id: 'short', label: 'Shorts' }];
 
-export default function CreatorChips({ value, onChange, kind = 'all', onKind }) {
+// `filtersSlot` is the Feed's Sort By / Order / Date control (FeedFilters), shown
+// directly under the All · Videos · Shorts pills.
+export default function CreatorChips({ value, onChange, kind = 'all', onKind, filtersSlot = null }) {
   return (
     <>
       {onKind && (
@@ -25,6 +27,7 @@ export default function CreatorChips({ value, onChange, kind = 'all', onKind }) 
           ))}
         </div>
       )}
+      {filtersSlot}
     <div className="max-w-4xl mx-auto mb-3 flex gap-1.5 overflow-x-auto pb-1" data-creator-chips="" role="group" aria-label="Show one creator">
       {[{ slug: '', name: 'All' }, ...CREATORS].map((c) => (
         <button

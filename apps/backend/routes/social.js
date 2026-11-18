@@ -11,6 +11,7 @@ const { fetchVideoLane } = require('../services/NewsVideoService');
 const { fetchPodcastLane } = require('../services/PodcastVideoService');
 const TopFeedCache = require('../services/TopFeedCache');
 const ContentLang = require('../services/ContentLang');
+const FeedFilters = require('../services/FeedFilters');
 const { shared: serverGuard } = require('../services/feed/ServerGuard');
 
 // EVERY INDIVIDUAL FEED SERVER GOES THROUGH THE GUARD (owner, 2026-11-10:
@@ -1003,7 +1004,7 @@ async function fetchGitHub(query, limit, page = 1) {
  * returns the response body. Its own function so the daily top-posts rebuild
  * (routes/cron.js) can run exactly what a visitor's request runs.
  */
-async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult, creator, kind = 'all' }) {
+async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult, creator, kind = 'all', since = 'any', order = 'mix' }) {
   const all = !requestedPlatforms || requestedPlatforms.includes('all');
   const want = (p) => all || requestedPlatforms.includes(p);
   const NONE = { items: [], next: null };
@@ -1032,7 +1033,7 @@ async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult,
     want('mastodon') ? guarded('mastodon', q, limit, cur.mastodon, () => fetchMastodon(q, limit, cur.mastodon)) : Promise.resolve(NONE),
     want('bluesky') ? guarded('bluesky', q, limit, cur.bluesky, () => fetchBluesky(q, limit, cur.bluesky)) : Promise.resolve(NONE),
     want('lemmy') ? guarded('lemmy', q, limit, cur.lemmy, () => fetchLemmy(q, limit, cur.lemmy)) : Promise.resolve(NONE),
-    want('creators') ? fetchCreatorsFeed(q, limit, cur.creators, creator, kind) : Promise.resolve(NONE),
+    want('creators') ? fetchCreatorsFeed(q, limit, cur.creators, creator, kind, since, order) : Promise.resolve(NONE),
     // YouTube coverage of today's news and markets. Asked for BY NAME only:
     // 'all' does not include them (a merged timeline of everything is not
     // improved by two more video lanes it never asked for, and each costs a
@@ -1161,6 +1162,7 @@ router.post('/feed', optionalAuth, async (req, res) => {
 
     const limit = Math.min(Math.max(parseInt(rawLimit, 10) || 20, 1), 50);
     const cur = cursor && typeof cursor === 'object' ? cursor : {};
+    const filters = FeedFilters.normalize(req.body?.filters);
     const key = TopFeedCache.keyFor({ platforms: requestedPlatforms, query: q, cursor: cur, limit, adult: allowAdult });
     const { payload, cache } = await TopFeedCache.serve(
       key,
@@ -1173,6 +1175,10 @@ router.post('/feed', optionalAuth, async (req, res) => {
         // be part of a cache key.
         creator: typeof req.body?.creator === 'string' ? req.body.creator.slice(0, 64) : undefined,
         kind: ['short', 'video'].includes(req.body?.kind) ? req.body.kind : 'all',
+        // The feed's Sort By / Order / Date filter reaches the Creators lane here
+        // so it is applied BEFORE paging; every lane is then filtered again,
+        // after the cache, by FeedFilters.apply below.
+        ...FeedFilters.creatorsParams(filters),
       })),
       { platforms: requestedPlatforms || [] },
     );
@@ -1181,7 +1187,7 @@ router.post('/feed', optionalAuth, async (req, res) => {
     // the visitor's language first. `lang` is the device's language, sent by the page.
     const lang = typeof req.body?.lang === 'string' ? req.body.lang.slice(0, 12) : '';
     const langMode = req.body?.langMode === 'global' ? 'global' : 'local';
-    return res.json(lang ? ContentLang.filterByLang(payload, { lang, mode: langMode }) : payload);
+    return res.json(FeedFilters.apply(lang ? ContentLang.filterByLang(payload, { lang, mode: langMode }) : payload, filters));
   } catch (error) {
     logger.error('Social feed error:', error);
     return res.status(500).json({ error: 'Social feed unavailable', details: 'Service error' });
