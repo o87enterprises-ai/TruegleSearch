@@ -33,7 +33,10 @@ function parse(md) {
     if (raw.startsWith('# ')) { title = raw.slice(2).trim(); continue; }
     const l = raw.match(LETTER);
     if (l) {
-      letter = { letter: l[1].trim(), entries: [] };
+      // "### A" is a letter; "### II | Food Production" is a numbered section whose
+      // label is the part before the bar and whose heading text is the rest.
+      const [label, ...rest] = l[1].trim().split(/\s+\|\s+/);
+      letter = { letter: label.trim(), title: rest.join(' | ').trim(), entries: [] };
       letters.push(letter);
       entry = null;
       continue;
@@ -127,15 +130,35 @@ export function inline(s) {
 export function blocks(md) {
   const out = [];
   let list = null;
+  let table = null; // rows of cells, while inside a | table |
   const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+  const closeTable = () => {
+    if (!table) return;
+    const [head, ...rows] = table;
+    out.push('<div class="tbl"><table>'
+      + `<thead><tr>${head.map((c) => `<th>${inline(c)}</th>`).join('')}</tr></thead>`
+      + `<tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody>`
+      + '</table></div>');
+    table = null;
+  };
   for (const raw of md.split('\n')) {
     const line = raw.trim();
+    if (line.startsWith('|')) {
+      closeList();
+      // The |---|---| line only marks the header; it is not a row.
+      if (/^\|[\s:|-]+\|?$/.test(line) && /-/.test(line)) continue;
+      const cells = line.replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+      (table ||= []).push(cells);
+      continue;
+    }
+    closeTable();
     if (!line) { closeList(); continue; }
-    const ol = /^\d+\.\s+(.*)$/.exec(line);
+    const ol = /^(\d+)\.\s+(.*)$/.exec(line);
     const ul = /^-\s+(.*)$/.exec(line);
     if (ol) {
       if (list !== 'ol') { closeList(); out.push('<ol>'); list = 'ol'; }
-      out.push(`<li>${inline(ol[1])}</li>`);
+      // value= keeps the number when a nested bullet list interrupts the steps.
+      out.push(`<li value="${ol[1]}">${inline(ol[2])}</li>`);
     } else if (ul) {
       if (list !== 'ul') { closeList(); out.push('<ul>'); list = 'ul'; }
       out.push(`<li>${inline(ul[1])}</li>`);
@@ -145,6 +168,7 @@ export function blocks(md) {
     }
   }
   closeList();
+  closeTable();
   return out.join('\n');
 }
 
@@ -159,7 +183,7 @@ export function toDocument() {
     .map((l) => `<a href="#L${l.letter}">${esc(l.letter)}</a>`)
     .join('');
   const body = BOOK.letters.map((l) => `
-<section><h2 id="L${esc(l.letter)}">${esc(l.letter)}</h2>
+<section><h2 id="L${esc(l.letter)}">${esc(l.letter)}${l.title ? ` — ${esc(l.title)}` : ''}</h2>
 ${l.entries.map((e) => `<article><h3 id="${e.id}">${esc(e.title)}</h3>\n${blocks(e.body)}</article>`).join('\n')}
 </section>`).join('\n');
 
@@ -188,6 +212,10 @@ ${l.entries.map((e) => `<article><h3 id="${e.id}">${esc(e.title)}</h3>\n${blocks
   p { margin:.5rem 0; }
   ol,ul { margin:.5rem 0; padding-left:1.5rem; }
   li { margin:.3rem 0; }
+  .tbl { overflow-x:auto; margin:.8rem 0; }
+  table { border-collapse:collapse; font-size:.9rem; min-width:100%; }
+  th, td { border:1px solid var(--rule); padding:.35rem .55rem; text-align:left; vertical-align:top; }
+  th { background:rgba(127,127,127,.12); }
   footer { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--rule);
            color:var(--dim); font-style:italic; }
   @media print { nav { display:none; } body { font-size:11pt; } article { break-inside:avoid; } }
@@ -204,6 +232,8 @@ ${body}
 /** The whole book as plain text: no markup characters, opens in any notes app. */
 export function toPlainText() {
   return RAW
+    .replace(/^\|[\s:|-]+\|\s*$/gm, '')                       // table header rules
+    .replace(/^\|(.*)\|\s*$/gm, (_, row) => row.split('|').map((c) => c.trim()).join('  |  '))
     .replace(/^#{1,6}\s*/gm, '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\*([^*]+)\*/g, '$1')

@@ -79,6 +79,10 @@ const Encyclopedia = ({ onClose }) => {
         .prose-vault li { margin: .25rem 0; }
         .prose-vault strong { color: #fff; font-weight: 600; }
         .prose-vault em { color: rgba(255,255,255,.6); }
+        .prose-vault .tbl { overflow-x: auto; margin: .7rem 0; }
+        .prose-vault table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+        .prose-vault th, .prose-vault td { border: 1px solid rgba(255,255,255,.12); padding: .3rem .5rem; text-align: left; vertical-align: top; }
+        .prose-vault th { background: rgba(255,255,255,.06); color: #fff; font-weight: 600; }
       `}</style>
 
       <header className="flex-none border-b border-white/10 px-4 pt-4 pb-3 sm:px-6">
@@ -150,7 +154,9 @@ const Encyclopedia = ({ onClose }) => {
               </p>
               {BOOK.letters.map((l) => (
                 <section key={l.letter} id={`vault-L${l.letter}`}>
-                  <h2 className="font-mono text-emerald-300 text-xl font-bold pt-7 pb-1">{l.letter}</h2>
+                  <h2 className="font-mono text-emerald-300 text-xl font-bold pt-7 pb-1">
+                    {l.letter}{l.title ? <span className="text-emerald-300/70 text-base font-semibold"> — {l.title}</span> : null}
+                  </h2>
                   {l.entries.map(article)}
                 </section>
               ))}

@@ -17,6 +17,7 @@ import { SORTS, datedCount } from '../../utils/resultSort';
 import { useTubeSort, setTubeSort, useSortedRows } from '../../utils/tubeSort';
 import SafeSearchToggle from '../ui/SafeSearchToggle';
 import PlayerLibrary from './PlayerLibrary';
+import PlayerFiles from './PlayerFiles';
 import { useWatchHistory, clearWatchHistory } from '../../utils/watchHistory';
 import ListRowActions from './ListRowActions';
 
@@ -40,6 +41,7 @@ const TABS = [
   { id: 'queue', label: 'Up next' },
   { id: 'history', label: 'History' },
   { id: 'lists', label: 'Lists' },
+  { id: 'files', label: 'Files' },
 ];
 
 // "This doesn't play." One press removes it from your lists immediately and
@@ -601,7 +603,9 @@ export default function PlayerListSlot({ search, query = '', scope = 'all', prov
         )}
       </div>
       {libraryTab ? (
-        <PlayerLibrary tab={tab} accent={accent} compact={compact} />
+        tab === 'files'
+          ? <PlayerFiles rowH={compact ? 'py-1' : 'py-1.5'} maxH={compact ? 'max-h-[min(11rem,26svh)]' : 'max-h-[min(16rem,32svh)]'} />
+          : <PlayerLibrary tab={tab} accent={accent} compact={compact} />
       ) : (
       <div className={`overflow-y-auto ${compact ? 'max-h-[min(11rem,26svh)]' : 'max-h-[min(16rem,32svh)]'}`}>
         {queue.length === 0 ? (

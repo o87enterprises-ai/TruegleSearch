@@ -36,7 +36,8 @@ export function snapshot() {
     lists: playlists().map((p) => ({
       id: p.id,
       n: p.name,
-      i: p.items.map((s) => [s.src, s.kind || '', s.title || '', s.pageUrl || '', s.poster || '', s.channel || '', s.vertical ? 1 : 0]),
+      // Files added from this device (tglocal:) live only here, so they do not travel.
+      i: p.items.filter((s) => !s.src.startsWith('tglocal:')).map((s) => [s.src, s.kind || '', s.title || '', s.pageUrl || '', s.poster || '', s.channel || '', s.vertical ? 1 : 0]),
     })),
     guide: vaultTier() || null,
   };
