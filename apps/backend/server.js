@@ -31,6 +31,8 @@ const ALLOWED_ORIGINS = [
   'https://www.trumpafi.online',
   'https://truegle.info',
   'https://www.truegle.info',
+  // The Android app (Capacitor, apps/android) serves its bundled web build from this origin.
+  'https://localhost',
   /\.ngrok-free\.app$/,
   /\.ngrok\.io$/,
   /\.vercel\.app$/,
