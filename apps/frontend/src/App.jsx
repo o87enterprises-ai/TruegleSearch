@@ -51,6 +51,9 @@ import Developers from './pages/Developers';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
 import NotFound from "./pages/NotFound";
+import GuidePage from './pages/GuidePage';
+import OfflineHub from './pages/OfflineHub';
+import { warmOfflinePack } from './utils/offlinePack';
 import RootErrorBoundary from './components/ui/RootErrorBoundary';
 import RouteBoundary from './components/ui/RouteBoundary';
 import { MODE_PATHS, searchPath } from './utils/modeRoute';
@@ -299,9 +302,21 @@ const AppContent = () => {
   // touched, so reconnecting resumes exactly the page it already said. This
   // is client-side routing standing in for a redirect on purpose: a real
   // navigation would itself need the network that just went away.
-  const location = isOnline
+  // The pages that work from this device alone stay where they are when the network
+  // drops; every other route lands on the offline hub (guide, Trail, Game Boy, map,
+  // saved lists), which links to those.
+  const OFFLINE_OK = ['/guide', '/offline', '/this-does-not-exist'];
+  const location = isOnline || OFFLINE_OK.includes(routerLocation.pathname)
     ? routerLocation
-    : { ...routerLocation, pathname: '/__truegle_offline__', key: 'offline' };
+    : { ...routerLocation, pathname: '/offline', key: 'offline' };
+
+  // Once online and idle, quietly save the offline pack (code, games, world map overview).
+  useEffect(() => {
+    if (!isOnline) return undefined;
+    const run = () => { warmOfflinePack().catch(() => {}); };
+    const id = typeof requestIdleCallback === 'function' ? requestIdleCallback(run, { timeout: 15000 }) : setTimeout(run, 8000);
+    return () => { if (typeof cancelIdleCallback === 'function' && typeof id === 'number') cancelIdleCallback(id); else clearTimeout(id); };
+  }, [isOnline]);
 
   // All pages should allow scrolling with min-h-screen
   const containerClassNames = "relative w-screen min-h-screen bg-black overflow-y-auto";
@@ -416,6 +431,9 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
+        {/* The guide's own address, and the offline hub (guide, games, map, lists). */}
+        <Route path="/guide" element={<RouteBoundary><GuidePage /></RouteBoundary>} />
+        <Route path="/offline" element={<RouteBoundary><OfflineHub /></RouteBoundary>} />
         {/* Landing Page */}
         <Route path="/" element={<RouteBoundary><LandingPage /></RouteBoundary>} />
         {/* Localized landing routes (de/es/fr). The build prerenders a

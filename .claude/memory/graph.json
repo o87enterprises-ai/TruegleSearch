@@ -2368,6 +2368,14 @@
         "body": "Saved-list actions (ListRowActions, used by grid cards, player list, viewport deck) gained a List button -> components/player/ListTracksDialog.jsx (portal dialog, z-[10000], bottom sheet on phone). Rows = saved order with poster/title/channel; playing track marked aria-current; pressing a row = playList(items,'tube',list.id,i) so Next stays in the list (same as PlayerLibrary). Live via usePlaylists; deleted list closes it; Esc/Close/backdrop close. Saved lists only: public playlists have no fetch-without-saving path (importPlaylist saves), so they get List after Save list. Test: apps/frontend/scripts/verify-list-tracks.mjs (npm run listtracks:test). In the cloud box run browser tests by symlinking the global playwright into apps/frontend/node_modules (untracked): ln -sfn /opt/node22/lib/node_modules/playwright apps/frontend/node_modules/playwright.",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "guide-offline-2026-11-18": {
+        "Id": "guide-offline-2026-11-18",
+        "Type": "decision",
+        "Label": "Guide at /guide + offline hub",
+        "body": "Guide unlocks via real account or prior unlock (vault, permanent). /guide, /offline routes; SW caches ROMs/game art/map tiles; Capacitor Android shell in apps/android (APK via .github/workflows/android.yml; no local Android SDK).",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
       }
     },
     "thread": {
@@ -4602,5 +4610,5 @@
       }
     }
   },
-  "updated": "2026-11-17"
+  "updated": "2026-11-18"
 }
