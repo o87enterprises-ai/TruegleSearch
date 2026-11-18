@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Truegle</string>
+    <string name="title_activity_main">Truegle</string>
+    <string name="package_name">info.truegle.app</string>
+    <string name="custom_url_scheme">info.truegle.app</string>
+</resources>

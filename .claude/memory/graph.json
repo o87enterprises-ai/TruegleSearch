@@ -2320,6 +2320,14 @@
         "body": "Undetermined Latin text was kept in Local, so French 'Quelques mois après l'annexion…' leaked into EN feed. langDetect now has elision (l'/d'/qu') + accent counts + bigger fr/es/de wordlists; ContentLang.verdict drops und-Latin text for en visitors with >=2 non-English accents (or 1 + foreign weak vote). Plain/short English still kept.",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "guide-offline-2026-11-18": {
+        "Id": "guide-offline-2026-11-18",
+        "Type": "decision",
+        "Label": "Guide at /guide + offline hub",
+        "body": "Guide unlocks via real account or prior unlock (vault, permanent). /guide, /offline routes; SW caches ROMs/game art/map tiles; Capacitor Android shell in apps/android (APK via .github/workflows/android.yml; no local Android SDK).",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
       }
     },
     "thread": {
@@ -4546,5 +4554,5 @@
       }
     }
   },
-  "updated": "2026-11-17"
+  "updated": "2026-11-18"
 }

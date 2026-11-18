@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import TruegleLogo from '../components/ui/TruegleLogo';
 import SearchPageShell from '../components/layout/SearchPageShell';
@@ -19,7 +19,10 @@ const NotFound = () => {
   const { search } = useLocation();
   const [intent] = useState(() => trailIntent(search));
   const [playing, setPlaying] = useState(intent.play);
-  const [reading, setReading] = useState(intent.guide && !intent.play && vaultFound());
+  // Old ?guide=1 links go to the real /guide page now.
+  const navigate = useNavigate();
+  useEffect(() => { if (intent.guide && !intent.play) navigate('/guide', { replace: true }); }, [intent, navigate]);
+  const [reading, setReading] = useState(false);
   // Read ONCE at mount rather than every render: the game writes this flag on
   // the arrival screen, and re-reading it mid-render would pop the link into
   // existence behind a full-screen game for no reason.

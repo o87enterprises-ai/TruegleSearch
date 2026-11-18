@@ -1,0 +1,7 @@
+{
+  "appId": "info.truegle.app",
+  "appName": "Truegle",
+  "webDir": "../frontend/dist",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false }
+}
