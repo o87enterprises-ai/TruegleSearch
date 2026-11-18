@@ -105,6 +105,11 @@ export function mount(canvas, { onExit, onFound } = {}) {
     if (found || run.phase !== 'over') return;
     found = true;
     findVault(run.ending === 'arrive' ? 'full' : 'guide');
+    // The reward used to wait for a tap on a small button, and players who just kept
+    // tapping to go again never saw it. Open the guide on its own after the ending
+    // has had time to be read, unless they have already started another run.
+    const thisRun = run;
+    setTimeout(() => { if (found && run === thisRun && run.phase === 'over') onFound?.(); }, 4000);
   };
 
   const commit = (i) => {

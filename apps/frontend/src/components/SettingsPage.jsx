@@ -237,6 +237,19 @@ const SettingsPage = () => {
           )}
 
 
+          {/* Guide + offline */}
+          <div data-settings-guide="" className="mb-6 p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">
+            <h2 className="text-lg font-semibold mb-1">Survival Guide &amp; offline</h2>
+            <p className="text-sm text-white/60 mb-3">
+              The free Post-Apocalyptic / Pioneer guide is unlocked for good on this device once you
+              sign in or finish a run of Trail. Guide, Trail, Game Boy games, map and saved lists work with no connection.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/guide" className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm font-semibold">Open the guide</Link>
+              <Link to="/offline" className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Offline hub</Link>
+            </div>
+          </div>
+
           {/* Privacy & Data */}
           <div id="search-storage" data-search-storage="" className="scroll-mt-6 p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">
             {welcome && (

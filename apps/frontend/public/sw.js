@@ -39,8 +39,15 @@
 
 // BUMP THIS on any change to what gets cached or how — activate deletes every
 // cache whose name doesn't match, so a stale version never lingers.
-const CACHE_VERSION = 'shell-v1';
+const CACHE_VERSION = 'shell-v2';
 const CACHE_NAME = `truegle-${CACHE_VERSION}`;
+
+// OFFLINE PACK (v2): the Game Boy ROMs and game art are cached like build assets, and the
+// map's basemap tiles get their own cache (kept across versions, capped) so places already
+// looked at still draw with no network. Only these two tile hosts — nothing else cross-origin.
+const TILE_CACHE = 'truegle-tiles-v1';
+const TILE_MAX = 1500;
+const TILE_HOST = /^(?:[a-d]\.basemaps\.cartocdn\.com|tile\.openstreetmap\.org)$/;
 
 const CORE_URLS = ['/', '/manifest.webmanifest', '/truegle.png'];
 
@@ -52,7 +59,7 @@ function isSameOriginAsset(url) {
     if (u.origin !== self.location.origin) return false;
     // The build's hashed output lives under /assets/; the two brand marks are
     // root-level files, not a directory — matched by exact name, not a prefix.
-    return /^\/assets\//.test(u.pathname) || u.pathname === '/truegle.png' || u.pathname === '/truetube.png';
+    return /^\/(?:assets|game|roms)\//.test(u.pathname) || u.pathname === '/truegle.png' || u.pathname === '/truetube.png';
   } catch {
     return false;
   }
@@ -94,7 +101,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+    await Promise.all(keys.filter((k) => k !== CACHE_NAME && k !== TILE_CACHE).map((k) => caches.delete(k)));
     await self.clients.claim();
   })());
 });
@@ -104,7 +111,31 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return; // never touch writes — those are API calls
 
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return; // never touch third-party requests
+
+  // MAP TILES — cache-first (a tile at a given z/x/y does not change), keyed with the
+  // CARTO subdomain collapsed to "a" so the same tile from b/c/d is one entry.
+  if (url.protocol === 'https:' && TILE_HOST.test(url.hostname)) {
+    const key = url.href.replace(/^https:\/\/[b-d]\.basemaps/, 'https://a.basemaps');
+    event.respondWith((async () => {
+      const cache = await caches.open(TILE_CACHE);
+      const hit = await cache.match(key);
+      if (hit) return hit;
+      try {
+        const res = await fetch(request);
+        if (res.ok || res.type === 'opaque') {
+          await cache.put(key, res.clone());
+          const keys = await cache.keys();
+          if (keys.length > TILE_MAX) await Promise.all(keys.slice(0, keys.length - TILE_MAX).map((k) => cache.delete(k)));
+        }
+        return res;
+      } catch {
+        return Response.error();
+      }
+    })());
+    return;
+  }
+
+  if (url.origin !== self.location.origin) return; // never touch any other third-party request
 
   // NAVIGATIONS (a real address-bar/link load, including the PWA's own
   // start_url on launch). Network first — a visitor with a connection always

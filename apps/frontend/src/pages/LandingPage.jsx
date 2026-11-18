@@ -646,6 +646,23 @@ export default function LandingPage() {
                 <ul className="space-y-2">
                   <li>
                     <a
+                      href="/guide"
+                      data-landing-guide=""
+                      className="text-body-medium text-emerald-300 hover:text-emerald-200 transition-colors"
+                    >
+                      Free Survival Guide
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/offline"
+                      className="text-body-medium text-gray-400 hover:text-purple-400 transition-colors"
+                    >
+                      Works Offline
+                    </a>
+                  </li>
+                  <li>
+                    <a
                       href="/search"
                       className="text-body-medium text-gray-400 hover:text-purple-400 transition-colors"
                     >

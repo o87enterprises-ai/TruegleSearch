@@ -2369,11 +2369,19 @@
         "ts": "2026-11-17",
         "created": "2026-11-17"
       },
+      "guide-offline-2026-11-18": {
+        "Id": "guide-offline-2026-11-18",
+        "Type": "decision",
+        "Label": "Guide at /guide + offline hub",
+        "body": "Guide unlocks via real account or prior unlock (vault, permanent). /guide, /offline routes; SW caches ROMs/game art/map tiles; Capacitor Android shell in apps/android (APK via .github/workflows/android.yml; no local Android SDK).",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
+      },
       "free-search-ring": {
         "Id": "free-search-ring",
         "Type": "decision",
         "Label": "Free search ring (2026-11-11)",
-        "body": "services/FreeSearchRing.js: rotating free tiers (Tavily/Firecrawl/Linkup/Exa/Serper keyed; Wikipedia REST + Marginalia key-free) with daily budgets + breakers, fires when <8 web results. Owner chose keys + no-key public APIs only; NO anonymous keyless vendor endpoints. Keys are the owner's to sign up for (no-card tiers only). Docs: docs/FREE-SEARCH-RING.md. Only Wikipedia verified live; others mock-tested.",
+        "body": "services/FreeSearchRing.js: rotating free tiers (Tavily/Firecrawl/Linkup/Exa/Serper keyed; Wikipedia REST + Marginalia key-free) with daily budgets + breakers, fires when <8 web results. Owner chose keys + no-key public APIs only; NO anonymous keyless vendor endpoints. Keys are the owner's to sign up for (no-card tiers only), added on BOTH Render and Vercel. Docs: docs/FREE-SEARCH-RING.md. Only Wikipedia verified live; others mock-tested.",
         "ts": "2026-11-18",
         "created": "2026-11-18"
       }
