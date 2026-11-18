@@ -10,7 +10,9 @@
  * ask the index once between them.
  */
 const OembedService = require('./OembedService');
-const { shapeVideos, queryFor, regionRules } = require('./NewsVideos');
+const YouTubeGateway = require('./YouTubeGateway');
+const { NEWS_OUTLETS } = require('../config/newsOutlets');
+const { shapeVideos, queryFor, regionRules, parseUploads, interleaveOutlets } = require('./NewsVideos');
 
 let searchService = null;
 function search() {
@@ -24,6 +26,25 @@ function search() {
 
 const TTL_MS = 15 * 60 * 1000;
 const cache = new Map(); // key -> { at, value }
+
+// ── the major outlets (config/newsOutlets.js) ───────────────────────────────
+// Each outlet's own recent uploads, fetched in parallel and interleaved so no one outlet
+// fills the lane. Cached like everything else here; an outlet that fails is simply absent,
+// and if every one fails the caller falls back to the search.
+const PER_OUTLET = 3;
+const outletCache = { at: 0, value: null };
+
+async function outletVideos() {
+  if (outletCache.value && Date.now() - outletCache.at < TTL_MS) return outletCache.value;
+  const groups = await Promise.all(NEWS_OUTLETS.map(async (outlet) => {
+    try {
+      return parseUploads(await YouTubeGateway.channelUploads(outlet.channelId), outlet, { perOutlet: PER_OUTLET });
+    } catch { return []; }
+  }));
+  const value = interleaveOutlets(groups);
+  if (value.length) { outletCache.at = Date.now(); outletCache.value = value; return value; }
+  return outletCache.value || []; // stale beats nothing
+}
 
 /** Region name for local news ("Canada"), or '' for world. */
 function regionName(country) {
@@ -42,6 +63,17 @@ async function youtubeVideos(kind, { scope = 'world', country = '', topic = '', 
   const key = `${kind}|${scope}|${country}|${topic}|${page}|${limit}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
+
+  // WORLD NEWS, NO TOPIC: the listed outlets' own uploads, a page at a time. A typed topic,
+  // local news and markets stay plain searches (below), as does any page past the outlets.
+  if (kind === 'news' && scope === 'world' && !topic) {
+    const outlets = await outletVideos();
+    if (outlets.length) {
+      const value = { items: outlets.slice((page - 1) * limit, page * limit) };
+      cache.set(key, { at: Date.now(), value });
+      return value;
+    }
+  }
 
   try {
     const rules = regionRules(kind, country);
@@ -105,6 +137,7 @@ async function fetchVideoLane(id, query, limit = 20, cursor) {
     snippet: null,
     author: v.channel || null,
     subreddit: null,
+    // (outlet clips carry their outlet's name as the channel — see outletVideos)
     date: v.at ? new Date(v.at).toISOString() : null,
     // NULL, not 0: a search result carries no vote count, and 0 would claim one
     // that was never measured.
@@ -118,4 +151,4 @@ async function fetchVideoLane(id, query, limit = 20, cursor) {
   return { items: posts, next: posts.length && page < 3 ? page + 1 : null };
 }
 
-module.exports = { youtubeVideos, fetchVideoLane, LANES, __cache: cache };
+module.exports = { youtubeVideos, fetchVideoLane, LANES, __cache: cache, __outletCache: outletCache };

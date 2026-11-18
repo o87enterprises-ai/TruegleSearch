@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Play, Pause, SkipBack, SkipForward, RotateCcw, Maximize2, Lock, X } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, RotateCcw, Maximize2, Lock, X, CornerDownRight } from 'lucide-react';
 import { usePlayer } from '../../context/PlayerContext';
 import { useDeliberateTap } from '../../hooks/useDeliberateTap';
 import { useTouchDevice } from '../../hooks/useTouchDevice';
@@ -22,7 +22,7 @@ import { useTouchDevice } from '../../hooks/useTouchDevice';
 // The media is NEVER unmounted to get here. This bar renders INSTEAD of the
 // player's chrome while the media node keeps playing behind it, because
 // unmounting an iframe restarts the track.
-export default function PlayerMiniBar({ onExpand, onClose, accent = '#f43f5e', className = '' }) {
+export default function PlayerMiniBar({ onExpand, onClose, onDock = null, accent = '#f43f5e', className = '' }) {
   const touchDevice = useTouchDevice();
   const {
     current, paused, history, queue,
@@ -82,6 +82,14 @@ export default function PlayerMiniBar({ onExpand, onClose, accent = '#f43f5e', c
         </span>
       </div>
 
+      {/* Parks the minimized player in the bottom-right corner, out of the way of the
+          page. It can still be moved afterwards: press and hold the bar, then drag. */}
+      {onDock && (
+        <button type="button" onClick={onDock} data-mini-dock=""
+          title="Dock to the bottom right" aria-label="Dock to the bottom right" className={btn}>
+          <CornerDownRight size={16} />
+        </button>
+      )}
       <button type="button" onClick={onExpand} title="Expand the player"
         aria-label="Expand the player" className={btn} style={{ color: accent }}>
         <Maximize2 size={16} />

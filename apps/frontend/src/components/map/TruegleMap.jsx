@@ -55,7 +55,7 @@ function lastProjection() {
 }
 
 // The basemap's name as a person would say it.
-const BASEMAP_NAMES = { satellite: 'Satellite', standard: 'Street', dark: 'Dark', light: 'Light' };
+const BASEMAP_NAMES = { satellite: 'Satellite', standard: 'Street' };
 
 export default function TruegleMap({
   provider = 'mapbox',

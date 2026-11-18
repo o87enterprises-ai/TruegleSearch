@@ -5,6 +5,7 @@ import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { usePlaylists } from '../utils/playlists';
 import { GUIDE_NAME, GUIDE_PATH } from '../utils/guideAccess';
 import PlayerFiles from '../components/player/PlayerFiles';
+import TruegleLogo from '../components/ui/TruegleLogo';
 
 const TrailGame = lazy(() => import('../components/TrailGame'));
 const GamesPanel = lazy(() => import('../components/games/GamesPanel'));
@@ -44,6 +45,10 @@ export default function OfflineHub() {
 
         {view === null && (
           <>
+            {/* The Truegle mark, and the way back home. */}
+            <Link to="/" aria-label="Truegle — home" className="flex justify-center mb-6">
+              <TruegleLogo size="large" animated />
+            </Link>
             <div className="flex items-center gap-2 mb-1">
               <WifiOff size={18} className={online ? 'text-white/30' : 'text-amber-300'} />
               <h1 className="text-lg font-bold">{online ? 'Works offline' : 'You’re offline'}</h1>
