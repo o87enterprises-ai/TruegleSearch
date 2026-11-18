@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, Gamepad2, Joystick, Map as MapIcon, ListMusic, WifiOff, ArrowLeft } from 'lucide-react';
+import { BookOpen, Gamepad2, Joystick, Map as MapIcon, ListMusic, WifiOff, ArrowLeft, X } from 'lucide-react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { usePlaylists } from '../utils/playlists';
 import { GUIDE_NAME, GUIDE_PATH } from '../utils/guideAccess';
@@ -39,7 +39,7 @@ export default function OfflineHub() {
   return (
     <div className="min-h-screen bg-black text-white px-4 pt-16 pb-12">
       <div className="max-w-3xl mx-auto">
-        {view ? back : null}
+        {view && view !== 'map' ? back : null}
 
         {view === null && (
           <>
@@ -73,8 +73,13 @@ export default function OfflineHub() {
           {view === 'trail' && <TrailGame embedded onClose={() => setView(null)} onFound={() => navigate(GUIDE_PATH)} />}
           {view === 'games' && <GamesPanel onClose={() => setView(null)} />}
           {view === 'map' && (
-            <div className="relative h-[70vh] rounded-xl overflow-hidden border border-white/10">
+            // Full screen, with a close button that always sits on top of the map.
+            <div className="fixed inset-0 z-[9000] bg-black">
               <MapViewWrapper isOpen onClose={() => setView(null)} popOutStorageKey="truegle_offline_map_popped" />
+              <button type="button" onClick={() => setView(null)} aria-label="Close the map"
+                className="fixed top-3 left-16 z-[100001] flex items-center gap-1.5 rounded-full bg-black/80 border border-white/20 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10">
+                <X size={16} /> Close
+              </button>
             </div>
           )}
         </Suspense>

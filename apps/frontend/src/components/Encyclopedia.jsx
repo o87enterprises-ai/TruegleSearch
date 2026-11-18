@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BOOK, RAW, search, blocks, toDocument, download } from '../utils/encyclopedia';
+import { BOOK, search, blocks, toPlainText, printAsPdf, download } from '../utils/encyclopedia';
 
 // The Survivor's Encyclopedia, on screen.
 //
@@ -52,8 +52,8 @@ const Encyclopedia = ({ onClose }) => {
   };
 
   const save = (kind) => {
-    if (kind === 'html') download('survivors-encyclopedia.html', toDocument(), 'text/html;charset=utf-8');
-    else download('survivors-encyclopedia.md', RAW, 'text/markdown;charset=utf-8');
+    if (kind === 'pdf') printAsPdf();
+    else download('survivors-encyclopedia.txt', toPlainText(), 'text/plain;charset=utf-8');
     setSaved(kind);
     setTimeout(() => setSaved(''), 4000);
   };
@@ -169,19 +169,19 @@ const Encyclopedia = ({ onClose }) => {
           </span>
           <button
             type="button"
-            onClick={() => save('html')}
+            onClick={() => save('pdf')}
             className={cx('px-3 py-1.5 rounded-md text-xs font-bold transition-colors',
-              saved === 'html' ? 'bg-emerald-400 text-black' : 'bg-white text-black hover:bg-white/90')}
+              saved === 'pdf' ? 'bg-emerald-400 text-black' : 'bg-white text-black hover:bg-white/90')}
           >
-            {saved === 'html' ? '✓ HTML' : 'HTML'}
+            {saved === 'pdf' ? '✓ PDF' : 'PDF'}
           </button>
           <button
             type="button"
-            onClick={() => save('md')}
+            onClick={() => save('txt')}
             className={cx('px-3 py-1.5 rounded-md text-xs font-bold border transition-colors',
-              saved === 'md' ? 'border-emerald-400 text-emerald-300' : 'border-white/20 text-white/70 hover:text-white')}
+              saved === 'txt' ? 'border-emerald-400 text-emerald-300' : 'border-white/20 text-white/70 hover:text-white')}
           >
-            {saved === 'md' ? '✓ TEXT' : 'TEXT'}
+            {saved === 'txt' ? '✓ TEXT FILE' : 'TEXT FILE'}
           </button>
           <span className="text-white/25 text-[11px] ml-auto hidden sm:inline">
             One file, no network needed.

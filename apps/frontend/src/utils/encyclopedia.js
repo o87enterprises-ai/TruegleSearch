@@ -201,6 +201,31 @@ ${body}
 </div></body></html>`;
 }
 
+/** The whole book as plain text: no markup characters, opens in any notes app. */
+export function toPlainText() {
+  return RAW
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/\r?\n/g, '\r\n');
+}
+
+/**
+ * "Save as PDF": opens the book in a hidden frame and calls the browser's print
+ * dialog, where the reader picks "Save as PDF". No library, no network, works offline.
+ */
+export function printAsPdf() {
+  const frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  frame.srcdoc = toDocument();
+  frame.onload = () => {
+    try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch { /* blocked */ }
+    setTimeout(() => frame.remove(), 60000);
+  };
+  document.body.appendChild(frame);
+}
+
 /** Hand the reader a file. Blob + object URL, revoked after the click so a
  *  long session cannot leak a copy of the book per save. */
 export function download(name, text, type) {

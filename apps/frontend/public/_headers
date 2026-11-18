@@ -23,6 +23,13 @@
   X-Robots-Tag: noindex, follow
 /chat
   Content-Type: text/html; charset=utf-8
+# Client-routed pages: without a rule of their own they are served as
+# application/octet-stream and the browser downloads them instead of showing them.
+/guide
+  Content-Type: text/html; charset=utf-8
+/offline
+  Content-Type: text/html; charset=utf-8
+  X-Robots-Tag: noindex, follow
 /s/*
   Content-Type: text/html; charset=utf-8
   X-Robots-Tag: noindex, follow
