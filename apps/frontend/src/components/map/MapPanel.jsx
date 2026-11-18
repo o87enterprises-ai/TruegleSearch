@@ -63,7 +63,7 @@ export default function MapPanel({
   }, [state.provider, actions]);
 
   const handleToggleStyle = useCallback(() => {
-    const styles = ['standard', 'dark', 'light', 'satellite'];
+    const styles = ['standard', 'satellite'];
     const currentIndex = styles.indexOf(state.mapStyle);
     const nextIndex = (currentIndex + 1) % styles.length;
     actions.setMapStyle(styles[nextIndex]);
