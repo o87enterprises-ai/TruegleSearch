@@ -3006,8 +3006,8 @@
         "Type": "thread",
         "Label": "PROPOSED (needs owner go): host the search gateway as a Cloudflare Worker instead of an HF Space",
         "body": "Cloudflare account already has Workers enabled (workers.dev subdomain 'o87enterprises', 20 existing scripts incl. o87-ollama-proxy, trumpafi-proxy), account id 1052be08b0c9382768667a9254936f9c, creds in env (cloudflare-creds-in-env). Why a Worker: $0 free tier, no card, no sleep/cold start (unlike free Render-style hosts), second egress IP + failure domain separate from Vercel and EC2. Needs: a framework-agnostic core extracted from gatewayServer.js (express wrapper + Worker fetch handler share it), esbuild bundle with axios fetch adapter, deploy via API with the token as a secret_text binding, matching SEARCH_GATEWAY_TOKEN + SEARCH_GATEWAY_URL set on Vercel prod (Vercel connector available) and a redeploy. Limits to respect: 10ms CPU/invocation, 50 subrequests, 100k req/day (fallback traffic is tiny). Risk: some providers may block Cloudflare Worker IPs - test each provider from the deployed Worker before wiring. DO NOT deploy or touch Vercel prod env until the owner says go.",
-        "status": "open",
-        "ts": "2026-11-12",
+        "status": "done",
+        "ts": "2026-11-18",
         "created": "2026-11-12"
       },
       "render-migrations-mismatch": {
@@ -3018,6 +3018,15 @@
         "status": "open",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "feed-cron-restore": {
+        "Id": "feed-cron-restore",
+        "Type": "thread",
+        "Label": "Restore the daily 6AM feed refresh (GitHub Actions locked): pick GitHub billing fix or Cloudflare cron Worker",
+        "body": "See fact github-actions-billing-lock. Waiting on owner choice. Cloudflare cron Worker is $0 and also fixes Render idle sleep, but needs the owner to run 'npx wrangler@4 secret put CRON_SECRET' (value from Render dashboard) - do not ask for the value in chat. Optional hardening: make the guard tolerate GitHub's late scheduled runs (e.g. act when today's epoch is unbuilt, not only in the 6 o'clock hour) - cheap, safe because the handler is already idempotent.",
+        "status": "open",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
       }
     },
     "entity": {
@@ -4606,6 +4615,22 @@
         "body": "Both deploy from main (Render live behind api.truegle.info; Vercel project backend prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI standby, currently blocked, behind main since #158). Merge to main IS the sync; keep code host-agnostic (VERCEL/RENDER guards only); env vars + DB do NOT sync via git; switch = repoint api.truegle.info. Checklist in HANDOFF.md 2026-11-17.",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "backend-on-render-2026-11-18": {
+        "Id": "backend-on-render-2026-11-18",
+        "Type": "fact",
+        "Label": "Backend now runs on RENDER (api.truegle.info); Vercel backend blocked; Worker gateway exists (PR #148)",
+        "body": "Verified 2026-11-18: api.truegle.info answers with x-render-origin-server: Render. Vercel backend is blocked (402), so Vercel previews/crons/env notes in older memory are stale; HANDOFF 2026-11-16/17 has the Render env list + switch-back checklist (two backends, one codebase, env vars must be set on BOTH). My open-search code runs fine on Render: video 3/3 2.2s, audio 4/4 0.9s (itunes+openverse OK from Render egress), social 2/2 1.3s. Cloudflare Worker search gateway ALREADY EXISTS (PR #148, services/search-worker, live https://truegle-search-gateway.o87enterprises.workers.dev): /health configured:true, unauth search -> 401. It supersedes the HF Space idea (kit services/search-gateway is now unused/optional). The backend gateway client needs BOTH SEARCH_GATEWAY_URL and SEARCH_GATEWAY_TOKEN: HANDOFF's Render env list shows only SEARCH_GATEWAY_URL, so the fallback tier may be inert - owner should confirm the token NAME exists in the Render dashboard.",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
+      },
+      "github-actions-billing-lock": {
+        "Id": "github-actions-billing-lock",
+        "Type": "fact",
+        "Label": "GitHub account LOCKED for billing: Actions jobs never start => daily feed refresh cron has not run",
+        "body": "2026-11-18: .github/workflows/cron-top-feed.yml (13:00+14:00 UTC = 6AM Pacific, correct) fails on EVERY run since at least 2026-11-15 with annotation 'The job was not started because your account is locked due to a billing issue.' (job has zero steps). Not a code, secret or schedule fault; the endpoint is fine (401 without auth proves CRON_SECRET is set on Render). Vercel crons are dead too (Vercel blocked). EFFECT: the top-feed cache is not pre-built at 6AM; the first visitor each day rebuilds it (10+ s scrape, plus Render free cold start). Also GitHub scheduled runs fire hours late (observed ~21:00 UTC), which would miss the 6AM-hour-only guard even when billing is fixed. FIXES (owner): resolve the GitHub billing lock; OR move the trigger to a free Cloudflare Worker cron trigger (0 13/14 UTC daily, plus a /api/health ping every 10 min to keep Render awake - also closes HANDOFF open item 2) which needs CRON_SECRET stored as a Worker secret (owner must provide it via wrangler secret put; agent never sees it).",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
       }
     }
   },
@@ -4635,5 +4660,5 @@
       }
     }
   },
-  "updated": "2026-11-17"
+  "updated": "2026-11-18"
 }
