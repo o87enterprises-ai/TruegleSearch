@@ -47,13 +47,21 @@ import { SLUGS, VIDEOS } from '../src/content/videoIndex.generated.js';
 import { getCreator } from '../src/content/creators.js';
 
 // Known AI crawler families. Keys are substrings matched against User-Agent.
+// `answerEngine: true` marks crawlers that fetch a page to answer or cite it for
+// a user (search indexes and user-initiated browsing). They are NOT metered and
+// get no licensing banner: a banner at the top of <body> becomes the text an
+// answer engine reads first, and they fetch from shared IP ranges that would hit
+// a per-IP daily cap quickly. Training crawlers (no flag) stay metered.
 const AI_BOTS = {
   GPTBot:            { company: 'OpenAI',        product: 'ChatGPT / GPT models' },
-  'OAI-SearchBot':   { company: 'OpenAI',        product: 'ChatGPT Search' },
-  'ChatGPT-User':    { company: 'OpenAI',        product: 'ChatGPT browsing' },
+  'OAI-SearchBot':   { company: 'OpenAI',        product: 'ChatGPT Search', answerEngine: true },
+  'ChatGPT-User':    { company: 'OpenAI',        product: 'ChatGPT browsing', answerEngine: true },
   ClaudeBot:         { company: 'Anthropic',     product: 'Claude models' },
   'anthropic-ai':    { company: 'Anthropic',     product: 'Claude models' },
-  PerplexityBot:     { company: 'Perplexity AI', product: 'Perplexity Search' },
+  PerplexityBot:     { company: 'Perplexity AI', product: 'Perplexity Search', answerEngine: true },
+  'Perplexity-User': { company: 'Perplexity AI', product: 'Perplexity browsing', answerEngine: true },
+  'Claude-SearchBot': { company: 'Anthropic',    product: 'Claude search', answerEngine: true },
+  'Claude-User':     { company: 'Anthropic',     product: 'Claude browsing', answerEngine: true },
   'Google-Extended': { company: 'Google',        product: 'Gemini / AI Overviews' },
   Bytespider:        { company: 'ByteDance',     product: 'Doubao / TikTok AI' },
   'Applebot-Extended': { company: 'Apple',       product: 'Apple Intelligence' },
@@ -608,6 +616,13 @@ export async function onRequest(context) {
   }
 
   if (!bot) return new Response(html, { status: response.status, headers });
+
+  // Answer engines: serve the page untouched (no cap, no banner, no licensing
+  // JSON-LD). Citation is explicitly permitted by the policy.
+  if (bot.answerEngine) {
+    headers.set('X-Truegle-Bot', bot.token);
+    return new Response(html, { status: response.status, headers });
+  }
 
   // Track visit count in KV
   let count = 0;

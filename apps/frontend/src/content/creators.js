@@ -131,6 +131,34 @@ export const CREATORS = [
     avatar: null, refCode: 'roland-martin', featured: false,
     socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@rolandsmartin' }],
   },
+  {
+    slug: 'the-why-files', name: 'The Why Files', tagline: '',
+    channelId: 'UCIFk2uvCNcEmZ77g0ESKLcQ',
+    channelUrl: 'https://www.youtube.com/@TheWhyFiles',
+    avatar: null, refCode: 'the-why-files', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@TheWhyFiles' }],
+  },
+  {
+    slug: 'terror-teds-tales', name: "Terror Ted's Tales", tagline: '',
+    channelId: 'UCQ0zBeV90nTR0ZZq03iT1kw',
+    channelUrl: 'https://www.youtube.com/@Terrortedstales',
+    avatar: null, refCode: 'terror-teds-tales', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@Terrortedstales' }],
+  },
+  {
+    slug: 'melodysheep', name: 'melodysheep', tagline: '',
+    channelId: 'UCR9sFzaG9Ia_kXJhfxtFMBA',
+    channelUrl: 'https://www.youtube.com/@melodysheep',
+    avatar: null, refCode: 'melodysheep', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@melodysheep' }],
+  },
+  {
+    slug: 'astral-legends', name: 'Astral Legends', tagline: '',
+    channelId: 'UCIqi0z9b5UR-28hDDFEaKVQ',
+    channelUrl: 'https://www.youtube.com/@astrallegends',
+    avatar: null, refCode: 'astral-legends', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@astrallegends' }],
+  },
 ];
 
 export const getCreator = (slug) => CREATORS.find((c) => c.slug === slug) || null;

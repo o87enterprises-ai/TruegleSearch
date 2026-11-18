@@ -10,7 +10,8 @@ process.env.GOOGLE_SEARCH_ENGINE_ID = process.env.GOOGLE_SEARCH_ENGINE_ID || 'te
 delete process.env.YOUTUBE_API_KEY; // force the gateway path
 
 const inv = (id, ago) => ({ videoId: id, title: `Title ${id}`, published: Math.floor(Date.now() / 1000) - ago, videoThumbnails: [{ url: `https://i.ytimg.com/vi/${id}/hq.jpg` }] });
-const mockUploads = [inv('short0000001', 10), inv('video0000001', 20), inv('short0000002', 30), inv('video0000002', 40), inv('video0000003', 50)];
+const D = 86400;
+const mockUploads = [inv('short0000001', 10), inv('video0000001', 20), inv('short0000002', 3 * D), inv('video0000002', 20 * D), inv('video0000003', 200 * D)];
 
 jest.mock('../services/YouTubeGateway', () => ({
   channelUploads: jest.fn(async () => ({ kind: 'invidious', data: mockUploads })),
@@ -54,4 +55,26 @@ test('paging stays consistent under a filter: the filter applies before the offs
   expect(p2.items).toHaveLength(1);
   expect(p2.next).toBeNull();
   expect([...ids(p1), ...ids(p2)].sort()).toEqual(['video0000001', 'video0000002', 'video0000003']);
+});
+
+test('since keeps only posts inside the range, newest first; junk means any time', async () => {
+  const f = (since) => fetchCreatorsFeed('', 50, undefined, 'roland-martin', 'all', since);
+  expect(ids(await f('day'))).toEqual(['short0000001', 'video0000001']);
+  expect(ids(await f('week'))).toHaveLength(3);
+  expect(ids(await f('month'))).toHaveLength(4);
+  expect(ids(await f('year'))).toHaveLength(5);
+  expect(ids(await f('banana'))).toHaveLength(5);
+  const month = await f('month');
+  expect(month.items.map((i) => i.url.split('v=')[1])).toEqual(['short0000001', 'video0000001', 'short0000002', 'video0000002']);
+});
+
+test('order=newest / oldest sorts by date; a range alone stays newest first; junk is the mix', async () => {
+  const f = (since, order) => fetchCreatorsFeed('', 50, undefined, 'roland-martin', 'all', since, order);
+  const seq = (r) => r.items.map((i) => i.url.split('v=')[1]);
+  const asc = ['video0000003', 'video0000002', 'short0000002', 'video0000001', 'short0000001'];
+  expect(seq(await f('any', 'newest'))).toEqual([...asc].reverse());
+  expect(seq(await f('any', 'oldest'))).toEqual(asc);
+  expect(seq(await f('month', 'oldest'))).toEqual(asc.slice(1));
+  expect(seq(await f('month'))).toEqual([...asc].reverse().slice(0, 4));
+  expect(ids(await f('any', 'banana'))).toHaveLength(5);
 });

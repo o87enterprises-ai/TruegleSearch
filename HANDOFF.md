@@ -3,6 +3,32 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-17 — Render ⇄ Vercel switch-back checklist (both backends kept in sync)
+
+- **Why nothing is copied by hand:** Render (`truegle-backend`, `render.yaml`) and the Vercel project `backend` (`prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI`, team `team_OyHR5YLtUy6gIs8HmvhXKSsj`) both deploy from `main` of `o87enterprises-ai/TruegleSearch`. A merge to `main` is the sync. Rule recorded in `CLAUDE.md` (🔴 TWO BACKENDS, ONE CODEBASE).
+- **State today:** Render is live behind `https://api.truegle.info`. Vercel is **blocked ("Account is blocked", was 402)** and its last good deploy is `b8ad802` (#157); it is behind `main` by every backend commit since #158. Code is host-agnostic (`VERCEL`/`RENDER` guards in `server.js`, `utils/logger.js`; file logging off on both).
+- **To switch back to Vercel:**
+  1. Unblock the Vercel account (billing/plan, see the link on the failed Vercel check). Redeploy Production from `main` (Deployments → Redeploy, or push any commit).
+  2. **Env vars (names only; set the SAME values on both hosts; nothing syncs via git):** `NODE_ENV, DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, FRONTEND_URL, CRON_SECRET, GROQ_ORG_1..4_KEYS, SEARCH_GATEWAY_URL, SEARXNG_URL, SEARXNG_PRIMARY, RESEND_API_KEY, RESEND_FROM_EMAIL, YOUTUBE_API_KEY, GEMINI_API_KEY, LASTFM_API_KEY, NEWS_API_KEY, NVIDIA_API_KEY`. Mismatched `JWT_SECRET`/`ENCRYPTION_KEY` signs everyone out or breaks decryption. Missing `RESEND_API_KEY` makes sign-in 500.
+  3. **Same database:** `DATABASE_URL` must be the same Neon string on both (project `neon-coquelicot-harbor`, db `neondb`), or users/data differ per host.
+  4. **Repoint `api.truegle.info`** (Cloudflare DNS) to the Vercel deployment; nothing else changes, because the frontend build default (`apps/frontend/vite.config.js` `PROD_BACKEND_URL`) and `.github/workflows/cron-top-feed.yml` both call that hostname. Wait for the TLS cert to issue before cutting over.
+  5. **Cron:** `apps/backend/vercel.json` crons and the GitHub Action both hit `/api/cron/refresh-top-feed` (idempotent: acts only in the 6 AM Pacific hour and only if today's entry is not built), so both running is harmless. `CRON_SECRET` must match the GitHub repo secret.
+  6. Verify: `GET /api/health` 200; `POST /api/auth/request-code` 200; `POST /api/ai/chat`; one search.
+- **To switch back to Render:** repoint `api.truegle.info` at the Render service (custom domain on `truegle-backend`), then run the verify step above. Render free sleeps after ~15 min idle (first hit is slow).
+- **Keeping it true:** when a change adds a `process.env.X`, add it to BOTH hosts and to the list above. When a change touches host config, update the other host's file (`render.yaml` / `Dockerfile` / `vercel.json`) in the same PR.
+- **Not verifiable from the cloud session:** the values of either host's env vars (names only here), and whether Vercel's current env still matches Render's. Compare them in the two dashboards before cutting over.
+
+---
+
+## 🗓️ 2026-11-16 — Backend live on Render (api.truegle.info): env vars set, sign-in + chat + search verified
+
+- **State:** `truegle-backend` (Render free, Docker, Oregon, `srv-dbsf2hs9v7es73chgmg0`) serves `https://api.truegle.info`; the live frontend bundle already points at it (#162). `/api/health` 200; Vercel backend is dead (402).
+- **Render env now set (names only):** `NODE_ENV, DATABASE_URL, JWT_SECRET, ENCRYPTION_KEY, FRONTEND_URL, CRON_SECRET, GROQ_ORG_1..4_KEYS, SEARCH_GATEWAY_URL, SEARXNG_URL, SEARXNG_PRIMARY, RESEND_API_KEY, RESEND_FROM_EMAIL, YOUTUBE_API_KEY, GEMINI_API_KEY, LASTFM_API_KEY, NEWS_API_KEY, NVIDIA_API_KEY`. NOT set on purpose: Anthropic (no paid key), Nephesh (deprecated), Reddit (no key obtainable), Brave/Bing/SERP/Google search keys (SearXNG needs none).
+- **Verified live 2026-11-16:** sign-in `POST /api/auth/request-code` 200 (it 500'd until `RESEND_API_KEY` was added; Resend logs showed no send attempt, that is how to spot it); chat `POST /api/ai/chat` OK; search 8/8 queries, 50-134 results, mostly 1-2 s (two 5+ s = free-tier warm-up).
+- **Neon:** prod DB is project `neon-coquelicot-harbor` (id `polished-sea-42903880`, branch `main`, db `neondb`), 28 tables, `login_codes` exists, 5 users.
+- **Open (non-blocking):** (1) `schema_migrations` has columns `filename, applied_at` (from `scripts/run-migrations.js`) but `server.js` autoMigrate wants `id`, so auto-migration is skipped every boot ("column id does not exist"); `prompts` table missing, chat falls back to defaults. (2) Free instance sleeps ~15 min idle: add a free uptime ping on `/api/health` (10 min). (3) `/api/auth/verify-access-code` end-to-end not exercised (needs the emailed code). (4) `render.yaml` lists only 4 env vars; the rest live in the dashboard. (5) Uncommitted: `.env*.local` in `apps/backend/.gitignore`.
+
+---
 ## 🗓️ 2026-11-11 — Games: keyboard controls, joypad fix, every game tested (2 held back, 1 patched)
 
 - **Keyboard (desktop):** arrows or WASD = d-pad, **Space = B, Enter = A**, plus **E = Start, Q = Select** (not requested; most games cannot start without Start; change in `utils/gameboyKeys.js`). Matched on `event.code` (physical key). Rules there: Ctrl/Cmd/Alt combos and typing in fields are never game presses; Enter/Space on a focused button still presses that button (Close works from the keyboard); a release is always honoured; blur/hidden/close lets go of everything. A key lights the matching on-screen button (`data-pressed`); legend shown on desktop only; focus moves into the player so Enter/Space don't re-press the card.

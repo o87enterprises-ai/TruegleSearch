@@ -2,6 +2,7 @@ import { Shuffle } from 'lucide-react';
 import { MODE_COLORS } from '../../config/modeTheme';
 import { TABS, TOP_SERVER_IDS, NETWORK_LABELS } from '../../hooks/useFeedTabs';
 import CreatorChips from './CreatorChips';
+import FeedFilters from './FeedFilters';
 
 // The landing frame's pill rows — tabs, Top's server pills + Shuffle, the
 // fallback note, and the Creators tab's creator chips — rendered from a
@@ -58,7 +59,12 @@ export default function FeedPills({ t, dataPrefix = 'feed' }) {
           </button>
         </div>
       )}
-      {t.tab === 'creators' && <CreatorChips value={t.creator} onChange={t.setCreator} kind={t.kind} onKind={t.setKind} />}
+      {/* Sort By · Order · Date, the same control as the mainstream search. On
+          Creators it sits directly under All · Videos · Shorts; on every other
+          tab it sits under that tab's pills, so it filters the whole feed. */}
+      {t.tab === 'creators'
+        ? <CreatorChips value={t.creator} onChange={t.setCreator} kind={t.kind} onKind={t.setKind} filtersSlot={<FeedFilters filters={t.filters} onChange={t.setFilters} />} />
+        : <FeedFilters filters={t.filters} onChange={t.setFilters} />}
       {t.usingFallback && (
         <p data-landing-feed-fallback="" className="text-[11px] text-white/40 mb-1 px-1">
           Showing top “{t.query}” posts, newest first.

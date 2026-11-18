@@ -17,6 +17,8 @@ import { categoryById, platformsForCategory } from '../config/feedCategories';
 import { useSocialConnections, connect as connectSource } from '../hooks/useSocialConnections';
 import { useSocialFeed } from '../hooks/useSocialFeed';
 import CreatorChips from '../components/feed/CreatorChips';
+import FeedFilters from '../components/feed/FeedFilters';
+import { DEFAULT_FEED_FILTERS } from '../utils/feedFilters';
 import FeedPills from '../components/feed/FeedPills';
 import { useFeedTabs } from '../hooks/useFeedTabs';
 import { useFeedFocus } from '../hooks/useFeedFocus';
@@ -140,6 +142,8 @@ export default function FeedPage() {
   // One creator isolated within the Creators category ('' = everyone).
   const [creator, setCreator] = useState('');
   const [kind, setKind] = useState('all');
+  // Sort By / Order / Date: the mainstream Filters control, on every category.
+  const [filters, setFilters] = useState(DEFAULT_FEED_FILTERS);
   useEffect(() => { if (openCategory?.id !== 'creators') { setCreator(''); setKind('all'); } }, [openCategory?.id]);
 
   // What actually gets asked for: the servers switched on here, plus anything
@@ -176,6 +180,7 @@ export default function FeedPage() {
     platforms,
     creator: openCategory?.id === 'creators' ? creator : '',
     kind: openCategory?.id === 'creators' ? kind : 'all',
+    filters,
     enabled: platforms.length > 0 && !homeTabs,
     // The aggregated timeline: one post from every source in turn rather than
     // the server's date-sorted merge, and never the same post twice even
@@ -363,7 +368,12 @@ export default function FeedPage() {
         </div>
       )}
 
-      {openCategory?.id === 'creators' && <CreatorChips value={creator} onChange={setCreator} kind={kind} onKind={setKind} />}
+      {/* Sort By · Order · Date — the mainstream search Filters control, across
+          every platform and category. Home draws its own through FeedPills. On
+          Creators it sits directly under All · Videos · Shorts. */}
+      {openCategory?.id === 'creators'
+        ? <CreatorChips value={creator} onChange={setCreator} kind={kind} onKind={setKind} filtersSlot={<FeedFilters filters={filters} onChange={setFilters} />} />
+        : view !== 'browse' && !homeTabs && <FeedFilters filters={filters} onChange={setFilters} />}
 
       {/* NO LONGER A GATE.
           This page used to render a full-screen "connect an account first"

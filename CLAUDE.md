@@ -42,6 +42,18 @@ At the START of every session, before acting:
   Console is the authoritative organic-search source (setup pending — needs a browser login).
   `/api/analytics` counters are process-local and reset on cold start; they are NOT traffic
   numbers and must never be quoted (they used to ship a fake 1500-search seed — removed).
+- **TWO BACKENDS, ONE CODEBASE (owner, 2026-11-17):** the backend must stay deployable on
+  **both Render (live) and Vercel (standby)** so we can switch back and forth. Both build
+  from `main` (Render: `render.yaml`, `autoDeploy`; Vercel project `backend`, repo
+  `o87enterprises-ai/TruegleSearch`), so **merging to `main` IS the sync** — never fork or
+  hand-copy backend code per host. Rules: (1) no host-specific logic outside the existing
+  `process.env.VERCEL` / `process.env.RENDER` guards (`server.js`, `utils/logger.js`);
+  (2) host config stays beside the code (`render.yaml`, `apps/backend/Dockerfile`,
+  `apps/backend/vercel.json`) — update the other host's file when a change affects both;
+  (3) env vars/secrets and the DB do NOT sync via git — any new `process.env.X` must be
+  added to BOTH hosts and to the switch-back checklist in `HANDOFF.md`; (4) the frontend and
+  the cron workflow only ever call `https://api.truegle.info`, so switching hosts = repoint
+  that one hostname. Vercel is currently blocked ("Account is blocked") and behind `main`.
 
 <!-- OPENSPEC:START -->
 # OpenSpec Instructions

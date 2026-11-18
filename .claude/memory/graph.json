@@ -2304,6 +2304,70 @@
         "body": "services/search-gateway/{Dockerfile,server.js,package.json,README.md} + scripts/stage-search-gateway.sh; app = apps/backend/services/openSearch/gatewayServer.js, client gateway.js, fallback tier in index.js (retry failed/cooling providers once through the gateway within the remaining deadline, >=1s). Auth Bearer SEARCH_GATEWAY_TOKEN (503 if unset, timingSafeEqual). POST body not URL. hf CLI 2.4 syntax verified: hf auth login; hf repos create USER/NAME --type space --sdk docker --public; hf upload USER/NAME DIR . --repo-type space; hf spaces secrets add USER/NAME -s NAME (reads env); hf spaces variables add -e K=V. Names added to docs/SECRETS-MAP.md. OWNER STEPS: run README commands, set SEARCH_GATEWAY_TOKEN on Space + Vercel, SEARCH_GATEWAY_URL on Vercel, redeploy. Then verify via api.truegle.info/api/open-search/health and a forced-failure check.",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "no-paid-tier-ctas-removed-2026-11-12": {
+        "Id": "no-paid-tier-ctas-removed-2026-11-12",
+        "Type": "decision",
+        "Label": "Dead /pricing + /signin CTAs removed; no paid tier",
+        "body": "Memory osint-only-gate already said 'no paid tier'. Removed every Subscribe/Upgrade/Go-Premium CTA (TokenGate, BiasedResults, FeelingBiasedPage, ExtractPage, OSINTMode fake $9.99 modal + startPremiumCheckout import); out-of-tokens states say tokens reset. PricingPage.jsx deleted; /pricing -> /about/ 301 in _redirects (GSC 404). Another session landed a partial version of the same fix on main (4aceb36, PR #145) that kept the OSINT $9.99 modal; this PR (#146) completes it. services/paymentService.js has no callers. Pre-existing unrelated failure: seo:test 'sitemap lists every creator, /creators and /chat'.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "lang-filter-accents-2026-11-17": {
+        "Id": "lang-filter-accents-2026-11-17",
+        "Type": "decision",
+        "Label": "Local filter dropped French X post",
+        "body": "Undetermined Latin text was kept in Local, so French 'Quelques mois après l'annexion…' leaked into EN feed. langDetect now has elision (l'/d'/qu') + accent counts + bigger fr/es/de wordlists; ContentLang.verdict drops und-Latin text for en visitors with >=2 non-English accents (or 1 + foreign weak vote). Plain/short English still kept.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
+      },
+      "creators-date-filter-2026-11-17": {
+        "Id": "creators-date-filter-2026-11-17",
+        "Type": "decision",
+        "Label": "Creators date filter",
+        "body": "Past day/week/month/year pills (CreatorChips SINCES) on /feed Creators + landing Creators tab. since flows useSocialFeed -> POST /api/social/feed -> fetchCreatorsFeed(...,since); filters before paging, newest-first when active; undated videos excluded when a range is on. RSS only exposes ~12 latest per channel so 'year' ~ everything.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
+      },
+      "creators-added-2026-11-17": {
+        "Id": "creators-added-2026-11-17",
+        "Type": "decision",
+        "Label": "Added The Why Files + Terror Ted's Tales",
+        "body": "Roster += the-why-files (UCIFk2uvCNcEmZ77g0ESKLcQ), terror-teds-tales (UCQ0zBeV90nTR0ZZq03iT1kw), ids verified via RSS. Edit BOTH backend/config/creatorsRoster.js and frontend/src/content/creators.js (+ public/sitemap.xml). seed-creator-videos.mjs map is stale (skipped BEMA/Roland too); pages fall back to live RSS.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
+      },
+      "creators-added-2-2026-11-17": {
+        "Id": "creators-added-2-2026-11-17",
+        "Type": "decision",
+        "Label": "Added melodysheep + Astral Legends",
+        "body": "Roster += melodysheep (UCR9sFzaG9Ia_kXJhfxtFMBA), astral-legends (UCIqi0z9b5UR-28hDDFEaKVQ), ids verified via RSS. Same 3 files: backend creatorsRoster.js, frontend creators.js, public/sitemap.xml.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
+      },
+      "creators-order-2026-11-17": {
+        "Id": "creators-order-2026-11-17",
+        "Type": "decision",
+        "Label": "Creators Newest/Oldest order",
+        "body": "Mixed/Newest/Oldest pills (CreatorChips ORDERS) next to Shorts/Videos + date pills; order flows useSocialFeed -> POST /api/social/feed {order} -> fetchCreatorsFeed(...,since,order). newest/oldest sort by date (undated last); a date range with no order stays newest-first; default 'mix' = creator spread.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
+      },
+      "feed-filters-2026-11-17": {
+        "Id": "feed-filters-2026-11-17",
+        "Type": "decision",
+        "Label": "Feed Filters = mainstream Sort By/Order/Date, all platforms",
+        "body": "Replaced the Creators-only Mixed/Newest/Oldest + date pill rows with the mainstream SearchFiltersBar (extended with options + hideOrderOnRelevance + yellow theme) via components/feed/FeedFilters.jsx. Sort By: Default|Date|Popularity (score = likes/votes/points; NO view counts exist in the feed, so no Views sort). Order labels follow the sort. Date: Any/Hour/24h/Week/Month/Year. Placement: Creators = under All/Videos/Shorts; other tabs/categories/search = under their pills (FeedPills + FeedPage). State: one filters object (utils/feedFilters.js) sent as POST /api/social/feed {filters}. Server: services/FeedFilters.js applies per response AFTER the cache (like ContentLang.filterByLang) to results + every platforms[k]; Creators lane gets exact since/order before paging via creatorsParams(). Sorting is per fetched page (lanes page on their own cursors) except Creators. Date can empty a page: useSocialFeed keeps fetching up to 6 empty pages. Old body since/order removed; GET /api/creators/feed still takes since/order.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
+      },
+      "list-tracks-dialog-2026-11-17": {
+        "Id": "list-tracks-dialog-2026-11-17",
+        "Type": "decision",
+        "Label": "Tube Lists: List button opens a track picker",
+        "body": "Saved-list actions (ListRowActions, used by grid cards, player list, viewport deck) gained a List button -> components/player/ListTracksDialog.jsx (portal dialog, z-[10000], bottom sheet on phone). Rows = saved order with poster/title/channel; playing track marked aria-current; pressing a row = playList(items,'tube',list.id,i) so Next stays in the list (same as PlayerLibrary). Live via usePlaylists; deleted list closes it; Esc/Close/backdrop close. Saved lists only: public playlists have no fetch-without-saving path (importPlaylist saves), so they get List after Save list. Test: apps/frontend/scripts/verify-list-tracks.mjs (npm run listtracks:test). In the cloud box run browser tests by symlinking the global playwright into apps/frontend/node_modules (untracked): ln -sfn /opt/node22/lib/node_modules/playwright apps/frontend/node_modules/playwright.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
       }
     },
     "thread": {
@@ -2945,6 +3009,15 @@
         "status": "open",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "render-migrations-mismatch": {
+        "Id": "render-migrations-mismatch",
+        "Type": "thread",
+        "Label": "schema_migrations column mismatch",
+        "body": "server.js autoMigrate expects schema_migrations(id) but prod table has (filename, applied_at) from scripts/run-migrations.js, so auto-migration is skipped every boot; prompts table missing. Non-blocking. Also: add free uptime ping on /api/health (Render free sleeps ~15 min).",
+        "status": "open",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
       }
     },
     "entity": {
@@ -4517,6 +4590,22 @@
         "body": "2026-11-12: 'hf repos create truegleai/truegle-search-gateway --type space --sdk docker --public' -> 402 'Static Spaces are free for everyone, but hosting Gradio and Docker Spaces on free cpu-basic requires a PRO subscription' (huggingface.co/pro). HF username = truegleai. Earlier memory/plan claims that a free HF CPU Docker Space (2vCPU/16GB, no card) is available are OUT OF DATE. Violates the $0 budget: do NOT subscribe to PRO. AFFECTED: docs/OSINT-SERVICE-PLAN.md + services/osint-python (thread osint-python-service assumes an HF Docker Space) and services/search-gateway/README.md (Space deploy steps). Static Spaces are free but cannot run server code. The host-agnostic parts survive: openSearch/gatewayServer.js, gateway.js client, pool fallback tier, secrets map names.",
         "ts": "2026-11-12",
         "created": "2026-11-12"
+      },
+      "render-backend-live": {
+        "Id": "render-backend-live",
+        "Type": "fact",
+        "Label": "Backend live on Render (api.truegle.info)",
+        "body": "truegle-backend on Render free (srv-dbsf2hs9v7es73chgmg0, Oregon, Docker) serves api.truegle.info; Vercel backend dead (402). Prod DB = Neon project neon-coquelicot-harbor (polished-sea-42903880). Env set via Render dashboard (render.yaml lists only 4). Sign-in/chat/search verified 2026-11-16. Intentionally unset: ANTHROPIC, NEPHESH, REDDIT, BRAVE/BING/SERP/GOOGLE search keys (SearXNG needs none). If sign-in 500s, check RESEND_API_KEY exists and Resend Logs show a send attempt.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
+      },
+      "two-backends-one-codebase": {
+        "Id": "two-backends-one-codebase",
+        "Type": "fact",
+        "Label": "Render + Vercel backends must stay in sync",
+        "body": "Both deploy from main (Render live behind api.truegle.info; Vercel project backend prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI standby, currently blocked, behind main since #158). Merge to main IS the sync; keep code host-agnostic (VERCEL/RENDER guards only); env vars + DB do NOT sync via git; switch = repoint api.truegle.info. Checklist in HANDOFF.md 2026-11-17.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
       }
     }
   },
@@ -4546,5 +4635,5 @@
       }
     }
   },
-  "updated": "2026-11-12"
+  "updated": "2026-11-17"
 }
