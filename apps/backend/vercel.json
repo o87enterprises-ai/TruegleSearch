@@ -15,11 +15,11 @@
   "crons": [
     {
       "path": "/api/cron/refresh-top-feed",
-      "schedule": "0 16 * * *"
+      "schedule": "0 13 * * *"
     },
     {
       "path": "/api/cron/refresh-top-feed",
-      "schedule": "0 17 * * *"
+      "schedule": "0 14 * * *"
     }
   ]
 }

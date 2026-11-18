@@ -5,7 +5,7 @@
 const argv = process.argv.slice(2);
 const flag = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : undefined; };
 const days = Math.min(60, Math.max(1, Number(flag('--days')) || 7));
-const BACKEND = (flag('--backend') || process.env.TRUEGLE_BACKEND_URL || 'https://backend-seven-khaki-60.vercel.app').replace(/\/$/, '');
+const BACKEND = (flag('--backend') || process.env.TRUEGLE_BACKEND_URL || 'https://api.truegle.info').replace(/\/$/, '');
 const key = process.env.ADMIN_API_KEY;
 if (!key) { console.error('ADMIN_API_KEY is not set.'); process.exit(2); }
 

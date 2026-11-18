@@ -1,6 +1,7 @@
 # The free search ring
 
-**Why.** The keyed providers are out of quota. One week of logs (2026-10-27, see
+**Why.** The keyed providers are out of quota (on Vercel) or deliberately unset (on Render, which has no Brave/Bing/SERP/Google
+key — SearXNG is its only web source). One week of logs (2026-10-27, see
 `apps/backend/utils/breaker.js`) showed ~28,000 Brave 429s, ~29,000 Google CSE 403s,
 ~29,000 YouTube failures and ~26,000 NewsAPI 429s; SearXNG alone still falls short on
 niche queries because the engines behind it rate-limit it. Budget is $0, so the answer is
@@ -38,8 +39,9 @@ Vercel tenants. Owner's call, 2026-11-11.
 | Marginalia | `MARGINALIA_API_KEY` (optional) | the shared `public` key is rate-limited per minute for everyone; a free personal key (email the author) has its own | 300 | no |
 | Wikipedia | — | generous; REST search | 500 | no |
 
-Only sign up for tiers that do **not** ask for a card. Set `RING_<NAME>_DAILY` (e.g. `RING_TAVILY_DAILY=20`) to change a budget; `0` turns that provider off. Add the keys in Vercel
-(Project → Settings → Environment Variables → Production), then redeploy.
+Only sign up for tiers that do **not** ask for a card. Set `RING_<NAME>_DAILY` (e.g. `RING_TAVILY_DAILY=20`) to change a budget; `0` turns that provider off. Add the keys on **both** hosts (repo rule: env vars do not sync via git): **Render**
+(live — `truegle-backend` → Environment) and **Vercel** (standby — Project → Settings → Environment Variables → Production),
+then redeploy / let Render redeploy. They are also in the `HANDOFF.md` switch-back checklist.
 
 ## Checking it
 `GET /api/search/health` now includes `freeRing`: each provider, whether it is on, its budget, what

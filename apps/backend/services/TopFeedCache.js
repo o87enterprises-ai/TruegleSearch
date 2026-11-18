@@ -3,7 +3,7 @@
  * /feed Home). The live answer fans out across eleven networks and takes ten-plus
  * seconds; the posts "on top" do not change by the minute, so one build a day is
  * enough (owner, 2026-11-09: use the cache as much as possible, new cache once a
- * day at 9 AM Pacific).
+ * day at 9 AM Pacific; moved to 6 AM Pacific 2026-11-12).
  *
  * TWO LAYERS: this instance's memory, then Postgres (table feed_cache). Vercel
  * instances are short-lived and many, so memory alone would be a cold cache on

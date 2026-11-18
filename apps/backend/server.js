@@ -335,6 +335,7 @@ app.use('/api/shopping', require('./routes/shopping'));
 // and enforces nothing) keys on user-or-IP at 30/min.
 app.use('/api/social', [searchLimiter, require('./routes/social')]);
 app.use('/api/social-auth', require('./routes/socialAuth'));
+app.use('/api/open-search', [searchLimiter, require('./routes/openSearch')]);
 app.use('/api/osint', require('./routes/osint'));
 app.use('/api/contact', require('./routes/contact'));
 app.use('/api/shodan', require('./routes/shodan'));
@@ -399,6 +400,11 @@ const path = require('path');
 // replayed; anything else is retried next cold start, so a genuinely broken
 // file still shows up in the logs.
 const ALREADY_EXISTS = new Set(['42701', '42P07', '42710', '42P06', '42723']);
+// schema_migrations has two shapes in the wild: this boot path creates `id`,
+// but scripts/run-migrations.js (and the production Neon DB) use `filename`.
+// Read whichever exists so a boot against either never breaks; the column name
+// comes from a fixed whitelist, never from input.
+let migrationKeyCol = 'id';
 async function runMigrationsIn(migrationsDir, applied, prefix = '') {
   const files = fs.readdirSync(migrationsDir)
     .filter(f => f.endsWith('.sql') && !f.includes('rollback'))
@@ -409,10 +415,10 @@ async function runMigrationsIn(migrationsDir, applied, prefix = '') {
     try {
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
       await dbQuery(sql);
-      await dbQuery('INSERT INTO schema_migrations (id) VALUES ($1) ON CONFLICT DO NOTHING', [id]);
+      await dbQuery(`INSERT INTO schema_migrations (${migrationKeyCol}) VALUES ($1) ON CONFLICT DO NOTHING`, [id]);
     } catch (err) {
       if (ALREADY_EXISTS.has(err.code)) {
-        await dbQuery('INSERT INTO schema_migrations (id) VALUES ($1) ON CONFLICT DO NOTHING', [id]).catch(() => {});
+        await dbQuery(`INSERT INTO schema_migrations (${migrationKeyCol}) VALUES ($1) ON CONFLICT DO NOTHING`, [id]).catch(() => {});
       }
       logger.warn(`Auto-migration ${file} skipped/failed: ${err.message}`);
     }
@@ -423,8 +429,13 @@ async function autoMigrate() {
   let applied;
   try {
     await dbQuery('CREATE TABLE IF NOT EXISTS schema_migrations (id TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
-    const { rows } = await dbQuery('SELECT id FROM schema_migrations');
-    applied = new Set(rows.map(r => r.id));
+    const cols = await dbQuery(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'schema_migrations' AND column_name IN ('id', 'filename')"
+    );
+    const names = cols.rows.map(r => r.column_name);
+    migrationKeyCol = names.includes('id') ? 'id' : 'filename';
+    const { rows } = await dbQuery(`SELECT ${migrationKeyCol} AS k FROM schema_migrations`);
+    applied = new Set(rows.map(r => r.k));
   } catch (err) {
     logger.warn(`Auto-migration skipped, database unavailable: ${err.message}`);
     return;

@@ -32,15 +32,16 @@ const SCRIPTS = [
   ['armenian', /[԰-֏]/g, 'hy'],
 ];
 const LATIN = /[a-zA-ZÀ-ɏ]/g;
+const ACCENTS = /[àâäçéèêëîïôöùûüÿñãõßøåæœłşğıáíóúąęćńśźż]/gi;
 
 // Frequent function words per Latin-script language. Words shared by several
 // languages ("a", "e", "o", "de") are deliberately left out of all of them.
 const STOP = {
   en: 'the and of to in is you that it for on with this was are be at have not your what how why my we they from by just like when all can will about one out get if so do new watch video first best',
-  es: 'el la los las que y en del se por con para una es al lo como más pero sus le ya muy sin sobre también hay esto está cuando nuevo mejor todo vez hasta',
+  es: 'el la los las que y en del se por con para una es al lo como más pero sus le ya muy sin sobre también hay esto está cuando nuevo mejor todo vez hasta hoy hablamos después años día sus nos entre desde donde ahora',
   pt: 'que não uma com para os das dos pelo pela mais mas como seu sua também já está isso muito quando você vocês então nós ele ela foi são tem',
-  fr: 'le les des est une pour dans qui que pas sur avec ce cette sont plus mais aussi comme tout être nous vous elle il ils fait très',
-  de: 'der die das und ist nicht ein eine mit auf für den dem sich auch es von zu im wie wir ich sie aber noch nur oder wenn',
+  fr: 'le les des est une pour dans qui que pas sur avec ce cette sont plus mais aussi comme tout être nous vous elle il ils fait très quelques mois après avant entre depuis où avoir leur leurs ont aux été sans ses nos vos chez deux encore alors car donc ans jour jours selon contre vers',
+  de: 'der die das und ist nicht ein eine mit auf für den dem sich auch es von zu im wie wir ich sie aber noch nur oder wenn heute gehen nach über bei',
   it: 'il di che è per una sono con non gli della del come anche più ma questo questa nel alla tutto molto cosa perché',
   nl: 'het een van en de is dat niet op voor met zijn ook als maar bij nog wat er dit naar je',
   id: 'yang dan di ini itu dengan untuk tidak ada dari ke dalam akan juga saya kamu kami mereka bisa sudah lagi sangat',
@@ -75,13 +76,18 @@ function detectLang(text) {
   for (const w of words) for (const [lang, set] of Object.entries(STOP_SETS)) if (set.has(w)) score[lang] = (score[lang] || 0) + 1;
   // Vietnamese is told by its stacked diacritics as much as by words.
   if (/[ạảấầẩẫậắằẳẵặẹẻẽếềểễệỉịọỏốồổỗộớờởỡợụủứừửữựỳỵỷỹđ]/i.test(s)) score.vi = (score.vi || 0) + 2;
+  // French/Italian elision (l'annexion, qu'il, dell'arte) is a strong clue.
+  const elided = (s.match(/\b(?:l|d|qu|j|n|s|c|m|t)['’][a-zàâçéèêëîïôûù]/gi) || []).length;
+  if (elided) score.fr = (score.fr || 0) + Math.min(2, elided);
   const ranked = Object.entries(score).sort((a, b) => b[1] - a[1]);
-  if (!ranked.length) return { lang: 'und', script: 'latin' };
+  // Letters English essentially never uses (names like Beyoncé aside).
+  const accents = (s.match(ACCENTS) || []).length;
+  if (!ranked.length) return { lang: 'und', script: 'latin', accents };
   const [top, n] = ranked[0];
   const second = ranked[1]?.[1] || 0;
   // Needs a clear lead: two votes, or one vote with nothing competing in a short text.
-  if ((n >= 2 && n > second) || (n === 1 && second === 0 && words.length <= 6)) return { lang: top, script: 'latin' };
-  return { lang: 'und', script: 'latin' };
+  if ((n >= 2 && n > second) || (n === 1 && second === 0 && words.length <= 6)) return { lang: top, script: 'latin', accents };
+  return { lang: 'und', script: 'latin', accents, weak: top };
 }
 
 /** Which script a language is written in (for "is this text even plausible?"). */

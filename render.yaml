@@ -1,0 +1,21 @@
+# Render Blueprint for the Truegle backend (free plan, $0).
+# Secrets are NOT stored here: set them in the Render dashboard (sync: false).
+services:
+  - type: web
+    name: truegle-backend
+    runtime: docker
+    plan: free
+    rootDir: apps/backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    branch: main
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
