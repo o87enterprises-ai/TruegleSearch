@@ -7,6 +7,7 @@ import { PLAYER_SANDBOX, sandboxFor } from './playerSandbox';
 import { upgradeTikTokSrc, tiktokCardSrc } from '../../utils/videoEmbed';
 import { IS_IOS } from '../../utils/isIOS';
 import { useRumbleSrc } from '../../utils/rumbleEmbed';
+import { useLocalSrc } from '../../hooks/useLocalSrc';
 
 export { PLAYER_SANDBOX };
 
@@ -118,7 +119,16 @@ const PlayerScreen = forwardRef(function PlayerScreen({
   // Rumble: swap the guessed embed for the real one (utils/rumbleEmbed.js).
   // Below the idle return on purpose: the idle render calls no hooks at all,
   // which is what lets the hooks further down start once a source arrives.
-  const src = useRumbleSrc(source);
+  const rumbleSrc = useRumbleSrc(source);
+  // A file the person added from their device: read back out of this browser's own
+  // storage (utils/localMedia.js). Never fetched, never reported.
+  const loc = useLocalSrc(source.src);
+  const [badLocal, setBadLocal] = useState('');
+  const src = loc.local ? loc.src : rumbleSrc;
+  const localGone = loc.local && (loc.failed || badLocal === source.src);
+  // Local files report their own decode failure here instead of through the player's
+  // broken-clip beacon, which would otherwise skip the track and tell the server.
+  const nativeError = (e) => { if (loc.local) setBadLocal(source.src); else onError?.(e); };
   // EVERY KIND THAT IS AN IFRAME HAS TO BE LISTED HERE. This list is the only
   // thing standing between an embed and the <audio> fallback at the bottom of
   // this component, and that fallback fails SILENTLY-ish: it hands an HTML
@@ -308,17 +318,29 @@ const PlayerScreen = forwardRef(function PlayerScreen({
           />
           )}
         </div>
+      ) : localGone ? (
+        <div role="alert" data-local-missing="" className="flex flex-col items-center gap-2 px-4 py-6 text-center">
+          <p className="text-sm font-semibold text-amber-300">This file is no longer on this device</p>
+          <p className="text-xs text-white/60">
+            “{title || 'This track'}” was removed, or the browser cleared its saved files. Add it again with the
+            paperclip, or skip to the next one.
+          </p>
+          <button type="button" onClick={onEnded}
+            className="mt-1 rounded-lg border border-white/25 px-4 py-1.5 text-xs text-white hover:bg-white/10">Skip</button>
+        </div>
+      ) : loc.pending ? (
+        <div className="px-4 py-6 text-center text-xs text-white/40">Opening your file…</div>
       ) : kind === 'video' ? (
         // object-contain IS the letterbox for a native file: the black bands
         // above and below a widescreen clip in a portrait box come from here.
         <video ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay playsInline onEnded={onEnded}
-          onLoadedMetadata={(e) => { const v = e.currentTarget; if (v.videoWidth && v.videoHeight) onAspect?.(v.videoWidth / v.videoHeight); }} onError={onError} onPlaying={onPlaying}
+          onLoadedMetadata={(e) => { const v = e.currentTarget; if (v.videoWidth && v.videoHeight) onAspect?.(v.videoWidth / v.videoHeight); }} onError={nativeError} onPlaying={onPlaying}
           style={fill ? undefined : { ...(portrait ? { aspectRatio: ratio, width: '100%', objectFit: 'contain', background: '#000' } : {}), maxHeight: maxHeight ? `min(${maxHeight}px, ${cap})` : cap }}
           className={fill ? 'w-full h-full bg-black object-contain' : 'w-full bg-black'} />
       ) : (
         <div className="flex items-center gap-2 px-3 py-3">
           <Music size={16} className="text-white/40 shrink-0" />
-          <audio ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay onEnded={onEnded} onError={onError} onPlaying={onPlaying} className="w-full" />
+          <audio ref={mediaRef} key={source.playToken ? `${src}#${source.playToken}` : src} src={src} controls autoPlay onEnded={onEnded} onError={nativeError} onPlaying={onPlaying} className="w-full" />
         </div>
       )}
 

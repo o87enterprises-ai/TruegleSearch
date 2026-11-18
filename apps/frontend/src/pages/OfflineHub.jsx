@@ -1,9 +1,10 @@
 import { lazy, Suspense, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, Gamepad2, Joystick, Map as MapIcon, ListMusic, WifiOff, ArrowLeft, X } from 'lucide-react';
+import { BookOpen, Gamepad2, Joystick, Map as MapIcon, ListMusic, WifiOff, ArrowLeft, X, Paperclip } from 'lucide-react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { usePlaylists } from '../utils/playlists';
 import { GUIDE_NAME, GUIDE_PATH } from '../utils/guideAccess';
+import PlayerFiles from '../components/player/PlayerFiles';
 
 const TrailGame = lazy(() => import('../components/TrailGame'));
 const GamesPanel = lazy(() => import('../components/games/GamesPanel'));
@@ -59,6 +60,9 @@ export default function OfflineHub() {
                 text="Free homebrew games, touch or keyboard." onClick={() => setView('games')} />
               <Card icon={MapIcon} tone="text-sky-300" title="Map"
                 text="Places you’ve already looked at, and a world overview." onClick={() => setView('map')} />
+              <Card icon={Paperclip} tone="text-lime-300" title="My files"
+                text="Audio and video you added from this device. Plays with no connection."
+                onClick={() => setView('files')} />
               <Card icon={ListMusic} tone="text-pink-300" title="Saved lists"
                 text={lists.length ? `${lists.length} saved on this device.` : 'None saved yet.'}
                 onClick={() => setView('lists')} />
@@ -83,6 +87,10 @@ export default function OfflineHub() {
             </div>
           )}
         </Suspense>
+
+        {view === 'files' && (
+          <div className="rounded-xl border border-white/10 bg-white/[0.04]"><PlayerFiles /></div>
+        )}
 
         {view === 'lists' && (
           <div className="space-y-3">
