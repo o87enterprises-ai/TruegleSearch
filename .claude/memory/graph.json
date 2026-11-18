@@ -2369,6 +2369,14 @@
         "ts": "2026-11-17",
         "created": "2026-11-17"
       },
+      "guide-offline-2026-11-18": {
+        "Id": "guide-offline-2026-11-18",
+        "Type": "decision",
+        "Label": "Guide at /guide + offline hub",
+        "body": "Guide unlocks via real account or prior unlock (vault, permanent). /guide, /offline routes; SW caches ROMs/game art/map tiles; Capacitor Android shell in apps/android (APK via .github/workflows/android.yml; no local Android SDK).",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
+      },
       "seo-title-length-seoTitle": {
         "Id": "seo-title-length-seoTitle",
         "Type": "decision",

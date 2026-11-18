@@ -174,6 +174,23 @@ export default function BrandBar() {
                       </button>
                     );
                   })}
+                  <button
+                    type="button"
+                    data-menu-guide=""
+                    onClick={() => navigate('/guide')}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-emerald-300/90 hover:bg-white/5 hover:text-emerald-200 transition-colors border-t border-white/10 mt-2"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-emerald-400" />
+                    Survival Guide
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/offline')}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-amber-400/70" />
+                    Works Offline
+                  </button>
                   {!installed && (
                     <button
                       type="button"
