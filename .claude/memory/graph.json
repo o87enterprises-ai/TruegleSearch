@@ -2368,6 +2368,14 @@
         "body": "Saved-list actions (ListRowActions, used by grid cards, player list, viewport deck) gained a List button -> components/player/ListTracksDialog.jsx (portal dialog, z-[10000], bottom sheet on phone). Rows = saved order with poster/title/channel; playing track marked aria-current; pressing a row = playList(items,'tube',list.id,i) so Next stays in the list (same as PlayerLibrary). Live via usePlaylists; deleted list closes it; Esc/Close/backdrop close. Saved lists only: public playlists have no fetch-without-saving path (importPlaylist saves), so they get List after Save list. Test: apps/frontend/scripts/verify-list-tracks.mjs (npm run listtracks:test). In the cloud box run browser tests by symlinking the global playwright into apps/frontend/node_modules (untracked): ln -sfn /opt/node22/lib/node_modules/playwright apps/frontend/node_modules/playwright.",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "seo-title-length-seoTitle": {
+        "Id": "seo-title-length-seoTitle",
+        "Type": "decision",
+        "Label": "Blog seoTitle field: <title> under 60 chars, H1 unchanged",
+        "body": "2026-11-18: Own crawl (Semrush unpaid, its Jun-28 audit was stale): all 50 sitemap URLs 200, self-canonical, desc present, no noindex; /signin 404 harmless (no links; login is /auth/login). ~30 pages have titles >60 or descriptions >160. Fix pattern: optional post.seoTitle in blogPosts.jsx is the full <title> verbatim (prerender-entry ROUTE_META + LegalPage docTitle prop for client document.title); on-page h1 + JSON-LD headline keep long post.title. Done for 5 worst posts (bias-free, vs-ddg-startpage, ai-honesty part1/2, how-truegle-works) + their descriptions trimmed <=155. Remaining long ones: other blog posts, /chat /feed /red titles, creator/locale descriptions. Free backlink source = GSC Links report (owner browser task). seo:test 197/2 failures pre-existing on baseline.",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
       }
     },
     "thread": {
@@ -4602,5 +4610,5 @@
       }
     }
   },
-  "updated": "2026-11-17"
+  "updated": "2026-11-18"
 }

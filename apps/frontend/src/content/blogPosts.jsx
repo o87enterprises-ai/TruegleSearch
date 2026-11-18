@@ -15,8 +15,9 @@ export const BLOG_POSTS = [
   {
     slug: 'truegle-vs-duckduckgo-vs-startpage',
     title: 'Truegle vs DuckDuckGo vs Startpage: Which Private Search Engine Fits You? (2026)',
+    seoTitle: 'Truegle vs DuckDuckGo vs Startpage: 2026 Comparison',
     description:
-      'DuckDuckGo, Startpage and Truegle all avoid tracking you, but they differ in where results come from and what you can see. A plain comparison, including where Truegle falls short.',
+      'DuckDuckGo, Startpage and Truegle all avoid tracking you, but differ in where results come from. A plain comparison, including where Truegle falls short.',
     date: '2026-11-14',
     readingTime: '7 min read',
     faq: [
@@ -608,8 +609,9 @@ export const BLOG_POSTS = [
   {
     slug: 'ai-honesty-test-declassified-part-2',
     title: 'Unbiased AI, Part 2: 3 More Declassified Facts Mainstream AI Won’t Say Plainly',
+    seoTitle: 'Unbiased AI Test, Part 2: 3 Declassified Facts — Truegle',
     description:
-      'A truly unbiased search engine gives you the record, not a sanitized version of it. We asked TrueGLE, in Rabbit Hole mode, about three more declassified government programs. Here are its answers, fact-checked, with sources.',
+      'We asked TrueGLE, in Rabbit Hole mode, about three more declassified government programs. Its answers, fact-checked, with sources you can verify.',
     date: '2026-07-21',
     readingTime: '5 min read',
     body: (
@@ -727,8 +729,9 @@ export const BLOG_POSTS = [
   {
     slug: 'ai-honesty-test-documented-facts',
     title: 'We Asked AI 3 Documented Facts It Usually Dodges — Here Is What TrueGLE Said',
+    seoTitle: 'Unbiased AI Test: 3 Documented Facts AI Dodges — Truegle',
     description:
-      'An unbiased search engine should give you the sourced truth even when it is uncomfortable. We asked TrueGLE, in Rabbit Hole mode, three declassified, on-the-record questions. Here are its exact answers, with citations you can verify.',
+      'We asked TrueGLE, in Rabbit Hole mode, three declassified questions mainstream AI tends to dodge. Its exact answers, with citations you can verify.',
     date: '2026-07-21',
     readingTime: '5 min read',
     body: (
@@ -859,6 +862,7 @@ export const BLOG_POSTS = [
   {
     slug: 'unbiased-search-engine-how-truegle-works',
     title: 'Unbiased Search Engine: How Truegle Delivers Results Without a Filter Bubble',
+    seoTitle: 'Unbiased Search Engine: How Truegle Works',
     description:
       'Truegle is an unbiased search engine that shows you results ranked by evidence, not by your ad profile. Here is exactly how it works and why it matters.',
     date: '2026-07-02',
@@ -1264,8 +1268,9 @@ export const BLOG_POSTS = [
   {
     slug: 'bias-free-search-results-perspective-modes',
     title: 'Bias-Free Search Results: How Truegle\'s Perspective Modes Show You the Full Picture',
+    seoTitle: 'Bias-Free Search Results With Perspective Modes — Truegle',
     description:
-      'Bias-free search results don\'t mean results with no point of view — they mean you control the point of view. Truegle\'s switchable perspective modes put that choice in your hands.',
+      'Bias-free search doesn\'t mean no point of view — it means you choose it. Truegle\'s switchable perspective modes put that choice in your hands.',
     date: '2026-07-01',
     readingTime: '6 min read',
     faq: [
