@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DeepSeaEnhanced from '../components/backgrounds/DeepSeaEnhanced';
 import LightRays from '../components/backgrounds/LightRays';
+import ErrorBoundary from '../components/ui/ErrorBoundary';
 import ShareForPremiumButton from '../components/ui/ShareForPremiumButton';
 import { motion } from 'framer-motion';
 import {
@@ -440,19 +441,21 @@ export default function OSINTTools() {
       </div>
       {/* Light Rays Overlay */}
       <div className="fixed inset-0 z-[1]">
-        <LightRays
-          raysOrigin="top-center"
-          raysColor="#1983FF"
-          raysSpeed={0.6}
-          lightSpread={1.5}
-          rayLength={3}
-          fadeDistance={2}
-          saturation={1.5}
-          mouseInfluence={0.5}
-          noiseAmount={0}
-          distortion={0}
-          pulsating
-        />
+        <ErrorBoundary fallback={null}>
+          <LightRays
+            raysOrigin="top-center"
+            raysColor="#1983FF"
+            raysSpeed={0.6}
+            lightSpread={1.5}
+            rayLength={3}
+            fadeDistance={2}
+            saturation={1.5}
+            mouseInfluence={0.5}
+            noiseAmount={0}
+            distortion={0}
+            pulsating
+          />
+        </ErrorBoundary>
       </div>
       {/* Dark overlay for readability */}
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[2]" />

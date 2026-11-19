@@ -31,6 +31,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import DeepSeaEnhanced from '../components/backgrounds/DeepSeaEnhanced';
 import LightRays from '../components/backgrounds/LightRays';
+import ErrorBoundary from '../components/ui/ErrorBoundary';
 import TruegleLogo from '../components/ui/TruegleLogo';
 
 export default function OSINTMode() {
@@ -526,19 +527,21 @@ export default function OSINTMode() {
       </div>
       {/* Light Rays Overlay */}
       <div className="fixed inset-0 z-[1]">
-        <LightRays
-          raysOrigin="top-center"
-          raysColor="#1983FF"
-          raysSpeed={0.6}
-          lightSpread={1.5}
-          rayLength={3}
-          fadeDistance={2}
-          saturation={1.5}
-          mouseInfluence={0.5}
-          noiseAmount={0}
-          distortion={0}
-          pulsating
-        />
+        <ErrorBoundary fallback={null}>
+          <LightRays
+            raysOrigin="top-center"
+            raysColor="#1983FF"
+            raysSpeed={0.6}
+            lightSpread={1.5}
+            rayLength={3}
+            fadeDistance={2}
+            saturation={1.5}
+            mouseInfluence={0.5}
+            noiseAmount={0}
+            distortion={0}
+            pulsating
+          />
+        </ErrorBoundary>
       </div>
 
       {/* Rising Bubbles */}
