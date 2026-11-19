@@ -46,9 +46,9 @@ const MIN_W = 240;
 const MAX_W = 900;
 const BANNER_CLEARANCE = 80;  // px above the bottom pre-production banner
 const GEOM_KEY = 'truegle_player_geom';
-// Just under PageClock (fixed top-3 right-3, ~34px tall) — where the
-// minimized widget parks while you browse.
-const UNDER_CLOCK_TOP = 56;
+// Just under PageClock (fixed top-3 right-3, ~34px tall) AND the Lite-mode switch beneath it
+// (top 52px, ~26px tall) — where the minimized widget parks while you browse.
+const UNDER_CLOCK_TOP = 84;
 
 const clampW = (w) => Math.max(MIN_W, Math.min(w, MAX_W, window.innerWidth - 16));
 
