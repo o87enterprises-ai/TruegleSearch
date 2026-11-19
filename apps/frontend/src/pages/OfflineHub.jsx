@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, Gamepad2, Joystick, Map as MapIcon, ListMusic, WifiOff, ArrowLeft, X, Paperclip } from 'lucide-react';
+import { BookOpen, Gamepad2, Joystick, Map as MapIcon, ListMusic, WifiOff, ArrowLeft, X, Paperclip, Radio } from 'lucide-react';
+import { meshAvailable } from '../mesh/native';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { usePlaylists } from '../utils/playlists';
 import { GUIDE_NAME, GUIDE_PATH } from '../utils/guideAccess';
@@ -10,6 +11,7 @@ import TruegleLogo from '../components/ui/TruegleLogo';
 const TrailGame = lazy(() => import('../components/TrailGame'));
 const GamesPanel = lazy(() => import('../components/games/GamesPanel'));
 const MapViewWrapper = lazy(() => import('../components/map/MapViewWrapper'));
+const NearbySpike = lazy(() => import('../mesh/NearbySpike'));
 
 // /offline — everything that works with no connection, in one place. Also where the app
 // lands automatically when the network drops (see App.jsx). Needs nothing from the backend:
@@ -68,6 +70,10 @@ export default function OfflineHub() {
               <Card icon={Paperclip} tone="text-lime-300" title="My files"
                 text="Audio and video you added from this device. Plays with no connection."
                 onClick={() => setView('files')} />
+              {meshAvailable() && (
+                <Card icon={Radio} tone="text-orange-300" title="Nearby"
+                  text="Message phones around you over Bluetooth. No internet." onClick={() => setView('nearby')} />
+              )}
               <Card icon={ListMusic} tone="text-pink-300" title="Saved lists"
                 text={lists.length ? `${lists.length} saved on this device.` : 'None saved yet.'}
                 onClick={() => setView('lists')} />
@@ -93,6 +99,8 @@ export default function OfflineHub() {
             </div>
           )}
         </Suspense>
+
+        {view === 'nearby' && <Suspense fallback={fallback}><NearbySpike /></Suspense>}
 
         {view === 'files' && (
           <div className="rounded-xl border border-white/10 bg-white/[0.04]"><PlayerFiles /></div>
