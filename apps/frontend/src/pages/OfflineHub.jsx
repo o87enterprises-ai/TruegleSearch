@@ -9,6 +9,7 @@ import PlayerFiles from '../components/player/PlayerFiles';
 import OfflineMiniPlayer from '../components/player/OfflineMiniPlayer';
 import { shareList } from '../utils/profileShare';
 import TruegleLogo from '../components/ui/TruegleLogo';
+import ApkDownload from '../components/ui/ApkDownload';
 
 const TrailGame = lazy(() => import('../components/TrailGame'));
 const GamesPanel = lazy(() => import('../components/games/GamesPanel'));
@@ -81,6 +82,7 @@ export default function OfflineHub() {
                 text={lists.length ? `${lists.length} saved on this device.` : 'None saved yet.'}
                 onClick={() => setView('lists')} />
             </div>
+            <ApkDownload className="mt-6" />
             <Link to="/" className="inline-block mt-6 text-xs text-white/40 hover:text-white/70">
               {online ? 'Back to Truegle' : 'Try Truegle again'}
             </Link>

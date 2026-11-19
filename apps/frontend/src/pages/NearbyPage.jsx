@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, WifiOff, Wifi, Users } from 'lucide-react';
 import TruegleLogo from '../components/ui/TruegleLogo';
+import ApkDownload from '../components/ui/ApkDownload';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import useNearby from '../mesh/useNearby';
 import {
@@ -148,7 +149,10 @@ export default function NearbyPage() {
         </div>
 
         {!n.available && (
-          <p className="text-center text-sm text-amber-300">Nearby works in the Truegle Android app. This page explains how it works.</p>
+          <>
+            <p className="text-center text-sm text-amber-300">Nearby works in the Truegle Android app. This page explains how it works.</p>
+            <ApkDownload className="max-w-md mx-auto" />
+          </>
         )}
         {n.st && !n.st.supported && <p className="text-center text-xs text-amber-300">This device has no Bluetooth LE.</p>}
         {n.st?.supported && !n.st.advertiseSupported && (
