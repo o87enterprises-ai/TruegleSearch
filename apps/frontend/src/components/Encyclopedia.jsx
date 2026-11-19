@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BOOK, RAW, search, blocks, toDocument, download } from '../utils/encyclopedia';
+import { BOOK, search, blocks, toPlainText, printAsPdf, download } from '../utils/encyclopedia';
 
 // The Survivor's Encyclopedia, on screen.
 //
@@ -52,8 +52,8 @@ const Encyclopedia = ({ onClose }) => {
   };
 
   const save = (kind) => {
-    if (kind === 'html') download('survivors-encyclopedia.html', toDocument(), 'text/html;charset=utf-8');
-    else download('survivors-encyclopedia.md', RAW, 'text/markdown;charset=utf-8');
+    if (kind === 'pdf') printAsPdf();
+    else download('survivors-encyclopedia.txt', toPlainText(), 'text/plain;charset=utf-8');
     setSaved(kind);
     setTimeout(() => setSaved(''), 4000);
   };
@@ -79,6 +79,10 @@ const Encyclopedia = ({ onClose }) => {
         .prose-vault li { margin: .25rem 0; }
         .prose-vault strong { color: #fff; font-weight: 600; }
         .prose-vault em { color: rgba(255,255,255,.6); }
+        .prose-vault .tbl { overflow-x: auto; margin: .7rem 0; }
+        .prose-vault table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+        .prose-vault th, .prose-vault td { border: 1px solid rgba(255,255,255,.12); padding: .3rem .5rem; text-align: left; vertical-align: top; }
+        .prose-vault th { background: rgba(255,255,255,.06); color: #fff; font-weight: 600; }
       `}</style>
 
       <header className="flex-none border-b border-white/10 px-4 pt-4 pb-3 sm:px-6">
@@ -150,7 +154,9 @@ const Encyclopedia = ({ onClose }) => {
               </p>
               {BOOK.letters.map((l) => (
                 <section key={l.letter} id={`vault-L${l.letter}`}>
-                  <h2 className="font-mono text-emerald-300 text-xl font-bold pt-7 pb-1">{l.letter}</h2>
+                  <h2 className="font-mono text-emerald-300 text-xl font-bold pt-7 pb-1">
+                    {l.letter}{l.title ? <span className="text-emerald-300/70 text-base font-semibold"> — {l.title}</span> : null}
+                  </h2>
                   {l.entries.map(article)}
                 </section>
               ))}
@@ -169,19 +175,19 @@ const Encyclopedia = ({ onClose }) => {
           </span>
           <button
             type="button"
-            onClick={() => save('html')}
+            onClick={() => save('pdf')}
             className={cx('px-3 py-1.5 rounded-md text-xs font-bold transition-colors',
-              saved === 'html' ? 'bg-emerald-400 text-black' : 'bg-white text-black hover:bg-white/90')}
+              saved === 'pdf' ? 'bg-emerald-400 text-black' : 'bg-white text-black hover:bg-white/90')}
           >
-            {saved === 'html' ? '✓ HTML' : 'HTML'}
+            {saved === 'pdf' ? '✓ PDF' : 'PDF'}
           </button>
           <button
             type="button"
-            onClick={() => save('md')}
+            onClick={() => save('txt')}
             className={cx('px-3 py-1.5 rounded-md text-xs font-bold border transition-colors',
-              saved === 'md' ? 'border-emerald-400 text-emerald-300' : 'border-white/20 text-white/70 hover:text-white')}
+              saved === 'txt' ? 'border-emerald-400 text-emerald-300' : 'border-white/20 text-white/70 hover:text-white')}
           >
-            {saved === 'md' ? '✓ TEXT' : 'TEXT'}
+            {saved === 'txt' ? '✓ TEXT FILE' : 'TEXT FILE'}
           </button>
           <span className="text-white/25 text-[11px] ml-auto hidden sm:inline">
             One file, no network needed.

@@ -2046,6 +2046,7 @@ export default function UniversalSearch({ pathMode = null, lockedTube: lockedTub
               autoVoice={autoVoice}
               showCameraInput={!tubeDocked}
               showFileInput={!tubeDocked}
+              localMedia={mode === 'tube'}
               singleLine={tubeDocked}
               belowSlot={mode === 'tube' && !poppedOut ? (
                 // The transport gets its OWN row directly under the input

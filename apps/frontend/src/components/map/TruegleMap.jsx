@@ -55,7 +55,7 @@ function lastProjection() {
 }
 
 // The basemap's name as a person would say it.
-const BASEMAP_NAMES = { satellite: 'Satellite', standard: 'Street', dark: 'Dark', light: 'Light' };
+const BASEMAP_NAMES = { satellite: 'Satellite', standard: 'Street' };
 
 export default function TruegleMap({
   provider = 'mapbox',
@@ -485,24 +485,10 @@ export default function TruegleMap({
     }
     setOsirisFeature(null);
 
-    // Always center and zoom to clicked location
-    const clickedLocation = {
-      lat: e.lngLat.lat,
-      lng: e.lngLat.lng,
-    };
-
-    // Center map on clicked location with zoom level 15
-    setViewState(prev => ({
-      ...prev,
-      longitude: clickedLocation.lng,
-      latitude: clickedLocation.lat,
-      zoom: 15
-    }));
-
-    actions.flyTo(clickedLocation, 15);
-
+    // A plain tap no longer jumps the map or drops anything: the dropped-pin menu
+    // opens on a 2-second press-and-hold (or right-click) — see handleTouchStart.
     if (onMapClick) {
-      onMapClick(clickedLocation);
+      onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng });
     }
 
     if (selectedMarker) {
@@ -693,18 +679,26 @@ export default function TruegleMap({
   // started panning from.
   const handleTouchStart = useCallback((e) => {
     const { lngLat, point } = e;
+    if (longPressRef.current?.timer) clearTimeout(longPressRef.current.timer);
     longPressRef.current = {
       fired: false,
+      start: point,
       timer: setTimeout(() => {
         if (longPressRef.current) longPressRef.current.fired = true;
         openLocationMenu(lngLat, point);
-      }, 550),
+      }, 2000),
     };
   }, [openLocationMenu]);
 
   const cancelLongPress = useCallback(() => {
     if (longPressRef.current?.timer) clearTimeout(longPressRef.current.timer);
   }, []);
+
+  // Mouse: the same 2-second hold, cancelled once the pointer travels (a drag-pan).
+  const handleMouseMove = useCallback((e) => {
+    const s = longPressRef.current?.start;
+    if (s && e.point && Math.hypot(e.point.x - s.x, e.point.y - s.y) > 6) cancelLongPress();
+  }, [cancelLongPress]);
 
   /** The link that reopens this exact spot. Coordinates are a query Truegle
    *  understands (see parseLocalQuery), so the shared URL lands on the map
@@ -1262,6 +1256,9 @@ export default function TruegleMap({
           // open the same menu — see openLocationMenu.
           onContextMenu={handleContextMenu}
           onTouchStart={handleTouchStart}
+          onMouseDown={handleTouchStart}
+          onMouseMove={handleMouseMove}
+          onMouseUp={cancelLongPress}
           onTouchMove={cancelLongPress}
           onTouchEnd={cancelLongPress}
           onTouchCancel={cancelLongPress}
