@@ -2417,6 +2417,14 @@
         "ts": "2026-11-19",
         "created": "2026-11-19"
       },
+      "stale-chunk-recovery": {
+        "Id": "stale-chunk-recovery",
+        "Type": "decision",
+        "Label": "Stale-tab + offline chunk fixes (2026-11-19)",
+        "body": "Login 'This page hit a snag' after deploys = stale tab asking for a renamed lazy chunk. main.jsx: vite:preloadError reloads once (15s sessionStorage guard). Build emits dist/asset-manifest.json; sw.js (shell-v3) precaches static-import closure of offline pages (Guide, OfflineHub, Trail, Encyclopedia, GameBoy, Games, Map) and uses cache.match({ignoreVary:true}). ALWAYS test with 'npm run build' (prerender makes asset paths absolute), not plain 'vite build'; use pkill -f '[v]ite preview'.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
       "seo-title-length-seoTitle": {
         "Id": "seo-title-length-seoTitle",
         "Type": "decision",
