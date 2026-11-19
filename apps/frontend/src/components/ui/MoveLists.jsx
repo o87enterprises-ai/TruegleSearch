@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { exportProfile, profileLink, readProfile, applyProfile } from '../../utils/profileShare';
+import { Share2 } from 'lucide-react';
+import { exportProfile, bestProfileLink, readProfile, readMoveLink, forgetMoveLink, applyProfile, MOVE_HASH } from '../../utils/profileShare';
 
 // Settings → "Move to another device". A share link or code that carries the saved lists
 // (and guide unlock) to another device; the code never touches a server.
@@ -12,16 +13,50 @@ export default function MoveLists() {
     try {
       const c = code || await exportProfile();
       setCode(c);
-      await navigator.clipboard.writeText(kind === 'link' ? profileLink(c) : c);
+      await navigator.clipboard.writeText(kind === 'link' ? await bestProfileLink() : c);
       setMsg(kind === 'link' ? 'Link copied. Open it on your other device.' : 'Code copied. Paste it below on your other device.');
     } catch {
       setMsg('Could not copy — select the code below and copy it by hand.');
     }
   };
 
+  // Share the link through the device: native share sheet (any app), email, or SMS on phones.
+  const getLink = async () => {
+    setCode(code || await exportProfile());
+    return bestProfileLink();
+  };
+  const SHARE_TEXT = 'My Truegle lists — open this link on your other device:';
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+  const shareNative = async () => {
+    try {
+      const url = await getLink();
+      await navigator.share({ title: 'My Truegle lists', text: SHARE_TEXT, url });
+      setMsg('Shared.');
+    } catch (e) {
+      if (e?.name !== 'AbortError') setMsg('Could not open the share sheet — use Email or Copy share link.');
+    }
+  };
+  const shareEmail = async () => {
+    try {
+      const url = await getLink();
+      window.location.href = `mailto:?subject=${encodeURIComponent('My Truegle lists')}&body=${encodeURIComponent(`${SHARE_TEXT}\n\n${url}`)}`;
+    } catch { setMsg('Could not build the link.'); }
+  };
+  const shareText = async () => {
+    try {
+      const url = await getLink();
+      window.location.href = `sms:${isIOS ? '&' : '?'}body=${encodeURIComponent(`${SHARE_TEXT} ${url}`)}`;
+    } catch { setMsg('Could not build the link.'); }
+  };
+
   const importIt = async () => {
     try {
-      const n = applyProfile(await readProfile(paste));
+      let data;
+      if (paste.includes(MOVE_HASH)) { const r = await readMoveLink(paste); data = r.data; forgetMoveLink(r.id); }
+      else data = await readProfile(paste);
+      const n = applyProfile(data);
       setMsg(`${n} ${n === 1 ? 'list' : 'lists'} imported.`);
       setPaste('');
     } catch {
@@ -37,7 +72,14 @@ export default function MoveLists() {
         The code stays in the link after the “#”, so it is never sent to any server.
       </p>
       <div className="flex flex-wrap gap-2 mb-3">
-        <button type="button" onClick={() => copy('link')} className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-sm font-semibold">Copy share link</button>
+        {typeof navigator.share === 'function' && (
+          <button type="button" onClick={shareNative} aria-label="Share" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-sm font-semibold"><Share2 size={16} />Share</button>
+        )}
+        <button type="button" onClick={shareEmail} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Email</button>
+        {isMobile && (
+          <button type="button" onClick={shareText} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Text message</button>
+        )}
+        <button type="button" onClick={() => copy('link')} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Copy share link</button>
         <button type="button" onClick={() => copy('code')} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Copy code</button>
       </div>
       {code && (

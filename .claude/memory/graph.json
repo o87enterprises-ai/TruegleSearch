@@ -2376,6 +2376,54 @@
         "body": "Guide unlocks via real account or prior unlock (vault, permanent). /guide, /offline routes; SW caches ROMs/game art/map tiles; Capacitor Android shell in apps/android (APK via .github/workflows/android.yml; no local Android SDK).",
         "ts": "2026-11-18",
         "created": "2026-11-18"
+      },
+      "move-short-links": {
+        "Id": "move-short-links",
+        "Type": "decision",
+        "Label": "Move-lists short links (2026-11-19)",
+        "body": "Settings Share button makes truegle.info/#move=<id>.<key>: browser AES-GCM encrypts the TG1 code, POST /api/move stores ciphertext only (table move_links, migration 029, 24h TTL, deleted after import), key lives in the #fragment. Falls back to the long #profile= link if server/db unavailable. No new env vars; works on Render and Vercel.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
+      "lite-mode": {
+        "Id": "lite-mode",
+        "Type": "decision",
+        "Label": "Lite mode (2026-11-19)",
+        "body": "utils/liteMode.js: html.tg-lite class kills backdrop-filter (~240 uses), pauses .tg-bg animation, MotionConfig reducedMotion=always, skips WebGL bg. Auto on for phones/weak HW/saveData/reduced-motion; Settings → Performance toggle (auto/on/off). SearchBar parent onChange wrapped in startTransition. Player/feed not yet profiled.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
+      "tube-list-fullscreen-only": {
+        "Id": "tube-list-fullscreen-only",
+        "Type": "decision",
+        "Label": "Playlist drop-down rule (2026-11-19)",
+        "body": "TrueglePlayer listAllowed = (fullscreen || popped) && !onFeedPage. Inline (incl /tube) there is no list button/drop-down; results show in the page grid below. In full screen on any non-feed page a Tube search lands in the list. Popped window keeps it (no page beneath). Also: App.jsx pages are React.lazy (main chunk 1.9MB to 819KB); prerender-entry imports pages directly so SEO is unaffected.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
+      "vendor-split": {
+        "Id": "vendor-split",
+        "Type": "decision",
+        "Label": "Vendor chunk split (2026-11-19)",
+        "body": "vite.config.js manualChunks: 'vendor' is now an ALLOWLIST (framer-motion, react-router, axios, lucide, tailwind-merge…); everything else is unassigned so Rollup puts heavy libs (maplibre, hls, wasmboy, ogl, r3f, markdown) in the async chunk of the lazy page using them. Eager download 5.6MB→~1MB raw. Rules: never import from the components/map barrel in the eager graph (use map/context/MapContext); OSINT_TOOLS lives in ui/osintToolList.js; LandingBackground's BackgroundAnimation is React.lazy. usePlayerSearch shows results first and applies the language filter after.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
+      "lite-switch-placement": {
+        "Id": "lite-switch-placement",
+        "Type": "decision",
+        "Label": "Lite switch placement (2026-11-19)",
+        "body": "LiteModeSwitch.jsx: chip fixed top-[52px] right-3 under PageClock (rendered by PageClock), row in BrandBar hamburger drawer after Settings, plus Settings → Performance card. MiniPlayer UNDER_CLOCK_TOP moved 56→84 to clear the chip. All sync via liteMode onLiteChange.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
+      "stale-chunk-recovery": {
+        "Id": "stale-chunk-recovery",
+        "Type": "decision",
+        "Label": "Stale-tab + offline chunk fixes (2026-11-19)",
+        "body": "Login 'This page hit a snag' after deploys = stale tab asking for a renamed lazy chunk. main.jsx: vite:preloadError reloads once (15s sessionStorage guard). Build emits dist/asset-manifest.json; sw.js (shell-v3) precaches static-import closure of offline pages (Guide, OfflineHub, Trail, Encyclopedia, GameBoy, Games, Map) and uses cache.match({ignoreVary:true}). ALWAYS test with 'npm run build' (prerender makes asset paths absolute), not plain 'vite build'; use pkill -f '[v]ite preview'.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
       }
     },
     "thread": {
@@ -4610,5 +4658,5 @@
       }
     }
   },
-  "updated": "2026-11-18"
+  "updated": "2026-11-19"
 }

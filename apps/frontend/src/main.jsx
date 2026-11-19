@@ -7,11 +7,29 @@ import {
 } from './utils/globalErrorHandler';
 import { initAnalytics } from './utils/analytics';
 import { initInstallPrompt } from './utils/installPrompt';
+import { applyLite } from './utils/liteMode';
 
 // Install the framework-agnostic crash safety net BEFORE we try to mount, so a
 // fatal error during bundle eval / mount still shows a friendly screen instead
 // of a blank white page.
 installGlobalErrorHandlers();
+
+// Lite mode class goes on <html> before first paint so heavy effects never flash on.
+applyLite();
+
+// STALE TAB AFTER A DEPLOY. Pages are lazy chunks with hashed names; a tab opened before a deploy
+// still points at the old names, so opening a page it had not loaded yet fails ("This page hit
+// a snag"). Vite fires this event when such a chunk will not load: fetch the fresh app once.
+// The timestamp guard stops a reload loop if the file is genuinely missing.
+window.addEventListener('vite:preloadError', (e) => {
+  try {
+    const last = Number(sessionStorage.getItem('tg_chunk_reload') || 0);
+    if (Date.now() - last < 15000) return;       // already tried a moment ago: show the normal error
+    sessionStorage.setItem('tg_chunk_reload', String(Date.now()));
+  } catch { /* storage blocked: one reload attempt is still the right call */ }
+  e.preventDefault();
+  window.location.reload();
+});
 
 // Cookieless, no-fingerprint page-view counts. Inert unless VITE_CF_BEACON_TOKEN
 // is set, and skipped entirely for visitors sending DNT / GPC.
