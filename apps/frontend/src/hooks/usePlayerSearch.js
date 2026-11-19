@@ -570,17 +570,24 @@ export function usePlayerSearch(query, scope = 'all', provider = 'all') {
         // the moment a page comes back empty or entirely duplicated, so the
         // worst case is one wasted request at the true end of the results.
         setMore(!!wonRef.current && scoped.length > 0);
-        // Local/Global language (see applyLanguage). A newer search may have
-        // started while this waited; then this answer is stale and dropped.
-        const langed = await applyLanguage(scoped, controller.signal);
-        if (controller.signal.aborted) return;
-        setResults(rankPlayable(langed, intent));
+        // SHOW RESULTS NOW, REFINE WHEN THE LANGUAGE ANSWER ARRIVES (2026-11-19, load time).
+        // This used to `await` /api/lang/classify before showing anything — up to 3.5 s of
+        // spinner after the results were already in hand. The rows appear at once; Local/Global
+        // (see applyLanguage) then filters or reorders them if/when the verdicts come back. A
+        // newer search may start meanwhile; then that answer is stale and dropped.
+        setResults(rankPlayable(scoped, intent));
         setTrace({
           steps,
           community: communityRows.length,
           ...(shortsScope ? { reels: reelRows.length } : {}),
           query: intent.backendQuery,
         });
+        applyLanguage(scoped, controller.signal)
+          .then((langed) => {
+            if (controller.signal.aborted || langed === scoped) return;
+            setResults(rankPlayable(langed, intent));
+          })
+          .catch(() => { /* aborted by a newer search, or the rows stand as shown */ });
       })
       // An aborted request is a newer keystroke, not a failure.
       .catch((e) => { if (e.name !== 'AbortError') setError('Search is unreachable right now.'); })

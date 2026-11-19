@@ -81,7 +81,13 @@ export default defineConfig(({ mode }) => {
           // modulepreload — still downloaded by every visitor, just from a
           // different URL.
           if (/[\\/]node_modules[\\/]hls\.js[\\/]/.test(id)) return
-          return 'vendor'
+          // LOAD TIME (2026-11-19): `vendor` used to be EVERYTHING left over — maplibre, the Game
+          // Boy core, ogl, r3f, markdown — 2.8 MB that every visitor downloaded, plus three and
+          // leaflet preloaded behind it. Now only the small libraries nearly every page needs
+          // share it; anything else is left unassigned so Rollup puts it in the async chunk of
+          // the lazy page that imports it and it is fetched only when that page opens.
+          if (/[\\/]node_modules[\\/](framer-motion|motion-dom|motion-utils|react-router|react-router-dom|@remix-run|axios|lucide-react|tailwind-merge|clsx|react-helmet-async|react-is|prop-types|use-sync-external-store)[\\/]/.test(id)) return 'vendor'
+          return
         }
       }
     }
