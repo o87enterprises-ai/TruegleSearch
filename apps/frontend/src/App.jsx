@@ -16,7 +16,8 @@ import { SearchModeProvider } from './context/SearchModeContext';
 import { PlayerProvider } from './context/PlayerContext';
 import { SearchStashProvider } from './context/SearchStashContext';
 import { TutorialProvider } from './context/TutorialContext';
-import { MapProvider } from './components/map';
+// Direct file, not the './components/map' barrel: the barrel drags maplibre-gl (1 MB) into the first download.
+import { MapProvider } from './components/map/context/MapContext';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { SettingsProvider } from './context/SettingsContext';
 import RefCapture from './components/RefCapture';

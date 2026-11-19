@@ -37,7 +37,7 @@ import LandingModules from '../components/landing/LandingModules';
 import LandingTagline from '../components/landing/LandingTagline';
 import PickerModeRow from '../components/landing/PickerModeRow';
 import { SEARCH_SCOPES } from '../utils/playerQuery';
-import { OSINT_TOOLS } from '../components/ui/OSINTToolsPanel';
+import { OSINT_TOOLS } from '../components/ui/osintToolList';
 import { CATEGORIES as FEED_CATEGORIES } from '../config/feedCategories';
 import { searchPath } from '../utils/modeRoute';
 import { modePlaceholder, feedPlaceholderNow, advanceFeedPlaceholder } from '../config/modePlaceholders';

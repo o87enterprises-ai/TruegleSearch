@@ -2401,6 +2401,14 @@
         "ts": "2026-11-19",
         "created": "2026-11-19"
       },
+      "vendor-split": {
+        "Id": "vendor-split",
+        "Type": "decision",
+        "Label": "Vendor chunk split (2026-11-19)",
+        "body": "vite.config.js manualChunks: 'vendor' is now an ALLOWLIST (framer-motion, react-router, axios, lucide, tailwind-merge…); everything else is unassigned so Rollup puts heavy libs (maplibre, hls, wasmboy, ogl, r3f, markdown) in the async chunk of the lazy page using them. Eager download 5.6MB→~1MB raw. Rules: never import from the components/map barrel in the eager graph (use map/context/MapContext); OSINT_TOOLS lives in ui/osintToolList.js; LandingBackground's BackgroundAnimation is React.lazy. usePlayerSearch shows results first and applies the language filter after.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
       "seo-title-length-seoTitle": {
         "Id": "seo-title-length-seoTitle",
         "Type": "decision",
