@@ -348,6 +348,7 @@ app.use('/api/osint-tools', require('./routes/osint-proxy'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/extract', require('./routes/extract'));
 app.use('/api/share', require('./routes/share'));
+app.use('/api/move', require('./routes/moveLists'));
 app.use('/api/reels', require('./routes/reels'));
 app.use('/api/media', require('./routes/media'));
 app.use('/api/player', require('./routes/player'));

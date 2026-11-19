@@ -7,12 +7,20 @@
 //
 //   code:  TG1.<base64url>
 //   link:  https://truegle.info/#profile=TG1.<base64url>
+//
+// SHORT LINK (preferred for sharing): the code is encrypted in the browser (AES-GCM, a
+// random key) and only the ciphertext is stored for 24 h; the key rides in the link's
+// #fragment, which is never sent to any server. If the server is unreachable the long
+// link above still works.
+//   short: https://truegle.info/#move=<id>.<key>
 
 import { playlists, upsertImportedPlaylist } from './playlists';
 import { vaultTier, findVault } from './vault';
+import api from '../services/api';
 
 const PREFIX = 'TG1.';
 export const PROFILE_HASH = '#profile=';
+export const MOVE_HASH = '#move=';
 
 const toB64 = (bytes) => {
   let s = '';
@@ -75,3 +83,38 @@ export function applyProfile(data) {
   if (data.guide) findVault(data.guide);
   return count;
 }
+
+const b64ToBytes = (str) => fromB64(str);
+
+/** Encrypts the code, stores the ciphertext, returns a short link. Throws if the server can't. */
+export async function shortProfileLink(code) {
+  const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 128 }, true, ['encrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(code)));
+  const blob = new Uint8Array(iv.length + ct.length);
+  blob.set(iv); blob.set(ct, iv.length);
+  const { data } = await api.post('/move', { blob: toB64(blob) });
+  const raw = new Uint8Array(await crypto.subtle.exportKey('raw', key));
+  return `${window.location.origin}/${MOVE_HASH}${data.id}.${toB64(raw)}`;
+}
+
+/** The best link we can make: short if the server answers, otherwise the long self-contained one. */
+export async function bestProfileLink() {
+  const code = await exportProfile();
+  try { return await shortProfileLink(code); } catch { return profileLink(code); }
+}
+
+/** Opens a #move= link: fetches + decrypts, then parses like any code. Returns { data, id }. */
+export async function readMoveLink(input) {
+  const at = String(input || '').indexOf(MOVE_HASH);
+  const [id, k] = String(input).slice(at + MOVE_HASH.length).trim().split('.');
+  if (at < 0 || !id || !k) throw new Error('not a move link');
+  const { data } = await api.get(`/move/${encodeURIComponent(id)}`);
+  const bytes = b64ToBytes(data.blob);
+  const key = await crypto.subtle.importKey('raw', b64ToBytes(k), 'AES-GCM', false, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12) }, key, bytes.slice(12));
+  return { data: await readProfile(new TextDecoder().decode(plain)), id };
+}
+
+/** Best effort: the receiving device is done, so the stored ciphertext can go. */
+export const forgetMoveLink = (id) => api.delete(`/move/${encodeURIComponent(id)}`).catch(() => {});

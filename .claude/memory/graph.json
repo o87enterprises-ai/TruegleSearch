@@ -2376,6 +2376,14 @@
         "body": "Guide unlocks via real account or prior unlock (vault, permanent). /guide, /offline routes; SW caches ROMs/game art/map tiles; Capacitor Android shell in apps/android (APK via .github/workflows/android.yml; no local Android SDK).",
         "ts": "2026-11-18",
         "created": "2026-11-18"
+      },
+      "move-short-links": {
+        "Id": "move-short-links",
+        "Type": "decision",
+        "Label": "Move-lists short links (2026-11-19)",
+        "body": "Settings Share button makes truegle.info/#move=<id>.<key>: browser AES-GCM encrypts the TG1 code, POST /api/move stores ciphertext only (table move_links, migration 029, 24h TTL, deleted after import), key lives in the #fragment. Falls back to the long #profile= link if server/db unavailable. No new env vars; works on Render and Vercel.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
       }
     },
     "thread": {
@@ -4610,5 +4618,5 @@
       }
     }
   },
-  "updated": "2026-11-18"
+  "updated": "2026-11-19"
 }
