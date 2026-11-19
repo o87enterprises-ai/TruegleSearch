@@ -2393,6 +2393,14 @@
         "ts": "2026-11-19",
         "created": "2026-11-19"
       },
+      "tube-list-fullscreen-only": {
+        "Id": "tube-list-fullscreen-only",
+        "Type": "decision",
+        "Label": "Playlist drop-down rule (2026-11-19)",
+        "body": "TrueglePlayer listAllowed = (fullscreen || popped) && !onFeedPage. Inline (incl /tube) there is no list button/drop-down; results show in the page grid below. In full screen on any non-feed page a Tube search lands in the list. Popped window keeps it (no page beneath). Also: App.jsx pages are React.lazy (main chunk 1.9MB to 819KB); prerender-entry imports pages directly so SEO is unaffected.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
       "seo-title-length-seoTitle": {
         "Id": "seo-title-length-seoTitle",
         "Type": "decision",
