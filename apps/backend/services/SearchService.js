@@ -6,6 +6,7 @@ const { AI_CONTENT_DOMAINS } = require('../data/aiContentDomains');
 const { siteOperatorDomain, onlyFromSite } = require('./siteOperator');
 const sourceBias = require('../data/sourceBias');
 const modeEngines = require('../data/modeEngines');
+const relevanceGuard = require('../utils/relevanceGuard');
 const QueryInterpreter = require('./QueryInterpreter');
 const UnifiedAIService = require('./UnifiedAIService');
 
@@ -313,6 +314,42 @@ class SearchService {
                 const fresh = extra.filter((r) => r.url && !seen.has(r.url));
                 if (fresh.length) { preformattedResults.push(...fresh); console.log(`🔗 Joined-brand search "${cv.query}" added ${fresh.length}`); }
               } catch { /* the main results stand */ }
+            }
+
+            // OFF-TOPIC SECOND LOOK (2026-11-19). A FULL page from an answering engine can still
+            // be about the wrong thing: "lane county court house eugene oregon" returned only
+            // Lane Bryant / Lane Boots / dictionary "lane" (Bing read it as the word "lane").
+            // Count and engine checks both passed. When fewer than 2 of the top results hold at
+            // least half the query's words, ask again ONCE — the independent indexes (the same
+            // set Rabbit Hole uses) and the instance default, in parallel — and keep whichever
+            // comes back more on-topic, ahead of the originals. Nothing is removed. Costs up to
+            // two extra requests, only for these queries; never the query text in the log.
+            if (mode !== 'red-pill') {
+              const before = relevanceGuard.assess(sxResults, query);
+              if (before.offTopic) {
+                const independent = modeEngines.enginesFor('red-pill');
+                const attempts = [];
+                if (independent && independent !== engines) attempts.push(this.performSearXNGSearch(query, filters, { engines: independent }));
+                if (engines) attempts.push(this.performSearXNGSearch(query, filters));
+                const settled = await Promise.allSettled(attempts);
+                const seen = new Set(preformattedResults.map((r) => r.url));
+                const better = [];
+                for (const s of settled) {
+                  if (s.status !== 'fulfilled') continue;
+                  const rows = this.formatSearXNGResults(s.value);
+                  if (relevanceGuard.assess(rows, query).onTopic <= before.onTopic) continue;
+                  for (const r of rows) {
+                    if (r.url && !seen.has(r.url)) { seen.add(r.url); better.push(r); }
+                  }
+                }
+                // On-topic rows first, so ranking sees the answer before the noise.
+                better.sort((a, b) => relevanceGuard.termHits(b, before.terms) - relevanceGuard.termHits(a, before.terms));
+                if (better.length) {
+                  preformattedResults.unshift(...better);
+                  sxResults = [...better, ...sxResults];
+                }
+                console.log(`🧭 Off-topic web page (${before.onTopic}/${before.checked} on-topic) — second look added ${better.length}`);
+              }
             }
 
             // The API providers are skipped only when SearXNG returned a FULL
