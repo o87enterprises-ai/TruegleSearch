@@ -2408,6 +2408,14 @@
         "body": "vite.config.js manualChunks: 'vendor' is now an ALLOWLIST (framer-motion, react-router, axios, lucide, tailwind-merge…); everything else is unassigned so Rollup puts heavy libs (maplibre, hls, wasmboy, ogl, r3f, markdown) in the async chunk of the lazy page using them. Eager download 5.6MB→~1MB raw. Rules: never import from the components/map barrel in the eager graph (use map/context/MapContext); OSINT_TOOLS lives in ui/osintToolList.js; LandingBackground's BackgroundAnimation is React.lazy. usePlayerSearch shows results first and applies the language filter after.",
         "ts": "2026-11-19",
         "created": "2026-11-19"
+      },
+      "lite-switch-placement": {
+        "Id": "lite-switch-placement",
+        "Type": "decision",
+        "Label": "Lite switch placement (2026-11-19)",
+        "body": "LiteModeSwitch.jsx: chip fixed top-[52px] right-3 under PageClock (rendered by PageClock), row in BrandBar hamburger drawer after Settings, plus Settings → Performance card. MiniPlayer UNDER_CLOCK_TOP moved 56→84 to clear the chip. All sync via liteMode onLiteChange.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
       }
     },
     "thread": {
