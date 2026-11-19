@@ -2385,6 +2385,14 @@
         "ts": "2026-11-19",
         "created": "2026-11-19"
       },
+      "lite-mode": {
+        "Id": "lite-mode",
+        "Type": "decision",
+        "Label": "Lite mode (2026-11-19)",
+        "body": "utils/liteMode.js: html.tg-lite class kills backdrop-filter (~240 uses), pauses .tg-bg animation, MotionConfig reducedMotion=always, skips WebGL bg. Auto on for phones/weak HW/saveData/reduced-motion; Settings → Performance toggle (auto/on/off). SearchBar parent onChange wrapped in startTransition. Player/feed not yet profiled.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
       "seo-title-length-seoTitle": {
         "Id": "seo-title-length-seoTitle",
         "Type": "decision",

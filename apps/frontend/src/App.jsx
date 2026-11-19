@@ -7,6 +7,7 @@ import {
   Navigate,
   useLocation,
 } from 'react-router-dom';
+import LiteMotion from './components/LiteMotion';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TokenProvider } from './context/TokenContext';
@@ -153,6 +154,7 @@ const InfoWizardPrompt = ({
 const App = () => {
   return (
     <RootErrorBoundary>
+    <LiteMotion>
     <Router basename="/" future={{
       v7_startTransition: true,
       v7_relativeSplatPath: true
@@ -190,6 +192,7 @@ const App = () => {
         </TokenProvider>
       </AuthProvider>
     </Router>
+    </LiteMotion>
     </RootErrorBoundary>
   );
 };

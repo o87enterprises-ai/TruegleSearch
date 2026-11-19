@@ -98,7 +98,7 @@ export const GitHubCard = ({ post }) => (
   >
     <div className="flex items-start gap-3">
       {post.thumbnail && (
-        <img src={post.thumbnail} alt={post.author} className="w-8 h-8 rounded-full shrink-0 opacity-80" />
+        <img loading="lazy" decoding="async" src={post.thumbnail} alt={post.author} className="w-8 h-8 rounded-full shrink-0 opacity-80" />
       )}
       <div className="min-w-0">
         <p className="text-white/90 font-semibold text-sm group-hover:text-white transition-colors truncate">{post.title}</p>
