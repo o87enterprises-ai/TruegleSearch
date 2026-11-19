@@ -21,6 +21,14 @@ export const GUIDE_URL = GUIDE_PATH;
 export const OFFER_DISMISS_KEY = 'truegle_install_dismissed_at';
 export const OFFER_REMIND_AFTER_MS = 21 * 24 * 60 * 60 * 1000;
 
+/** Running as an installed app: the Android app, or a PWA added to the home screen. */
+export function isInstalledApp() {
+  try {
+    if (window.Capacitor?.isNativePlatform?.()) return true;
+    return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  } catch { return false; }
+}
+
 /** A signed-in person, not a guest session. */
 export function isRealAccount(user, token) {
   if (!user || typeof user !== 'object') return false;
@@ -36,6 +44,9 @@ export function isRealAccount(user, token) {
  */
 export function guideUnlocked(user, token, vaultFound, findVault) {
   if (vaultFound()) return true;
+  // Truegle installed on the device (the Android app, or added to the home screen): it is already
+  // on their device, so nobody is made to sign in for the guide (owner, 2026-11-19).
+  if (isInstalledApp()) { findVault('guide'); return true; }
   if (isRealAccount(user, token)) { findVault('guide'); return true; }
   return false;
 }

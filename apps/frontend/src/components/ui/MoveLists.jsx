@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Share2 } from 'lucide-react';
-import { exportProfile, bestProfileLink, readProfile, readMoveLink, forgetMoveLink, applyProfile, MOVE_HASH } from '../../utils/profileShare';
+import { exportProfile, bestProfileLink, readProfile, readMoveLink, applyProfile, extractShare, appLink, MOVE_HASH } from '../../utils/profileShare';
 
 // Settings → "Move to another device". A share link or code that carries the saved lists
 // (and guide unlock) to another device; the code never touches a server.
@@ -52,15 +52,19 @@ export default function MoveLists() {
   };
 
   const importIt = async () => {
+    const frag = extractShare(paste);
+    if (!frag) { setMsg('That doesn’t look like a Truegle link or code. Paste the whole thing.'); return; }
     try {
       let data;
-      if (paste.includes(MOVE_HASH)) { const r = await readMoveLink(paste); data = r.data; forgetMoveLink(r.id); }
-      else data = await readProfile(paste);
+      if (frag.startsWith(MOVE_HASH)) { const r = await readMoveLink(frag); data = r.data; }
+      else data = await readProfile(frag);
       const n = applyProfile(data);
       setMsg(`${n} ${n === 1 ? 'list' : 'lists'} imported.`);
       setPaste('');
     } catch {
-      setMsg('That doesn’t look like a Truegle code. Paste the whole link or code.');
+      setMsg(frag.startsWith(MOVE_HASH)
+        ? 'That short link has expired, was already used, or needs an internet connection. Ask for a new one, or use “Copy code”.'
+        : 'That code could not be read. Make a new one on your other device.');
     }
   };
 
@@ -80,6 +84,13 @@ export default function MoveLists() {
           <button type="button" onClick={shareText} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Text message</button>
         )}
         <button type="button" onClick={() => copy('link')} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Copy share link</button>
+        <button type="button" onClick={async () => {
+          try {
+            const link = await bestProfileLink();
+            await navigator.clipboard.writeText(appLink(extractShare(link) || ''));
+            setMsg('App link copied. It opens straight in the Truegle app on Android.');
+          } catch { setMsg('Could not copy — use Copy share link instead.'); }
+        }} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Copy app link</button>
         <button type="button" onClick={() => copy('code')} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Copy code</button>
       </div>
       {code && (

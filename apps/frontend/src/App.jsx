@@ -37,6 +37,7 @@ import BrandBar from './components/ui/BrandBar';
 import PageClock from './components/ui/PageClock';
 import MiniPlayer from './components/ui/MiniPlayer';
 import InstallTruegle from './components/ui/InstallTruegle';
+import OfflinePrompt from './components/ui/OfflinePrompt';
 import TrailGuideOffer from './components/ui/TrailGuideOffer';
 import ProfileImport from './components/ui/ProfileImport';
 import SafeSearchLockModal from './components/ui/SafeSearchLockModal';
@@ -76,6 +77,7 @@ const Blog = lazy(() => import('./pages/Blog'));
 const BlogPost = lazy(() => import('./pages/BlogPost'));
 const GuidePage = lazy(() => import('./pages/GuidePage'));
 const OfflineHub = lazy(() => import('./pages/OfflineHub'));
+const NearbyPage = lazy(() => import('./pages/NearbyPage'));
 if (typeof window !== 'undefined') {
   const warm = () => { import('./pages/UniversalSearch').catch(() => {}); };
   if (window.requestIdleCallback) window.requestIdleCallback(warm, { timeout: 4000 }); else setTimeout(warm, 2500);
@@ -320,7 +322,7 @@ const AppContent = () => {
   // The pages that work from this device alone stay where they are when the network
   // drops; every other route lands on the offline hub (guide, Trail, Game Boy, map,
   // saved lists), which links to those.
-  const OFFLINE_OK = ['/guide', '/offline', '/this-does-not-exist'];
+  const OFFLINE_OK = ['/guide', '/offline', '/nearby', '/this-does-not-exist'];
   const location = isOnline || OFFLINE_OK.includes(routerLocation.pathname)
     ? routerLocation
     : { ...routerLocation, pathname: '/offline', key: 'offline' };
@@ -339,6 +341,7 @@ const AppContent = () => {
   return (
     <div id="main-content" className={containerClassNames}>
       <BrandBar />
+      <OfflinePrompt />
       <PageClock />
       <MiniPlayer />
       <PreProductionBanner />
@@ -451,6 +454,7 @@ const AppContent = () => {
         {/* The guide's own address, and the offline hub (guide, games, map, lists). */}
         <Route path="/guide" element={<RouteBoundary><GuidePage /></RouteBoundary>} />
         <Route path="/offline" element={<RouteBoundary><OfflineHub /></RouteBoundary>} />
+        <Route path="/nearby" element={<RouteBoundary><NearbyPage /></RouteBoundary>} />
         {/* Landing Page */}
         <Route path="/" element={<RouteBoundary><LandingPage /></RouteBoundary>} />
         {/* Localized landing routes (de/es/fr). The build prerenders a

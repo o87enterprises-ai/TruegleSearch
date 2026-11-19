@@ -14,7 +14,7 @@ const request = require('supertest');
 const app = () => { const a = express(); a.use(express.json({ limit: '10mb' })); a.use('/api/move', require('../routes/moveLists')); return a; };
 
 describe('move-lists short links', () => {
-  test('store, fetch, delete round trip', async () => {
+  test('a link can be opened any number of times (delete is a no-op)', async () => {
     const a = app();
     const post = await request(a).post('/api/move').send({ blob: 'abcDEF123_-' });
     expect(post.status).toBe(200);
@@ -22,8 +22,9 @@ describe('move-lists short links', () => {
     const get = await request(a).get(`/api/move/${post.body.id}`);
     expect(get.body).toEqual({ blob: 'abcDEF123_-' });
     expect(get.headers['cache-control']).toBe('no-store');
-    await request(a).delete(`/api/move/${post.body.id}`).expect(204);
-    await request(a).get(`/api/move/${post.body.id}`).expect(404);
+    await request(a).delete(`/api/move/${post.body.id}`).expect(204); // older apps still call this
+    await request(a).get(`/api/move/${post.body.id}`).expect(200);
+    await request(a).get(`/api/move/${post.body.id}`).expect(200);
   });
   test('rejects bad payloads and bad ids', async () => {
     const a = app();

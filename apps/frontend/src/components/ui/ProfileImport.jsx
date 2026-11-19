@@ -1,36 +1,97 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { PROFILE_HASH, MOVE_HASH, readProfile, readMoveLink, forgetMoveLink, applyProfile } from '../../utils/profileShare';
+import {
+  readProfile, readMoveLink, applyProfile, extractShare, intentLink, isNativeApp,
+} from '../../utils/profileShare';
 
-// Mounted once. Opening a Truegle "move my lists" link (…/#profile=TG1.…) asks before
-// importing, then clears the code from the address bar. Nothing leaves the device.
+// Mounted once, so a Truegle share link works NO MATTER WHERE it shows up:
+//   • opened as a link (…/#move=… or …/#profile=…),
+//   • pasted into any box, anywhere in the app,
+//   • sent to the Android app from another app (https or truegle:// link),
+//   • handed over by a page (e.g. the "You pasted a link" card) via openShare().
+// It always asks before importing, then clears the code from the address bar.
+// Nothing leaves the device except fetching the encrypted short-link blob.
 export default function ProfileImport() {
   const [data, setData] = useState(null);
   const [done, setDone] = useState(null);
   const [moveId, setMoveId] = useState(null);
   const [problem, setProblem] = useState('');
+  const [frag, setFrag] = useState(null);
+  const busy = useRef(null);
 
-  useEffect(() => {
-    const check = async () => {
-      const h = window.location.hash;
-      if (h.startsWith(MOVE_HASH)) {
-        try { const r = await readMoveLink(h); setMoveId(r.id); setData(r.data); }
-        catch { setData(null); setProblem('This link has expired or was already used. Make a new one on your other device.'); }
-        return;
+  const handle = useCallback(async (text) => {
+    const fragment = extractShare(text);
+    if (!fragment || busy.current === fragment) return;
+    busy.current = fragment;
+    setFrag(fragment);
+    try {
+      if (fragment.startsWith('#move=')) {
+        const r = await readMoveLink(fragment);
+        setMoveId(r.id); setData(r.data);
+      } else {
+        setData(await readProfile(fragment));
       }
-      if (!h.startsWith(PROFILE_HASH)) return;
-      try { setData(await readProfile(h)); } catch { setData(null); }
-    };
-    check();
-    window.addEventListener('hashchange', check);
-    return () => window.removeEventListener('hashchange', check);
+    } catch (e) {
+      setData(null);
+      const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+      setProblem(fragment.startsWith('#move=')
+        ? (offline
+          ? 'This short link needs an internet connection to open. Connect, or ask for the full code instead (Settings → Move to another device → Copy code).'
+          : 'This link has expired or was already used. Make a new one on your other device.')
+        : 'That code could not be read. Make a new one on your other device.');
+      if (e?.response?.status >= 500) setProblem('Truegle could not be reached right now. Try again in a moment.');
+    }
   }, []);
 
+  useEffect(() => {
+    const fromHash = () => handle(window.location.hash);
+    fromHash();
+    window.addEventListener('hashchange', fromHash);
+    const onEvent = (e) => handle(e.detail);
+    window.addEventListener('truegle:share-link', onEvent);
+    // Paste anywhere (search box, chat, a list name…): if it holds a share link, offer to import it.
+    const onPaste = (e) => {
+      if (e.target?.closest?.('[data-move-lists]')) return; // the Import box on Settings has its own button
+      const t = e.clipboardData?.getData('text') || '';
+      if (extractShare(t)) handle(t);
+    };
+    document.addEventListener('paste', onPaste, true);
+    // Android app: links sent from other apps (https://truegle.info/#… or truegle://…).
+    let off;
+    const link = window.Capacitor?.Plugins?.TruegleLink;
+    if (link) {
+      (async () => {
+        try {
+          // `await`, not .then: on a native plugin addListener hands back a handle, not always a Promise.
+          off = await link.addListener('link', (e) => {
+            const url = String(e?.url || '');
+            if (extractShare(url)) handle(url);
+            else {
+              try { const u = new URL(url); if (u.pathname !== '/' && /truegle\.info$/.test(u.host)) window.location.assign(u.pathname + u.search + u.hash); } catch { /* ignore */ }
+            }
+          });
+          const r = await link.getLaunchUrl?.();
+          if (r?.url) handle(r.url);
+        } catch { /* link handling is optional: never take the app down for it */ }
+      })();
+    }
+    return () => {
+      window.removeEventListener('hashchange', fromHash);
+      window.removeEventListener('truegle:share-link', onEvent);
+      document.removeEventListener('paste', onPaste, true);
+      off?.remove?.();
+    };
+  }, [handle]);
+
   const clear = () => {
-    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    busy.current = null;
+    setFrag(null);
+    if (window.location.hash) window.history.replaceState(null, '', window.location.pathname + window.location.search);
   };
-  const finish = () => { if (moveId) forgetMoveLink(moveId); setMoveId(null); };
+  const finish = () => { setMoveId(null); }; // links stay valid: they can be reused
   if (!data && done === null && !problem) return null;
+
+  const onAndroidWeb = !isNativeApp() && /Android/i.test(navigator.userAgent || '');
 
   return createPortal(
     <div className="fixed inset-0 z-[100002] flex items-center justify-center bg-black/70 p-4">
@@ -44,7 +105,7 @@ export default function ProfileImport() {
           </>
         ) : done === null ? (
           <>
-            <h2 className="text-base font-bold">Bring your lists to this device?</h2>
+            <h2 className="text-base font-bold">Bring these lists to this device?</h2>
             <p className="text-sm text-white/60 mt-2">
               {data.lists.length} saved {data.lists.length === 1 ? 'list' : 'lists'}
               {data.guide ? ' and your unlocked survival guide' : ''}. Stored on this device only.
@@ -55,6 +116,11 @@ export default function ProfileImport() {
               <button type="button" className="flex-1 rounded-lg border border-white/20 py-2 text-sm"
                 onClick={() => { setData(null); clear(); }}>Not now</button>
             </div>
+            {onAndroidWeb && frag && (
+              <a href={intentLink(frag)} className="mt-3 block rounded-lg border border-cyan-400/40 py-2 text-center text-sm text-cyan-200 hover:bg-cyan-400/10">
+                Open in the Truegle app instead
+              </a>
+            )}
           </>
         ) : (
           <>

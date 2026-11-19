@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "info.truegle.app",
+      "sha256_cert_fingerprints": [
+        "A1:0C:A9:57:BC:3A:CC:CB:59:4F:DC:92:47:AB:90:B3:1E:5D:A0:5E:0F:37:27:4B:CE:62:18:8C:C0:DB:29:1E"
+      ]
+    }
+  }
+]
