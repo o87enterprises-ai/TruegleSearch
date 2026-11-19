@@ -51,9 +51,14 @@ const Encyclopedia = ({ onClose }) => {
     if (el && scroller.current) scroller.current.scrollTo({ top: el.offsetTop - 8, behavior: 'smooth' });
   };
 
-  const save = (kind) => {
-    if (kind === 'pdf') printAsPdf();
-    else download('survivors-encyclopedia.txt', toPlainText(), 'text/plain;charset=utf-8');
+  const save = async (kind) => {
+    let ok = false;
+    try {
+      ok = kind === 'pdf'
+        ? await printAsPdf()
+        : await download('survivors-encyclopedia.txt', toPlainText(), 'text/plain;charset=utf-8');
+    } catch { setSaved('failed'); setTimeout(() => setSaved(''), 5000); return; }
+    if (!ok) return; // picker closed without saving: say nothing
     setSaved(kind);
     setTimeout(() => setSaved(''), 4000);
   };
@@ -171,7 +176,8 @@ const Encyclopedia = ({ onClose }) => {
       <footer className="flex-none border-t border-white/10 bg-[#0d0f12] px-4 py-3 sm:px-6">
         <div className="max-w-3xl mx-auto flex flex-wrap items-center gap-2">
           <span className="text-white/40 text-[11px] font-mono tracking-wider mr-1">
-            {saved ? 'SAVED — KEEP IT SOMEWHERE OFFLINE' : 'TAKE A COPY:'}
+            {saved === 'failed' ? 'COULD NOT SAVE — TRY THE OTHER BUTTON'
+              : saved ? 'SAVED — KEEP IT SOMEWHERE OFFLINE' : 'TAKE A COPY:'}
           </span>
           <button
             type="button"

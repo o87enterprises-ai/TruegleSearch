@@ -18,7 +18,9 @@ const ENTRY = /^#### (.+)$/;
 // The file opens with an HTML comment documenting its own structure. Strip it
 // before parsing so the convention note never leaks into the intro or into the
 // copy the reader saves.
-const strip = (md) => md.replace(/<!--[\s\S]*?-->\n*/g, '');
+// Line endings are normalised first: with Windows (CRLF) endings the heading patterns below
+// never match ("." does not match "\r"), which parses the whole book to 0 entries.
+const strip = (md) => md.replace(/\r\n?/g, '\n').replace(/<!--[\s\S]*?-->\n*/g, '');
 
 function parse(md) {
   const letters = [];
@@ -244,7 +246,13 @@ export function toPlainText() {
  * "Save as PDF": opens the book in a hidden frame and calls the browser's print
  * dialog, where the reader picks "Save as PDF". No library, no network, works offline.
  */
-export function printAsPdf() {
+// The Android app's WebView can neither print nor follow a blob download link, so inside the
+// app both go through the native TruegleSave plugin (system print dialog / "Save to…" picker).
+const nativeSave = () => (window.Capacitor?.isNativePlatform?.() ? window.Capacitor?.Plugins?.TruegleSave : null);
+
+export async function printAsPdf() {
+  const n = nativeSave();
+  if (n) { await n.printHtml({ html: toDocument(), name: 'survivors-encyclopedia' }); return true; }
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
   frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
@@ -254,11 +262,17 @@ export function printAsPdf() {
     setTimeout(() => frame.remove(), 60000);
   };
   document.body.appendChild(frame);
+  return true;
 }
 
 /** Hand the reader a file. Blob + object URL, revoked after the click so a
  *  long session cannot leak a copy of the book per save. */
-export function download(name, text, type) {
+export async function download(name, text, type) {
+  const n = nativeSave();
+  if (n) {
+    const r = await n.saveText({ name, mime: String(type).split(';')[0], text });
+    return !!r?.saved; // false = the user closed the picker without choosing a place
+  }
   const url = URL.createObjectURL(new Blob([text], { type }));
   const a = document.createElement('a');
   a.href = url;
@@ -267,4 +281,5 @@ export function download(name, text, type) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return true;
 }
