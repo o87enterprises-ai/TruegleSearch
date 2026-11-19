@@ -19,6 +19,38 @@ export default function MoveLists() {
     }
   };
 
+  // Share the link through the device: native share sheet (any app), email, or SMS on phones.
+  const getLink = async () => {
+    const c = code || await exportProfile();
+    setCode(c);
+    return profileLink(c);
+  };
+  const SHARE_TEXT = 'Open this on your other device to move my Truegle lists:';
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+  const shareNative = async () => {
+    try {
+      const url = await getLink();
+      await navigator.share({ title: 'My Truegle lists', text: SHARE_TEXT, url });
+      setMsg('Shared.');
+    } catch (e) {
+      if (e?.name !== 'AbortError') setMsg('Could not open the share sheet — use Email or Copy share link.');
+    }
+  };
+  const shareEmail = async () => {
+    try {
+      const url = await getLink();
+      window.location.href = `mailto:?subject=${encodeURIComponent('My Truegle lists')}&body=${encodeURIComponent(`${SHARE_TEXT}\n\n${url}`)}`;
+    } catch { setMsg('Could not build the link.'); }
+  };
+  const shareText = async () => {
+    try {
+      const url = await getLink();
+      window.location.href = `sms:${isIOS ? '&' : '?'}body=${encodeURIComponent(`${SHARE_TEXT} ${url}`)}`;
+    } catch { setMsg('Could not build the link.'); }
+  };
+
   const importIt = async () => {
     try {
       const n = applyProfile(await readProfile(paste));
@@ -37,7 +69,14 @@ export default function MoveLists() {
         The code stays in the link after the “#”, so it is never sent to any server.
       </p>
       <div className="flex flex-wrap gap-2 mb-3">
-        <button type="button" onClick={() => copy('link')} className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-sm font-semibold">Copy share link</button>
+        {typeof navigator.share === 'function' && (
+          <button type="button" onClick={shareNative} className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-sm font-semibold">Share…</button>
+        )}
+        <button type="button" onClick={shareEmail} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Email</button>
+        {isMobile && (
+          <button type="button" onClick={shareText} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Text message</button>
+        )}
+        <button type="button" onClick={() => copy('link')} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Copy share link</button>
         <button type="button" onClick={() => copy('code')} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Copy code</button>
       </div>
       {code && (
