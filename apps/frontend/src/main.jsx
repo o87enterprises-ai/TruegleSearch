@@ -8,6 +8,7 @@ import {
 import { initAnalytics } from './utils/analytics';
 import { initInstallPrompt } from './utils/installPrompt';
 import { applyLite } from './utils/liteMode';
+import { initPip } from './utils/pip';
 
 // Install the framework-agnostic crash safety net BEFORE we try to mount, so a
 // fatal error during bundle eval / mount still shows a friendly screen instead
@@ -38,6 +39,7 @@ initAnalytics();
 // Catch the browser's install hand-off before any page mounts — it can fire
 // that early and is lost if nobody is listening (see utils/installPrompt).
 initInstallPrompt();
+initPip();
 
 
 function dismissLoader() {
