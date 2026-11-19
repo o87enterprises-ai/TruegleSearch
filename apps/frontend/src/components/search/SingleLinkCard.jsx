@@ -5,6 +5,7 @@ import { usePlayInPlayer } from '../../hooks/usePlayInPlayer';
 import { getPlayable } from '../../utils/videoEmbed';
 import { isPlaylistUrl } from '../../utils/playlistImport';
 import PlayAllButton from '../player/PlayAllButton';
+import { extractShare, openShare, intentLink, isNativeApp } from '../../utils/profileShare';
 
 /*
  * ONE LINK, not a list of results.
@@ -101,6 +102,20 @@ export default function SingleLinkCard({ info, description, className = '' }) {
             )}
           </div>
         </div>
+
+        {extractShare(info.url) && (
+          <div className="mt-4 rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-3">
+            <p className="text-sm font-semibold text-emerald-200">This is a Truegle share link</p>
+            <p className="mt-0.5 text-xs text-white/60">It carries saved lists. Import them here instead of opening a website.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" onClick={() => openShare(info.url)}
+                className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400">Import to this device</button>
+              {!isNativeApp() && /Android/i.test(navigator.userAgent || '') && (
+                <a href={intentLink(extractShare(info.url))} className="rounded-lg border border-cyan-400/40 px-4 py-2 text-sm text-cyan-200 hover:bg-cyan-400/10">Open in the Truegle app</a>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2 mt-4">
           {playable && isList && (

@@ -35,11 +35,20 @@ export default function MolecularBackground() {
     camera.position.set(0, 0, 90);
 
     // --- RENDERER ---
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      powerPreference: 'high-performance',
-      alpha: true,
-    });
+    // WebGL can be unavailable (blocklisted GPU/driver, Firefox hardware
+    // acceleration off, etc.). The background is decorative — skip it rather
+    // than throw and take the whole page down with the ErrorBoundary.
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: 'high-performance',
+        alpha: true,
+      });
+    } catch (err) {
+      console.warn('MolecularBackground: WebGL unavailable, skipping', err);
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;

@@ -1,11 +1,15 @@
 import { lazy, Suspense, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BookOpen, Gamepad2, Joystick, Map as MapIcon, ListMusic, WifiOff, ArrowLeft, X, Paperclip } from 'lucide-react';
+import { BookOpen, Gamepad2, Joystick, Map as MapIcon, ListMusic, WifiOff, ArrowLeft, X, Paperclip, Radio } from 'lucide-react';
+import { meshAvailable } from '../mesh/native';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { usePlaylists } from '../utils/playlists';
 import { GUIDE_NAME, GUIDE_PATH } from '../utils/guideAccess';
 import PlayerFiles from '../components/player/PlayerFiles';
+import OfflineMiniPlayer from '../components/player/OfflineMiniPlayer';
+import { shareList } from '../utils/profileShare';
 import TruegleLogo from '../components/ui/TruegleLogo';
+import ApkDownload from '../components/ui/ApkDownload';
 
 const TrailGame = lazy(() => import('../components/TrailGame'));
 const GamesPanel = lazy(() => import('../components/games/GamesPanel'));
@@ -41,14 +45,16 @@ export default function OfflineHub() {
   return (
     <div className="min-h-screen bg-black text-white px-4 pt-16 pb-12">
       <div className="max-w-3xl mx-auto">
+        {/* The Truegle mark on every offline screen, and the way back home. */}
+        {view !== 'map' && (
+          <Link to="/" aria-label="Truegle — home" className="flex justify-center mb-4">
+            <TruegleLogo size={view === null ? 'large' : 'medium'} animated />
+          </Link>
+        )}
         {view && view !== 'map' ? back : null}
 
         {view === null && (
           <>
-            {/* The Truegle mark, and the way back home. */}
-            <Link to="/" aria-label="Truegle — home" className="flex justify-center mb-6">
-              <TruegleLogo size="large" animated />
-            </Link>
             <div className="flex items-center gap-2 mb-1">
               <WifiOff size={18} className={online ? 'text-white/30' : 'text-amber-300'} />
               <h1 className="text-lg font-bold">{online ? 'Works offline' : 'You’re offline'}</h1>
@@ -66,12 +72,17 @@ export default function OfflineHub() {
               <Card icon={MapIcon} tone="text-sky-300" title="Map"
                 text="Places you’ve already looked at, and a world overview." onClick={() => setView('map')} />
               <Card icon={Paperclip} tone="text-lime-300" title="My files"
-                text="Audio and video you added from this device. Plays with no connection."
+                text="Offline music player: audio and video you added or saved. Plays with no connection."
                 onClick={() => setView('files')} />
+              {meshAvailable() && (
+                <Card icon={Radio} tone="text-orange-300" title="Nearby"
+                  text="Message phones around you over Bluetooth. No internet." onClick={() => navigate('/nearby')} />
+              )}
               <Card icon={ListMusic} tone="text-pink-300" title="Saved lists"
                 text={lists.length ? `${lists.length} saved on this device.` : 'None saved yet.'}
                 onClick={() => setView('lists')} />
             </div>
+            <ApkDownload className="mt-6" />
             <Link to="/" className="inline-block mt-6 text-xs text-white/40 hover:text-white/70">
               {online ? 'Back to Truegle' : 'Try Truegle again'}
             </Link>
@@ -82,8 +93,9 @@ export default function OfflineHub() {
           {view === 'trail' && <TrailGame embedded onClose={() => setView(null)} onFound={() => navigate(GUIDE_PATH)} />}
           {view === 'games' && <GamesPanel onClose={() => setView(null)} />}
           {view === 'map' && (
-            // Full screen, with a close button that always sits on top of the map.
-            <div className="fixed inset-0 z-[9000] bg-black">
+            // Full screen, above the clock + Lite mode chip (z-9997) so they don't sit on
+            // the map, with a close button that always sits on top of everything.
+            <div className="fixed inset-0 z-[9999] bg-black">
               <MapViewWrapper isOpen onClose={() => setView(null)} popOutStorageKey="truegle_offline_map_popped" />
               <button type="button" onClick={() => setView(null)} aria-label="Close the map"
                 className="fixed top-3 left-16 z-[100001] flex items-center gap-1.5 rounded-full bg-black/80 border border-white/20 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10">
@@ -94,7 +106,10 @@ export default function OfflineHub() {
         </Suspense>
 
         {view === 'files' && (
-          <div className="rounded-xl border border-white/10 bg-white/[0.04]"><PlayerFiles /></div>
+          <div className="space-y-3">
+            <OfflineMiniPlayer />
+            <div className="rounded-xl border border-white/10 bg-white/[0.04]"><PlayerFiles /></div>
+          </div>
         )}
 
         {view === 'lists' && (
@@ -102,7 +117,11 @@ export default function OfflineHub() {
             {lists.length === 0 && <p className="text-sm text-white/50">No saved lists yet. Lists you save while online show up here.</p>}
             {lists.map((p) => (
               <div key={p.id} className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-                <div className="text-sm font-semibold">{p.name} <span className="text-white/40 font-normal">· {p.items.length}</span></div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-sm font-semibold">{p.name} <span className="text-white/40 font-normal">· {p.items.length}</span></div>
+                  <button type="button" onClick={() => shareList(p.id, p.name).catch(() => {})}
+                    className="rounded-full border border-white/20 px-3 py-1 text-xs hover:bg-white/10">Share</button>
+                </div>
                 <ul className="mt-2 space-y-1 text-[12px] text-white/60">
                   {p.items.slice(0, 50).map((it, i) => <li key={it.key || i} className="truncate">{it.title || it.src}</li>)}
                 </ul>

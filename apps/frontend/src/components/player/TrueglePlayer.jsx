@@ -357,7 +357,13 @@ export default function TrueglePlayer({
   // there is no page below, and in the popped-out window, whose own search
   // box has nowhere else to show what it found. The list button still opens
   // it anywhere, on purpose.
-  const listDropsDown = fullscreen || presentation === 'popped';
+  // THE PLAYLIST DROP-DOWN IS A FULL-SCREEN THING (owner, 2026-11-19: Tube was slow, and the
+  // list mounting under the inline player was a big part of it). Inline — on /tube and every
+  // other page — a search shows its results in the PAGE below the player, and the list button is
+  // gone. In full screen on any page except the feed, a search lands in the list instead. The
+  // popped-out window keeps it because its search box has no page under it to show results in.
+  const listAllowed = (fullscreen || presentation === 'popped') && !onFeedPage;
+  const listDropsDown = listAllowed;
   const mountQuery = useRef(query);
   useEffect(() => {
     if (query === mountQuery.current) return;
@@ -367,6 +373,8 @@ export default function TrueglePlayer({
   useEffect(() => {
     if (openListNonce) setListOpen(activelyPlaying && listDropsDown);
   }, [openListNonce]);
+  // Leaving full screen (or reaching the feed) closes the list; it cannot stay open where it is off.
+  useEffect(() => { if (!listAllowed) setListOpen(false); }, [listAllowed]);
   // A PAUSE IS NOT "NOTHING PLAYING". Paused results used to cover the
   // picture, so a quick pause swapped the video you were watching for the
   // last query's deck — and pressing play on that deck lost your place.
@@ -1156,7 +1164,7 @@ export default function TrueglePlayer({
       canNext={queue.length > 0 || !!current}
       queueCount={queue.length}
       accent={accent}
-      showList={showList}
+      showList={showList && listAllowed}
       // TOUCH DEVICES, IN EVERY PRESENTATION THAT SHOWS A PICTURE (docked, popped
       // out, full screen). It used to be full-screen only, which meant the docked
       // and popped-out players — where a phone actually sits in a pocket or on a
@@ -1205,7 +1213,7 @@ export default function TrueglePlayer({
 
   // The list retracts into the player rather than staying pinned open — the
   // bottom list button is the only thing that shows or hides it.
-  const listVisible = showList && listOpen;
+  const listVisible = showList && listOpen && listAllowed;
   // Full screen always shows the picture. Hidden clips the screen to nothing,
   // and keeping that clip in full screen produced a full screen of black with
   // the controls floating on it — asking for full screen IS asking to watch.
@@ -1389,7 +1397,7 @@ export default function TrueglePlayer({
             onOpenPlaylist: () => {
               setVoiceQuery('');
               setVoiceOpen(false);
-              setListOpen(true);
+              setListOpen(listAllowed);
             },
           }}
         />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 // Import order: React first, then third-party, then internal modules, then types/hooks last.
 import {
   BrowserRouter as Router,
@@ -7,6 +7,7 @@ import {
   Navigate,
   useLocation,
 } from 'react-router-dom';
+import LiteMotion from './components/LiteMotion';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { TokenProvider } from './context/TokenContext';
@@ -15,44 +16,18 @@ import { SearchModeProvider } from './context/SearchModeContext';
 import { PlayerProvider } from './context/PlayerContext';
 import { SearchStashProvider } from './context/SearchStashContext';
 import { TutorialProvider } from './context/TutorialContext';
-import { MapProvider } from './components/map';
+// Direct file, not the './components/map' barrel: the barrel drags maplibre-gl (1 MB) into the first download.
+import { MapProvider } from './components/map/context/MapContext';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { SettingsProvider } from './context/SettingsContext';
 import RefCapture from './components/RefCapture';
 import TruegleLogo from './components/ui/TruegleLogo';
 import Footer from './components/Footer';
-import ResultsPage from './components/ResultsPage';
-import SettingsPage from './components/SettingsPage';
 // REWARDS FEATURE: Temporarily disabled (no S2S postback support) — see the
 // commented-out /rewards route below and the manual-verification workflow.
 // import RewardsDashboard from './pages/RewardsDashboard';
-import OnboardingPage from './components/auth/OnboardingPage';
 import LandingPage from './pages/LandingPage';
-import SignInPage from './pages/SignInPage';
-import SignUpPage from './pages/SignUpPage';
-import UniversalSearch from './pages/UniversalSearch';
-import TruegleChat from './pages/TruegleChat';
-import SharedThread from './pages/SharedThread';
-import WatchPage from './pages/WatchPage';
-import VideoRedirectPage from './pages/VideoRedirectPage';
-import LinkPage from './pages/LinkPage';
-import FeelingBiasedPage from './pages/FeelingBiasedPage';
-import ExtractPage from './pages/ExtractPage';
-import FeedPage from './pages/FeedPage';
-import FeedCallback from './pages/FeedCallback';
-import FeedTubePage from './pages/FeedTubePage';
-import CreatorPage from './pages/CreatorPage';
-import CreatorsPage from './pages/CreatorsPage';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsOfService from './pages/TermsOfService';
-import About from './pages/About';
-import PrivacyResourceHub from './pages/PrivacyResourceHub';
-import Developers from './pages/Developers';
-import Blog from './pages/Blog';
-import BlogPost from './pages/BlogPost';
 import NotFound from "./pages/NotFound";
-import GuidePage from './pages/GuidePage';
-import OfflineHub from './pages/OfflineHub';
 import { warmOfflinePack } from './utils/offlinePack';
 import RootErrorBoundary from './components/ui/RootErrorBoundary';
 import RouteBoundary from './components/ui/RouteBoundary';
@@ -62,12 +37,52 @@ import BrandBar from './components/ui/BrandBar';
 import PageClock from './components/ui/PageClock';
 import MiniPlayer from './components/ui/MiniPlayer';
 import InstallTruegle from './components/ui/InstallTruegle';
+import OfflinePrompt from './components/ui/OfflinePrompt';
 import TrailGuideOffer from './components/ui/TrailGuideOffer';
+import AppOffer from './components/ui/AppOffer';
 import ProfileImport from './components/ui/ProfileImport';
 import SafeSearchLockModal from './components/ui/SafeSearchLockModal';
 import TutorialModal from './components/ui/TutorialModal';
 import { useTutorials } from './context/TutorialContext';
 import { FREE_ACCESS_MODE } from './config/access';
+
+// CODE SPLITTING (2026-11-19, load-time work): only the landing page and 404 ship in the first
+// download; every other page is fetched when its route is visited. UniversalSearch (search,
+// /tube, /red, /green) is the usual next stop, so it is fetched in the background once the
+// landing page is up. The SEO prerender (scripts/prerender-entry.jsx) imports pages directly
+// and is unaffected.
+const ResultsPage = lazy(() => import('./components/ResultsPage'));
+const SettingsPage = lazy(() => import('./components/SettingsPage'));
+const OnboardingPage = lazy(() => import('./components/auth/OnboardingPage'));
+const SignInPage = lazy(() => import('./pages/SignInPage'));
+const SignUpPage = lazy(() => import('./pages/SignUpPage'));
+const UniversalSearch = lazy(() => import('./pages/UniversalSearch'));
+const TruegleChat = lazy(() => import('./pages/TruegleChat'));
+const SharedThread = lazy(() => import('./pages/SharedThread'));
+const WatchPage = lazy(() => import('./pages/WatchPage'));
+const VideoRedirectPage = lazy(() => import('./pages/VideoRedirectPage'));
+const LinkPage = lazy(() => import('./pages/LinkPage'));
+const FeelingBiasedPage = lazy(() => import('./pages/FeelingBiasedPage'));
+const ExtractPage = lazy(() => import('./pages/ExtractPage'));
+const FeedPage = lazy(() => import('./pages/FeedPage'));
+const FeedCallback = lazy(() => import('./pages/FeedCallback'));
+const FeedTubePage = lazy(() => import('./pages/FeedTubePage'));
+const CreatorPage = lazy(() => import('./pages/CreatorPage'));
+const CreatorsPage = lazy(() => import('./pages/CreatorsPage'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService'));
+const About = lazy(() => import('./pages/About'));
+const PrivacyResourceHub = lazy(() => import('./pages/PrivacyResourceHub'));
+const Developers = lazy(() => import('./pages/Developers'));
+const Blog = lazy(() => import('./pages/Blog'));
+const BlogPost = lazy(() => import('./pages/BlogPost'));
+const GuidePage = lazy(() => import('./pages/GuidePage'));
+const OfflineHub = lazy(() => import('./pages/OfflineHub'));
+const NearbyPage = lazy(() => import('./pages/NearbyPage'));
+if (typeof window !== 'undefined') {
+  const warm = () => { import('./pages/UniversalSearch').catch(() => {}); };
+  if (window.requestIdleCallback) window.requestIdleCallback(warm, { timeout: 4000 }); else setTimeout(warm, 2500);
+}
 // Info Wizard Prompt
 const InfoWizardPrompt = ({
   webStack,
@@ -153,6 +168,7 @@ const InfoWizardPrompt = ({
 const App = () => {
   return (
     <RootErrorBoundary>
+    <LiteMotion>
     <Router basename="/" future={{
       v7_startTransition: true,
       v7_relativeSplatPath: true
@@ -190,6 +206,7 @@ const App = () => {
         </TokenProvider>
       </AuthProvider>
     </Router>
+    </LiteMotion>
     </RootErrorBoundary>
   );
 };
@@ -306,7 +323,7 @@ const AppContent = () => {
   // The pages that work from this device alone stay where they are when the network
   // drops; every other route lands on the offline hub (guide, Trail, Game Boy, map,
   // saved lists), which links to those.
-  const OFFLINE_OK = ['/guide', '/offline', '/this-does-not-exist'];
+  const OFFLINE_OK = ['/guide', '/offline', '/nearby', '/this-does-not-exist'];
   const location = isOnline || OFFLINE_OK.includes(routerLocation.pathname)
     ? routerLocation
     : { ...routerLocation, pathname: '/offline', key: 'offline' };
@@ -325,6 +342,7 @@ const AppContent = () => {
   return (
     <div id="main-content" className={containerClassNames}>
       <BrandBar />
+      <OfflinePrompt />
       <PageClock />
       <MiniPlayer />
       <PreProductionBanner />
@@ -332,6 +350,7 @@ const AppContent = () => {
       <TutorialModalRoot />
       <InstallTruegle />
       <TrailGuideOffer />
+      <AppOffer />
       <ProfileImport />
       {/* NOTE: Do NOT wrap <Routes> in <AnimatePresence mode="wait">. The route
           elements have no motion exit variants, and the landing page runs several
@@ -339,6 +358,7 @@ const AppContent = () => {
           until an exit that never completes, so navigating (e.g. landing search →
           /search) changed the URL but left the old page mounted. Plain Routes with
           a pathname key remounts reliably on every navigation. */}
+      <Suspense fallback={<div style={{ minHeight: '60vh' }} aria-busy="true" />}>
       <Routes location={location} key={location.pathname}>
         {/* Public Routes */}
         <Route path="/auth/login" element={<RouteBoundary><SignInPage /></RouteBoundary>} />
@@ -436,6 +456,7 @@ const AppContent = () => {
         {/* The guide's own address, and the offline hub (guide, games, map, lists). */}
         <Route path="/guide" element={<RouteBoundary><GuidePage /></RouteBoundary>} />
         <Route path="/offline" element={<RouteBoundary><OfflineHub /></RouteBoundary>} />
+        <Route path="/nearby" element={<RouteBoundary><NearbyPage /></RouteBoundary>} />
         {/* Landing Page */}
         <Route path="/" element={<RouteBoundary><LandingPage /></RouteBoundary>} />
         {/* Localized landing routes (de/es/fr). The build prerenders a
@@ -479,6 +500,7 @@ const AppContent = () => {
         {/* Catch all */}
         <Route path="*" element={<RouteBoundary><NotFound /></RouteBoundary>} />
       </Routes>
+      </Suspense>
     </div>
   );
 };

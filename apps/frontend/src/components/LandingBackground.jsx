@@ -1,7 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, lazy, Suspense } from 'react';
 import './LandingBackground.css';
 import ErrorBoundary from './ui/ErrorBoundary';
-import BackgroundAnimation from './BackgroundAnimation';
+// Lazy: the rich layer pulls in ogl (WebGL), and only capable desktops ever mount it.
+const BackgroundAnimation = lazy(() => import('./BackgroundAnimation'));
+import { isLiteActive } from '../utils/liteMode';
 import { prefersReducedMotion, isLowPerformanceDevice } from './FallbackAnimations';
 
 /**
@@ -41,7 +43,7 @@ export default function LandingBackground() {
     // pointer is coarse, so touchscreen laptops keep the rich layer.)
     const isCoarsePointerMobile =
       window.matchMedia?.('(pointer: coarse)').matches || window.innerWidth < 768;
-    return hasWebGL() && !prefersReducedMotion() && !isLowPerformanceDevice() && !isCoarsePointerMobile;
+    return !isLiteActive() && hasWebGL() && !prefersReducedMotion() && !isLowPerformanceDevice() && !isCoarsePointerMobile;
   }, []);
 
   return (
@@ -54,7 +56,7 @@ export default function LandingBackground() {
 
       {richEnabled && (
         <ErrorBoundary fallback={() => null}>
-          <BackgroundAnimation />
+          <Suspense fallback={null}><BackgroundAnimation /></Suspense>
         </ErrorBoundary>
       )}
     </>

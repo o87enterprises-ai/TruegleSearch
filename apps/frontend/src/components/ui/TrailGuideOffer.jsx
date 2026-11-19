@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { X, BookOpen, Gamepad2, LogIn } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { vaultFound, findVault } from '../../utils/vault';
+import { showApkLink } from '../../utils/apk';
 import {
   GUIDE_NAME, PLAY_URL, GUIDE_URL, OFFER_DISMISS_KEY, OFFER_REMIND_AFTER_MS, isRealAccount,
 } from '../../utils/guideAccess';
@@ -36,7 +37,9 @@ export default function TrailGuideOffer() {
   // a dismissal, and never to somebody who already holds the guide. Waits for any other
   // dialog (the tutorial, a sign-in prompt) to be out of the way.
   useEffect(() => {
-    if (pathname !== '/' || vaultFound()) return undefined;
+    // Android browsers get the app offer instead (components/ui/AppOffer.jsx): in the app the guide
+    // is unlocked without signing in.
+    if (pathname !== '/' || vaultFound() || showApkLink()) return undefined;
     try {
       const at = Number(localStorage.getItem(OFFER_DISMISS_KEY) || 0);
       if (at && Date.now() - at < OFFER_REMIND_AFTER_MS) return undefined;

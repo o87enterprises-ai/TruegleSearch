@@ -7,6 +7,7 @@ import { MODE_COLORS } from '../../config/modeTheme';
 import { OPEN_INSTALL_EVENT } from './InstallTruegle';
 import { useInstallState } from '../../utils/installPrompt';
 import { NuclearOptionButton } from './SessionWipe';
+import LiteModeSwitch from './LiteModeSwitch';
 
 // Global navigation — ONLY a hamburger button that opens a slide-out drawer.
 // No logo, no search, no pill row: each page owns its own hero (logo + pill +
@@ -191,6 +192,14 @@ export default function BrandBar() {
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-amber-400/70" />
                     Works Offline
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/nearby')}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-orange-400/80" />
+                    Nearby
+                  </button>
                   {!installed && (
                     <button
                       type="button"
@@ -210,6 +219,7 @@ export default function BrandBar() {
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-white/40" />
                     Settings
                   </button>
+                  <LiteModeSwitch variant="row" />
                 </div>
                 {/* The Nuclear Option, reachable from every page — including the
                     full-screen ones (Tube, Chat, Map) that have no footer. */}

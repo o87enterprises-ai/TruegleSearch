@@ -39,7 +39,7 @@
 
 // BUMP THIS on any change to what gets cached or how — activate deletes every
 // cache whose name doesn't match, so a stale version never lingers.
-const CACHE_VERSION = 'shell-v2';
+const CACHE_VERSION = 'shell-v3';
 const CACHE_NAME = `truegle-${CACHE_VERSION}`;
 
 // OFFLINE PACK (v2): the Game Boy ROMs and game art are cached like build assets, and the
@@ -50,6 +50,8 @@ const TILE_MAX = 1500;
 const TILE_HOST = /^(?:[a-d]\.basemaps\.cartocdn\.com|tile\.openstreetmap\.org)$/;
 
 const CORE_URLS = ['/', '/manifest.webmanifest', '/truegle.png'];
+// Source modules whose built chunks (and everything they import) must work with no network.
+const OFFLINE_ENTRY = /GuidePage|OfflineHub|NearbyPage|TrailGame|Encyclopedia|GameBoyPlayer|gameboyCore|GamesPanel|games\/trail|MapViewWrapper|TruegleMap/;
 
 // Same-origin build output only — never a CDN, a font host, or anything else
 // that isn't ours to cache.
@@ -88,6 +90,33 @@ self.addEventListener('install', (event) => {
         if (isSameOriginAsset(abs)) urls.add(abs);
       }
       await Promise.all([...urls].map((u) => cache.add(u).catch(() => {})));
+
+      // THE OFFLINE PAGES' LAZY CHUNKS (2026-11-19). Pages are code-split now, so the guide,
+      // offline hub, Trail, Game Boy and map are separate files that index.html never names.
+      // The build writes asset-manifest.json (vite.config.js `build.manifest`); precache every
+      // file those entries need, following their imports, so they work offline on a visit that
+      // was never made online. Best-effort like everything above.
+      try {
+        const mres = await fetch('/asset-manifest.json', { cache: 'no-store' });
+        if (mres.ok) {
+          const man = await mres.json();
+          const seen = new Set();
+          const files = new Set();
+          const walk = (key) => {
+            const e = man[key];
+            if (!e || seen.has(key)) return;
+            seen.add(key);
+            files.add('/' + e.file);
+            (e.css || []).forEach((f) => files.add('/' + f));
+            (e.assets || []).forEach((f) => files.add('/' + f));
+            // Static imports only: the lazy children that matter are named in OFFLINE_ENTRY, and
+            // following every dynamic import would drag in search, three, hls — 2 MB nobody offline needs.
+            (e.imports || []).forEach(walk);
+          };
+          Object.keys(man).filter((k) => OFFLINE_ENTRY.test(k)).forEach(walk);
+          await Promise.all([...files].map((u) => cache.add(u).catch(() => {})));
+        }
+      } catch { /* no manifest: runtime caching still covers anything visited online */ }
     } catch {
       // Offline install (a re-install triggered with no network) — the CORE_URLS
       // above already have whatever the previous cache held via cache.add's
@@ -149,7 +178,7 @@ self.addEventListener('fetch', (event) => {
         return await fetch(request);
       } catch {
         const cache = await caches.open(CACHE_NAME);
-        return (await cache.match('/')) || Response.error();
+        return (await cache.match('/', { ignoreVary: true })) || Response.error();
       }
     })());
     return;
@@ -164,7 +193,9 @@ self.addEventListener('fetch', (event) => {
   if (isSameOriginAsset(request.url)) {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
-      const cached = await cache.match(request);
+      // ignoreVary: a host that answers `Vary: Origin` would otherwise never match a file the
+      // install precached (its request carries no Origin) against the page's own module request.
+      const cached = await cache.match(request, { ignoreVary: true });
       const network = fetch(request)
         .then((res) => { if (res.ok) cache.put(request, res.clone()); return res; })
         .catch(() => null);

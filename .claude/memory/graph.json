@@ -2384,6 +2384,46 @@
         "body": "Settings Share button makes truegle.info/#move=<id>.<key>: browser AES-GCM encrypts the TG1 code, POST /api/move stores ciphertext only (table move_links, migration 029, 24h TTL, deleted after import), key lives in the #fragment. Falls back to the long #profile= link if server/db unavailable. No new env vars; works on Render and Vercel.",
         "ts": "2026-11-19",
         "created": "2026-11-19"
+      },
+      "lite-mode": {
+        "Id": "lite-mode",
+        "Type": "decision",
+        "Label": "Lite mode (2026-11-19)",
+        "body": "utils/liteMode.js: html.tg-lite class kills backdrop-filter (~240 uses), pauses .tg-bg animation, MotionConfig reducedMotion=always, skips WebGL bg. Auto on for phones/weak HW/saveData/reduced-motion; Settings → Performance toggle (auto/on/off). SearchBar parent onChange wrapped in startTransition. Player/feed not yet profiled.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
+      "tube-list-fullscreen-only": {
+        "Id": "tube-list-fullscreen-only",
+        "Type": "decision",
+        "Label": "Playlist drop-down rule (2026-11-19)",
+        "body": "TrueglePlayer listAllowed = (fullscreen || popped) && !onFeedPage. Inline (incl /tube) there is no list button/drop-down; results show in the page grid below. In full screen on any non-feed page a Tube search lands in the list. Popped window keeps it (no page beneath). Also: App.jsx pages are React.lazy (main chunk 1.9MB to 819KB); prerender-entry imports pages directly so SEO is unaffected.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
+      "vendor-split": {
+        "Id": "vendor-split",
+        "Type": "decision",
+        "Label": "Vendor chunk split (2026-11-19)",
+        "body": "vite.config.js manualChunks: 'vendor' is now an ALLOWLIST (framer-motion, react-router, axios, lucide, tailwind-merge…); everything else is unassigned so Rollup puts heavy libs (maplibre, hls, wasmboy, ogl, r3f, markdown) in the async chunk of the lazy page using them. Eager download 5.6MB→~1MB raw. Rules: never import from the components/map barrel in the eager graph (use map/context/MapContext); OSINT_TOOLS lives in ui/osintToolList.js; LandingBackground's BackgroundAnimation is React.lazy. usePlayerSearch shows results first and applies the language filter after.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
+      "lite-switch-placement": {
+        "Id": "lite-switch-placement",
+        "Type": "decision",
+        "Label": "Lite switch placement (2026-11-19)",
+        "body": "LiteModeSwitch.jsx: chip fixed top-[52px] right-3 under PageClock (rendered by PageClock), row in BrandBar hamburger drawer after Settings, plus Settings → Performance card. MiniPlayer UNDER_CLOCK_TOP moved 56→84 to clear the chip. All sync via liteMode onLiteChange.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
+      "stale-chunk-recovery": {
+        "Id": "stale-chunk-recovery",
+        "Type": "decision",
+        "Label": "Stale-tab + offline chunk fixes (2026-11-19)",
+        "body": "Login 'This page hit a snag' after deploys = stale tab asking for a renamed lazy chunk. main.jsx: vite:preloadError reloads once (15s sessionStorage guard). Build emits dist/asset-manifest.json; sw.js (shell-v3) precaches static-import closure of offline pages (Guide, OfflineHub, Trail, Encyclopedia, GameBoy, Games, Map) and uses cache.match({ignoreVary:true}). ALWAYS test with 'npm run build' (prerender makes asset paths absolute), not plain 'vite build'; use pkill -f '[v]ite preview'.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
       }
     },
     "thread": {
@@ -3043,6 +3083,15 @@
         "status": "open",
         "ts": "2026-11-18",
         "created": "2026-11-18"
+      },
+      "nearby-internet-relay": {
+        "Id": "nearby-internet-relay",
+        "Type": "thread",
+        "Label": "Nearby over internet/cellular (deferred)",
+        "body": "Owner asked 2026-11-19 if Nearby can also send over cellular/internet; decided to HOLD. Plan if resumed: (1) E2E encryption first (messages are plaintext today; use WebCrypto ECDH + AES-GCM, no libsodium on Hermes/WebView), (2) backend store-and-forward relay that only sees ciphertext (host-neutral Render+Vercel, new env vars go on BOTH hosts, rate-limited, TTL), (3) hybrid delivery: internet when reachable, BLE otherwise, same outbox/dedup by message id, (4) identity: fingerprints are random per-install, not accounts, so peers need a pairing/QR exchange, (5) no push (no Google services): poll/SSE while the app is open. Spec home: openspec/changes/add-offline-mesh-chat.",
+        "status": "open",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
       }
     },
     "entity": {
@@ -4647,6 +4696,30 @@
         "body": "2026-11-18: .github/workflows/cron-top-feed.yml (13:00+14:00 UTC = 6AM Pacific, correct) fails on EVERY run since at least 2026-11-15 with annotation 'The job was not started because your account is locked due to a billing issue.' (job has zero steps). Not a code, secret or schedule fault; the endpoint is fine (401 without auth proves CRON_SECRET is set on Render). Vercel crons are dead too (Vercel blocked). EFFECT: the top-feed cache is not pre-built at 6AM; the first visitor each day rebuilds it (10+ s scrape, plus Render free cold start). Also GitHub scheduled runs fire hours late (observed ~21:00 UTC), which would miss the 6AM-hour-only guard even when billing is fixed. FIXES (owner): resolve the GitHub billing lock; OR move the trigger to a free Cloudflare Worker cron trigger (0 13/14 UTC daily, plus a /api/health ping every 10 min to keep Render awake - also closes HANDOFF open item 2) which needs CRON_SECRET stored as a Worker secret (owner must provide it via wrangler secret put; agent never sees it).",
         "ts": "2026-11-18",
         "created": "2026-11-18"
+      },
+      "apk-release-hosting": {
+        "Id": "apk-release-hosting",
+        "Type": "fact",
+        "Label": "APK is a GitHub Release asset",
+        "body": "Android APK is published by hand as a GitHub Release (android-vX.Y.Z, asset truegle.apk, latest). Link: https://github.com/o87enterprises-ai/TruegleSearch/releases/latest/download/truegle.apk (apps/frontend/src/utils/apk.js). Works despite Actions billing lock. Builds are DEBUG-signed with the dev machine key: a future release key forces a reinstall (loses local data); assetlinks.json (public/.well-known) lists only that debug fingerprint and must get the release key's SHA-256 too. Local build: JDK21 + SDK in %USERPROFILE%\\android-build, npm run apk in apps/android; reinstall with adb install -r --user 0.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
+      "webview-online-lies": {
+        "Id": "webview-online-lies",
+        "Type": "fact",
+        "Label": "Android WebView navigator.onLine lies",
+        "body": "In airplane mode the Android WebView still reports navigator.onLine=true. hooks/useOnlineStatus.js therefore probes truegle.info/manifest.webmanifest (two failed tries = offline). Any new 'am I online' logic must use that hook, not navigator.onLine. Also: every path in public/_redirects needs its own public/_headers Content-Type rule or Cloudflare serves it as a download (bit /nearby).",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
+      "frontend-backend-url": {
+        "Id": "frontend-backend-url",
+        "Type": "fact",
+        "Label": "Frontend only talks to api.truegle.info",
+        "body": "apps/frontend/.env.production is git-ignored; a stale copy pointed at the Vercel standby and shipped into a local APK. vite.config.js now ignores any *.vercel.app VITE_BACKEND_URL and falls back to https://api.truegle.info.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
       }
     }
   },

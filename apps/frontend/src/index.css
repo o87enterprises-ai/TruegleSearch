@@ -1007,3 +1007,19 @@ canvas { display: block !important; margin: 0 auto !important; image-rendering: 
   /* Still shown — it is information, not decoration — just without the scale. */
   .truegle-jump-flash { animation: truegle-jump-flash 600ms steps(1, end) forwards; }
 }
+
+/* ── LITE MODE (utils/liteMode.js) ─────────────────────────────────────────
+   Same features, far less GPU work: no glass blur (the single costliest effect —
+   hundreds of elements use it), no decorative background animation, no
+   expensive filters/shadows on moving things. Spinners and loading states keep
+   animating so the app never looks frozen. */
+html.tg-lite *,
+html.tg-lite *::before,
+html.tg-lite *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html.tg-lite .tg-bg *,
+html.tg-lite .tg-bg::before,
+html.tg-lite .tg-bg::after { animation: none !important; }
+html.tg-lite { scroll-behavior: auto; }
