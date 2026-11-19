@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { exportProfile, profileLink, readProfile, applyProfile } from '../../utils/profileShare';
+import { Share2 } from 'lucide-react';
+import { exportProfile, bestProfileLink, readProfile, readMoveLink, forgetMoveLink, applyProfile, MOVE_HASH } from '../../utils/profileShare';
 
 // Settings → "Move to another device". A share link or code that carries the saved lists
 // (and guide unlock) to another device; the code never touches a server.
@@ -12,7 +13,7 @@ export default function MoveLists() {
     try {
       const c = code || await exportProfile();
       setCode(c);
-      await navigator.clipboard.writeText(kind === 'link' ? profileLink(c) : c);
+      await navigator.clipboard.writeText(kind === 'link' ? await bestProfileLink() : c);
       setMsg(kind === 'link' ? 'Link copied. Open it on your other device.' : 'Code copied. Paste it below on your other device.');
     } catch {
       setMsg('Could not copy — select the code below and copy it by hand.');
@@ -21,11 +22,10 @@ export default function MoveLists() {
 
   // Share the link through the device: native share sheet (any app), email, or SMS on phones.
   const getLink = async () => {
-    const c = code || await exportProfile();
-    setCode(c);
-    return profileLink(c);
+    setCode(code || await exportProfile());
+    return bestProfileLink();
   };
-  const SHARE_TEXT = 'Open this on your other device to move my Truegle lists:';
+  const SHARE_TEXT = 'My Truegle lists — open this link on your other device:';
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
@@ -53,7 +53,10 @@ export default function MoveLists() {
 
   const importIt = async () => {
     try {
-      const n = applyProfile(await readProfile(paste));
+      let data;
+      if (paste.includes(MOVE_HASH)) { const r = await readMoveLink(paste); data = r.data; forgetMoveLink(r.id); }
+      else data = await readProfile(paste);
+      const n = applyProfile(data);
       setMsg(`${n} ${n === 1 ? 'list' : 'lists'} imported.`);
       setPaste('');
     } catch {
@@ -70,7 +73,7 @@ export default function MoveLists() {
       </p>
       <div className="flex flex-wrap gap-2 mb-3">
         {typeof navigator.share === 'function' && (
-          <button type="button" onClick={shareNative} className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-sm font-semibold">Share…</button>
+          <button type="button" onClick={shareNative} aria-label="Share" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-sm font-semibold"><Share2 size={16} />Share</button>
         )}
         <button type="button" onClick={shareEmail} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Email</button>
         {isMobile && (

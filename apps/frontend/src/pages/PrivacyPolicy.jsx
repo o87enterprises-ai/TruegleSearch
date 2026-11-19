@@ -10,7 +10,7 @@ import LegalPage, { LegalSection } from '../components/LegalPage';
  */
 
 const PrivacyPolicy = () => (
-  <LegalPage title="Privacy Policy" lastUpdated="September 29, 2026">
+  <LegalPage title="Privacy Policy" lastUpdated="November 19, 2026">
     <p>
       Truegle Search ("Truegle", "we", "us") is a privacy-first search engine. This
       policy explains what information we do and do not collect when you use{' '}
@@ -127,6 +127,17 @@ const PrivacyPolicy = () => (
         <strong>What this does not do is hide your IP from the platform.</strong> No search
         engine can do that for you; a reputable VPN or Tor can. If you would rather not appear
         at those hosts at all, don't open the embed — the original link is always shown.
+      </p>
+    </LegalSection>
+
+    <LegalSection heading="Moving Your Lists to Another Device">
+      <p>
+        Your saved lists live on your device. If you choose <em>Share</em> in Settings →
+        Move to another device, your browser encrypts them before upload and we store only that
+        scrambled data for up to 24 hours, or until the other device imports it. The key that
+        unlocks it is in the part of the link after the &ldquo;#&rdquo;, which is never sent to
+        us, so we cannot read it. We store no account, IP address or device information with it.
+        If our server is unavailable, the link carries the data itself and nothing is stored.
       </p>
     </LegalSection>
 
