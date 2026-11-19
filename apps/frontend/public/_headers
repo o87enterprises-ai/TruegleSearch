@@ -30,6 +30,9 @@
 /offline
   Content-Type: text/html; charset=utf-8
   X-Robots-Tag: noindex, follow
+/nearby
+  Content-Type: text/html; charset=utf-8
+  X-Robots-Tag: noindex, follow
 /s/*
   Content-Type: text/html; charset=utf-8
   X-Robots-Tag: noindex, follow
