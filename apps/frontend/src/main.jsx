@@ -7,11 +7,15 @@ import {
 } from './utils/globalErrorHandler';
 import { initAnalytics } from './utils/analytics';
 import { initInstallPrompt } from './utils/installPrompt';
+import { applyLite } from './utils/liteMode';
 
 // Install the framework-agnostic crash safety net BEFORE we try to mount, so a
 // fatal error during bundle eval / mount still shows a friendly screen instead
 // of a blank white page.
 installGlobalErrorHandlers();
+
+// Lite mode class goes on <html> before first paint so heavy effects never flash on.
+applyLite();
 
 // Cookieless, no-fingerprint page-view counts. Inert unless VITE_CF_BEACON_TOKEN
 // is set, and skipped entirely for visitors sending DNT / GPC.

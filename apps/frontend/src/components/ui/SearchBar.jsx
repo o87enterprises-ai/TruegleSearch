@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, startTransition } from 'react';
 import {
   Search, X, TrendingUp, Loader2, ChevronDown, SlidersHorizontal, Zap,
   Image, Video, Users, DollarSign, Trophy, Music, ShoppingBag, Briefcase,
@@ -1546,8 +1546,9 @@ const handleChange = useCallback((e) => {
   setLocalValue(newValue);
   userTypedRef.current = true; // real keystroke → suggestions may auto-open
   explicitOpenRef.current = false;
-  // Pass the string value, not the event object
-  onChange?.(newValue);
+  // Pass the string value, not the event object. Low priority: the box itself updates at once
+  // (localValue); re-rendering the page behind it must never make a keystroke wait.
+  startTransition(() => { onChange?.(newValue); });
 }, [onChange, maxLength, localValue]);
 
   // Handle clear
