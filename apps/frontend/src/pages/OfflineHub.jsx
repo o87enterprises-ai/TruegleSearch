@@ -82,8 +82,9 @@ export default function OfflineHub() {
           {view === 'trail' && <TrailGame embedded onClose={() => setView(null)} onFound={() => navigate(GUIDE_PATH)} />}
           {view === 'games' && <GamesPanel onClose={() => setView(null)} />}
           {view === 'map' && (
-            // Full screen, with a close button that always sits on top of the map.
-            <div className="fixed inset-0 z-[9000] bg-black">
+            // Full screen, above the clock + Lite mode chip (z-9997) so they don't sit on
+            // the map, with a close button that always sits on top of everything.
+            <div className="fixed inset-0 z-[9999] bg-black">
               <MapViewWrapper isOpen onClose={() => setView(null)} popOutStorageKey="truegle_offline_map_popped" />
               <button type="button" onClick={() => setView(null)} aria-label="Close the map"
                 className="fixed top-3 left-16 z-[100001] flex items-center gap-1.5 rounded-full bg-black/80 border border-white/20 px-3 py-2 text-sm font-semibold text-white hover:bg-white/10">

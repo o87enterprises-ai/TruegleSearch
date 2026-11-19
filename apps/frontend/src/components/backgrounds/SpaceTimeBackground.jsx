@@ -1,5 +1,6 @@
 import ThreeJsAtomic from './ThreeJsAtomic';
 import AntigravityParticles from './AntigravityParticles';
+import ErrorBoundary from '../ui/ErrorBoundary';
 
 // Truegle color palette for antigravity particles
 const TRUEGLE_COLORS = [
@@ -19,7 +20,9 @@ export default function SpaceTimeBackground({
     return (
       <div className="fixed inset-0 bg-black" style={{ zIndex: -10 }}>
         {/* Base atomic background */}
-        <ThreeJsAtomic />
+        <ErrorBoundary fallback={null}>
+          <ThreeJsAtomic />
+        </ErrorBoundary>
 
         {/* Antigravity particles layer - mouse interactive */}
         {showAntigravity && (
@@ -30,17 +33,19 @@ export default function SpaceTimeBackground({
               pointerEvents: interactive ? 'auto' : 'none',
             }}
           >
-            <AntigravityParticles
-              count={120}
-              colors={TRUEGLE_COLORS}
-              magnetRadius={0.35}
-              particleSize={0.05}
-              glowIntensity={0.9}
-              waveSpeed={0.4}
-              particleShape="sphere"
-              fieldStrength={1.0}
-              lerpSpeed={0.05}
-            />
+            <ErrorBoundary fallback={null}>
+              <AntigravityParticles
+                count={120}
+                colors={TRUEGLE_COLORS}
+                magnetRadius={0.35}
+                particleSize={0.05}
+                glowIntensity={0.9}
+                waveSpeed={0.4}
+                particleShape="sphere"
+                fieldStrength={1.0}
+                lerpSpeed={0.05}
+              />
+            </ErrorBoundary>
           </div>
         )}
       </div>
@@ -60,13 +65,15 @@ export default function SpaceTimeBackground({
             pointerEvents: interactive ? 'auto' : 'none',
           }}
         >
-          <AntigravityParticles
-            count={80}
-            colors={TRUEGLE_COLORS}
-            magnetRadius={0.4}
-            particleSize={0.06}
-            glowIntensity={1.0}
-          />
+          <ErrorBoundary fallback={null}>
+            <AntigravityParticles
+              count={80}
+              colors={TRUEGLE_COLORS}
+              magnetRadius={0.4}
+              particleSize={0.06}
+              glowIntensity={1.0}
+            />
+          </ErrorBoundary>
         </div>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import LaserFlow from '../LaserFlow/LaserFlow';
+import ErrorBoundary from './ui/ErrorBoundary';
 import SimplePrism from '../SimplePrism';
 
 const AnimatedLandingPage = ({ onSearch }) => {
@@ -88,14 +89,16 @@ const AnimatedLandingPage = ({ onSearch }) => {
       ref={containerRef}
     >
       {/* Laser Flow Background - Always present but animated */}
-      <LaserFlow
-        verticalSizing={laserSizing}
-        horizontalSizing={0.5}
-        intensity={0.8}
-        speed={0.3}
-        className="absolute inset-0 z-10"
-        color="#FF79C6"
-      />
+      <ErrorBoundary fallback={null}>
+        <LaserFlow
+          verticalSizing={laserSizing}
+          horizontalSizing={0.5}
+          intensity={0.8}
+          speed={0.3}
+          className="absolute inset-0 z-10"
+          color="#FF79C6"
+        />
+      </ErrorBoundary>
 
       {/* Prism Background - Animated in later */}
       {(animationPhase === 'prism' || animationPhase === 'complete') && (

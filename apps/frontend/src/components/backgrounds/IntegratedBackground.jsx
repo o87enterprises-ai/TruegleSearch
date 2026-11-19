@@ -9,6 +9,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 // =============================================================================
 // import Iridescence from './Iridescence';
 import Galaxy from './Galaxy';
+import ErrorBoundary from '../ui/ErrorBoundary';
 // import Particles from './Particles';
 
 // =============================================================================
@@ -112,19 +113,21 @@ function IntegratedBackground() {
       case 'galaxy':
         return (
           <div className="absolute inset-0" style={{ border: DEBUG_MODE ? '2px solid magenta' : 'none' }}>
-            <Galaxy
-              mouseInteraction={true}
-              mouseRepulsion={true}
-              density={1.5}
-              glowIntensity={0.5}
-              saturation={0.7}
-              hueShift={220}
-              transparent={true}
-              speed={0.9}
-              twinkleIntensity={0.4}
-              rotationSpeed={0.02}
-              repulsionStrength={2}
-            />
+            <ErrorBoundary fallback={null}>
+              <Galaxy
+                mouseInteraction={true}
+                mouseRepulsion={true}
+                density={1.5}
+                glowIntensity={0.5}
+                saturation={0.7}
+                hueShift={220}
+                transparent={true}
+                speed={0.9}
+                twinkleIntensity={0.4}
+                rotationSpeed={0.02}
+                repulsionStrength={2}
+              />
+            </ErrorBoundary>
           </div>
         );
 
