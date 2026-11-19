@@ -32,6 +32,9 @@ export default defineConfig(({ mode }) => {
   },
   build: {
     outDir: 'dist',
+    // Emits dist/asset-manifest.json (source module -> built chunk + its imports) so the service
+    // worker can precache the lazy chunks the offline pages need (public/sw.js).
+    manifest: 'asset-manifest.json',
     // Sourcemaps are disabled in production: generating them for the heavy
     // mapbox/three/echarts bundles added ~11MB of work per build and pushed
     // Cloudflare Pages' build container over its memory/time budget, causing
