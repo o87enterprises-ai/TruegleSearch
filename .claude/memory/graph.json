@@ -2400,6 +2400,14 @@
         "body": "TrueglePlayer listAllowed = (fullscreen || popped) && !onFeedPage. Inline (incl /tube) there is no list button/drop-down; results show in the page grid below. In full screen on any non-feed page a Tube search lands in the list. Popped window keeps it (no page beneath). Also: App.jsx pages are React.lazy (main chunk 1.9MB to 819KB); prerender-entry imports pages directly so SEO is unaffected.",
         "ts": "2026-11-19",
         "created": "2026-11-19"
+      },
+      "vendor-split": {
+        "Id": "vendor-split",
+        "Type": "decision",
+        "Label": "Vendor chunk split (2026-11-19)",
+        "body": "vite.config.js manualChunks: 'vendor' is now an ALLOWLIST (framer-motion, react-router, axios, lucide, tailwind-merge…); everything else is unassigned so Rollup puts heavy libs (maplibre, hls, wasmboy, ogl, r3f, markdown) in the async chunk of the lazy page using them. Eager download 5.6MB→~1MB raw. Rules: never import from the components/map barrel in the eager graph (use map/context/MapContext); OSINT_TOOLS lives in ui/osintToolList.js; LandingBackground's BackgroundAnimation is React.lazy. usePlayerSearch shows results first and applies the language filter after.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
       }
     },
     "thread": {
