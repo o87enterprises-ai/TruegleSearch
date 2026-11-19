@@ -39,6 +39,7 @@ import MiniPlayer from './components/ui/MiniPlayer';
 import InstallTruegle from './components/ui/InstallTruegle';
 import OfflinePrompt from './components/ui/OfflinePrompt';
 import TrailGuideOffer from './components/ui/TrailGuideOffer';
+import AppOffer from './components/ui/AppOffer';
 import ProfileImport from './components/ui/ProfileImport';
 import SafeSearchLockModal from './components/ui/SafeSearchLockModal';
 import TutorialModal from './components/ui/TutorialModal';
@@ -349,6 +350,7 @@ const AppContent = () => {
       <TutorialModalRoot />
       <InstallTruegle />
       <TrailGuideOffer />
+      <AppOffer />
       <ProfileImport />
       {/* NOTE: Do NOT wrap <Routes> in <AnimatePresence mode="wait">. The route
           elements have no motion exit variants, and the landing page runs several
