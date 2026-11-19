@@ -6,6 +6,14 @@ The Nearby mesh chat SHALL be offered only in the Truegle Android app and SHALL 
 #### Scenario: Web visitor
 - **WHEN** `/offline` is opened in a browser
 - **THEN** no Nearby card is shown
+- **AND** `/nearby` (also in the hamburger menu) shows the how-it-works guide with the controls disabled
+
+### Requirement: Messenger-style conversations
+Nearby SHALL support multiple saved conversations (1:1 and small groups), per-message delivery status, queued delivery to devices that are out of range, typing indicators, and saved-device management (rename, refresh, delete).
+
+#### Scenario: Out of range
+- **WHEN** a message is sent to a device that is out of range
+- **THEN** it is queued on the sender's phone and delivered automatically when the device is next in range
 
 #### Scenario: Android app
 - **WHEN** `/offline` is opened in the Android app

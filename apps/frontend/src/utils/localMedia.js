@@ -65,6 +65,27 @@ export async function saveLocalFile(file) {
   return { kind, src: LOCAL_PREFIX + id, title: file.name.replace(/\.[^.]+$/, ''), local: true };
 }
 
+/**
+ * Keeps a copy of a DIRECT audio/video link (an .mp3, .mp4, a podcast or archive file…) on this
+ * device so it plays with no connection. Embedded players (YouTube, Vimeo, TikTok…) can't be
+ * saved by any app — they only exist inside the provider's own player — and some hosts forbid
+ * cross-site downloads; both come back as a plain message.
+ */
+export async function saveRemoteMedia(src, title = 'Saved media') {
+  let res;
+  try { res = await fetch(src, { mode: 'cors' }); } catch { throw new Error('That site does not allow saving its media to this device.'); }
+  if (!res.ok) throw new Error('The source refused the download.');
+  const blob = await res.blob();
+  const guess = /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac)(\?|#|$)/i.test(src) ? 'audio/mpeg' : 'video/mp4';
+  const type = blob.type && blob.type !== 'application/octet-stream' ? blob.type : guess;
+  if (!type.startsWith('audio/') && !type.startsWith('video/')) throw new Error('That link is not an audio or video file.');
+  const ext = type.startsWith('audio/') ? 'mp3' : 'mp4';
+  const clean = String(title).replace(/[^\w .()-]+/g, '').trim().slice(0, 80) || 'Saved media';
+  const saved = await saveLocalFile(new File([blob], `${clean}.${ext}`, { type }));
+  window.dispatchEvent(new Event('truegle-local-media'));
+  return saved;
+}
+
 export async function listLocalFiles() {
   const rows = await tx('readonly', (s) => s.getAll());
   return (rows || []).map(({ blob: _blob, ...meta }) => meta).sort((a, b) => b.addedAt - a.addedAt);

@@ -1,33 +1,61 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 /**
- * True while the browser reports a network connection.
+ * True while the device can actually reach the internet.
  *
- * `navigator.onLine` only means "there is a network interface" — connected to
- * a Wi-Fi with no real internet still reads true. That is a known limit, not
- * a bug: catching THAT case needs an actual reachability probe (a fetch with
- * a timeout, retried), which is a bigger feature than this hook is. What this
- * catches reliably is the common, sharp-edged case — airplane mode, no signal,
- * the OS reporting no connection at all — which is also the case the 404
- * page's offline routing (see App.jsx) is built for.
+ * `navigator.onLine` alone is not enough: it only means "there is a network interface", and
+ * Android's WebView often keeps saying true in airplane mode or with no service. So on top of it
+ * this checks reachability for real — a tiny request for Truegle's own static manifest (no
+ * backend, no cookies, nothing about the visitor), every 20 s while the app is visible and
+ * whenever the connection changes. It takes two failed tries in a row to count as offline, so a
+ * single slow request never flips the app into offline mode.
  */
+const PROBE = 'manifest.webmanifest';
+const probeUrl = () => {
+  try {
+    // On truegle.info stay same-origin (the site's content-security-policy allows it); the Android
+    // app and local dev have another origin, so they ask the live site.
+    if (/(^|\.)truegle\.info$/.test(window.location.hostname)) return `/${PROBE}`;
+  } catch { /* fall through */ }
+  return `https://truegle.info/${PROBE}`;
+};
+
+let reachable = true;
+let started = false;
+const subs = new Set();
+const set = (v) => { if (v !== reachable) { reachable = v; subs.forEach((f) => f()); } };
+
+async function ping() {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 4000);
+  try {
+    await fetch(`${probeUrl()}?_=${Date.now()}`, { mode: 'no-cors', cache: 'no-store', signal: ctl.signal });
+    return true;
+  } catch { return false; } finally { clearTimeout(timer); }
+}
+
+async function check() {
+  if (navigator.onLine === false) { set(false); return; }
+  let ok = await ping();
+  if (!ok) { await new Promise((r) => setTimeout(r, 2500)); ok = await ping(); }
+  set(ok);
+}
+
+function start() {
+  if (started || typeof window === 'undefined') return;
+  started = true;
+  window.addEventListener('online', check);
+  window.addEventListener('offline', () => set(false));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+  setInterval(() => { if (!document.hidden) check(); }, 20000);
+  check();
+}
+
+const subscribe = (fn) => { start(); subs.add(fn); return () => subs.delete(fn); };
+const snapshot = () => (typeof navigator === 'undefined' ? true : navigator.onLine !== false && reachable);
+
 export function useOnlineStatus() {
-  const [online, setOnline] = useState(() => (
-    typeof navigator === 'undefined' ? true : navigator.onLine
-  ));
-
-  useEffect(() => {
-    const goOnline = () => setOnline(true);
-    const goOffline = () => setOnline(false);
-    window.addEventListener('online', goOnline);
-    window.addEventListener('offline', goOffline);
-    return () => {
-      window.removeEventListener('online', goOnline);
-      window.removeEventListener('offline', goOffline);
-    };
-  }, []);
-
-  return online;
+  return useSyncExternalStore(subscribe, snapshot, () => true);
 }
 
 export default useOnlineStatus;
