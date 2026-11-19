@@ -2,12 +2,13 @@
  * Video coverage for the landing page's News and Markets cards — straight
  * from YouTube, as thumbnails that play in the Truegle player.
  *
- * WHY A SEARCH AND NOT A LIST OF CHANNELS. Deciding which outlets count as
- * "the news" is exactly the editorial thumb on the scale Truegle exists to
- * avoid, so nothing here names a channel. The route asks our own index for
- * YouTube videos about today's news (or today's markets), and this module only
- * cleans what comes back. The trade is real and the cards say so: it is what
- * the index has, not an endorsement.
+ * WHY A SEARCH FIRST. Deciding which outlets count as "the news" is an editorial
+ * thumb on the scale, so the original design named no channel: the route asks our
+ * own index for YouTube videos about today's news (or today's markets), and this
+ * module cleans what comes back. In practice one network dominated the answers, so
+ * (owner, 2026-11-18) the world News lane ALSO reads a listed set of major outlets
+ * (config/newsOutlets.js) and interleaves them newest-first. Markets, local news and
+ * any typed topic are still plain searches.
  *
  * Pure on purpose — no network, no express — so scripts/verify-news-videos.mjs
  * can check the shaping with canned rows.
@@ -136,4 +137,67 @@ function queryFor(kind, scope, region) {
   return 'world news today';
 }
 
-module.exports = { shapeVideos, queryFor, youtubeId, cleanTitle, isLivestream, isLatinScript, languageFor, regionRules };
+// ── outlet channels (the News lane, owner 2026-11-18) ───────────────────────
+// Each outlet's own recent uploads, from the channel RSS (or the Invidious list when the RSS
+// is blocked). Pure: the service fetches, this shapes.
+
+const decode = (s) => String(s || '')
+  .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'");
+
+/**
+ * Channel uploads → this outlet's recent, playable-looking videos, newest first.
+ * @param {{kind:'rss'|'invidious', data:string|object[]}|null} uploads  YouTubeGateway.channelUploads()
+ * @param {{name:string}} outlet
+ * @returns {{id,title,url,thumbnail,at,duration:null,channel:string}[]}
+ */
+function parseUploads(uploads, outlet, { now = Date.now(), perOutlet = 3 } = {}) {
+  if (!uploads) return [];
+  let rows = [];
+  if (uploads.kind === 'rss' && typeof uploads.data === 'string') {
+    rows = [...uploads.data.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map((m) => ({
+      id: /<yt:videoId>([\w-]{11})<\/yt:videoId>/.exec(m[1])?.[1],
+      title: decode(/<title>([\s\S]*?)<\/title>/.exec(m[1])?.[1]),
+      at: Date.parse(/<published>([^<]+)<\/published>/.exec(m[1])?.[1] || '') || null,
+    }));
+  } else if (Array.isArray(uploads.data)) {
+    rows = uploads.data.map((v) => ({
+      id: v.videoId, title: v.title, at: v.published ? v.published * 1000 : null,
+    }));
+  }
+  const seen = new Set();
+  const out = [];
+  for (const r of rows) {
+    const title = cleanTitle(r.title);
+    if (!r.id || !/^[\w-]{11}$/.test(r.id) || !title || isLivestream(title)) continue;
+    if (r.at && now - r.at > MAX_AGE_MS) continue;
+    const tk = titleKey(title);
+    if (seen.has(r.id) || (tk && seen.has(tk))) continue;
+    seen.add(r.id); if (tk) seen.add(tk);
+    out.push({
+      id: r.id,
+      title,
+      thumbnail: `https://i.ytimg.com/vi/${r.id}/hqdefault.jpg`,
+      url: `https://www.youtube.com/watch?v=${r.id}`,
+      at: r.at,
+      duration: null,
+      channel: outlet.name,
+    });
+  }
+  return out.sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, perOutlet);
+}
+
+/**
+ * One list from many outlets, round-robin: every outlet's newest, then every outlet's
+ * second newest, and so on — so no outlet can fill the lane. Within a round the newest
+ * clip goes first (recency is the only ordering; nobody is ranked above anybody).
+ */
+function interleaveOutlets(groups) {
+  const lists = groups.filter((g) => g.length);
+  const out = [];
+  for (let round = 0; lists.some((g) => g[round]); round += 1) {
+    out.push(...lists.map((g) => g[round]).filter(Boolean).sort((a, b) => (b.at || 0) - (a.at || 0)));
+  }
+  return out;
+}
+
+module.exports = { parseUploads, interleaveOutlets, shapeVideos, queryFor, youtubeId, cleanTitle, isLivestream, isLatinScript, languageFor, regionRules };

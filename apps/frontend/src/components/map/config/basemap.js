@@ -65,28 +65,15 @@ function rasterStyle({ tiles, attribution, maxzoom = 19, tileSize = 256, backgro
   };
 }
 
-// Subdomain-sharded hosts are written out rather than using the `{s}` token:
-// MapLibre has no such placeholder, and an array of URLs is how it shards.
-const carto = (variant) => ['a', 'b', 'c', 'd'].map(
-  (s) => `https://${s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}.png`,
-);
-
+// DARK AND LIGHT WERE REMOVED (2026-11-18). They used CARTO's keyless tile hosts, which
+// now answer every browser request with a watermarked "API KEY REQUIRED" tile, so both
+// styles drew as a blank grey/white map. Nothing else in the project is keyless and dark,
+// so they come back only with a CARTO key (or another free provider) behind them.
 export const BASEMAP_STYLES = {
   standard: rasterStyle({
     tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
     attribution: OSM_CREDIT,
     maxzoom: 19,
-  }),
-  light: rasterStyle({
-    tiles: carto('light_all'),
-    attribution: `${OSM_CREDIT}, © <a href="https://carto.com/attributions">CARTO</a>`,
-    maxzoom: 20,
-    background: '#f5f5f3',
-  }),
-  dark: rasterStyle({
-    tiles: carto('dark_all'),
-    attribution: `${OSM_CREDIT}, © <a href="https://carto.com/attributions">CARTO</a>`,
-    maxzoom: 20,
   }),
   satellite: rasterStyle({
     tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
@@ -99,7 +86,7 @@ export const BASEMAP_STYLES = {
 /** The order the style toggle walks. Satellite leads because it is the
  *  default (see TruegleMap's `style` prop), so the first press of the toggle
  *  moves AWAY from what is on screen rather than appearing to do nothing. */
-export const BASEMAP_ORDER = ['satellite', 'standard', 'dark', 'light'];
+export const BASEMAP_ORDER = ['satellite', 'standard'];
 
 export const getBasemapStyle = (name) => BASEMAP_STYLES[name] || BASEMAP_STYLES.standard;
 

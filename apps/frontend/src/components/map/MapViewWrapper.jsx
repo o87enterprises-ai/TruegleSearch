@@ -348,7 +348,7 @@ export default function MapViewWrapper({
   }, [isOpen, userLocation, detectedLocation]);
       
   const toggleMapStyle = () => {
-    const styles = ['standard', 'dark', 'light', 'satellite'];
+    const styles = ['standard', 'satellite'];
     const currentIndex = styles.indexOf(mapStyle);
     const nextStyle = styles[(currentIndex + 1) % styles.length];
     setMapStyle(nextStyle);

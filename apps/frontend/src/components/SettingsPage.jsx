@@ -9,6 +9,7 @@ import { useRewards } from '../context/RewardsContext';
 import { useAuth } from '../context/AuthContext';
 import { NuclearOptionButton } from './ui/SessionWipe';
 import AccountCodeModal from './ui/AccountCodeModal';
+import MoveLists from './ui/MoveLists';
 import authService from '../services/authService';
 import { formatMicros } from '../utils/rewardsFormat';
 import { clearHistory } from '../utils/searchHistory';
@@ -249,6 +250,8 @@ const SettingsPage = () => {
               <Link to="/offline" className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Offline hub</Link>
             </div>
           </div>
+
+          <MoveLists />
 
           {/* Privacy & Data */}
           <div id="search-storage" data-search-storage="" className="scroll-mt-6 p-6 rounded-lg bg-gradient-to-br from-[#1a1a2e]/95 to-[#16213e]/95 border border-emerald-500/20 shadow-xl">

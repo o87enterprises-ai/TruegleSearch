@@ -63,6 +63,7 @@ import PageClock from './components/ui/PageClock';
 import MiniPlayer from './components/ui/MiniPlayer';
 import InstallTruegle from './components/ui/InstallTruegle';
 import TrailGuideOffer from './components/ui/TrailGuideOffer';
+import ProfileImport from './components/ui/ProfileImport';
 import SafeSearchLockModal from './components/ui/SafeSearchLockModal';
 import TutorialModal from './components/ui/TutorialModal';
 import { useTutorials } from './context/TutorialContext';
@@ -331,6 +332,7 @@ const AppContent = () => {
       <TutorialModalRoot />
       <InstallTruegle />
       <TrailGuideOffer />
+      <ProfileImport />
       {/* NOTE: Do NOT wrap <Routes> in <AnimatePresence mode="wait">. The route
           elements have no motion exit variants, and the landing page runs several
           infinite framer-motion animations; mode="wait" then holds the new route

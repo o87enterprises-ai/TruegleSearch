@@ -443,6 +443,7 @@ export default function LandingPage() {
                 singleLine={pillMode === 'tube'}
                 showCameraInput={pillMode !== 'tube'}
                 showFileInput={pillMode !== 'tube'}
+                localMedia={pillMode === 'tube'}
                 // The bar wears the colour of the pill above it. These were
                 // hardcoded to green, so every mode but Green showed a bar that
                 // disagreed with the selector.

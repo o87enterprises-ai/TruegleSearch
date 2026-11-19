@@ -8,14 +8,64 @@ jest.mock('../services/OembedService', () => ({
   lookupMany: jest.fn(async (urls) => Object.fromEntries(urls.map((u) => [u, { author: 'Some Channel' }]))),
 }));
 
-const { fetchVideoLane, youtubeVideos, __cache } = require('../services/NewsVideoService');
+// The outlets' channel feeds: unreachable by default, so the original search tests below
+// still describe the fallback; the outlet tests turn them on.
+jest.mock('../services/YouTubeGateway', () => ({ channelUploads: jest.fn(async () => null) }));
+const Gateway = require('../services/YouTubeGateway');
+const { NEWS_OUTLETS } = require('../config/newsOutlets');
+
+const { fetchVideoLane, youtubeVideos, __cache, __outletCache } = require('../services/NewsVideoService');
 
 const rows = () => [
   { title: 'Markets close lower - YouTube', url: 'https://www.youtube.com/watch?v=abcdefghi01', date: new Date(Date.now() - 3600e3).toISOString() },
   { title: 'Older story - YouTube', url: 'https://www.youtube.com/watch?v=abcdefghi02', date: new Date(Date.now() - 5 * 86400e3).toISOString() },
 ];
 
-beforeEach(() => { __cache.clear(); mockPerform.mockReset(); mockPerform.mockResolvedValue(rows()); });
+beforeEach(() => {
+  __cache.clear(); __outletCache.at = 0; __outletCache.value = null;
+  mockPerform.mockReset(); mockPerform.mockResolvedValue(rows());
+  Gateway.channelUploads.mockReset(); Gateway.channelUploads.mockResolvedValue(null);
+});
+
+describe('the major outlets (world news, no topic)', () => {
+  const feed = (i, minsAgo) => ({
+    kind: 'rss',
+    data: `<feed><entry><yt:videoId>${String(i).padStart(11, 'a')}</yt:videoId><title>Story ${i}</title>`
+      + `<published>${new Date(Date.now() - minsAgo * 60e3).toISOString()}</published></entry></feed>`,
+  });
+
+  it('reads every listed outlet and does not need the search', async () => {
+    Gateway.channelUploads.mockImplementation(async (id) => feed(NEWS_OUTLETS.findIndex((o) => o.channelId === id), 10));
+    const { items } = await youtubeVideos('news', { limit: 50 });
+    expect(Gateway.channelUploads).toHaveBeenCalledTimes(NEWS_OUTLETS.length);
+    expect(items.length).toBe(NEWS_OUTLETS.length);
+    expect(new Set(items.map((v) => v.channel)).size).toBe(NEWS_OUTLETS.length);
+    expect(mockPerform).not.toHaveBeenCalled();
+  });
+
+  it('names the big outlets the owner asked for', () => {
+    const names = NEWS_OUTLETS.map((o) => o.name.toLowerCase());
+    ['fox news', 'cbs news', 'nbc news', 'al jazeera english', 'bbc news', 'wion', 'cnn', 'the weather channel']
+      .forEach((n) => expect(names).toContain(n));
+  });
+
+  it('an outlet that fails is skipped; all of them failing falls back to the search', async () => {
+    Gateway.channelUploads.mockImplementation(async (id) => (id === NEWS_OUTLETS[0].channelId ? feed(1, 5) : null));
+    expect((await youtubeVideos('news', { limit: 20 })).items.map((v) => v.channel)).toEqual([NEWS_OUTLETS[0].name]);
+    __cache.clear(); __outletCache.at = 0; __outletCache.value = null;
+    Gateway.channelUploads.mockResolvedValue(null);
+    await youtubeVideos('news', { limit: 20 });
+    expect(mockPerform).toHaveBeenCalled();
+  });
+
+  it('a typed topic, local news and markets are still searches', async () => {
+    Gateway.channelUploads.mockImplementation(async () => feed(1, 5));
+    await youtubeVideos('news', { topic: 'storm' });
+    await youtubeVideos('news', { scope: 'local', country: 'CA' });
+    await youtubeVideos('markets', {});
+    expect(mockPerform).toHaveBeenCalledTimes(3);
+  });
+});
 
 describe('fetchVideoLane', () => {
   it('returns posts in the shape every other lane uses, labelled for the provider list', async () => {
