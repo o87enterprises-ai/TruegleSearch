@@ -558,7 +558,9 @@ export default function TrueglePlayer({
   // report, so anything that isn't a primitive is dropped rather than
   // stringified into noise like "[object Event]".
   const skipBroken = useCallback((code) => {
-    if (!current) return;
+    // A file from the person's own device is never reported or auto-skipped: PlayerScreen
+    // shows "no longer on this device" with a Skip button instead.
+    if (!current || current.local || String(current.src || '').startsWith('tglocal:')) return;
     const errorCode = (typeof code === 'string' || typeof code === 'number') ? String(code) : undefined;
     trace('embed', { dead: true, code: errorCode });
     reportEvent({ reason: 'dead_error', kind: current.kind, errorCode });

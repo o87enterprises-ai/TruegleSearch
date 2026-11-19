@@ -52,6 +52,21 @@ const UNDER_CLOCK_TOP = 56;
 
 const clampW = (w) => Math.max(MIN_W, Math.min(w, MAX_W, window.innerWidth - 16));
 
+// WHERE THE MINIMIZED PLAYER PARKS. Press-and-hold the bar for HOLD_MS, then drag it
+// anywhere; the dock button snaps it to the bottom-right corner (and it can still be
+// dragged from there). Remembered across visits.
+const PARK_KEY = 'truegle_player_park';
+const HOLD_MS = 350;
+const PARK_W = () => Math.min(320, (typeof window !== 'undefined' ? window.innerWidth : 360) - 24);
+const loadPark = () => {
+  try {
+    const p = JSON.parse(localStorage.getItem(PARK_KEY) || 'null');
+    if (p?.corner === 'br') return { corner: 'br' };
+    if (p && Number.isFinite(p.left) && Number.isFinite(p.top)) return { left: p.left, top: p.top };
+  } catch { /* private mode / bad data */ }
+  return null;
+};
+
 const loadGeom = () => {
   try {
     const g = JSON.parse(localStorage.getItem(GEOM_KEY) || 'null');
@@ -96,6 +111,12 @@ export default function MiniPlayer() {
   const [pos, setPos] = useState(saved.current?.pos || null); // {left, top}; null = docked
   const [width, setWidth] = useState(saved.current?.width || DEFAULT_W);
   const [dragging, setDragging] = useState(false);
+  // Where the MINIMIZED player sits: null = the default top-right corner, {corner:'br'} =
+  // docked bottom-right, {left, top} = wherever it was dragged to.
+  const [park, setPark] = useState(loadPark);
+  useEffect(() => {
+    try { localStorage.setItem(PARK_KEY, JSON.stringify(park)); } catch { /* private mode */ }
+  }, [park]);
   // MOVE MODE IS GONE. It was a state you switched on before you could drag,
   // because an iframe swallows pointer events so the picture could not be a
   // drag handle. A desktop window does not work that way and never needed to:
@@ -386,7 +407,12 @@ export default function MiniPlayer() {
     const d = drag.current;
     if (!d) return;
     e.preventDefault();
-    if (d.mode === 'move') {
+    if (d.mode === 'park') {
+      setPark({
+        left: Math.max(4, Math.min(e.clientX - d.dx, window.innerWidth - d.w - 4)),
+        top: Math.max(4, Math.min(e.clientY - d.dy, window.innerHeight - d.h - 4)),
+      });
+    } else if (d.mode === 'move') {
       const left = Math.max(4, Math.min(e.clientX - d.dx, window.innerWidth - 80));
       const top = Math.max(4, Math.min(e.clientY - d.dy, window.innerHeight - 40));
       setPos({ left, top });
@@ -404,7 +430,7 @@ export default function MiniPlayer() {
   }, [onMove]);
 
   const begin = useCallback((e, spec) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     drag.current = spec;
     setDragging(true);
     window.addEventListener('pointermove', onMove, { passive: false });
@@ -417,6 +443,39 @@ export default function MiniPlayer() {
     const rect = e.currentTarget.closest('[data-mini]').getBoundingClientRect();
     begin(e, { mode: 'move', dx: e.clientX - rect.left, dy: e.clientY - rect.top });
   }, [begin]);
+
+  // Minimized bar: HOLD (HOLD_MS) then drag. A tap or a swipe that starts on a button, or
+  // that moves before the hold completes, is left alone so the controls still work.
+  const hold = useRef(null);
+  const cancelHold = useCallback(() => {
+    if (!hold.current) return;
+    clearTimeout(hold.current.timer);
+    hold.current.off();
+    hold.current = null;
+  }, []);
+  const startParkHold = useCallback((e) => {
+    if (e.target.closest('button, input, a')) return;
+    cancelHold();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const spec = { mode: 'park', dx: e.clientX - rect.left, dy: e.clientY - rect.top, w: rect.width, h: rect.height };
+    const x0 = e.clientX; const y0 = e.clientY;
+    const onTravel = (ev) => { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 8) cancelHold(); };
+    const off = () => {
+      window.removeEventListener('pointermove', onTravel);
+      window.removeEventListener('pointerup', cancelHold);
+      window.removeEventListener('pointercancel', cancelHold);
+    };
+    window.addEventListener('pointermove', onTravel);
+    window.addEventListener('pointerup', cancelHold);
+    window.addEventListener('pointercancel', cancelHold);
+    hold.current = {
+      off,
+      timer: setTimeout(() => { off(); hold.current = null; begin(null, spec); }, HOLD_MS),
+    };
+  }, [begin, cancelHold]);
+  useEffect(() => cancelHold, [cancelHold]);
+
+  const dockBottomRight = useCallback(() => setPark({ corner: 'br' }), []);
 
   const startResize = useCallback((e) => {
     e.stopPropagation();
@@ -443,6 +502,10 @@ export default function MiniPlayer() {
       setPos((p) => (p ? {
         left: Math.max(4, Math.min(p.left, window.innerWidth - 80)),
         top: Math.max(4, Math.min(p.top, window.innerHeight - 40)),
+      } : p));
+      setPark((p) => (p && p.left != null ? {
+        left: Math.max(4, Math.min(p.left, window.innerWidth - PARK_W() - 4)),
+        top: Math.max(4, Math.min(p.top, window.innerHeight - 52)),
       } : p));
     };
     window.addEventListener('resize', onResize);
@@ -583,9 +646,19 @@ export default function MiniPlayer() {
 
   const style = parked
     ? {
-      top: UNDER_CLOCK_TOP,
-      right: 12,
+      ...(park?.corner === 'br'
+        ? { right: 8, bottom: 12 + keyboardInset }
+        : park
+          ? {
+            left: Math.max(4, Math.min(park.left, (typeof window !== 'undefined' ? window.innerWidth : 360) - PARK_W() - 4)),
+            top: Math.max(4, Math.min(park.top, visible - 52)),
+          }
+          : { top: UNDER_CLOCK_TOP, right: 12 }),
       width: 'min(320px, calc(100vw - 24px))',
+      // The hold-to-drag needs the browser's own scroll/select/menu gestures out of the way.
+      touchAction: 'none',
+      userSelect: 'none',
+      cursor: dragging ? 'grabbing' : 'grab',
     }
     : docked
     ? {
@@ -693,6 +766,10 @@ export default function MiniPlayer() {
           // round would draw a line through the middle of one surface.
           padding: docked ? '0 1.5px 1.5px' : 1.5,
         }}
+        // Minimized: press and hold to pick it up and move it (see startParkHold).
+        onPointerDown={parked ? startParkHold : undefined}
+        onContextMenu={parked ? (e) => e.preventDefault() : undefined}
+        title={parked ? 'Press and hold to move' : undefined}
         // Docked: ABSOLUTE in the page, so it scrolls with it natively (see the
         // measure() note). Every other form floats over the page and stays fixed.
         className={`${docked ? 'absolute' : 'fixed'} shadow-2xl transition-shadow ${dragging ? 'select-none' : ''} ${
@@ -720,6 +797,7 @@ export default function MiniPlayer() {
             accent={accent || undefined}
             onExpand={() => { setPeekOpen(true); if (minimized) toggleMinimize(); }}
             onClose={close}
+            onDock={parked ? dockBottomRight : undefined}
           />
         )}
 

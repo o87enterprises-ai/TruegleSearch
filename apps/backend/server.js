@@ -31,6 +31,8 @@ const ALLOWED_ORIGINS = [
   'https://www.trumpafi.online',
   'https://truegle.info',
   'https://www.truegle.info',
+  // The Android app (Capacitor, apps/android) serves its bundled web build from this origin.
+  'https://localhost',
   /\.ngrok-free\.app$/,
   /\.ngrok\.io$/,
   /\.vercel\.app$/,
@@ -346,6 +348,7 @@ app.use('/api/osint-tools', require('./routes/osint-proxy'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/extract', require('./routes/extract'));
 app.use('/api/share', require('./routes/share'));
+app.use('/api/move', require('./routes/moveLists'));
 app.use('/api/reels', require('./routes/reels'));
 app.use('/api/media', require('./routes/media'));
 app.use('/api/player', require('./routes/player'));

@@ -13,6 +13,7 @@ import MapApiService from '../map/services/mapApi';
 import VoiceRecognition from './VoiceRecognition';
 import CameraInput from './CameraInput';
 import FileInput from './FileInput';
+import LocalMediaButton from './LocalMediaButton';
 import { downscaleImage } from '../../utils/downscaleImage';
 import { usePlayer } from '../../context/PlayerContext';
 import { getHistory, addHistory, removeHistory, clearHistory } from '../../utils/searchHistory';
@@ -905,6 +906,8 @@ export default function SearchBar({
   // Tube keeps voice (talk-to-text) but drops camera + file.
   showCameraInput = true,
   showFileInput = true,
+  // Tube: the paperclip adds media from the device to the player (LocalMediaButton).
+  localMedia = false,
   isOSINTMode = false,
   onOSINTToggle,
   // Category Props
@@ -1716,7 +1719,7 @@ const handleChange = useCallback((e) => {
     // reserving a flat 120px for three icons when one is shown stole 80px of
     // text from the narrowest bar on the site.
     const mediaIcons = showMultiInput
-      ? 1 + (showCameraInput ? 1 : 0) + (showFileInput ? 1 : 0)
+      ? 1 + (showCameraInput ? 1 : 0) + (showFileInput || localMedia ? 1 : 0)
       : 0;
     if (mediaIcons) {
       if (variant === 'chat' || mediaCollapsed) padding += mediaOpen ? 34 + mediaIcons * 38 : 34;
@@ -2246,9 +2249,11 @@ const handleChange = useCallback((e) => {
 
               </>
               )}
-              {showFileInput && (
+              {(showFileInput || localMedia) && (
               <>
-              {/* File Input */}
+              {/* Tube: the paperclip adds audio/video from the device to the player
+                  (play, queue or list) instead of attaching a file to a search. */}
+              {localMedia ? <LocalMediaButton size={config.iconSize - 4} /> : (
               <FileInput
                 onFileSelect={(files) => {
                   if (!files || files.length === 0) return;
@@ -2307,6 +2312,7 @@ const handleChange = useCallback((e) => {
                 }}
                 size={config.iconSize - 4}
               />
+              )}
 
               </>
               )}

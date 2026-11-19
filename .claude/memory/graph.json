@@ -2368,6 +2368,22 @@
         "body": "Saved-list actions (ListRowActions, used by grid cards, player list, viewport deck) gained a List button -> components/player/ListTracksDialog.jsx (portal dialog, z-[10000], bottom sheet on phone). Rows = saved order with poster/title/channel; playing track marked aria-current; pressing a row = playList(items,'tube',list.id,i) so Next stays in the list (same as PlayerLibrary). Live via usePlaylists; deleted list closes it; Esc/Close/backdrop close. Saved lists only: public playlists have no fetch-without-saving path (importPlaylist saves), so they get List after Save list. Test: apps/frontend/scripts/verify-list-tracks.mjs (npm run listtracks:test). In the cloud box run browser tests by symlinking the global playwright into apps/frontend/node_modules (untracked): ln -sfn /opt/node22/lib/node_modules/playwright apps/frontend/node_modules/playwright.",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "guide-offline-2026-11-18": {
+        "Id": "guide-offline-2026-11-18",
+        "Type": "decision",
+        "Label": "Guide at /guide + offline hub",
+        "body": "Guide unlocks via real account or prior unlock (vault, permanent). /guide, /offline routes; SW caches ROMs/game art/map tiles; Capacitor Android shell in apps/android (APK via .github/workflows/android.yml; no local Android SDK).",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
+      },
+      "move-short-links": {
+        "Id": "move-short-links",
+        "Type": "decision",
+        "Label": "Move-lists short links (2026-11-19)",
+        "body": "Settings Share button makes truegle.info/#move=<id>.<key>: browser AES-GCM encrypts the TG1 code, POST /api/move stores ciphertext only (table move_links, migration 029, 24h TTL, deleted after import), key lives in the #fragment. Falls back to the long #profile= link if server/db unavailable. No new env vars; works on Render and Vercel.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
       }
     },
     "thread": {
@@ -3001,15 +3017,6 @@
         "ts": "2026-11-12",
         "created": "2026-11-12"
       },
-      "gateway-host-cloudflare-worker": {
-        "Id": "gateway-host-cloudflare-worker",
-        "Type": "thread",
-        "Label": "PROPOSED (needs owner go): host the search gateway as a Cloudflare Worker instead of an HF Space",
-        "body": "Cloudflare account already has Workers enabled (workers.dev subdomain 'o87enterprises', 20 existing scripts incl. o87-ollama-proxy, trumpafi-proxy), account id 1052be08b0c9382768667a9254936f9c, creds in env (cloudflare-creds-in-env). Why a Worker: $0 free tier, no card, no sleep/cold start (unlike free Render-style hosts), second egress IP + failure domain separate from Vercel and EC2. Needs: a framework-agnostic core extracted from gatewayServer.js (express wrapper + Worker fetch handler share it), esbuild bundle with axios fetch adapter, deploy via API with the token as a secret_text binding, matching SEARCH_GATEWAY_TOKEN + SEARCH_GATEWAY_URL set on Vercel prod (Vercel connector available) and a redeploy. Limits to respect: 10ms CPU/invocation, 50 subrequests, 100k req/day (fallback traffic is tiny). Risk: some providers may block Cloudflare Worker IPs - test each provider from the deployed Worker before wiring. DO NOT deploy or touch Vercel prod env until the owner says go.",
-        "status": "done",
-        "ts": "2026-11-18",
-        "created": "2026-11-12"
-      },
       "render-migrations-mismatch": {
         "Id": "render-migrations-mismatch",
         "Type": "thread",
@@ -3018,6 +3025,15 @@
         "status": "open",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "gateway-host-cloudflare-worker": {
+        "Id": "gateway-host-cloudflare-worker",
+        "Type": "thread",
+        "Label": "PROPOSED (needs owner go): host the search gateway as a Cloudflare Worker instead of an HF Space",
+        "body": "Cloudflare account already has Workers enabled (workers.dev subdomain 'o87enterprises', 20 existing scripts incl. o87-ollama-proxy, trumpafi-proxy), account id 1052be08b0c9382768667a9254936f9c, creds in env (cloudflare-creds-in-env). Why a Worker: $0 free tier, no card, no sleep/cold start (unlike free Render-style hosts), second egress IP + failure domain separate from Vercel and EC2. Needs: a framework-agnostic core extracted from gatewayServer.js (express wrapper + Worker fetch handler share it), esbuild bundle with axios fetch adapter, deploy via API with the token as a secret_text binding, matching SEARCH_GATEWAY_TOKEN + SEARCH_GATEWAY_URL set on Vercel prod (Vercel connector available) and a redeploy. Limits to respect: 10ms CPU/invocation, 50 subrequests, 100k req/day (fallback traffic is tiny). Risk: some providers may block Cloudflare Worker IPs - test each provider from the deployed Worker before wiring. DO NOT deploy or touch Vercel prod env until the owner says go.",
+        "status": "done",
+        "ts": "2026-11-18",
+        "created": "2026-11-12"
       },
       "feed-cron-restore": {
         "Id": "feed-cron-restore",
@@ -4576,6 +4592,22 @@
         "ts": "2026-11-12",
         "created": "2026-11-12"
       },
+      "render-backend-live": {
+        "Id": "render-backend-live",
+        "Type": "fact",
+        "Label": "Backend live on Render (api.truegle.info)",
+        "body": "truegle-backend on Render free (srv-dbsf2hs9v7es73chgmg0, Oregon, Docker) serves api.truegle.info; Vercel backend dead (402). Prod DB = Neon project neon-coquelicot-harbor (polished-sea-42903880). Env set via Render dashboard (render.yaml lists only 4). Sign-in/chat/search verified 2026-11-16. Intentionally unset: ANTHROPIC, NEPHESH, REDDIT, BRAVE/BING/SERP/GOOGLE search keys (SearXNG needs none). If sign-in 500s, check RESEND_API_KEY exists and Resend Logs show a send attempt.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
+      },
+      "two-backends-one-codebase": {
+        "Id": "two-backends-one-codebase",
+        "Type": "fact",
+        "Label": "Render + Vercel backends must stay in sync",
+        "body": "Both deploy from main (Render live behind api.truegle.info; Vercel project backend prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI standby, currently blocked, behind main since #158). Merge to main IS the sync; keep code host-agnostic (VERCEL/RENDER guards only); env vars + DB do NOT sync via git; switch = repoint api.truegle.info. Checklist in HANDOFF.md 2026-11-17.",
+        "ts": "2026-11-17",
+        "created": "2026-11-17"
+      },
       "prod-verified-2026-11-12": {
         "Id": "prod-verified-2026-11-12",
         "Type": "fact",
@@ -4599,22 +4631,6 @@
         "body": "2026-11-12: 'hf repos create truegleai/truegle-search-gateway --type space --sdk docker --public' -> 402 'Static Spaces are free for everyone, but hosting Gradio and Docker Spaces on free cpu-basic requires a PRO subscription' (huggingface.co/pro). HF username = truegleai. Earlier memory/plan claims that a free HF CPU Docker Space (2vCPU/16GB, no card) is available are OUT OF DATE. Violates the $0 budget: do NOT subscribe to PRO. AFFECTED: docs/OSINT-SERVICE-PLAN.md + services/osint-python (thread osint-python-service assumes an HF Docker Space) and services/search-gateway/README.md (Space deploy steps). Static Spaces are free but cannot run server code. The host-agnostic parts survive: openSearch/gatewayServer.js, gateway.js client, pool fallback tier, secrets map names.",
         "ts": "2026-11-12",
         "created": "2026-11-12"
-      },
-      "render-backend-live": {
-        "Id": "render-backend-live",
-        "Type": "fact",
-        "Label": "Backend live on Render (api.truegle.info)",
-        "body": "truegle-backend on Render free (srv-dbsf2hs9v7es73chgmg0, Oregon, Docker) serves api.truegle.info; Vercel backend dead (402). Prod DB = Neon project neon-coquelicot-harbor (polished-sea-42903880). Env set via Render dashboard (render.yaml lists only 4). Sign-in/chat/search verified 2026-11-16. Intentionally unset: ANTHROPIC, NEPHESH, REDDIT, BRAVE/BING/SERP/GOOGLE search keys (SearXNG needs none). If sign-in 500s, check RESEND_API_KEY exists and Resend Logs show a send attempt.",
-        "ts": "2026-11-17",
-        "created": "2026-11-17"
-      },
-      "two-backends-one-codebase": {
-        "Id": "two-backends-one-codebase",
-        "Type": "fact",
-        "Label": "Render + Vercel backends must stay in sync",
-        "body": "Both deploy from main (Render live behind api.truegle.info; Vercel project backend prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI standby, currently blocked, behind main since #158). Merge to main IS the sync; keep code host-agnostic (VERCEL/RENDER guards only); env vars + DB do NOT sync via git; switch = repoint api.truegle.info. Checklist in HANDOFF.md 2026-11-17.",
-        "ts": "2026-11-17",
-        "created": "2026-11-17"
       },
       "backend-on-render-2026-11-18": {
         "Id": "backend-on-render-2026-11-18",
@@ -4660,5 +4676,5 @@
       }
     }
   },
-  "updated": "2026-11-18"
+  "updated": "2026-11-19"
 }

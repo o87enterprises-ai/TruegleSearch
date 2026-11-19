@@ -50,6 +50,8 @@
 /auth/*           /_index  200
 /onboarding       /_index  200
 /settings         /_index  200
+/guide            /_index  200
+/offline          /_index  200
 /rewards          /_index  200
 
 # Retired 2026-09-28: Truegle carries no ads (docs/AD-POLICY.md), so the ad-sales

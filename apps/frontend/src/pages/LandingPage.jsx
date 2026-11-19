@@ -443,6 +443,7 @@ export default function LandingPage() {
                 singleLine={pillMode === 'tube'}
                 showCameraInput={pillMode !== 'tube'}
                 showFileInput={pillMode !== 'tube'}
+                localMedia={pillMode === 'tube'}
                 // The bar wears the colour of the pill above it. These were
                 // hardcoded to green, so every mode but Green showed a bar that
                 // disagreed with the selector.
@@ -644,6 +645,23 @@ export default function LandingPage() {
               <div>
                 <h4 className="text-title-small text-white mb-4">Product</h4>
                 <ul className="space-y-2">
+                  <li>
+                    <a
+                      href="/guide"
+                      data-landing-guide=""
+                      className="text-body-medium text-emerald-300 hover:text-emerald-200 transition-colors"
+                    >
+                      Free Survival Guide
+                    </a>
+                  </li>
+                  <li>
+                    <a
+                      href="/offline"
+                      className="text-body-medium text-gray-400 hover:text-purple-400 transition-colors"
+                    >
+                      Works Offline
+                    </a>
+                  </li>
                   <li>
                     <a
                       href="/search"

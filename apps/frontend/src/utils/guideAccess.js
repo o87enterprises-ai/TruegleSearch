@@ -14,7 +14,9 @@ export const GUIDE_NAME = 'The Survivor’s Encyclopedia';
 /** Any address no page owns lands on the 404 page, which is where Trail lives. */
 export const TRAIL_PATH = '/this-does-not-exist';
 export const PLAY_URL = `${TRAIL_PATH}?play=1`;
-export const GUIDE_URL = `${TRAIL_PATH}?guide=1`;
+/** The guide's own address — a real page, shareable, and readable offline once unlocked. */
+export const GUIDE_PATH = '/guide';
+export const GUIDE_URL = GUIDE_PATH;
 /** Same key the install popup used, so every script that silences it silences this. */
 export const OFFER_DISMISS_KEY = 'truegle_install_dismissed_at';
 export const OFFER_REMIND_AFTER_MS = 21 * 24 * 60 * 60 * 1000;
@@ -26,6 +28,16 @@ export function isRealAccount(user, token) {
   if (String(user.id || '').startsWith('guest_')) return false;
   if (String(token || '').startsWith('guest_')) return false;
   return true;
+}
+
+/**
+ * Does this browser hold the guide? A real account unlocks it (and that is stored, so it
+ * stays unlocked offline and after sign-out); an earlier unlock never expires.
+ */
+export function guideUnlocked(user, token, vaultFound, findVault) {
+  if (vaultFound()) return true;
+  if (isRealAccount(user, token)) { findVault('guide'); return true; }
+  return false;
 }
 
 /** What the 404 page was asked to open: ?play=1 starts Trail, ?guide=1 opens the guide. */

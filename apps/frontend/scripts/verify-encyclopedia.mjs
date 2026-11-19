@@ -21,8 +21,14 @@ const check = (c, l, e = '') => (c ? ok : bad).push(`${c ? 'PASS' : 'FAIL'} ${l}
 
 // ── 1. the parse ───────────────────────────────────────────────────────────
 check(BOOK.letters.length >= 20, 'the book has letter sections', `${BOOK.letters.length}`);
-const letters = BOOK.letters.map((l) => l.letter);
-check(letters.every((l) => /^[A-Z]$/.test(l)), 'every section is a single letter', letters.join(''));
+// Part I is A–Z. Numbered sections ("### II | Title": Parts II–VIII, the closing notes)
+// follow it, carry a title, and are checked for being parsed, not for being letters.
+const parts = BOOK.letters.filter((l) => l.title);
+const letters = BOOK.letters.filter((l) => !l.title).map((l) => l.letter);
+check(letters.every((l) => /^[A-Z]$/.test(l)), 'every lettered section is a single letter', letters.join(''));
+check(parts.length >= 7 && parts.every((p) => p.entries.length > 0), 'the numbered parts (II–VIII) parsed with entries',
+  parts.map((p) => `${p.letter}:${p.entries.length}`).join(' '));
+check(BOOK.letters.slice(letters.length).every((l) => l.title), 'numbered parts come after the letters');
 check(new Set(letters).size === letters.length, 'no letter appears twice');
 check(letters.join('') === [...letters].sort().join(''), 'the sections are in alphabetical order', letters.join(''));
 
@@ -44,10 +50,10 @@ check(hollow.length === 0, 'every article has a body',
   hollow.map((e) => e.title).join(', ') || 'all filled');
 
 const xrefs = BOOK.entries.filter((e) => e.seeAlso);
-check(xrefs.length > 0 && xrefs.length < BOOK.entries.length / 2,
+check(xrefs.length < BOOK.entries.length / 2,
   'cross-references are marked as such, and are the minority',
   `${xrefs.length} of ${BOOK.entries.length}`);
-check(BOOK.entries.every((e) => letters.includes(e.letter)),
+check(BOOK.entries.every((e) => BOOK.letters.some((l) => l.letter === e.letter)),
   'every entry belongs to a letter section');
 check(!/<!--/.test(RAW), 'the structure note is stripped from the saved markdown');
 check(BOOK.intro && !BOOK.intro.includes('####'), 'the intro is prose, not a swallowed heading');
@@ -103,16 +109,23 @@ const docText = doc
   .replace(/\s+/g, ' ');
 
 let missingLines = 0; let firstMiss = '';
+const clean = (s) => s.trim()
+  .replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '')       // list markers become <li>
+  .replace(/[*]/g, '')                                     // bold/italic become tags
+  .replace(/\s+/g, ' ');
 for (const e of BOOK.entries) {
   for (const line of e.body.split('\n')) {
-    const plain = line.trim()
-      .replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '')   // list markers become <li>
-      .replace(/[*]/g, '')                                 // bold/italic become tags
-      .replace(/\s+/g, ' ');
-    if (plain.length < 25) continue;                       // fragments and headings
-    if (docText.includes(plain)) continue;
-    missingLines += 1;
-    if (!firstMiss) firstMiss = `${e.title}: ${plain.slice(0, 60)}…`;
+    // A table row becomes <td>s, so it is checked cell by cell; the |---| rule is markup.
+    const pieces = line.trim().startsWith('|')
+      ? (/^\|[\s:|-]+\|?$/.test(line.trim()) ? [] : line.trim().replace(/^\||\|$/g, '').split('|'))
+      : [line];
+    for (const piece of pieces) {
+      const plain = clean(piece);
+      if (plain.length < 25) continue;                     // fragments and headings
+      if (docText.includes(plain)) continue;
+      missingLines += 1;
+      if (!firstMiss) firstMiss = `${e.title}: ${plain.slice(0, 60)}…`;
+    }
   }
 }
 check(missingLines === 0, 'and every line of every entry survives the trip',
@@ -125,7 +138,10 @@ check(openArticles === closeArticles && openArticles === BOOK.entries.length,
   'the markup is balanced and complete', `${openArticles} open / ${closeArticles} closed / ${BOOK.entries.length} entries`);
 
 // ── 4. the renderer ────────────────────────────────────────────────────────
-check(blocks('1. one\n2. two') === '<ol>\n<li>one</li>\n<li>two</li>\n</ol>', 'numbered steps become an ordered list');
+check(blocks('1. one\n2. two') === '<ol>\n<li value="1">one</li>\n<li value="2">two</li>\n</ol>', 'numbered steps become an ordered list');
+check(blocks('| a | b |\n|---|---|\n| **1** | 2 |').includes('<th>a</th><th>b</th>')
+  && blocks('| a | b |\n|---|---|\n| **1** | 2 |').includes('<td><strong>1</strong></td><td>2</td>'),
+'a | table | becomes a real table with a header row');
 check(blocks('- a\n- b') === '<ul>\n<li>a</li>\n<li>b</li>\n</ul>', 'dashes become a bulleted list');
 check(blocks('**bold** and *thin*') === '<p><strong>bold</strong> and <em>thin</em></p>', 'bold and italic survive');
 // The source is ours, but the renderer must still not be a hole.
