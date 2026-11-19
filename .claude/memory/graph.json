@@ -2409,6 +2409,14 @@
         "ts": "2026-11-19",
         "created": "2026-11-19"
       },
+      "lite-switch-placement": {
+        "Id": "lite-switch-placement",
+        "Type": "decision",
+        "Label": "Lite switch placement (2026-11-19)",
+        "body": "LiteModeSwitch.jsx: chip fixed top-[52px] right-3 under PageClock (rendered by PageClock), row in BrandBar hamburger drawer after Settings, plus Settings → Performance card. MiniPlayer UNDER_CLOCK_TOP moved 56→84 to clear the chip. All sync via liteMode onLiteChange.",
+        "ts": "2026-11-19",
+        "created": "2026-11-19"
+      },
       "seo-title-length-seoTitle": {
         "Id": "seo-title-length-seoTitle",
         "Type": "decision",
