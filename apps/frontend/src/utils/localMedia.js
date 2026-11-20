@@ -12,6 +12,8 @@
 
 const DB = 'truegle-media';
 const STORE = 'files';
+const PARTIALS = 'partials'; // one row per unfinished download: { origin, title, got, total, type, modified }
+const PARTS = 'parts';       // the downloaded pieces, keyed `${origin}\u0000${seq}` — stored as Blobs, so never held in memory
 export const LOCAL_PREFIX = 'tglocal:';
 
 export const isLocalSrc = (src) => typeof src === 'string' && src.startsWith(LOCAL_PREFIX);
@@ -19,23 +21,30 @@ export const isLocalSrc = (src) => typeof src === 'string' && src.startsWith(LOC
 function open() {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined') { reject(new Error('no storage')); return; }
-    const req = indexedDB.open(DB, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: 'id' });
+    const req = indexedDB.open(DB, 2);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(PARTIALS)) db.createObjectStore(PARTIALS, { keyPath: 'origin' });
+      if (!db.objectStoreNames.contains(PARTS)) db.createObjectStore(PARTS);
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
-async function tx(mode, fn) {
+/** Runs `fn(transaction)` over one or more stores; resolves with fn's returned request's result. */
+async function txm(stores, mode, fn) {
   const db = await open();
   return new Promise((resolve, reject) => {
-    const t = db.transaction(STORE, mode);
-    const out = fn(t.objectStore(STORE));
+    const t = db.transaction(stores, mode);
+    const out = fn(t);
     t.oncomplete = () => { db.close(); resolve(out?.result); };
     t.onerror = () => { db.close(); reject(t.error); };
     t.onabort = () => { db.close(); reject(t.error); };
   });
 }
+const tx = (mode, fn, store = STORE) => txm(store, mode, (t) => fn(t.objectStore(store)));
 
 const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
@@ -93,31 +102,97 @@ async function assertRoom(bytes) {
 
 const AUDIO_EXT = /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac)(\?|#|$)/i;
 
-/** Reads a response body chunk by chunk so progress and cancel work, and stops early if it won't fit. */
-async function readBody(res, { signal, onProgress }) {
-  const total = Number(res.headers.get('content-length')) || 0;
-  await assertRoom(total);
-  if (!res.body?.getReader) { // old browser: no streaming, no progress
+const FLUSH_AT = 4e6; // write a piece to disk every ~4 MB, so progress survives a cancel, a crash or a dropped connection
+const partKey = (origin, seq) => `${origin}\u0000${String(seq).padStart(6, '0')}`;
+const partRange = (origin) => IDBKeyRange.bound(`${origin}\u0000`, `${origin}\u0000\uffff`);
+
+const getPartial = (origin) => tx('readonly', (s) => s.get(origin), PARTIALS).catch(() => null);
+
+/** Downloads that were started but not finished — they can be resumed. */
+export async function listPartials() {
+  const rows = await tx('readonly', (s) => s.getAll(), PARTIALS).catch(() => []);
+  return (rows || []).sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+/** Throws a half-finished download away and frees its space. */
+export async function discardPartial(origin) {
+  await txm([PARTIALS, PARTS], 'readwrite', (t) => {
+    t.objectStore(PARTIALS).delete(origin);
+    return t.objectStore(PARTS).delete(partRange(origin));
+  }).catch(() => {});
+  window.dispatchEvent(new Event('truegle-local-media'));
+}
+
+/**
+ * Downloads `src` in pieces kept on disk. If a partial exists it asks the server for just the rest
+ * (`Range: bytes=N-`, a header browsers allow cross-site without a permission round-trip). If the
+ * server ignores that, or the file changed since, it starts over. Returns the finished Blob.
+ */
+async function download(src, title, { signal, onProgress }) {
+  let part = await getPartial(src);
+  const start = part?.got || 0;
+  let res;
+  try { res = await fetch(src, { mode: 'cors', signal, ...(start ? { headers: { Range: `bytes=${start}-` } } : {}) }); }
+  catch (e) {
+    if (e?.name === 'AbortError') throw e;
+    throw new Error('That site does not allow saving its media to this device.');
+  }
+  if (!res.ok) throw new Error('The source refused the download.');
+  const len = Number(res.headers.get('content-length')) || 0;
+  const modified = res.headers.get('last-modified') || '';
+  const resumed = start > 0 && res.status === 206 && len > 0 && start + len === part.total && (!part.modified || !modified || part.modified === modified);
+  if (start && !resumed) { await discardPartial(src); part = null; } // restart cleanly
+  const base = resumed ? start : 0;
+  const total = resumed ? part.total : len;
+  await assertRoom(resumed ? len : total);
+  try { await navigator.storage?.persist?.(); } catch { /* optional */ }
+
+  const type = (res.headers.get('content-type') || '').split(';')[0];
+  const meta = { origin: src, title, got: base, total, type, modified, updatedAt: Date.now() };
+  let seq = resumed ? (await txm(PARTS, 'readonly', (t) => t.objectStore(PARTS).count(partRange(src)))) : 0;
+  let pending = []; let pendingBytes = 0; let got = base;
+  let free = (await storageStatus()).free;
+  const flush = async () => {
+    if (!pendingBytes) return;
+    const blob = new Blob(pending, { type });
+    meta.got = got; meta.updatedAt = Date.now();
+    pending = []; pendingBytes = 0;
+    try {
+      await txm([PARTIALS, PARTS], 'readwrite', (t) => {
+        t.objectStore(PARTS).put(blob, partKey(src, seq++));
+        return t.objectStore(PARTIALS).put(meta);
+      });
+    } catch (e) { throw e?.name === 'QuotaExceededError' ? new FullError() : e; }
+  };
+
+  if (!res.body?.getReader) { // old browser: no streaming, so no progress or resume
     const blob = await res.blob();
     onProgress?.(blob.size, blob.size);
-    return { blob, total: blob.size };
+    return blob;
   }
   const reader = res.body.getReader();
-  const parts = [];
-  let got = 0;
-  let free = (await storageStatus()).free;
   try {
     for (;;) {
       if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError');
       const { done, value } = await reader.read();
       if (done) break;
-      parts.push(value);
-      got += value.byteLength;
-      if (!total && free != null && got > free - HEADROOM) throw new FullError(); // size unknown: watch as it grows
+      pending.push(value); pendingBytes += value.byteLength; got += value.byteLength;
+      if (!total && free != null && got - base > free - HEADROOM) throw new FullError(); // size unknown: watch as it grows
       onProgress?.(got, total);
+      if (pendingBytes >= FLUSH_AT) await flush();
     }
-  } catch (e) { reader.cancel().catch(() => {}); throw e; }
-  return { blob: new Blob(parts, { type: res.headers.get('content-type') || '' }), total: got };
+    await flush();
+  } catch (e) {
+    reader.cancel().catch(() => {});
+    if (e?.name === 'FullError') { await discardPartial(src); throw e; } // no room: don't keep hogging what little there is
+    await flush().catch(() => {});                                       // cancel / lost connection: keep what arrived
+    window.dispatchEvent(new Event('truegle-local-media'));
+    throw e;
+  }
+  if (total && got !== total) throw new Error('The download stopped early. Try again to continue it.');
+  // Join the stored pieces. They are Blob references, so this does not copy the file into memory.
+  const rows = await txm(PARTS, 'readonly', (t) => t.objectStore(PARTS).getAll(partRange(src)));
+  return new Blob(rows, { type });
 }
 
 /**
@@ -126,28 +201,24 @@ async function readBody(res, { signal, onProgress }) {
  * saved by any app — they only exist inside the provider's own player — and some hosts forbid
  * cross-site downloads; both come back as a plain message.
  *
- * Streams the download so `onProgress(received, total)` can drive a meter (total is 0 when the
- * host doesn't say), `signal` cancels it, and a file that won't fit is refused up front. A link
- * already saved is returned as-is rather than downloaded twice.
+ * `onProgress(received, total)` drives a meter (total is 0 when the host doesn't say); `signal`
+ * pauses it, and calling this again for the same link CONTINUES from where it stopped. A file
+ * that won't fit is refused up front; a link already saved is returned as-is.
  */
 export async function saveRemoteMedia(src, title = 'Saved media', { signal, onProgress } = {}) {
   const existing = await findByOrigin(src);
   if (existing) return { kind: existing.kind, src: LOCAL_PREFIX + existing.id, title, local: true, already: true };
-  let res;
-  try { res = await fetch(src, { mode: 'cors', signal }); }
-  catch (e) {
-    if (e?.name === 'AbortError') throw e;
-    throw new Error('That site does not allow saving its media to this device.');
-  }
-  if (!res.ok) throw new Error('The source refused the download.');
-  const { blob } = await readBody(res, { signal, onProgress });
+  const blob = await download(src, title, { signal, onProgress });
   const guess = AUDIO_EXT.test(src) ? 'audio/mpeg' : 'video/mp4';
-  const type = blob.type && blob.type !== 'application/octet-stream' ? blob.type.split(';')[0] : guess;
-  if (!type.startsWith('audio/') && !type.startsWith('video/')) throw new Error('That link is not an audio or video file.');
+  const type = blob.type && blob.type !== 'application/octet-stream' ? blob.type : guess;
+  if (!type.startsWith('audio/') && !type.startsWith('video/')) {
+    await discardPartial(src);
+    throw new Error('That link is not an audio or video file.');
+  }
   const ext = type.startsWith('audio/') ? 'mp3' : 'mp4';
   const clean = String(title).replace(/[^\w .()-]+/g, '').trim().slice(0, 80) || 'Saved media';
   const saved = await saveLocalFile(new File([blob], `${clean}.${ext}`, { type }), { origin: src });
-  window.dispatchEvent(new Event('truegle-local-media'));
+  await discardPartial(src); // fires the refresh event too
   return saved;
 }
 

@@ -121,7 +121,7 @@ function PlaylistsTab({ accent, rowH, maxH }) {
     try {
       const r = await saveRemoteMedia(it.src, it.title, { signal: ac.signal, onProgress: (rcv, tot) => setJob({ label: it.title || 'Saving', pct: pctOf(rcv, tot) }) });
       say(r.already ? 'Already on this device.' : 'Saved. Find it under Files — it plays with no connection.');
-    } catch (e) { say(e?.name === 'AbortError' ? 'Cancelled.' : (e?.message || 'Could not save that.')); }
+    } catch (e) { say(e?.name === 'AbortError' ? 'Paused. Press save again to continue where it stopped.' : (e?.message || 'Could not save that.')); }
     finally { abortRef.current = null; setJob(null); }
   };
   const saveWholeList = async (p) => {
@@ -138,7 +138,7 @@ function PlaylistsTab({ accent, rowH, maxH }) {
     if (r.failed) bits.push(`${r.failed} could not be saved`);
     if (r.skipped && !r.full) bits.push(`${r.skipped} not downloadable`);
     if (r.full) bits.push(`stopped: out of space (${r.skipped} left)`);
-    if (r.cancelled) bits.push('cancelled');
+    if (r.cancelled) bits.push('paused — press save again to continue');
     say(`${p.name}: ${bits.join(' · ')}.`);
   };
 
@@ -304,7 +304,7 @@ function PlaylistsTab({ accent, rowH, maxH }) {
           <div className="flex items-center gap-2 text-[10px] text-white/60">
             <span className="min-w-0 flex-1 truncate">{job.label}</span>
             <span className="tabular-nums shrink-0">{job.pct == null ? '…' : `${job.pct}%`}</span>
-            <button type="button" onClick={cancel} className="px-2 h-5 rounded border border-white/20 text-[9px] uppercase tracking-wider text-white/60 hover:text-white">Cancel</button>
+            <button type="button" onClick={cancel} className="px-2 h-5 rounded border border-white/20 text-[9px] uppercase tracking-wider text-white/60 hover:text-white">Pause</button>
           </div>
           <div className="mt-1 h-1 rounded-full bg-white/10 overflow-hidden">
             <div className="h-full bg-cyan-300/80 transition-[width]" style={{ width: `${job.pct ?? 8}%` }} />
