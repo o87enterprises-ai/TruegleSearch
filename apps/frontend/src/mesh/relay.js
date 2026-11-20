@@ -163,14 +163,19 @@ async function onPackets(bytes) {
 }
 
 /** Sends `text` to `toHandle` through whatever phones are in range. @returns the message id */
-export async function sendViaRelay(toHandle, text, sealed) {
-  const { envelope, id: msgId } = sealed || await sealFor(toHandle, text);
+/** Wraps a sealed envelope for the relay: [destination hash 8][envelope], plus a fresh relay id. */
+export async function buildPayload(toHandle, envelope) {
   const env = unb64u(envelope);
   if (env.length > MAX_ENVELOPE_BYTES) throw new Error('That message is too long to relay over Bluetooth.');
   const hash = await handleHash(toHandle.toLowerCase());
   const payload = new Uint8Array(8 + env.length);
   payload.set(hash, 0); payload.set(env, 8);
-  const rid = b64u(globalThis.crypto.getRandomValues(new Uint8Array(6)));
+  return { rid: b64u(globalThis.crypto.getRandomValues(new Uint8Array(6))), payload };
+}
+
+export async function sendViaRelay(toHandle, text, sealed) {
+  const { envelope, id: msgId } = sealed || await sealFor(toHandle, text);
+  const { rid, payload } = await buildPayload(toHandle, envelope);
   markSeen(rid);
   const carry = getCarry();
   carry.push({ id: rid, ttl: MAX_TTL, payload: b64u(payload), at: Date.now(), sentTo: [], own: msgId });
