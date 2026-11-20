@@ -53,16 +53,71 @@ export function localKind(file) {
  * Stores a picked file and returns the player source for it.
  * @returns {Promise<{kind, src, title, local: true}>}
  */
-export async function saveLocalFile(file) {
+export async function saveLocalFile(file, { origin } = {}) {
   const kind = localKind(file);
   if (!kind) throw new Error('That is not an audio or video file.');
   const id = uid();
-  await tx('readwrite', (s) => s.put({
-    id, name: file.name, type: file.type, size: file.size, kind, addedAt: Date.now(), blob: file,
-  }));
+  try {
+    await tx('readwrite', (s) => s.put({
+      id, name: file.name, type: file.type, size: file.size, kind, addedAt: Date.now(), blob: file,
+      ...(origin ? { origin } : {}),
+    }));
+  } catch (e) {
+    if (e?.name === 'QuotaExceededError') throw new FullError();
+    throw e;
+  }
   // Ask the browser not to evict it under storage pressure. A no-op where unsupported.
   try { await navigator.storage?.persist?.(); } catch { /* optional */ }
   return { kind, src: LOCAL_PREFIX + id, title: file.name.replace(/\.[^.]+$/, ''), local: true };
+}
+
+export class FullError extends Error {
+  constructor() { super('Not enough free space on this device. Remove some files and try again.'); this.name = 'FullError'; }
+}
+
+/** How full this browser's storage is. Fields are null where the browser can't say. */
+export async function storageStatus() {
+  let usage = null; let quota = null; let persisted = null;
+  try { ({ usage, quota } = await navigator.storage.estimate()); } catch { /* unsupported */ }
+  try { persisted = await navigator.storage.persisted(); } catch { /* unsupported */ }
+  const free = usage != null && quota != null ? Math.max(0, quota - usage) : null;
+  return { usage, quota, free, persisted };
+}
+
+// Keep a little room back so the browser (and the rest of the app) never hits a hard wall.
+const HEADROOM = 20e6;
+async function assertRoom(bytes) {
+  const { free } = await storageStatus();
+  if (free != null && bytes && bytes > free - HEADROOM) throw new FullError();
+}
+
+const AUDIO_EXT = /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac)(\?|#|$)/i;
+
+/** Reads a response body chunk by chunk so progress and cancel work, and stops early if it won't fit. */
+async function readBody(res, { signal, onProgress }) {
+  const total = Number(res.headers.get('content-length')) || 0;
+  await assertRoom(total);
+  if (!res.body?.getReader) { // old browser: no streaming, no progress
+    const blob = await res.blob();
+    onProgress?.(blob.size, blob.size);
+    return { blob, total: blob.size };
+  }
+  const reader = res.body.getReader();
+  const parts = [];
+  let got = 0;
+  let free = (await storageStatus()).free;
+  try {
+    for (;;) {
+      if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError');
+      const { done, value } = await reader.read();
+      if (done) break;
+      parts.push(value);
+      got += value.byteLength;
+      if (!total && free != null && got > free - HEADROOM) throw new FullError(); // size unknown: watch as it grows
+      onProgress?.(got, total);
+    }
+  } catch (e) { reader.cancel().catch(() => {}); throw e; }
+  return { blob: new Blob(parts, { type: res.headers.get('content-type') || '' }), total: got };
 }
 
 /**
@@ -70,20 +125,60 @@ export async function saveLocalFile(file) {
  * device so it plays with no connection. Embedded players (YouTube, Vimeo, TikTok…) can't be
  * saved by any app — they only exist inside the provider's own player — and some hosts forbid
  * cross-site downloads; both come back as a plain message.
+ *
+ * Streams the download so `onProgress(received, total)` can drive a meter (total is 0 when the
+ * host doesn't say), `signal` cancels it, and a file that won't fit is refused up front. A link
+ * already saved is returned as-is rather than downloaded twice.
  */
-export async function saveRemoteMedia(src, title = 'Saved media') {
+export async function saveRemoteMedia(src, title = 'Saved media', { signal, onProgress } = {}) {
+  const existing = await findByOrigin(src);
+  if (existing) return { kind: existing.kind, src: LOCAL_PREFIX + existing.id, title, local: true, already: true };
   let res;
-  try { res = await fetch(src, { mode: 'cors' }); } catch { throw new Error('That site does not allow saving its media to this device.'); }
+  try { res = await fetch(src, { mode: 'cors', signal }); }
+  catch (e) {
+    if (e?.name === 'AbortError') throw e;
+    throw new Error('That site does not allow saving its media to this device.');
+  }
   if (!res.ok) throw new Error('The source refused the download.');
-  const blob = await res.blob();
-  const guess = /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac)(\?|#|$)/i.test(src) ? 'audio/mpeg' : 'video/mp4';
-  const type = blob.type && blob.type !== 'application/octet-stream' ? blob.type : guess;
+  const { blob } = await readBody(res, { signal, onProgress });
+  const guess = AUDIO_EXT.test(src) ? 'audio/mpeg' : 'video/mp4';
+  const type = blob.type && blob.type !== 'application/octet-stream' ? blob.type.split(';')[0] : guess;
   if (!type.startsWith('audio/') && !type.startsWith('video/')) throw new Error('That link is not an audio or video file.');
   const ext = type.startsWith('audio/') ? 'mp3' : 'mp4';
   const clean = String(title).replace(/[^\w .()-]+/g, '').trim().slice(0, 80) || 'Saved media';
-  const saved = await saveLocalFile(new File([blob], `${clean}.${ext}`, { type }));
+  const saved = await saveLocalFile(new File([blob], `${clean}.${ext}`, { type }), { origin: src });
   window.dispatchEvent(new Event('truegle-local-media'));
   return saved;
+}
+
+/**
+ * Saves a whole list of tracks, one at a time, until it runs out of free space.
+ * `onProgress({ index, count, title, received, total })`; `signal` cancels between/within files.
+ * @returns {{ saved, already, failed, skipped, full, cancelled }} counts
+ */
+export async function saveManyRemote(items, { signal, onProgress } = {}) {
+  const todo = items.filter((it) => (it.kind === 'audio' || it.kind === 'video') && it.src && !isLocalSrc(it.src));
+  const out = { saved: 0, already: 0, failed: 0, skipped: items.length - todo.length, full: false, cancelled: false };
+  for (let i = 0; i < todo.length; i++) {
+    const it = todo[i];
+    try {
+      const r = await saveRemoteMedia(it.src, it.title, {
+        signal,
+        onProgress: (received, total) => onProgress?.({ index: i + 1, count: todo.length, title: it.title, received, total }),
+      });
+      if (r.already) out.already++; else out.saved++;
+    } catch (e) {
+      if (e?.name === 'AbortError') { out.cancelled = true; break; }
+      if (e?.name === 'FullError') { out.full = true; out.skipped += todo.length - i; break; }
+      out.failed++;
+    }
+  }
+  return out;
+}
+
+async function findByOrigin(origin) {
+  const rows = await tx('readonly', (s) => s.getAll()).catch(() => []);
+  return (rows || []).find((r) => r.origin === origin) || null;
 }
 
 export async function listLocalFiles() {
@@ -99,6 +194,45 @@ export async function removeLocalFile(src) {
 }
 
 const urls = new Map();
+
+const safeName = (n) => String(n).replace(/[\\/:*?"<>|]+/g, '_');
+
+/**
+ * A backup copy of everything saved here, because a browser storage clear erases it with no undo.
+ * Writes into a folder you pick where the browser allows it; otherwise downloads the files one by one.
+ * Reads one file at a time so a big library never has to sit in memory together.
+ * @returns {Promise<{count:number, method:'folder'|'downloads'}>}
+ */
+export async function exportLocalFiles(onProgress) {
+  const files = await listLocalFiles();
+  if (!files.length) return { count: 0, method: 'downloads' };
+  let dir = null;
+  if (typeof window.showDirectoryPicker === 'function') {
+    try { dir = await window.showDirectoryPicker({ mode: 'readwrite' }); }
+    catch (e) { if (e?.name === 'AbortError') throw e; /* blocked: fall back to downloads */ }
+  }
+  const used = new Set();
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    const row = await tx('readonly', (s) => s.get(f.id));
+    if (!row?.blob) continue;
+    let name = safeName(f.name); let n = 1;
+    while (used.has(name)) name = safeName(f.name).replace(/(\.[^.]*)?$/, ` (${++n})$1`);
+    used.add(name);
+    onProgress?.(i + 1, files.length, name);
+    if (dir) {
+      const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
+      await w.write(row.blob); await w.close();
+    } else {
+      const url = URL.createObjectURL(row.blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      await new Promise((r) => setTimeout(r, 400)); // let the browser start each download
+      URL.revokeObjectURL(url);
+    }
+  }
+  return { count: files.length, method: dir ? 'folder' : 'downloads' };
+}
 
 /** A playable object URL for a stored file, or null if it is gone. */
 export async function resolveLocal(src) {

@@ -2440,6 +2440,14 @@
         "body": "2026-11-20 owner: Encyclopedia header now uses the real TruegleLogo (medium, animated halo; tap = close, not navigate('/')) and ui/TruegleSearchField — the SearchBar's blue gradient-ring/glow shell WITHOUT its history writes, web suggestions or bundle weight (an offline filter box must not log to search history). Reading area stays plain on purpose. Known pre-existing: root npm ci fails (lockfile lacks apps/android workspace), so .github/workflows/android.yml's npm ci step would fail too — use npm install.",
         "ts": "2026-11-20",
         "created": "2026-11-20"
+      },
+      "local-storage-v2": {
+        "Id": "local-storage-v2",
+        "Type": "decision",
+        "Label": "Offline media storage v2 (2026-11-20)",
+        "body": "localMedia.js: streamed downloads w/ progress+cancel, free-space precheck (20MB headroom, FullError), dedupe by origin, saveManyRemote (stops when full), storageStatus meter, exportLocalFiles (folder or downloads). UI: PlayerFiles meter+Back up; PlayerLibrary save-list button. Not yet resumable; big files still buffered as Blob parts.",
+        "ts": "2026-11-20",
+        "created": "2026-11-20"
       }
     },
     "thread": {
