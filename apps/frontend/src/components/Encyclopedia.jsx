@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BOOK, search, blocks, toPlainText, printAsPdf, download } from '../utils/encyclopedia';
+import TruegleLogo from './ui/TruegleLogo';
+import TruegleSearchField from './ui/TruegleSearchField';
 
 // The Survivor's Encyclopedia, on screen.
 //
-// Deliberately plain: no animation, no gradients, serif body text at a
-// readable measure. Everything else on this site can be a product; this is a
-// reference somebody might be reading by torchlight with one hand, and the
-// design brief for that is "get out of the way".
+// The reading area is deliberately plain: no animation, no gradients, a
+// readable measure. This is a reference somebody might be reading by torchlight
+// with one hand, and the design brief for that is "get out of the way". Only the
+// header wears the Truegle brand (logo + search field); the book itself does not.
 //
 // SAVE A COPY is the most important control on the page, which is why it is
 // not hidden behind a menu. Reading it here needs Truegle to be reachable;
@@ -92,32 +94,32 @@ const Encyclopedia = ({ onClose }) => {
 
       <header className="flex-none border-b border-white/10 px-4 pt-4 pb-3 sm:px-6">
         <div className="max-w-3xl mx-auto">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-white text-lg font-bold tracking-tight">{BOOK.title}</h1>
-              <p className="text-white/40 text-[11px] font-mono tracking-wider mt-0.5">
-                {BOOK.entries.length} ENTRIES · WORKS WITHOUT US
-              </p>
-            </div>
+          <div className="flex items-center justify-between gap-4">
+            {/* The Truegle mark, as on every other page. Tapping it leaves the
+                book (same as ×) rather than the default jump to '/', so on the
+                offline 404 it returns to that page instead of a dead home. */}
+            <TruegleLogo size="medium" animated className="-my-3" onClick={onClose} />
             <button
               type="button"
               onClick={onClose}
               aria-label="Close the encyclopedia"
-              className="text-white/40 hover:text-white text-2xl leading-none px-2 -mt-1"
+              className="text-white/40 hover:text-white text-2xl leading-none px-2"
             >
               ×
             </button>
           </div>
 
-          <input
-            type="search"
+          <h1 className="text-white text-lg font-bold tracking-tight mt-2">{BOOK.title}</h1>
+          <p className="text-white/40 text-[11px] font-mono tracking-wider mt-0.5">
+            {BOOK.entries.length} ENTRIES · WORKS WITHOUT US
+          </p>
+
+          <TruegleSearchField
+            className="mt-3"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search — water, fire, snare, solar…"
-            aria-label="Search the encyclopedia"
-            className="mt-3 w-full block rounded-lg bg-white/5 border border-white/10 px-3 py-2
-                       text-[15px] text-white placeholder-white/30 outline-none
-                       focus:border-emerald-400/50"
+            ariaLabel="Search the encyclopedia"
           />
 
           {!results && (
