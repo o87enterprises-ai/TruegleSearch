@@ -350,6 +350,7 @@ app.use('/api/extract', require('./routes/extract'));
 app.use('/api/share', require('./routes/share'));
 app.use('/api/move', require('./routes/moveLists'));
 app.use('/api/handles', require('./routes/handles'));
+app.use('/api/mailbox', require('./routes/mailbox'));
 app.use('/api/reels', require('./routes/reels'));
 app.use('/api/media', require('./routes/media'));
 app.use('/api/player', require('./routes/player'));

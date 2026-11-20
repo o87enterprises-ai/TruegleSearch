@@ -45,7 +45,8 @@ function verifySignature(req, auth, signPubJson, now = Date.now()) {
   try {
     if (!auth || Math.abs(now - auth.ts) > MAX_SKEW_MS) return false;
     const key = crypto.createPublicKey({ key: JSON.parse(signPubJson), format: 'jwk' });
-    const path = (req.baseUrl || '') + (req.path || '');
+    // Router mounts give "/api/mailbox" + "/" for the box root: sign/verify without a trailing slash.
+    const path = ((req.baseUrl || '') + (req.path || '')).replace(/(.)\/+$/, '$1');
     const msg = Buffer.from(`${auth.ts}\n${req.method}\n${path}`);
     return crypto.verify('sha256', msg, { key, dsaEncoding: 'ieee-p1363' }, auth.sig);
   } catch { return false; }

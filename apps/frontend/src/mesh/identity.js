@@ -170,5 +170,14 @@ export async function openForMe(envelope) {
   return open(envelope, { ecdhPrivate: keys.ecdh.privateKey, me, lookupSign: async (h) => (await lookupHandle(h))?.sign || null });
 }
 
+/** A raw signed fetch (for streaming). The caller reads the Response itself. */
+export async function signedFetch(method, path, { body, signal } = {}) {
+  const handle = await ensureHandle();
+  const keys = await getKeys();
+  const headers = { Authorization: await authHeader({ handle, signPrivate: keys.sign.privateKey, method, path: `/api${path}` }) };
+  if (body) headers['Content-Type'] = 'application/json';
+  return fetch(`${base()}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined, credentials: 'omit', cache: 'no-store', signal });
+}
+
 export { newMessageId, authHeader };
 export const signedCall = (method, path, handle, body) => call(method, path, { body, auth: handle });

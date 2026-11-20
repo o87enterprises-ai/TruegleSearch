@@ -151,6 +151,13 @@ const PrivacyPolicy = () => (
         By default you can only be found by someone typing your exact name; you can choose to also
         appear in a search by the first letters. You can delete your name at any time.
       </p>
+      <p>
+        When you message someone over the internet, your device encrypts the message so that only
+        the recipient can read it, and signs it so they know it came from you. We hold the scrambled
+        message in a mailbox only until their app collects it (up to 7 days), and delete it then.
+        We cannot read it and we do not store who sent it, your IP address or any account detail
+        with it.
+      </p>
     </LegalSection>
 
     <LegalSection heading="Analytics">

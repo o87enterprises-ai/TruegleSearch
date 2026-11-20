@@ -6,6 +6,7 @@ import ApkDownload from '../components/ui/ApkDownload';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import useNearby from '../mesh/useNearby';
 import HandleCard from '../mesh/HandleCard';
+import InternetChat from '../mesh/InternetChat';
 import {
   PowerSwitch, ChatBar, GuideModal, GuideContent, Collapsible, DeviceList, ConversationHeader,
   MessageCards, TypingIndicator, Toasts,
@@ -209,6 +210,7 @@ export default function NearbyPage() {
         )}
 
         {clock.online && <HandleCard />}
+        {clock.online && <InternetChat />}
 
         {!n.available && (
           <section className="rounded-xl border border-white/10 bg-white/[0.04] p-4"><GuideContent /></section>
