@@ -60,13 +60,24 @@ function setStatus(peer, id, s) {
   saveChats(chats);
 }
 
+/** A message that arrived by another route (the Bluetooth relay). Returns false for a duplicate. */
+export function addIncoming(peer, entry) {
+  if (seenIds().has(entry.id)) return false;
+  const added = addToChat(peer, entry);
+  markSeen(entry.id);
+  if (added) changed();
+  return added;
+}
+
 export const isOnline = () => (typeof navigator === 'undefined' ? true : navigator.onLine !== false);
 
 /** Seals `text` for `to`, shows it in the chat at once, and sends (or queues) it. */
-export async function sendText(to, text) {
+export async function sendText(to, text, sealed) {
   const t = String(text || '').trim();
   if (!t) return null;
-  const { envelope, id } = await sealFor(to, t); // throws "No one with that name." for unknown handles
+  // `sealed` lets the caller reuse ONE envelope for several routes (internet + Bluetooth relay); the
+  // recipient de-duplicates by its message id.
+  const { envelope, id } = sealed || await sealFor(to, t); // throws "No one with that name." for unknown handles
   const peer = to.toLowerCase();
   addToChat(peer, { id, from: 'me', x: t, at: Date.now(), s: 'queued' });
   saveOutbox([...getOutbox(), { id, to: peer, envelope, at: Date.now() }]);

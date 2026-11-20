@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { Send, Globe2 } from 'lucide-react';
-import { startMailbox, subscribe, getChats, getOutbox, sendText, receive } from './mailbox';
+import { startMailbox, subscribe, getChats, getOutbox, receive } from './mailbox';
+import { sendMessage } from './send';
 import { cleanHandle } from './seal';
 import { lookupHandle } from './identity';
 
@@ -46,7 +47,7 @@ export default function InternetChat() {
     e.preventDefault();
     if (!open || !text.trim()) return;
     setErr('');
-    try { await sendText(open, text); setText(''); } catch (x) { setErr(x?.message || 'Could not send.'); }
+    try { await sendMessage(open, text); setText(''); } catch (x) { setErr(x?.message || 'Could not send.'); }
   };
 
   return (
