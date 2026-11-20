@@ -2432,6 +2432,14 @@
         "body": "2026-11-19: 'lane county court house eugene oregon' returned only Lane Bryant/Lane Boots/dictionary 'lane' in blue-pill (mainstream). Truegle sent the full query (verified with a captured fake-SearXNG run); the live box answers ONLY via Bing (google/duckduckgo/wikipedia contributed 0 across 7 test queries; 82/82 rows bing) and Bing returns junk for some 'lane …' queries. FIX (branch fix/searxng-relevance-fallback): in the SEARXNG_PRIMARY path, if <2 of the top 8 results hold at least half the query's words (queries with 3+ significant words only), ask SearXNG again once with the independent set (modeEngines red-pill) + the unscoped default in parallel; adopt only a more on-topic answer, ahead of the originals; nothing removed; skipped for red-pill. No new env vars, no host-specific code (Render+Vercel unchanged). ROOT CAUSE STILL OPEN: why google/ddg/wikipedia return nothing on the EC2 SearXNG box — owner to run 'curl localhost:8080/search?q=...&format=json&engines=google' and read unresponsive_engines. Also seen, not fixed: bias=mainstream + category=web returned 0 results for that query.",
         "ts": "2026-11-19",
         "created": "2026-11-19"
+      },
+      "encyclopedia-branded-header": {
+        "Id": "encyclopedia-branded-header",
+        "Type": "decision",
+        "Label": "Encyclopedia header uses Truegle brand",
+        "body": "2026-11-20 owner: Encyclopedia header now uses the real TruegleLogo (medium, animated halo; tap = close, not navigate('/')) and ui/TruegleSearchField — the SearchBar's blue gradient-ring/glow shell WITHOUT its history writes, web suggestions or bundle weight (an offline filter box must not log to search history). Reading area stays plain on purpose. Known pre-existing: root npm ci fails (lockfile lacks apps/android workspace), so .github/workflows/android.yml's npm ci step would fail too — use npm install.",
+        "ts": "2026-11-20",
+        "created": "2026-11-20"
       }
     },
     "thread": {
@@ -4699,5 +4707,5 @@
       }
     }
   },
-  "updated": "2026-11-19"
+  "updated": "2026-11-20"
 }
