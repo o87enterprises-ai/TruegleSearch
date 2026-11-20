@@ -2432,6 +2432,14 @@
         "body": "2026-11-19: 'lane county court house eugene oregon' returned only Lane Bryant/Lane Boots/dictionary 'lane' in blue-pill (mainstream). Truegle sent the full query (verified with a captured fake-SearXNG run); the live box answers ONLY via Bing (google/duckduckgo/wikipedia contributed 0 across 7 test queries; 82/82 rows bing) and Bing returns junk for some 'lane …' queries. FIX (branch fix/searxng-relevance-fallback): in the SEARXNG_PRIMARY path, if <2 of the top 8 results hold at least half the query's words (queries with 3+ significant words only), ask SearXNG again once with the independent set (modeEngines red-pill) + the unscoped default in parallel; adopt only a more on-topic answer, ahead of the originals; nothing removed; skipped for red-pill. No new env vars, no host-specific code (Render+Vercel unchanged). ROOT CAUSE STILL OPEN: why google/ddg/wikipedia return nothing on the EC2 SearXNG box — owner to run 'curl localhost:8080/search?q=...&format=json&engines=google' and read unresponsive_engines. Also seen, not fixed: bias=mainstream + category=web returned 0 results for that query.",
         "ts": "2026-11-19",
         "created": "2026-11-19"
+      },
+      "seo-title-length-seoTitle": {
+        "Id": "seo-title-length-seoTitle",
+        "Type": "decision",
+        "Label": "Blog seoTitle field: <title> under 60 chars, H1 unchanged",
+        "body": "2026-11-18: Own crawl (Semrush unpaid, its Jun-28 audit was stale): all 50 sitemap URLs 200, self-canonical, desc present, no noindex; /signin 404 harmless (no links; login is /auth/login). ~30 pages have titles >60 or descriptions >160. Fix pattern: optional post.seoTitle in blogPosts.jsx is the full <title> verbatim (prerender-entry ROUTE_META + LegalPage docTitle prop for client document.title); on-page h1 + JSON-LD headline keep long post.title. Done for 5 worst posts (bias-free, vs-ddg-startpage, ai-honesty part1/2, how-truegle-works) + their descriptions trimmed <=155. Remaining long ones: other blog posts, /chat /feed /red titles, creator/locale descriptions. Free backlink source = GSC Links report (owner browser task). seo:test 197/2 failures pre-existing on baseline.",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
       }
     },
     "thread": {
