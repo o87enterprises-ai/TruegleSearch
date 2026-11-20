@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Smartphone, Search, MessageCircle, Copy, Check, ChevronDown } from 'lucide-react';
+import { X, Smartphone, Search, MessageCircle, Copy, Check, ChevronDown, Download } from 'lucide-react';
+import ApkDownload from './ApkDownload';
+import { showApkLink } from '../../utils/apk';
 import { useInstallState, promptInstall } from '../../utils/installPrompt';
 import { copyText } from '../../utils/clipboard';
 
@@ -198,6 +200,13 @@ export default function InstallTruegle() {
                 )}
                 {result && <p className="mt-2 text-emerald-300">{result}</p>}
               </Section>
+
+              {showApkLink() && (
+                <Section id="apk" open={section === 'apk'} onToggle={toggle} icon={Download} accent="#f97316"
+                  title="Get the Android app" subtitle="Full app with Nearby (Bluetooth chat)">
+                  <ApkDownload />
+                </Section>
+              )}
 
               <Section id="search" open={section === 'search'} onToggle={toggle} icon={Search} accent="#3b82f6"
                 title="Make Truegle your default search" subtitle="Searches from the address bar go to Truegle">

@@ -3,6 +3,17 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-19 — Nearby (Bluetooth chat), offline tools, Android app release (PRs #184–#187)
+
+- **Shipped:** Nearby on `/nearby` (Android app only; BLE via `TruegleMeshPlugin.java`, UI `pages/NearbyPage.jsx` + `mesh/*`): device picker, saved devices, threads, queued delivery when out of range (24 h), typing, voice notes (≤8 s, one device), connect toasts, offline clock. Site-wide offline prompt, offline mini player in My files, share-link import from anywhere (+ `truegle://`, reusable links kept 1 year), per-list share, save direct audio/video offline, survival guide unlocked for installed-app users, Truegle wordmark app icon, Android app-download offer (landing modal, install popup, `/nearby`, `/offline`). OpenSpec: `openspec/changes/add-offline-mesh-chat`.
+- **DEFERRED by owner (2026-11-19): sending Nearby messages over cellular/internet.** Not started. Plan and the reasons it needs E2E encryption first are in memory thread `nearby-internet-relay` (`node .claude/memory/mem.mjs query nearby`). Do not build a relay while messages are plaintext.
+- **Not built / known limits:** Nearby is unencrypted, foreground-only, no multi-hop relay, voice notes are 1:1, Android only (no iOS), no FM radio (Android doesn't expose the FM chip; "Radio" in the offline player = shuffle).
+- **APK:** published by hand as GitHub Release `android-v0.2.1` (`truegle.apk`, latest); link in `apps/frontend/src/utils/apk.js`. DEBUG-signed: create a release keystore before any wide launch (it forces a reinstall) and add its SHA-256 to `public/.well-known/assetlinks.json`. Actions is billing-locked; releases still work.
+- **Gotchas fixed (see memory):** Android WebView lies about `navigator.onLine` (use `hooks/useOnlineStatus.js`); every `_redirects` path needs a `_headers` Content-Type rule; the frontend must only use `api.truegle.info` (a stale local `.env.production` pointed at Vercel); mic needs `MODIFY_AUDIO_SETTINGS` as well as `RECORD_AUDIO`; Bluetooth writes need MTU negotiation + long-write support.
+- **Open:** the Vercel check fails on every PR (blocked account, not code). Not verified on a device: voice-note audio round trip, the new icon/landing modal on the phones, Cloudflare deploys of #186/#187.
+
+---
+
 ## 🗓️ 2026-11-17 — Render ⇄ Vercel switch-back checklist (both backends kept in sync)
 
 - **Why nothing is copied by hand:** Render (`truegle-backend`, `render.yaml`) and the Vercel project `backend` (`prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI`, team `team_OyHR5YLtUy6gIs8HmvhXKSsj`) both deploy from `main` of `o87enterprises-ai/TruegleSearch`. A merge to `main` is the sync. Rule recorded in `CLAUDE.md` (🔴 TWO BACKENDS, ONE CODEBASE).

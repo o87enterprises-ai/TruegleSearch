@@ -3,9 +3,10 @@
  * saved-lists code (AES-GCM) and keeps the key in the link's #fragment, so this
  * route only ever sees ciphertext: it cannot read, index or link it to anyone.
  *
- *   POST   /api/move       { blob }  -> { id }    store ciphertext, 24 h life
- *   GET    /api/move/:id             -> { blob }  fetch it (404 once expired/imported)
- *   DELETE /api/move/:id                          receiving device is done with it
+ *   POST   /api/move       { blob }  -> { id }    store ciphertext, 1 year life
+ *   GET    /api/move/:id             -> { blob }  fetch it — as many times as you like
+ *   DELETE /api/move/:id                          no-op (kept so older apps don't error). Links are
+ *                                                 reusable on purpose; they only age out.
  *
  * Host-neutral (Render and Vercel): plain Express + the shared Postgres pool.
  * Fail-soft: no database just means 503 and the client falls back to the long link.
@@ -16,7 +17,7 @@ const rateLimit = require('express-rate-limit');
 const logger = require('../utils/logger');
 
 const router = express.Router();
-const TTL_HOURS = 24;
+const TTL_HOURS = 24 * 365; // a share link works for a year, any number of times
 const MAX_BLOB = 200000;                 // chars of base64url ciphertext
 const BLOB_RE = /^[A-Za-z0-9_-]+$/;
 const ID_RE = /^[A-Za-z0-9_-]{12}$/;
@@ -64,10 +65,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
-  if (!ID_RE.test(req.params.id)) return res.status(204).end();
-  try { await db()('DELETE FROM move_links WHERE id = $1', [req.params.id]); } catch { /* best effort */ }
-  return res.status(204).end();
-});
+// Links are reusable, and the id is the only thing protecting a link from being deleted by a
+// stranger, so this no longer deletes anything (older app versions still call it after importing).
+router.delete('/:id', (req, res) => res.status(204).end());
 
 module.exports = router;

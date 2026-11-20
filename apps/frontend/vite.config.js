@@ -10,8 +10,14 @@ const PROD_BACKEND_URL = 'https://api.truegle.info'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  // The frontend only ever talks to api.truegle.info (HANDOFF: switching hosts = repoint that
+  // one hostname). A stale local .env.production naming a *.vercel.app deployment is ignored,
+  // so a build made on a developer machine can't ship pointing at the standby backend.
+  const configured = env.VITE_BACKEND_URL && !/\.vercel\.app/i.test(env.VITE_BACKEND_URL)
+    ? env.VITE_BACKEND_URL
+    : '';
   const backendUrl =
-    env.VITE_BACKEND_URL ||
+    configured ||
     (mode === 'production' ? PROD_BACKEND_URL : 'http://localhost:3001')
 
   return {

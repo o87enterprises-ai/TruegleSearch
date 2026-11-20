@@ -38,22 +38,22 @@ async function pipe(bytes, stream) {
 }
 
 /** What would travel: the saved lists and the guide unlock. */
-export function snapshot() {
+export function snapshot(onlyId) {
   return {
     v: 1,
-    lists: playlists().map((p) => ({
+    lists: playlists().filter((p) => !onlyId || p.id === onlyId).map((p) => ({
       id: p.id,
       n: p.name,
       // Files added from this device (tglocal:) live only here, so they do not travel.
       i: p.items.filter((s) => !s.src.startsWith('tglocal:')).map((s) => [s.src, s.kind || '', s.title || '', s.pageUrl || '', s.poster || '', s.channel || '', s.vertical ? 1 : 0]),
     })),
-    guide: vaultTier() || null,
+    guide: onlyId ? null : (vaultTier() || null),
   };
 }
 
 /** @returns {Promise<string>} the TG1. code for this device's lists. */
-export async function exportProfile() {
-  const bytes = new TextEncoder().encode(JSON.stringify(snapshot()));
+export async function exportProfile(onlyId) {
+  const bytes = new TextEncoder().encode(JSON.stringify(snapshot(onlyId)));
   return PREFIX + toB64(await pipe(bytes, new CompressionStream('deflate-raw')));
 }
 
@@ -99,8 +99,8 @@ export async function shortProfileLink(code) {
 }
 
 /** The best link we can make: short if the server answers, otherwise the long self-contained one. */
-export async function bestProfileLink() {
-  const code = await exportProfile();
+export async function bestProfileLink(onlyId) {
+  const code = await exportProfile(onlyId);
   try { return await shortProfileLink(code); } catch { return profileLink(code); }
 }
 
@@ -118,3 +118,42 @@ export async function readMoveLink(input) {
 
 /** Best effort: the receiving device is done, so the stored ciphertext can go. */
 export const forgetMoveLink = (id) => api.delete(`/move/${encodeURIComponent(id)}`).catch(() => {});
+
+// ── FINDING A SHARE LINK ANYWHERE ───────────────────────────────────────────
+// A share link can arrive as the https link, a truegle:// app link, or a bare code,
+// pasted into any box or opened from another app. This pulls the "#move=…" / "#profile=…"
+// fragment out of whatever text it was wrapped in, or returns null.
+const FRAG = /#(?:move=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+|profile=TG1\.[A-Za-z0-9_-]+)/;
+export function extractShare(text) {
+  const t = String(text || '');
+  const m = FRAG.exec(t);
+  if (m) return m[0];
+  const bare = /\bTG1\.[A-Za-z0-9_-]{8,}/.exec(t);
+  return bare ? `${PROFILE_HASH}${bare[0]}` : null;
+}
+
+/** truegle://… form of a share fragment — opens the Android app directly. */
+export const appLink = (fragment) => `truegle://import${fragment}`;
+
+/** Android "open in app" link for a browser that doesn't hand https links to the app. */
+export const intentLink = (fragment) =>
+  `intent://truegle.info/${fragment}#Intent;scheme=https;package=info.truegle.app;S.browser_fallback_url=${encodeURIComponent(`https://truegle.info/${fragment}`)};end`;
+
+/** Hands a share link/code to the import dialog (mounted once, see ProfileImport). */
+export const openShare = (text) => window.dispatchEvent(new CustomEvent('truegle:share-link', { detail: String(text || '') }));
+
+export const isNativeApp = () => { try { return !!window.Capacitor?.isNativePlatform?.(); } catch { return false; } };
+/** Share ONE list: the phone's share sheet if there is one, otherwise copy the link. */
+export async function shareList(id, name) {
+  const url = await bestProfileLink(id);
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share({ title: name, text: `My Truegle list “${name}” — open this link:`, url });
+      return 'shared';
+    } catch (e) {
+      if (e?.name === 'AbortError') return 'cancelled';
+    }
+  }
+  await navigator.clipboard.writeText(url);
+  return 'copied';
+}

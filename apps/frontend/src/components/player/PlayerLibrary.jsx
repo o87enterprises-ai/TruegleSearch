@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Play, X, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ListPlus, Pencil, Check, Shuffle } from 'lucide-react';
+import { Play, X, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ListPlus, Pencil, Check, Shuffle, Share2, Download } from 'lucide-react';
+import { shareList } from '../../utils/profileShare';
+import { saveRemoteMedia, isLocalSrc } from '../../utils/localMedia';
 import { shuffleList } from '../../utils/shuffleList';
 import AddToListSheet from './AddToListSheet';
 import { usePlayer } from '../../context/PlayerContext';
@@ -99,6 +101,19 @@ function PlaylistsTab({ accent, rowH, maxH }) {
   const [editing, setEditing] = useState(null); // { id, name }
   const [confirmDel, setConfirmDel] = useState(null); // id awaiting a second press
   const [newName, setNewName] = useState(null); // null = closed, string = naming a new list
+  const [note, setNote] = useState(''); // brief result of a share / save-offline press
+  const say = (t) => { setNote(t); setTimeout(() => setNote(''), 4000); };
+  const share = async (p) => {
+    try {
+      const r = await shareList(p.id, p.name);
+      if (r === 'copied') say(`Link for “${p.name}” copied. Paste it to anyone with Truegle.`);
+    } catch { say('Could not make a share link.'); }
+  };
+  const saveOffline = async (it) => {
+    say('Saving to this device…');
+    try { await saveRemoteMedia(it.src, it.title); say('Saved. Find it under Files — it plays with no connection.'); }
+    catch (e) { say(e?.message || 'Could not save that.'); }
+  };
 
   // The single most useful way to make a playlist: keep the run you already
   // built. Without it, saving a queue means re-adding every track by hand.
@@ -176,6 +191,11 @@ function PlaylistsTab({ accent, rowH, maxH }) {
                 className="flex items-center justify-center w-8 h-8 rounded text-white/30 hover:text-white hover:bg-white/10 transition-colors">
                 <Pencil size={12} />
               </button>
+              <button type="button" onClick={() => share(p)} disabled={!p.items.length} title="Share this list" aria-label={`Share ${p.name}`}
+                data-list-share=""
+                className="flex items-center justify-center w-8 h-8 rounded text-white/30 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors">
+                <Share2 size={12} />
+              </button>
               {/* PLAY, not append. enqueueMany mixes the list into whatever is
                   already queued and — correctly for its other callers — never
                   arms the queue, so autoplay walked off into discovery after
@@ -218,6 +238,12 @@ function PlaylistsTab({ accent, rowH, maxH }) {
                   className="min-w-0 flex-1 text-left text-[10px] text-white/55 hover:text-white truncate">
                   {it.title || it.src}
                 </button>
+                {(it.kind === 'audio' || it.kind === 'video') && !isLocalSrc(it.src) && (
+                  <button type="button" onClick={() => saveOffline(it)} title="Save to this device for offline" aria-label="Save for offline"
+                    className="flex items-center justify-center w-7 h-7 rounded text-white/25 hover:text-white hover:bg-white/10 transition-colors">
+                    <Download size={12} />
+                  </button>
+                )}
                 <button type="button" onClick={() => movePlaylistItem(p.id, i, -1)} disabled={i === 0} title="Move up"
                   className="flex items-center justify-center w-7 h-7 rounded text-white/25 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-20 transition-colors">
                   <ChevronUp size={12} />
@@ -241,6 +267,7 @@ function PlaylistsTab({ accent, rowH, maxH }) {
           </div>
         );
       })}
+      {note && <p className="px-3 py-1.5 text-[10px] text-cyan-200/80" role="status">{note}</p>}
       <div style={{ borderColor: accent }} className="hidden" />
     </div>
   );

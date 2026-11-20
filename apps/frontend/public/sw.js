@@ -51,7 +51,7 @@ const TILE_HOST = /^(?:[a-d]\.basemaps\.cartocdn\.com|tile\.openstreetmap\.org)$
 
 const CORE_URLS = ['/', '/manifest.webmanifest', '/truegle.png'];
 // Source modules whose built chunks (and everything they import) must work with no network.
-const OFFLINE_ENTRY = /GuidePage|OfflineHub|TrailGame|Encyclopedia|GameBoyPlayer|gameboyCore|GamesPanel|games\/trail|MapViewWrapper|TruegleMap/;
+const OFFLINE_ENTRY = /GuidePage|OfflineHub|NearbyPage|TrailGame|Encyclopedia|GameBoyPlayer|gameboyCore|GamesPanel|games\/trail|MapViewWrapper|TruegleMap/;
 
 // Same-origin build output only — never a CDN, a font host, or anything else
 // that isn't ours to cache.
