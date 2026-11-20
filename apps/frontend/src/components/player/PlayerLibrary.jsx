@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Play, X, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ListPlus, Pencil, Check, Shuffle, Share2, Download } from 'lucide-react';
 import { shareList } from '../../utils/profileShare';
-import { saveRemoteMedia, isLocalSrc } from '../../utils/localMedia';
+import { saveRemoteMedia, isLocalSrc, saveListOffline, describeSave, offlineSrc, hasOfflineCopy } from '../../utils/localMedia';
+import OfflineMeter, { useOfflineVersion } from './OfflineMeter';
 import { shuffleList } from '../../utils/shuffleList';
 import AddToListSheet from './AddToListSheet';
 import { usePlayer } from '../../context/PlayerContext';
@@ -36,8 +37,10 @@ function ago(ts) {
 
 // A stored entry carries only what's needed to play it again, which is already
 // the shape of a player source minus the fields the reducer adds.
+// `offlineSrc` swaps in the copy kept on this device when there is one, so a saved list plays
+// with no connection while the list itself still holds the original (shareable) link.
 const toSource = (e) => ({
-  kind: e.kind, src: e.src, title: e.title, pageUrl: e.pageUrl,
+  kind: e.kind, src: offlineSrc(e.src), title: e.title, pageUrl: e.pageUrl,
   poster: e.poster, channel: e.channel,
   ...(e.vertical ? { vertical: true } : {}),
 });
@@ -109,10 +112,22 @@ function PlaylistsTab({ accent, rowH, maxH }) {
       if (r === 'copied') say(`Link for “${p.name}” copied. Paste it to anyone with Truegle.`);
     } catch { say('Could not make a share link.'); }
   };
+  useOfflineVersion(); // re-render when a copy is saved or removed
+  const [busy, setBusy] = useState(null); // list id being saved
   const saveOffline = async (it) => {
     say('Saving to this device…');
-    try { await saveRemoteMedia(it.src, it.title); say('Saved. Find it under Files — it plays with no connection.'); }
+    try { await saveRemoteMedia(it.src, it.title); say('Saved. It plays with no connection.'); }
     catch (e) { say(e?.message || 'Could not save that.'); }
+  };
+  // Every directly-playable song in the list, as far as the device has room for.
+  const saveAll = async (p) => {
+    setBusy(p.id);
+    setNote('Saving this list to your device…');
+    try {
+      const r = await saveListOffline(p.items, ({ done, total }) => setNote(`Saving ${Math.min(done + 1, total)} of ${total}…`));
+      say(describeSave(r));
+    } catch (e) { say(e?.message || 'Could not save that list.'); }
+    finally { setBusy(null); }
   };
 
   // The single most useful way to make a playlist: keep the run you already
@@ -125,6 +140,7 @@ function PlaylistsTab({ accent, rowH, maxH }) {
 
   return (
     <div className={`overflow-y-auto ${maxH}`}>
+      <OfflineMeter say={say} />
       <div className="flex items-center gap-2 px-2 py-1.5 border-b border-white/10">
         {newName === null ? (
           <button type="button" onClick={() => setNewName('')}
@@ -191,6 +207,12 @@ function PlaylistsTab({ accent, rowH, maxH }) {
                 className="flex items-center justify-center w-8 h-8 rounded text-white/30 hover:text-white hover:bg-white/10 transition-colors">
                 <Pencil size={12} />
               </button>
+              <button type="button" onClick={() => saveAll(p)} disabled={!p.items.length || busy === p.id}
+                title="Save this list to your device for offline play (as far as there is room)" aria-label={`Save ${p.name} offline`}
+                data-list-save-offline=""
+                className="flex items-center justify-center w-8 h-8 rounded text-white/30 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors">
+                <Download size={12} />
+              </button>
               <button type="button" onClick={() => share(p)} disabled={!p.items.length} title="Share this list" aria-label={`Share ${p.name}`}
                 data-list-share=""
                 className="flex items-center justify-center w-8 h-8 rounded text-white/30 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors">
@@ -238,7 +260,10 @@ function PlaylistsTab({ accent, rowH, maxH }) {
                   className="min-w-0 flex-1 text-left text-[10px] text-white/55 hover:text-white truncate">
                   {it.title || it.src}
                 </button>
-                {(it.kind === 'audio' || it.kind === 'video') && !isLocalSrc(it.src) && (
+                {hasOfflineCopy(it.src) && (
+                  <span className="shrink-0 text-[8px] uppercase tracking-wider text-cyan-200/70" title="Saved on this device">offline</span>
+                )}
+                {(it.kind === 'audio' || it.kind === 'video') && !isLocalSrc(it.src) && !hasOfflineCopy(it.src) && (
                   <button type="button" onClick={() => saveOffline(it)} title="Save to this device for offline" aria-label="Save for offline"
                     className="flex items-center justify-center w-7 h-7 rounded text-white/25 hover:text-white hover:bg-white/10 transition-colors">
                     <Download size={12} />
