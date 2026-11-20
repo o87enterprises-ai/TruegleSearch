@@ -141,6 +141,18 @@ const PrivacyPolicy = () => (
       </p>
     </LegalSection>
 
+    <LegalSection heading="Your Nearby Name (Handle)">
+      <p>
+        Nearby and its internet relay give your device an anonymous name, such as
+        &ldquo;calm-otter-4821&rdquo;, which you can change to any free name. Your device makes two
+        key pairs; the private halves never leave it, and we store the name together with the two
+        <em> public</em> keys so that other people can find you and send you messages only you can
+        read. We store no email, account, phone number, IP address or device identifier with it.
+        By default you can only be found by someone typing your exact name; you can choose to also
+        appear in a search by the first letters. You can delete your name at any time.
+      </p>
+    </LegalSection>
+
     <LegalSection heading="Analytics">
       <p>
         Our only measurement is <strong>Cloudflare Web Analytics</strong>, chosen because it
