@@ -37,4 +37,5 @@ module.exports = [
   { slug: 'terror-teds-tales', name: "Terror Ted's Tales", channelId: 'UCQ0zBeV90nTR0ZZq03iT1kw' },
   { slug: 'melodysheep', name: 'melodysheep', channelId: 'UCR9sFzaG9Ia_kXJhfxtFMBA' },
   { slug: 'astral-legends', name: 'Astral Legends', channelId: 'UCIqi0z9b5UR-28hDDFEaKVQ' },
+  { slug: 'from-ego-to-i-am', name: 'From Ego to I AM', channelId: 'UCQJx9gpCj0rjjk4BrXqi6Qw' },
 ];
