@@ -244,6 +244,9 @@ router.get('/health', async (req, res) => {
     res.json({
       status: 'OK',
       services: health,
+      // The free search ring (services/FreeSearchRing.js): what is on and what each has
+      // spent today. Names and counts only — no keys, no queries.
+      freeRing: require('../services/FreeSearchRing').ring.status(),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

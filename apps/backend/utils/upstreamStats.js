@@ -30,6 +30,8 @@ const { AsyncLocalStorage } = require('node:async_hooks');
 
 const PROVIDERS = new Set([
   'youtube', 'brave', 'google_cse', 'newsapi', 'tomtom', 'openrouter', 'searxng', 'serpapi',
+  // services/FreeSearchRing.js
+  'tavily', 'firecrawl', 'linkup', 'exa', 'serper', 'marginalia', 'wikipedia',
 ]);
 const OUTCOMES = new Set(['ok', '429', '403', 'timeout', 'error', 'skipped']);
 
