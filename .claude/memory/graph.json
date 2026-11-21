@@ -2440,6 +2440,14 @@
         "body": "2026-11-20 owner: Encyclopedia header now uses the real TruegleLogo (medium, animated halo; tap = close, not navigate('/')) and ui/TruegleSearchField — the SearchBar's blue gradient-ring/glow shell WITHOUT its history writes, web suggestions or bundle weight (an offline filter box must not log to search history). Reading area stays plain on purpose. Known pre-existing: root npm ci fails (lockfile lacks apps/android workspace), so .github/workflows/android.yml's npm ci step would fail too — use npm install.",
         "ts": "2026-11-20",
         "created": "2026-11-20"
+      },
+      "local-storage-v2": {
+        "Id": "local-storage-v2",
+        "Type": "decision",
+        "Label": "Offline media storage v2 COMPLETE (2026-11-20, PR #192)",
+        "body": "IndexedDB v2 (stores files/partials/parts). Downloads stream to disk in ~4MB Blob pieces: Pause keeps progress, same call resumes via Range (no If-Range: CORS-unsafe; validates by content-length+last-modified, restarts if server ignores Range). FullError drops partial. Dedupe by origin. saveManyRemote stops when full. storageStatus meter, exportLocalFiles backup, paste-link box + Unfinished list in Files tab. Verified: fake-IDB tests, eslint clean, vite build ok. Not tested on real phone. npm ci fails repo-wide (lock missing truegle-android) - pre-existing.",
+        "ts": "2026-11-20",
+        "created": "2026-11-20"
       }
     },
     "thread": {

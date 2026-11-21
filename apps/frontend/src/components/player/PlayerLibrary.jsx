@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { Play, X, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ListPlus, Pencil, Check, Shuffle, Share2, Download } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Play, X, Plus, Trash2, ChevronDown, ChevronRight, ChevronUp, ListPlus, Pencil, Check, Shuffle, Share2, Download, DownloadCloud } from 'lucide-react';
 import { shareList } from '../../utils/profileShare';
-import { saveRemoteMedia, isLocalSrc } from '../../utils/localMedia';
+import { saveRemoteMedia, saveManyRemote, isLocalSrc } from '../../utils/localMedia';
 import { shuffleList } from '../../utils/shuffleList';
 import AddToListSheet from './AddToListSheet';
 import { usePlayer } from '../../context/PlayerContext';
@@ -109,10 +109,37 @@ function PlaylistsTab({ accent, rowH, maxH }) {
       if (r === 'copied') say(`Link for “${p.name}” copied. Paste it to anyone with Truegle.`);
     } catch { say('Could not make a share link.'); }
   };
+  // One download at a time, shown with a percentage and a Cancel. `job` is what's in flight.
+  const [job, setJob] = useState(null); // { label, pct }
+  const abortRef = useRef(null);
+  const pctOf = (received, total) => (total ? Math.min(99, Math.round((received / total) * 100)) : null);
+  const cancel = () => abortRef.current?.abort();
   const saveOffline = async (it) => {
-    say('Saving to this device…');
-    try { await saveRemoteMedia(it.src, it.title); say('Saved. Find it under Files — it plays with no connection.'); }
-    catch (e) { say(e?.message || 'Could not save that.'); }
+    if (abortRef.current) return;
+    const ac = new AbortController(); abortRef.current = ac;
+    setJob({ label: it.title || 'Saving', pct: null });
+    try {
+      const r = await saveRemoteMedia(it.src, it.title, { signal: ac.signal, onProgress: (rcv, tot) => setJob({ label: it.title || 'Saving', pct: pctOf(rcv, tot) }) });
+      say(r.already ? 'Already on this device.' : 'Saved. Find it under Files — it plays with no connection.');
+    } catch (e) { say(e?.name === 'AbortError' ? 'Paused. Press save again to continue where it stopped.' : (e?.message || 'Could not save that.')); }
+    finally { abortRef.current = null; setJob(null); }
+  };
+  const saveWholeList = async (p) => {
+    if (abortRef.current) return;
+    const ac = new AbortController(); abortRef.current = ac;
+    setJob({ label: p.name, pct: null });
+    const r = await saveManyRemote(p.items, {
+      signal: ac.signal,
+      onProgress: ({ index, count, title, received, total }) => setJob({ label: `${index}/${count} · ${title || p.name}`, pct: pctOf(received, total) }),
+    });
+    abortRef.current = null; setJob(null);
+    const bits = [`${r.saved} saved`];
+    if (r.already) bits.push(`${r.already} already here`);
+    if (r.failed) bits.push(`${r.failed} could not be saved`);
+    if (r.skipped && !r.full) bits.push(`${r.skipped} not downloadable`);
+    if (r.full) bits.push(`stopped: out of space (${r.skipped} left)`);
+    if (r.cancelled) bits.push('paused — press save again to continue');
+    say(`${p.name}: ${bits.join(' · ')}.`);
   };
 
   // The single most useful way to make a playlist: keep the run you already
@@ -191,6 +218,11 @@ function PlaylistsTab({ accent, rowH, maxH }) {
                 className="flex items-center justify-center w-8 h-8 rounded text-white/30 hover:text-white hover:bg-white/10 transition-colors">
                 <Pencil size={12} />
               </button>
+              <button type="button" onClick={() => saveWholeList(p)} disabled={!p.items.length || !!job}
+                title="Save every song in this list to this device, as far as free space allows" aria-label={`Save ${p.name} for offline`}
+                className="flex items-center justify-center w-8 h-8 rounded text-white/30 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors">
+                <DownloadCloud size={12} />
+              </button>
               <button type="button" onClick={() => share(p)} disabled={!p.items.length} title="Share this list" aria-label={`Share ${p.name}`}
                 data-list-share=""
                 className="flex items-center justify-center w-8 h-8 rounded text-white/30 enabled:hover:text-white enabled:hover:bg-white/10 disabled:opacity-25 transition-colors">
@@ -267,6 +299,18 @@ function PlaylistsTab({ accent, rowH, maxH }) {
           </div>
         );
       })}
+      {job && (
+        <div className="px-3 py-1.5" role="status">
+          <div className="flex items-center gap-2 text-[10px] text-white/60">
+            <span className="min-w-0 flex-1 truncate">{job.label}</span>
+            <span className="tabular-nums shrink-0">{job.pct == null ? '…' : `${job.pct}%`}</span>
+            <button type="button" onClick={cancel} className="px-2 h-5 rounded border border-white/20 text-[9px] uppercase tracking-wider text-white/60 hover:text-white">Pause</button>
+          </div>
+          <div className="mt-1 h-1 rounded-full bg-white/10 overflow-hidden">
+            <div className="h-full bg-cyan-300/80 transition-[width]" style={{ width: `${job.pct ?? 8}%` }} />
+          </div>
+        </div>
+      )}
       {note && <p className="px-3 py-1.5 text-[10px] text-cyan-200/80" role="status">{note}</p>}
       <div style={{ borderColor: accent }} className="hidden" />
     </div>
