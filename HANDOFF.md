@@ -3,6 +3,28 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-26 — Security review + patches (backend)
+
+- **Fixed (all have regression tests in `apps/backend/__tests__/securityHardening.test.js`):**
+  1. `POST /api/extract/images` was an unauthenticated **SSRF** (bare axios, followed redirects to `169.254.169.254`/localhost) → now `utils/safeFetch`.
+  2. `utils/safeFetch` itself had bypasses: `::127.0.0.1`, 6to4 `2002::/16`, Teredo, `fec0::/10`, `localhost.` (trailing dot), `192.88.99.0/24`.
+  3. `POST /api/payment/refund` was open to **any signed-in user** (refund any payment, any amount) → admin only.
+  4. Stripe webhook: **any** succeeded payment intent (even 1¢) unlocked premium, and every `subscription.updated` re-granted +100 tokens. Now needs `amount >= PREMIUM_MIN_AMOUNT_CENTS` (optional env, default 999) and the bonus is paid once, on the free→premium transition.
+  5. `/api/voice/{transcribe,transcribe-url,analyze-sentiment}` burned our Deepgram key unauthenticated and `/api/voice/account` leaked its project list → signed-in (+rate limit); `/account` admin only; `transcribe-url` validates the URL and whitelists Deepgram options. (`/api/voice/stt`, the one the UI uses, is unchanged.)
+  6. `POST /api/shopping/clear-cache` public → admin only. `/api/contact/advertise` had no rate limit (spam cannon + Resend quota) → 5/h/IP, single-line fields, length caps.
+  7. PayPal routes: ids were interpolated into API paths with our merchant token (path traversal) → `^[A-Za-z0-9_-]{5,64}$`; redirect allowlist no longer accepts any `*.vercel.app`/`*.ngrok.io`.
+  8. Auth: 6-digit login code had no per-account brute-force limit → 8 wrong codes locks the account 15 min (in-memory, per instance); `request-code`/`register-direct` capped 10/h/IP (authLimiter skips successes, so valid floods were unlimited); unknown-account vs wrong-code now return the same message (no account enumeration); JWT verify pinned to HS256.
+  9. JSON body limit 10 MB → 2 MB; `getClientIp` ignores `cf-connecting-ip`/`true-client-ip` unless it is a literal IP; logger redacts Authorization/keys/tokens and drops axios `config`/`request` from logged errors.
+  10. **Dependencies:** `apps/backend/package-lock.json` (what Render builds) had 12 vulns incl. critical `proxy-addr` and high `jws` (JWT HMAC) → `npm audit fix` (in-range only) → 0. Root `package-lock.json`: joi/follow-redirects bumped; it also gained the 62 `apps/android` workspace entries it was missing (root `npm ci` was already broken by that drift).
+- **NOT fixed — owner decisions / follow-ups:**
+  - **Rate limiting trusts `cf-connecting-ip`.** If the Render origin (`*.onrender.com`) is reachable directly, anyone can spoof it and dodge every per-IP limit. Fix = firewall the origin to Cloudflare, or authenticate the CF→origin hop. Not changed here because forcing `req.ip` would put every user behind one shared IP.
+  - **CORS** allows any `*.vercel.app` / `*.pages.dev` / `*.ngrok*` origin with `credentials: true`. Truegle sets no cookies and the token lives in localStorage, so the practical impact is low, but it should be pinned to the real frontend hosts once those are settled.
+  - `register-direct` lets anyone open a *pending* account for any email (squatting); lockout can be used to lock a victim out for 15 min (the price of an account-level limiter).
+  - Stripe webhook has no event-id dedupe (token bonus is now idempotent, premium grant already is). `apps/backend/public/test*.html` dev pages are still served in production. `JWT_SECRET` has no minimum-length check.
+  - `new-endpoints.test.js` needs a live Postgres (fails on a clean checkout, unrelated).
+
+---
+
 ## 🗓️ 2026-11-19 — Nearby (Bluetooth chat), offline tools, Android app release (PRs #184–#187)
 
 - **Shipped:** Nearby on `/nearby` (Android app only; BLE via `TruegleMeshPlugin.java`, UI `pages/NearbyPage.jsx` + `mesh/*`): device picker, saved devices, threads, queued delivery when out of range (24 h), typing, voice notes (≤8 s, one device), connect toasts, offline clock. Site-wide offline prompt, offline mini player in My files, share-link import from anywhere (+ `truegle://`, reusable links kept 1 year), per-list share, save direct audio/video offline, survival guide unlocked for installed-app users, Truegle wordmark app icon, Android app-download offer (landing modal, install popup, `/nearby`, `/offline`). OpenSpec: `openspec/changes/add-offline-mesh-chat`.
