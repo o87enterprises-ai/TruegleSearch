@@ -2448,6 +2448,14 @@
         "body": "IndexedDB v2 (stores files/partials/parts). Downloads stream to disk in ~4MB Blob pieces: Pause keeps progress, same call resumes via Range (no If-Range: CORS-unsafe; validates by content-length+last-modified, restarts if server ignores Range). FullError drops partial. Dedupe by origin. saveManyRemote stops when full. storageStatus meter, exportLocalFiles backup, paste-link box + Unfinished list in Files tab. Verified: fake-IDB tests, eslint clean, vite build ok. Not tested on real phone. npm ci fails repo-wide (lock missing truegle-android) - pre-existing.",
         "ts": "2026-11-20",
         "created": "2026-11-20"
+      },
+      "sec-review-2026-11-26": {
+        "Id": "sec-review-2026-11-26",
+        "Type": "decision",
+        "Label": "Security review 2026-11-26: backend hardened",
+        "body": "SSRF in /api/extract/images + safeFetch IPv6 bypasses fixed; payment refund admin-only; premium needs >= PREMIUM_MIN_AMOUNT_CENTS (default 999) and +100 token bonus once; voice/shopping/contact gated or rate-limited; PayPal ids validated; per-account login-code lockout (8 fails/15min, in-memory) + 10/h/IP on request-code; JWT pinned HS256; lockfile apps/backend audit=0. OPEN: CF-header IP spoof if origin reachable directly; CORS wildcards; see HANDOFF 2026-11-26.",
+        "ts": "2026-11-26",
+        "created": "2026-11-26"
       }
     },
     "thread": {
@@ -3098,6 +3106,15 @@
         "status": "open",
         "ts": "2026-11-19",
         "created": "2026-11-19"
+      },
+      "cf-origin-lockdown": {
+        "Id": "cf-origin-lockdown",
+        "Type": "thread",
+        "Label": "Lock Render origin to Cloudflare",
+        "body": "Per-IP rate limits trust cf-connecting-ip (middleware/botDetection.js getClientIp). If *.onrender.com is directly reachable it is spoofable. Fix: restrict origin to Cloudflare (authenticated origin pulls / Render IP allow) then trust header; OR pin CORS wildcards. Owner decision.",
+        "status": "open",
+        "ts": "2026-11-26",
+        "created": "2026-11-26"
       }
     },
     "entity": {
@@ -4715,5 +4732,5 @@
       }
     }
   },
-  "updated": "2026-11-20"
+  "updated": "2026-11-26"
 }

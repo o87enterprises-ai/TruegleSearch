@@ -21,8 +21,45 @@ const colors = {
 
 winston.addColors(colors);
 
+// ── Secret redaction ────────────────────────────────────────────────────────
+// Several routes do `logger.error('...', error)` with a raw axios error. Its
+// serialised form carries `config.headers` (Authorization: Token <deepgram key>,
+// Bearer <paypal token>) and request URLs with ?key= params, which would land in
+// any log file/drain. Strip those before ANY transport formats the entry.
+const SENSITIVE_KEY = /^(authorization|proxy-authorization|cookie|set-cookie|x-admin-key|x-api-key|api[-_]?key|apikey|access[-_]?token|refresh[-_]?token|id[-_]?token|token|secret|client[-_]?secret|password|passwd|code_hash|jwt)$/i;
+const DROP_KEY = /^(config|request|_request|agent)$/;   // axios/http internals: headers, sockets
+function scrub(value, depth = 0, seen = new WeakSet()) {
+  if (value === null || typeof value !== 'object') return value;
+  if (seen.has(value)) return '[Circular]';
+  if (depth > 5) return '[Truncated]';
+  seen.add(value);
+  if (Array.isArray(value)) return value.slice(0, 50).map((v) => scrub(v, depth + 1, seen));
+  const out = {};
+  const keys = value instanceof Error
+    ? ['name', 'message', 'code', 'status', 'response', ...Object.keys(value)]
+    : Object.keys(value);
+  for (const k of new Set(keys)) {
+    if (SENSITIVE_KEY.test(k)) { out[k] = '[REDACTED]'; continue; }
+    if (DROP_KEY.test(k)) { out[k] = '[omitted]'; continue; }
+    if (k === 'response' && value[k] && typeof value[k] === 'object' && 'status' in value[k]) {
+      out[k] = { status: value[k].status };   // an upstream reply body can echo secrets
+      continue;
+    }
+    out[k] = scrub(value[k], depth + 1, seen);
+  }
+  return out;
+}
+const redact = winston.format((info) => {
+  for (const k of Object.keys(info)) {
+    if (k === 'level' || k === 'message' || k === 'timestamp' || k === 'stack') continue;
+    info[k] = SENSITIVE_KEY.test(k) ? '[REDACTED]' : scrub(info[k]);
+  }
+  return info;
+});
+
 // Define format
 const format = winston.format.combine(
+  redact(),
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.errors({ stack: true }),
   winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
@@ -39,6 +76,7 @@ const format = winston.format.combine(
 
 // Console format with colors
 const consoleFormat = winston.format.combine(
+  redact(),
   winston.format.colorize({ all: true }),
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.printf(({ timestamp, level, message, ...meta }) => {
@@ -162,3 +200,4 @@ logger.logSearch = (query, userId, resultCount, duration, extra = {}) => {
 };
 
 module.exports = logger;
+module.exports.scrub = scrub;

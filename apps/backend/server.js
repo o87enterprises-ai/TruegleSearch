@@ -163,8 +163,11 @@ app.use((req, res, next) => {
 app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
 
 // Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+// 10mb was the old JSON ceiling on every route, unauthenticated, held in memory.
+// The biggest legitimate body is a shared thread (256 KB, services/ShareService.js);
+// audio uploads go through multer, not this parser.
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb', parameterLimit: 1000 }));
 
 // Serve static files from public directory (for test.html)
 app.use(express.static('public'));

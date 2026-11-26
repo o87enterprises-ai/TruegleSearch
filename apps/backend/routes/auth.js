@@ -3,8 +3,10 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const axios = require('axios');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const config = require('../config/env');
+const { getClientIp } = require('../middleware/botDetection');
 const User = require('../models/User');
 const TokenService = require('../services/TokenService');
 const EmailService = require('../services/EmailService');
@@ -25,8 +27,47 @@ const RENEW_AFTER_S = 24 * 60 * 60;
 const signSession = (user, remember) => jwt.sign(
   { userId: user.id, email: user.email, role: user.role, ...(remember ? { rem: 1 } : {}) },
   config.jwtSecret,
-  { expiresIn: remember ? REMEMBER_TTL : SESSION_TTL }
+  { algorithm: 'HS256', expiresIn: remember ? REMEMBER_TTL : SESSION_TTL }
 );
+
+// ── BRUTE-FORCE DEFENCE ─────────────────────────────────────────────────────
+// A one-time login code is 6 digits (1,000,000 values, valid 15 minutes). The
+// router-wide authLimiter is per-IP and counts failures only, so a botnet of
+// many IPs could still grind ONE victim's code. This is per ACCOUNT: after
+// MAX_FAILS wrong codes in FAIL_WINDOW_MS the account refuses every code —
+// right or wrong — until the window passes. In-memory, so it is per instance
+// (Render runs one); the per-IP limits stay as the second layer.
+const MAX_FAILS = 8;
+const FAIL_WINDOW_MS = 15 * 60 * 1000;
+const fails = new Map(); // contact -> { n, first }
+function isLockedOut(contact) {
+  const f = fails.get(contact);
+  if (!f) return false;
+  if (Date.now() - f.first > FAIL_WINDOW_MS) { fails.delete(contact); return false; }
+  return f.n >= MAX_FAILS;
+}
+function noteFailure(contact) {
+  const now = Date.now();
+  if (fails.size > 10000) {                      // bounded: never grow without limit
+    for (const [k, v] of fails) if (now - v.first > FAIL_WINDOW_MS) fails.delete(k);
+    if (fails.size > 10000) fails.clear();
+  }
+  const f = fails.get(contact);
+  if (!f || now - f.first > FAIL_WINDOW_MS) fails.set(contact, { n: 1, first: now });
+  else f.n += 1;
+}
+
+// Both of these create DB rows and trigger outbound email / PayPal calls, and
+// authLimiter skips successful requests — so on its own it never slowed a flood
+// of VALID requests (email-bombing arbitrary addresses through Resend).
+const issueLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => getClientIp(req),
+  message: { error: 'Too many requests — please try again later.' },
+});
 
 /**
  * @route   GET /api/auth/validate
@@ -54,7 +95,7 @@ router.get('/validate', async (req, res) => {
       });
     }
 
-    const decoded = jwt.verify(token, config.jwtSecret);
+    const decoded = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] });
 
     const user = await User.findById(decoded.userId);
     if (!user) {
@@ -155,12 +196,16 @@ function generateAccountCode() {
  *          registration. No password, no OAuth — just email or phone.
  * @access  Public
  */
-router.post('/register-direct', async (req, res) => {
+router.post('/register-direct', issueLimiter, async (req, res) => {
   try {
     const { email, phone } = req.body;
 
     if (!email && !phone) {
       return res.status(400).json({ error: 'Email or phone number is required' });
+    }
+    if ((email && typeof email !== 'string') || (phone && typeof phone !== 'string')
+        || String(email || phone).length > 254) {
+      return res.status(400).json({ error: 'Invalid contact details' });
     }
 
     const contact = email
@@ -310,10 +355,10 @@ router.post('/confirm-premium', async (req, res) => {
  *          delivery is not wired up yet ($0 budget); email only for now.
  * @access  Public
  */
-router.post('/request-code', async (req, res) => {
+router.post('/request-code', issueLimiter, async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+    if (!email || typeof email !== 'string' || email.length > 254 || !/\S+@\S+\.\S+/.test(email)) {
       return res.status(400).json({ error: 'A valid email address is required' });
     }
     const contact = email.trim().toLowerCase();
@@ -381,6 +426,10 @@ router.post('/verify-access-code', async (req, res) => {
     if (!code || (!email && !phone)) {
       return res.status(400).json({ error: 'Email/phone and access code are required' });
     }
+    if (typeof code !== 'string' || code.length > 64
+        || (email && typeof email !== 'string') || (phone && typeof phone !== 'string')) {
+      return res.status(400).json({ error: 'Invalid sign-in details' });
+    }
     // 18+ and the terms (the sign-in page's AgeGate), enforced here too: a
     // signed-in account is what unlocks Safe Search "off" (routes/search.js),
     // so the confirmation cannot be skipped by calling the API directly.
@@ -393,6 +442,10 @@ router.post('/verify-access-code', async (req, res) => {
       : phone.trim().replace(/\D/g, '');
     const normalizedCode = code.trim().toUpperCase();
 
+    if (isLockedOut(contact)) {
+      return res.status(429).json({ error: 'Too many incorrect codes for this account. Please wait 15 minutes and try again.' });
+    }
+
     const { query } = require('../db/connection');
 
     const userRow = await query(
@@ -400,7 +453,10 @@ router.post('/verify-access-code', async (req, res) => {
       [contact]
     );
     if (userRow.rows.length === 0) {
-      return res.status(401).json({ error: 'No active account found for that email/phone' });
+      // Same answer and same lockout accounting as a wrong code, so this endpoint
+      // does not reveal which addresses have accounts.
+      noteFailure(contact);
+      return res.status(401).json({ error: 'Invalid or expired access code' });
     }
     const user = userRow.rows[0];
 
@@ -446,8 +502,10 @@ router.post('/verify-access-code', async (req, res) => {
     }
 
     if (!matchedTable) {
+      noteFailure(contact);
       return res.status(401).json({ error: 'Invalid or expired access code' });
     }
+    fails.delete(contact);
 
     if (matchedTable === 'premium_access_codes') {
       await query(`UPDATE premium_access_codes SET used = true, used_at = NOW() WHERE id = $1`, [matchedId]);
