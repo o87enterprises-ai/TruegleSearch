@@ -219,7 +219,19 @@
   <!-- Blog -->
   <url>
     <loc>https://truegle.info/blog/</loc>
-    <lastmod>2026-07-21</lastmod>
+    <lastmod>2026-11-27</lastmod>
+  </url>
+  <url>
+    <loc>https://truegle.info/blog/compare-news-coverage-across-sources/</loc>
+    <lastmod>2026-11-27</lastmod>
+  </url>
+  <url>
+    <loc>https://truegle.info/blog/why-search-results-disappear/</loc>
+    <lastmod>2026-11-27</lastmod>
+  </url>
+  <url>
+    <loc>https://truegle.info/blog/verify-a-claim-with-search/</loc>
+    <lastmod>2026-11-27</lastmod>
   </url>
   <url>
     <loc>https://truegle.info/blog/truegle-vs-duckduckgo-vs-startpage/</loc>
