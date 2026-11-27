@@ -12,6 +12,14 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-27 — Three new blog posts (multi-perspective angle); crawler audit NOT done
+
+- **Shipped (branch `claude/crawler-prerender-fix`, not pushed):** `compare-news-coverage-across-sources`, `why-search-results-disappear`, `verify-a-claim-with-search` added to `blogPosts.jsx` (each with `seoTitle` <60, description <155, FAQ, internal links) + 4 sitemap entries (blog index lastmod bumped). Drafts kept in `drafts/new-posts/02-04`. Full `npm run build` prerenders all three with own title + self-canonical; each is linked from `/blog`.
+- **Why:** per memory `seo-real-bottleneck`, the limit is demand, not indexing. Posts target the unoccupied multi-perspective / source-checking ground, not "private search" head terms. Post 2 describes documented mechanisms only (ranking, personalization, legal delisting, filters, ad crowding); it must not claim any engine suppresses a named topic.
+- **Correction:** the "empty Vite shell" crawler diagnosis is stale. Prerender + edge middleware already serve real HTML (see memory `seo-shell-is-prerendered-home`, `seo-round1-edge-meta`). No crawler code was changed.
+- **Tests:** `seo:test` 202 pass / 2 fail, identical on baseline (creator `terror-teds-tales` title check; sitemap creator list). Pre-existing, unrelated.
+- **Not done / owner:** live-site audit as Googlebot (needs a browser; Claude in Chrome was unreachable from mobile). After merge, submit the 3 URLs via Search Console / IndexNow.
+
 ## 🗓️ 2026-11-26 — Security review + patches (backend)
 
 - **Fixed (all have regression tests in `apps/backend/__tests__/securityHardening.test.js`):**
