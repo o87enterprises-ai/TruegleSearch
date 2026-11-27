@@ -4752,6 +4752,14 @@
         "body": "apps/frontend/public/_headers carries ONE CSP line; connect-src is an allowlist. Any new browser fetch/axios host (e.g. photon.komoot.io) must be added there or production browsers silently block it while dev/tests pass. Found 2026-11-27 after shipping Photon without it.",
         "ts": "2026-11-27",
         "created": "2026-11-27"
+      },
+      "tavily-live-verified": {
+        "Id": "tavily-live-verified",
+        "Type": "fact",
+        "Label": "Tavily adapter verified LIVE; CLI set up in cloud container (2026-11-27)",
+        "body": "Ran apps/backend/services/freeSearchApis.js against the real Tavily API: request shape correct, 5 results mapped to the shared shape (top hit 420 Richards Blvd Sacramento). Tavily browser OAuth CANNOT complete from a cloud session (callback is http://127.0.0.1:<port>/callback on the CLI machine, unreachable from the user's browser). Worked around with request_credential for host api.tavily.com: credential lives on the session ENVIRONMENT and the proxy injects it; code/CLI use the placeholder 'proxy-injected' (CLI config holds the placeholder, never the key). tvly 1.0.2 + 6 tavily-* agent skills installed globally in ~/.claude/skills (markdown-only, reviewed clean). This does NOT set TAVILY_API_KEY on Render/Vercel: the owner still must. Serper/Exa/Marginalia still unverified live.",
+        "ts": "2026-11-27",
+        "created": "2026-11-27"
       }
     }
   },
