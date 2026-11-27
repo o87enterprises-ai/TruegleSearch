@@ -13,6 +13,254 @@ import { LegalSection } from '../components/LegalPage';
  */
 export const BLOG_POSTS = [
   {
+    slug: 'compare-news-coverage-across-sources',
+    title: 'How to Compare News Coverage Across Sources in 5 Minutes',
+    seoTitle: 'How to Compare News Coverage Across Sources',
+    description:
+      'A simple five-step method to see how different outlets frame the same story, spot what each one leaves out, and get closer to what actually happened.',
+    date: '2026-11-27',
+    readingTime: '4 min read',
+    faq: [
+      {
+        q: 'How many sources should I compare?',
+        a: 'Three is enough to spot framing differences without spending much time. Add a primary document, such as the bill, filing or study, when one exists.',
+      },
+      {
+        q: 'Is a neutral source ever enough on its own?',
+        a: 'Wire services tend to be plainer, but they still choose what to include. Treat them as one input rather than the whole answer.',
+      },
+      {
+        q: 'Does this method work for non-political news?',
+        a: 'Yes. Health, technology and business stories are framed too, often by who funded a study or who benefits from the headline.',
+      },
+    ],
+    body: (
+      <>
+        <p>
+          Two outlets can report the same event and leave you with opposite
+          impressions without either one stating a falsehood. Here is a fast,
+          repeatable way to see the difference.
+        </p>
+        <p>
+          <strong>Short answer:</strong> pick one story, read three sources that
+          differ in emphasis, and compare four things: the headline, the first
+          paragraph, who is quoted, and what is missing. It takes about five
+          minutes and works on any topic.
+        </p>
+        <LegalSection heading="Why one source is never enough">
+          <p>
+            Every outlet decides what to lead with, which experts to quote and
+            which details to cut for space. Those choices shape what you take
+            away, even when every sentence is accurate. Search engines add another
+            layer: what you see first depends on ranking, personalization and your
+            own earlier clicks. That is why comparing coverage on purpose beats
+            trusting whatever lands on page one.
+          </p>
+        </LegalSection>
+        <LegalSection heading="The five-minute method">
+          <ol className="list-decimal pl-6 space-y-2">
+            <li><strong>Search for the event, not the opinion.</strong> Use neutral words that describe what happened, such as "city council votes on zoning change", not words that already carry a judgment. Loaded search terms return loaded results.</li>
+            <li><strong>Open three sources that are likely to differ.</strong> For example a wire service or local paper, an outlet that leans one way, and an outlet that leans the other. If you can find the primary document (the bill, the court filing, the study), open that too.</li>
+            <li><strong>Compare the headline and the first paragraph.</strong> What is the story "about" in each one? A budget vote can be framed as a tax increase, a service cut or a routine adjustment. The framing is the first signal.</li>
+            <li><strong>Check who gets quoted.</strong> List the voices in each piece. Is one side quoted at length and the other paraphrased in a single line? Are the experts named, and what is their stake?</li>
+            <li><strong>Look for what is missing.</strong> The most useful question is the simplest: what does this version not tell me? Whatever appears in one source and is absent from the others is where to dig next.</li>
+          </ol>
+        </LegalSection>
+        <LegalSection heading="What to do with the differences">
+          <p>
+            You do not need to decide which outlet is "right". Note where all three
+            agree (that is likely the solid core of the story), where they disagree
+            on facts (check the primary source), and where they disagree only on
+            emphasis (that is framing, and you can now see it).
+          </p>
+        </LegalSection>
+        <LegalSection heading="Making it faster">
+          <p>
+            A tool that shows several viewpoints side by side saves the tab
+            juggling. Truegle is built around that idea: its perspective modes let
+            you view results through a single lens, such as political, faith,
+            societal or economic, so you can read each framing on its own and then
+            compare. Whatever tool you use, the method above is the part that
+            matters.
+          </p>
+          <p>
+            For the thinking behind it, see{' '}
+            <a href="/blog/why-multiple-perspectives-matter" className="text-blue-400 hover:text-blue-300">why seeing multiple perspectives matters</a>,{' '}
+            <a href="/blog/what-is-a-filter-bubble" className="text-blue-400 hover:text-blue-300">what a filter bubble is</a>{' '}
+            and{' '}
+            <a href="/blog/bias-free-search-results-perspective-modes" className="text-blue-400 hover:text-blue-300">how Truegle's perspective modes work</a>.
+          </p>
+        </LegalSection>
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Accurate sentences can still leave very different impressions through framing, quotes and omissions.</li>
+            <li>Compare headline, first paragraph, who is quoted and what is missing across three sources.</li>
+            <li>Agreement is the solid core; disagreement on facts goes to the primary source; disagreement on emphasis is framing.</li>
+          </ul>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
+    slug: 'why-search-results-disappear',
+    title: 'Why Search Results Disappear: Demotion, Delisting and Page-One Bias',
+    seoTitle: 'Why Search Results Disappear and How to Find Them',
+    description:
+      'Search results get pushed down or removed for ranking, legal and commercial reasons. Here is how that works and how to look past page one.',
+    date: '2026-11-27',
+    readingTime: '5 min read',
+    faq: [
+      {
+        q: 'Does a missing search result mean it was censored?',
+        a: 'Not necessarily. Low ranking, personalization and filters are far more common than removal. Check those first.',
+      },
+      {
+        q: 'Can a search engine remove a page from the web?',
+        a: 'No. An engine can stop returning a link for certain searches, but the page stays on its host unless the owner takes it down.',
+      },
+      {
+        q: 'Why do two search engines show different results for the same query?',
+        a: 'They use different indexes, ranking systems and personalization, and some rely on another engine\'s data.',
+      },
+    ],
+    body: (
+      <>
+        <p>
+          You searched for something you know exists and it is nowhere on page
+          one. Before assuming it was never there, it helps to know the ordinary
+          reasons results go missing.
+        </p>
+        <p>
+          <strong>Short answer:</strong> a result can be missing because it is
+          ranked low, personalized out of your view, removed under a legal
+          process, filtered by a setting, or buried under paid and "optimized"
+          pages. Most of these are routine and documented. Knowing which one you
+          are facing tells you how to get around it.
+        </p>
+        <LegalSection heading="The five common reasons">
+          <ol className="list-decimal pl-6 space-y-2">
+            <li><strong>Ranking, not removal.</strong> Most "missing" pages are still indexed, just ranked below where anyone looks. Page one gets the overwhelming share of clicks, so a page on page four is effectively hidden even though nothing was deleted.</li>
+            <li><strong>Personalization.</strong> Many engines adjust results using your location, language and past behavior. Two people searching the same words can see different lists. This is the filter-bubble effect, and it can hide pages you would have found in someone else's results.</li>
+            <li><strong>Legal delisting.</strong> Engines remove links in response to legal requests. Two well-known examples are copyright takedown notices and, in the European Union, the "right to be forgotten", which lets individuals ask for certain links about them to be delisted. The page still exists on the web; it is just not returned for those queries in those regions.</li>
+            <li><strong>Filters and safety settings.</strong> Settings such as safe search remove categories of results by design. If something seems oddly absent, check what is switched on.</li>
+            <li><strong>Commercial crowding.</strong> Ads, shopping boxes, answer panels and heavily search-optimized pages take up the top of the screen. A well-made independent page can lose out to a mediocre page that is better at SEO.</li>
+          </ol>
+        </LegalSection>
+        <LegalSection heading="How to look past page one">
+          <ul className="list-disc pl-6 space-y-2">
+            <li><strong>Rephrase with different vocabulary.</strong> Use the terms the page itself would use, including jargon, names and alternate spellings.</li>
+            <li><strong>Quote exact phrases.</strong> Quotation marks force an exact match and cut through crowding.</li>
+            <li><strong>Search the source directly.</strong> If you know the site or the document type, search for it by name or restrict to that site.</li>
+            <li><strong>Change the vantage point.</strong> Try another engine, a different region setting or a signed-out window. Different indexes surface different pages.</li>
+            <li><strong>Go to the primary record.</strong> Court filings, government databases and archives are not ranked by popularity.</li>
+            <li><strong>Check an archive.</strong> If a page was removed, an archived copy may remain.</li>
+          </ul>
+        </LegalSection>
+        <LegalSection heading="What this means for how you search">
+          <p>
+            None of this requires assuming bad intent. Ranking has to choose
+            something, and legal removals are a normal part of operating a search
+            engine. The practical lesson is that one engine's page one is a view,
+            not the whole web. Truegle is built on that premise: it does not build
+            a profile of you to personalize results, and its perspective modes let
+            you see how the picture changes through different lenses. Using more
+            than one engine does the same job.
+          </p>
+          <p>
+            Related reading:{' '}
+            <a href="/blog/what-is-a-filter-bubble" className="text-blue-400 hover:text-blue-300">what a filter bubble is</a>{' '}
+            and{' '}
+            <a href="/blog/how-to-get-unbiased-search-results" className="text-blue-400 hover:text-blue-300">how to get unbiased search results</a>.
+          </p>
+        </LegalSection>
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Missing results are usually ranked low, personalized away, filtered, legally delisted or crowded out, not erased from the web.</li>
+            <li>Rephrase, quote exact phrases, search the source and try another engine or a signed-out window.</li>
+            <li>One engine's first page is a view, not the whole web.</li>
+          </ul>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
+    slug: 'verify-a-claim-with-search',
+    title: 'How to Verify a Claim With Search: A Source-Checking Checklist',
+    seoTitle: 'How to Verify a Claim With Search: A Checklist',
+    description:
+      'A practical checklist for checking whether a claim is true: trace it to the original source, cross-check independent reports and test the evidence.',
+    date: '2026-11-27',
+    readingTime: '5 min read',
+    faq: [
+      {
+        q: 'Is a fact-checking site enough to verify a claim?',
+        a: 'It is a good starting point, but check its sources too. A fact-check is one more secondary source.',
+      },
+      {
+        q: 'What if I cannot find a primary source?',
+        a: 'Treat the claim as unverified and say so rather than repeating it.',
+      },
+      {
+        q: 'How do I verify a screenshot?',
+        a: 'Search for the exact text, look for the original post or page, and check the date. Screenshots are easy to alter.',
+      },
+    ],
+    body: (
+      <>
+        <p>
+          A screenshot, a statistic or a confident headline is not evidence by
+          itself. This checklist turns a search engine into a fact-checking tool.
+        </p>
+        <p>
+          <strong>Short answer:</strong> find where the claim started, check
+          whether independent sources confirm it, and test whether the evidence
+          actually says what the claim says. Most false or misleading claims fail
+          at one of those three steps.
+        </p>
+        <LegalSection heading="The checklist">
+          <ol className="list-decimal pl-6 space-y-2">
+            <li><strong>Write the claim as one plain sentence.</strong> Vague claims cannot be checked. "Crime is up" becomes "violent crime in City X rose in 2026 compared with 2025." Now you know what evidence would settle it.</li>
+            <li><strong>Find the origin.</strong> Search for distinctive words from the claim in quotation marks and look for the earliest appearance. Many claims are repeated by hundreds of pages that all trace back to one post, one study or one quote with no source behind it.</li>
+            <li><strong>Go to the primary source.</strong> If the claim cites a study, open the study. If it cites a statistic, find the dataset or the agency that publishes it. If it quotes a person, look for the full transcript or video. Secondary summaries often drop caveats.</li>
+            <li><strong>Check what the source actually says.</strong> Compare the claim to the source: the same numbers, the same time period, the same population, the same conclusion. Misleading claims often use a real source for a different point.</li>
+            <li><strong>Look for independent confirmation.</strong> Independent means separate reporting, not rewrites of the same press release. Look for the event in at least two outlets that do not share a common source.</li>
+            <li><strong>Look for credible disagreement.</strong> Search the claim together with words like "disputed", "fact check" or "correction". Disagreement does not make a claim false, but you should know the strongest objection.</li>
+            <li><strong>Check the date and context.</strong> Old images and quotes are often reshared as new. A reverse image search and a look at the original publication date catch a large share of recycled material.</li>
+            <li><strong>Ask who benefits.</strong> Funding, affiliation and incentives do not prove something wrong, but they tell you where to look harder.</li>
+          </ol>
+        </LegalSection>
+        <LegalSection heading="Reading your results carefully">
+          <p>
+            Search engines rank by relevance and popularity, not by truth. A claim
+            repeated widely can outrank the correction. Scroll past the first
+            screen, vary your wording and name the source type you want, such as a
+            government database, a court record or a peer-reviewed paper. For
+            more tools, see our{' '}
+            <a href="/blog/best-free-osint-tools-for-beginners" className="text-blue-400 hover:text-blue-300">free OSINT tools for beginners</a>{' '}
+            and{' '}
+            <a href="/blog/how-to-get-unbiased-search-results" className="text-blue-400 hover:text-blue-300">guide to unbiased search results</a>.
+          </p>
+        </LegalSection>
+        <LegalSection heading="Where a multi-perspective search helps">
+          <p>
+            When a claim is contested, viewing results through separate
+            perspectives shows you how each camp presents the evidence, which makes
+            it easier to find the strongest version of each argument. Truegle's
+            perspective modes are designed for this, but the checklist works in any
+            search tool.
+          </p>
+        </LegalSection>
+        <LegalSection heading="Summary">
+          <ul className="list-disc pl-6 space-y-2">
+            <li>Trace the claim to its origin and open the primary source.</li>
+            <li>Confirm it with independent reporting and read the strongest disagreement.</li>
+            <li>Check dates, context and incentives before you repeat it.</li>
+          </ul>
+        </LegalSection>
+      </>
+    ),
+  },
+  {
     slug: 'truegle-vs-duckduckgo-vs-startpage',
     title: 'Truegle vs DuckDuckGo vs Startpage: Which Private Search Engine Fits You? (2026)',
     seoTitle: 'Truegle vs DuckDuckGo vs Startpage: 2026 Comparison',
