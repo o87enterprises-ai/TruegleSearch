@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const shoppingService = require('../services/ShoppingService');
 const { rateLimitSearch } = require('../middleware/rateLimit');
+const { authenticate, requireAdmin } = require('../middleware/auth');
 
 /**
  * POST /api/shopping/search
@@ -113,7 +114,9 @@ router.post('/compare', rateLimitSearch, async (req, res) => {
  * POST /api/shopping/clear-cache
  * Clear cache for a specific query (admin/debugging)
  */
-router.post('/clear-cache', async (req, res) => {
+router.post('/clear-cache', authenticate, requireAdmin, async (req, res) => {
+  // Operator-only: this was public, so anyone could evict cache entries and
+  // force fresh paid-API lookups on demand (cost + availability).
   try {
     const { query } = req.body;
 

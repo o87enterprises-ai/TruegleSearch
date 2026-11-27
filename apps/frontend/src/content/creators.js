@@ -159,6 +159,13 @@ export const CREATORS = [
     avatar: null, refCode: 'astral-legends', featured: false,
     socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@astrallegends' }],
   },
+  {
+    slug: 'from-ego-to-i-am', name: 'From Ego to I AM', tagline: '',
+    channelId: 'UCQJx9gpCj0rjjk4BrXqi6Qw',
+    channelUrl: 'https://www.youtube.com/@fromegotoiam',
+    avatar: null, refCode: 'from-ego-to-i-am', featured: false,
+    socials: [{ label: 'YouTube', url: 'https://www.youtube.com/@fromegotoiam' }],
+  },
 ];
 
 export const getCreator = (slug) => CREATORS.find((c) => c.slug === slug) || null;

@@ -46,7 +46,7 @@ const authenticate = (req, res, next) => {
         message: 'Authentication service is not properly configured',
       });
     }
-    const decoded = jwt.verify(token, jwtSecret());
+    const decoded = jwt.verify(token, jwtSecret(), { algorithms: ['HS256'] });
 
     // Add user info to request
     req.user = {
@@ -102,7 +102,7 @@ const optionalAuth = (req, res, next) => {
         req.user = { isAuthenticated: false, role: 'guest' };
         return next();
       }
-      const decoded = jwt.verify(token, jwtSecret());
+      const decoded = jwt.verify(token, jwtSecret(), { algorithms: ['HS256'] });
 
       req.user = {
         userId: decoded.userId,

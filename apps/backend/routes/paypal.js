@@ -5,25 +5,35 @@ const config = require('../config/env');
 const logger = require('../utils/logger');
 const { authenticate } = require('../middleware/auth');
 
-// Allowed redirect URL origins for PayPal
-const ALLOWED_REDIRECT_HOSTS = [
+// Allowed redirect URL hosts for PayPal. These URLs are where PayPal sends a
+// buyer after approval, so an attacker-chosen host is a phishing redirect off a
+// genuine PayPal page. The old list allowed ANY *.vercel.app / *.ngrok.io host —
+// anyone can register one — so only Truegle's own origins (and local dev) pass.
+const ALLOWED_REDIRECT_HOSTS = new Set([
   'localhost',
   '127.0.0.1',
-];
+  'truegle.info',
+  'www.truegle.info',
+]);
+try {
+  if (config.frontendUrl) ALLOWED_REDIRECT_HOSTS.add(new URL(config.frontendUrl).hostname);
+} catch { /* a malformed FRONTEND_URL just adds nothing */ }
 
 const isAllowedRedirectUrl = (urlString) => {
   try {
     const url = new URL(urlString);
-    return (
-      ALLOWED_REDIRECT_HOSTS.some((host) => url.hostname === host) ||
-      url.hostname.endsWith('.ngrok-free.app') ||
-      url.hostname.endsWith('.ngrok.io') ||
-      url.hostname.endsWith('.vercel.app')
-    );
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+    if (url.username || url.password) return false;
+    return ALLOWED_REDIRECT_HOSTS.has(url.hostname);
   } catch {
     return false;
   }
 };
+
+// PayPal ids go straight into an API URL path with OUR merchant token attached.
+// An id like '../../v1/identity/...' (Express decodes %2F in params) would let a
+// caller steer our credentials at other PayPal endpoints. Ids are [A-Za-z0-9-_].
+const PAYPAL_ID = /^[A-Za-z0-9_-]{5,64}$/;
 
 // PayPal OAuth token endpoint
 const getPayPalToken = async () => {
@@ -64,6 +74,14 @@ router.post('/create-payment', authenticate, async (req, res) => {
       return res.status(400).json({
         error: 'Amount, returnUrl, and cancelUrl parameters are required'
       });
+    }
+
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value <= 0 || value > 10000) {
+      return res.status(400).json({ error: 'amount must be a number between 0 and 10000' });
+    }
+    if (typeof currency !== 'string' || !/^[A-Za-z]{3}$/.test(currency)) {
+      return res.status(400).json({ error: 'A valid 3-letter currency code is required' });
     }
 
     // Validate redirect URLs belong to allowed domains
@@ -135,6 +153,9 @@ router.post('/execute-payment', authenticate, async (req, res) => {
         error: 'Payment ID and Payer ID are required'
       });
     }
+    if (!PAYPAL_ID.test(String(paymentId)) || !PAYPAL_ID.test(String(payerId))) {
+      return res.status(400).json({ error: 'Invalid payment or payer id' });
+    }
 
     // Get PayPal access token
     const accessToken = await getPayPalToken();
@@ -179,9 +200,9 @@ router.get('/payment/:paymentId', authenticate, async (req, res) => {
     const { paymentId } = req.params;
 
     // Validate payment ID
-    if (!paymentId) {
+    if (!paymentId || !PAYPAL_ID.test(paymentId)) {
       return res.status(400).json({
-        error: 'Payment ID is required'
+        error: 'A valid Payment ID is required'
       });
     }
 
@@ -231,6 +252,10 @@ router.post('/create-subscription', authenticate, async (req, res) => {
       return res.status(400).json({
         error: 'Name, description, startDate, planId, and payer are required'
       });
+    }
+
+    if (typeof planId !== 'string' || !PAYPAL_ID.test(planId)) {
+      return res.status(400).json({ error: 'Invalid planId' });
     }
 
     // Get PayPal access token
@@ -286,9 +311,9 @@ router.get('/subscription/:subscriptionId', authenticate, async (req, res) => {
     const { subscriptionId } = req.params;
 
     // Validate subscription ID
-    if (!subscriptionId) {
+    if (!subscriptionId || !PAYPAL_ID.test(subscriptionId)) {
       return res.status(400).json({
-        error: 'Subscription ID is required'
+        error: 'A valid Subscription ID is required'
       });
     }
 

@@ -1,5 +1,5 @@
 const express = require('express');
-const axios = require('axios');
+const { safeFetch } = require('../utils/safeFetch');
 const router = express.Router();
 const { fetchTranscript } = require('../services/TranscriptService');
 const logger = require('../utils/logger');
@@ -105,14 +105,15 @@ router.post('/images', rateLimitSearch, async (req, res) => {
   if (!/^https?:\/\//i.test(normalized)) normalized = 'https://' + normalized;
 
   try {
-    const response = await axios.get(normalized, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Truegle-Extractor/1.0; +https://truegle.info)' },
-      timeout: 12000,
-      maxContentLength: 5 * 1024 * 1024,
-      responseType: 'text',
+    // SSRF: this used to be a bare axios.get — any visitor could make the server
+    // fetch http://169.254.169.254/ (cloud metadata), localhost services, or follow
+    // a redirect there. safeFetch vets every resolved address at the socket and
+    // re-checks each redirect hop (utils/safeFetch.js).
+    const { body, url: finalUrl } = await safeFetch(normalized, {
+      timeoutMs: 12000,
+      maxBytes: 5 * 1024 * 1024,
     });
-
-    const html = String(response.data);
+    const html = String(body);
     const images = [];
     const seen = new Set();
 
@@ -141,7 +142,7 @@ router.post('/images', rateLimitSearch, async (req, res) => {
       if (src && src[1].length > 4) add(src[1]);
     }
 
-    const base = new URL(normalized);
+    const base = new URL(finalUrl);
     const resolved = images
       .map((s) => { try { return new URL(s, base).href; } catch { return null; } })
       .filter((s) => s && /^https?:\/\//i.test(s))

@@ -24,9 +24,15 @@ for (const [addr, bits] of [
   ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16],
   ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15],
   ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 4], ['240.0.0.0', 4],
+  ['192.88.99.0', 24], // 6to4 relay anycast
 ]) blocked.addSubnet(addr, bits, 'ipv4');
 for (const [addr, bits] of [
-  ['::', 128], ['::1', 128], ['fc00::', 7], ['fe80::', 10], ['ff00::', 8], ['2001:db8::', 32], ['64:ff9b::', 96],
+  // '::/96' is the deprecated IPv4-COMPATIBLE form (::127.0.0.1) — it carries an
+  // IPv4 address the kernel may still route, and it also covers '::' and '::1'.
+  ['::', 96], ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['ff00::', 8],
+  ['2001:db8::', 32], ['64:ff9b::', 96], ['64:ff9b:1::', 48],
+  ['2001::', 32],  // Teredo: embeds an IPv4 server + client address
+  ['2002::', 16],  // 6to4: embeds an IPv4 address (2002:7f00:1:: -> 127.0.0.1)
 ]) blocked.addSubnet(addr, bits, 'ipv6');
 
 function isPublicAddress(address) {
@@ -61,9 +67,11 @@ function checkUrl(raw) {
   if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new FetchRefused('only http(s)');
   if (u.port && u.port !== '80' && u.port !== '443') throw new FetchRefused('only the standard ports');
   if (u.username || u.password) throw new FetchRefused('no credentials in links');
-  const host = u.hostname.replace(/^\[|\]$/g, '');
+  // A trailing dot is the same name ('localhost.' resolves exactly like
+  // 'localhost') and slipped straight past the suffix test below.
+  const host = u.hostname.replace(/^\[|\]$/g, '').replace(/\.+$/, '');
   if (net.isIP(host) && !isPublicAddress(host)) throw new FetchRefused('not a public address');
-  if (/^localhost$|\.localhost$|\.local$|\.internal$/i.test(host)) throw new FetchRefused('not a public host');
+  if (/^localhost$|\.localhost$|\.local$|\.internal$|\.lan$|\.home$|\.corp$/i.test(host)) throw new FetchRefused('not a public host');
   return u;
 }
 

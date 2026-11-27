@@ -7,14 +7,24 @@ const config = require('../config/env');
 const logger = require('../utils/logger');
 const SpeechToText = require('../services/SpeechToTextService');
 const { rateLimitSearch } = require('../middleware/rateLimit');
+const { authenticate, requireAdmin } = require('../middleware/auth');
+const { checkUrl, FetchRefused } = require('../utils/safeFetch');
 
 // Configure multer for file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  }
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 1,
+    fields: 5,
+  },
+  fileFilter: (req, file, cb) => cb(null, /^(audio|video)\//i.test(file.mimetype || '')),
 });
+
+// The Deepgram routes below spend OUR paid key. They were wide open — anyone on
+// the internet could run unlimited transcriptions on our bill. They now need a
+// signed-in account plus the shared rate limit (the UI does not call them; voice
+// SEARCH uses /stt above).
 
 /**
  * @route   POST /api/voice/stt
@@ -43,7 +53,7 @@ router.post('/stt', rateLimitSearch, upload.single('audio'), async (req, res) =>
 });
 
 // Transcribe audio using Deepgram
-router.post('/transcribe', upload.single('audio'), async (req, res) => {
+router.post('/transcribe', authenticate, rateLimitSearch, upload.single('audio'), async (req, res) => {
   try {
     // Check if Deepgram API key is configured
     if (!config.deepgram.apiKey) {
@@ -101,7 +111,7 @@ router.post('/transcribe', upload.single('audio'), async (req, res) => {
 });
 
 // Transcribe audio from URL using Deepgram
-router.post('/transcribe-url', async (req, res) => {
+router.post('/transcribe-url', authenticate, rateLimitSearch, async (req, res) => {
   try {
     const { audioUrl, options = {} } = req.body;
 
@@ -117,6 +127,28 @@ router.post('/transcribe-url', async (req, res) => {
       return res.status(500).json({
         error: 'Deepgram API key is not configured'
       });
+    }
+
+    if (typeof audioUrl !== 'string' || audioUrl.length > 2048) {
+      return res.status(400).json({ error: 'Audio URL must be a string' });
+    }
+    try {
+      checkUrl(audioUrl); // public http(s) only — Deepgram fetches it on our key
+    } catch (e) {
+      if (e instanceof FetchRefused) return res.status(400).json({ error: 'Audio URL must be a public http(s) link' });
+      throw e;
+    }
+
+    // Only these Deepgram knobs may be set by a caller. `...options` used to be
+    // spread in unfiltered, letting a caller inject any Deepgram query param
+    // (e.g. `callback=` to exfiltrate results, or costly add-ons).
+    const ALLOWED_OPTIONS = ['language', 'punctuate', 'diarize', 'smart_format', 'utterances', 'sentiment'];
+    const safeOptions = {};
+    if (options && typeof options === 'object' && !Array.isArray(options)) {
+      for (const k of ALLOWED_OPTIONS) {
+        const v = options[k];
+        if (typeof v === 'boolean' || (typeof v === 'string' && /^[A-Za-z0-9-]{1,16}$/.test(v))) safeOptions[k] = v;
+      }
     }
 
     // Prepare request body for Deepgram API
@@ -139,7 +171,7 @@ router.post('/transcribe-url', async (req, res) => {
           utterances: true,
           diarize: true,
           smart_format: true,
-          ...options
+          ...safeOptions
         }
       }
     );
@@ -160,7 +192,7 @@ router.post('/transcribe-url', async (req, res) => {
 });
 
 // Analyze audio sentiment using Deepgram
-router.post('/analyze-sentiment', upload.single('audio'), async (req, res) => {
+router.post('/analyze-sentiment', authenticate, rateLimitSearch, upload.single('audio'), async (req, res) => {
   try {
     // Check if Deepgram API key is configured
     if (!config.deepgram.apiKey) {
@@ -217,7 +249,8 @@ router.post('/analyze-sentiment', upload.single('audio'), async (req, res) => {
 });
 
 // Get Deepgram API balance/information
-router.get('/account', async (req, res) => {
+// Returns Deepgram project metadata for OUR account — operator only.
+router.get('/account', authenticate, requireAdmin, async (req, res) => {
   try {
     // Check if Deepgram API key is configured
     if (!config.deepgram.apiKey) {

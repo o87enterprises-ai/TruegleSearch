@@ -486,6 +486,7 @@ const {
   fetchPublicSocial, PLATFORM_DOMAINS, isConfigured: publicSocialConfigured,
 } = require('../services/feed/PublicSocialSource');
 const { seedTopics, seedForPage, topSeedFor } = require('../services/feed/FeedSeeds');
+const { lookupChannels } = require('../services/feed/ChannelLookup');
 
 // ── SAFE SEARCH IN THE FEED ─────────────────────────────────────────────────
 // Owner, 2026-10-08: a Safe Search control on Feed. Each platform marks its
@@ -1024,7 +1025,7 @@ async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult,
   // independently fault-tolerant — a single failure doesn't kill the rest.
   const [redditResult, hnResult, ghResult, newsResult, communityResult,
          mastodonResult, blueskyResult, lemmyResult, creatorsResult,
-         newsVideoResult, marketsVideoResult, podcastResult, ...searxResults] = await Promise.allSettled([
+         newsVideoResult, marketsVideoResult, podcastResult, channelsResult, ...searxResults] = await Promise.allSettled([
     want('reddit') ? guarded('reddit', q, limit, cur.reddit, () => fetchRedditBest(q, limit, cur.reddit)) : Promise.resolve(NONE),
     want('hackernews') ? guarded('hackernews', q, limit, cur.hackernews, () => fetchHackerNews(q, limit, cur.hackernews)) : Promise.resolve(NONE),
     want('github') ? guarded('github', q, limit, cur.github, () => fetchGitHub(q, limit, cur.github)) : Promise.resolve(NONE),
@@ -1041,6 +1042,12 @@ async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult,
     requestedPlatforms?.includes('newsvideo') ? fetchVideoLane('newsvideo', q, limit, cur.newsvideo) : Promise.resolve(NONE),
     requestedPlatforms?.includes('marketsvideo') ? fetchVideoLane('marketsvideo', q, limit, cur.marketsvideo) : Promise.resolve(NONE),
     requestedPlatforms?.includes('podcastvideo') ? fetchPodcastLane(q, limit, cur.podcastvideo) : Promise.resolve(NONE),
+    // CHANNELS (owner, 2026-11-21): a name or a facebook.com link finds the
+    // channel itself, ahead of the posts. First page only; never on the home feed.
+    // The page names its platforms explicitly, so each lookup follows its own platform.
+    q && !cur.channels && !creator && (want('tiktok') || want('facebook'))
+      ? lookupChannels(q, { tiktok: want('tiktok'), facebook: want('facebook') })
+      : Promise.resolve(NONE),
     // The SearXNG-backed platforms, in the fixed order of SEARX_IDS so the
     // results can be zipped back onto their ids below.
     ...SEARX_IDS.map((id) => (want(id)
@@ -1061,6 +1068,7 @@ async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult,
   const newsvideo = safeFeed(settle(newsVideoResult).items, allowAdult);
   const marketsvideo = safeFeed(settle(marketsVideoResult).items, allowAdult);
   const podcastvideo = safeFeed(settle(podcastResult).items, allowAdult);
+  const channels = safeFeed(settle(channelsResult).items, allowAdult);
 
   // Zip the SearXNG results back onto their ids. Built as objects rather than
   // named consts because there are six of them and they are all identical —
@@ -1091,19 +1099,23 @@ async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult,
   if (marketsVideoResult.status === 'rejected') logger.warn('Market video lane failed:', marketsVideoResult.reason?.message);
 
   // Merged chronological feed across all platforms
-  const all_results = [...reddit, ...hackernews, ...github, ...news, ...community,
+  const posts_merged = [...reddit, ...hackernews, ...github, ...news, ...community,
     ...mastodon, ...bluesky, ...lemmy, ...creators, ...newsvideo, ...marketsvideo, ...podcastvideo, ...searxAll].sort((a, b) => {
     if (!a.date && !b.date) return 0;
     if (!a.date) return 1;
     if (!b.date) return -1;
     return new Date(b.date) - new Date(a.date);
   });
+  // Channels lead: they are what a name search is for, and they have no date to
+  // sort by. Drop any post that is the very same page.
+  const channelUrls = new Set(channels.map((c) => c.url));
+  const all_results = [...channels, ...posts_merged.filter((p) => !channelUrls.has(p.url))];
 
   return {
     query: q,
     results: all_results,
     platforms: {
-      reddit, hackernews, github, news, community, mastodon, bluesky, lemmy, creators, newsvideo, marketsvideo, podcastvideo, ...searxItems,
+      reddit, hackernews, github, news, community, mastodon, bluesky, lemmy, creators, newsvideo, marketsvideo, podcastvideo, channels, ...searxItems,
     },
     // What to send back to continue. A platform that has run out reports
     // null, which is how the client knows to stop asking rather than
@@ -1121,6 +1133,7 @@ async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult,
       newsvideo: settle(newsVideoResult).next,
       marketsvideo: settle(marketsVideoResult).next,
       podcastvideo: settle(podcastResult).next,
+      channels: null,
       ...searxCursors,
     },
     // WHY, not just THAT.
@@ -1144,6 +1157,7 @@ async function buildFeedPayload({ q, requestedPlatforms, cur, limit, allowAdult,
       newsvideo: newsVideoResult.status === 'rejected' ? (newsVideoResult.reason?.message || 'unavailable') : null,
       marketsvideo: marketsVideoResult.status === 'rejected' ? (marketsVideoResult.reason?.message || 'unavailable') : null,
       podcastvideo: podcastResult.status === 'rejected' ? (podcastResult.reason?.message || 'unavailable') : null,
+      channels: channelsResult.status === 'rejected' ? (channelsResult.reason?.message || 'unavailable') : null,
       ...searxErrors,
     },
   };

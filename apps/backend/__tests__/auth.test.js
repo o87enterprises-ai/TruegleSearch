@@ -118,7 +118,27 @@ describe('Auth Routes', () => {
       });
 
       expect(response.status).toBe(401);
-      expect(response.body.error).toMatch(/no active account/i);
+      // Deliberately the SAME message as a wrong code: the endpoint must not
+      // reveal which addresses have accounts.
+      expect(response.body.error).toMatch(/invalid or expired access code/i);
+      expect(response.body.error).not.toMatch(/no active account/i);
+    });
+
+    it('locks an account after repeated wrong codes, even for the right one', async () => {
+      const email = 'lockout-victim@example.com';
+      const attempt = () => request(app).post('/api/auth/verify-access-code')
+        .send({ email, code: '000000', adult: true });
+
+      for (let i = 0; i < 8; i += 1) {
+        mockQuery.mockResolvedValueOnce({ rows: [] }); // account not found / wrong
+        const r = await attempt();
+        expect(r.status).toBe(401);
+      }
+      // 9th attempt is refused before any DB lookup happens.
+      mockQuery.mockClear();
+      const locked = await attempt();
+      expect(locked.status).toBe(429);
+      expect(mockQuery).not.toHaveBeenCalled();
     });
 
     it('should return 401 for an invalid or expired code', async () => {

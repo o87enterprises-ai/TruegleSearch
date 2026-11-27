@@ -1,3 +1,5 @@
+const net = require('node:net');
+
 /**
  * Bot Detection & Anti-Scraping Middleware
  *
@@ -106,11 +108,15 @@ const BAD_BOT_PATTERNS = [
  * Behind Cloudflare -> Vercel, `cf-connecting-ip` is the true client IP.
  */
 function getClientIp(req) {
-  return (
-    req.headers['cf-connecting-ip'] ||
-    req.headers['true-client-ip'] ||
-    req.ip
-  );
+  // These headers are only trustworthy when the origin is reachable solely via
+  // Cloudflare. Either way the value is used as a rate-limit key and written to
+  // logs, so anything that is not a literal IP address is ignored rather than
+  // trusted as an arbitrary string.
+  const cf = req.headers['cf-connecting-ip'];
+  if (typeof cf === 'string' && net.isIP(cf.trim())) return cf.trim();
+  const tc = req.headers['true-client-ip'];
+  if (typeof tc === 'string' && net.isIP(tc.trim())) return tc.trim();
+  return req.ip;
 }
 
 /**
