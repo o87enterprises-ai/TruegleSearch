@@ -2457,6 +2457,14 @@
         "ts": "2026-11-26",
         "created": "2026-11-26"
       },
+      "seo-title-length-seoTitle": {
+        "Id": "seo-title-length-seoTitle",
+        "Type": "decision",
+        "Label": "Blog seoTitle field: <title> under 60 chars, H1 unchanged",
+        "body": "2026-11-18: Own crawl (Semrush unpaid, its Jun-28 audit was stale): all 50 sitemap URLs 200, self-canonical, desc present, no noindex; /signin 404 harmless (no links; login is /auth/login). ~30 pages have titles >60 or descriptions >160. Fix pattern: optional post.seoTitle in blogPosts.jsx is the full <title> verbatim (prerender-entry ROUTE_META + LegalPage docTitle prop for client document.title); on-page h1 + JSON-LD headline keep long post.title. Done for 5 worst posts (bias-free, vs-ddg-startpage, ai-honesty part1/2, how-truegle-works) + their descriptions trimmed <=155. Remaining long ones: other blog posts, /chat /feed /red titles, creator/locale descriptions. Free backlink source = GSC Links report (owner browser task). seo:test 197/2 failures pre-existing on baseline.",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
+      },
       "free-search-topup": {
         "Id": "free-search-topup",
         "Type": "decision",
@@ -3128,7 +3136,7 @@
         "Id": "free-search-keys-signup",
         "Type": "thread",
         "Label": "Owner: sign up for free search keys and set on BOTH hosts",
-        "body": "Owner must create free accounts (no card) at serper.dev, tavily.com, exa.ai and request a Marginalia key by email, then set SERPER_API_KEY, TAVILY_API_KEY, EXA_API_KEY, MARGINALIA_API_KEY on Render AND Vercel. Until set, the code is a no-op. After setting, verify one search in the logs for the lines starting with the free-tier marker.",
+        "body": "Owner must create free accounts (no card) at serper.dev, tavily.com, exa.ai and request a Marginalia key by email, then set SERPER_API_KEY, TAVILY_API_KEY, EXA_API_KEY, MARGINALIA_API_KEY on Render AND Vercel. Until set, the code is a no-op.",
         "status": "open",
         "ts": "2026-11-27",
         "created": "2026-11-27"

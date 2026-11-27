@@ -64,7 +64,9 @@ for (const post of BLOG_POSTS) {
   const route = `/blog/${post.slug}`;
   PAGES[route] = { Component: BlogPost, useRouter: true, props: { slug: post.slug } };
   ROUTE_META[route] = {
-    title: `${post.title} — Truegle`,
+    // seoTitle (optional) is the full <title>, kept under ~60 chars so Google
+    // doesn't truncate it; the on-page heading still uses the longer `title`.
+    title: post.seoTitle || `${post.title} — Truegle`,
     description: post.description,
   };
 }
