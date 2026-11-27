@@ -2456,6 +2456,14 @@
         "body": "SSRF in /api/extract/images + safeFetch IPv6 bypasses fixed; payment refund admin-only; premium needs >= PREMIUM_MIN_AMOUNT_CENTS (default 999) and +100 token bonus once; voice/shopping/contact gated or rate-limited; PayPal ids validated; per-account login-code lockout (8 fails/15min, in-memory) + 10/h/IP on request-code; JWT pinned HS256; lockfile apps/backend audit=0. OPEN: CF-header IP spoof if origin reachable directly; CORS wildcards; see HANDOFF 2026-11-26.",
         "ts": "2026-11-26",
         "created": "2026-11-26"
+      },
+      "seo-title-length-seoTitle": {
+        "Id": "seo-title-length-seoTitle",
+        "Type": "decision",
+        "Label": "Blog seoTitle field: <title> under 60 chars, H1 unchanged",
+        "body": "2026-11-18: Own crawl (Semrush unpaid, its Jun-28 audit was stale): all 50 sitemap URLs 200, self-canonical, desc present, no noindex; /signin 404 harmless (no links; login is /auth/login). ~30 pages have titles >60 or descriptions >160. Fix pattern: optional post.seoTitle in blogPosts.jsx is the full <title> verbatim (prerender-entry ROUTE_META + LegalPage docTitle prop for client document.title); on-page h1 + JSON-LD headline keep long post.title. Done for 5 worst posts (bias-free, vs-ddg-startpage, ai-honesty part1/2, how-truegle-works) + their descriptions trimmed <=155. Remaining long ones: other blog posts, /chat /feed /red titles, creator/locale descriptions. Free backlink source = GSC Links report (owner browser task). seo:test 197/2 failures pre-existing on baseline.",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
       }
     },
     "thread": {

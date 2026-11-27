@@ -61,7 +61,7 @@ const BlogPost = ({ slug: slugProp }) => {
   };
 
   return (
-    <LegalPage title={post.title} lastUpdated={post.date}>
+    <LegalPage title={post.title} docTitle={post.seoTitle} lastUpdated={post.date}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

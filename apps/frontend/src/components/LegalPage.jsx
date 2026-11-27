@@ -6,11 +6,12 @@ import { NuclearStrip } from './ui/SessionWipe';
  * Shared layout for static legal/info pages (Privacy, Terms, About).
  * Dark theme, readable prose width, back-to-home link.
  */
-const LegalPage = ({ title, lastUpdated, children }) => {
+// docTitle (optional) is the full <title>, used verbatim; defaults to "<title> — Truegle".
+const LegalPage = ({ title, docTitle, lastUpdated, children }) => {
   useEffect(() => {
-    document.title = `${title} — Truegle`;
+    document.title = docTitle || `${title} — Truegle`;
     window.scrollTo(0, 0);
-  }, [title]);
+  }, [title, docTitle]);
 
   const protonUrl = 'https://protonvpn.com/';
 
