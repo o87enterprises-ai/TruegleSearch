@@ -118,16 +118,18 @@ function once(u, { timeoutMs, maxBytes, accept }) {
 }
 
 /**
- * @returns {Promise<{ url: string, body: string, type: string, headers: object }>}
+ * @returns {Promise<{ url: string, body: string, type: string, headers: object, hops: string[], truncated: boolean }>}
  * @throws FetchRefused for anything that is not a public http(s) page
  */
 async function safeFetch(raw, { timeoutMs = 6000, maxBytes = 1024 * 1024, maxRedirects = 4, accept = 'text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.5' } = {}) {
   let current = raw;
+  const hops = [];   // every address visited, in order — lets a caller see WHERE a link really went
   for (let hop = 0; hop <= maxRedirects; hop += 1) {
     const u = checkUrl(current);
+    hops.push(u.toString());
     const res = await once(u, { timeoutMs, maxBytes, accept });
     if (res.redirect) { current = res.redirect; continue; }
-    return { url: u.toString(), body: res.body, type: res.type, headers: res.headers || {} };
+    return { url: u.toString(), body: res.body, type: res.type, headers: res.headers || {}, hops, truncated: !!res.truncated };
   }
   throw new Error('too many redirects');
 }

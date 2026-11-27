@@ -3,6 +3,15 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-27 — Free search top-ups, map geocoder, and "Open in app" link check (PR #198)
+
+- **Search:** `services/freeSearchApis.js` (Serper > Tavily > Exa > Marginalia, free tiers, no-op without keys). Env names are in the Render/Vercel switch-back checklist below. Owner must create the keys; code was tested against mocks only, never live keys.
+- **Map:** Photon rung before the OSM floor + Nominatim retry without "station"/"stop". `photon.komoot.io` added to `public/_headers` `connect-src` (without it browsers block it). Photon is called from the browser, same exposure as the existing Nominatim call; proxying through the backend is an open privacy follow-up.
+- **Pasted link -> Open link / Open in app:** `POST /api/link/inspect` (`routes/link.js`, `services/LinkInspector.js`) fetches the link through `utils/safeFetch` (SSRF-safe; now also returns `hops`) and reports redirect chain, page-vs-download, executables, and the REAL `X-Frame-Options`/CSP `frame-ancestors` answer (a browser cannot read that). UI: `components/search/LinkOpenChoice.jsx` inside `SingleLinkCard`. Rules: always confirm before opening in-app; "could not check" never opens in-app; it opens the FINAL checked https address; the URL goes only to our server and the target, never a third-party reputation service (privacy stance in `hooks/useLinkSafety.js`). It cannot see what a page does after load, and the UI says so. The URL is deliberately not logged.
+- **Not verified:** live Serper/Tavily/Exa/Marginalia calls; the in-app frame on a real device; the endpoint on Render (no deploy from the cloud session). Pre-existing: `new-endpoints.test.js` needs a local Postgres.
+
+---
+
 ## 🗓️ 2026-11-26 — Security review + patches (backend)
 
 - **Fixed (all have regression tests in `apps/backend/__tests__/securityHardening.test.js`):**

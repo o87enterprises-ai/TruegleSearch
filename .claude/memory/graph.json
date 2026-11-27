@@ -2472,6 +2472,14 @@
         "body": "services/freeSearchApis.js adds Serper > Tavily > Exa > Marginalia as keyed FREE-tier sources, walked in order and STOPPED once the page is full (SearXNG-not-served branch only). Per-provider daily cap via PaidProviderBudget (defaults serper 80, tavily 30, exa 70, marginalia 500; FREE_SEARCH_DAILY_<NAME>, 0=off), breaker on 402/429/432/433 (2h) and 401/403 (6h), 10-min result cache. No key = provider absent = no-op. Render has NO Brave/Bing/Google/SerpApi keys by design, so these are the only keyed web sources. Marginalia keys are NON-COMMERCIAL (CC-BY-NC-SA): revisit if revenue ever returns; the shared 'public' key 429s. Adapters are tested against mocks only, never live keys.",
         "ts": "2026-11-27",
         "created": "2026-11-27"
+      },
+      "link-open-choice": {
+        "Id": "link-open-choice",
+        "Type": "decision",
+        "Label": "Pasted link: Open link / Open in app with server-side check (2026-11-27)",
+        "body": "POST /api/link/inspect + LinkInspector read the REAL framing headers (X-Frame-Options / CSP frame-ancestors, matched EXACT against truegle.info, www.truegle.info and FRONTEND_URL), redirect hops, download/executable type and a few page-source tricks, via utils/safeFetch (SSRF-safe, additive 'hops'). UI LinkOpenChoice in SingleLinkCard: Open link always; Open in app hidden for hosts on embeddable.js REFUSES list or structurally DANGER urls; click -> server check -> confirm panel -> PagePreview of the FINAL checked https URL. Failed check or http-only never opens in-app. No third-party reputation lookup by design (URL would be disclosed). URL deliberately not logged. Limits stated in UI: cannot see runtime behaviour.",
+        "ts": "2026-11-27",
+        "created": "2026-11-27"
       }
     },
     "thread": {
@@ -4734,6 +4742,14 @@
         "Type": "fact",
         "Label": "Map geocoder: Nominatim returns [] for 'Sacramento Greyhound station'",
         "body": "Mapbox/Radar/TomTom have no keys in prod, so public Nominatim was the only geocoder and it ANDs every word: 'Sacramento Greyhound station' -> [] but 'Greyhound Sacramento' works. Fix 2026-11-27: Photon (photon.komoot.io, keyless, Apache-2.0, CORS *, geocode-only via PROVIDER_OPS) sits before the OSM floor, and Nominatim retries once without 'station'/'stop'. Photon is called straight from the browser like Nominatim already is (visitor IP reaches komoot): proxying via backend is an open privacy follow-up. Nominatim policy forbids autocomplete; Photon is a demo server, 'extensive usage will be throttled'.",
+        "ts": "2026-11-27",
+        "created": "2026-11-27"
+      },
+      "csp-connect-src-gate": {
+        "Id": "csp-connect-src-gate",
+        "Type": "fact",
+        "Label": "Browser-side calls to a new host need public/_headers connect-src",
+        "body": "apps/frontend/public/_headers carries ONE CSP line; connect-src is an allowlist. Any new browser fetch/axios host (e.g. photon.komoot.io) must be added there or production browsers silently block it while dev/tests pass. Found 2026-11-27 after shipping Photon without it.",
         "ts": "2026-11-27",
         "created": "2026-11-27"
       }

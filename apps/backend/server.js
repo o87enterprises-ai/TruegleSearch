@@ -350,6 +350,7 @@ app.use('/api/unsplash', require('./routes/unsplash'));
 app.use('/api/osint-tools', require('./routes/osint-proxy'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/extract', require('./routes/extract'));
+app.use('/api/link', require('./routes/link'));
 app.use('/api/share', require('./routes/share'));
 app.use('/api/move', require('./routes/moveLists'));
 app.use('/api/reels', require('./routes/reels'));
