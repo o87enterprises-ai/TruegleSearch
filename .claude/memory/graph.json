@@ -2456,6 +2456,14 @@
         "body": "SSRF in /api/extract/images + safeFetch IPv6 bypasses fixed; payment refund admin-only; premium needs >= PREMIUM_MIN_AMOUNT_CENTS (default 999) and +100 token bonus once; voice/shopping/contact gated or rate-limited; PayPal ids validated; per-account login-code lockout (8 fails/15min, in-memory) + 10/h/IP on request-code; JWT pinned HS256; lockfile apps/backend audit=0. OPEN: CF-header IP spoof if origin reachable directly; CORS wildcards; see HANDOFF 2026-11-26.",
         "ts": "2026-11-26",
         "created": "2026-11-26"
+      },
+      "free-search-topup": {
+        "Id": "free-search-topup",
+        "Type": "decision",
+        "Label": "Free-tier web search top-up (2026-11-27)",
+        "body": "services/freeSearchApis.js adds Serper > Tavily > Exa > Marginalia as keyed FREE-tier sources, walked in order and STOPPED once the page is full (SearXNG-not-served branch only). Per-provider daily cap via PaidProviderBudget (defaults serper 80, tavily 30, exa 70, marginalia 500; FREE_SEARCH_DAILY_<NAME>, 0=off), breaker on 402/429/432/433 (2h) and 401/403 (6h), 10-min result cache. No key = provider absent = no-op. Render has NO Brave/Bing/Google/SerpApi keys by design, so these are the only keyed web sources. Marginalia keys are NON-COMMERCIAL (CC-BY-NC-SA): revisit if revenue ever returns; the shared 'public' key 429s. Adapters are tested against mocks only, never live keys.",
+        "ts": "2026-11-27",
+        "created": "2026-11-27"
       }
     },
     "thread": {
@@ -3115,6 +3123,15 @@
         "status": "open",
         "ts": "2026-11-26",
         "created": "2026-11-26"
+      },
+      "free-search-keys-signup": {
+        "Id": "free-search-keys-signup",
+        "Type": "thread",
+        "Label": "Owner: sign up for free search keys and set on BOTH hosts",
+        "body": "Owner must create free accounts (no card) at serper.dev, tavily.com, exa.ai and request a Marginalia key by email, then set SERPER_API_KEY, TAVILY_API_KEY, EXA_API_KEY, MARGINALIA_API_KEY on Render AND Vercel. Until set, the code is a no-op. After setting, verify one search in the logs for the lines starting with the free-tier marker.",
+        "status": "open",
+        "ts": "2026-11-27",
+        "created": "2026-11-27"
       }
     },
     "entity": {
@@ -4703,6 +4720,14 @@
         "body": "apps/frontend/.env.production is git-ignored; a stale copy pointed at the Vercel standby and shipped into a local APK. vite.config.js now ignores any *.vercel.app VITE_BACKEND_URL and falls back to https://api.truegle.info.",
         "ts": "2026-11-19",
         "created": "2026-11-19"
+      },
+      "map-geocoder-floor": {
+        "Id": "map-geocoder-floor",
+        "Type": "fact",
+        "Label": "Map geocoder: Nominatim returns [] for 'Sacramento Greyhound station'",
+        "body": "Mapbox/Radar/TomTom have no keys in prod, so public Nominatim was the only geocoder and it ANDs every word: 'Sacramento Greyhound station' -> [] but 'Greyhound Sacramento' works. Fix 2026-11-27: Photon (photon.komoot.io, keyless, Apache-2.0, CORS *, geocode-only via PROVIDER_OPS) sits before the OSM floor, and Nominatim retries once without 'station'/'stop'. Photon is called straight from the browser like Nominatim already is (visitor IP reaches komoot): proxying via backend is an open privacy follow-up. Nominatim policy forbids autocomplete; Photon is a demo server, 'extensive usage will be throttled'.",
+        "ts": "2026-11-27",
+        "created": "2026-11-27"
       }
     }
   },
@@ -4732,5 +4757,5 @@
       }
     }
   },
-  "updated": "2026-11-26"
+  "updated": "2026-11-27"
 }

@@ -181,6 +181,14 @@ const envVarsSchema = Joi.object({
   // Brave Search API
   BRAVE_API_KEY: Joi.string().optional().description('Brave Search API key'),
 
+  // Free-tier web-search top-ups. Read straight from process.env by
+  // services/freeSearchApis.js (walked in order, stop when the page is full);
+  // declared here so they are documented. All optional: no key = provider absent.
+  SERPER_API_KEY: Joi.string().optional().description('Serper.dev key (free 2,500 queries, one-time)'),
+  TAVILY_API_KEY: Joi.string().optional().description('Tavily key (free 1,000 credits/month)'),
+  EXA_API_KEY: Joi.string().optional().description('Exa key (free monthly credit)'),
+  MARGINALIA_API_KEY: Joi.string().optional().description('Marginalia key (free, non-commercial; "public" is rate-limited)'),
+
   // Last.fm (free key). Optional: the player's Radio uses it for similar artists
   // when set, and falls back to ListenBrainz when it is not. Read straight from
   // process.env by services/MusicSimilarity.js; declared here so it is documented.
