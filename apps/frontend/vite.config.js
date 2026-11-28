@@ -1,12 +1,21 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { readFileSync } from 'fs'
 
 // Live backend (Render). Used as the default so a production build made
 // without an explicit VITE_BACKEND_URL still points at the live API instead
 // of http://localhost:3001 (which silently breaks search on the deployed site).
 // Vercel backend was disabled (402); live API is Render behind api.truegle.info.
 const PROD_BACKEND_URL = 'https://api.truegle.info'
+
+// build.gradle is the one place the app version is written; '' turns the update check off.
+function androidVersion() {
+  try {
+    const gradle = readFileSync(path.resolve(__dirname, '../android/android/app/build.gradle'), 'utf8')
+    return gradle.match(/versionName\s+"([^"]+)"/)?.[1] || ''
+  } catch { return '' }
+}
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -30,6 +39,8 @@ export default defineConfig(({ mode }) => {
   // resolves to the live backend in production even with no .env file present.
   define: {
     'import.meta.env.VITE_BACKEND_URL': JSON.stringify(backendUrl),
+    // The Android versionName this bundle ships with, for the in-app update check.
+    __APP_VERSION__: JSON.stringify(androidVersion()),
   },
   resolve: {
     alias: {
