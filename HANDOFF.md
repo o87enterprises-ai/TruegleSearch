@@ -3,6 +3,13 @@ _Last updated: 2026-09-25. Supersedes all prior handoff docs._
 
 ---
 
+## 🗓️ 2026-11-28 — Android 0.2.4: in-app "update available" prompt
+
+- `components/ui/UpdatePrompt.jsx` (native app only) compares the bundled `versionName` (`__APP_VERSION__`, read from `build.gradle` by `vite.config.js`) with the latest GitHub release tag `android-vX.Y.Z`. It links to `APK_URL`; Android still asks the user to confirm. "Not now" hides it for 3 days.
+- **To ship an update:** bump `versionCode`/`versionName`, build, release as tag `android-vX.Y.Z` with asset `truegle.apk`, marked latest. Any other tag format marked latest silences the prompt.
+- Installs before 0.2.4 have no prompt and must download 0.2.4 once by hand. DEBUG-signed on the owner's laptop: build releases there.
+- Release built by hand (Actions is billing-locked).
+
 ## 🗓️ 2026-11-27 — Free search top-ups, map geocoder, and "Open in app" link check (PR #198)
 
 - **Search:** `services/freeSearchApis.js` (Serper > Tavily > Exa > Linkup > Firecrawl > Marginalia > Wikipedia; free tiers; Wikipedia is key-free and last, the rest are no-ops without keys). Env names are in the Render/Vercel switch-back checklist below. Owner must create the keys. The Tavily adapter was verified LIVE (5 real results through the shared result shape) via a proxy-injected credential on the cloud environment; Serper, Exa and Marginalia are mock-tested only. Setting that credential did NOT set `TAVILY_API_KEY` on Render/Vercel: the owner still must.

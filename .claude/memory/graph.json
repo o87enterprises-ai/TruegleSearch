@@ -2480,6 +2480,14 @@
         "body": "POST /api/link/inspect + LinkInspector read the REAL framing headers (X-Frame-Options / CSP frame-ancestors, matched EXACT against truegle.info, www.truegle.info and FRONTEND_URL), redirect hops, download/executable type and a few page-source tricks, via utils/safeFetch (SSRF-safe, additive 'hops'). UI LinkOpenChoice in SingleLinkCard: Open link always; Open in app hidden for hosts on embeddable.js REFUSES list or structurally DANGER urls; click -> server check -> confirm panel -> PagePreview of the FINAL checked https URL. Failed check or http-only never opens in-app. No third-party reputation lookup by design (URL would be disclosed). URL deliberately not logged. Limits stated in UI: cannot see runtime behaviour.",
         "ts": "2026-11-27",
         "created": "2026-11-27"
+      },
+      "android-release": {
+        "Id": "android-release",
+        "Type": "decision",
+        "Label": "Android releases + update prompt",
+        "body": "Tag android-vX.Y.Z, asset truegle.apk, marked latest, built on the owner's laptop (debug key). The app's UpdatePrompt reads that tag; landing serves releases/latest.",
+        "ts": "2026-11-28",
+        "created": "2026-11-28"
       }
     },
     "thread": {
@@ -4789,5 +4797,5 @@
       }
     }
   },
-  "updated": "2026-11-27"
+  "updated": "2026-11-28"
 }
