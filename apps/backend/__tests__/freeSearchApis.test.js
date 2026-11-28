@@ -4,14 +4,16 @@ jest.mock('axios');
 // against mocks here — NOT exercised with live keys from CI.
 describe('freeSearchApis', () => {
   let fsa; let breakers; let budget; let axios;
-  const KEYS = ['SERPER_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'MARGINALIA_API_KEY'];
+  const KEYS = ['SERPER_API_KEY', 'TAVILY_API_KEY', 'EXA_API_KEY', 'LINKUP_API_KEY', 'FIRECRAWL_API_KEY', 'MARGINALIA_API_KEY'];
 
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
     axios = require('axios');   // the SAME instance the module under test gets after resetModules
+    axios.get.mockResolvedValue({ data: {} });   // Wikipedia (key-free) is always in the walk
     KEYS.forEach((k) => delete process.env[k]);
     delete process.env.FREE_SEARCH_DAILY_SERPER;
+    delete process.env.FREE_SEARCH_DAILY_WIKIPEDIA;
     fsa = require('../services/freeSearchApis');
     ({ breakers } = require('../utils/breaker'));
     budget = require('../services/PaidProviderBudget');
@@ -19,10 +21,18 @@ describe('freeSearchApis', () => {
     if (budget._reset) budget._reset();
   });
 
-  it('is a no-op with no keys (nothing breaks without them)', async () => {
-    expect(fsa.configured()).toEqual([]);
+  it('with no keys only the key-free Wikipedia is configured, and no keyed API is called', async () => {
+    expect(fsa.configured()).toEqual(['wikipedia']);
     expect(await fsa.topUp('anything', {}, { needed: 10 })).toEqual([]);
     expect(axios.post).not.toHaveBeenCalled();
+  });
+
+  it('FREE_SEARCH_DAILY_WIKIPEDIA=0 makes it a true no-op without keys', async () => {
+    process.env.FREE_SEARCH_DAILY_WIKIPEDIA = '0';
+    jest.resetModules();
+    const again = require('../services/freeSearchApis');
+    expect(again.configured()).toEqual([]);
+    expect(await again.topUp('anything', {}, { needed: 10 })).toEqual([]);
   });
 
   it('normalises Serper, Tavily and Exa into the shared result shape', async () => {
@@ -93,5 +103,58 @@ describe('freeSearchApis', () => {
     axios.post.mockResolvedValue({ data: { organic: [{ title: 'bad', link: 'javascript:alert(1)', snippet: '' }, { title: 'ok', link: 'https://a.com/ok', snippet: '' }] } });
     const rows = await fsa.topUp('q', {}, { needed: 5 });
     expect(rows.map((r) => r.title)).toEqual(['ok']);
+  });
+
+  describe('Linkup, Firecrawl and Wikipedia', () => {
+    const wikiPage = { pages: [{ key: 'Kakapo_bird', title: 'Kakapo bird', excerpt: 'a <span>parrot</span>', description: 'NZ parrot' }] };
+
+    it('walks the keyed providers first and Wikipedia last', () => {
+      expect(fsa.PROVIDERS.map((p) => p.id)).toEqual(['serper', 'tavily', 'exa', 'linkup', 'firecrawl', 'marginalia', 'wikipedia']);
+    });
+
+    it('normalises Linkup and Firecrawl (v1 array and v2 {web}) answers', async () => {
+      process.env.LINKUP_API_KEY = 'l'; process.env.FIRECRAWL_API_KEY = 'f';
+      let v2 = false;
+      axios.post.mockImplementation(async (url) => {
+        if (url.includes('linkup')) return { data: { results: [{ type: 'text', name: 'L', url: 'https://l.com/1', content: 'lc' }] } };
+        return { data: { data: v2 ? { web: [{ title: 'F2', url: 'https://f.com/2', description: 'd' }] } : [{ title: 'F1', url: 'https://f.com/1', description: 'd' }] } };
+      });
+      const rows = await fsa.topUp('q1', {}, { needed: 10 });
+      expect(rows.map((r) => `${r.source}:${r.title}`)).toEqual(['linkup:L', 'firecrawl:F1']);
+      v2 = true;
+      const rows2 = await fsa.topUp('q2', {}, { needed: 10 });
+      expect(rows2.map((r) => r.title)).toContain('F2');
+      const linkup = axios.post.mock.calls.find(([u]) => u.includes('linkup'));
+      expect(linkup[1]).toMatchObject({ q: 'q1', outputType: 'searchResults' });
+      expect(linkup[2].headers.Authorization).toBe('Bearer l');
+    });
+
+    it('reads Wikipedia REST results with no key, stripping the markup', async () => {
+      axios.get.mockResolvedValue({ data: wikiPage });
+      const [r] = await fsa.topUp('kakapo', {}, { needed: 10 });
+      expect(r).toMatchObject({ source: 'wikipedia', domain: 'en.wikipedia.org', url: 'https://en.wikipedia.org/wiki/Kakapo_bird', category: 'web' });
+      expect(r.snippet).toBe('NZ parrot — a parrot');
+      expect(axios.get.mock.calls[0][0]).toContain('rest.php/v1/search/page');
+    });
+
+    it('a Wikipedia 429 only pauses it for minutes, not hours', async () => {
+      axios.get.mockRejectedValue(Object.assign(new Error('429'), { response: { status: 429 } }));
+      await fsa.topUp('x', {}, { needed: 10 });
+      const left = breakers.status().wikipedia.reopensInMs;
+      expect(left).toBeLessThanOrEqual(10 * 60 * 1000);
+      expect(left).toBeGreaterThan(0);
+    });
+
+    it('asks Exa for moderation and Serper for safe results unless safe search is off', async () => {
+      process.env.SERPER_API_KEY = 's'; process.env.EXA_API_KEY = 'e';
+      axios.post.mockResolvedValue({ data: {} });
+      await fsa.topUp('a', { safeSearch: 'strict' }, { needed: 10 });
+      await fsa.topUp('b', { safeSearch: 'off' }, { needed: 10 });
+      const bodyFor = (id, q) => axios.post.mock.calls.find(([u, b]) => u.includes(id) && (b.q === q || b.query === q))[1];
+      expect(bodyFor('exa', 'a').moderation).toBe(true);
+      expect(bodyFor('exa', 'b').moderation).toBe(false);
+      expect(bodyFor('serper', 'a').safe).toBe('active');
+      expect(bodyFor('serper', 'b').safe).toBeUndefined();
+    });
   });
 });
