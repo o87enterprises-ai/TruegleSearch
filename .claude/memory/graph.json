@@ -3100,7 +3100,7 @@
         "Type": "thread",
         "Label": "AFTER MERGE: smoke /api/open-search/health + video/audio/social on api.truegle.info",
         "body": "Preview cannot serve (see vercel-preview-backend-500-no-secrets), so the open-search pool has only been proven by 23 jest tests on real payloads + a live node smoke test from the cloud sandbox. After PR #145 merges and the prod deploy is READY: curl https://api.truegle.info/api/open-search/health, then /video?q=open+source, /audio?q=rain, /social?q=climate; check each provider status ok, and whether iTunes still 403s from Vercel egress (it did from the sandbox). Also confirm the 6AM cron: vercel.json crons 13:00/14:00 UTC call /api/cron/refresh-top-feed; tomorrow ~06:00 Pacific check feed_cache epoch rolled.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       },
@@ -3109,7 +3109,7 @@
         "Type": "thread",
         "Label": "OWNER: deploy the HF Space (README in services/search-gateway) then set 2 Vercel vars",
         "body": "Kit is built and tested but nothing is live. After owner deploys: curl https://<user>-truegle-search-gateway.hf.space/health => configured:true; set SEARCH_GATEWAY_TOKEN + SEARCH_GATEWAY_URL on Vercel Production and redeploy; verify with a forced failure (OPEN_SEARCH_DISABLE does NOT force the gateway - it skips both) e.g. watch report.<provider>.viaGateway in /api/open-search/<feature> when a provider is throttling.",
-        "status": "open",
+        "status": "done",
         "ts": "2026-11-12",
         "created": "2026-11-12"
       },
@@ -3121,6 +3121,24 @@
         "status": "open",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "gateway-host-cloudflare-worker": {
+        "Id": "gateway-host-cloudflare-worker",
+        "Type": "thread",
+        "Label": "PROPOSED (needs owner go): host the search gateway as a Cloudflare Worker instead of an HF Space",
+        "body": "Cloudflare account already has Workers enabled (workers.dev subdomain 'o87enterprises', 20 existing scripts incl. o87-ollama-proxy, trumpafi-proxy), account id 1052be08b0c9382768667a9254936f9c, creds in env (cloudflare-creds-in-env). Why a Worker: $0 free tier, no card, no sleep/cold start (unlike free Render-style hosts), second egress IP + failure domain separate from Vercel and EC2. Needs: a framework-agnostic core extracted from gatewayServer.js (express wrapper + Worker fetch handler share it), esbuild bundle with axios fetch adapter, deploy via API with the token as a secret_text binding, matching SEARCH_GATEWAY_TOKEN + SEARCH_GATEWAY_URL set on Vercel prod (Vercel connector available) and a redeploy. Limits to respect: 10ms CPU/invocation, 50 subrequests, 100k req/day (fallback traffic is tiny). Risk: some providers may block Cloudflare Worker IPs - test each provider from the deployed Worker before wiring. DO NOT deploy or touch Vercel prod env until the owner says go.",
+        "status": "done",
+        "ts": "2026-11-18",
+        "created": "2026-11-12"
+      },
+      "feed-cron-restore": {
+        "Id": "feed-cron-restore",
+        "Type": "thread",
+        "Label": "Restore the daily 6AM feed refresh (GitHub Actions locked): pick GitHub billing fix or Cloudflare cron Worker",
+        "body": "See fact github-actions-billing-lock. Waiting on owner choice. Cloudflare cron Worker is $0 and also fixes Render idle sleep, but needs the owner to run 'npx wrangler@4 secret put CRON_SECRET' (value from Render dashboard) - do not ask for the value in chat. Optional hardening: make the guard tolerate GitHub's late scheduled runs (e.g. act when today's epoch is unbuilt, not only in the 6 o'clock hour) - cheap, safe because the handler is already idempotent.",
+        "status": "open",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
       },
       "nearby-internet-relay": {
         "Id": "nearby-internet-relay",
@@ -4712,6 +4730,46 @@
         "body": "Both deploy from main (Render live behind api.truegle.info; Vercel project backend prj_4JvIr3WaQ9HiKghZrGwWaAmf61oI standby, currently blocked, behind main since #158). Merge to main IS the sync; keep code host-agnostic (VERCEL/RENDER guards only); env vars + DB do NOT sync via git; switch = repoint api.truegle.info. Checklist in HANDOFF.md 2026-11-17.",
         "ts": "2026-11-17",
         "created": "2026-11-17"
+      },
+      "prod-verified-2026-11-12": {
+        "Id": "prod-verified-2026-11-12",
+        "Type": "fact",
+        "Label": "PR #145 merged + verified on production 2026-11-12 (open-search, /pricing 301, feed 6AM shipped)",
+        "body": "Merged to main 2026-11-12 (Cloudflare Pages production d1652e7). api.truegle.info/api/open-search/health -> 200, all providers ready. Live from Vercel egress: video q='open source news' answered 3/3 in 1.8s; audio answered 4/4 (itunes OK from Vercel => the 403 was the cloud-sandbox shared IP only; openverse cold ~6s on a novel query: 'jazz piano' took 6.4s on the dedicated route, within its 8s budget); social answered 2/2 in 1.0s. https://truegle.info/pricing -> 301 /about/ (took ~1 min after the merge). /api/news/markets still 200. 6AM cron change shipped in vercel.json (first 6AM-Pacific run = 2026-11-13 ~13:00-14:00 UTC; check feed_cache epoch rolled). NOT YET DONE: HF gateway Space is NOT deployed (owner running README steps); gateway tier is inert until SEARCH_GATEWAY_URL+TOKEN set on Vercel. Branch o87/zealous-archimedes-dbzhwa = empty vs main (no duplicate pricing work).",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "owner-machine-windows-powershell": {
+        "Id": "owner-machine-windows-powershell",
+        "Type": "fact",
+        "Label": "Owner's local machine is WINDOWS (PowerShell, C:\\Users\\there\\o87DevMobile\\Builds\\TruegleSearch): give PowerShell commands, not bash",
+        "body": "2026-11-12: owner ran 'bash scripts/stage-search-gateway.sh' in PowerShell and got '/bin/bash: scripts/stage-search-gateway.sh: No such file or directory' even though the file exists (most likely PowerShell's 'bash' is WSL, which does not see the Windows path the same way). Repo clone lives at C:\\Users\\there\\o87DevMobile\\Builds\\TruegleSearch; hf CLI is installed there (login had expired: needed 'hf auth login --force'). RULE: any command meant for the owner's machine must be PowerShell-native: no bash/openssl/printf/export, set env with $env:NAME, make tokens with [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes, build paths with Join-Path $env:TEMP. Piping a string into a CLI from PowerShell adds a trailing newline (the backend .trim()s SEARCH_GATEWAY_TOKEN/URL so that is tolerated, but prefer the Vercel dashboard for pasting values). The stage script has no .ps1 twin yet: add scripts/stage-search-gateway.ps1 once the inline PowerShell version is confirmed working on the owner machine.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "hf-docker-spaces-need-pro": {
+        "Id": "hf-docker-spaces-need-pro",
+        "Type": "fact",
+        "Label": "HF Docker Spaces now REQUIRE PRO (402 Payment Required): free HF host plan is INVALID",
+        "body": "2026-11-12: 'hf repos create truegleai/truegle-search-gateway --type space --sdk docker --public' -> 402 'Static Spaces are free for everyone, but hosting Gradio and Docker Spaces on free cpu-basic requires a PRO subscription' (huggingface.co/pro). HF username = truegleai. Earlier memory/plan claims that a free HF CPU Docker Space (2vCPU/16GB, no card) is available are OUT OF DATE. Violates the $0 budget: do NOT subscribe to PRO. AFFECTED: docs/OSINT-SERVICE-PLAN.md + services/osint-python (thread osint-python-service assumes an HF Docker Space) and services/search-gateway/README.md (Space deploy steps). Static Spaces are free but cannot run server code. The host-agnostic parts survive: openSearch/gatewayServer.js, gateway.js client, pool fallback tier, secrets map names.",
+        "ts": "2026-11-12",
+        "created": "2026-11-12"
+      },
+      "backend-on-render-2026-11-18": {
+        "Id": "backend-on-render-2026-11-18",
+        "Type": "fact",
+        "Label": "Backend now runs on RENDER (api.truegle.info); Vercel backend blocked; Worker gateway exists (PR #148)",
+        "body": "Verified 2026-11-18: api.truegle.info answers with x-render-origin-server: Render. Vercel backend is blocked (402), so Vercel previews/crons/env notes in older memory are stale; HANDOFF 2026-11-16/17 has the Render env list + switch-back checklist (two backends, one codebase, env vars must be set on BOTH). My open-search code runs fine on Render: video 3/3 2.2s, audio 4/4 0.9s (itunes+openverse OK from Render egress), social 2/2 1.3s. Cloudflare Worker search gateway ALREADY EXISTS (PR #148, services/search-worker, live https://truegle-search-gateway.o87enterprises.workers.dev): /health configured:true, unauth search -> 401. It supersedes the HF Space idea (kit services/search-gateway is now unused/optional). The backend gateway client needs BOTH SEARCH_GATEWAY_URL and SEARCH_GATEWAY_TOKEN: HANDOFF's Render env list shows only SEARCH_GATEWAY_URL, so the fallback tier may be inert - owner should confirm the token NAME exists in the Render dashboard.",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
+      },
+      "github-actions-billing-lock": {
+        "Id": "github-actions-billing-lock",
+        "Type": "fact",
+        "Label": "GitHub account LOCKED for billing: Actions jobs never start => daily feed refresh cron has not run",
+        "body": "2026-11-18: .github/workflows/cron-top-feed.yml (13:00+14:00 UTC = 6AM Pacific, correct) fails on EVERY run since at least 2026-11-15 with annotation 'The job was not started because your account is locked due to a billing issue.' (job has zero steps). Not a code, secret or schedule fault; the endpoint is fine (401 without auth proves CRON_SECRET is set on Render). Vercel crons are dead too (Vercel blocked). EFFECT: the top-feed cache is not pre-built at 6AM; the first visitor each day rebuilds it (10+ s scrape, plus Render free cold start). Also GitHub scheduled runs fire hours late (observed ~21:00 UTC), which would miss the 6AM-hour-only guard even when billing is fixed. FIXES (owner): resolve the GitHub billing lock; OR move the trigger to a free Cloudflare Worker cron trigger (0 13/14 UTC daily, plus a /api/health ping every 10 min to keep Render awake - also closes HANDOFF open item 2) which needs CRON_SECRET stored as a Worker secret (owner must provide it via wrangler secret put; agent never sees it).",
+        "ts": "2026-11-18",
+        "created": "2026-11-18"
       },
       "apk-release-hosting": {
         "Id": "apk-release-hosting",
