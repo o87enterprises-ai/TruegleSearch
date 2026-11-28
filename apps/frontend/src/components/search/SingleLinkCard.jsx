@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion';
-import { ExternalLink, Play, ShieldCheck, ShieldAlert, ShieldQuestion, Loader2, Link2 } from 'lucide-react';
+import { Play, ShieldCheck, ShieldAlert, ShieldQuestion, Loader2, Link2 } from 'lucide-react';
 import { useLinkSafety, VERDICT } from '../../hooks/useLinkSafety';
 import { usePlayInPlayer } from '../../hooks/usePlayInPlayer';
 import { getPlayable } from '../../utils/videoEmbed';
 import { isPlaylistUrl } from '../../utils/playlistImport';
 import PlayAllButton from '../player/PlayAllButton';
+import LinkOpenChoice from './LinkOpenChoice';
 import { extractShare, openShare, intentLink, isNativeApp } from '../../utils/profileShare';
 
 /*
@@ -117,6 +118,7 @@ export default function SingleLinkCard({ info, description, className = '' }) {
           </div>
         )}
 
+        {playable && (
         <div className="flex flex-wrap items-center gap-2 mt-4">
           {playable && isList && (
             <PlayAllButton
@@ -139,21 +141,18 @@ export default function SingleLinkCard({ info, description, className = '' }) {
               <Play size={14} /> Play in Truegle
             </a>
           )}
-          <a
-            href={info.url}
-            target="_blank"
-            // noopener is not cosmetic here: without it the opened page gets a
-            // handle on this one through window.opener and can navigate it.
-            rel="noopener noreferrer nofollow"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/15 text-white/80 hover:bg-white/10 hover:text-white text-sm font-semibold transition-colors"
-          >
-            <ExternalLink size={14} /> Open on {info.host}
-          </a>
         </div>
+        )}
 
-        {/* Why they are being handed straight back out, said plainly. */}
+        {/* The two ways out of a pasted link: Open link (own tab, always) and
+            Open in app (checked, confirmed, and only when it can work). The
+            link itself keeps noopener — without it the opened page gets a
+            handle on this one through window.opener and can navigate it. */}
+        <LinkOpenChoice url={info.url} host={info.host} title={info.title || info.host} />
+
+        {/* Why they are being handed back out, said plainly. */}
         <p className="text-[11px] text-white/30 mt-3">
-          Truegle isn&rsquo;t keeping you here — this opens on {info.host}. Come back when you&rsquo;re done.
+          Open link takes you to {info.host} in a new tab — come back when you&rsquo;re done.
         </p>
       </div>
     </motion.div>

@@ -302,9 +302,31 @@ function toOverpassPlace(el, near) {
   };
 }
 
+/** Providers that only do SOME operations. Absent = does everything. */
+const PROVIDER_OPS = { photon: new Set(['geocode']) };
+
+/** "station"/"stop" rarely appear in an OSM name, and Nominatim ANDs every word:
+ *  "Sacramento Greyhound station" finds nothing, "Greyhound Sacramento" finds it. */
+const stripGenericPlaceWords = (q) => String(q).replace(/\b(station|stop)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+
+/** One Photon (GeoJSON) feature -> the raw shape toPlace understands. */
+function photonFeature(f) {
+  const p = f?.properties || {};
+  const [lng, lat] = f?.geometry?.coordinates || [];
+  const street = [p.housenumber, p.street].filter(Boolean).join(' ');
+  const address = [street, p.city || p.locality || p.county, p.state, p.postcode].filter(Boolean).join(', ');
+  return {
+    name: p.name || street || p.city || undefined,
+    address,
+    position: { lat, lng },
+    type: p.osm_value || p.type || null,
+  };
+}
+
 class MapApiService {
   constructor() {
-    this.providers = ['mapbox', 'radar', 'tomtom', 'leaflet'];
+    // `photon` is keyless and geocode-only (see PROVIDER_OPS); `leaflet` (OSM) stays the floor.
+    this.providers = ['mapbox', 'radar', 'tomtom', 'photon', 'leaflet'];
     this.currentProvider = null;
     this.requestCache = new Map();
     this.cacheTimeout = 5 * 60 * 1000;
@@ -430,6 +452,7 @@ class MapApiService {
 
     const failures = [];
     for (const provider of ordered) {
+      if (PROVIDER_OPS[provider] && !PROVIDER_OPS[provider].has(operation)) continue;
       try {
         const result = await asyncFn(provider);
         if (this.isValidResult(result, operation)) return { success: true, provider, data: result };
@@ -458,6 +481,7 @@ class MapApiService {
       case 'mapbox': return this.viaBackend('/api/maps/geocode', { query, options: rest, near, provider: 'mapbox' }, toPlaces);
       case 'tomtom': return this.viaBackend('/api/maps/geocode', { query, options: rest, near, provider: 'tomtom' }, toPlaces);
       case 'radar': return this.viaBackend('/api/radar/geocode', { query, options: rest, near }, toPlaces);
+      case 'photon': return this.geocodeWithPhoton(query, options);
       case 'leaflet': return this.geocodeWithOSM(query, options);
       default: throw new Error(`Unknown provider: ${provider}`);
     }
@@ -536,13 +560,36 @@ class MapApiService {
       // ~1 degree ≈ 111 km: wide enough to cover a rural trip to town.
       ? { viewbox: [near.lng - 1, near.lat + 1, near.lng + 1, near.lat - 1].join(','), bounded: 0 }
       : {};
-    const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+    const search = (q) => axios.get('https://nominatim.openstreetmap.org/search', {
       params: {
-        q: query, format: 'json', limit: options.limit || 10, addressdetails: 1, ...box,
+        q, format: 'json', limit: options.limit || 10, addressdetails: 1, ...box,
       },
       headers: { 'User-Agent': 'Truegle/1.0' },
     });
-    return toPlaces(response.data);
+    const first = toPlaces((await search(query)).data);
+    if (first.length) return first;
+    // One retry without "station"/"stop" — Nominatim matches every word literally.
+    const relaxed = stripGenericPlaceWords(query);
+    return relaxed && relaxed !== query ? toPlaces((await search(relaxed)).data) : first;
+  }
+
+  /**
+   * Photon (komoot's public OSM geocoder). Keyless, Apache-2.0, and — unlike the
+   * public Nominatim — built for search-as-you-type. It is a shared demo server
+   * with no published rate limit ("extensive usage will be throttled"), so it
+   * sits ABOVE the OSM floor but is not relied on: any failure falls through.
+   * Results are cached upstream by `cached()` for 5 minutes.
+   * `near` is a ranking hint here too, never a filter.
+   */
+  async geocodeWithPhoton(query, options = {}) {
+    const near = options.near;
+    const bias = near && Number.isFinite(near.lat) && Number.isFinite(near.lng)
+      ? { lat: near.lat, lon: near.lng } : {};
+    const response = await axios.get('https://photon.komoot.io/api/', {
+      params: { q: query, limit: options.limit || 10, ...bias },
+      timeout: 6000,
+    });
+    return toPlaces((response.data?.features || []).map(photonFeature));
   }
 
   async reverseGeocodeWithOSM(latitude, longitude) {

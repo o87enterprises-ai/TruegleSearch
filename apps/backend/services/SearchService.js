@@ -43,6 +43,7 @@ const { withStatus } = upstream;
 const { createTtlCache } = require('../utils/ttlCache');
 const YouTubeGateway = require('./YouTubeGateway');
 const OpenSearch = require('./openSearch');
+const freeSearch = require('./freeSearchApis');
 const tokenize = (text) => fold(text).replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
 // Light stemming: enough that "lawyers"/"lawyer" and "companies"/"company"
 // meet, not so much that unrelated words collapse together.
@@ -416,6 +417,24 @@ class SearchService {
               { ...filters, perPage: 5 }
             ));
           }
+
+          // FREE-TIER TOP-UP (Serper -> Tavily -> Exa -> Marginalia). Render has no
+          // keyed web provider, so when SearXNG comes back thin (one tiny engine,
+          // CAPTCHA'd box) these are what keep the page useful. They are walked in
+          // order and STOP once the page is full, each has a daily cap and breaker
+          // (see services/freeSearchApis.js), and with no keys set this is a no-op.
+          // Packed as an `open-media` payload so it rides the existing pipeline,
+          // and deferSettle'd so it can never be an unhandled rejection.
+          if (freeSearch.configured().length) {
+            const have = new Set(preformattedResults.map((r) => r.url));
+            const needed = Math.max(0, this.searxngSufficient - preformattedResults.length);
+            if (needed > 0) {
+              searchPromises.push(deferSettle(
+                freeSearch.topUp(query, filters, { needed, have, log: console.log })
+                  .then((rows) => ({ results: rows, _source: 'open-media' })),
+              ));
+            }
+          }
         }
       }
 
@@ -500,9 +519,19 @@ class SearchService {
       // Merge SearXNG-primary results (fetched outside the promise batch), de-duped by URL.
       if (preformattedResults.length) {
         const seen = new Set(combinedResults.map((r) => r.url));
+        // Mwmbl has by far the smallest index in the set. When it is one of
+        // several engines that is fine; when it is ALL that answered, its rows are
+        // what produced clip-art and wrong-topic pages. Demote, never drop: its
+        // rows go after the other engines' rows (a stable partition), so anything
+        // better ranks ahead and nothing is removed.
+        const isMwmbl = (r) => String(r.engine || '').toLowerCase() === 'mwmbl';
+        const ordered = [
+          ...preformattedResults.filter((r) => !isMwmbl(r)),
+          ...preformattedResults.filter(isMwmbl),
+        ];
         combinedResults = [
           ...combinedResults,
-          ...preformattedResults.filter((r) => r.url && !seen.has(r.url)),
+          ...ordered.filter((r) => r.url && !seen.has(r.url)),
         ];
       }
       console.log(`🔗 Combined results: ${combinedResults.length}`);

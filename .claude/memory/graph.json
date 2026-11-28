@@ -2464,6 +2464,22 @@
         "body": "2026-11-18: Own crawl (Semrush unpaid, its Jun-28 audit was stale): all 50 sitemap URLs 200, self-canonical, desc present, no noindex; /signin 404 harmless (no links; login is /auth/login). ~30 pages have titles >60 or descriptions >160. Fix pattern: optional post.seoTitle in blogPosts.jsx is the full <title> verbatim (prerender-entry ROUTE_META + LegalPage docTitle prop for client document.title); on-page h1 + JSON-LD headline keep long post.title. Done for 5 worst posts (bias-free, vs-ddg-startpage, ai-honesty part1/2, how-truegle-works) + their descriptions trimmed <=155. Remaining long ones: other blog posts, /chat /feed /red titles, creator/locale descriptions. Free backlink source = GSC Links report (owner browser task). seo:test 197/2 failures pre-existing on baseline.",
         "ts": "2026-11-18",
         "created": "2026-11-18"
+      },
+      "free-search-topup": {
+        "Id": "free-search-topup",
+        "Type": "decision",
+        "Label": "Free-tier web search top-up (2026-11-27)",
+        "body": "services/freeSearchApis.js adds Serper > Tavily > Exa > Marginalia as keyed FREE-tier sources, walked in order and STOPPED once the page is full (SearXNG-not-served branch only). Per-provider daily cap via PaidProviderBudget (defaults serper 80, tavily 30, exa 70, marginalia 500; FREE_SEARCH_DAILY_<NAME>, 0=off), breaker on 402/429/432/433 (2h) and 401/403 (6h), 10-min result cache. No key = provider absent = no-op. Render has NO Brave/Bing/Google/SerpApi keys by design, so these are the only keyed web sources. Marginalia keys are NON-COMMERCIAL (CC-BY-NC-SA): revisit if revenue ever returns; the shared 'public' key 429s. Adapters are tested against mocks only, never live keys.",
+        "ts": "2026-11-27",
+        "created": "2026-11-27"
+      },
+      "link-open-choice": {
+        "Id": "link-open-choice",
+        "Type": "decision",
+        "Label": "Pasted link: Open link / Open in app with server-side check (2026-11-27)",
+        "body": "POST /api/link/inspect + LinkInspector read the REAL framing headers (X-Frame-Options / CSP frame-ancestors, matched EXACT against truegle.info, www.truegle.info and FRONTEND_URL), redirect hops, download/executable type and a few page-source tricks, via utils/safeFetch (SSRF-safe, additive 'hops'). UI LinkOpenChoice in SingleLinkCard: Open link always; Open in app hidden for hosts on embeddable.js REFUSES list or structurally DANGER urls; click -> server check -> confirm panel -> PagePreview of the FINAL checked https URL. Failed check or http-only never opens in-app. No third-party reputation lookup by design (URL would be disclosed). URL deliberately not logged. Limits stated in UI: cannot see runtime behaviour.",
+        "ts": "2026-11-27",
+        "created": "2026-11-27"
       }
     },
     "thread": {
@@ -3123,6 +3139,15 @@
         "status": "open",
         "ts": "2026-11-26",
         "created": "2026-11-26"
+      },
+      "free-search-keys-signup": {
+        "Id": "free-search-keys-signup",
+        "Type": "thread",
+        "Label": "Owner: sign up for free search keys and set on BOTH hosts",
+        "body": "Owner must create free accounts (no card) at serper.dev, tavily.com, exa.ai and request a Marginalia key by email, then set SERPER_API_KEY, TAVILY_API_KEY, EXA_API_KEY, MARGINALIA_API_KEY on Render AND Vercel. Until set, the code is a no-op.",
+        "status": "open",
+        "ts": "2026-11-27",
+        "created": "2026-11-27"
       }
     },
     "entity": {
@@ -4711,6 +4736,30 @@
         "body": "apps/frontend/.env.production is git-ignored; a stale copy pointed at the Vercel standby and shipped into a local APK. vite.config.js now ignores any *.vercel.app VITE_BACKEND_URL and falls back to https://api.truegle.info.",
         "ts": "2026-11-19",
         "created": "2026-11-19"
+      },
+      "map-geocoder-floor": {
+        "Id": "map-geocoder-floor",
+        "Type": "fact",
+        "Label": "Map geocoder: Nominatim returns [] for 'Sacramento Greyhound station'",
+        "body": "Mapbox/Radar/TomTom have no keys in prod, so public Nominatim was the only geocoder and it ANDs every word: 'Sacramento Greyhound station' -> [] but 'Greyhound Sacramento' works. Fix 2026-11-27: Photon (photon.komoot.io, keyless, Apache-2.0, CORS *, geocode-only via PROVIDER_OPS) sits before the OSM floor, and Nominatim retries once without 'station'/'stop'. Photon is called straight from the browser like Nominatim already is (visitor IP reaches komoot): proxying via backend is an open privacy follow-up. Nominatim policy forbids autocomplete; Photon is a demo server, 'extensive usage will be throttled'.",
+        "ts": "2026-11-27",
+        "created": "2026-11-27"
+      },
+      "csp-connect-src-gate": {
+        "Id": "csp-connect-src-gate",
+        "Type": "fact",
+        "Label": "Browser-side calls to a new host need public/_headers connect-src",
+        "body": "apps/frontend/public/_headers carries ONE CSP line; connect-src is an allowlist. Any new browser fetch/axios host (e.g. photon.komoot.io) must be added there or production browsers silently block it while dev/tests pass. Found 2026-11-27 after shipping Photon without it.",
+        "ts": "2026-11-27",
+        "created": "2026-11-27"
+      },
+      "tavily-live-verified": {
+        "Id": "tavily-live-verified",
+        "Type": "fact",
+        "Label": "Tavily adapter verified LIVE; CLI set up in cloud container (2026-11-27)",
+        "body": "Ran apps/backend/services/freeSearchApis.js against the real Tavily API: request shape correct, 5 results mapped to the shared shape (top hit 420 Richards Blvd Sacramento). Tavily browser OAuth CANNOT complete from a cloud session (callback is http://127.0.0.1:<port>/callback on the CLI machine, unreachable from the user's browser). Worked around with request_credential for host api.tavily.com: credential lives on the session ENVIRONMENT and the proxy injects it; code/CLI use the placeholder 'proxy-injected' (CLI config holds the placeholder, never the key). tvly 1.0.2 + 6 tavily-* agent skills installed globally in ~/.claude/skills (markdown-only, reviewed clean). This does NOT set TAVILY_API_KEY on Render/Vercel: the owner still must. Serper/Exa/Marginalia still unverified live.",
+        "ts": "2026-11-27",
+        "created": "2026-11-27"
       }
     }
   },
@@ -4740,5 +4789,5 @@
       }
     }
   },
-  "updated": "2026-11-26"
+  "updated": "2026-11-27"
 }
