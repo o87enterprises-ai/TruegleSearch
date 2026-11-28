@@ -1,5 +1,5 @@
 /**
- * Free-tier web-search APIs: Serper, Tavily, Exa, Marginalia.
+ * Free-tier web-search APIs: Serper, Tavily, Exa, Linkup, Firecrawl, Marginalia, Wikipedia.
  *
  * WHY THIS EXISTS. Render runs with NO paid/keyed web provider (Brave, Bing,
  * Google, SerpApi are deliberately unset), so SearXNG is the only web source.
@@ -17,7 +17,11 @@
  *   - a short result cache, so a repeated query costs nothing.
  *
  * KEYS. A provider with no key is silently absent — nothing breaks without them.
- *   SERPER_API_KEY, TAVILY_API_KEY, EXA_API_KEY, MARGINALIA_API_KEY
+ *   SERPER_API_KEY, TAVILY_API_KEY, EXA_API_KEY, LINKUP_API_KEY, FIRECRAWL_API_KEY,
+ *   MARGINALIA_API_KEY.  WIKIPEDIA needs no key (public REST search, last in the walk,
+ *   FREE_SEARCH_DAILY_WIKIPEDIA=0 turns it off). Linkup and Firecrawl are no-card free tiers
+ *   (Linkup ~EUR 5/month credit; Firecrawl 1,000 credits/month, a search costs 2 per 10 results).
+ *   Safe search: Exa gets `moderation` and Serper `safe: active` unless safe search is off.
  * Marginalia's shared "public" key is rate-limited to uselessness (429), so it
  * is only used when a real key is configured. Marginalia keys are free but
  * NON-COMMERCIAL (CC-BY-NC-SA) — fine while Truegle has no revenue; revisit if
@@ -58,7 +62,7 @@ const row = (p, item) => ({
 });
 
 // Daily call caps. Conservative on purpose: ~1/30 of a monthly quota per day.
-const DEFAULT_DAILY = { serper: 80, tavily: 30, exa: 70, marginalia: 500 };
+const DEFAULT_DAILY = { serper: 80, tavily: 30, exa: 70, linkup: 100, firecrawl: 15, marginalia: 500, wikipedia: 500 };
 
 const PROVIDERS = [
   {
@@ -68,6 +72,7 @@ const PROVIDERS = [
     call: (q, f, key) => axios.post('https://google.serper.dev/search', {
       q, num: Math.min(f.perPage || 10, 20), page: f.page || 1,
       ...(f.language ? { hl: f.language } : {}), ...(f.country ? { gl: String(f.country).toLowerCase() } : {}),
+      ...(f.safeSearch !== 'off' ? { safe: 'active' } : {}),
     }, { headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' }, timeout: TIMEOUT_MS }),
     parse: (d) => (d?.organic || []).map((r) => ({ title: r.title, url: r.link, snippet: r.snippet, date: r.date })),
   },
@@ -86,8 +91,29 @@ const PROVIDERS = [
     key: () => process.env.EXA_API_KEY,
     call: (q, f, key) => axios.post('https://api.exa.ai/search', {
       query: q, numResults: Math.min(f.perPage || 10, 20), contents: { text: { maxCharacters: 300 } },
+      moderation: f.safeSearch !== 'off',
     }, { headers: { 'x-api-key': key, 'Content-Type': 'application/json' }, timeout: TIMEOUT_MS }),
     parse: (d) => (d?.results || []).map((r) => ({ title: r.title, url: r.url, snippet: r.text, date: r.publishedDate })),
+  },
+  {
+    id: 'linkup',
+    label: 'Linkup',
+    key: () => process.env.LINKUP_API_KEY,
+    call: (q, f, key) => axios.post('https://api.linkup.so/v1/search', {
+      q, depth: 'standard', outputType: 'searchResults',
+    }, { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: TIMEOUT_MS }),
+    parse: (d) => (d?.results || []).map((r) => ({ title: r.name || r.title, url: r.url, snippet: r.content })),
+  },
+  {
+    id: 'firecrawl',
+    label: 'Firecrawl',
+    key: () => process.env.FIRECRAWL_API_KEY,
+    call: (q, f, key) => axios.post('https://api.firecrawl.dev/v2/search', {
+      query: q, limit: Math.min(f.perPage || 10, 10),
+    }, { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: TIMEOUT_MS }),
+    // v1 answered with an array, v2 with { web: [...] }.
+    parse: (d) => (Array.isArray(d?.data) ? d.data : (d?.data?.web || []))
+      .map((r) => ({ title: r.title, url: r.url, snippet: r.description })),
   },
   {
     id: 'marginalia',
@@ -98,6 +124,24 @@ const PROVIDERS = [
       headers: { 'API-Key': key }, timeout: TIMEOUT_MS,
     }),
     parse: (d) => (d?.results || []).map((r) => ({ title: r.title, url: r.url, snippet: r.description })),
+  },
+  {
+    // KEY-FREE, and last in the walk so the keyed engines (better general web) go first. REST search:
+    // the older action API rate-limits shared server addresses hard (checked 2026-11-11). A 429 here is
+    // transient, so it only pauses it for minutes.
+    id: 'wikipedia',
+    label: 'Wikipedia',
+    key: () => (process.env.FREE_SEARCH_DAILY_WIKIPEDIA === '0' ? '' : 'keyless'),
+    pause429: 10 * 60 * 1000,
+    call: (q, f) => axios.get('https://en.wikipedia.org/w/rest.php/v1/search/page', {
+      params: { q, limit: Math.min(f.perPage || 10, 10) },
+      headers: { 'User-Agent': 'Truegle/1.0 (+https://truegle.info; search aggregator)' }, timeout: TIMEOUT_MS,
+    }),
+    parse: (d) => (d?.pages || []).map((r) => ({
+      title: r.title,
+      url: `https://en.wikipedia.org/wiki/${encodeURIComponent(String(r.key || r.title).replace(/ /g, '_'))}`,
+      snippet: [r.description, String(r.excerpt || '').replace(/<[^>]+>/g, '')].filter(Boolean).join(' — '),
+    })),
   },
 ];
 
@@ -131,7 +175,8 @@ async function searchOne(p, query, filters = {}) {
   } catch (err) {
     const status = err.response?.status;
     // 402/429/432/433 = out of quota or rate limited (Tavily uses 432/433 for plan limits).
-    if ([402, 429, 432, 433].includes(status)) breakers.trip(p.id, 2 * HOUR, `quota (${status})`);
+    if (status === 429 && p.pause429) breakers.trip(p.id, p.pause429, 'rate limited (429)');
+    else if ([402, 429, 432, 433].includes(status)) breakers.trip(p.id, 2 * HOUR, `quota (${status})`);
     else if (status === 401 || status === 403) breakers.trip(p.id, 6 * HOUR, `auth (${status})`);
     else breakers.trip(p.id, 30 * 1000, err.code || `error ${status || ''}`.trim());
     throw new Error(`${p.id} failed${status ? ` (${status})` : ''}`);
