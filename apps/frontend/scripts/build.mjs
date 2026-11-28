@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 // The production build, on any operating system.
 //
@@ -44,6 +45,14 @@ const run = (command, args, useShell = process.platform === 'win32') => {
   }
   if (result.status !== 0) process.exit(result.status ?? 1);
 };
+
+// Cloudflare Pages drops a _headers line over 2,000 characters without any error.
+const tooLong = readFileSync(new URL('../public/_headers', import.meta.url), 'utf8')
+  .split(/\r?\n/).find((line) => line.length > 2000);
+if (tooLong) {
+  console.error(`public/_headers: a line is ${tooLong.length} characters (limit 2000): ${tooLong.trim().slice(0, 60)}...`);
+  process.exit(1);
+}
 
 run('npx', ['vite', 'build']);           // .cmd shim on Windows → needs a shell
 run(process.execPath, ['scripts/prerender.mjs'], false); // real exe → no shell
